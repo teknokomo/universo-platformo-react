@@ -2,7 +2,7 @@
 
 > Created: 2026-06-03
 > Status: Draft
-> Trigger: RESEARCH request for `.manager/specs/platformo/playcanvas-project-storage-model-for-metahubs-spec-2026-06-03.md`
+> Trigger: RESEARCH request for private Manager brief
 > Follow-up plan: PLAN not created yet; future PLAN must load this artifact explicitly.
 
 ## Research Question
@@ -13,7 +13,7 @@ What storage model should Universo Platformo use for PlayCanvas projects authore
 
 | Source                                                                                                                                                             | Type                           | Date / Freshness                                            | Why It Matters                                                                                                                                                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.manager/specs/platformo/playcanvas-project-storage-model-for-metahubs-spec-2026-06-03.md`                                                                        | Local brief                    | Current 2026-06-03                                          | Defines the target scope: storage model only, before Editor bridge/storage adapter implementation.                                                                                             |
+| private Manager brief                                                                                                                                              | Local brief                    | Current 2026-06-03                                          | Defines the target scope: storage model only, before Editor bridge/storage adapter implementation.                                                                                             |
 | `memory-bank/research/modules-external-files-playcanvas-research-2026-06-01.md`                                                                                    | Prior research                 | Created 2026-06-01; now partly superseded by implementation | Establishes the module-file foundation and its PlayCanvas script implications; must be interpreted against the now-implemented code.                                                           |
 | `memory-bank/research/playcanvas-editor-package-foundation-research-2026-05-31.md`                                                                                 | Prior research                 | Created 2026-05-31                                          | Establishes the Editor package as an isolated artifact package, not a MUI component library or storage bridge.                                                                                 |
 | `memory-bank/research/playcanvas-editor-metahub-authoring-surface-settings-research-2026-06-01.md`                                                                 | Prior research                 | Created 2026-06-01                                          | Establishes package attachment/display settings and route-first host boundaries, explicitly excluding project storage.                                                                         |
@@ -139,7 +139,7 @@ Proceed to PLAN with a conservative hybrid storage model:
 
 ## Sources
 
--   `.manager/specs/platformo/playcanvas-project-storage-model-for-metahubs-spec-2026-06-03.md`
+-   private Manager brief
 -   `memory-bank/research/modules-external-files-playcanvas-research-2026-06-01.md`
 -   `memory-bank/research/playcanvas-editor-package-foundation-research-2026-05-31.md`
 -   `memory-bank/research/playcanvas-editor-metahub-authoring-surface-settings-research-2026-06-01.md`

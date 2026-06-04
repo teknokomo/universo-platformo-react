@@ -68,6 +68,7 @@ interface PackageSettingsDraft {
     row: PackageTableRow
     mode: PackageDisplayMode
     developmentUrl: string
+    defaultProjectId: string
     showArtifactOnlyNotice: boolean
     allowedDisplayModes: readonly PackageDisplayMode[]
 }
@@ -297,7 +298,7 @@ function PlayCanvasProjectsPanel({
                     />
                 ) : (
                     <Stack spacing={1.25}>
-                        <FormControl fullWidth size='small'>
+                        <FormControl fullWidth>
                             <InputLabel id='playcanvas-default-project-label'>
                                 {t('packages.projects.defaultProject', 'Default project')}
                             </InputLabel>
@@ -421,7 +422,6 @@ function PlayCanvasProjectsPanel({
                         value={nameDraft}
                         onChange={(event) => setNameDraft(event.target.value)}
                         fullWidth
-                        size='small'
                         required
                         error={nameError}
                         helperText={
@@ -494,6 +494,14 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         queryKey: metahubId ? metahubsQueryKeys.packagesAttached(metahubId) : metahubsQueryKeys.packagesAttached(''),
         queryFn: () => packagesApi.listAttached(metahubId ?? ''),
         enabled: Boolean(metahubId)
+    })
+
+    const settingsProjectsQuery = useQuery({
+        queryKey: metahubId ? metahubsQueryKeys.playcanvasProjects(metahubId) : metahubsQueryKeys.playcanvasProjects(''),
+        queryFn: () => playcanvasProjectsApi.list(metahubId ?? ''),
+        enabled: Boolean(
+            metahubId && canManagePackages && settingsDraft?.row.attached && settingsDraft.row.authoringSurface.kind === 'playcanvasEditor'
+        )
     })
 
     const invalidatePackages = async () => {
@@ -613,6 +621,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                     row: { ...row, config },
                     mode: displayConfig?.display.mode ?? 'disabled',
                     developmentUrl: displayConfig?.display.developmentUrl ?? '',
+                    defaultProjectId: displayConfig?.playcanvasProject?.defaultProjectId ?? '',
                     showArtifactOnlyNotice: displayConfig?.display.showArtifactOnlyNotice ?? true,
                     allowedDisplayModes: host.allowedDisplayModes
                 })
@@ -629,6 +638,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             row,
             mode: displayConfig?.display.mode ?? 'disabled',
             developmentUrl: displayConfig?.display.developmentUrl ?? '',
+            defaultProjectId: displayConfig?.playcanvasProject?.defaultProjectId ?? '',
             showArtifactOnlyNotice: displayConfig?.display.showArtifactOnlyNotice ?? true,
             allowedDisplayModes: row.authoringSurface.supportedDisplayModes
         })
@@ -642,6 +652,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                 ...current,
                 mode: displayConfig?.display.mode ?? 'disabled',
                 developmentUrl: displayConfig?.display.developmentUrl ?? '',
+                defaultProjectId: displayConfig?.playcanvasProject?.defaultProjectId ?? '',
                 showArtifactOnlyNotice: displayConfig?.display.showArtifactOnlyNotice ?? true
             }
         })
@@ -658,7 +669,10 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                 developmentUrl: draft.mode === 'developmentUrl' ? draft.developmentUrl.trim() || null : null,
                 showArtifactOnlyNotice: draft.showArtifactOnlyNotice
             },
-            playcanvasProject: displayConfig?.playcanvasProject
+            playcanvasProject:
+                draft.row.authoringSurface.kind === 'playcanvasEditor'
+                    ? { defaultProjectId: draft.defaultProjectId || null }
+                    : displayConfig?.playcanvasProject
         }
     }
 
@@ -688,7 +702,13 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         if (row.authoringSurface.kind !== 'playcanvasEditor' || !metahubId) {
             return
         }
-        window.open(`/metahub/${metahubId}/resources/packages/${row.authoringSurface.packageSlug}/editor`, '_blank', 'noopener,noreferrer')
+        const displayConfig = resolveDisplayConfig(row.config)
+        const view = displayConfig?.display.mode === 'openSeparately' ? '?view=sandboxed-frame' : ''
+        window.open(
+            `/metahub/${metahubId}/resources/packages/${row.authoringSurface.packageSlug}/editor${view}`,
+            '_blank',
+            'noopener,noreferrer'
+        )
     }
 
     const getRowActionLabel = (key: string, fallback: string, row: PackageTableRow) => t(key, fallback, { packageName: row.name })
@@ -1137,7 +1157,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                             }}
                             disabled={updateConfigMutation.isPending || Boolean(settingsValidationError)}
                         >
-                            {t('packages.dialogs.settings.save', 'Save settings')}
+                            {t('packages.dialogs.settings.save', 'Save')}
                         </Button>
                     </>
                 }
@@ -1186,7 +1206,6 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                         ) : null}
                         {settingsDraft.mode === 'developmentUrl' ? (
                             <TextField
-                                size='small'
                                 fullWidth
                                 type='url'
                                 label={t('packages.settings.developmentUrl', 'Development URL')}
@@ -1200,6 +1219,45 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                                     t('packages.settings.developmentUrlHelper', 'Allowed origins are enforced by the server.')
                                 }
                             />
+                        ) : null}
+                        {settingsDraft.row.authoringSurface.kind === 'playcanvasEditor' ? (
+                            settingsProjectsQuery.isLoading ? (
+                                <Stack direction='row' spacing={1} alignItems='center'>
+                                    <CircularProgress size={18} />
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t('packages.projects.loading', 'Loading PlayCanvas projects...')}
+                                    </Typography>
+                                </Stack>
+                            ) : settingsProjectsQuery.isError ? (
+                                <Alert severity='error'>{t('packages.projects.loadError', 'Failed to load PlayCanvas projects.')}</Alert>
+                            ) : (
+                                <FormControl fullWidth>
+                                    <InputLabel id='package-default-playcanvas-project-label'>
+                                        {t('packages.projects.defaultProject', 'Default project')}
+                                    </InputLabel>
+                                    <Select
+                                        labelId='package-default-playcanvas-project-label'
+                                        value={settingsDraft.defaultProjectId}
+                                        label={t('packages.projects.defaultProject', 'Default project')}
+                                        onChange={(event) =>
+                                            setSettingsDraft((current) =>
+                                                current ? { ...current, defaultProjectId: event.target.value } : current
+                                            )
+                                        }
+                                    >
+                                        <MenuItem value=''>{t('packages.projects.defaultNone', 'No default project')}</MenuItem>
+                                        {(settingsProjectsQuery.data ?? []).map((project) => (
+                                            <MenuItem key={project.id} value={project.id}>
+                                                {resolveText(
+                                                    project.displayName,
+                                                    locale,
+                                                    t('packages.projects.unnamed', 'Unnamed project')
+                                                )}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )
                         ) : null}
                         <FormControlLabel
                             control={

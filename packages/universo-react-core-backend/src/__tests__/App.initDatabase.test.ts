@@ -1,4 +1,5 @@
 import express from 'express'
+import type { Request } from 'express'
 
 const mockLogger = {
     info: jest.fn(),
@@ -178,12 +179,14 @@ jest.mock('@universo-react/utils', () => {
     }
 })
 
-import { App, buildPlayCanvasEditorHostCsp } from '../index'
+import { App, buildPlayCanvasEditorHostCsp, resolvePlayCanvasEditorRequestOrigin } from '../index'
 
 describe('App.initDatabase', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
         delete process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS
+        delete process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS
         mockAssertIsolatedVmRuntimeAvailable.mockResolvedValue(undefined)
         mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
         mockValidateRegisteredPlatformMigrations.mockReturnValue({
@@ -267,6 +270,54 @@ describe('App.initDatabase', () => {
         expect(buildPlayCanvasEditorHostCsp("'self'")).toBe(
             "frame-src 'self' http://localhost:5100 https://editor.example.test; child-src 'self' http://localhost:5100 https://editor.example.test; frame-ancestors 'self'"
         )
+    })
+
+    it('builds a PlayCanvas Editor host CSP with the isolated artifact frame origin', () => {
+        expect(buildPlayCanvasEditorHostCsp("'self'", 'http://127.0.0.1:3100')).toBe(
+            "frame-src 'self' http://localhost:3100; child-src 'self' http://localhost:3100; frame-ancestors 'self'"
+        )
+
+        process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN = 'https://playcanvas-editor.example.test/path'
+        expect(buildPlayCanvasEditorHostCsp("'self'", 'https://platform.example.test')).toBe(
+            "frame-src 'self' https://playcanvas-editor.example.test; child-src 'self' https://playcanvas-editor.example.test; frame-ancestors 'self'"
+        )
+    })
+
+    it('resolves PlayCanvas Editor request origin from forwarded headers only for trusted proxies', () => {
+        const req = {
+            protocol: 'http',
+            get: jest.fn((header: string) => {
+                const values: Record<string, string> = {
+                    host: 'internal.example.test',
+                    'x-forwarded-host': 'public.example.test',
+                    'x-forwarded-proto': 'https'
+                }
+                return values[header]
+            })
+        } as unknown as Request
+
+        expect(resolvePlayCanvasEditorRequestOrigin(req)).toBe('http://internal.example.test')
+
+        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
+        expect(resolvePlayCanvasEditorRequestOrigin(req)).toBe('https://public.example.test')
+    })
+
+    it('ignores malformed PlayCanvas Editor request origins without throwing', () => {
+        const req = {
+            protocol: 'http',
+            get: jest.fn((header: string) => {
+                const values: Record<string, string> = {
+                    host: '127.0.0.1:3100',
+                    'x-forwarded-host': '%%%not-a-host%%%',
+                    'x-forwarded-proto': 'https'
+                }
+                return values[header]
+            })
+        } as unknown as Request
+
+        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
+        expect(() => resolvePlayCanvasEditorRequestOrigin(req)).not.toThrow()
+        expect(resolvePlayCanvasEditorRequestOrigin(req)).toBeNull()
     })
 
     it('initializes database and runs unified platform migrations', async () => {

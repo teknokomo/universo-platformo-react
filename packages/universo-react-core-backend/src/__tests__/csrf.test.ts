@@ -60,6 +60,22 @@ describe('createCsrfProtection', () => {
         expect(err.status).toBe(403)
     })
 
+    it('rejects PlayCanvas Editor bridge command POST without a CSRF token before the route handler', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/v1/metahub/metahub-1/playcanvas/editor-bridge/commands',
+            originalUrl: '/api/v1/metahub/metahub-1/playcanvas/editor-bridge/commands'
+        } as Partial<Request>)
+        const next = jest.fn()
+
+        middleware(req, createMockResponse(), next)
+
+        expect(next).toHaveBeenCalledTimes(1)
+        const err = next.mock.calls[0][0] as Error & { code?: string; status?: number }
+        expect(err.code).toBe('EBADCSRFTOKEN')
+        expect(err.status).toBe(403)
+    })
+
     it('rejects POST with an invalid token', () => {
         const req = createMockRequest({ method: 'POST' } as Partial<Request>)
         const next = jest.fn()

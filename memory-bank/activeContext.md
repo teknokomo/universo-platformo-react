@@ -4,27 +4,55 @@
 
 ---
 
-## Current Focus: PlayCanvas Project Storage Model QA Round 7 Closure (2026-06-04)
+## Current Focus: PlayCanvas Editor Runtime Host, Bridge, and Storage Adapter (2026-06-04)
 
--   QA Round 7 implementation is complete for the PlayCanvas Project Storage
-    Model.
--   Role-specific PlayCanvas file metadata now enforces canonical project paths,
-    required MIME classes, and directory-specific JSON/JavaScript constraints
-    before scene, asset, or generated-artifact metadata is persisted.
--   Generated artifact metadata now keeps `output_checksum` nullable until the
-    physical artifact file supplies a SHA-256 checksum, and the current metahub
-    system table definition matches that service contract without a schema or
-    template version bump.
--   PlayCanvas project health aggregation no longer treats metadata-only asset
-    placeholders as publish blockers when runtime export intentionally skips
-    assets without file references.
--   PlayCanvas-only application runtime manifest changes now produce an
-    explicit sync update message instead of reporting the schema as already up
-    to date.
--   Verification passed focused backend/types/applications tests, package lints,
-    sequential package builds, DB-access guard, GitBook i18n check, whitespace
-    diff check, local minimal Supabase Playwright packages/resources flow, and
-    final local autoreview with no accepted/actionable findings.
+-   Implementation is complete for the first real Universo-backed PlayCanvas
+    Editor authoring slice.
+-   The PlayCanvas Editor package now builds a `universo-hosted` artifact with
+    a bridge bootstrap, hosted engine contract, no-op hosted service-worker
+    shim, and browser smoke coverage for direct and sandboxed iframe loading.
+-   Metahub package authoring host descriptors now expose tokenized artifact
+    URLs, bridge session metadata, and fail-closed artifact states for the
+    connected PlayCanvas Editor package.
+-   The backend bridge command route validates typed shared schemas, HMAC
+    session tokens, user/metahub/project/capability binding, replay/idempotency,
+    and safe error responses before touching PlayCanvas project storage.
+-   The frontend host uses existing MUI primitives, TanStack Query, localized
+    EN/RU states, and iframe `postMessage` handling without host descriptor
+    invalidation loops.
+-   The real upstream Editor requires the platform sandbox contract
+    `allow-scripts allow-same-origin`; CSP now matches the iframe sandbox so
+    upstream `localStorage`, Worker, fetch, and service-worker probes work.
+-   Final bridge closure uses request-bound iframe bootstrap ids, source/origin
+    validation, replay cleanup after failed saves, metadata-first scene
+    persistence with guarded file writes, checksum conflict mapping, and
+    `Escape` as the explicit keyboard focus return from the iframe to the host.
+-   Final QA repair added dirty navigation protection, localized save-conflict
+    recovery, visible save evidence, typed OpenAPI bridge contracts, and stable
+    screenshot evidence for desktop/tablet/mobile Editor browser smoke.
+-   QA round 2 hardening made iframe-originated bridge commands fail closed on
+    missing or invalid UUID v7 request ids, added explicit parent public origin
+    configuration for proxied deployments, stopped trusting forwarded origin
+    headers by default, and added tampered artifact-token browser evidence.
+-   Final acceptance closure fixed replay persistence for non-UUID auth user ids,
+    made bridge/artifact token HMAC secrets fail closed in production, scoped
+    `scene.save` to the selected/default scene, reduced iframe credential
+    exposure by keeping session ids/nonces in bootstrap closure state, and
+    documented the sandbox threat model.
+-   Playwright save/reopen evidence no longer stages debug scene payloads from
+    the parent page. The iframe now creates scene entities through
+    `editor.call('entities:new')`; the artifact serializes through
+    `entities:list`, emits dirty state through `entities:add`, and falls back
+    to a hosted entity adapter only when the upstream entity API is absent in
+    sandboxed hosted mode.
+-   Backend storage safety now validates existing scene payload file references
+    through the scene-owned local file contract and uses checksum-guarded,
+    path-locked rollback deletes so concurrent newer file writes are not
+    removed.
+-   Verification passed focused shared/backend/frontend/package builds and
+    tests, OpenAPI generation/validation, PlayCanvas Editor browser smoke,
+    full local minimal Supabase E2E build, and Playwright Chromium `@packages`
+    flow with 2/2 tests passing.
 -   The local Supabase E2E profile was stopped after the browser run.
 
 ## Current Focus: Memory Bank Compression (2026-05-23)
@@ -187,6 +215,26 @@
 -   The Entity Type Constructor exposes user-facing behavior profiles that populate capabilities and typed configs for constants, catalogs, documents, journals, and register-style presets without manual JSON-only setup.
 -   Verification passed with focused unit tests, backend tests, docs checks, frontend/backend lint/build, full local minimal Supabase E2E build, and Playwright `@1c-compatible|@runtime-ux-canary`; local minimal Supabase was stopped after the run.
 
+## Recent Focus: PlayCanvas Editor Host Settings QA Round 2 Closure (Complete)
+
+-   Manual QA findings for the current hosted fallback slice are closed:
+    standard MUI dialog field sizing, localized default PlayCanvas project
+    selection, short `Save` action labels, visible host save action,
+    host-level save shortcut prevention, and direct open-separately navigation.
+-   Backend hardening now fails closed for artifact-only manifests when
+    `universo-hosted` readiness is expected and prevents bridge scene saves
+    from writing outside the scene-owned payload path.
+-   Test coverage explicitly identifies the hosted fallback surface and no
+    longer treats its `Add entity` control as evidence of the full upstream
+    PlayCanvas Editor UI.
+-   Full upstream `playcanvas/editor` UI hosting remains out of this slice and
+    needs separate research, brief, and plan before implementation.
+-   Verification passed with focused backend/frontend/editor tests, lint/build
+    checks, targeted local minimal Supabase Chromium packages/resources E2E,
+    `git diff --check`, and local autoreview with no accepted/actionable
+    findings.
+-   Details: progress.md#2026-06-04---playcanvas-editor-host-settings-qa-round-2-closure
+
 ## Recent Focus: 1C-Compatible Constructor UX And Lifecycle QA Closure (Complete)
 
 -   Entity Type Constructor list and card surfaces now use reusable behavior
@@ -255,6 +303,22 @@
 -   Metahub layout creation validates scoped targets through Entity component capability metadata.
 -   Runtime layout selection resolves preferred Entity scope from application navigation.
 -   Details: progress.md#2026-05-13 and progress.md#2026-05-12
+
+## Recent Focus: PlayCanvas Editor Bridge Security Hardening (Complete)
+
+-   The hosted PlayCanvas Editor artifact now treats `postMessage` bootstrap as a request/response handshake: the iframe emits a generated bootstrap request id, the MUI host echoes it with `source: universo-playcanvas-editor-host`, and the artifact pins the parent source and origin before accepting bridge responses.
+-   Host bridge responses now carry an outer source marker and command type, and the iframe rejects untrusted or mismatched responses without resolving pending bridge commands.
+-   Browser smoke covers spoofed bootstrap and spoofed sibling-frame bridge responses across desktop, tablet, and mobile artifact projects.
+-   Details: progress.md#2026-06-04---playcanvas-editor-bridge-security-hardening
+
+## Recent Focus: PlayCanvas Editor Runtime Host QA Closure (Complete)
+
+-   Bridge replay completion no longer releases completed mutating requests when replay response persistence fails after a successful save.
+-   PlayCanvas project and asset file deletion now requires `expectedCurrentChecksum` and uses checksum-guarded physical deletion with metadata restoration on stale delete rejection.
+-   Hosted fallback authoring exposes a visible `Add entity` control, and Playwright now mutates scenes through user-facing Editor controls instead of relying only on frame-internal `editor.call`.
+-   Browser evidence now includes Russian save/conflict/dirty/error host lifecycle assertions and non-resizable `StandardDialog` canaries for dirty and conflict dialogs.
+-   Verification passed with focused backend tests, lint, PlayCanvas Editor Vitest/build/browser smoke, local minimal Supabase E2E build, targeted Chromium packages/resources flow, and local E2E Supabase shutdown.
+-   Details: progress.md#2026-06-04-playcanvas-editor-runtime-host-qa-closure
 
 ## Current Guardrails
 

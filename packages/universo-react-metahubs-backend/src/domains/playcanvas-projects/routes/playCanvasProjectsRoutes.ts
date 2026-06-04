@@ -17,6 +17,7 @@ export function createPlayCanvasProjectsRoutes(
     const createHandler = createMetahubHandlerFactory(getDbExecutor)
     const ctrl = createPlayCanvasProjectsController(createHandler)
 
+    router.post('/metahub/:metahubId/playcanvas/editor-bridge/commands', writeLimiter, asyncHandler(ctrl.editorBridgeCommand))
     router.get('/metahub/:metahubId/playcanvas/projects', readLimiter, asyncHandler(ctrl.list))
     router.post('/metahub/:metahubId/playcanvas/projects', writeLimiter, asyncHandler(ctrl.create))
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId', readLimiter, asyncHandler(ctrl.getById))

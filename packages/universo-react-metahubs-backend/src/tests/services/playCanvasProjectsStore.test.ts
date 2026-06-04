@@ -1,6 +1,7 @@
 import type { DbExecutor } from '@universo-react/utils'
 import {
     clearPlayCanvasDefaultProjectPointers,
+    markPlayCanvasAssetFileReferenceReady,
     markPlayCanvasAssetFileReferenceMissing,
     markPlayCanvasProjectFileReferenceReady,
     playCanvasProjectFileReferenceExists,
@@ -284,6 +285,16 @@ describe('playCanvasProjectsStore', () => {
         const sqlCalls = jest.mocked(exec.query).mock.calls.map(([sql]) => String(sql))
         expect(sqlCalls[0]).toContain('RETURNING id')
         expect(sqlCalls[1]).toContain('RETURNING ga.id')
+        expect(sqlCalls[0]).toContain("'hash', $3::text")
+        expect(sqlCalls[0]).toContain("'size', $4::integer")
+        expect(sqlCalls[0]).toContain("'mime', $5::text")
+        expect(sqlCalls[0]).toContain('checksum = $3::text')
+        expect(sqlCalls[0]).toContain('_upl_updated_by = $6::uuid')
+        expect(sqlCalls[1]).toContain("'hash', $3::text")
+        expect(sqlCalls[1]).toContain("'size', $4::integer")
+        expect(sqlCalls[1]).toContain("'mime', $5::text")
+        expect(sqlCalls[1]).toContain('output_checksum = $3::text')
+        expect(sqlCalls[1]).toContain('_upl_updated_by = $6::uuid')
     })
 
     it('reports false when asset file metadata missing markers touch no rows', async () => {
@@ -301,6 +312,30 @@ describe('playCanvasProjectsStore', () => {
         ).resolves.toBe(false)
 
         expect(String(jest.mocked(exec.query).mock.calls[0]?.[0])).toContain('RETURNING id')
+    })
+
+    it('casts asset file ready marker parameters for nullable MIME updates', async () => {
+        const exec = makeExec([[{ id: 'asset-1' }]])
+
+        await expect(
+            markPlayCanvasAssetFileReferenceReady(
+                exec,
+                'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                'project-1',
+                'asset-1',
+                'playcanvas-projects/project-1/assets/data.json',
+                { checksum: 'b'.repeat(64), size: 12, mime: null },
+                'user-1'
+            )
+        ).resolves.toBe(true)
+
+        const sql = String(jest.mocked(exec.query).mock.calls[0]?.[0])
+        expect(sql).toContain("'hash', $4::text")
+        expect(sql).toContain("'size', $5::integer")
+        expect(sql).toContain("'mime', $6::text")
+        expect(sql).toContain('file_hash = $4::text')
+        expect(sql).toContain('mime = $6::text')
+        expect(sql).toContain('_upl_updated_by = $7::uuid')
     })
 
     it('summarizes PlayCanvas project health across scene, asset, script, and generated artifact blockers', async () => {

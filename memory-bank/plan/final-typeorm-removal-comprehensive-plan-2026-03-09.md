@@ -26,28 +26,28 @@
 
 ### What is already done
 
-- Backend startup uses Knex-based platform migration runner (no more `TypeORM.runMigrations()`).
-- `metahubs` and `applications` platform schemas run from native SQL definitions.
-- Runtime migration events mirror into `upl_migrations`.
-- `applications-backend` is ~80% SQL-first: connectors, top-level CRUD, members, runtime schema lookup, copy flow all use `applicationsStore.ts` with raw SQL.
-- Shared `DbSession` / `DbExecutor` / `RequestDbContext` contracts exist in `@universo-react/utils/database`.
-- `QueryRunner` is no longer publicly exposed — hidden behind neutral `DbSession`.
+-   Backend startup uses Knex-based platform migration runner (no more `TypeORM.runMigrations()`).
+-   `metahubs` and `applications` platform schemas run from native SQL definitions.
+-   Runtime migration events mirror into `upl_migrations`.
+-   `applications-backend` is ~80% SQL-first: connectors, top-level CRUD, members, runtime schema lookup, copy flow all use `applicationsStore.ts` with raw SQL.
+-   Shared `DbSession` / `DbExecutor` / `RequestDbContext` contracts exist in `@universo-react/utils/database`.
+-   `QueryRunner` is no longer publicly exposed — hidden behind neutral `DbSession`.
 
 ### What remains
 
-| Area | Files affected | Effort |
-|------|---------------|--------|
-| **applications-backend**: 3 `dataSource.transaction()` calls in `applicationsStore.ts` | 1 file | Small |
-| **applications-backend**: `import type { DataSource }` in 5 src files | 5 files | Small |
-| **applications-backend**: 5 entity files in `src/database/entities/` | 5 files to delete | Small |
-| **RLS transport**: `ensureAuthWithRls.ts` uses TypeORM `QueryRunner` | 1 critical file | Medium |
-| **metahubs-backend**: 31 files with `typeorm` imports | 31 files | Large |
-| **metahubs-backend**: 7 entity files in `src/database/entities/` | 7 files to delete | Small |
-| **metahubs-backend**: `TemplateSeeder.ts` uses ORM `.save()` / `.findOne()` | 1 file | Medium |
-| **metahubs-backend**: `createLinkedApplication.ts` uses 4 entity repos | 1 file | Medium |
-| **metahubs-backend**: `queryHelpers.ts` uses `SelectQueryBuilder` / `Repository` | 1 file | Medium |
-| **metahubs-backend**: 16 route files pass `DataSource` through factory | 16 files | Medium |
-| **core-backend**: entity registry imports from both packages | 1 file | Small |
+| Area                                                                                   | Files affected    | Effort |
+| -------------------------------------------------------------------------------------- | ----------------- | ------ |
+| **applications-backend**: 3 `dataSource.transaction()` calls in `applicationsStore.ts` | 1 file            | Small  |
+| **applications-backend**: `import type { DataSource }` in 5 src files                  | 5 files           | Small  |
+| **applications-backend**: 5 entity files in `src/database/entities/`                   | 5 files to delete | Small  |
+| **RLS transport**: `ensureAuthWithRls.ts` uses TypeORM `QueryRunner`                   | 1 critical file   | Medium |
+| **metahubs-backend**: 31 files with `typeorm` imports                                  | 31 files          | Large  |
+| **metahubs-backend**: 7 entity files in `src/database/entities/`                       | 7 files to delete | Small  |
+| **metahubs-backend**: `TemplateSeeder.ts` uses ORM `.save()` / `.findOne()`            | 1 file            | Medium |
+| **metahubs-backend**: `createLinkedApplication.ts` uses 4 entity repos                 | 1 file            | Medium |
+| **metahubs-backend**: `queryHelpers.ts` uses `SelectQueryBuilder` / `Repository`       | 1 file            | Medium |
+| **metahubs-backend**: 16 route files pass `DataSource` through factory                 | 16 files          | Medium |
+| **core-backend**: entity registry imports from both packages                           | 1 file            | Small  |
 
 ### Critical finding from code audit
 
@@ -61,17 +61,17 @@ Everything else is `manager.query(sql, params)` routed through the request-scope
 
 ### Requirement Coverage Matrix (Original TZ → Plan Batches)
 
-| # | TZ Requirement | Covering Batches | Status |
-|---|---|---|---|
-| 1 | Analyze and improve migration architecture, fully unify Metahubs and Applications | Batches 1–9 (TypeORM removal), Batch 11 (unified runtime history), Batch 12 (application-definition model) | ✅ Full |
-| 2 | Move from reset-only workflow to reliable production-grade migration/data change system | Already done (platform migration runner). Batch 13 validates | ✅ Full |
-| 3 | Fully replace TypeORM migrations and TypeORM persistence with the new system | Batches 1–10 — core of this plan | ✅ Full |
-| 4 | Prepare DB/file structure-template workflow for future editor flows | Batch 12 (definition registry, `definitions` + `definitions_draft` tables, export/import) | ✅ Full |
-| 5 | Maximize unification because Metahubs are a temporary special case | Batch 11 (shared `RuntimeMigrationStore`), Batch 12 (`definition_type` enum, unified template model) | ✅ Full |
-| 6 | Support fixed schema names like `metahubs` and remove old TypeORM kernel path | Already done (native SQL definitions). Batches 1–9 complete removal | ✅ Full |
-| 7 | Redefine Metahub structure/template as application-definition concepts | Batch 12.5–12.8 (template `definition_type`, conceptual model documentation) | ✅ Full |
-| 8 | Preserve exact `metahubs` schema parity | Section 6.4 (Schema Parity Tests), Batch 13 | ✅ Full |
-| 9 | Preserve full fresh-DB product flow | Batch 13 + Section 6.6 (Fresh-Database Acceptance) | ✅ Full |
+| #   | TZ Requirement                                                                          | Covering Batches                                                                                           | Status  |
+| --- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------- |
+| 1   | Analyze and improve migration architecture, fully unify Metahubs and Applications       | Batches 1–9 (TypeORM removal), Batch 11 (unified runtime history), Batch 12 (application-definition model) | ✅ Full |
+| 2   | Move from reset-only workflow to reliable production-grade migration/data change system | Already done (platform migration runner). Batch 13 validates                                               | ✅ Full |
+| 3   | Fully replace TypeORM migrations and TypeORM persistence with the new system            | Batches 1–10 — core of this plan                                                                           | ✅ Full |
+| 4   | Prepare DB/file structure-template workflow for future editor flows                     | Batch 12 (definition registry, `definitions` + `definitions_draft` tables, export/import)                  | ✅ Full |
+| 5   | Maximize unification because Metahubs are a temporary special case                      | Batch 11 (shared `RuntimeMigrationStore`), Batch 12 (`definition_type` enum, unified template model)       | ✅ Full |
+| 6   | Support fixed schema names like `metahubs` and remove old TypeORM kernel path           | Already done (native SQL definitions). Batches 1–9 complete removal                                        | ✅ Full |
+| 7   | Redefine Metahub structure/template as application-definition concepts                  | Batch 12.5–12.8 (template `definition_type`, conceptual model documentation)                               | ✅ Full |
+| 8   | Preserve exact `metahubs` schema parity                                                 | Section 6.4 (Schema Parity Tests), Batch 13                                                                | ✅ Full |
+| 9   | Preserve full fresh-DB product flow                                                     | Batch 13 + Section 6.6 (Fresh-Database Acceptance)                                                         | ✅ Full |
 
 ---
 
@@ -97,27 +97,31 @@ src/database/entities/index.ts          → re-exports entities         ← to d
 ### 2.2 metahubs-backend (31 TypeORM imports)
 
 **Routes (16 files)** — all follow the pattern:
+
 ```ts
 import type { DataSource } from 'typeorm'
 export function createXxxRoutes(ensureAuth, getDataSource: () => DataSource, read, write): Router
 ```
+
 Inside the routes: `const manager = getRequestManager(req, getDataSource())` → `manager.query(sql, params)`.
 
 **Services (6+ files)** — mostly raw SQL through `manager.query()`.
 
 **ORM holdouts (3 files)**:
-- `TemplateSeeder.ts` — uses `repo.findOne()`, `repo.save()`, `repo.create()`, `repo.update()`
-- `createLinkedApplication.ts` — uses `repo.save()`, `repo.createQueryBuilder().update()`
-- `queryHelpers.ts` — uses `SelectQueryBuilder`, `Repository` types
+
+-   `TemplateSeeder.ts` — uses `repo.findOne()`, `repo.save()`, `repo.create()`, `repo.update()`
+-   `createLinkedApplication.ts` — uses `repo.save()`, `repo.createQueryBuilder().update()`
+-   `queryHelpers.ts` — uses `SelectQueryBuilder`, `Repository` types
 
 **Entities (7 files)** — decorators only, no business logic.
 
 ### 2.3 RLS Transport (auth-backend)
 
 `ensureAuthWithRls.ts` current flow:
+
 ```
 ds.createQueryRunner() → runner.connect() → set_config('request.jwt.claims', ..., false)
-    → req.dbContext = createRequestDbContext(runner.manager, session)
+    → req.dbContext = createRequestDbContext(runnerprivate Manager, session)
     → res.once('finish', cleanup) → runner.query("SELECT set_config('request.jwt.claims', '', false)")
     → runner.release()
 ```
@@ -128,17 +132,18 @@ ds.createQueryRunner() → runner.connect() → set_config('request.jwt.claims',
 
 **metahubs-backend → @universo-react/applications-backend** (5 files, not 1):
 
-| File | Imports |
-|------|--------|
-| `domains/publications/helpers/createLinkedApplication.ts` | `Application`, `ApplicationUser`, `Connector`, `ConnectorPublication` |
-| `domains/publications/routes/publicationsRoutes.ts` | `Application`, `ApplicationSchemaStatus`, `Connector`, `ConnectorPublication` |
-| `domains/applications/routes/applicationMigrationsRoutes.ts` | `Application`, `ApplicationUser`, `ApplicationSchemaStatus`, `Connector`, `ConnectorPublication`, `ensureApplicationAccess` |
-| `domains/applications/routes/applicationSyncRoutes.ts` | `Application`, `Connector`, `ConnectorPublication`, `ApplicationSchemaStatus`, `ensureApplicationAccess` |
-| `domains/applications/services/ApplicationSchemaStateStore.ts` | `ApplicationSchemaStatus` (enum only) |
+| File                                                           | Imports                                                                                                                     |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `domains/publications/helpers/createLinkedApplication.ts`      | `Application`, `ApplicationUser`, `Connector`, `ConnectorPublication`                                                       |
+| `domains/publications/routes/publicationsRoutes.ts`            | `Application`, `ApplicationSchemaStatus`, `Connector`, `ConnectorPublication`                                               |
+| `domains/applications/routes/applicationMigrationsRoutes.ts`   | `Application`, `ApplicationUser`, `ApplicationSchemaStatus`, `Connector`, `ConnectorPublication`, `ensureApplicationAccess` |
+| `domains/applications/routes/applicationSyncRoutes.ts`         | `Application`, `Connector`, `ConnectorPublication`, `ApplicationSchemaStatus`, `ensureApplicationAccess`                    |
+| `domains/applications/services/ApplicationSchemaStateStore.ts` | `ApplicationSchemaStatus` (enum only)                                                                                       |
 
 **Note**: `ApplicationSchemaStatus` is an enum, not an entity. It and `ensureApplicationAccess` guard should be moved to `@universo-react/types` or a shared neutral module to break the cross-package entity chain cleanly.
 
 **universo-core-backend → entity registries**:
+
 ```
 universo-core-backend → imports applicationsEntities from @universo-react/applications-backend
                       → imports metahubsEntities from @universo-react/metahubs-backend
@@ -148,13 +153,13 @@ universo-core-backend → imports applicationsEntities from @universo-react/appl
 
 **Other TypeORM consumers outside plan scope** (known remaining debt):
 
-| Package | Files | Notes |
-|---------|-------|-------|
-| `start-backend` | `routes/index.ts`, `routes/onboardingRoutes.ts` | `import type { DataSource }` — type-only |
-| `admin-backend` | 6+ route/service files | Heavy: repositories, QueryBuilder, `In` operator, `getRequestManager()` |
-| `profile-backend` | routes, services, controller | `Repository<Profile>`, `DataSource` |
-| `universo-utils` | `database/manager.ts`, `database/userLookup.ts` | Core contract — migrated in Batch 10 |
-| `universo-migrations-platform` | `typeormAdapter.ts`, `platformMigrations.ts` | TypeORM adapter — intentionally kept |
+| Package                        | Files                                           | Notes                                                                   |
+| ------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| `start-backend`                | `routes/index.ts`, `routes/onboardingRoutes.ts` | `import type { DataSource }` — type-only                                |
+| `admin-backend`                | 6+ route/service files                          | Heavy: repositories, QueryBuilder, `In` operator, `getRequestManager()` |
+| `profile-backend`              | routes, services, controller                    | `Repository<Profile>`, `DataSource`                                     |
+| `universo-utils`               | `database/manager.ts`, `database/userLookup.ts` | Core contract — migrated in Batch 10                                    |
+| `universo-migrations-platform` | `typeormAdapter.ts`, `platformMigrations.ts`    | TypeORM adapter — intentionally kept                                    |
 
 ---
 
@@ -173,18 +178,18 @@ universo-core-backend → imports applicationsEntities from @universo-react/appl
 
 ### Allowed patterns
 
-- Thin query-store modules (like existing `applicationsStore.ts`, `connectorsStore.ts`)
-- Row type interfaces (plain TypeScript, no decorators)
-- SQL fragment constants for SELECT/RETURNING clauses
-- Explicit transaction helpers via `DbExecutor.transaction()`
-- Schema-name validation via `@universo-react/schema-ddl` utilities
+-   Thin query-store modules (like existing `applicationsStore.ts`, `connectorsStore.ts`)
+-   Row type interfaces (plain TypeScript, no decorators)
+-   SQL fragment constants for SELECT/RETURNING clauses
+-   Explicit transaction helpers via `DbExecutor.transaction()`
+-   Schema-name validation via `@universo-react/schema-ddl` utilities
 
 ### Forbidden patterns
 
-- `BaseRepository<T>` generic class
-- Automatic relation materialization
-- Runtime object graphs built by default
-- Any import from `typeorm` in `applications-backend` or `metahubs-backend`
+-   `BaseRepository<T>` generic class
+-   Automatic relation materialization
+-   Runtime object graphs built by default
+-   Any import from `typeorm` in `applications-backend` or `metahubs-backend`
 
 ---
 
@@ -193,6 +198,7 @@ universo-core-backend → imports applicationsEntities from @universo-react/appl
 ### Pattern 1: Replace `DataSource.transaction()` with `DbExecutor.transaction()`
 
 **Before** (current `applicationsStore.ts`):
+
 ```ts
 import type { DataSource } from 'typeorm'
 
@@ -211,6 +217,7 @@ export async function createApplicationWithOwner(
 ```
 
 **After** (neutral contract):
+
 ```ts
 import type { DbExecutor } from '@universo-react/utils'
 
@@ -254,6 +261,7 @@ export async function createApplicationWithOwner(
 ```
 
 **Call site change**:
+
 ```ts
 // Before:
 const app = await createApplicationWithOwner(getDataSource(), input)
@@ -266,6 +274,7 @@ const app = await createApplicationWithOwner(executor, input)
 ### Pattern 2: Replace `TemplateSeeder` ORM operations with SQL
 
 **Before** (current):
+
 ```ts
 const existing = await this.templateRepo.findOne({
     where: { codename: manifest.codename, _uplDeleted: false }
@@ -279,6 +288,7 @@ await templateRepo.update(savedTemplate.id, { activeVersionId: savedVersion.id }
 ```
 
 **After** (SQL-first):
+
 ```ts
 export async function seedTemplate(
     executor: DbExecutor,
@@ -303,11 +313,7 @@ export async function seedTemplate(
     return updateTemplateIfChanged(executor, existing, manifest, hash)
 }
 
-async function createTemplate(
-    executor: DbExecutor,
-    manifest: MetahubTemplateManifest,
-    hash: string
-): Promise<'created'> {
+async function createTemplate(executor: DbExecutor, manifest: MetahubTemplateManifest, hash: string): Promise<'created'> {
     return executor.transaction(async (trx) => {
         // Insert template
         const [template] = await trx.query<{ id: string }>(
@@ -319,8 +325,7 @@ async function createTemplate(
             VALUES ($1, $2::jsonb, $3::jsonb, $4, true, true, 0)
             RETURNING id
             `,
-            [manifest.codename, JSON.stringify(manifest.name),
-             JSON.stringify(manifest.description), manifest.meta?.icon ?? null]
+            [manifest.codename, JSON.stringify(manifest.name), JSON.stringify(manifest.description), manifest.meta?.icon ?? null]
         )
 
         // Insert first version
@@ -333,15 +338,11 @@ async function createTemplate(
             VALUES ($1, 1, $2, $3, $4::jsonb, $5, true)
             RETURNING id
             `,
-            [template.id, manifest.version, manifest.minStructureVersion,
-             JSON.stringify(manifest), hash]
+            [template.id, manifest.version, manifest.minStructureVersion, JSON.stringify(manifest), hash]
         )
 
         // Set active version pointer
-        await trx.query(
-            `UPDATE metahubs.templates SET active_version_id = $1 WHERE id = $2`,
-            [version.id, template.id]
-        )
+        await trx.query(`UPDATE metahubs.templates SET active_version_id = $1 WHERE id = $2`, [version.id, template.id])
 
         return 'created' as const
     })
@@ -351,6 +352,7 @@ async function createTemplate(
 ### Pattern 3: Replace `createLinkedApplication.ts` entity repos with SQL
 
 **Before** (current):
+
 ```ts
 const applicationRepo = manager.getRepository(Application)
 const appUserRepo = manager.getRepository(ApplicationUser)
@@ -369,6 +371,7 @@ await connectorPublicationRepo.save(connectorPublication)
 ```
 
 **After** (SQL-first, set-based):
+
 ```ts
 export async function createLinkedApplication(
     executor: DbExecutor,
@@ -382,9 +385,7 @@ export async function createLinkedApplication(
 ): Promise<LinkedApplicationResult> {
     return executor.transaction(async (trx) => {
         // 1. Generate application ID
-        const [{ id: applicationId }] = await trx.query<{ id: string }>(
-            `SELECT public.uuid_generate_v7() AS id`
-        )
+        const [{ id: applicationId }] = await trx.query<{ id: string }>(`SELECT public.uuid_generate_v7() AS id`)
         const schemaName = input.resolveSchemaName(applicationId)
 
         // 2. Create application with schema_name in one INSERT (no separate UPDATE)
@@ -398,10 +399,14 @@ export async function createLinkedApplication(
             RETURNING id, name, description, schema_name AS "schemaName",
                       _upl_created_at AS "createdAt"
             `,
-            [applicationId,
-             JSON.stringify(input.metahubName ?? { _primary: 'en', en: 'Application' }),
-             JSON.stringify(input.metahubDescription),
-             schemaName, input.userId, input.userId]
+            [
+                applicationId,
+                JSON.stringify(input.metahubName ?? { _primary: 'en', en: 'Application' }),
+                JSON.stringify(input.metahubDescription),
+                schemaName,
+                input.userId,
+                input.userId
+            ]
         )
 
         // 3. Create owner membership
@@ -426,10 +431,13 @@ export async function createLinkedApplication(
             VALUES ($1, $2::jsonb, $3::jsonb, 0, $4, $5)
             RETURNING id
             `,
-            [applicationId,
-             JSON.stringify(input.metahubName ?? { _primary: 'en', en: 'Connector' }),
-             JSON.stringify(input.metahubDescription),
-             input.userId, input.userId]
+            [
+                applicationId,
+                JSON.stringify(input.metahubName ?? { _primary: 'en', en: 'Connector' }),
+                JSON.stringify(input.metahubDescription),
+                input.userId,
+                input.userId
+            ]
         )
 
         // 5. Create connector-publication link
@@ -454,36 +462,38 @@ export async function createLinkedApplication(
 ### Pattern 4: Replace `queryHelpers.ts` with SQL functions
 
 **Before** (TypeORM query builder):
+
 ```ts
 import type { SelectQueryBuilder, Repository, ObjectLiteral } from 'typeorm'
 
 export function applySoftDeleteFilter<T extends ObjectLiteral>(
-    qb: SelectQueryBuilder<T>, alias: string, options: SoftDeleteOptions = {}
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+    options: SoftDeleteOptions = {}
 ): SelectQueryBuilder<T> {
     if (onlyDeleted) return qb.andWhere(`${alias}.is_deleted = :isDeleted`, { isDeleted: true })
     if (!includeDeleted) return qb.andWhere(`${alias}.is_deleted = :isDeleted`, { isDeleted: false })
     return qb
 }
 
-export async function softDelete<T extends ObjectLiteral>(
-    repo: Repository<T>, id: string, userId?: string
-): Promise<void> {
-    await repo.createQueryBuilder().update()
+export async function softDelete<T extends ObjectLiteral>(repo: Repository<T>, id: string, userId?: string): Promise<void> {
+    await repo
+        .createQueryBuilder()
+        .update()
         .set({ is_deleted: true, deleted_at: () => 'NOW()', deleted_by: userId ?? null } as unknown as T)
-        .where('id = :id', { id }).execute()
+        .where('id = :id', { id })
+        .execute()
 }
 ```
 
 **After** (pure SQL helpers):
+
 ```ts
 /**
  * Returns a SQL WHERE clause fragment for soft-delete filtering.
  * Use with parameterized queries — this returns static SQL only.
  */
-export function softDeleteWhereClause(
-    alias: string,
-    options: { includeDeleted?: boolean; onlyDeleted?: boolean } = {}
-): string {
+export function softDeleteWhereClause(alias: string, options: { includeDeleted?: boolean; onlyDeleted?: boolean } = {}): string {
     if (options.onlyDeleted) return `AND COALESCE(${alias}._upl_deleted, false) = true`
     if (!options.includeDeleted) return `AND COALESCE(${alias}._upl_deleted, false) = false`
     return ''
@@ -503,7 +513,7 @@ const SOFT_DELETE_ALLOWED_TABLES = new Set([
     'metahubs.template_versions',
     'applications.applications',
     'applications.connectors',
-    'applications.connectors_publications',
+    'applications.connectors_publications'
     // extend as needed — but NEVER accept user input here
 ])
 
@@ -519,7 +529,7 @@ function assertValidTable(table: string): void {
  */
 export async function softDeleteById(
     executor: DbExecutor,
-    table: string,  // e.g. 'metahubs.metahubs'
+    table: string, // e.g. 'metahubs.metahubs'
     id: string,
     userId?: string
 ): Promise<boolean> {
@@ -544,11 +554,7 @@ export async function softDeleteById(
  * Restores a soft-deleted entity by ID.
  * Table name is validated against a built-in allowlist to prevent SQL injection.
  */
-export async function restoreSoftDeleteById(
-    executor: DbExecutor,
-    table: string,
-    id: string
-): Promise<boolean> {
+export async function restoreSoftDeleteById(executor: DbExecutor, table: string, id: string): Promise<boolean> {
     assertValidTable(table)
     const rows = await executor.query<{ id: string }>(
         `
@@ -571,6 +577,7 @@ export async function restoreSoftDeleteById(
 ### Pattern 5: Replace RLS QueryRunner Transport with Knex
 
 **Before** (current `ensureAuthWithRls.ts`):
+
 ```ts
 const ds = getDataSource()
 const runner = ds.createQueryRunner()
@@ -583,7 +590,7 @@ const session = createDbSession({
 })
 
 await applyRlsContext(session, access)
-;(req as RequestWithDbContext).dbContext = createRequestDbContext(runner.manager, session)
+;(req as RequestWithDbContext).dbContext = createRequestDbContext(runnerprivate Manager, session)
 
 // Cleanup:
 res.once('finish', async () => {
@@ -593,12 +600,11 @@ res.once('finish', async () => {
 ```
 
 **After** (Knex-backed, transaction-scoped):
+
 ```ts
 import type { Knex } from 'knex'
 
-export function createEnsureAuthWithRls(options: {
-    getKnex: () => Knex
-}): RequestHandler {
+export function createEnsureAuthWithRls(options: { getKnex: () => Knex }): RequestHandler {
     const { getKnex } = options
 
     return async (req, res, next) => {
@@ -634,18 +640,20 @@ export function createEnsureAuthWithRls(options: {
             transaction: async <T>(callback: (trx: DbExecutor) => Promise<T>): Promise<T> => {
                 // For explicit transactions within the request, use Knex transaction
                 // on the same raw connection to preserve RLS context
-                return knex.transaction(async (trx) => {
-                    const trxExecutor = createDbExecutor({
-                        query: async <TRow = unknown>(sql: string, params?: unknown[]) => {
-                            const res = await trx.raw(sql, params ?? [])
-                            return (res.rows ?? res) as TRow[]
-                        },
-                        transaction: async <TInner>(cb: (e: DbExecutor) => Promise<TInner>) =>
-                            cb(trxExecutor), // reuse existing transaction
-                        isReleased: () => cleanupStarted
-                    })
-                    return callback(trxExecutor)
-                }, { connection: rawConnection })
+                return knex.transaction(
+                    async (trx) => {
+                        const trxExecutor = createDbExecutor({
+                            query: async <TRow = unknown>(sql: string, params?: unknown[]) => {
+                                const res = await trx.raw(sql, params ?? [])
+                                return (res.rows ?? res) as TRow[]
+                            },
+                            transaction: async <TInner>(cb: (e: DbExecutor) => Promise<TInner>) => cb(trxExecutor), // reuse existing transaction
+                            isReleased: () => cleanupStarted
+                        })
+                        return callback(trxExecutor)
+                    },
+                    { connection: rawConnection }
+                )
             },
             isReleased: () => cleanupStarted
         })
@@ -654,9 +662,7 @@ export function createEnsureAuthWithRls(options: {
             if (cleanupStarted) return
             cleanupStarted = true
             try {
-                await knex.raw(
-                    `SELECT set_config('request.jwt.claims', '', false)`
-                ).connection(rawConnection)
+                await knex.raw(`SELECT set_config('request.jwt.claims', '', false)`).connection(rawConnection)
             } catch (err) {
                 console.warn('[RLS] Failed to reset session context:', err)
             }
@@ -673,7 +679,6 @@ export function createEnsureAuthWithRls(options: {
 
         try {
             await applyRlsContext(session, access)
-
             ;(req as RequestWithDbContext).dbContext = {
                 session,
                 executor,
@@ -706,6 +711,7 @@ export function createEnsureAuthWithRls(options: {
 ### Pattern 6: Route factory signature change
 
 **Before**:
+
 ```ts
 import type { DataSource } from 'typeorm'
 
@@ -722,6 +728,7 @@ export function createMetahubsRoutes(
 ```
 
 **After**:
+
 ```ts
 import type { DbExecutor } from '@universo-react/utils'
 
@@ -739,21 +746,23 @@ export function createMetahubsRoutes(
 
 **No new `DbProvider` interface** — `DbExecutor` already has the exact contract needed (`query()`, `transaction()`, `isReleased()`). Introducing a duplicate interface adds cognitive overhead with zero benefit. The key change is that the route factory type signature no longer mentions `DataSource`.
 
-### Pattern 7: Remove `RequestDbContext.manager` and `RequestDbContext.getRepository()`
+### Pattern 7: Remove `RequestDbContextprivate Manager` and `RequestDbContext.getRepository()`
 
 **Before** (current `manager.ts`):
+
 ```ts
 export interface RequestDbContext {
     session: DbSession
     executor: DbExecutor
-    manager: EntityManager         // ← TypeORM leak
+    manager: EntityManager // ← TypeORM leak
     isReleased(): boolean
     query<T = unknown>(sql: string, parameters?: unknown[]): Promise<T[]>
-    getRepository<Entity extends ObjectLiteral>(entity: EntityTarget<Entity>): Repository<Entity>  // ← TypeORM leak
+    getRepository<Entity extends ObjectLiteral>(entity: EntityTarget<Entity>): Repository<Entity> // ← TypeORM leak
 }
 ```
 
 **After**:
+
 ```ts
 export interface RequestDbContext {
     session: DbSession
@@ -764,6 +773,7 @@ export interface RequestDbContext {
 ```
 
 **Updated factory signature**:
+
 ```ts
 // Before: createRequestDbContext(manager: EntityManager, session: DbSession)
 // After:
@@ -778,8 +788,9 @@ export function createRequestDbContext(session: DbSession, executor: DbExecutor)
 ```
 
 The `manager` and `getRepository()` fields must be removed, because:
-- `applications-backend` and `metahubs-backend` won't use them after cutover.
-- Other packages (`admin-backend`, `profile-backend`) still use TypeORM — they retain their own `DataSource` access but must NOT route through the shared request context contract.
+
+-   `applications-backend` and `metahubs-backend` won't use them after cutover.
+-   Other packages (`admin-backend`, `profile-backend`) still use TypeORM — they retain their own `DataSource` access but must NOT route through the shared request context contract.
 
 **Migration path**: Keep `manager` as an optional deprecated field during the transition, then remove it when all consumers are migrated. The legacy `createRequestDbContext(manager, session)` signature is kept as a separate function in `@universo-react/utils/database/legacy` for admin/profile.
 
@@ -793,17 +804,17 @@ The `manager` and `getRepository()` fields must be removed, because:
 
 **Steps**:
 
-- [ ] Step 1.1: Replace `dataSource: DataSource` parameter in `applicationsStore.ts` functions (`createApplicationWithOwner`, `copyApplicationWithOptions`, `deleteApplicationWithSchema`) with `executor: DbExecutor` — the inner SQL is already pure.
-- [ ] Step 1.2: Update `applicationsRoutes.ts` call sites to pass `getRequestDbExecutor(req, ...)` instead of `getDataSource()`.
-- [ ] Step 1.3: Replace `import type { DataSource }` in `guards.ts` with neutral `DbExecutor` or `DbSession` — guards already use `getRequestDbSession()`.
-- [ ] Step 1.4: Replace `import type { DataSource }` in `connectorsRoutes.ts` — already SQL-first.
-- [ ] Step 1.5: Replace `import type { DataSource }` in `routes/index.ts` — change factory signature.
-- [ ] Step 1.6: Remove `getRequestManager()` usage from all applications-backend files.
-- [ ] Step 1.7: Delete `src/database/entities/` directory (5 entity files).
-- [ ] Step 1.8: Remove `applicationsEntities` export from package index.
-- [ ] Step 1.9: Remove `typeorm` from `package.json` dependencies.
-- [ ] Step 1.10: Update applications-backend README.
-- [ ] Step 1.11: Run `pnpm --filter @universo-react/applications-backend test` and `pnpm --filter @universo-react/applications-backend build`.
+-   [ ] Step 1.1: Replace `dataSource: DataSource` parameter in `applicationsStore.ts` functions (`createApplicationWithOwner`, `copyApplicationWithOptions`, `deleteApplicationWithSchema`) with `executor: DbExecutor` — the inner SQL is already pure.
+-   [ ] Step 1.2: Update `applicationsRoutes.ts` call sites to pass `getRequestDbExecutor(req, ...)` instead of `getDataSource()`.
+-   [ ] Step 1.3: Replace `import type { DataSource }` in `guards.ts` with neutral `DbExecutor` or `DbSession` — guards already use `getRequestDbSession()`.
+-   [ ] Step 1.4: Replace `import type { DataSource }` in `connectorsRoutes.ts` — already SQL-first.
+-   [ ] Step 1.5: Replace `import type { DataSource }` in `routes/index.ts` — change factory signature.
+-   [ ] Step 1.6: Remove `getRequestManager()` usage from all applications-backend files.
+-   [ ] Step 1.7: Delete `src/database/entities/` directory (5 entity files).
+-   [ ] Step 1.8: Remove `applicationsEntities` export from package index.
+-   [ ] Step 1.9: Remove `typeorm` from `package.json` dependencies.
+-   [ ] Step 1.10: Update applications-backend README.
+-   [ ] Step 1.11: Run `pnpm --filter @universo-react/applications-backend test` and `pnpm --filter @universo-react/applications-backend build`.
 
 **Exit gate**: `rg "typeorm" packages/universo-react-applications-backend/base/src/` returns nothing.
 
@@ -813,10 +824,10 @@ The `manager` and `getRepository()` fields must be removed, because:
 
 **Steps**:
 
-- [ ] Step 2.1: Remove `applicationsEntities` import from `packages/universo-react-core-backend/base/src/database/entities/index.ts`.
-- [ ] Step 2.2: Remove `applicationsEntities` spread from the aggregated entities array.
-- [ ] Step 2.3: Verify that no other core-backend code imports Application/ApplicationUser/Connector/ConnectorPublication entities.
-- [ ] Step 2.4: Run `pnpm --filter @universo-react/core-backend build`.
+-   [ ] Step 2.1: Remove `applicationsEntities` import from `packages/universo-react-core-backend/base/src/database/entities/index.ts`.
+-   [ ] Step 2.2: Remove `applicationsEntities` spread from the aggregated entities array.
+-   [ ] Step 2.3: Verify that no other core-backend code imports Application/ApplicationUser/Connector/ConnectorPublication entities.
+-   [ ] Step 2.4: Run `pnpm --filter @universo-react/core-backend build`.
 
 **Exit gate**: No applications-backend entity references in core-backend.
 
@@ -825,23 +836,24 @@ The `manager` and `getRepository()` fields must be removed, because:
 **Goal**: `req.dbContext` exposes only neutral `DbSession`/`DbExecutor`. TypeORM `EntityManager` is hidden behind a separate legacy accessor for packages that still need it (`admin-backend`, `profile-backend`).
 
 **Approach**: Keep the current TypeORM QueryRunner as the INTERNAL connection-pinning mechanism. The RLS middleware continues to use `ds.createQueryRunner()` under the hood (which is battle-tested), but the public contract changes:
-- `req.dbContext` → neutral `{ session, executor, query, isReleased }`
-- `req.dbLegacyManager` → TypeORM `EntityManager` for admin/profile only (clearly deprecated)
+
+-   `req.dbContext` → neutral `{ session, executor, query, isReleased }`
+-   `req.dbLegacyManager` → TypeORM `EntityManager` for admin/profile only (clearly deprecated)
 
 Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/profile are migrated off TypeORM.
 
 **Steps**:
 
-- [ ] Step 3.1: Split `RequestDbContext` into neutral interface (no `manager`/`getRepository`) and legacy interface.
-- [ ] Step 3.2: Update `createRequestDbContext()` signature: `(session: DbSession, executor: DbExecutor)` for the neutral path.
-- [ ] Step 3.3: Create `createLegacyRequestDbContext(manager: EntityManager, session: DbSession)` that returns both neutral fields AND `manager`.
-- [ ] Step 3.4: Update `ensureAuthWithRls.ts` to attach neutral `req.dbContext` AND separate `req.dbLegacyManager` (TypeORM `EntityManager`).
-- [ ] Step 3.5: Update `getRequestDbExecutor()` fallback to use Knex `getKnexInstance()` instead of `DataSource.query()` for packages that don't need TypeORM.
-- [ ] Step 3.6: Verify that `admin-backend` routes use `req.dbLegacyManager` or `getRequestManager()` from legacy subpath — no visible breakage.
-- [ ] Step 3.7: Verify that `profile-backend` routes continue working through legacy path.
-- [ ] Step 3.8: Add focused integration test for RLS context: set claims → query → verify isolation.
-- [ ] Step 3.9: Add focused test for cleanup: verify claims are reset after response.
-- [ ] Step 3.10: Run full `pnpm build` and manual smoke test.
+-   [ ] Step 3.1: Split `RequestDbContext` into neutral interface (no `manager`/`getRepository`) and legacy interface.
+-   [ ] Step 3.2: Update `createRequestDbContext()` signature: `(session: DbSession, executor: DbExecutor)` for the neutral path.
+-   [ ] Step 3.3: Create `createLegacyRequestDbContext(manager: EntityManager, session: DbSession)` that returns both neutral fields AND `manager`.
+-   [ ] Step 3.4: Update `ensureAuthWithRls.ts` to attach neutral `req.dbContext` AND separate `req.dbLegacyManager` (TypeORM `EntityManager`).
+-   [ ] Step 3.5: Update `getRequestDbExecutor()` fallback to use Knex `getKnexInstance()` instead of `DataSource.query()` for packages that don't need TypeORM.
+-   [ ] Step 3.6: Verify that `admin-backend` routes use `req.dbLegacyManager` or `getRequestManager()` from legacy subpath — no visible breakage.
+-   [ ] Step 3.7: Verify that `profile-backend` routes continue working through legacy path.
+-   [ ] Step 3.8: Add focused integration test for RLS context: set claims → query → verify isolation.
+-   [ ] Step 3.9: Add focused test for cleanup: verify claims are reset after response.
+-   [ ] Step 3.10: Run full `pnpm build` and manual smoke test.
 
 **Exit gate**: `req.dbContext` interface has no TypeORM types. Admin/profile routes compile and pass smoke tests via legacy accessor.
 
@@ -853,14 +865,14 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 4.1: Create `packages/universo-react-metahubs-backend/base/src/persistence/` directory.
-- [ ] Step 4.2: Create `metahubsStore.ts` — SQL-first CRUD for `metahubs.metahubs` table.
-- [ ] Step 4.3: Create `branchesStore.ts` — SQL-first CRUD for `metahubs.metahub_branches`.
-- [ ] Step 4.4: Create `publicationsStore.ts` — SQL-first CRUD for `metahubs.publications` and `metahubs.publication_versions`.
-- [ ] Step 4.5: Create `templatesStore.ts` — SQL-first CRUD for `metahubs.templates` and `metahubs.template_versions`.
-- [ ] Step 4.6: Create `hubsStore.ts` — if needed for hub-related SQL queries.
-- [ ] Step 4.7: Replace `queryHelpers.ts` with neutral `metahubsQueryHelpers.ts` (Pattern 4 above).
-- [ ] Step 4.8: Add row-type interfaces (plain TypeScript, no decorators) in each store module.
+-   [ ] Step 4.1: Create `packages/universo-react-metahubs-backend/base/src/persistence/` directory.
+-   [ ] Step 4.2: Create `metahubsStore.ts` — SQL-first CRUD for `metahubs.metahubs` table.
+-   [ ] Step 4.3: Create `branchesStore.ts` — SQL-first CRUD for `metahubs.metahub_branches`.
+-   [ ] Step 4.4: Create `publicationsStore.ts` — SQL-first CRUD for `metahubs.publications` and `metahubs.publication_versions`.
+-   [ ] Step 4.5: Create `templatesStore.ts` — SQL-first CRUD for `metahubs.templates` and `metahubs.template_versions`.
+-   [ ] Step 4.6: Create `hubsStore.ts` — if needed for hub-related SQL queries.
+-   [ ] Step 4.7: Replace `queryHelpers.ts` with neutral `metahubsQueryHelpers.ts` (Pattern 4 above).
+-   [ ] Step 4.8: Add row-type interfaces (plain TypeScript, no decorators) in each store module.
 
 **Exit gate**: All store modules compile and have basic type coverage.
 
@@ -870,12 +882,12 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 5.1: Rewrite `TemplateSeeder` constructor to accept `DbExecutor` instead of `DataSource`.
-- [ ] Step 5.2: Replace `repo.findOne()` with `SELECT ... WHERE codename = $1 LIMIT 1`.
-- [ ] Step 5.3: Replace `repo.save()` / `repo.create()` with `INSERT ... RETURNING`.
-- [ ] Step 5.4: Replace `repo.update()` with `UPDATE ... WHERE id = $1`.
-- [ ] Step 5.5: Replace `dataSource.transaction()` with `executor.transaction()`.
-- [ ] Step 5.6: Add focused test for template seeding on empty table + idempotent re-seed.
+-   [ ] Step 5.1: Rewrite `TemplateSeeder` constructor to accept `DbExecutor` instead of `DataSource`.
+-   [ ] Step 5.2: Replace `repo.findOne()` with `SELECT ... WHERE codename = $1 LIMIT 1`.
+-   [ ] Step 5.3: Replace `repo.save()` / `repo.create()` with `INSERT ... RETURNING`.
+-   [ ] Step 5.4: Replace `repo.update()` with `UPDATE ... WHERE id = $1`.
+-   [ ] Step 5.5: Replace `dataSource.transaction()` with `executor.transaction()`.
+-   [ ] Step 5.6: Add focused test for template seeding on empty table + idempotent re-seed.
 
 **Exit gate**: `TemplateSeeder.ts` has no `typeorm` imports.
 
@@ -885,15 +897,15 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 6.1: Move `ApplicationSchemaStatus` enum from `@universo-react/applications-backend` to `@universo-react/types` (it's a pure type, not an entity).
-- [ ] Step 6.2: Move `ensureApplicationAccess` guard to a neutral location (either `@universo-react/utils` or a shared guards module) so metahubs-backend can import it without pulling application entities.
-- [ ] Step 6.3: Rewrite `createLinkedApplication.ts` to accept `DbExecutor` and use SQL INSERT (Pattern 3 above). Remove imports of `Application`, `ApplicationUser`, `Connector`, `ConnectorPublication` entity classes.
-- [ ] Step 6.4: Update `publicationsRoutes.ts` — replace `Application`, `Connector`, `ConnectorPublication` entity imports with SQL queries and the moved `ApplicationSchemaStatus` enum from `@universo-react/types`.
-- [ ] Step 6.5: Update `applicationMigrationsRoutes.ts` — replace entity imports with SQL queries, use moved `ApplicationSchemaStatus` and `ensureApplicationAccess`.
-- [ ] Step 6.6: Update `applicationSyncRoutes.ts` — same treatment as 6.5.
-- [ ] Step 6.7: Update `ApplicationSchemaStateStore.ts` — import `ApplicationSchemaStatus` from `@universo-react/types` instead of `@universo-react/applications-backend`.
-- [ ] Step 6.8: Add focused tests for linked application creation and cross-package guard behavior.
-- [ ] Step 6.9: Update `@universo-react/applications-backend` to re-export `ApplicationSchemaStatus` from `@universo-react/types` for backward compatibility.
+-   [ ] Step 6.1: Move `ApplicationSchemaStatus` enum from `@universo-react/applications-backend` to `@universo-react/types` (it's a pure type, not an entity).
+-   [ ] Step 6.2: Move `ensureApplicationAccess` guard to a neutral location (either `@universo-react/utils` or a shared guards module) so metahubs-backend can import it without pulling application entities.
+-   [ ] Step 6.3: Rewrite `createLinkedApplication.ts` to accept `DbExecutor` and use SQL INSERT (Pattern 3 above). Remove imports of `Application`, `ApplicationUser`, `Connector`, `ConnectorPublication` entity classes.
+-   [ ] Step 6.4: Update `publicationsRoutes.ts` — replace `Application`, `Connector`, `ConnectorPublication` entity imports with SQL queries and the moved `ApplicationSchemaStatus` enum from `@universo-react/types`.
+-   [ ] Step 6.5: Update `applicationMigrationsRoutes.ts` — replace entity imports with SQL queries, use moved `ApplicationSchemaStatus` and `ensureApplicationAccess`.
+-   [ ] Step 6.6: Update `applicationSyncRoutes.ts` — same treatment as 6.5.
+-   [ ] Step 6.7: Update `ApplicationSchemaStateStore.ts` — import `ApplicationSchemaStatus` from `@universo-react/types` instead of `@universo-react/applications-backend`.
+-   [ ] Step 6.8: Add focused tests for linked application creation and cross-package guard behavior.
+-   [ ] Step 6.9: Update `@universo-react/applications-backend` to re-export `ApplicationSchemaStatus` from `@universo-react/types` for backward compatibility.
 
 **Exit gate**: `metahubs-backend` has zero entity class imports from `@universo-react/applications-backend`. Only enum/type imports from `@universo-react/types`.
 
@@ -903,11 +915,11 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 7.1: Update `router.ts` — change `createMetahubsServiceRoutes` signature to accept `() => DbExecutor` instead of `() => DataSource`.
-- [ ] Step 7.2: Update each route factory file (`metahubsRoutes.ts`, `branchesRoutes.ts`, `hubsRoutes.ts`, `catalogsRoutes.ts`, `setsRoutes.ts`, `enumerationsRoutes.ts`, `attributesRoutes.ts`, `constantsRoutes.ts`, `elementsRoutes.ts`, `layoutsRoutes.ts`, `settingsRoutes.ts`, `templatesRoutes.ts`, `publicationsRoutes.ts`, `metahubMigrationsRoutes.ts`, `applicationMigrationsRoutes.ts`, `applicationSyncRoutes.ts`).
-- [ ] Step 7.3: Replace `getRequestManager(req, getDataSource())` with `getRequestDbExecutor(req, getDbExecutor())` in each route.
-- [ ] Step 7.4: Replace `manager.query(sql, params)` with `executor.query(sql, params)` — this is mostly a search-and-replace.
-- [ ] Step 7.5: Replace any remaining `manager.getRepository(...)` calls with SQL.
+-   [ ] Step 7.1: Update `router.ts` — change `createMetahubsServiceRoutes` signature to accept `() => DbExecutor` instead of `() => DataSource`.
+-   [ ] Step 7.2: Update each route factory file (`metahubsRoutes.ts`, `branchesRoutes.ts`, `hubsRoutes.ts`, `catalogsRoutes.ts`, `setsRoutes.ts`, `enumerationsRoutes.ts`, `attributesRoutes.ts`, `constantsRoutes.ts`, `elementsRoutes.ts`, `layoutsRoutes.ts`, `settingsRoutes.ts`, `templatesRoutes.ts`, `publicationsRoutes.ts`, `metahubMigrationsRoutes.ts`, `applicationMigrationsRoutes.ts`, `applicationSyncRoutes.ts`).
+-   [ ] Step 7.3: Replace `getRequestManager(req, getDataSource())` with `getRequestDbExecutor(req, getDbExecutor())` in each route.
+-   [ ] Step 7.4: Replace `manager.query(sql, params)` with `executor.query(sql, params)` — this is mostly a search-and-replace.
+-   [ ] Step 7.5: Replace any remaining `manager.getRepository(...)` calls with SQL.
 
 **Exit gate**: No route file in metahubs-backend imports `typeorm`.
 
@@ -917,10 +929,10 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 8.1: Port `MetahubBranchesService` — already mostly raw SQL via `manager.query()`.
-- [ ] Step 8.2: Port `MetahubSchemaService` — uses Knex for DDL, may have `DataSource` type.
-- [ ] Step 8.3: Port remaining services under `domains/**/services/`.
-- [ ] Step 8.4: Port guard files that still reference `DataSource`.
+-   [ ] Step 8.1: Port `MetahubBranchesService` — already mostly raw SQL via `manager.query()`.
+-   [ ] Step 8.2: Port `MetahubSchemaService` — uses Knex for DDL, may have `DataSource` type.
+-   [ ] Step 8.3: Port remaining services under `domains/**/services/`.
+-   [ ] Step 8.4: Port guard files that still reference `DataSource`.
 
 **Exit gate**: No service file in metahubs-backend imports `typeorm`.
 
@@ -930,30 +942,30 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 9.1: Delete `src/database/entities/` (7 entity files).
-- [ ] Step 9.2: Delete any legacy migration helpers in `src/database/`.
-- [ ] Step 9.3: Remove `metahubsEntities` export from package index.
-- [ ] Step 9.4: Remove `typeorm` from `package.json` dependencies.
-- [ ] Step 9.5: Update metahubs-backend README.
-- [ ] Step 9.6: Remove `metahubsEntities` import from `core-backend/database/entities/index.ts`.
+-   [ ] Step 9.1: Delete `src/database/entities/` (7 entity files).
+-   [ ] Step 9.2: Delete any legacy migration helpers in `src/database/`.
+-   [ ] Step 9.3: Remove `metahubsEntities` export from package index.
+-   [ ] Step 9.4: Remove `typeorm` from `package.json` dependencies.
+-   [ ] Step 9.5: Update metahubs-backend README.
+-   [ ] Step 9.6: Remove `metahubsEntities` import from `core-backend/database/entities/index.ts`.
 
 **Exit gate**: `rg "typeorm" packages/universo-react-metahubs-backend/base/src/` returns nothing.
 
-### Batch 10: Remove `RequestDbContext.manager` and `getRequestManager()`
+### Batch 10: Remove `RequestDbContextprivate Manager` and `getRequestManager()`
 
 **Goal**: The shared request DB contract is fully TypeORM-free for migrated packages.
 
 **Steps**:
 
-- [ ] Step 10.1: Remove `manager` field from `RequestDbContext` interface.
-- [ ] Step 10.2: Remove `getRepository()` from `RequestDbContext`.
-- [ ] Step 10.3: Remove `getRequestManager()` and `getRequestRepository()` exports from `@universo-react/utils/database` main barrel.
-- [ ] Step 10.4: Move `getRequestManager()`, `getRequestRepository()`, `createRequestDbContext(manager, session)` (the legacy overload), and associated TypeORM types to `@universo-react/utils/database/legacy` subpath export. This is unconditional — `admin-backend` and `profile-backend` both depend on these functions.
-- [ ] Step 10.5: Update `admin-backend` imports: `import { getRequestManager } from '@universo-react/utils/database/legacy'`.
-- [ ] Step 10.6: Update `profile-backend` imports similarly.
-- [ ] Step 10.7: Update `start-backend` imports if they use `getRequestManager()`.
-- [ ] Step 10.8: Update all remaining codebase imports.
-- [ ] Step 10.9: Verify `@universo-react/utils/database` main exports have no TypeORM types (only `DbSession`, `DbExecutor`, `RequestDbContext` neutral version).
+-   [ ] Step 10.1: Remove `manager` field from `RequestDbContext` interface.
+-   [ ] Step 10.2: Remove `getRepository()` from `RequestDbContext`.
+-   [ ] Step 10.3: Remove `getRequestManager()` and `getRequestRepository()` exports from `@universo-react/utils/database` main barrel.
+-   [ ] Step 10.4: Move `getRequestManager()`, `getRequestRepository()`, `createRequestDbContext(manager, session)` (the legacy overload), and associated TypeORM types to `@universo-react/utils/database/legacy` subpath export. This is unconditional — `admin-backend` and `profile-backend` both depend on these functions.
+-   [ ] Step 10.5: Update `admin-backend` imports: `import { getRequestManager } from '@universo-react/utils/database/legacy'`.
+-   [ ] Step 10.6: Update `profile-backend` imports similarly.
+-   [ ] Step 10.7: Update `start-backend` imports if they use `getRequestManager()`.
+-   [ ] Step 10.8: Update all remaining codebase imports.
+-   [ ] Step 10.9: Verify `@universo-react/utils/database` main exports have no TypeORM types (only `DbSession`, `DbExecutor`, `RequestDbContext` neutral version).
 
 **Exit gate**: `@universo-react/utils/database` main exports have no TypeORM types. Legacy subpath compiles and admin/profile/start tests pass.
 
@@ -963,13 +975,13 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 11.1: Extract a shared `RuntimeMigrationHistory` interface in `@universo-react/migrations-core` that describes the common shape of `_mhb_migrations` and `_app_migrations` tables (columns: `id`, `migration_name`, `checksum`, `applied_at`, `run_id`, etc.).
-- [ ] Step 11.2: Create a shared `RuntimeMigrationStore` module in `@universo-react/migrations-core` with functions: `recordRuntimeMigrationRun(trx, schemaName, tableName, run)`, `listRuntimeHistory(executor, schemaName, tableName)`, `getLastApplied(executor, schemaName, tableName)`.
-- [ ] Step 11.3: Refactor `metahubs-backend` runtime migration path to use `RuntimeMigrationStore` instead of direct SQL against `_mhb_migrations`.
-- [ ] Step 11.4: Refactor `applications-backend` runtime migration path to use `RuntimeMigrationStore` instead of direct SQL against `_app_migrations`.
-- [ ] Step 11.5: Normalize global catalog write paths — both runtime flows must use the same `mirrorToGlobalCatalog()` helper.
-- [ ] Step 11.6: Evaluate whether the per-schema compatibility tables (`_mhb_migrations`, `_app_migrations`) can be replaced with a single `_runtime_migrations` table per dynamic schema, or if backward compatibility requires keeping separate names.
-- [ ] Step 11.7: Add regression tests proving that history queries return identical shapes from both paths.
+-   [ ] Step 11.1: Extract a shared `RuntimeMigrationHistory` interface in `@universo-react/migrations-core` that describes the common shape of `_mhb_migrations` and `_app_migrations` tables (columns: `id`, `migration_name`, `checksum`, `applied_at`, `run_id`, etc.).
+-   [ ] Step 11.2: Create a shared `RuntimeMigrationStore` module in `@universo-react/migrations-core` with functions: `recordRuntimeMigrationRun(trx, schemaName, tableName, run)`, `listRuntimeHistory(executor, schemaName, tableName)`, `getLastApplied(executor, schemaName, tableName)`.
+-   [ ] Step 11.3: Refactor `metahubs-backend` runtime migration path to use `RuntimeMigrationStore` instead of direct SQL against `_mhb_migrations`.
+-   [ ] Step 11.4: Refactor `applications-backend` runtime migration path to use `RuntimeMigrationStore` instead of direct SQL against `_app_migrations`.
+-   [ ] Step 11.5: Normalize global catalog write paths — both runtime flows must use the same `mirrorToGlobalCatalog()` helper.
+-   [ ] Step 11.6: Evaluate whether the per-schema compatibility tables (`_mhb_migrations`, `_app_migrations`) can be replaced with a single `_runtime_migrations` table per dynamic schema, or if backward compatibility requires keeping separate names.
+-   [ ] Step 11.7: Add regression tests proving that history queries return identical shapes from both paths.
 
 **Exit gate**: Runtime migration recording code is shared, DRY, and tested. Both paths write to the global catalog identically.
 
@@ -979,19 +991,19 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 12.1: Define a `DefinitionArtifact` interface in `@universo-react/migrations-catalog` representing a single schema definition unit (table, index, RLS policy, seed data). Fields: `kind`, `name`, `schemaQualifiedName`, `sql`, `checksum`, `dependencies[]`.
-- [ ] Step 12.2: Add a `definitions` table to the catalog schema (`upl_migrations.definitions`) storing: `id`, `artifact_kind`, `schema_name`, `name`, `sql_hash`, `sql_content`, `source` (file|db|editor), `created_at`, `updated_at`.
-- [ ] Step 12.3: Implement `registerDefinition(trx, artifact)` and `listDefinitions(executor, filter)` in `@universo-react/migrations-catalog`.
-- [ ] Step 12.4: Implement round-trip: `exportDefinitions(executor, schemaName) → DefinitionArtifact[]` (query live schema → produce artifacts) and `importDefinitions(trx, artifacts[]) → void` (write artifacts to definitions table).
-- [ ] Step 12.5: **Application-definition model**: Define the conceptual mapping where a Metahub template = an application definition template. Concretely:
-  - Rename/alias `metahubs.templates` as the canonical "definition template" registry.
-  - Add a `definition_type` column (or enum) to distinguish: `metahub_template`, `application_template`, `custom`.
-  - Ensure the `template_versions.manifest_json` structure can describe both Metahub-specific manifest and generic application manifest.
-- [ ] Step 12.6: Add a migration that extends `metahubs.templates` with `definition_type` column (default: `metahub_template` for backward compatibility).
-- [ ] Step 12.7: Update `TemplateSeeder` to set `definition_type = 'metahub_template'` on seeded templates.
-- [ ] Step 12.8: Document the application-definition model in `systemPatterns.md`: how Metahubs are a specialization of a generic application-definition pattern, and how templates will eventually support non-Metahub definitions.
-- [ ] Step 12.9: Prepare for future editor flow — add a `definitions_draft` table (same schema as `definitions` but with `status: draft|review|published`) to support the upcoming definition editor UI. No editor UI in this task.
-- [ ] Step 12.10: Add tests for definition registry CRUD and round-trip export/import.
+-   [ ] Step 12.1: Define a `DefinitionArtifact` interface in `@universo-react/migrations-catalog` representing a single schema definition unit (table, index, RLS policy, seed data). Fields: `kind`, `name`, `schemaQualifiedName`, `sql`, `checksum`, `dependencies[]`.
+-   [ ] Step 12.2: Add a `definitions` table to the catalog schema (`upl_migrations.definitions`) storing: `id`, `artifact_kind`, `schema_name`, `name`, `sql_hash`, `sql_content`, `source` (file|db|editor), `created_at`, `updated_at`.
+-   [ ] Step 12.3: Implement `registerDefinition(trx, artifact)` and `listDefinitions(executor, filter)` in `@universo-react/migrations-catalog`.
+-   [ ] Step 12.4: Implement round-trip: `exportDefinitions(executor, schemaName) → DefinitionArtifact[]` (query live schema → produce artifacts) and `importDefinitions(trx, artifacts[]) → void` (write artifacts to definitions table).
+-   [ ] Step 12.5: **Application-definition model**: Define the conceptual mapping where a Metahub template = an application definition template. Concretely:
+    -   Rename/alias `metahubs.templates` as the canonical "definition template" registry.
+    -   Add a `definition_type` column (or enum) to distinguish: `metahub_template`, `application_template`, `custom`.
+    -   Ensure the `template_versions.manifest_json` structure can describe both Metahub-specific manifest and generic application manifest.
+-   [ ] Step 12.6: Add a migration that extends `metahubs.templates` with `definition_type` column (default: `metahub_template` for backward compatibility).
+-   [ ] Step 12.7: Update `TemplateSeeder` to set `definition_type = 'metahub_template'` on seeded templates.
+-   [ ] Step 12.8: Document the application-definition model in `systemPatterns.md`: how Metahubs are a specialization of a generic application-definition pattern, and how templates will eventually support non-Metahub definitions.
+-   [ ] Step 12.9: Prepare for future editor flow — add a `definitions_draft` table (same schema as `definitions` but with `status: draft|review|published`) to support the upcoming definition editor UI. No editor UI in this task.
+-   [ ] Step 12.10: Add tests for definition registry CRUD and round-trip export/import.
 
 **Exit gate**: Definitions can be stored, exported, and imported. Template model supports `definition_type`. No editor UI, but the data layer is ready.
 
@@ -1001,10 +1013,10 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 13.1: Run full test system (see Section 6).
-- [ ] Step 13.2: Fresh-database acceptance test (see Section 6.6).
-- [ ] Step 13.3: Performance regression baseline.
-- [ ] Step 13.4: Update all memory-bank files.
+-   [ ] Step 13.1: Run full test system (see Section 6).
+-   [ ] Step 13.2: Fresh-database acceptance test (see Section 6.6).
+-   [ ] Step 13.3: Performance regression baseline.
+-   [ ] Step 13.4: Update all memory-bank files.
 
 ---
 
@@ -1333,64 +1345,64 @@ The roadmap is closed only when ALL of the following are true:
 
 ### Package-level gates
 
-- [ ] `packages/universo-react-applications-backend/base/src/database` directory does not exist
-- [ ] `packages/universo-react-metahubs-backend/base/src/database` directory does not exist
-- [ ] `packages/universo-react-applications-backend/base/package.json` has no `typeorm` dependency
-- [ ] `packages/universo-react-metahubs-backend/base/package.json` has no `typeorm` dependency
-- [ ] `rg "typeorm" packages/universo-react-applications-backend/base/src/` returns 0 matches
-- [ ] `rg "typeorm" packages/universo-react-metahubs-backend/base/src/` returns 0 matches
+-   [ ] `packages/universo-react-applications-backend/base/src/database` directory does not exist
+-   [ ] `packages/universo-react-metahubs-backend/base/src/database` directory does not exist
+-   [ ] `packages/universo-react-applications-backend/base/package.json` has no `typeorm` dependency
+-   [ ] `packages/universo-react-metahubs-backend/base/package.json` has no `typeorm` dependency
+-   [ ] `rg "typeorm" packages/universo-react-applications-backend/base/src/` returns 0 matches
+-   [ ] `rg "typeorm" packages/universo-react-metahubs-backend/base/src/` returns 0 matches
 
 ### Transport-level gates
 
-- [ ] Request-scoped DB execution for applications/metahubs does not use `QueryRunner` directly
-- [ ] `req.dbContext` for migrated packages exposes only neutral `DbSession`/`DbExecutor` (no `EntityManager`)
-- [ ] TypeORM `EntityManager` is accessible only via `@universo-react/utils/database/legacy` for admin/profile
-- [ ] Pool budget is documented and rational (single Knex pool + TypeORM reduced to admin/profile)
+-   [ ] Request-scoped DB execution for applications/metahubs does not use `QueryRunner` directly
+-   [ ] `req.dbContext` for migrated packages exposes only neutral `DbSession`/`DbExecutor` (no `EntityManager`)
+-   [ ] TypeORM `EntityManager` is accessible only via `@universo-react/utils/database/legacy` for admin/profile
+-   [ ] Pool budget is documented and rational (single Knex pool + TypeORM reduced to admin/profile)
 
 ### Behavioral gates
 
-- [ ] `metahubs` platform schema matches expected native SQL exactly
-- [ ] `applications` platform schema matches expected native SQL exactly
-- [ ] Runtime `mhb_*` and `app_*` schema flows still work
-- [ ] Template seeding still works on fresh database
-- [ ] Application creation via publication connector still works
-- [ ] Copy/delete flows still work with correct atomicity
+-   [ ] `metahubs` platform schema matches expected native SQL exactly
+-   [ ] `applications` platform schema matches expected native SQL exactly
+-   [ ] Runtime `mhb_*` and `app_*` schema flows still work
+-   [ ] Template seeding still works on fresh database
+-   [ ] Application creation via publication connector still works
+-   [ ] Copy/delete flows still work with correct atomicity
 
 ### Test gates
 
-- [ ] Unit tests for all new store modules pass
-- [ ] Route integration tests pass (existing 26 + new metahubs tests)
-- [ ] Database-backed integration tests pass
-- [ ] Schema parity tests pass
-- [ ] Fresh-database acceptance test passes
-- [ ] Root `pnpm build` passes (all packages)
-- [ ] `pnpm --filter @universo-react/applications-backend test` passes
-- [ ] `pnpm --filter @universo-react/metahubs-backend test` passes
+-   [ ] Unit tests for all new store modules pass
+-   [ ] Route integration tests pass (existing 26 + new metahubs tests)
+-   [ ] Database-backed integration tests pass
+-   [ ] Schema parity tests pass
+-   [ ] Fresh-database acceptance test passes
+-   [ ] Root `pnpm build` passes (all packages)
+-   [ ] `pnpm --filter @universo-react/applications-backend test` passes
+-   [ ] `pnpm --filter @universo-react/metahubs-backend test` passes
 
 ### Documentation gates
 
-- [ ] Package READMEs updated (no TypeORM usage instructions)
-- [ ] `memory-bank/systemPatterns.md` updated (RLS pattern, repository pattern, application-definition model)
-- [ ] `memory-bank/techContext.md` updated (pool budget, transport change)
-- [ ] Application-definition conceptual model documented in `systemPatterns.md`
+-   [ ] Package READMEs updated (no TypeORM usage instructions)
+-   [ ] `memory-bank/systemPatterns.md` updated (RLS pattern, repository pattern, application-definition model)
+-   [ ] `memory-bank/techContext.md` updated (pool budget, transport change)
+-   [ ] Application-definition conceptual model documented in `systemPatterns.md`
 
 ---
 
 ## 8. Recommended PR Slices
 
-| PR | Batch | Title | Risk |
-|----|-------|-------|------|
-| PR-1 | 1–2 | Finish applications-backend TypeORM removal | Low |
-| PR-2 | 3 | Isolate TypeORM from shared request DB contract | Medium |
-| PR-3 | 4–5 | Metahubs persistence foundations + TemplateSeeder | Low |
-| PR-4 | 6 | Port cross-package entity imports to SQL + extract shared enums | Medium |
-| PR-5 | 7 | Port metahubs route factories to neutral DbExecutor contract | Medium |
-| PR-6 | 8 | Port metahubs services | Medium |
-| PR-7 | 9 | Delete metahubs-backend/src/database | Low |
-| PR-8 | 10 | Remove RequestDbContext.manager, create legacy subpath | Medium |
-| PR-9 | 11 | Unify runtime migration history contracts | Medium |
-| PR-10 | 12 | Definition registry + application-definition model | Medium |
-| PR-11 | 13 | Full acceptance closure | Low |
+| PR    | Batch | Title                                                           | Risk   |
+| ----- | ----- | --------------------------------------------------------------- | ------ |
+| PR-1  | 1–2   | Finish applications-backend TypeORM removal                     | Low    |
+| PR-2  | 3     | Isolate TypeORM from shared request DB contract                 | Medium |
+| PR-3  | 4–5   | Metahubs persistence foundations + TemplateSeeder               | Low    |
+| PR-4  | 6     | Port cross-package entity imports to SQL + extract shared enums | Medium |
+| PR-5  | 7     | Port metahubs route factories to neutral DbExecutor contract    | Medium |
+| PR-6  | 8     | Port metahubs services                                          | Medium |
+| PR-7  | 9     | Delete metahubs-backend/src/database                            | Low    |
+| PR-8  | 10    | Remove RequestDbContextprivate Manager, create legacy subpath   | Medium |
+| PR-9  | 11    | Unify runtime migration history contracts                       | Medium |
+| PR-10 | 12    | Definition registry + application-definition model              | Medium |
+| PR-11 | 13    | Full acceptance closure                                         | Low    |
 
 **Order is mandatory**: Each PR depends on the previous one being merged and validated.
 
@@ -1405,6 +1417,7 @@ The roadmap is closed only when ALL of the following are true:
 ## Appendix A: Files To Delete
 
 ### applications-backend/src/database/
+
 ```
 entities/Application.ts
 entities/ApplicationUser.ts
@@ -1414,6 +1427,7 @@ entities/index.ts
 ```
 
 ### metahubs-backend/src/database/
+
 ```
 entities/Metahub.ts
 entities/MetahubBranch.ts
@@ -1428,18 +1442,21 @@ entities/index.ts  (if exists)
 ## Appendix B: Pool Budget After TypeORM Removal
 
 **Current**:
+
 ```
 Knex: max(4, floor(budget/3))  — DDL, advisory locks, schema inspection
 TypeORM: budget - knexReserve  — RLS QueryRunners, entity CRUD
 ```
 
 **After** (applications + metahubs migrated):
+
 ```
 Knex: budget                    — everything (DDL, RLS, queries)
 TypeORM: reduced to admin/profile only, or eliminated entirely
 ```
 
 If admin/profile are also migrated later, TypeORM pool can be removed entirely, simplifying:
+
 ```
 Knex: budget                    — single pool for all DB operations
 TypeORM: 0                      — removed from project
@@ -1450,14 +1467,16 @@ TypeORM: 0                      — removed from project
 **Knex issue #6220**: Warns about RLS leakage when using connection pool. If `set_config` is session-scoped and the connection returns to the pool without reset, the next request inherits stale claims.
 
 **Mitigation** (already in place):
+
 1. Reset `request.jwt.claims` to empty string before releasing connection
 2. Use connection-level cleanup via `res.once('finish')` and `res.once('close')`
 3. Guard against double-cleanup with `cleanupStarted` flag
 
 **Best practice from web search**:
-- Use dedicated connection per request (not shared from default pool)
-- Always reset session variables before releasing
-- Consider transaction-local settings (`set_config(..., true)`) for individual atomic operations within the request
+
+-   Use dedicated connection per request (not shared from default pool)
+-   Always reset session variables before releasing
+-   Consider transaction-local settings (`set_config(..., true)`) for individual atomic operations within the request
 
 This matches the current implementation's design and should be preserved in the Knex migration.
 
@@ -1465,12 +1484,12 @@ This matches the current implementation's design and should be preserved in the 
 
 These packages still use TypeORM after this plan is completed. They are intentionally excluded from scope but documented for future planning.
 
-| Package | TypeORM usage | Migration priority |
-|---------|--------------|-------------------|
-| `admin-backend` | Repository pattern (`getRequestManager`, `In` operator, `QueryBuilder`), 6+ route files, `globalAccessService.ts` | Medium — after this plan completes |
-| `profile-backend` | `Repository<Profile>`, `DataSource`, controller/service layer | Low — small surface |
-| `start-backend` | `import type { DataSource }` in 2 route files | Low — type-only imports |
-| `auth-backend` | `QueryRunner` in `ensureAuthWithRls.ts` (internal implementation detail after Batch 3) | Deferred — replaced when full Knex transport lands |
-| `universo-utils` | `database/legacy` subpath (created in Batch 10), `database/userLookup.ts` | Deferred — removed when all consumers migrate |
-| `universo-migrations-platform` | `typeormAdapter.ts` — intentionally kept for TypeORM-era migration compatibility | Permanent — legacy adapter |
-| `universo-core-backend` | `DataSource.ts`, `rlsHelpers.ts`, entity registry (admin only after Batches 2+9) | Reduces naturally as packages migrate |
+| Package                        | TypeORM usage                                                                                                     | Migration priority                                 |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `admin-backend`                | Repository pattern (`getRequestManager`, `In` operator, `QueryBuilder`), 6+ route files, `globalAccessService.ts` | Medium — after this plan completes                 |
+| `profile-backend`              | `Repository<Profile>`, `DataSource`, controller/service layer                                                     | Low — small surface                                |
+| `start-backend`                | `import type { DataSource }` in 2 route files                                                                     | Low — type-only imports                            |
+| `auth-backend`                 | `QueryRunner` in `ensureAuthWithRls.ts` (internal implementation detail after Batch 3)                            | Deferred — replaced when full Knex transport lands |
+| `universo-utils`               | `database/legacy` subpath (created in Batch 10), `database/userLookup.ts`                                         | Deferred — removed when all consumers migrate      |
+| `universo-migrations-platform` | `typeormAdapter.ts` — intentionally kept for TypeORM-era migration compatibility                                  | Permanent — legacy adapter                         |
+| `universo-core-backend`        | `DataSource.ts`, `rlsHelpers.ts`, entity registry (admin only after Batches 2+9)                                  | Reduces naturally as packages migrate              |

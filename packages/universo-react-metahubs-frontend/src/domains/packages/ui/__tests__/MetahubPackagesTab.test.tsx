@@ -544,7 +544,7 @@ describe('MetahubPackagesTab', () => {
         await user.click(screen.getByRole('option', { name: 'Адрес разработки' }))
         await user.type(screen.getByLabelText('Адрес разработки'), 'http://localhost:5100/editor')
         await user.click(screen.getByRole('switch', { name: 'Показывать статус артефакта' }))
-        await user.click(screen.getByRole('button', { name: 'Сохранить настройки' }))
+        await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 
         await waitFor(() => {
             expect(packagesApi.updateConfig).toHaveBeenCalledWith('metahub-1', 'attach-playcanvas-editor', {
@@ -555,7 +555,80 @@ describe('MetahubPackagesTab', () => {
                         mode: 'developmentUrl',
                         developmentUrl: 'http://localhost:5100/editor',
                         showArtifactOnlyNotice: false
-                    }
+                    },
+                    playcanvasProject: { defaultProjectId: null }
+                }
+            })
+        })
+    })
+
+    it('saves the default PlayCanvas project from the package settings dialog without showing raw ids', async () => {
+        const user = userEvent.setup()
+        const displayConfig: PackageAttachmentConfig = {
+            schemaVersion: '1',
+            kind: 'display',
+            display: {
+                mode: 'embeddedIframe',
+                developmentUrl: null,
+                showArtifactOnlyNotice: true
+            },
+            playcanvasProject: { defaultProjectId: null }
+        }
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
+        vi.mocked(packagesApi.listAttached).mockResolvedValue([playCanvasEditorAttachment(displayConfig)])
+        vi.mocked(packagesApi.getAuthoringHost).mockImplementation(async (_metahubId, _packageSlug) => {
+            const item = playCanvasEditorAttachment(displayConfig)
+            return {
+                packageSlug: 'playcanvas-editor',
+                packageName: item.packageName,
+                version: item.version,
+                displayName: item.displayName,
+                description: item.description,
+                attachmentConfig: item.config,
+                authoringSurface: item.authoringSurface,
+                allowedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'],
+                artifactStatus: 'available',
+                artifactUrl: '/api/v1/metahub/metahub-1/packages/playcanvas-editor/editor-artifact-token/test-token/index.html'
+            }
+        })
+        vi.mocked(playcanvasProjectsApi.list).mockResolvedValue([
+            {
+                id: '018f0000-0000-7000-8000-000000000010',
+                displayName: createLocalizedContent('ru', 'Полетная сцена'),
+                codename: createLocalizedContent('ru', 'poletnaya_scena'),
+                version: 1,
+                compatibilityStatus: 'compatible',
+                status: 'ready',
+                sceneCount: 1,
+                assetCount: 0,
+                scriptCount: 0,
+                generatedArtifactCount: 0,
+                publishable: true
+            }
+        ])
+
+        renderTab()
+
+        await user.click(await screen.findByRole('button', { name: 'Действия для PlayCanvas Editor' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Настройки' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Настройки отображения пакета' })
+        expect(within(dialog).queryByText('018f0000-0000-7000-8000-000000000010')).not.toBeInTheDocument()
+
+        await user.click(await within(dialog).findByLabelText('Проект по умолчанию'))
+        await user.click(screen.getByRole('option', { name: 'Полетная сцена' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Сохранить' }))
+
+        await waitFor(() => {
+            expect(packagesApi.updateConfig).toHaveBeenCalledWith('metahub-1', 'attach-playcanvas-editor', {
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'embeddedIframe',
+                        developmentUrl: null,
+                        showArtifactOnlyNotice: true
+                    },
+                    playcanvasProject: { defaultProjectId: '018f0000-0000-7000-8000-000000000010' }
                 }
             })
         })
@@ -634,7 +707,7 @@ describe('MetahubPackagesTab', () => {
         expect(screen.queryByLabelText('Адрес разработки')).not.toBeInTheDocument()
         expect(screen.getByRole('switch', { name: 'Показывать статус артефакта' })).toBeChecked()
 
-        await user.click(screen.getByRole('button', { name: 'Сохранить настройки' }))
+        await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 
         await waitFor(() => {
             expect(packagesApi.updateConfig).toHaveBeenCalledWith('metahub-1', 'attach-playcanvas-editor', {
@@ -645,7 +718,8 @@ describe('MetahubPackagesTab', () => {
                         mode: 'embeddedIframe',
                         developmentUrl: null,
                         showArtifactOnlyNotice: true
-                    }
+                    },
+                    playcanvasProject: { defaultProjectId: null }
                 }
             })
         })
@@ -664,7 +738,7 @@ describe('MetahubPackagesTab', () => {
         await user.type(screen.getByLabelText('Адрес разработки'), 'notaurl')
 
         expect(screen.getByText('Введите корректный адрес с http или https.')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Сохранить' })).toBeDisabled()
         expect(packagesApi.updateConfig).not.toHaveBeenCalled()
     })
 })

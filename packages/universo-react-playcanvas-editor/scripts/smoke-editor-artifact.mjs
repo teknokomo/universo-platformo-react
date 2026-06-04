@@ -9,6 +9,7 @@ import {
     assertNoNestedPackageManifests,
     assertNodeVersion,
     assertVendorMetadata,
+    bridgeBootstrapFileName,
     packageRoot,
     validateArtifactManifest
 } from './lib/playcanvas-editor-artifact.mjs'
@@ -39,6 +40,29 @@ requireFile('css/launch.css')
 
 const manifest = JSON.parse(fs.readFileSync(artifactManifestPath, 'utf8'))
 validateArtifactManifest(manifest)
+
+const indexHtml = fs.readFileSync(requireFile('index.html'), 'utf8')
+if (manifest.mode === 'universo-hosted') {
+    const bootstrapPath = requireFile(bridgeBootstrapFileName)
+    requireFile('js/playcanvas-engine.js')
+    requireFile('js/playcanvas-engine.d.ts')
+    if (!indexHtml.includes(bridgeBootstrapFileName) || !indexHtml.includes('./universo-bridge-bootstrap.js')) {
+        throw new Error('Universo hosted artifact is missing the bridge bootstrap script')
+    }
+    const bootstrapSource = fs.readFileSync(bootstrapPath, 'utf8')
+    if (!bootstrapSource.includes('playcanvas-engine.js')) {
+        throw new Error('Universo hosted artifact is missing the local engine contract URL')
+    }
+    if (!bootstrapSource.includes('editor.bootstrap.requestInit') || !bootstrapSource.includes('editor.bootstrap.init')) {
+        throw new Error('Universo hosted artifact must wait for the platform bootstrap descriptor before loading the editor')
+    }
+    if (/Artifact Unavailable|artifact-only integration surface/i.test(indexHtml)) {
+        throw new Error('Universo hosted artifact must not serve the artifact-only placeholder')
+    }
+}
+if (manifest.mode === 'artifact-only' && !/Artifact Unavailable|artifact-only integration surface/i.test(indexHtml)) {
+    throw new Error('Artifact-only mode must serve the safe unavailable placeholder')
+}
 
 const scannedExtensions = new Set(['.html', '.js', '.css'])
 const forbidden =

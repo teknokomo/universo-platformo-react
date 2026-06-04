@@ -19,7 +19,7 @@
         "jsx": "react-jsx",
         "allowJs": false,
         "baseUrl": "./src",
-        "ignoreDeprecations": "6.0",
+        "ignoreDeprecations": "5.0",
         "moduleResolution": "bundler",
         "noResolve": false,
         "types": ["node"]

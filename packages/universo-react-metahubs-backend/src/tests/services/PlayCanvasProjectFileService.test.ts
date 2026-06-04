@@ -93,6 +93,29 @@ describe('PlayCanvasProjectFileService', () => {
         expect(written.checksum).toBe(computePlayCanvasProjectFileChecksum('{"created":true}'))
     })
 
+    it('skips checksum-guarded deletes when newer content replaced the rollback candidate', async () => {
+        const sourcePath = 'playcanvas-projects/project/scenes/main.json'
+        const rollbackCandidate = await service.write(scope, sourcePath, '{"version":1}')
+        const newer = await service.write(scope, sourcePath, '{"version":2}', {
+            expectedCurrentChecksum: rollbackCandidate.checksum
+        })
+
+        await expect(service.deleteIfCurrentChecksum(scope, sourcePath, rollbackCandidate.checksum)).resolves.toBe(false)
+
+        const current = await service.read(scope, sourcePath)
+        expect(current.checksum).toBe(newer.checksum)
+        expect(current.content.toString('utf8')).toBe('{"version":2}')
+    })
+
+    it('deletes only when the current checksum still matches the rollback candidate', async () => {
+        const sourcePath = 'playcanvas-projects/project/scenes/main.json'
+        const rollbackCandidate = await service.write(scope, sourcePath, '{"version":1}')
+
+        await expect(service.deleteIfCurrentChecksum(scope, sourcePath, rollbackCandidate.checksum)).resolves.toBe(true)
+
+        await expect(service.stat(scope, sourcePath)).resolves.toMatchObject({ exists: false })
+    })
+
     it('rejects symlink escapes', async () => {
         const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'upl-playcanvas-outside-'))
         const branchRoot = service.branchRoot(scope)

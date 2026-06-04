@@ -55,6 +55,89 @@
 
 ---
 
+## 2026-06-04 - PlayCanvas Editor Bridge QA Round 4 Closure
+
+-   Closed the remaining bridge QA risks: recoverable 409 save conflicts no
+    longer switch the host into global bridge-error state, iframe-to-host
+    messages now require matching bridge `sessionId` and `nonce` before any
+    dirty/save handling, and frontend bridge POST failures map HTTP 419 to a
+    typed `csrfRequired` bridge error.
+-   Strengthened the hosted artifact and E2E evidence: artifact messages now
+    include session/nonce, Escape focus return ignores active dialogs and text
+    fields, the E2E flow uses the stable iframe test id, stages a visible
+    editor edit, saves through Ctrl/Meta+S, verifies reload persistence, checks
+    wrong session/nonce messages do not reach the bridge API, and confirms
+    save conflicts do not leave global artifact error markers.
+-   Verification passed: Prettier on touched files; `pnpm --filter
+@universo-react/playcanvas-editor editor:build`; `pnpm --filter
+@universo-react/playcanvas-editor test`; `pnpm --filter
+@universo-react/metahubs-frontend lint`; `pnpm --filter
+@universo-react/metahubs-frontend test -- src/domains/packages/api/__tests__/playcanvasEditorBridgeApi.test.ts
+--runInBand` with the package runner completing 76 files / 326 tests;
+    `pnpm --filter @universo-react/core-backend test -- --runInBand
+src/__tests__/csrf.test.ts`; `pnpm --filter
+@universo-react/playcanvas-editor editor:browser-smoke`; `git diff
+--check`; and local minimal Supabase Playwright Chromium packages flow with
+    2/2 tests passing.
+
+## 2026-06-04 - PlayCanvas Editor Host Settings QA Round 2 Closure
+
+-   Closed the manual QA findings that are in scope for the current hosted
+    fallback slice: project creation and package settings now use standard MUI
+    form sizing, the settings dialog exposes a localized default PlayCanvas
+    project selector, and the primary settings action is simply `Save`.
+-   The PlayCanvas Editor host now exposes a visible save action, prevents
+    host-level save shortcuts from falling through to browser Save Page, and
+    keeps iframe shortcut saves covered by bridge payload E2E proof.
+-   Open-separately mode now opens the final sandboxed editor host URL directly,
+    without the intermediate interstitial page.
+-   Backend hardening now treats artifact-only manifests as missing when
+    `universo-hosted` readiness is expected, and bridge scene saves are locked
+    to scene-owned payload paths.
+-   Test coverage now names the hosted fallback explicitly and no longer treats
+    the fallback `Add entity` control as proof of the full upstream PlayCanvas
+    Editor UI. Full upstream Editor hosting remains deferred to a separate
+    research/brief/plan.
+-   Verification passed: focused backend Jest, metahubs-frontend Vitest, package
+    lint/build checks, PlayCanvas Editor Vitest/build/browser smoke, targeted
+    Chromium packages/resources E2E on local minimal Supabase, `git diff
+--check`, and local autoreview with no accepted/actionable findings.
+
+## 2026-06-04 - PlayCanvas Editor Bridge QA Repair Closure
+
+-   Restored metadata-first scene save ordering for Editor bridge saves:
+    metadata is prepared before the file write, the ready marker is applied
+    after the write, and rollback errors no longer mask the primary failure.
+-   Made successful bridge request replay idempotent by returning the stored
+    response for duplicate request ids, while keeping failed or unsafe replay
+    paths fail-closed.
+-   Added localized host UX for dirty navigation protection, visible save
+    completion, and checksum/save-conflict recovery, including Playwright
+    evidence for the conflict dialog and guarded navigation path.
+-   Stabilized desktop/tablet/mobile PlayCanvas Editor browser smoke screenshot
+    capture and replaced the generic OpenAPI bridge endpoint with typed
+    request/response schemas in generated REST docs.
+-   Verification passed focused metahubs-backend bridge/storage/controller
+    Jest, metahubs-backend build, metahubs-frontend and core-frontend builds,
+    shared types tests, PlayCanvas Editor build/smoke/browser-smoke, OpenAPI
+    generation/build checks, `git diff --check`, and local minimal Supabase
+    Playwright Chromium `@packages` flow with 2/2 tests passing. The local
+    Supabase E2E profile was stopped after the run.
+
+## 2026-06-04 - PlayCanvas Editor Bridge Security Hardening
+
+-   Hardened the generated PlayCanvas Editor artifact bootstrap so inbound
+    `postMessage` traffic is accepted only from the parent frame after a
+    matching bootstrap request id, host source marker, trusted parent source,
+    and trusted parent origin are established.
+-   Added typed outer response markers for host-to-editor bridge responses and
+    made the artifact reject untrusted or mismatched bridge responses before
+    resolving pending commands.
+-   Verification passed: PlayCanvas Editor artifact build, artifact smoke,
+    desktop/tablet/mobile browser smoke with spoofed bootstrap and spoofed
+    bridge-response rejection assertions, metahubs-frontend build, Prettier, and
+    `git diff --check`.
+
 ## 2026-06-04 - Metahub Structure Baseline Reset
 
 -   Reset metahub branch structure numbering back to baseline
@@ -1169,7 +1252,7 @@ from their flat package roots.
 -   `pnpm --filter @universo-react/core-backend build`
 -   `pnpm check:no-package-base-paths`
 -   `find packages -mindepth 2 -maxdepth 2 -type d -name base -print`
--   `git grep -n -E 'packages/[A-Za-z0-9._-]+/base|packages/\*/base|/base/src|/base/package\.json|/base/README' -- . ':!memory-bank/**' ':!.manager/specs/**' ':!tools/fixtures/**'`
+-   `git grep -n -E 'packages/[A-Za-z0-9._-]+/base|packages/\*/base|/base/src|/base/package\.json|/base/README' -- . ':!memory-bank/**' ':!private Manager specs' ':!tools/fixtures/**'`
 -   `git diff --check`
 -   `pnpm exec turbo ls --output=json` (32 flat workspace packages)
 
@@ -2891,6 +2974,90 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
     reset remove temporary file-backed module sources without touching the
     manual `storage` source root.
 
+### 2026-06-04: PlayCanvas Editor Runtime Host Final Acceptance Closure
+
+-   Closed final bridge security and persistence blockers: replay rows no longer
+    depend on UUID-shaped auth user ids, replay responses are status-tagged,
+    production bridge/artifact HMAC secrets fail closed without explicit secret
+    configuration, and `scene.save` is restricted to the session's selected
+    default scene until scene-create capabilities are added.
+-   Reduced iframe credential exposure by keeping bridge session id and nonce in
+    bootstrap closure state instead of the public marker object, and documented
+    the `allow-same-origin` sandbox/CSP threat model for the tokenized artifact
+    route.
+-   Replaced parent-page debug payload staging in Playwright evidence with
+    iframe-visible Editor authoring actions. The artifact now serializes
+    entities through `entities:list`; when the upstream Editor entity API is not
+    initialized in sandboxed hosted mode, a hosted entity adapter registers the
+    same `editor.call('entities:new')`/`entities:list` methods, emits
+    `entities:add` dirty state, and saves through normal `scene.save`.
+-   Verification passed focused metahubs-backend bridge/controller/routes Jest
+    tests plus the expanded PlayCanvas projects service suite, metahubs-backend
+    lint, metahubs-frontend lint, PlayCanvas Editor Vitest, PlayCanvas Editor
+    artifact build, PlayCanvas Editor hosted browser smoke across
+    desktop/tablet/mobile with 18/18 tests, and local minimal Supabase
+    Playwright Chromium `@packages` flow with 2/2 tests passing. Final local
+    autoreview reported no accepted/actionable findings after the test callback
+    parameter blocker was fixed. The local Supabase E2E profile was stopped
+    after the final run.
+
+### 2026-06-04: PlayCanvas Editor Runtime Host, Bridge, and Storage Adapter
+
+-   Implemented the first real Universo-backed PlayCanvas Editor authoring
+    slice: hosted `universo-hosted` artifact mode, tokenized metahub artifact
+    host URLs, typed bridge contracts, manager-only bridge command API, and
+    scene read/save hooks through the existing PlayCanvas project storage
+    model.
+-   Added shared bridge schemas in `@universo-react/types`, backend HMAC bridge
+    sessions with replay protection, safe Zod parsing/error responses, package
+    authoring host descriptors, and OpenAPI coverage for the bridge command
+    route.
+-   Integrated the metahub PlayCanvas Editor host UI with TanStack Query,
+    localized EN/RU safe states, existing MUI dialog primitives, iframe
+    postMessage handling, dirty-state reporting, and real hosted artifact
+    rendering for embedded and open-separately display modes.
+-   Hardened artifact hosting for real iframe use: CSP/referrer/nosniff/cache
+    headers, `allow-scripts allow-same-origin` sandbox contract required by the
+    upstream Editor's `localStorage`, Worker, fetch, and service-worker probes,
+    plus a hosted no-op service-worker shim to avoid registering workers in the
+    platform iframe.
+-   Updated package READMEs and GitBook EN/RU PlayCanvas Editor docs for the
+    hosted artifact, bridge, metahub storage adapter, and sandbox contract.
+-   Follow-up bridge closure hardened request-bound iframe bootstrap, replay
+    cleanup after transient save failures, metadata-first scene save conflict
+    handling with guarded file writes, iframe leakage diagnostics, and the
+    explicit `Escape` focus return path from the Editor iframe to the host Back
+    to packages action.
+-   Verification passed focused shared types tests/build, PlayCanvas Editor
+    artifact script smoke and 15-test browser smoke across
+    desktop/tablet/mobile, metahubs-backend focused controller/session/service
+    tests and build, metahubs-frontend/core-frontend builds, OpenAPI
+    generation/validation, full local minimal Supabase E2E build, and
+    Playwright Chromium `@packages` flow with 2/2 tests passing. The local
+    Supabase E2E profile was stopped after the run.
+
+### 2026-06-04: PlayCanvas Editor Bridge QA Round 2 Closure
+
+-   Hardened iframe-originated bridge command handling so missing or invalid
+    UUID v7 request ids fail closed instead of being repaired by the MUI host.
+-   Hardened authoring host origin derivation with
+    `PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN`, stopped trusting forwarded origin
+    headers by default, and documented the trusted-proxy opt-in contract for the
+    same-origin sandbox decision.
+-   Closed OpenAPI schema drift for PlayCanvas package display settings and
+    authoring host `playcanvasEditor` descriptors.
+-   Added negative token-tampering browser evidence while preserving the
+    intended cookie-less artifact asset load path for iframes.
+-   Verified checksum-guarded rollback delete and scene-owned existing payload
+    file validation with focused backend regressions.
+-   Verification passed focused backend tests, shared types tests,
+    metahubs-backend/metahubs-frontend/core-frontend builds, rest-docs build,
+    PlayCanvas Editor artifact smoke and 15-test browser smoke, targeted
+    Prettier, and local minimal Supabase Playwright Chromium `@packages` E2E
+    with 2/2 tests passing. Final local autoreview reported no
+    accepted/actionable findings. The local Supabase E2E profile was stopped
+    after the run.
+
 ### 2026-06-03: PlayCanvas Project Storage Model Implementation Closure
 
 -   Implemented the metahub PlayCanvas project storage model across shared
@@ -2955,6 +3122,30 @@ tools/lint-db-access.mjs`; `git diff --check`; local minimal Supabase
     the adapter-facing `outputFile` object.
 -   Final local autoreview passed clean with no accepted/actionable findings
     after the QA repair loop.
+
+### 2026-06-04: PlayCanvas Editor Runtime Host QA Closure
+
+-   Closed the QA findings for the PlayCanvas Editor runtime host, bridge, and
+    storage adapter slice.
+-   Bridge replay completion is now fail-closed after successful mutating
+    commands: a replay-completion storage failure no longer releases a claim
+    for a completed save, and a focused controller regression locks this
+    behavior.
+-   PlayCanvas project and asset file delete APIs now require and pass an
+    `expectedCurrentChecksum`; service deletion uses checksum-guarded physical
+    removal and restores metadata when a stale delete is rejected.
+-   The hosted artifact fallback now exposes a user-facing `Add entity` control
+    that works across desktop, tablet, and mobile iframe viewports. Platform E2E
+    uses user-facing Editor controls for scene mutation and keeps serialization
+    as a read-only oracle.
+-   Playwright evidence now covers approved non-resizable `StandardDialog`
+    dirty/conflict dialogs plus Russian host lifecycle states for save success,
+    save conflict, dirty navigation, and iframe load failure.
+-   Verification passed: focused metahubs-backend Jest, metahubs-backend and
+    metahubs-frontend lint, PlayCanvas Editor Vitest, artifact build, artifact
+    browser smoke across desktop/tablet/mobile, local minimal Supabase
+    `build:e2e:local-supabase`, targeted Chromium packages/resources E2E, and
+    local E2E Supabase shutdown.
 
 ### 2026-06-03: PlayCanvas Project Storage Model Final Autoreview Closure
 

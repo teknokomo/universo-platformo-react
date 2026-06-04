@@ -3,6 +3,8 @@ import type {
     PlayCanvasAsset,
     PlayCanvasGeneratedArtifact,
     PlayCanvasFileReference,
+    PlayCanvasEditorMinimalAssetMetadata,
+    PlayCanvasEditorScenePayload,
     PlayCanvasProjectSummary,
     PlayCanvasRuntimeManifest,
     PlayCanvasScene,
@@ -12,14 +14,16 @@ import type {
 } from '@universo-react/types'
 import {
     PLAYCANVAS_PROJECT_FILE_ROOT,
+    PLAYCANVAS_PROJECT_SCHEMA_VERSION,
     isPlayCanvasAssetFileReference,
     isPlayCanvasGeneratedArtifactFileReference,
     isPlayCanvasJsonFileReference,
     isPlayCanvasScenePayloadFileReference,
     isPlayCanvasScriptFileReference
 } from '@universo-react/types'
+import { playCanvasEditorScenePayloadSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
-import { createCodenameVLC, OptimisticLockError } from '@universo-react/utils'
+import { createCodenameVLC, createLocalizedContent, generateUuidV7, OptimisticLockError } from '@universo-react/utils'
 import type { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubValidationError } from '../../shared/domainErrors'
 import { createLogger } from '../../../utils/logger'
@@ -47,6 +51,7 @@ import {
     listPlayCanvasProjectCodenamesByPrefix,
     restoreSoftDeletedPlayCanvasProject,
     softDeletePlayCanvasProject,
+    softDeletePlayCanvasScene,
     summarizePlayCanvasProject,
     updatePlayCanvasProject,
     upsertPlayCanvasAsset,
@@ -124,6 +129,77 @@ export class PlayCanvasProjectsService {
         return summarizePlayCanvasProject(this.exec, schemaName, row)
     }
 
+    async loadSelectedProjectForEditor(metahubId: string, projectId: string, userId: string): Promise<PlayCanvasProjectSummary> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        let row = await findPlayCanvasProject(this.exec, schemaName, projectId)
+        if (!row) {
+            throw new MetahubValidationError('PlayCanvas project was not found', {
+                messageCode: 'playcanvas.projects.notFound',
+                projectId
+            })
+        }
+        if (row.defaultSceneId) {
+            return summarizePlayCanvasProject(this.exec, schemaName, row)
+        }
+
+        const sceneId = row.id
+        let scene = await findPlayCanvasScene(this.exec, schemaName, row.id, sceneId)
+        if (!scene) {
+            scene =
+                (await upsertPlayCanvasScene(
+                    this.exec,
+                    schemaName,
+                    row.id,
+                    {
+                        id: sceneId,
+                        codename: createCodenameVLC('en', 'main-scene'),
+                        displayName: createLocalizedContent('en', 'Main Scene'),
+                        payloadSchemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                        payload: {
+                            schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                            entities: []
+                        },
+                        payloadFile: null,
+                        checksum: null,
+                        sortOrder: 0,
+                        publish: true
+                    },
+                    userId
+                )) ?? (await findPlayCanvasScene(this.exec, schemaName, row.id, sceneId))
+        }
+        if (!scene) {
+            throw new MetahubValidationError('PlayCanvas project default scene could not be initialized', {
+                messageCode: 'playcanvas.projectDefaultSceneInitFailed',
+                projectId
+            })
+        }
+
+        row = (await findPlayCanvasProject(this.exec, schemaName, projectId)) ?? row
+        if (row.defaultSceneId) {
+            return summarizePlayCanvasProject(this.exec, schemaName, row)
+        }
+
+        const updated = await updatePlayCanvasProject(
+            this.exec,
+            schemaName,
+            row.id,
+            {
+                defaultSceneId: scene.id,
+                expectedVersion: row.version
+            },
+            userId
+        )
+        if (updated) {
+            return summarizePlayCanvasProject(this.exec, schemaName, updated)
+        }
+
+        const latest = await findPlayCanvasProject(this.exec, schemaName, projectId)
+        if (latest?.defaultSceneId) {
+            return summarizePlayCanvasProject(this.exec, schemaName, latest)
+        }
+        throw this.optimisticError(row.id, row.version)
+    }
+
     async createProject(metahubId: string, input: CreatePlayCanvasProjectRequest, userId: string): Promise<PlayCanvasProjectSummary> {
         const schemaName = await this.resolveSchemaName(metahubId)
         const codename =
@@ -145,7 +221,41 @@ export class PlayCanvasProjectsService {
             },
             userId
         )
-        return summarizePlayCanvasProject(this.exec, schemaName, row)
+        const sceneId = generateUuidV7()
+        const scene = await upsertPlayCanvasScene(
+            this.exec,
+            schemaName,
+            row.id,
+            {
+                id: sceneId,
+                codename: createCodenameVLC(input.displayName._primary, 'main-scene'),
+                displayName: createLocalizedContent(input.displayName._primary, 'Main Scene'),
+                payloadSchemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                payload: {
+                    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                    entities: []
+                },
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true
+            },
+            userId
+        )
+        const updated = await updatePlayCanvasProject(
+            this.exec,
+            schemaName,
+            row.id,
+            {
+                defaultSceneId: scene.id,
+                expectedVersion: row.version
+            },
+            userId
+        )
+        if (!updated) {
+            throw this.optimisticError(row.id, row.version)
+        }
+        return summarizePlayCanvasProject(this.exec, schemaName, updated)
     }
 
     private async createUniqueProjectCodename(
@@ -184,6 +294,44 @@ export class PlayCanvasProjectsService {
         return scene
     }
 
+    async readEditorScene(
+        metahubId: string,
+        projectId: string,
+        sceneId: string,
+        userId: string
+    ): Promise<{ scene: PlayCanvasScene & { version: number }; payload: PlayCanvasEditorScenePayload | null }> {
+        const scene = await this.getScene(metahubId, projectId, sceneId, userId)
+        if (!scene.payloadFile?.path) {
+            if (!scene.payload) {
+                return { scene, payload: null }
+            }
+            const parsed = playCanvasEditorScenePayloadSchema.safeParse(scene.payload)
+            if (!parsed.success) {
+                throw new MetahubValidationError('PlayCanvas editor scene payload is not supported', {
+                    messageCode: 'playcanvas.editor.scenePayloadUnsupported'
+                })
+            }
+            return { scene, payload: parsed.data }
+        }
+
+        const file = await this.readProjectFile(metahubId, projectId, scene.payloadFile.path, userId)
+        let raw: unknown
+        try {
+            raw = JSON.parse(Buffer.from(file.contentBase64, 'base64').toString('utf8')) as unknown
+        } catch {
+            throw new MetahubValidationError('PlayCanvas editor scene payload is not supported', {
+                messageCode: 'playcanvas.editor.scenePayloadUnsupported'
+            })
+        }
+        const parsed = playCanvasEditorScenePayloadSchema.safeParse(raw)
+        if (!parsed.success) {
+            throw new MetahubValidationError('PlayCanvas editor scene payload is not supported', {
+                messageCode: 'playcanvas.editor.scenePayloadUnsupported'
+            })
+        }
+        return { scene: { ...scene, checksum: file.checksum }, payload: parsed.data }
+    }
+
     async writeScene(
         metahubId: string,
         projectId: string,
@@ -200,10 +348,142 @@ export class PlayCanvasProjectsService {
         return scene
     }
 
+    async saveEditorScene(
+        metahubId: string,
+        projectId: string,
+        sceneId: string,
+        input: {
+            payload: PlayCanvasEditorScenePayload
+            expectedCurrentChecksum: string | null
+        },
+        userId: string
+    ): Promise<{ scene: PlayCanvasScene & { version: number }; checksum: string | null }> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        await this.requireProject(schemaName, projectId)
+        const existing = await findPlayCanvasScene(this.exec, schemaName, projectId, sceneId)
+        const existingPayloadFile = this.assertScenePayloadFileReference(projectId, existing?.payloadFile)
+        const payloadFilePath = existingPayloadFile?.path ?? this.fileService.buildDefaultScenePath(projectId, sceneId)
+        const safePath = this.assertEditorScenePayloadPath(projectId, sceneId, payloadFilePath)
+        assertPlayCanvasProjectMimeForPath(safePath, 'application/json')
+        const scope = { metahubId, branchSlug: schemaName }
+        const previous = await this.readFileForRollback(scope, safePath)
+        const preparedPayloadFile: PlayCanvasFileReference = {
+            provider: existingPayloadFile?.provider ?? 'local',
+            root: existingPayloadFile?.root ?? PLAYCANVAS_PROJECT_FILE_ROOT,
+            path: safePath,
+            mime: 'application/json',
+            hash: existingPayloadFile?.hash ?? null,
+            size: existingPayloadFile?.size ?? null,
+            status: 'missing'
+        }
+        let prepared: (PlayCanvasScene & { version: number }) | null = null
+        let written: { sourcePath: string; checksum: string; size: number; mime: string | null } | null = null
+        try {
+            prepared = await upsertPlayCanvasScene(
+                this.exec,
+                schemaName,
+                projectId,
+                {
+                    id: sceneId,
+                    codename: existing?.codename ?? createCodenameVLC('en', `scene-${sceneId.slice(0, 8)}`),
+                    displayName: existing?.displayName ?? createLocalizedContent('en', 'PlayCanvas Scene'),
+                    payloadSchemaVersion: input.payload.schemaVersion,
+                    payload: null,
+                    payloadFile: preparedPayloadFile,
+                    checksum: existing?.checksum ?? null,
+                    sortOrder: existing?.sortOrder ?? 0,
+                    publish: existing?.publish ?? true,
+                    expectedVersion: existing?.version
+                },
+                userId
+            )
+            if (!prepared) {
+                throw this.metadataUpdateError(projectId, safePath)
+            }
+            written = await this.fileService.write(scope, safePath, Buffer.from(JSON.stringify(input.payload), 'utf8'), {
+                expectedCurrentChecksum: input.expectedCurrentChecksum,
+                mime: 'application/json'
+            })
+            const marked = await markPlayCanvasProjectFileReferenceReady(this.exec, schemaName, projectId, safePath, written, userId)
+            if (!marked) {
+                throw this.metadataUpdateError(projectId, safePath)
+            }
+            const metadata = await findPlayCanvasScene(this.exec, schemaName, projectId, sceneId)
+            if (!metadata) {
+                throw this.metadataUpdateError(projectId, safePath)
+            }
+            return {
+                scene: metadata,
+                checksum: written.checksum
+            }
+        } catch (error) {
+            if (written) {
+                await this.rollbackFileWrite(scope, safePath, written.checksum, previous, 'application/json').catch((rollbackError) => {
+                    log.warn('Failed to rollback PlayCanvas editor scene file after save failure', {
+                        metahubId,
+                        schemaName,
+                        projectId,
+                        sceneId,
+                        sourcePath: safePath,
+                        rollbackError
+                    })
+                })
+            }
+            if (prepared) {
+                await this.rollbackEditorSceneMetadata(schemaName, projectId, sceneId, existing, prepared.version, userId).catch(
+                    (rollbackError) => {
+                        log.warn('Failed to rollback PlayCanvas editor scene metadata after save failure', {
+                            metahubId,
+                            schemaName,
+                            projectId,
+                            sceneId,
+                            sourcePath: safePath,
+                            rollbackError
+                        })
+                    }
+                )
+            }
+            throw error
+        }
+    }
+
     async listAssets(metahubId: string, projectId: string, _userId: string): Promise<(PlayCanvasAsset & { version: number })[]> {
         const schemaName = await this.resolveSchemaName(metahubId)
         await this.requireProject(schemaName, projectId)
         return listPlayCanvasAssets(this.exec, schemaName, projectId)
+    }
+
+    async listMinimalAssetsForEditorScene(
+        metahubId: string,
+        projectId: string,
+        sceneId: string,
+        userId: string
+    ): Promise<PlayCanvasEditorMinimalAssetMetadata[]> {
+        const [{ payload }, assets] = await Promise.all([
+            this.readEditorScene(metahubId, projectId, sceneId, userId),
+            this.listAssets(metahubId, projectId, userId)
+        ])
+        const referenced = new Set<string>()
+        for (const asset of payload?.assets ?? []) {
+            referenced.add(asset.id)
+            if (asset.stableAssetId) referenced.add(asset.stableAssetId)
+            if (asset.fileId) referenced.add(asset.fileId)
+        }
+        return assets
+            .filter(
+                (asset) =>
+                    asset.type === 'json' && (referenced.size === 0 || referenced.has(asset.id) || referenced.has(asset.stableAssetId))
+            )
+            .map((asset) => ({
+                id: asset.id,
+                stableAssetId: asset.stableAssetId,
+                type: asset.type,
+                name: asset.name,
+                virtualPath: asset.virtualPath,
+                mime: asset.file?.mime ?? null,
+                hash: asset.file?.hash ?? null,
+                size: asset.file?.size ?? null
+            }))
     }
 
     async writeAssetMetadata(
@@ -506,7 +786,13 @@ export class PlayCanvasProjectsService {
         }
     }
 
-    async deleteProjectFile(metahubId: string, projectId: string, sourcePath: string, userId: string): Promise<void> {
+    async deleteProjectFile(
+        metahubId: string,
+        projectId: string,
+        sourcePath: string,
+        expectedCurrentChecksum: string,
+        userId: string
+    ): Promise<void> {
         const schemaName = await this.resolveSchemaName(metahubId)
         await this.requireProject(schemaName, projectId)
         const safePath = await this.requireProjectMetadataFilePath(schemaName, projectId, sourcePath)
@@ -517,7 +803,14 @@ export class PlayCanvasProjectsService {
             throw this.metadataUpdateError(projectId, safePath)
         }
         try {
-            await this.fileService.delete(scope, safePath)
+            const deleted = await this.fileService.deleteIfCurrentChecksum(scope, safePath, expectedCurrentChecksum)
+            if (!deleted) {
+                throw new MetahubValidationError('Current file checksum does not match', {
+                    messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                    expectedCurrentChecksum,
+                    sourcePath: safePath
+                })
+            }
         } catch (error) {
             if (previous.exists) {
                 const restored = await markPlayCanvasProjectFileReferenceReady(
@@ -541,7 +834,14 @@ export class PlayCanvasProjectsService {
         }
     }
 
-    async deleteAssetFile(metahubId: string, projectId: string, assetId: string, sourcePath: string, userId: string): Promise<void> {
+    async deleteAssetFile(
+        metahubId: string,
+        projectId: string,
+        assetId: string,
+        sourcePath: string,
+        expectedCurrentChecksum: string,
+        userId: string
+    ): Promise<void> {
         const schemaName = await this.resolveSchemaName(metahubId)
         await this.requireAssetFilePath(schemaName, projectId, assetId, sourcePath)
         const scope = { metahubId, branchSlug: schemaName }
@@ -551,7 +851,14 @@ export class PlayCanvasProjectsService {
             throw this.metadataUpdateError(projectId, sourcePath)
         }
         try {
-            await this.fileService.delete(scope, sourcePath)
+            const deleted = await this.fileService.deleteIfCurrentChecksum(scope, sourcePath, expectedCurrentChecksum)
+            if (!deleted) {
+                throw new MetahubValidationError('Current file checksum does not match', {
+                    messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                    expectedCurrentChecksum,
+                    sourcePath
+                })
+            }
         } catch (error) {
             if (previous.exists) {
                 const restored = await markPlayCanvasAssetFileReferenceReady(
@@ -650,6 +957,20 @@ export class PlayCanvasProjectsService {
             })
         }
         return checked
+    }
+
+    private assertEditorScenePayloadPath(projectId: string, sceneId: string, sourcePath: string): string {
+        const safePath = assertSafeRelativePlayCanvasProjectPath(sourcePath)
+        const expectedPath = this.fileService.buildDefaultScenePath(projectId, sceneId)
+        if (safePath !== expectedPath) {
+            throw new MetahubValidationError('PlayCanvas editor scene payload file path must belong to the requested scene', {
+                messageCode: 'playcanvas.editor.scenePayloadPathMismatch',
+                projectId,
+                sceneId,
+                sourcePath: safePath
+            })
+        }
+        return safePath
     }
 
     private assertAssetFileReference(
@@ -776,6 +1097,53 @@ export class PlayCanvasProjectsService {
             })
             return
         }
-        await this.fileService.delete(scope, sourcePath)
+        await this.fileService.deleteIfCurrentChecksum(scope, sourcePath, writtenChecksum)
+    }
+
+    private async rollbackEditorSceneMetadata(
+        schemaName: string,
+        projectId: string,
+        sceneId: string,
+        previous: (PlayCanvasScene & { version: number }) | null,
+        preparedVersion: number,
+        userId: string
+    ): Promise<void> {
+        if (previous) {
+            const restored = await upsertPlayCanvasScene(
+                this.exec,
+                schemaName,
+                projectId,
+                {
+                    id: previous.id,
+                    codename: previous.codename,
+                    displayName: previous.displayName,
+                    payloadSchemaVersion: previous.payloadSchemaVersion,
+                    payload: previous.payload ?? null,
+                    payloadFile: previous.payloadFile ?? null,
+                    checksum: previous.checksum ?? null,
+                    sortOrder: previous.sortOrder,
+                    publish: previous.publish,
+                    expectedVersion: preparedVersion
+                },
+                userId
+            )
+            if (!restored) {
+                log.warn('Failed to restore PlayCanvas editor scene metadata after save rollback', {
+                    schemaName,
+                    projectId,
+                    sceneId
+                })
+            }
+            return
+        }
+
+        const deleted = await softDeletePlayCanvasScene(this.exec, schemaName, projectId, sceneId, preparedVersion, userId)
+        if (!deleted) {
+            log.warn('Failed to remove prepared PlayCanvas editor scene metadata after save rollback', {
+                schemaName,
+                projectId,
+                sceneId
+            })
+        }
     }
 }

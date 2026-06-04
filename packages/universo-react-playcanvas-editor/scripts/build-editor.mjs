@@ -12,11 +12,16 @@ import {
     assertRootLockfileHash,
     assertVendorMetadata,
     createArtifactManifest,
+    injectBridgeBootstrap,
     makeExternalTempDir,
     packageRoot,
     readRootLockfileHash,
+    resolveArtifactMode,
     upstreamManifestPath,
     vendorSourceRoot,
+    writeBridgeBootstrap,
+    writeUniversoHostedEngineContract,
+    writeUniversoHostedShell,
     writeSafeUnavailablePage
 } from './lib/playcanvas-editor-artifact.mjs'
 
@@ -46,6 +51,7 @@ if (!fs.existsSync(packageNodeModules)) {
 
 const tempRoot = makeExternalTempDir()
 const initialLockfileHash = readRootLockfileHash()
+const artifactMode = resolveArtifactMode()
 
 try {
     fs.cpSync(vendorSourceRoot, tempRoot, { recursive: true })
@@ -58,12 +64,19 @@ try {
     fs.rmSync(artifactRoot, { recursive: true, force: true })
     fs.mkdirSync(path.dirname(artifactRoot), { recursive: true })
     fs.cpSync(path.join(tempRoot, 'dist'), artifactRoot, { recursive: true })
-    writeSafeUnavailablePage(artifactRoot)
-    fs.writeFileSync(artifactManifestPath, `${JSON.stringify(createArtifactManifest(), null, 4)}\n`)
+    if (artifactMode === 'artifact-only') {
+        writeSafeUnavailablePage(artifactRoot)
+    } else {
+        writeBridgeBootstrap(artifactRoot)
+        writeUniversoHostedEngineContract(artifactRoot)
+        writeUniversoHostedShell(artifactRoot)
+        injectBridgeBootstrap(artifactRoot)
+    }
+    fs.writeFileSync(artifactManifestPath, `${JSON.stringify(createArtifactManifest(undefined, artifactMode), null, 4)}\n`)
 } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true })
     assertRootLockfileHash(initialLockfileHash)
 }
 
 assertNoNestedPackageManifests()
-console.log(`PlayCanvas Editor artifact written to ${path.relative(packageRoot, artifactRoot)}`)
+console.log(`PlayCanvas Editor artifact (${artifactMode}) written to ${path.relative(packageRoot, artifactRoot)}`)
