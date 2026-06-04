@@ -262,6 +262,25 @@ export class PlayCanvasProjectFileService {
         await fs.rm(absolutePath, { force: true })
     }
 
+    async deleteIfCurrentChecksum(
+        scope: PlayCanvasProjectFileScope,
+        sourcePath: string,
+        expectedCurrentChecksum: string
+    ): Promise<boolean> {
+        const safePath = assertSafeRelativePlayCanvasProjectPath(sourcePath)
+        const absolutePath = this.resolveTargetPath(scope, safePath)
+        return this.withPathLock(absolutePath, async () => {
+            await this.assertResolvedPathWithinBranch(scope, absolutePath, { allowMissing: true })
+            await this.assertSourcePathContainsNoSymlinks(scope, safePath, { allowMissingLeaf: true })
+            const current = await this.stat(scope, safePath)
+            if (!current.exists || current.checksum !== expectedCurrentChecksum) {
+                return false
+            }
+            await fs.rm(absolutePath, { force: true })
+            return true
+        })
+    }
+
     async copyTree(source: PlayCanvasProjectFileScope, target: PlayCanvasProjectFileScope): Promise<void> {
         const sourceRoot = this.playCanvasRoot(source)
         const targetRoot = this.playCanvasRoot(target)

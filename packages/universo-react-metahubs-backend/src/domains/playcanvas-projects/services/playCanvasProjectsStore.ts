@@ -214,6 +214,32 @@ export async function findPlayCanvasScene(
     return rows[0] ?? null
 }
 
+export async function softDeletePlayCanvasScene(
+    exec: DbExecutor,
+    schemaName: string,
+    projectId: string,
+    sceneId: string,
+    expectedVersion: number,
+    userId: string
+): Promise<boolean> {
+    const rows = await exec.query<{ id: string }>(
+        `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_scenes')}
+            SET _upl_deleted = true,
+                _mhb_deleted = true,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $4,
+                _upl_version = _upl_version + 1
+          WHERE project_id = $1
+            AND id = $2
+            AND _upl_version = $3
+            AND _upl_deleted = false
+            AND _mhb_deleted = false
+        RETURNING id`,
+        [projectId, sceneId, expectedVersion, userId]
+    )
+    return rows.length > 0
+}
+
 export async function upsertPlayCanvasScene(
     exec: DbExecutor,
     schemaName: string,
@@ -256,7 +282,7 @@ export async function upsertPlayCanvasScene(
             input.checksum ?? null,
             input.sortOrder,
             input.publish,
-            input.payloadFile?.status ?? 'missing',
+            input.payloadFile?.status ?? (input.payload ? 'ready' : 'missing'),
             userId,
             input.expectedVersion ?? null
         ]
@@ -435,14 +461,14 @@ export async function markPlayCanvasProjectFileReferenceReady(
                     WHEN payload_file IS NULL THEN payload_file
                     ELSE payload_file || jsonb_strip_nulls(jsonb_build_object(
                         'status', 'ready',
-                        'hash', $3,
-                        'size', $4,
-                        'mime', $5
+                        'hash', $3::text,
+                        'size', $4::integer,
+                        'mime', $5::text
                     ))
                 END,
-                checksum = $3,
+                checksum = $3::text,
                 _upl_updated_at = NOW(),
-                _upl_updated_by = $6,
+                _upl_updated_by = $6::uuid,
                 _upl_version = _upl_version + 1
           WHERE project_id = $1
             AND payload_file #>> '{path}' = $2
@@ -458,15 +484,15 @@ export async function markPlayCanvasProjectFileReferenceReady(
                     WHEN ga.output_file IS NULL THEN ga.output_file
                     ELSE ga.output_file || jsonb_strip_nulls(jsonb_build_object(
                         'status', 'ready',
-                        'hash', $3,
-                        'size', $4,
-                        'mime', $5
+                        'hash', $3::text,
+                        'size', $4::integer,
+                        'mime', $5::text
                     ))
                 END,
-                output_checksum = $3,
-                output_mime = $5,
+                output_checksum = $3::text,
+                output_mime = $5::text,
                 _upl_updated_at = NOW(),
-                _upl_updated_by = $6,
+                _upl_updated_by = $6::uuid,
                 _upl_version = ga._upl_version + 1
            FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_script_assets')} sa
            JOIN ${qSchemaTable(schemaName, '_mhb_playcanvas_assets')} a ON a.id = sa.asset_id
@@ -530,17 +556,17 @@ export async function markPlayCanvasAssetFileReferenceReady(
                     WHEN file_ref IS NULL THEN file_ref
                     ELSE file_ref || jsonb_strip_nulls(jsonb_build_object(
                         'status', 'ready',
-                        'hash', $4,
-                        'size', $5,
-                        'mime', $6
+                        'hash', $4::text,
+                        'size', $5::integer,
+                        'mime', $6::text
                     ))
                 END,
-                file_hash = $4,
-                size = $5,
-                mime = $6,
+                file_hash = $4::text,
+                size = $5::integer,
+                mime = $6::text,
                 provider = 'local',
                 _upl_updated_at = NOW(),
-                _upl_updated_by = $7,
+                _upl_updated_by = $7::uuid,
                 _upl_version = _upl_version + 1
           WHERE project_id = $1
             AND id = $2

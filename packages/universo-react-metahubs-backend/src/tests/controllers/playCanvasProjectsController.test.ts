@@ -1,6 +1,30 @@
 import { createLocalizedContent } from '@universo-react/utils'
 import { createPlayCanvasProjectsController } from '../../domains/playcanvas-projects/controllers/playCanvasProjectsController'
+import { MetahubValidationError } from '../../domains/shared/domainErrors'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
+import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
+
+const TEST_SCHEMA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
+const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+
+const bridgeManagerAccessRows = (sql: string): unknown[] | null => {
+    if (sql.includes('SELECT admin.is_superuser')) {
+        return [{ is_super: false }]
+    }
+    if (sql.includes('FROM metahubs.rel_metahub_users')) {
+        return [
+            {
+                id: '019e8afa-0000-7000-8000-000000000099',
+                metahubId: 'metahub-1',
+                userId: 'user-1',
+                activeBranchId: null,
+                role: 'admin',
+                comment: null
+            }
+        ]
+    }
+    return null
+}
 
 describe('createPlayCanvasProjectsController permissions', () => {
     it('protects PlayCanvas authoring metadata, files, and snapshots with manageMetahub', () => {
@@ -31,6 +55,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
         expect(permissionFor(ctrl.writeGeneratedArtifact)).toBe('manageMetahub')
         expect(permissionFor(ctrl.publishProjectState)).toBe('manageMetahub')
         expect(permissionFor(ctrl.exportProjectState)).toBe('manageMetahub')
+        expect(permissionFor(ctrl.editorBridgeCommand)).toBeUndefined()
         expect(permissionFor(ctrl.readFile)).toBe('manageMetahub')
         expect(permissionFor(ctrl.writeFile)).toBe('manageMetahub')
         expect(permissionFor(ctrl.deleteFile)).toBe('manageMetahub')
@@ -69,7 +94,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
             metahubId: 'metahub-1',
             userId: 'user-1',
             exec: {},
-            schemaService: {}
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
         } as never)
 
         expect(writeProjectFile).not.toHaveBeenCalled()
@@ -81,6 +106,917 @@ describe('createPlayCanvasProjectsController permissions', () => {
         )
 
         writeProjectFile.mockRestore()
+    })
+
+    it('rejects PlayCanvas file deletes without an optimistic current checksum guard', async () => {
+        const deleteProjectFile = jest.spyOn(PlayCanvasProjectsService.prototype, 'deleteProjectFile').mockResolvedValue()
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(function status() {
+                return res
+            }),
+            json: jest.fn()
+        }
+
+        await ctrl.deleteFile({
+            req: {
+                params: {
+                    projectId: '018f8a78-7b8f-7c1d-a111-222233334444'
+                },
+                query: {
+                    sourcePath: 'playcanvas-projects/018f8a78-7b8f-7c1d-a111-222233334444/scenes/scene.json'
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec: {},
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(deleteProjectFile).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Invalid query' }))
+
+        deleteProjectFile.mockRestore()
+    })
+
+    it('passes the optimistic current checksum guard to PlayCanvas file deletes', async () => {
+        const deleteProjectFile = jest.spyOn(PlayCanvasProjectsService.prototype, 'deleteProjectFile').mockResolvedValue()
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(function status() {
+                return res
+            }),
+            send: jest.fn()
+        }
+        const projectId = '018f8a78-7b8f-7c1d-a111-222233334444'
+        const sourcePath = `playcanvas-projects/${projectId}/scenes/scene.json`
+        const expectedCurrentChecksum = 'a'.repeat(64)
+
+        await ctrl.deleteFile({
+            req: {
+                params: {
+                    projectId
+                },
+                query: {
+                    sourcePath,
+                    expectedCurrentChecksum
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec: {},
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(deleteProjectFile).toHaveBeenCalledWith('metahub-1', projectId, sourcePath, expectedCurrentChecksum, 'user-1')
+        expect(res.status).toHaveBeenCalledWith(204)
+        expect(res.send).toHaveBeenCalled()
+
+        deleteProjectFile.mockRestore()
+    })
+
+    it('rejects stale bridge sessions when the PlayCanvas Editor package is no longer enabled', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const saveEditorScene = jest.spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene').mockResolvedValue({} as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'disabled',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) {
+                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_app_settings')) {
+                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'scene.save',
+                        requestId: session.payload.sessionId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce,
+                        projectId,
+                        sceneId,
+                        expectedCurrentChecksum: null,
+                        payload: {
+                            schemaVersion: '1',
+                            entities: []
+                        }
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(res.status).toHaveBeenCalledWith(404)
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: false,
+                code: 'artifactUnavailable',
+                requestId: session.payload.sessionId
+            })
+        )
+        expect(saveEditorScene).not.toHaveBeenCalled()
+
+        saveEditorScene.mockRestore()
+    })
+
+    it('loads the selected editor project through the mutation-safe default scene initializer', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const requestId = '019e8afa-0000-7000-8000-000000000002'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            userId: 'user-1',
+            capabilities: ['project.loadSelected']
+        })
+        const loadSelectedProjectForEditor = jest
+            .spyOn(PlayCanvasProjectsService.prototype, 'loadSelectedProjectForEditor')
+            .mockResolvedValue({
+                id: projectId,
+                defaultSceneId: projectId
+            } as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) {
+                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_app_settings')) {
+                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'project.loadSelected',
+                        requestId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(loadSelectedProjectForEditor).toHaveBeenCalledWith('metahub-1', projectId, 'user-1')
+        expect(res.json).toHaveBeenCalledWith({
+            ok: true,
+            requestId,
+            data: {
+                project: {
+                    id: projectId,
+                    defaultSceneId: projectId
+                }
+            }
+        })
+
+        loadSelectedProjectForEditor.mockRestore()
+    })
+
+    it('returns a stored successful bridge save response for duplicate retries', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const requestId = '019e8afa-0000-7000-8000-000000000005'
+        const storedResponse = {
+            ok: true,
+            requestId,
+            data: {
+                checksum: 'a'.repeat(64),
+                scene: {
+                    id: sceneId,
+                    checksum: 'a'.repeat(64)
+                }
+            }
+        }
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const saveEditorScene = jest.spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene').mockResolvedValue({} as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) return []
+                if (sql.includes('SELECT') && sql.includes('_app_settings'))
+                    return [{ value: { status: 'completed', response: storedResponse } }]
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'scene.save',
+                        requestId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce,
+                        projectId,
+                        sceneId,
+                        expectedCurrentChecksum: 'a'.repeat(64),
+                        payload: {
+                            schemaVersion: '1',
+                            entities: []
+                        }
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(saveEditorScene).not.toHaveBeenCalled()
+        expect(res.status).not.toHaveBeenCalledWith(409)
+        expect(res.json).toHaveBeenCalledWith(storedResponse)
+
+        saveEditorScene.mockRestore()
+    })
+
+    it('returns a typed bridge forbidden envelope when the session user no longer has manage access', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const requestId = '019e8afa-0000-7000-8000-000000000005'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const saveEditorScene = jest.spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene').mockResolvedValue({} as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT admin.is_superuser')) {
+                    return [{ is_super: false }]
+                }
+                if (sql.includes('FROM metahubs.rel_metahub_users')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000099',
+                            metahubId: 'metahub-1',
+                            userId: 'user-1',
+                            activeBranchId: null,
+                            role: 'member',
+                            comment: null
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'scene.save',
+                        requestId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce,
+                        projectId,
+                        sceneId,
+                        expectedCurrentChecksum: 'a'.repeat(64),
+                        payload: {
+                            schemaVersion: '1',
+                            entities: []
+                        }
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(saveEditorScene).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false, requestId, code: 'forbidden', status: 403 }))
+
+        saveEditorScene.mockRestore()
+    })
+
+    it('fails closed without releasing a replay claim when completion storage fails after a successful bridge save', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const requestId = '019e8afa-0000-7000-8000-000000000005'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const saveResult = {
+            checksum: 'b'.repeat(64),
+            scene: {
+                id: sceneId,
+                checksum: 'b'.repeat(64)
+            }
+        }
+        const saveEditorScene = jest.spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene').mockResolvedValue(saveResult as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                if (sql.includes('UPDATE') && sql.includes('_app_settings')) throw new Error('replay completion failed')
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'scene.save',
+                        requestId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce,
+                        projectId,
+                        sceneId,
+                        expectedCurrentChecksum: 'a'.repeat(64),
+                        payload: {
+                            schemaVersion: '1',
+                            entities: []
+                        }
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(saveEditorScene).toHaveBeenCalledTimes(1)
+        expect(res.status).toHaveBeenCalledWith(503)
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false, requestId, code: 'storageUnavailable', status: 503 }))
+        expect(jest.mocked(exec.query).mock.calls.filter((call) => String(call[0]).includes('DELETE FROM'))).toHaveLength(1)
+
+        saveEditorScene.mockRestore()
+    })
+
+    it('rejects editor scene saves outside the session default scene', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const otherSceneId = '019e8afa-0000-7000-8000-000000000007'
+        const requestId = '019e8afa-0000-7000-8000-000000000005'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const saveEditorScene = jest.spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene').mockResolvedValue({} as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'scene.save',
+                        requestId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce,
+                        projectId,
+                        sceneId: otherSceneId,
+                        expectedCurrentChecksum: null,
+                        payload: {
+                            schemaVersion: '1',
+                            entities: []
+                        }
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(saveEditorScene).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false, code: 'unsupportedCapability', requestId }))
+
+        saveEditorScene.mockRestore()
+    })
+
+    it('maps editor scene save checksum mismatches to bridge save conflicts', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const requestId = '019e8afa-0000-7000-8000-000000000005'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const saveEditorScene = jest.spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene').mockRejectedValue(
+            new MetahubValidationError('Current file checksum does not match', {
+                messageCode: 'playcanvas.files.path.currentChecksumMismatch'
+            })
+        )
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) {
+                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'scene.save',
+                        requestId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce,
+                        projectId,
+                        sceneId,
+                        expectedCurrentChecksum: 'a'.repeat(64),
+                        payload: {
+                            schemaVersion: '1',
+                            entities: []
+                        }
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(saveEditorScene).toHaveBeenCalled()
+        expect(
+            jest
+                .mocked(exec.query)
+                .mock.calls.filter((call) => String(call[0]).includes('DELETE FROM') && String(call[0]).includes('_app_settings'))
+        ).toHaveLength(2)
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: false,
+                code: 'saveConflict',
+                requestId
+            })
+        )
+
+        saveEditorScene.mockRestore()
     })
 
     it('accepts first-time PlayCanvas metadata upserts without expectedVersion', async () => {

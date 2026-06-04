@@ -1,4 +1,5 @@
 import type { VersionedLocalizedContent } from './admin'
+import type { PlayCanvasEditorHostBridgeDescriptor } from './playcanvasEditorBridge'
 
 export const METAHUB_PACKAGE_SOURCE_KINDS = ['workspace'] as const
 export type MetahubPackageSourceKind = (typeof METAHUB_PACKAGE_SOURCE_KINDS)[number]
@@ -11,6 +12,9 @@ export type PackageAuthoringSurfaceKind = (typeof PACKAGE_AUTHORING_SURFACE_KIND
 
 export const PACKAGE_DISPLAY_MODES = ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'] as const
 export type PackageDisplayMode = (typeof PACKAGE_DISPLAY_MODES)[number]
+
+export const PLAYCANVAS_EDITOR_ARTIFACT_MODES = ['artifact-only', 'universo-hosted'] as const
+export type PlayCanvasEditorArtifactMode = (typeof PLAYCANVAS_EDITOR_ARTIFACT_MODES)[number]
 
 export interface PackageAttachmentEmptyConfig {
     schemaVersion: '1'
@@ -49,7 +53,8 @@ export interface PlayCanvasEditorAuthoringSurfaceDescriptor {
         packageName: '@universo-react/playcanvas-editor'
         manifestFileName: 'universo-artifact-manifest.json'
         outputRoot: 'dist/editor'
-        smokeMode: 'artifact-only'
+        smokeMode: PlayCanvasEditorArtifactMode
+        mode?: PlayCanvasEditorArtifactMode
     }
 }
 
@@ -68,6 +73,7 @@ export interface PackageAuthoringHostDescriptor {
     allowedDisplayModes: readonly PackageDisplayMode[]
     artifactStatus: PackageArtifactStatus
     artifactUrl?: string | null
+    playcanvasEditor?: PlayCanvasEditorHostBridgeDescriptor | null
 }
 
 export interface PackageSourceDescriptor {

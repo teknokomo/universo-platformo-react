@@ -17,9 +17,12 @@ description: Foundation-пакет артефакта PlayCanvas Editor.
 -   Upstream commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
 -   Upstream package version: `2.22.1`
 -   Required Node.js version for Editor build: `>=22.22.0`
--   Smoke mode: `artifact-only`
+-   Default artifact mode: `universo-hosted`
+-   Fallback artifact mode: `artifact-only`
 
-Пакет может собрать и проверить static artifact. Метахабы могут подключить его через **Resources → Packages**, настроить способ открытия редактора и загрузить static artifact через authenticated host route пакетов метахаба. Сам iframe получает короткоживущий tokenized artifact URL, чтобы static JS/CSS ассеты загружались внутри sandbox без `allow-same-origin`. Он ещё не реализует хранение сцен в метахабе, загрузку ассетов, collaboration, backend API emulation, iframe bridge messaging, Colyseus authoring или AI/MCP scene editing.
+Пакет может собрать и проверить static artifact. Метахабы могут подключить его через **Resources → Packages**, настроить способ открытия редактора и загрузить static artifact через authenticated host route пакетов метахаба. Первый Universo-hosted bridge-срез добавляет типизированный iframe bridge и manager-only storage adapter для выбранного/default PlayCanvas project: загрузка контекста проекта, список/чтение сцен, сохранение bounded JSON scene payload, список minimal JSON asset metadata и повторное открытие сохранённой сцены.
+
+Это не PlayCanvas Cloud parity. Collaboration, PlayCanvas account proxy, широкий binary asset pipeline, Colyseus authoring, AI/MCP scene editing и неявная публикация runtime остаются вне scope.
 
 В платформе теперь есть первый срез модели хранения проектов PlayCanvas для метахабов. См. [Проекты PlayCanvas](playcanvas-projects.md): таблицы metadata проекта, правила file namespace, поведение снимков и синхронизация runtime manifests.
 
@@ -51,10 +54,34 @@ pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
 -   Открывать отдельно
 -   Адрес разработки
 
-Встроенный режим и режим отдельного открытия используют authenticated route хоста метахаба. Отдельное открытие запускает вторую страницу хоста в новой вкладке, и эта страница всё равно загружает artifact через sandboxed iframe, а не открывает raw artifact URL как top-level document. Iframe хоста использует sandbox без `allow-same-origin`; после проверки authenticated host descriptor backend выдаёт короткоживущий tokenized artifact URL, чтобы sandboxed document мог загрузить свои static JS/CSS assets без cookie-based same-origin доступа. Каждый tokenized artifact request повторно проверяется по текущему доступу `manageMetahub` пользователя, который получил token, и по текущему режиму отображения подключённого пакета перед отдачей файла. Режим адреса разработки показывается только если `PLAYCANVAS_EDITOR_DEVELOPMENT_URLS` включает хотя бы один backend-allowlisted origin, и backend всё равно валидирует сохранённый URL перед использованием в host surface.
+Встроенный режим и режим отдельного открытия используют authenticated host page метахаба. Отдельное открытие запускает вторую страницу хоста в новой вкладке, и эта страница всё равно загружает artifact через iframe, а не открывает raw artifact URL как top-level document. Реальному upstream Editor нужен `sandbox="allow-scripts allow-same-origin"`, чтобы его scripts, workers и локальные browser APIs работали как обычное приложение; такая комбинация sandbox безопасна только когда iframe document находится на другом origin, чем platform shell. Поэтому authenticated host descriptor возвращает tokenized artifact URL только если доступен изолированный artifact origin.
+
+Для локальных и E2E запусков backend автоматически использует loopback sibling origin (`127.0.0.1` против `localhost`), когда request origin является loopback. Для non-loopback deployments настройте `PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN` на HTTP(S) origin, который ведёт к тому же backend artifact route через другой host, чем platform UI. Настройте `PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN`, если proxy передаёт backend внутренние host headers, а browser-facing platform origin отличается; `x-forwarded-host` и `x-forwarded-proto` игнорируются, пока для доверенного edge proxy явно не задан `PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS=true`. CSP страницы PlayCanvas Editor host добавляет этот artifact origin в `frame-src`/`child-src`; если отдельный origin нельзя определить, descriptor возвращает `artifactStatus: "misconfigured"` и не возвращает `artifactUrl`.
+
+Каждый tokenized artifact request повторно проверяется по текущему доступу `manageMetahub` пользователя, который получил token, и по текущему режиму отображения подключённого пакета перед отдачей файла. Tokenized artifact responses отправляют `Referrer-Policy: no-referrer`, route-specific CSP с `frame-ancestors 'self' <parentOrigin>`, короткий cache TTL для non-HTML assets и fail closed, если browser `Origin` header не совпадает с parent origin внутри token. Same-origin authenticated route `editor-artifact/*` не используется как entrypoint iframe. Режим адреса разработки показывается только если `PLAYCANVAS_EDITOR_DEVELOPMENT_URLS` включает хотя бы один backend-allowlisted origin, и backend всё равно валидирует сохранённый URL перед использованием в host surface.
+
+Принятая `allow-same-origin` threat model предполагает, что artifact origin выделен только под Editor artifact, не разделяет platform cookies и не предоставляет credentialed application APIs кроме tokenized artifact files. Bridge sessions короткоживущие, scoped по metahub/package/project/default-scene/user и передаются backend в body запросов, а не в route params или query strings. Session ids и nonces хранятся в closure artifact bootstrap, а не на public marker object. Sandboxed iframe общается с MUI host через типизированные сообщения; MUI host использует обычный authenticated API client для backend bridge commands.
 
 Копирование метахаба, экспорт снимка и импорт снимка сохраняют эти настройки отображения пакета. Считайте экспортированные снимки метахаба чувствительными артефактами, которыми управляет владелец: когда включён режим адреса разработки, снимок может содержать сохранённый адрес разработки, чтобы импорт мог восстановить authoring configuration.
 
+## Типизированный bridge-контракт
+
+Authoring host descriptor содержит `playcanvasEditor`, когда подключённый пакет может открыть Universo-hosted bridge session. MUI host отправляет типизированные команды в `POST /metahub/{metahubId}/playcanvas/editor-bridge/commands` с `sessionToken` в JSON body и command envelope с UUID v7 `requestId`, UUID v7 `sessionId` и session `nonce`.
+
+Первый bridge contract поддерживает `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close` и `bridge.dirtyState`. `scene.save` использует replay protection по `requestId` и возвращает сохранённый success response для безопасных повторных retries. Если checksum сохранённой сцены изменился, backend возвращает `saveConflict` с HTTP 409, а host показывает локализованный conflict dialog без утечки raw storage details.
+
+Hosted artifact сериализует scene data через Editor-side API `entities:list` и `assets:list`. Если upstream Editor bundle в sandboxed hosted mode не инициализирует entity API, artifact устанавливает минимальный hosted entity adapter за теми же методами `editor.call('entities:new')` и `editor.call('entities:list')`. Так authoring action остаётся видимым внутри iframe, bridge получает dirty state через `entities:add`, а сохранение всё равно идёт обычной командой `scene.save`, без staged synthetic payload из parent page.
+
+## Устранение неполадок
+
+Не копируйте `sessionToken`, artifact tokens, полные tokenized artifact URLs, bridge nonces, request bodies или экспортированные snapshots в публичные логи и тикеты. Используйте очищенные request ids, названия метахабов, package slug, artifact status, HTTP status и категории browser console.
+
+-   **Artifact unavailable**: проверьте, что `pnpm --filter @universo-react/playcanvas-editor editor:build` и `editor:smoke` проходят, затем проверьте состояние подключения пакета в **Resources → Packages**. User-facing host должен показывать `artifactStatus` как безопасное состояние и не раскрывать filesystem paths или tokenized URLs.
+-   **Editor frame cannot load**: проверьте, что `PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN` указывает на доступный из браузера origin, отличный от origin platform UI. Для доверенных reverse proxies задайте `PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN` или включайте `PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS=true` только когда edge proxy отбрасывает недоверенные forwarded headers.
+-   **Permission blocked**: host и bridge требуют текущий доступ `manageMetahub`. Перепроверьте membership метахаба и состояние подключения пакета; не используйте artifact links от другого пользователя или из старой вкладки браузера.
+-   **Save conflict**: загрузите последнюю версию сцены через conflict dialog и сохраните снова. Backend сравнивает scene checksums и намеренно fail-closed, если другой write изменил сохранённый payload.
+-   **Development URL mode unavailable**: проверьте, что нужный origin есть в `PLAYCANVAS_EDITOR_DEVELOPMENT_URLS`. UI скрывает или отклоняет development URLs, которые backend не разрешает.
+
 ## Будущая интеграция
 
-Следующие брифы могут добавить Editor iframe bridge/storage adapter, asset processing pipeline, S3 provider configuration, Colyseus authoring и AI/MCP tooling. Эти интеграции должны сохранять artifact boundary, если новый утверждённый план явно не изменит архитектуру.
+Следующие брифы могут расширить script asset parsing, generated artifacts, binary asset processing, S3 provider configuration, Colyseus authoring, runtime scene projection и AI/MCP tooling. Эти интеграции должны сохранять artifact boundary, если новый утверждённый план явно не изменит архитектуру.

@@ -1451,7 +1451,7 @@
                 "title": "Package display settings",
                 "description": "Choose how {{packageName}} opens for this metahub.",
                 "reset": "Reset to defaults",
-                "save": "Save settings"
+                "save": "Save"
             }
         },
         "notifications": {
@@ -1526,12 +1526,32 @@
             "disabled": "This editor is disabled for the metahub.",
             "artifactMissing": "The editor artifact is not available yet.",
             "misconfigured": "Editor display settings are incomplete.",
+            "defaultProjectRequired": "Select a default PlayCanvas project before opening the editor.",
+            "defaultProjectUnavailable": "The selected default PlayCanvas project is unavailable.",
             "openSeparately": "This editor is configured to open separately.",
             "backToPackages": "Back to packages",
             "frameLoading": "Loading editor frame...",
             "frameLoadError": "The editor frame could not be loaded.",
             "developmentNotice": "Development URL mode is active.",
-            "artifactReady": "Editor artifact is ready."
+            "artifactReady": "Editor artifact is ready.",
+            "bridgeReady": "Editor bridge is ready.",
+            "bridgeError": "Editor bridge failed.",
+            "bridgeWaiting": "Waiting for editor bridge...",
+            "reviewDirty": "Review",
+            "unsavedChanges": "The editor reports unsaved changes.",
+            "unsavedChangesTitle": "Unsaved changes",
+            "unsavedChangesBody": "Save changes in the editor before leaving this page.",
+            "keepEditing": "Keep editing",
+            "leavePage": "Leave page",
+            "save": "Save",
+            "saveUnavailable": "Save is available after the editor bridge is ready.",
+            "saveSaving": "Saving scene...",
+            "saveSaved": "Scene saved.",
+            "saveFailed": "Scene save failed.",
+            "saveConflict": "The scene changed elsewhere. Reload the latest scene before saving again.",
+            "saveConflictTitle": "Save conflict",
+            "saveConflictBody": "Another save changed this scene. Reload the latest stored scene, review it, and save again.",
+            "reloadLatest": "Reload latest"
         },
         "empty": {
             "title": "No packages available",

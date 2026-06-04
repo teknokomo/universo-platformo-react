@@ -3,6 +3,7 @@ import type { PackageAttachmentConfig, PackageAuthoringSurfaceDescriptor, Packag
 import { MetahubValidationError } from '../../shared/domainErrors'
 
 const displayModes = ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'] as const satisfies readonly PackageDisplayMode[]
+const playcanvasEditorArtifactModes = ['artifact-only', 'universo-hosted'] as const
 
 const packageAttachmentEmptyConfigSchema = z
     .object({
@@ -68,7 +69,8 @@ export const packageAuthoringSurfaceSchema = z
                         packageName: z.literal('@universo-react/playcanvas-editor'),
                         manifestFileName: z.literal('universo-artifact-manifest.json'),
                         outputRoot: z.literal('dist/editor'),
-                        smokeMode: z.literal('artifact-only')
+                        smokeMode: z.enum(playcanvasEditorArtifactModes),
+                        mode: z.enum(playcanvasEditorArtifactModes).optional()
                     })
                     .strict()
             })

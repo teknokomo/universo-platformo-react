@@ -28,16 +28,17 @@ Project creation asks only for a user-facing project name. The internal codename
 
 ## Adapter API
 
-The backend exposes storage-model endpoints for the future Editor bridge:
+The backend exposes storage-model endpoints and the first manager-only Editor bridge command endpoint:
 
 -   project CRUD under `/metahub/{metahubId}/playcanvas/projects`;
 -   scene metadata under `/projects/{projectId}/scenes`;
 -   asset metadata and asset-scoped file reads/writes under `/projects/{projectId}/assets`;
 -   script asset, scene binding, generated artifact, publish, and export endpoints.
+-   typed Editor bridge commands at `/metahub/{metahubId}/playcanvas/editor-bridge/commands`.
 
 All routes require metahub management permission and use no-store responses for mutable authoring state. File writes are limited to small JSON/JS/MJS payloads, strict base64 bodies, MIME allow-listing, project-local paths, and optional SHA-256 content assertions. Asset-scoped file routes validate that `{assetId}` already points at the requested file reference.
 
-Visual scene editing, iframe bridge messaging, and PlayCanvas Editor backend emulation are still deferred to the next integration slice.
+The current bridge slice supports selected project loading, scene list/read/save, minimal JSON asset metadata, bridge capabilities, close, and dirty-state messages. It is a bounded Universo-hosted bridge, not PlayCanvas Cloud API parity.
 
 ## Snapshots and Copy
 
@@ -53,8 +54,9 @@ Published applications should read immutable hashed runtime assets or stored run
 
 ## Deferred Work
 
--   PlayCanvas Editor iframe bridge and storage adapter.
+-   Broader PlayCanvas Cloud API emulation.
 -   Binary texture, model, and audio upload/processing.
 -   S3/admin storage provider configuration.
+-   Collaborative authoring and conflict merge UI beyond checksum-based save protection.
 -   Colyseus authoring state.
 -   AI/MCP scene editing.

@@ -392,6 +392,16 @@ const packageOperationOverrides = {
         responses: {
             200: successResponse('MetahubPackageAttachment')
         }
+    },
+    'POST /metahub/{metahubId}/playcanvas/editor-bridge/commands': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('PlayCanvasEditorBridgeCommandRequest')
+        },
+        responses: {
+            200: successResponse('PlayCanvasEditorBridgeResponse')
+        },
+        removeResponses: ['201']
     }
 }
 
@@ -401,13 +411,19 @@ const applyOperationOverride = (openApiOperation, method, openApiPath) => {
         return openApiOperation
     }
 
+    const responses = {
+        ...openApiOperation.responses,
+        ...override.responses
+    }
+
+    for (const statusCode of override.removeResponses || []) {
+        delete responses[statusCode]
+    }
+
     return {
         ...openApiOperation,
         ...('requestBody' in override ? { requestBody: override.requestBody } : {}),
-        responses: {
-            ...openApiOperation.responses,
-            ...override.responses
-        }
+        responses
     }
 }
 
@@ -580,7 +596,19 @@ const buildSpec = () => {
                     properties: {
                         schemaVersion: { type: 'string', enum: ['1'] },
                         kind: { type: 'string', enum: ['display'] },
-                        display: { $ref: '#/components/schemas/PackageAttachmentDisplaySettings' }
+                        display: { $ref: '#/components/schemas/PackageAttachmentDisplaySettings' },
+                        playcanvasProject: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                defaultProjectId: {
+                                    type: ['string', 'null'],
+                                    format: 'uuid',
+                                    description: 'Optional default PlayCanvas project selected for the package authoring host.'
+                                }
+                            },
+                            description: 'PlayCanvas Editor package-specific display configuration.'
+                        }
                     },
                     required: ['schemaVersion', 'kind', 'display'],
                     description: 'Package configuration for packages with a user-visible authoring surface.'
@@ -727,6 +755,69 @@ const buildSpec = () => {
                     },
                     required: ['config']
                 },
+                PlayCanvasProjectSummary: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        codename: { type: 'string' },
+                        displayName: { $ref: '#/components/schemas/VersionedLocalizedContent' },
+                        description: { $ref: '#/components/schemas/VersionedLocalizedContent' },
+                        defaultSceneId: { type: ['string', 'null'], format: 'uuid' },
+                        status: { type: 'string' },
+                        healthStatus: { type: 'string' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' }
+                    },
+                    required: ['id', 'codename', 'displayName', 'defaultSceneId', 'status', 'healthStatus'],
+                    description: 'Minimal PlayCanvas project metadata selected for an editor bridge session.'
+                },
+                PlayCanvasEditorBridgeSessionDescriptor: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        sessionId: { type: 'string', format: 'uuid' },
+                        sessionToken: { type: 'string' },
+                        nonce: { type: 'string', minLength: 32, maxLength: 256 },
+                        expiresAt: { type: 'string', format: 'date-time' },
+                        bridgeVersion: { type: 'string', enum: ['1'] },
+                        writeMode: { type: 'string', enum: ['manager'] },
+                        capabilities: {
+                            type: 'array',
+                            maxItems: 32,
+                            items: { $ref: '#/components/schemas/PlayCanvasEditorBridgeCapability' }
+                        }
+                    },
+                    required: ['sessionId', 'sessionToken', 'nonce', 'expiresAt', 'bridgeVersion', 'writeMode', 'capabilities'],
+                    description: 'Short-lived manager-only bridge session issued to the PlayCanvas Editor host.'
+                },
+                PlayCanvasEditorSelectedProjectDescriptor: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        project: { $ref: '#/components/schemas/PlayCanvasProjectSummary' },
+                        defaultSceneId: { type: ['string', 'null'], format: 'uuid' }
+                    },
+                    required: ['project'],
+                    description: 'Selected PlayCanvas project and default scene for the hosted editor.'
+                },
+                PlayCanvasEditorHostBridgeDescriptor: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        schemaVersion: { type: 'string', enum: ['1'] },
+                        bridge: { $ref: '#/components/schemas/PlayCanvasEditorBridgeSessionDescriptor' },
+                        selectedProject: {
+                            oneOf: [{ $ref: '#/components/schemas/PlayCanvasEditorSelectedProjectDescriptor' }, { type: 'null' }]
+                        },
+                        compatibilityStatus: {
+                            type: 'string',
+                            enum: ['ready', 'artifactUnavailable', 'projectUnavailable', 'blocked']
+                        }
+                    },
+                    required: ['schemaVersion', 'bridge', 'compatibilityStatus'],
+                    description: 'PlayCanvas Editor bridge descriptor embedded in the package authoring host response.'
+                },
                 PackageAuthoringHostDescriptor: {
                     type: 'object',
                     additionalProperties: false,
@@ -746,7 +837,10 @@ const buildSpec = () => {
                             type: 'string',
                             enum: ['available', 'missing', 'disabled', 'blocked', 'misconfigured']
                         },
-                        artifactUrl: { type: ['string', 'null'] }
+                        artifactUrl: { type: ['string', 'null'] },
+                        playcanvasEditor: {
+                            oneOf: [{ $ref: '#/components/schemas/PlayCanvasEditorHostBridgeDescriptor' }, { type: 'null' }]
+                        }
                     },
                     required: [
                         'packageSlug',
@@ -759,6 +853,218 @@ const buildSpec = () => {
                         'artifactStatus'
                     ],
                     description: 'Descriptor consumed by the metahub package authoring host route.'
+                },
+                PlayCanvasEditorBridgeCapability: {
+                    type: 'string',
+                    enum: [
+                        'project.loadSelected',
+                        'scene.list',
+                        'scene.read',
+                        'scene.save',
+                        'scene.saveStatus',
+                        'asset.listMinimalForScene',
+                        'bridge.capabilities',
+                        'bridge.close',
+                        'bridge.dirtyState'
+                    ]
+                },
+                PlayCanvasEditorBridgeErrorCode: {
+                    type: 'string',
+                    enum: [
+                        'invalidCommand',
+                        'unsupportedVersion',
+                        'unauthorized',
+                        'forbidden',
+                        'csrfRequired',
+                        'sessionExpired',
+                        'replayRejected',
+                        'projectUnavailable',
+                        'sceneUnavailable',
+                        'assetUnavailable',
+                        'payloadTooLarge',
+                        'saveConflict',
+                        'storageUnavailable',
+                        'artifactUnavailable',
+                        'unsupportedCapability',
+                        'internalError'
+                    ]
+                },
+                PlayCanvasEditorScenePayload: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        schemaVersion: { type: 'string' },
+                        settings: { type: 'object', additionalProperties: true },
+                        entities: {
+                            type: 'array',
+                            maxItems: 5000,
+                            items: {
+                                type: 'object',
+                                additionalProperties: true
+                            }
+                        },
+                        assets: {
+                            type: 'array',
+                            maxItems: 2000,
+                            items: {
+                                type: 'object',
+                                additionalProperties: true
+                            }
+                        },
+                        metadata: { type: 'object', additionalProperties: true }
+                    },
+                    description: 'Bounded JSON scene payload exchanged between the hosted Editor and metahub storage.'
+                },
+                PlayCanvasEditorBridgeCommandBase: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        requestId: { type: 'string', format: 'uuid' },
+                        sessionId: { type: 'string', format: 'uuid' },
+                        nonce: { type: 'string', minLength: 32, maxLength: 256 }
+                    },
+                    required: ['requestId', 'sessionId', 'nonce']
+                },
+                PlayCanvasEditorBridgeCommand: {
+                    oneOf: [
+                        {
+                            allOf: [
+                                { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommandBase' },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        type: { type: 'string', enum: ['editor.ready'] },
+                                        bridgeVersion: { type: 'string', enum: ['1'] },
+                                        capabilities: {
+                                            type: 'array',
+                                            maxItems: 32,
+                                            items: { $ref: '#/components/schemas/PlayCanvasEditorBridgeCapability' }
+                                        }
+                                    },
+                                    required: ['type', 'bridgeVersion', 'capabilities']
+                                }
+                            ]
+                        },
+                        {
+                            allOf: [
+                                { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommandBase' },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        type: { type: 'string', enum: ['project.loadSelected', 'bridge.capabilities'] }
+                                    },
+                                    required: ['type']
+                                }
+                            ]
+                        },
+                        {
+                            allOf: [
+                                { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommandBase' },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        type: { type: 'string', enum: ['scene.list'] },
+                                        projectId: { type: 'string', format: 'uuid' }
+                                    },
+                                    required: ['type', 'projectId']
+                                }
+                            ]
+                        },
+                        {
+                            allOf: [
+                                { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommandBase' },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        type: {
+                                            type: 'string',
+                                            enum: ['scene.read', 'scene.saveStatus', 'asset.listMinimalForScene']
+                                        },
+                                        projectId: { type: 'string', format: 'uuid' },
+                                        sceneId: { type: 'string', format: 'uuid' }
+                                    },
+                                    required: ['type', 'projectId', 'sceneId']
+                                }
+                            ]
+                        },
+                        {
+                            allOf: [
+                                { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommandBase' },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        type: { type: 'string', enum: ['scene.save'] },
+                                        projectId: { type: 'string', format: 'uuid' },
+                                        sceneId: { type: 'string', format: 'uuid' },
+                                        expectedCurrentChecksum: {
+                                            type: ['string', 'null'],
+                                            pattern: '^[a-fA-F0-9]{64}$'
+                                        },
+                                        payload: { $ref: '#/components/schemas/PlayCanvasEditorScenePayload' }
+                                    },
+                                    required: ['type', 'projectId', 'sceneId', 'expectedCurrentChecksum', 'payload']
+                                }
+                            ]
+                        },
+                        {
+                            allOf: [
+                                { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommandBase' },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        type: { type: 'string', enum: ['bridge.close', 'bridge.dirtyState'] },
+                                        dirty: { type: 'boolean' }
+                                    },
+                                    required: ['type']
+                                }
+                            ]
+                        }
+                    ],
+                    discriminator: {
+                        propertyName: 'type'
+                    },
+                    description: 'Typed command envelope accepted by the PlayCanvas Editor bridge endpoint.'
+                },
+                PlayCanvasEditorBridgeCommandRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        sessionToken: { type: 'string', minLength: 32 },
+                        command: { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommand' }
+                    },
+                    required: ['sessionToken', 'command']
+                },
+                PlayCanvasEditorBridgeSuccessResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        ok: { type: 'boolean', enum: [true] },
+                        requestId: { type: 'string', format: 'uuid' },
+                        data: { type: 'object', additionalProperties: true }
+                    },
+                    required: ['ok', 'requestId', 'data']
+                },
+                PlayCanvasEditorBridgeErrorResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        ok: { type: 'boolean', enum: [false] },
+                        requestId: { type: 'string', format: 'uuid' },
+                        code: { $ref: '#/components/schemas/PlayCanvasEditorBridgeErrorCode' },
+                        status: { type: 'integer', minimum: 400, maximum: 599 },
+                        safeDetails: {
+                            type: 'object',
+                            additionalProperties: { type: 'string' }
+                        }
+                    },
+                    required: ['ok', 'code', 'status']
+                },
+                PlayCanvasEditorBridgeResponse: {
+                    oneOf: [
+                        { $ref: '#/components/schemas/PlayCanvasEditorBridgeSuccessResponse' },
+                        { $ref: '#/components/schemas/PlayCanvasEditorBridgeErrorResponse' }
+                    ],
+                    description: 'Success or safe error response returned by a bridge command.'
                 },
                 ApiError: {
                     type: 'object',

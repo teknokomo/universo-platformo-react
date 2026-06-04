@@ -3,7 +3,7 @@
 > Created: 2026-06-03
 > Mode: PLAN
 > Status: Draft for discussion
-> Brief: `.manager/specs/platformo/playcanvas-project-storage-model-for-metahubs-spec-2026-06-03.md`
+> Brief: private Manager brief
 > Research: `memory-bank/research/playcanvas-project-storage-model-for-metahubs-research-2026-06-03.md`
 
 ## Overview

@@ -7,8 +7,10 @@ import type { DbExecutor } from '../../../utils'
 import type {
     MetahubPackageAttachment,
     PackageAuthoringHostDescriptor,
+    PlayCanvasEditorBridgeCapability,
     PlayCanvasEditorAuthoringSurfaceDescriptor
 } from '@universo-react/types'
+import { PLAYCANVAS_EDITOR_BRIDGE_CAPABILITIES } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { ensureMetahubAccess } from '../../shared/guards'
@@ -27,7 +29,8 @@ import {
     listPackageCatalog,
     updateMetahubPackageConfig
 } from '../../../persistence'
-import { findPlayCanvasProject } from '../../playcanvas-projects/services/playCanvasProjectsStore'
+import { findPlayCanvasProject, summarizePlayCanvasProject } from '../../playcanvas-projects/services/playCanvasProjectsStore'
+import { PlayCanvasEditorBridgeSessionService } from '../../playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 
 const packageNameSchema = z
     .string()
@@ -45,9 +48,19 @@ const packageSlugSchema = z
 const artifactRoot =
     process.env.PLAYCANVAS_EDITOR_ARTIFACT_ROOT ??
     path.resolve(__dirname, '../../../../../../packages/universo-react-playcanvas-editor/dist/editor')
-const artifactTokenSecret =
-    process.env.PLAYCANVAS_EDITOR_ARTIFACT_TOKEN_SECRET ?? process.env.SESSION_SECRET ?? process.env.SUPABASE_JWT_SECRET ?? randomUUID()
 const artifactTokenTtlMs = 5 * 60 * 1000
+let artifactDevelopmentTokenSecret: string | null = null
+const resolveArtifactTokenSecret = (): string => {
+    const resolved = process.env.PLAYCANVAS_EDITOR_ARTIFACT_TOKEN_SECRET ?? process.env.SESSION_SECRET ?? process.env.SUPABASE_JWT_SECRET
+    if (resolved) {
+        return resolved
+    }
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('PLAYCANVAS_EDITOR_ARTIFACT_TOKEN_SECRET, SESSION_SECRET, or SUPABASE_JWT_SECRET must be configured in production')
+    }
+    artifactDevelopmentTokenSecret ??= `dev-playcanvas-editor-artifact-${randomUUID()}`
+    return artifactDevelopmentTokenSecret
+}
 
 const attachPackageSchema = z
     .object({
@@ -93,6 +106,7 @@ interface ArtifactTokenPayload {
     metahubId: string
     packageSlug: string
     userId: string
+    parentOrigin: string
     expiresAt: number
 }
 
@@ -179,6 +193,60 @@ const resolveDefaultBranchSchemaName = async (
     return branch.schemaName
 }
 
+const parseSafeHttpOrigin = (value: string | undefined): string | null => {
+    if (!value) return null
+    try {
+        const parsed = new URL(value)
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+            return null
+        }
+        return parsed.origin
+    } catch {
+        return null
+    }
+}
+
+const resolveRequestOrigin = (req: Request): string | null => {
+    const configuredParentOrigin = parseSafeHttpOrigin(process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN)
+    if (configuredParentOrigin) {
+        return configuredParentOrigin
+    }
+
+    const trustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true'
+    const forwardedHost = trustProxyHeaders ? req.get('x-forwarded-host')?.split(',')[0]?.trim() : undefined
+    const host = forwardedHost || req.get('host')
+    if (!host) return null
+    const forwardedProto = trustProxyHeaders ? req.get('x-forwarded-proto')?.split(',')[0]?.trim() : undefined
+    const protocol = forwardedProto || req.protocol || 'http'
+    return parseSafeHttpOrigin(`${protocol}://${host}`)
+}
+
+const resolveLoopbackSiblingOrigin = (origin: string): string | null => {
+    const parsed = new URL(origin)
+    if (parsed.hostname === '127.0.0.1') {
+        parsed.hostname = 'localhost'
+        return parsed.origin
+    }
+    if (parsed.hostname === 'localhost') {
+        parsed.hostname = '127.0.0.1'
+        return parsed.origin
+    }
+    return null
+}
+
+const resolveArtifactPublicOrigin = (req: Request): { artifactOrigin: string; parentOrigin: string } | null => {
+    const parentOrigin = resolveRequestOrigin(req)
+    if (!parentOrigin) return null
+
+    const configuredOrigin = parseSafeHttpOrigin(process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN)
+    const artifactOrigin = configuredOrigin ?? resolveLoopbackSiblingOrigin(parentOrigin)
+    if (!artifactOrigin || artifactOrigin === parentOrigin) {
+        return null
+    }
+
+    return { artifactOrigin, parentOrigin }
+}
+
 const resolveArtifactPath = (relativePath: string): string => {
     const normalized = relativePath.replace(/^\/+/, '') || 'index.html'
     if (normalized.includes('\0')) {
@@ -208,10 +276,43 @@ const isArtifactFileAvailable = async (filePath: string): Promise<boolean> => {
     }
 }
 
+type ArtifactManifestStatus = 'expected' | 'artifactOnly' | 'missing'
+
+const resolveArtifactManifestStatus = async (manifestPath: string, expectedSmokeMode: string): Promise<ArtifactManifestStatus> => {
+    if (!(await isArtifactFileAvailable(manifestPath))) {
+        return 'missing'
+    }
+    try {
+        const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as {
+            mode?: unknown
+            smokeMode?: unknown
+            bridgeBootstrap?: unknown
+        }
+        if (manifest.mode === 'artifact-only' && manifest.smokeMode === 'artifact-only') {
+            if (expectedSmokeMode === 'universo-hosted') {
+                return 'missing'
+            }
+            return 'artifactOnly'
+        }
+        if (manifest.mode !== expectedSmokeMode || manifest.smokeMode !== expectedSmokeMode) {
+            return 'missing'
+        }
+        if (expectedSmokeMode !== 'universo-hosted') {
+            return 'expected'
+        }
+        if (manifest.bridgeBootstrap !== 'universo-bridge-bootstrap.js') {
+            return 'missing'
+        }
+        return (await isArtifactFileAvailable(resolveArtifactPath(manifest.bridgeBootstrap))) ? 'expected' : 'missing'
+    } catch {
+        return 'missing'
+    }
+}
+
 const encodeArtifactTokenPart = (value: string): string => Buffer.from(value, 'utf8').toString('base64url')
 
 const signArtifactTokenPayload = (encodedPayload: string): string =>
-    createHmac('sha256', artifactTokenSecret).update(encodedPayload).digest('base64url')
+    createHmac('sha256', resolveArtifactTokenSecret()).update(encodedPayload).digest('base64url')
 
 const createArtifactToken = (payload: Omit<ArtifactTokenPayload, 'expiresAt'>): string => {
     const encodedPayload = encodeArtifactTokenPart(
@@ -242,6 +343,8 @@ const readArtifactTokenPayload = (token: string): ArtifactTokenPayload | null =>
             typeof payload.metahubId !== 'string' ||
             typeof payload.packageSlug !== 'string' ||
             typeof payload.userId !== 'string' ||
+            typeof payload.parentOrigin !== 'string' ||
+            !parseSafeHttpOrigin(payload.parentOrigin) ||
             typeof payload.expiresAt !== 'number' ||
             payload.expiresAt < Date.now()
         ) {
@@ -253,13 +356,31 @@ const readArtifactTokenPayload = (token: string): ArtifactTokenPayload | null =>
     }
 }
 
-const sendEditorArtifactFile = async (res: Response, filePath: string): Promise<Response | void> => {
+const sendEditorArtifactFile = async (
+    req: Request,
+    res: Response,
+    filePath: string,
+    frameAncestorOrigins: readonly string[] = []
+): Promise<Response | void> => {
     const extension = path.extname(filePath).toLowerCase()
+    const frameAncestors = Array.from(new Set(frameAncestorOrigins.map((origin) => parseSafeHttpOrigin(origin)).filter(Boolean)))
+    const corsOrigin = frameAncestors[0]
     res.setHeader('X-Content-Type-Options', 'nosniff')
     res.setHeader('Cache-Control', extension === '.html' ? 'no-store' : 'private, max-age=300')
+    res.setHeader('Referrer-Policy', 'no-referrer')
+    if (corsOrigin) {
+        const requestOrigin = req.get('origin')
+        if (requestOrigin && parseSafeHttpOrigin(requestOrigin) !== corsOrigin) {
+            return res.status(403).json({ error: 'Package artifact' })
+        }
+        res.setHeader('Access-Control-Allow-Origin', corsOrigin)
+        res.setHeader('Vary', 'Origin')
+    }
     res.setHeader(
         'Content-Security-Policy',
-        "sandbox allow-scripts; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'self'"
+        `sandbox allow-scripts allow-same-origin; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'self'${
+            frameAncestors.length > 0 ? ` ${frameAncestors.join(' ')}` : ''
+        }`
     )
     const contentType = contentTypesByExtension.get(extension)
     if (contentType) {
@@ -305,18 +426,49 @@ export function createPackagesController(createHandler: ReturnType<typeof create
 
             const manifestPath = resolveArtifactPath(item.authoringSurface.artifact.manifestFileName)
             const indexPath = resolveArtifactPath('index.html')
-            const [hasManifest, hasIndex] = await Promise.all([isArtifactFileAvailable(manifestPath), isArtifactFileAvailable(indexPath)])
-            const hasArtifact = hasManifest && hasIndex
+            const [manifestStatus, hasIndex] = await Promise.all([
+                resolveArtifactManifestStatus(manifestPath, item.authoringSurface.artifact.smokeMode),
+                isArtifactFileAvailable(indexPath)
+            ])
+            const hasArtifact = manifestStatus !== 'missing' && hasIndex
             const displayMode = attachmentConfig.kind === 'display' ? attachmentConfig.display.mode : 'disabled'
+            const defaultProjectId =
+                attachmentConfig.kind === 'display' ? attachmentConfig.playcanvasProject?.defaultProjectId ?? null : null
             const shouldServeArtifact =
                 !isAttachmentConfigBlocked && hasArtifact && (displayMode === 'embeddedIframe' || displayMode === 'openSeparately')
-            const artifactToken = shouldServeArtifact
-                ? createArtifactToken({
-                      metahubId,
-                      packageSlug: item.authoringSurface.packageSlug,
-                      userId
-                  })
-                : null
+            const artifactPublicOrigin = shouldServeArtifact ? resolveArtifactPublicOrigin(req) : null
+            const canServeIsolatedArtifact = shouldServeArtifact && artifactPublicOrigin != null
+            const shouldEnableBridge = canServeIsolatedArtifact && manifestStatus === 'expected' && defaultProjectId != null
+            const branchSchemaName = shouldEnableBridge ? await resolveDefaultBranchSchemaName(exec, metahubId) : null
+            const selectedProjectRow =
+                shouldEnableBridge && branchSchemaName ? await findPlayCanvasProject(exec, branchSchemaName, defaultProjectId) : null
+            const selectedProject =
+                shouldEnableBridge && branchSchemaName && selectedProjectRow
+                    ? await summarizePlayCanvasProject(exec, branchSchemaName, selectedProjectRow)
+                    : null
+            const isSelectedProjectBridgeReady = Boolean(selectedProject)
+            const isHostedBridgeProjectUnavailable = shouldEnableBridge && !isSelectedProjectBridgeReady
+            const bridgeCapabilities = [...PLAYCANVAS_EDITOR_BRIDGE_CAPABILITIES] as PlayCanvasEditorBridgeCapability[]
+            const bridgeSession =
+                shouldEnableBridge && selectedProject && isSelectedProjectBridgeReady
+                    ? new PlayCanvasEditorBridgeSessionService().create({
+                          metahubId,
+                          packageSlug: item.authoringSurface.packageSlug,
+                          projectId: selectedProject.id,
+                          defaultSceneId: selectedProject.defaultSceneId ?? null,
+                          userId,
+                          capabilities: bridgeCapabilities
+                      })
+                    : null
+            const artifactToken =
+                canServeIsolatedArtifact && !isHostedBridgeProjectUnavailable
+                    ? createArtifactToken({
+                          metahubId,
+                          packageSlug: item.authoringSurface.packageSlug,
+                          userId,
+                          parentOrigin: artifactPublicOrigin.parentOrigin
+                      })
+                    : null
             const descriptor: PackageAuthoringHostDescriptor = {
                 packageSlug: item.authoringSurface.packageSlug,
                 packageName: item.packageName,
@@ -332,16 +484,47 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                     ? 'disabled'
                     : displayMode === 'developmentUrl'
                     ? 'available'
+                    : shouldServeArtifact && !canServeIsolatedArtifact
+                    ? 'misconfigured'
+                    : isHostedBridgeProjectUnavailable
+                    ? 'blocked'
                     : hasArtifact
                     ? 'available'
                     : 'missing',
-                artifactUrl: shouldServeArtifact
-                    ? `/api/v1/metahub/${encodeURIComponent(metahubId)}/packages/${encodeURIComponent(
-                          item.authoringSurface.packageSlug
-                      )}/editor-artifact-token/${encodeURIComponent(artifactToken ?? '')}/index.html`
+                artifactUrl:
+                    canServeIsolatedArtifact && !isHostedBridgeProjectUnavailable
+                        ? `${artifactPublicOrigin.artifactOrigin}/api/v1/metahub/${encodeURIComponent(
+                              metahubId
+                          )}/packages/${encodeURIComponent(item.authoringSurface.packageSlug)}/editor-artifact-token/${encodeURIComponent(
+                              artifactToken ?? ''
+                          )}/index.html`
+                        : null,
+                playcanvasEditor: bridgeSession
+                    ? {
+                          schemaVersion: bridgeSession.payload.bridgeVersion,
+                          bridge: {
+                              sessionId: bridgeSession.payload.sessionId,
+                              sessionToken: bridgeSession.token,
+                              nonce: bridgeSession.payload.nonce,
+                              expiresAt: new Date(bridgeSession.payload.expiresAt).toISOString(),
+                              bridgeVersion: bridgeSession.payload.bridgeVersion,
+                              writeMode: 'manager',
+                              capabilities: bridgeSession.payload.capabilities
+                          },
+                          selectedProject: selectedProject
+                              ? {
+                                    project: selectedProject,
+                                    defaultSceneId: selectedProject.defaultSceneId ?? null
+                                }
+                              : null,
+                          compatibilityStatus: selectedProject && isSelectedProjectBridgeReady ? 'ready' : 'projectUnavailable'
+                      }
                     : null
             }
 
+            if (bridgeSession) {
+                res.setHeader('Cache-Control', 'no-store')
+            }
             return res.json(descriptor)
         },
         { permission: 'manageMetahub' }
@@ -369,18 +552,22 @@ export function createPackagesController(createHandler: ReturnType<typeof create
             }
 
             const relativePath = typeof req.params[0] === 'string' ? req.params[0] : 'index.html'
-            const filePath = resolveArtifactPath(relativePath)
-            const manifestPath = resolveArtifactPath(item.authoringSurface.artifact.manifestFileName)
-            const [manifestAvailable, fileAvailable] = await Promise.all([
-                isArtifactFileAvailable(manifestPath),
-                isArtifactFileAvailable(filePath)
-            ])
-
-            if (!manifestAvailable || !fileAvailable) {
+            if (relativePath.replace(/^\/+/, '') === 'index.html') {
                 throw new MetahubNotFoundError('Package artifact')
             }
 
-            return sendEditorArtifactFile(res, filePath)
+            const filePath = resolveArtifactPath(relativePath)
+            const manifestPath = resolveArtifactPath(item.authoringSurface.artifact.manifestFileName)
+            const [manifestAvailable, fileAvailable] = await Promise.all([
+                resolveArtifactManifestStatus(manifestPath, item.authoringSurface.artifact.smokeMode),
+                isArtifactFileAvailable(filePath)
+            ])
+
+            if (manifestAvailable === 'missing' || !fileAvailable) {
+                throw new MetahubNotFoundError('Package artifact')
+            }
+
+            return sendEditorArtifactFile(req, res, filePath)
         },
         { permission: 'manageMetahub' }
     )
@@ -399,6 +586,7 @@ export function createPackagesController(createHandler: ReturnType<typeof create
 
         const exec = getDbExecutor()
         let manifestFileName: string | null = null
+        let expectedSmokeMode: string | null = null
         try {
             await ensureMetahubAccess(exec, payload.userId, payload.metahubId, 'manageMetahub')
 
@@ -407,6 +595,7 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                 return res.status(404).json({ error: 'Package artifact' })
             }
             manifestFileName = item.authoringSurface.artifact.manifestFileName
+            expectedSmokeMode = item.authoringSurface.artifact.smokeMode
 
             const attachmentConfig = resolvePackageAttachmentConfig(item.config, item.authoringSurface)
             const displayMode = attachmentConfig.kind === 'display' ? attachmentConfig.display.mode : 'disabled'
@@ -431,14 +620,16 @@ export function createPackagesController(createHandler: ReturnType<typeof create
         }
 
         const [manifestAvailable, fileAvailable] = await Promise.all([
-            isArtifactFileAvailable(manifestPath),
+            expectedSmokeMode
+                ? resolveArtifactManifestStatus(manifestPath, expectedSmokeMode)
+                : Promise.resolve<ArtifactManifestStatus>('missing'),
             isArtifactFileAvailable(filePath)
         ])
-        if (!manifestAvailable || !fileAvailable) {
+        if (manifestAvailable === 'missing' || !fileAvailable) {
             return res.status(404).json({ error: 'Package artifact' })
         }
 
-        return sendEditorArtifactFile(res, filePath)
+        return sendEditorArtifactFile(req, res, filePath, [payload.parentOrigin])
     }
 
     const attach = createHandler(

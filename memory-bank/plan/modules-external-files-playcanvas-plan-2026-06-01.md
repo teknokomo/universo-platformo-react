@@ -2,7 +2,7 @@
 
 > Created: 2026-06-01
 > Mode: PLAN
-> Brief: `.manager/specs/platformo/modules-external-files-spec-2026-05-27.md`
+> Brief: private Manager brief
 > Research: `memory-bank/research/modules-external-files-playcanvas-research-2026-06-01.md`
 > Status: QA-reviewed draft for discussion
 

@@ -4,7 +4,7 @@ const expectHeaderContains = (headers: Record<string, string>, name: string, exp
     expect(headers[name.toLowerCase()]).toContain(expected)
 }
 
-test('PlayCanvas Editor artifact smoke page is safe and nonblank', async ({ page }, testInfo) => {
+test('PlayCanvas Editor hosted artifact shell is safe and nonblank', async ({ page }, testInfo) => {
     const consoleErrors: string[] = []
     const failedRequests: string[] = []
     page.on('console', (message) => {
@@ -25,18 +25,16 @@ test('PlayCanvas Editor artifact smoke page is safe and nonblank', async ({ page
     expect(rootResponse?.headers()['x-content-type-options']).toBe('nosniff')
     expect(rootResponse?.headers()['cache-control']).toBe('no-cache')
 
-    await expect(page.getByRole('heading', { name: 'PlayCanvas Editor artifact is available' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Артефакт PlayCanvas Editor доступен' })).toBeHidden()
-    const previewCanvas = page.getByLabel('PlayCanvas Editor artifact preview')
-    await expect(previewCanvas).toBeVisible()
-    const isCanvasNonBlank = await previewCanvas.evaluate((node) => {
-        const canvas = node as HTMLCanvasElement
-        const context = canvas.getContext('2d')
-        if (!context) return false
-        const sample = context.getImageData(0, 0, canvas.width, canvas.height).data
-        return sample.some((channel) => channel !== 0)
+    await expect(page.locator('body')).toHaveAttribute('data-universo-playcanvas-editor-hosted', 'true')
+    await expect(page.locator('body')).not.toContainText('Artifact Unavailable')
+    await expect(page.locator('body')).not.toContainText('artifact-only integration surface')
+    await expect.poll(() => page.evaluate(() => Boolean(window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.ready))).toBe(true)
+    await expect.poll(() => page.evaluate(() => Boolean(window.config?.universoHosted))).toBe(true)
+    const shellNonBlank = await page.evaluate(() => {
+        const rect = document.body.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0
     })
-    expect(isCanvasNonBlank).toBe(true)
+    expect(shellNonBlank).toBe(true)
     await expect(page.locator('body')).not.toContainText('[object Object]')
     await expect(page.locator('body')).not.toContainText(/\{[\s\S]*"[^"]+"\s*:/)
     await expect(page.locator('body')).not.toContainText(/stack trace|Zod|Vite|absolute filesystem/i)
@@ -69,16 +67,634 @@ test('PlayCanvas Editor artifact smoke page is safe and nonblank', async ({ page
     expectHeaderContains(notFoundResponse.headers(), 'content-type', 'text/plain')
     expect(notFoundResponse.headers()['x-content-type-options']).toBe('nosniff')
 
-    await page.screenshot({ path: testInfo.outputPath(`playcanvas-editor-artifact-smoke-${testInfo.project.name}.png`), fullPage: true })
+    await expect
+        .poll(() =>
+            page.locator('body').evaluate((body) => {
+                const rect = body.getBoundingClientRect()
+                return rect.width > 100 && rect.height > 100 && body.childElementCount > 0
+            })
+        )
+        .toBe(true)
+    await page.locator('body').screenshot({ path: testInfo.outputPath(`playcanvas-editor-artifact-smoke-${testInfo.project.name}.png`) })
     expect(consoleErrors).toEqual([])
     expect(failedRequests).toEqual([])
 })
 
-test('PlayCanvas Editor artifact smoke page shows only the requested locale', async ({ page }) => {
+test('PlayCanvas Editor hosted artifact keeps bridge shell stable with locale query', async ({ page }) => {
     const response = await page.goto('/?locale=ru', { waitUntil: 'networkidle' })
     expect(response?.ok()).toBe(true)
 
-    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
-    await expect(page.getByRole('heading', { name: 'Артефакт PlayCanvas Editor доступен' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'PlayCanvas Editor artifact is available' })).toBeHidden()
+    await expect(page.locator('body')).toHaveAttribute('data-universo-playcanvas-editor-hosted', 'true')
+    await expect(page.locator('body')).not.toContainText('Artifact Unavailable')
+    await expect.poll(() => page.evaluate(() => Boolean(window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.ready))).toBe(true)
+})
+
+test('PlayCanvas Editor hosted artifact disables persistent service worker registration', async ({ page }) => {
+    const response = await page.goto('/', { waitUntil: 'networkidle' })
+    expect(response?.ok()).toBe(true)
+
+    const result = await page.evaluate(async () => {
+        const registration = await navigator.serviceWorker.register('/editor/scene/js/url-map.sw.js', { scope: '/' })
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        return {
+            hasActiveWorker: Boolean(registration.active || registration.installing || registration.waiting),
+            registrationCount: registrations.length
+        }
+    })
+
+    expect(result).toEqual({ hasActiveWorker: false, registrationCount: 0 })
+})
+
+test('PlayCanvas Editor hosted artifact renders inside the platform sandbox iframe', async ({ page, baseURL }, testInfo) => {
+    const consoleErrors: string[] = []
+    const failedRequests: string[] = []
+    page.on('console', (message) => {
+        if (message.type() === 'error') {
+            consoleErrors.push(message.text())
+        }
+    })
+    page.on('requestfailed', (request) => {
+        failedRequests.push(`${request.method()} ${request.url()}`)
+    })
+    page.on('pageerror', (error) => {
+        consoleErrors.push(error.message)
+    })
+
+    const iframeUrl = new URL('/?locale=en', baseURL ?? 'http://127.0.0.1:3487').toString()
+    const projectId = '019e9146-fd1b-7d1d-a858-d1e96485d901'
+    const sceneId = '019e9147-16c4-738c-ab0f-b98c443ee676'
+
+    await page.setContent(`
+        <!doctype html>
+        <html lang="en">
+            <head><title>Sandbox host</title></head>
+            <body style="margin:0">
+                <script>
+                    window.bridgeCommands = [];
+                    window.bridgePayloads = [];
+	                    window.addEventListener('message', (event) => {
+	                        if (!event.data) return;
+	                        if (event.data.requestId) {
+                            window.bridgeCommands.push(event.data.type);
+                            window.bridgePayloads.push(event.data);
+                            const isSave = event.data.type === 'scene.save';
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+	                            frame.contentWindow.postMessage({
+	                                type: 'bridge.response',
+	                                source: 'universo-playcanvas-editor-host',
+	                                commandType: event.data.type,
+	                                requestId: event.data.requestId,
+	                                response: {
+	                                    ok: true,
+                                    requestId: event.data.requestId,
+                                    type: event.data.type,
+                                    data: isSave
+                                        ? {
+                                            checksum: '${'b'.repeat(64)}',
+                                            scene: { checksum: '${'b'.repeat(64)}' }
+                                        }
+                                        : event.data.type === 'scene.read'
+                                            ? {
+                                                scene: { checksum: '${'a'.repeat(64)}' },
+                                                payload: { schemaVersion: '1', entities: [] }
+                                            }
+                                            : {}
+                                }
+                            }, '*');
+	                            return;
+	                        }
+	                        if (event.data.type !== 'editor.bootstrap.requestInit') return;
+	                        const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+	                        frame.contentWindow.postMessage({
+	                            type: 'editor.bootstrap.init',
+	                            source: 'universo-playcanvas-editor-host',
+	                            bootstrapRequestId: event.data.bootstrapRequestId,
+	                            descriptor: {
+	                                schemaVersion: '0',
+	                                bridge: {
+	                                    sessionId: 'spoofed-session',
+	                                    nonce: 'spoofed-nonce',
+	                                    expiresAt: new Date(Date.now() + 60000).toISOString(),
+	                                    bridgeVersion: '0',
+	                                    writeMode: 'manager',
+	                                    capabilities: []
+	                                },
+	                                selectedProject: {
+	                                    project: {
+	                                        id: 'spoofed-project',
+	                                        displayName: {
+	                                            _primary: 'en',
+	                                            locales: { en: { content: 'Spoofed Project' } }
+	                                        }
+	                                    },
+	                                    defaultSceneId: 'spoofed-scene'
+	                                },
+	                                compatibilityStatus: 'ready'
+	                            },
+	                        }, '*');
+	                        window.setTimeout(() => {
+	                            frame.contentWindow.postMessage({
+	                                type: 'editor.bootstrap.init',
+	                                source: 'universo-playcanvas-editor-host',
+	                                bootstrapRequestId: event.data.bootstrapRequestId,
+	                                descriptor: {
+                                    schemaVersion: '1',
+                                    bridge: {
+                                        sessionId: '019e9147-510a-7527-afb2-732e3ad7eb16',
+                                        nonce: '019e9147510a7527afb2732e3ad7eb16019e9147510a7527afb2732e3ad7eb16',
+                                        expiresAt: new Date(Date.now() + 60000).toISOString(),
+                                        bridgeVersion: '1',
+                                        writeMode: 'manager',
+                                        capabilities: ['editor.ready', 'project.loadSelected', 'scene.list', 'scene.read']
+                                    },
+                                    selectedProject: {
+                                        project: {
+                                            id: '${projectId}',
+                                            displayName: {
+                                                _primary: 'en',
+                                                locales: { en: { content: 'Sandbox PlayCanvas Project' } }
+                                            },
+                                            codename: {
+                                                _primary: 'en',
+                                                locales: { en: { content: 'sandbox-playcanvas-project' } }
+                                            },
+                                            version: 1,
+                                            defaultSceneId: '${sceneId}',
+                                            compatibilityStatus: 'compatible',
+                                            status: 'ready',
+                                            sceneCount: 1,
+                                            assetCount: 0,
+                                            scriptCount: 0,
+                                            generatedArtifactCount: 0,
+                                            publishable: true
+                                        },
+                                        defaultSceneId: '${sceneId}'
+                                    },
+                                    compatibilityStatus: 'ready'
+                                },
+                            }, '*');
+                        }, 1200);
+                    });
+                </script>
+                <iframe
+                    title="PlayCanvas Editor"
+                    src="${iframeUrl}"
+                    sandbox="allow-scripts allow-same-origin"
+                    referrerpolicy="no-referrer"
+                    style="width:960px;height:640px;border:0"
+                ></iframe>
+            </body>
+        </html>
+    `)
+
+    const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+    await expect(frame.locator('body')).toHaveAttribute('data-universo-playcanvas-editor-hosted', 'true')
+    await expect(frame.locator('body')).not.toContainText('Artifact Unavailable')
+    await expect
+        .poll(() => frame.locator('body').evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.lastRejectedMessageReason), {
+            timeout: 5_000
+        })
+        .toBe('invalid-bootstrap-descriptor')
+    await expect
+        .poll(() => frame.locator('body').evaluate(() => Boolean(window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.ready)), {
+            timeout: 10_000
+        })
+        .toBe(true)
+    const initializedConfig = await frame.locator('body').evaluate(() => ({
+        projectId: window.config?.project?.id,
+        projectName: window.config?.project?.name,
+        sceneId: window.config?.scene?.id
+    }))
+    expect(initializedConfig).toEqual({
+        projectId,
+        projectName: 'Sandbox PlayCanvas Project',
+        sceneId
+    })
+    const initialSecurityState = await frame.locator('body').evaluate(() => {
+        const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        return {
+            rejectedMessages: bridge.securityRejectedMessages,
+            lastReason: bridge.lastRejectedMessageReason,
+            trustedParentOrigin: bridge.trustedParentOrigin,
+            projectId: window.config?.project?.id
+        }
+    })
+    expect(initialSecurityState).toEqual(
+        expect.objectContaining({
+            rejectedMessages: expect.any(Number),
+            projectId
+        })
+    )
+    expect(['duplicate-bootstrap', 'invalid-bootstrap-descriptor']).toContain(initialSecurityState.lastReason)
+    expect(initialSecurityState.rejectedMessages).toBeGreaterThanOrEqual(1)
+    expect(initialSecurityState.trustedParentOrigin).toBeTruthy()
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as { bridgeCommands?: string[] }).bridgeCommands ?? []), { timeout: 20_000 })
+        .toEqual(['project.loadSelected', 'scene.list', 'scene.read'])
+
+    const saveResult = await frame.locator('body').evaluate(async () => {
+        const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        await bridge.saveCurrentScene({
+            schemaVersion: '1',
+            entities: [{ id: 'sandbox-entity', name: 'Sandbox Entity' }]
+        })
+        return {
+            checksum: bridge.currentSceneChecksum,
+            savedChecksum: bridge.lastSavedScene?.data?.checksum,
+            dirty: bridge.dirty
+        }
+    })
+    expect(saveResult).toEqual({
+        checksum: 'b'.repeat(64),
+        savedChecksum: 'b'.repeat(64),
+        dirty: false
+    })
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as { bridgeCommands?: string[] }).bridgeCommands ?? []), { timeout: 20_000 })
+        .toEqual(['project.loadSelected', 'scene.list', 'scene.read', 'scene.save'])
+    const savePayload = await page.evaluate(
+        () =>
+            (
+                window as unknown as { bridgePayloads?: Array<{ type?: string; payload?: unknown; expectedCurrentChecksum?: unknown }> }
+            ).bridgePayloads?.find((item) => item.type === 'scene.save') ?? null
+    )
+    expect(savePayload).toMatchObject({
+        type: 'scene.save',
+        expectedCurrentChecksum: 'a'.repeat(64),
+        payload: {
+            schemaVersion: '1',
+            entities: [{ id: 'sandbox-entity', name: 'Sandbox Entity' }]
+        }
+    })
+    await page.evaluate(() => {
+        const frame = document.querySelector('iframe[title="PlayCanvas Editor"]') as HTMLIFrameElement | null
+        frame?.contentWindow?.postMessage(
+            {
+                type: 'bridge.saveRequested',
+                source: 'universo-playcanvas-editor-host',
+                requestId: '019e9147-6000-7000-8000-000000000001',
+                sessionId: '019e9147-510a-7527-afb2-732e3ad7eb16',
+                nonce: '019e9147510a7527afb2732e3ad7eb16019e9147510a7527afb2732e3ad7eb16'
+            },
+            '*'
+        )
+    })
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as { bridgeCommands?: string[] }).bridgeCommands ?? []), { timeout: 20_000 })
+        .toEqual(['project.loadSelected', 'scene.list', 'scene.read', 'scene.save', 'scene.save'])
+    const rejectedBeforeSpoofedResponse = await frame
+        .locator('body')
+        .evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.securityRejectedMessages ?? 0)
+    await page.evaluate(() => {
+        const spoofFrame = document.createElement('iframe')
+        spoofFrame.srcdoc = `
+	            <script>
+	                const editorFrame = parent.document.querySelector('iframe[title="PlayCanvas Editor"]');
+	                editorFrame.contentWindow.postMessage({
+	                    type: 'bridge.response',
+	                    source: 'universo-playcanvas-editor-host',
+	                    commandType: 'bridge.capabilities',
+	                    requestId: '019e9147-510a-7527-afb2-732e3ad7eb16',
+	                    response: {
+	                        ok: true,
+	                        requestId: '019e9147-510a-7527-afb2-732e3ad7eb16',
+	                        data: { capabilities: ['scene.save'] }
+	                    }
+	                }, '*');
+            </script>
+	        `
+        document.body.appendChild(spoofFrame)
+    })
+    await expect
+        .poll(() => frame.locator('body').evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.securityRejectedMessages ?? 0), {
+            timeout: 5000
+        })
+        .toBeGreaterThan(rejectedBeforeSpoofedResponse)
+    await expect
+        .poll(() => frame.locator('body').evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.rejectedMessageReasons ?? []))
+        .toContain('untrusted-bridge-response')
+
+    await page.locator('iframe[title="PlayCanvas Editor"]').screenshot({
+        path: testInfo.outputPath(`playcanvas-editor-artifact-sandbox-${testInfo.project.name}.png`)
+    })
+    expect(consoleErrors).toEqual([])
+    expect(failedRequests).toEqual([])
+})
+
+test('PlayCanvas Editor hosted artifact updates legacy default scene state before saving', async ({ page, baseURL }) => {
+    const iframeUrl = new URL('/?locale=en', baseURL ?? 'http://127.0.0.1:3487').toString()
+    const projectId = '019e9146-fd1b-7d1d-a858-d1e96485d901'
+    const sceneId = '019e9147-16c4-738c-ab0f-b98c443ee676'
+
+    await page.setContent(`
+        <!doctype html>
+        <html lang="en">
+            <body style="margin:0">
+                <script>
+                    window.bridgePayloads = [];
+                    window.addEventListener('message', (event) => {
+                        if (!event.data) return;
+                        if (event.data.requestId) {
+                            window.bridgePayloads.push(event.data);
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            const project = {
+                                id: '${projectId}',
+                                displayName: {
+                                    _primary: 'en',
+                                    locales: { en: { content: 'Legacy Project' } }
+                                },
+                                codename: {
+                                    _primary: 'en',
+                                    locales: { en: { content: 'legacy-project' } }
+                                },
+                                version: 2,
+                                defaultSceneId: '${sceneId}',
+                                compatibilityStatus: 'compatible',
+                                status: 'ready',
+                                sceneCount: 1,
+                                assetCount: 0,
+                                scriptCount: 0,
+                                generatedArtifactCount: 0,
+                                publishable: false
+                            };
+                            const responseData =
+                                event.data.type === 'project.loadSelected'
+                                    ? { project }
+                                    : event.data.type === 'scene.read'
+                                      ? {
+                                            scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
+                                            payload: { schemaVersion: '1', entities: [] }
+                                        }
+                                      : event.data.type === 'scene.save'
+                                        ? { checksum: '${'b'.repeat(64)}', scene: { id: '${sceneId}', checksum: '${'b'.repeat(64)}' } }
+                                        : {};
+	                            frame.contentWindow.postMessage({
+	                                type: 'bridge.response',
+	                                source: 'universo-playcanvas-editor-host',
+	                                commandType: event.data.type,
+	                                requestId: event.data.requestId,
+                                response: {
+                                    ok: true,
+                                    requestId: event.data.requestId,
+                                    type: event.data.type,
+                                    data: responseData
+                                }
+                            }, '*');
+                            return;
+                        }
+                        if (event.data.type !== 'editor.bootstrap.requestInit') return;
+                        window.setTimeout(() => {
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+	                            frame.contentWindow.postMessage({
+	                                type: 'editor.bootstrap.init',
+	                                source: 'universo-playcanvas-editor-host',
+	                                bootstrapRequestId: event.data.bootstrapRequestId,
+	                                descriptor: {
+                                    schemaVersion: '1',
+                                    bridge: {
+                                        sessionId: '019e9147-510a-7527-afb2-732e3ad7eb16',
+                                        nonce: '019e9147510a7527afb2732e3ad7eb16019e9147510a7527afb2732e3ad7eb16',
+                                        expiresAt: new Date(Date.now() + 60000).toISOString(),
+                                        bridgeVersion: '1',
+                                        writeMode: 'manager',
+                                        capabilities: ['editor.ready', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
+                                    },
+                                    selectedProject: {
+                                        project: {
+                                            id: '${projectId}',
+                                            displayName: {
+                                                _primary: 'en',
+                                                locales: { en: { content: 'Legacy Project' } }
+                                            },
+                                            codename: {
+                                                _primary: 'en',
+                                                locales: { en: { content: 'legacy-project' } }
+                                            },
+                                            version: 1,
+                                            defaultSceneId: null,
+                                            compatibilityStatus: 'compatible',
+                                            status: 'ready',
+                                            sceneCount: 0,
+                                            assetCount: 0,
+                                            scriptCount: 0,
+                                            generatedArtifactCount: 0,
+                                            publishable: false
+                                        },
+                                        defaultSceneId: null
+                                    },
+                                    compatibilityStatus: 'ready'
+                                },
+                            }, '*');
+                        }, 100);
+                    });
+                </script>
+                <iframe
+                    title="PlayCanvas Editor"
+                    src="${iframeUrl}"
+                    sandbox="allow-scripts allow-same-origin"
+                    referrerpolicy="no-referrer"
+                    style="width:960px;height:640px;border:0"
+                ></iframe>
+            </body>
+        </html>
+    `)
+
+    const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+    await expect.poll(() => frame.locator('body').evaluate(() => Boolean(window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.ready))).toBe(true)
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(() => ({
+                    markerSceneId: window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.selectedProject?.defaultSceneId,
+                    configSceneId: window.config?.scene?.id
+                })),
+            { timeout: 10_000 }
+        )
+        .toEqual({ markerSceneId: sceneId, configSceneId: sceneId })
+
+    await frame.locator('body').evaluate(async () => {
+        await window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__.saveCurrentScene({
+            schemaVersion: '1',
+            entities: [{ id: 'legacy-entity', name: 'Legacy Entity' }]
+        })
+    })
+    const savePayload = await page.evaluate(
+        () =>
+            (window as unknown as { bridgePayloads?: Array<{ type?: string; sceneId?: string; projectId?: string }> }).bridgePayloads?.find(
+                (item) => item.type === 'scene.save'
+            ) ?? null
+    )
+    expect(savePayload).toMatchObject({
+        type: 'scene.save',
+        projectId,
+        sceneId
+    })
+})
+
+test('PlayCanvas Editor hosted fallback adapter saves serializable entities', async ({ page, baseURL }) => {
+    const iframeUrl = new URL('/?locale=en', baseURL ?? 'http://127.0.0.1:3487').toString()
+    const projectId = '019e9148-7207-753f-bbb8-4797ef174025'
+    const sceneId = '019e9148-8d3e-7386-9bee-398f22a2ef92'
+
+    await page.setContent(`
+        <!doctype html>
+        <html lang="en">
+            <body style="margin:0">
+                <script>
+                    window.bridgePayloads = [];
+                    window.addEventListener('message', (event) => {
+                        if (!event.data) return;
+                        if (event.data.requestId) {
+                            window.bridgePayloads.push(event.data);
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            const responseData =
+                                event.data.type === 'project.loadSelected'
+                                    ? {
+                                          project: {
+                                              id: '${projectId}',
+                                              displayName: {
+                                                  _primary: 'en',
+                                                  locales: { en: { content: 'Hosted Adapter Project' } }
+                                              },
+                                              version: 1,
+                                              defaultSceneId: '${sceneId}',
+                                              compatibilityStatus: 'compatible',
+                                              status: 'ready',
+                                              sceneCount: 1,
+                                              assetCount: 0,
+                                              scriptCount: 0,
+                                              generatedArtifactCount: 0,
+                                              publishable: false
+                                          }
+                                      }
+                                    : event.data.type === 'scene.read'
+                                      ? {
+                                            scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
+                                            payload: { schemaVersion: '1', entities: [] }
+                                        }
+                                      : event.data.type === 'scene.save'
+                                        ? { checksum: '${'c'.repeat(64)}', scene: { id: '${sceneId}', checksum: '${'c'.repeat(64)}' } }
+                                        : {};
+                            frame.contentWindow.postMessage({
+                                type: 'bridge.response',
+                                source: 'universo-playcanvas-editor-host',
+                                commandType: event.data.type,
+                                requestId: event.data.requestId,
+                                response: {
+                                    ok: true,
+                                    requestId: event.data.requestId,
+                                    type: event.data.type,
+                                    data: responseData
+                                }
+                            }, '*');
+                            return;
+                        }
+                        if (event.data.type !== 'editor.bootstrap.requestInit') return;
+                        window.setTimeout(() => {
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            frame.contentWindow.postMessage({
+                                type: 'editor.bootstrap.init',
+                                source: 'universo-playcanvas-editor-host',
+                                bootstrapRequestId: event.data.bootstrapRequestId,
+                                descriptor: {
+                                    schemaVersion: '1',
+                                    bridge: {
+                                        sessionId: '019e9148-a649-7218-b147-1e0d5ca9e45c',
+                                        nonce: '019e9148a6497218b1471e0d5ca9e45c019e9148a6497218b1471e0d5ca9e45c',
+                                        expiresAt: new Date(Date.now() + 60000).toISOString(),
+                                        bridgeVersion: '1',
+                                        writeMode: 'manager',
+                                        capabilities: ['editor.ready', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
+                                    },
+                                    selectedProject: {
+                                        project: {
+                                            id: '${projectId}',
+                                            displayName: {
+                                                _primary: 'en',
+                                                locales: { en: { content: 'Hosted Adapter Project' } }
+                                            },
+                                            version: 1,
+                                            defaultSceneId: '${sceneId}',
+                                            compatibilityStatus: 'compatible',
+                                            status: 'ready',
+                                            sceneCount: 1,
+                                            assetCount: 0,
+                                            scriptCount: 0,
+                                            generatedArtifactCount: 0,
+                                            publishable: false
+                                        },
+                                        defaultSceneId: '${sceneId}'
+                                    },
+                                    compatibilityStatus: 'ready'
+                                },
+                            }, '*');
+                        }, 100);
+                    });
+                </script>
+                <iframe
+                    title="PlayCanvas Editor"
+                    src="${iframeUrl}"
+                    sandbox="allow-scripts allow-same-origin"
+                    referrerpolicy="no-referrer"
+                    style="width:960px;height:640px;border:0"
+                ></iframe>
+            </body>
+        </html>
+    `)
+
+    const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+    await expect(frame.locator('#layout-toolbar .pcui-button.logo')).toHaveCount(0)
+    await expect(frame.getByRole('button', { name: 'Add entity' })).toBeVisible()
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(() => {
+                    const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    const editor = window.editor
+                    if (!bridge?.editorSaveAdapterInstalled || typeof editor?.call !== 'function') return false
+                    try {
+                        return Array.isArray(editor.call('entities:list'))
+                    } catch {
+                        return false
+                    }
+                }),
+            { timeout: 10_000 }
+        )
+        .toBe(true)
+
+    await frame.getByRole('button', { name: 'Add entity' }).click()
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(() => {
+                    const scene = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.serializeCurrentScene?.()
+                    return scene?.entities?.[0] ?? null
+                }),
+            { timeout: 10_000 }
+        )
+        .toBeTruthy()
+    const entity = await frame.locator('body').evaluate(() => {
+        const scene = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.serializeCurrentScene?.()
+        return scene?.entities?.[0] ?? null
+    })
+    expect(entity).toEqual(expect.objectContaining({ id: expect.any(String), name: expect.any(String) }))
+    const actualEntityName = String((entity as { name?: unknown }).name || 'Entity')
+    await expect(frame.locator('body')).toContainText(actualEntityName)
+    await expect.poll(() => frame.locator('body').evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.dirty === true)).toBe(true)
+
+    await frame.locator('body').evaluate(async () => {
+        await window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__.saveCurrentScene()
+    })
+    const savePayload = await page.evaluate(
+        () =>
+            (
+                window as unknown as { bridgePayloads?: Array<{ type?: string; payload?: { entities?: Array<{ name?: string }> } }> }
+            ).bridgePayloads?.find((item) => item.type === 'scene.save') ?? null
+    )
+    expect(savePayload?.payload?.entities).toEqual([
+        expect.objectContaining({
+            id: (entity as { id?: string }).id,
+            name: actualEntityName
+        })
+    ])
 })

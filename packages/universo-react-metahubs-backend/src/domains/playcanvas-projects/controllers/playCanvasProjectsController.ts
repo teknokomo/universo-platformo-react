@@ -1,9 +1,12 @@
 import { z } from 'zod'
+import { createHash } from 'node:crypto'
 import {
     CodenameVLCSchema,
     LocalizedStringAllowEmptySchema,
     LocalizedStringSchema,
     PLAYCANVAS_PROJECT_FILE_BASE64_MAX_CHARS,
+    playCanvasEditorBridgeCommandSchema,
+    type PlayCanvasEditorBridgeErrorCode,
     playCanvasAssetSchema,
     playCanvasGeneratedArtifactSchema,
     playCanvasSceneSchema,
@@ -12,6 +15,12 @@ import {
 } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { PlayCanvasProjectsService } from '../services/PlayCanvasProjectsService'
+import { PlayCanvasEditorBridgeSessionService } from '../services/PlayCanvasEditorBridgeSessionService'
+import { isMetahubDomainError, MetahubDomainError } from '../../shared/domainErrors'
+import { ensureMetahubAccess } from '../../shared/guards'
+import { OptimisticLockError } from '@universo-react/utils'
+import { listMetahubPackages } from '../../../persistence'
+import { resolvePackageAttachmentConfig } from '../../packages/services/packageConfigValidation'
 
 const createProjectSchema = z
     .object({
@@ -38,6 +47,10 @@ const deleteProjectQuerySchema = z.object({
 
 const projectFileQuerySchema = z.object({
     sourcePath: z.string().min(1).max(512)
+})
+
+const deleteProjectFileQuerySchema = projectFileQuerySchema.extend({
+    expectedCurrentChecksum: z.string().regex(/^[a-f0-9]{64}$/i)
 })
 
 const writeProjectFileSchema = z
@@ -76,6 +89,86 @@ const bindingBodySchema = playCanvasSceneScriptBindingSchema
 const generatedArtifactBodySchema = playCanvasGeneratedArtifactSchema
     .omit({ id: true })
     .extend({ expectedVersion: z.number().int().positive().optional() })
+
+const bridgeCommandBodySchema = z
+    .object({
+        sessionToken: z.string().min(32).max(4096),
+        command: playCanvasEditorBridgeCommandSchema
+    })
+    .strict()
+const replayGuardedBridgeCommands = new Set(['project.loadSelected', 'scene.save'])
+
+const hashBridgeCommand = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex')
+
+const completeReplayAfterSuccess = async (
+    sessionService: PlayCanvasEditorBridgeSessionService,
+    exec: Parameters<PlayCanvasEditorBridgeSessionService['completeReplay']>[0],
+    replayClaim: {
+        schemaName: string
+        input: {
+            sessionId: string
+            requestId: string
+            commandType: string
+            fingerprint: string
+        }
+    } | null,
+    response: unknown,
+    userId: string
+): Promise<void> => {
+    if (!replayClaim) {
+        return
+    }
+    const completed = await sessionService
+        .completeReplay(exec, replayClaim.schemaName, {
+            ...replayClaim.input,
+            response,
+            userId
+        })
+        .catch(() => false)
+    if (!completed) {
+        throw new MetahubDomainError({
+            message: 'PlayCanvas Editor bridge replay response could not be recorded',
+            statusCode: 503,
+            code: 'SCHEMA_SYNC_FAILED',
+            details: {
+                messageCode: 'playcanvas.editorBridge.replayCompletionFailed'
+            }
+        })
+    }
+}
+
+const isCurrentBridgeAttachmentEnabled = async (
+    exec: Parameters<typeof listMetahubPackages>[0],
+    metahubId: string,
+    packageSlug: string,
+    projectId: string | null
+): Promise<boolean> => {
+    const packages = await listMetahubPackages(exec, metahubId)
+    const matches = packages.filter(
+        (item) => item.authoringSurface.kind === 'playcanvasEditor' && item.authoringSurface.packageSlug === packageSlug
+    )
+    if (matches.length !== 1) {
+        return false
+    }
+    const item = matches[0]
+    if (item.authoringSurface.kind !== 'playcanvasEditor' || !item.authoringSurface.artifact) {
+        return false
+    }
+    try {
+        const config = resolvePackageAttachmentConfig(item.config, item.authoringSurface)
+        if (config.kind !== 'display' || (config.display.mode !== 'embeddedIframe' && config.display.mode !== 'openSeparately')) {
+            return false
+        }
+        return (config.playcanvasProject?.defaultProjectId ?? null) === projectId
+    } catch {
+        return false
+    }
+}
+
+const sendBridgeError = (
+    res: import('express').Response,
+    input: { requestId?: string; code: PlayCanvasEditorBridgeErrorCode; status: number; safeDetails?: Record<string, string> }
+) => res.status(input.status).json({ ok: false, ...input })
 
 export function createPlayCanvasProjectsController(createHandler: ReturnType<typeof createMetahubHandlerFactory>) {
     const list = createHandler(
@@ -274,6 +367,165 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         { permission: 'manageMetahub' }
     )
 
+    const editorBridgeCommand = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
+        const parsed = bridgeCommandBodySchema.safeParse(req.body)
+        if (!parsed.success) {
+            res.setHeader('Cache-Control', 'no-store')
+            return sendBridgeError(res, { code: 'invalidCommand', status: 400 })
+        }
+
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.read(parsed.data.sessionToken)
+        const command = parsed.data.command
+        res.setHeader('Cache-Control', 'no-store')
+
+        if (!session) {
+            return sendBridgeError(res, { requestId: command.requestId, code: 'sessionExpired', status: 401 })
+        }
+        if (
+            session.metahubId !== metahubId ||
+            session.userId !== userId ||
+            session.sessionId !== command.sessionId ||
+            session.nonce !== command.nonce
+        ) {
+            return sendBridgeError(res, { requestId: command.requestId, code: 'forbidden', status: 403 })
+        }
+        try {
+            await ensureMetahubAccess(exec, userId, metahubId, 'manageMetahub')
+        } catch (error) {
+            const status = (error as { status?: number; statusCode?: number }).status ?? (error as { statusCode?: number }).statusCode
+            if (status === 403) {
+                return sendBridgeError(res, { requestId: command.requestId, code: 'forbidden', status: 403 })
+            }
+            throw error
+        }
+        const isAttachmentEnabled = await isCurrentBridgeAttachmentEnabled(exec, metahubId, session.packageSlug, session.projectId)
+        if (!isAttachmentEnabled) {
+            return sendBridgeError(res, { requestId: command.requestId, code: 'artifactUnavailable', status: 404 })
+        }
+        if ('projectId' in command && session.projectId && command.projectId !== session.projectId) {
+            return sendBridgeError(res, { requestId: command.requestId, code: 'projectUnavailable', status: 404 })
+        }
+        if (
+            command.type !== 'editor.ready' &&
+            !session.capabilities.includes(command.type as import('@universo-react/types').PlayCanvasEditorBridgeCapability)
+        ) {
+            return sendBridgeError(res, { requestId: command.requestId, code: 'unsupportedCapability', status: 403 })
+        }
+        let replayClaim: {
+            schemaName: string
+            input: {
+                sessionId: string
+                requestId: string
+                commandType: string
+                fingerprint: string
+                expiresAt: number
+                userId: string
+            }
+        } | null = null
+        if (replayGuardedBridgeCommands.has(command.type)) {
+            const replaySchemaName = await schemaService.ensureSchema(metahubId, userId)
+            replayClaim = {
+                schemaName: replaySchemaName,
+                input: {
+                    sessionId: session.sessionId,
+                    requestId: command.requestId,
+                    commandType: command.type,
+                    fingerprint: hashBridgeCommand(command),
+                    expiresAt: session.expiresAt,
+                    userId
+                }
+            }
+            const claimed = await sessionService.claimReplay(exec, replaySchemaName, {
+                ...replayClaim.input
+            })
+            if (!claimed) {
+                const storedResponse = await sessionService.readReplayResponse(exec, replaySchemaName, replayClaim.input)
+                if (storedResponse?.status === 'completed') {
+                    return res.json(storedResponse.response)
+                }
+                return sendBridgeError(res, { requestId: command.requestId, code: 'replayRejected', status: 409 })
+            }
+        }
+
+        const service = new PlayCanvasProjectsService(exec, schemaService)
+        let completedSuccessfulBridgeOperation = false
+        try {
+            switch (command.type) {
+                case 'project.loadSelected': {
+                    const project = session.projectId
+                        ? await service.loadSelectedProjectForEditor(metahubId, session.projectId, userId)
+                        : null
+                    const response = { ok: true, requestId: command.requestId, data: { project } }
+                    completedSuccessfulBridgeOperation = true
+                    await completeReplayAfterSuccess(sessionService, exec, replayClaim, response, userId)
+                    return res.json(response)
+                }
+                case 'scene.list': {
+                    const scenes = await service.listScenes(metahubId, command.projectId, userId)
+                    return res.json({ ok: true, requestId: command.requestId, data: { scenes } })
+                }
+                case 'scene.read': {
+                    const item = await service.readEditorScene(metahubId, command.projectId, command.sceneId, userId)
+                    return res.json({ ok: true, requestId: command.requestId, data: item })
+                }
+                case 'scene.save': {
+                    const defaultSceneId =
+                        session.defaultSceneId ?? (await service.getProject(metahubId, command.projectId, userId)).defaultSceneId ?? null
+                    if (!defaultSceneId || command.sceneId !== defaultSceneId) {
+                        return sendBridgeError(res, { requestId: command.requestId, code: 'unsupportedCapability', status: 403 })
+                    }
+                    const item = await service.saveEditorScene(
+                        metahubId,
+                        command.projectId,
+                        command.sceneId,
+                        {
+                            payload: command.payload,
+                            expectedCurrentChecksum: command.expectedCurrentChecksum
+                        },
+                        userId
+                    )
+                    const response = { ok: true, requestId: command.requestId, data: item }
+                    completedSuccessfulBridgeOperation = true
+                    await completeReplayAfterSuccess(sessionService, exec, replayClaim, response, userId)
+                    return res.json(response)
+                }
+                case 'scene.saveStatus': {
+                    const scene = await service.getScene(metahubId, command.projectId, command.sceneId, userId)
+                    return res.json({ ok: true, requestId: command.requestId, data: { scene, checksum: scene.checksum ?? null } })
+                }
+                case 'asset.listMinimalForScene': {
+                    const assets = await service.listMinimalAssetsForEditorScene(metahubId, command.projectId, command.sceneId, userId)
+                    return res.json({ ok: true, requestId: command.requestId, data: { assets } })
+                }
+                case 'bridge.capabilities':
+                    return res.json({ ok: true, requestId: command.requestId, data: { capabilities: session.capabilities } })
+                case 'bridge.close':
+                case 'bridge.dirtyState':
+                    return res.json({ ok: true, requestId: command.requestId, data: { dirty: command.dirty ?? false } })
+                case 'editor.ready':
+                    return res.json({ ok: true, requestId: command.requestId, data: { capabilities: session.capabilities } })
+            }
+        } catch (error) {
+            if (replayClaim && !completedSuccessfulBridgeOperation) {
+                await sessionService.releaseReplay(exec, replayClaim.schemaName, replayClaim.input).catch(() => undefined)
+            }
+            if (error instanceof OptimisticLockError) {
+                return sendBridgeError(res, { requestId: command.requestId, code: 'saveConflict', status: 409 })
+            }
+            if (isMetahubDomainError(error)) {
+                if (error.details?.messageCode === 'playcanvas.files.path.currentChecksumMismatch') {
+                    return sendBridgeError(res, { requestId: command.requestId, code: 'saveConflict', status: 409 })
+                }
+                const status = error.statusCode >= 400 && error.statusCode <= 599 ? error.statusCode : 500
+                const code: PlayCanvasEditorBridgeErrorCode =
+                    status === 404 ? 'sceneUnavailable' : status === 409 ? 'saveConflict' : 'storageUnavailable'
+                return sendBridgeError(res, { requestId: command.requestId, code, status })
+            }
+            throw error
+        }
+    }, undefined)
+
     const remove = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const parsed = deleteProjectQuerySchema.safeParse(req.query)
@@ -321,15 +573,28 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
 
     const deleteFile = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
-            const parsed = projectFileQuerySchema.safeParse(req.query)
+            const parsed = deleteProjectFileQuerySchema.safeParse(req.query)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid query', details: parsed.error.flatten() })
             }
             const service = new PlayCanvasProjectsService(exec, schemaService)
             if (req.params.assetId) {
-                await service.deleteAssetFile(metahubId, req.params.projectId, req.params.assetId, parsed.data.sourcePath, userId)
+                await service.deleteAssetFile(
+                    metahubId,
+                    req.params.projectId,
+                    req.params.assetId,
+                    parsed.data.sourcePath,
+                    parsed.data.expectedCurrentChecksum,
+                    userId
+                )
             } else {
-                await service.deleteProjectFile(metahubId, req.params.projectId, parsed.data.sourcePath, userId)
+                await service.deleteProjectFile(
+                    metahubId,
+                    req.params.projectId,
+                    parsed.data.sourcePath,
+                    parsed.data.expectedCurrentChecksum,
+                    userId
+                )
             }
             res.setHeader('Cache-Control', 'no-store')
             return res.status(204).send()
@@ -354,6 +619,7 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         writeGeneratedArtifact,
         publishProjectState,
         exportProjectState,
+        editorBridgeCommand,
         readFile,
         writeFile,
         deleteFile

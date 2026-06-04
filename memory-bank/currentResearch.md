@@ -1,5 +1,17 @@
 # Current Research
 
+## 2026-06-04: PlayCanvas Editor runtime host, bridge, and storage adapter
+
+-   Research artifact created: `memory-bank/research/playcanvas-editor-runtime-host-bridge-storage-adapter-research-2026-06-04.md`.
+-   QA-updated on 2026-06-04 with stricter bridge schema guidance, corrected script/generated route coverage, explicit opaque-origin `postMessage` target-origin handling, local Editor/runtime docs coverage, and an open `@universo-react/utils` scope question.
+-   Scope decision: proceed to PLAN only after treating the first implementation as a proof of the real Editor host seam, not as full PlayCanvas Cloud parity.
+-   Critical finding: the current `@universo-react/playcanvas-editor` artifact is still intentionally `artifact-only`; the build overwrites `dist/editor/index.html` with a safe unavailable page, so implementation must add a real supported artifact mode and manifest/readiness contract before the iframe can become usable.
+-   Upstream integration implication: vendored Editor source depends on injected `window.config`, REST globals, realtime scene/asset flows, and script parse pipeline acknowledgements, so pure postMessage-only storage is not proven sufficient without a deliberate Editor seam or shim.
+-   Bridge/security implication: the current iframe sandbox can produce opaque-origin messaging; the bridge must validate `event.source`, session nonce/expiry, schema, request ids, and capabilities, and any `allow-same-origin`/CSP relaxation must be an explicit security decision.
+-   Storage implication: the adapter must preserve existing PlayCanvas project write ordering and checksum guards: metadata path first, guarded file write second, metadata/status refresh third, with localized conflict states.
+-   Runtime implication: Editor save remains metahub authoring state only; publish/export/application sync stay explicit and must not be triggered silently by save.
+-   Implementation closure: the first real hosted bridge slice is now implemented with request-bound iframe bootstrap, typed session-backed bridge commands, replay/idempotency handling, metadata-first scene persistence with guarded file writes, browser smoke, and local minimal Supabase `@packages` E2E evidence.
+
 ## 2026-06-03: PlayCanvas project storage model for metahubs
 
 -   Research artifact created: `memory-bank/research/playcanvas-project-storage-model-for-metahubs-research-2026-06-03.md`.

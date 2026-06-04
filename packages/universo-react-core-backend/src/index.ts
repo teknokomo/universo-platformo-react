@@ -86,9 +86,52 @@ const resolvePlayCanvasEditorFrameSources = (): string[] => {
     return [...sources]
 }
 
-export const buildPlayCanvasEditorHostCsp = (frameAncestors: string): string => {
-    const frameSources = resolvePlayCanvasEditorFrameSources().join(' ')
-    const directives = [`frame-src ${frameSources}`, `child-src ${frameSources}`]
+const resolvePlayCanvasEditorLoopbackSiblingOrigin = (origin: string): string | null => {
+    try {
+        const parsed = new URL(origin)
+        if (parsed.hostname === '127.0.0.1') {
+            parsed.hostname = 'localhost'
+            return parsed.origin
+        }
+        if (parsed.hostname === 'localhost') {
+            parsed.hostname = '127.0.0.1'
+            return parsed.origin
+        }
+        return null
+    } catch {
+        return null
+    }
+}
+
+export const resolvePlayCanvasEditorRequestOrigin = (req: Request): string | null => {
+    const trustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true'
+    const forwardedHost = trustProxyHeaders ? req.get('x-forwarded-host')?.split(',')[0]?.trim() : undefined
+    const host = forwardedHost || req.get('host')
+    if (!host) return null
+    const forwardedProto = trustProxyHeaders ? req.get('x-forwarded-proto')?.split(',')[0]?.trim() : undefined
+    const protocol = forwardedProto || req.protocol || 'http'
+    return parseCspFrameOrigin(`${protocol}://${host}`)
+}
+
+const resolvePlayCanvasEditorArtifactFrameOrigin = (requestOrigin?: string | null): string | null => {
+    const configuredOrigin = parseCspFrameOrigin(process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN ?? '')
+    if (configuredOrigin && configuredOrigin !== "'self'" && configuredOrigin !== "'none'") {
+        return configuredOrigin
+    }
+    if (!requestOrigin || requestOrigin === "'self'" || requestOrigin === "'none'") {
+        return null
+    }
+    return resolvePlayCanvasEditorLoopbackSiblingOrigin(requestOrigin)
+}
+
+export const buildPlayCanvasEditorHostCsp = (frameAncestors: string, requestOrigin?: string | null): string => {
+    const frameSources = new Set(resolvePlayCanvasEditorFrameSources())
+    const artifactOrigin = resolvePlayCanvasEditorArtifactFrameOrigin(requestOrigin)
+    if (artifactOrigin) {
+        frameSources.add(artifactOrigin)
+    }
+    const serializedFrameSources = [...frameSources].join(' ')
+    const directives = [`frame-src ${serializedFrameSources}`, `child-src ${serializedFrameSources}`]
     if (frameAncestors !== '*') {
         directives.push(`frame-ancestors ${frameAncestors}`)
     }
@@ -335,7 +378,10 @@ export class App {
 
         this.app.use((req: Request, res: Response, next: NextFunction) => {
             if (isPlayCanvasEditorHostRoute(req)) {
-                res.setHeader('Content-Security-Policy', buildPlayCanvasEditorHostCsp(getAllowedIframeOrigins()))
+                res.setHeader(
+                    'Content-Security-Policy',
+                    buildPlayCanvasEditorHostCsp(getAllowedIframeOrigins(), resolvePlayCanvasEditorRequestOrigin(req))
+                )
             }
             next()
         })

@@ -1,6 +1,5 @@
 {
     "rollout_audit_artifacts": [
-        ".manager/specs/platformo/packages-naming-convention-rollout-spec-2026-05-25.md",
         "memory-bank/plan/packages-naming-convention-rollout-plan-2026-05-25.md",
         "memory-bank/implementation/packages-naming-ledger.json",
         "memory-bank/implementation/packages-naming-old-package-names.txt",
