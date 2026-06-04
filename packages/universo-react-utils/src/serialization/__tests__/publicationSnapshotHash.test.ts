@@ -522,4 +522,181 @@ describe('normalizePublicationSnapshotForHash', () => {
         expect(JSON.stringify(first.modules)).toContain('modules/general/shared-library.ts')
         expect(JSON.stringify(renamed.modules)).toContain('modules/general/renamed-shared-library.ts')
     })
+
+    it('includes PlayCanvas runtime manifest changes in canonical hash normalization', () => {
+        const baseManifest = {
+            schemaVersion: '1',
+            projectId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104',
+            sceneId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d105',
+            checksum: 'runtime-checksum',
+            assets: [
+                {
+                    id: 'asset-scene',
+                    type: 'scene',
+                    name: 'Main scene',
+                    url: '/assets/main.json',
+                    hash: 'scene-checksum'
+                }
+            ],
+            scripts: [
+                {
+                    id: 'script-flight',
+                    scriptName: 'FlightController',
+                    scriptKind: 'esm',
+                    artifactHash: 'artifact-checksum',
+                    moduleCodename: 'flight_controller',
+                    attributes: { speed: { type: 'number' } },
+                    attributeValues: { speed: 10 },
+                    sceneEntityStableId: 'ship-player'
+                }
+            ]
+        }
+
+        const first = normalizePublicationSnapshotForHash({
+            playcanvasRuntimeManifests: [baseManifest]
+        })
+        const changed = normalizePublicationSnapshotForHash({
+            playcanvasRuntimeManifests: [
+                {
+                    ...baseManifest,
+                    scripts: [{ ...baseManifest.scripts[0], artifactHash: 'new-artifact-checksum' }]
+                }
+            ]
+        })
+
+        expect(first.playcanvasRuntimeManifests).not.toEqual(changed.playcanvasRuntimeManifests)
+        expect(JSON.stringify(first.playcanvasRuntimeManifests)).toContain('artifact-checksum')
+        expect(JSON.stringify(changed.playcanvasRuntimeManifests)).toContain('new-artifact-checksum')
+    })
+
+    it('keeps absent PlayCanvas runtime manifests absent for legacy snapshot hash compatibility', () => {
+        const normalized = normalizePublicationSnapshotForHash({
+            version: 1,
+            metahubId: 'metahub-1',
+            modules: []
+        })
+
+        expect(normalized).not.toHaveProperty('playcanvasRuntimeManifests')
+    })
+
+    it('includes PlayCanvas project file payloads in canonical hash normalization', () => {
+        const baseSection = {
+            schemaVersion: 1,
+            projects: [
+                {
+                    id: 'project-1',
+                    schemaVersion: '1',
+                    codename: createCodenameVlc('flight_project'),
+                    displayName: createCodenameVlc('Flight Project'),
+                    packageRef: { packageName: '@universo-react/playcanvas-editor', compatibilityStatus: 'compatible' },
+                    settings: {},
+                    defaultSceneId: 'scene-1',
+                    publicationConfig: {}
+                }
+            ],
+            scenes: [
+                {
+                    id: 'scene-1',
+                    projectId: 'project-1',
+                    codename: createCodenameVlc('main_scene'),
+                    displayName: createCodenameVlc('Main Scene'),
+                    payloadSchemaVersion: '1',
+                    payload: {},
+                    payloadFile: {
+                        provider: 'local',
+                        root: 'playcanvas-projects',
+                        path: 'playcanvas-projects/project-1/scenes/scene-1.json',
+                        hash: 'scene-hash',
+                        mime: 'application/json',
+                        snapshotContentBase64: Buffer.from('{"entities":[]}').toString('base64')
+                    },
+                    checksum: 'scene-hash',
+                    sortOrder: 0,
+                    publish: true
+                }
+            ],
+            assets: [],
+            scriptAssets: [],
+            sceneScriptBindings: [],
+            generatedArtifacts: [],
+            runtimeManifests: []
+        }
+
+        const first = normalizePublicationSnapshotForHash({ playcanvasProjects: baseSection })
+        const changed = normalizePublicationSnapshotForHash({
+            playcanvasProjects: {
+                ...baseSection,
+                scenes: [
+                    {
+                        ...baseSection.scenes[0],
+                        payloadFile: {
+                            ...baseSection.scenes[0].payloadFile,
+                            snapshotContentBase64: Buffer.from('{"entities":[{"name":"Ship"}]}').toString('base64')
+                        }
+                    }
+                ]
+            }
+        })
+
+        expect(first.playcanvasProjects).not.toEqual(changed.playcanvasProjects)
+        expect(JSON.stringify(first.playcanvasProjects)).toContain(Buffer.from('{"entities":[]}').toString('base64'))
+        expect(JSON.stringify(changed.playcanvasProjects)).toContain(Buffer.from('{"entities":[{"name":"Ship"}]}').toString('base64'))
+    })
+
+    it('keeps absent PlayCanvas projects absent for legacy snapshot hash compatibility', () => {
+        const normalized = normalizePublicationSnapshotForHash({
+            version: 1,
+            metahubId: 'metahub-1',
+            modules: []
+        })
+
+        expect(normalized).not.toHaveProperty('playcanvasProjects')
+    })
+
+    it('includes PlayCanvas script binding changes in canonical hash normalization', () => {
+        const baseManifest = {
+            schemaVersion: '1',
+            projectId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104',
+            sceneId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d105',
+            checksum: 'runtime-checksum',
+            assets: [],
+            scripts: [
+                {
+                    id: 'script-flight',
+                    scriptName: 'FlightController',
+                    scriptKind: 'esm',
+                    artifactHash: 'artifact-checksum',
+                    moduleCodename: 'flight_controller',
+                    attributes: { speed: { type: 'number' } },
+                    attributeValues: { speed: 10 },
+                    sceneEntityStableId: 'ship-player'
+                }
+            ]
+        }
+
+        const first = normalizePublicationSnapshotForHash({
+            playcanvasRuntimeManifests: [baseManifest]
+        })
+        const changedValues = normalizePublicationSnapshotForHash({
+            playcanvasRuntimeManifests: [
+                {
+                    ...baseManifest,
+                    scripts: [{ ...baseManifest.scripts[0], attributeValues: { speed: 20 } }]
+                }
+            ]
+        })
+        const changedEntity = normalizePublicationSnapshotForHash({
+            playcanvasRuntimeManifests: [
+                {
+                    ...baseManifest,
+                    scripts: [{ ...baseManifest.scripts[0], sceneEntityStableId: 'ship-wingman' }]
+                }
+            ]
+        })
+
+        expect(first.playcanvasRuntimeManifests).not.toEqual(changedValues.playcanvasRuntimeManifests)
+        expect(first.playcanvasRuntimeManifests).not.toEqual(changedEntity.playcanvasRuntimeManifests)
+        expect(JSON.stringify(first.playcanvasRuntimeManifests)).toContain('"speed":10')
+        expect(JSON.stringify(changedEntity.playcanvasRuntimeManifests)).toContain('ship-wingman')
+    })
 })

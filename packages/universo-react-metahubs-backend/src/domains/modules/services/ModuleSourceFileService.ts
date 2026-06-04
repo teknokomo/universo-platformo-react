@@ -193,8 +193,12 @@ export class ModuleSourceFileService {
     }
 
     async copyTree(source: ModuleSourceScope, target: ModuleSourceScope): Promise<void> {
-        const sourceRoot = this.branchRoot(source)
-        const targetRoot = this.branchRoot(target)
+        const sourceBranchRoot = this.branchRoot(source)
+        const targetBranchRoot = this.branchRoot(target)
+        await this.assertResolvedPathWithinRoot(sourceBranchRoot, { allowMissing: true })
+        await this.assertResolvedPathWithinRoot(targetBranchRoot, { allowMissing: true })
+        const sourceRoot = path.join(sourceBranchRoot, 'modules')
+        const targetRoot = path.join(targetBranchRoot, 'modules')
         await this.assertResolvedPathWithinRoot(sourceRoot, { allowMissing: true })
         await this.assertResolvedPathWithinRoot(targetRoot, { allowMissing: true })
         const sourceStat = await fs.stat(sourceRoot).catch((error: NodeJS.ErrnoException) => {

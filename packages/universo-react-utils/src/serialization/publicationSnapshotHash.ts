@@ -27,6 +27,8 @@ export interface PublicationSnapshotHashInput {
     defaultLayoutId?: unknown
     layoutConfig?: unknown
     settings?: unknown
+    playcanvasProjects?: unknown
+    playcanvasRuntimeManifests?: unknown
 }
 
 export interface NormalizePublicationSnapshotForHashOptions {
@@ -157,6 +159,181 @@ const normalizePackage = (packageValue: unknown): Record<string, unknown> => {
                 .sort(compareStrings)
         },
         config: item.config === undefined ? undefined : item.config
+    }
+}
+
+const normalizePlayCanvasRuntimeManifest = (manifestValue: unknown): Record<string, unknown> => {
+    const manifest = asRecord(manifestValue)
+
+    return {
+        schemaVersion: typeof manifest.schemaVersion === 'string' ? manifest.schemaVersion : '1',
+        projectId: typeof manifest.projectId === 'string' ? manifest.projectId : '',
+        sceneId: typeof manifest.sceneId === 'string' ? manifest.sceneId : null,
+        checksum: typeof manifest.checksum === 'string' ? manifest.checksum : '',
+        assets: asArray<SnapshotRecord>(manifest.assets)
+            .map((asset) => ({
+                id: typeof asset.id === 'string' ? asset.id : '',
+                type: typeof asset.type === 'string' ? asset.type : '',
+                name: typeof asset.name === 'string' ? asset.name : '',
+                url: typeof asset.url === 'string' ? asset.url : null,
+                hash: typeof asset.hash === 'string' ? asset.hash : null,
+                mime: typeof asset.mime === 'string' ? asset.mime : null,
+                size: typeof asset.size === 'number' ? asset.size : null
+            }))
+            .sort((left, right) => compareStrings(String(left.id ?? ''), String(right.id ?? ''))),
+        scripts: asArray<SnapshotRecord>(manifest.scripts)
+            .map((script) => ({
+                id: typeof script.id === 'string' ? script.id : '',
+                scriptName: typeof script.scriptName === 'string' ? script.scriptName : '',
+                scriptKind: typeof script.scriptKind === 'string' ? script.scriptKind : '',
+                artifactUrl: typeof script.artifactUrl === 'string' ? script.artifactUrl : null,
+                artifactHash: typeof script.artifactHash === 'string' ? script.artifactHash : null,
+                moduleId: typeof script.moduleId === 'string' ? script.moduleId : null,
+                moduleCodename: typeof script.moduleCodename === 'string' ? script.moduleCodename : null,
+                attributes: script.attributes && typeof script.attributes === 'object' ? script.attributes : {},
+                attributeValues: script.attributeValues && typeof script.attributeValues === 'object' ? script.attributeValues : {},
+                sceneEntityStableId: typeof script.sceneEntityStableId === 'string' ? script.sceneEntityStableId : null
+            }))
+            .sort((left, right) => {
+                if ((left.scriptName as string) !== (right.scriptName as string)) {
+                    return compareStrings(left.scriptName as string, right.scriptName as string)
+                }
+                return compareStrings(String(left.id ?? ''), String(right.id ?? ''))
+            }),
+        metadata: manifest.metadata && typeof manifest.metadata === 'object' ? manifest.metadata : {}
+    }
+}
+
+const normalizePlayCanvasFileReference = (fileValue: unknown): Record<string, unknown> | null => {
+    const file = asRecord(fileValue)
+    if (!fileValue || typeof fileValue !== 'object') return null
+
+    return {
+        provider: typeof file.provider === 'string' ? file.provider : '',
+        root: typeof file.root === 'string' ? file.root : '',
+        path: typeof file.path === 'string' ? file.path : '',
+        hash: typeof file.hash === 'string' ? file.hash : null,
+        size: typeof file.size === 'number' ? file.size : null,
+        mime: typeof file.mime === 'string' ? file.mime : null,
+        storageClass: typeof file.storageClass === 'string' ? file.storageClass : null,
+        status: typeof file.status === 'string' ? file.status : null,
+        snapshotContentBase64: typeof file.snapshotContentBase64 === 'string' ? file.snapshotContentBase64 : null
+    }
+}
+
+const normalizePlayCanvasProjectsSection = (sectionValue: unknown): Record<string, unknown> | undefined => {
+    if (sectionValue === undefined) return undefined
+    const section = asRecord(sectionValue)
+
+    return {
+        schemaVersion: typeof section.schemaVersion === 'number' || typeof section.schemaVersion === 'string' ? section.schemaVersion : 1,
+        projects: asArray<SnapshotRecord>(section.projects)
+            .map((project) => ({
+                id: typeof project.id === 'string' ? project.id : '',
+                schemaVersion: typeof project.schemaVersion === 'string' ? project.schemaVersion : '1',
+                codename: normalizeCodenameValue(project.codename),
+                displayName: project.displayName ?? {},
+                description: project.description ?? null,
+                packageRef: project.packageRef && typeof project.packageRef === 'object' ? project.packageRef : {},
+                settings: project.settings && typeof project.settings === 'object' ? project.settings : {},
+                defaultSceneId: typeof project.defaultSceneId === 'string' ? project.defaultSceneId : null,
+                publicationConfig:
+                    project.publicationConfig && typeof project.publicationConfig === 'object' ? project.publicationConfig : {}
+            }))
+            .sort((left, right) => compareStrings(String(left.id ?? ''), String(right.id ?? ''))),
+        scenes: asArray<SnapshotRecord>(section.scenes)
+            .map((scene) => ({
+                id: typeof scene.id === 'string' ? scene.id : '',
+                projectId: typeof scene.projectId === 'string' ? scene.projectId : '',
+                codename: normalizeCodenameValue(scene.codename),
+                displayName: scene.displayName ?? {},
+                payloadSchemaVersion: typeof scene.payloadSchemaVersion === 'string' ? scene.payloadSchemaVersion : '1',
+                payload: scene.payload && typeof scene.payload === 'object' ? scene.payload : null,
+                payloadFile: normalizePlayCanvasFileReference(scene.payloadFile),
+                checksum: typeof scene.checksum === 'string' ? scene.checksum : null,
+                sortOrder: typeof scene.sortOrder === 'number' ? scene.sortOrder : 0,
+                publish: scene.publish !== false
+            }))
+            .sort((left, right) => {
+                if ((left.projectId as string) !== (right.projectId as string)) {
+                    return compareStrings(left.projectId as string, right.projectId as string)
+                }
+                if ((left.sortOrder as number) !== (right.sortOrder as number)) {
+                    return (left.sortOrder as number) - (right.sortOrder as number)
+                }
+                return compareStrings(left.id as string, right.id as string)
+            }),
+        assets: asArray<SnapshotRecord>(section.assets)
+            .map((asset) => ({
+                id: typeof asset.id === 'string' ? asset.id : '',
+                projectId: typeof asset.projectId === 'string' ? asset.projectId : '',
+                stableAssetId: typeof asset.stableAssetId === 'string' ? asset.stableAssetId : '',
+                type: typeof asset.type === 'string' ? asset.type : '',
+                name: typeof asset.name === 'string' ? asset.name : '',
+                virtualPath: asArray<unknown>(asset.virtualPath).map((part) => String(part ?? '')),
+                file: normalizePlayCanvasFileReference(asset.file),
+                metadata: asset.metadata && typeof asset.metadata === 'object' ? asset.metadata : {},
+                publish: asset.publish !== false
+            }))
+            .sort((left, right) => {
+                if ((left.projectId as string) !== (right.projectId as string)) {
+                    return compareStrings(left.projectId as string, right.projectId as string)
+                }
+                return compareStrings(left.id as string, right.id as string)
+            }),
+        scriptAssets: asArray<SnapshotRecord>(section.scriptAssets)
+            .map((script) => ({
+                id: typeof script.id === 'string' ? script.id : '',
+                assetId: typeof script.assetId === 'string' ? script.assetId : '',
+                moduleId: typeof script.moduleId === 'string' ? script.moduleId : null,
+                moduleCodename: typeof script.moduleCodename === 'string' ? script.moduleCodename : null,
+                moduleSourcePath: typeof script.moduleSourcePath === 'string' ? script.moduleSourcePath : null,
+                scriptName: typeof script.scriptName === 'string' ? script.scriptName : '',
+                scriptKind: typeof script.scriptKind === 'string' ? script.scriptKind : '',
+                parsedAttributes: script.parsedAttributes && typeof script.parsedAttributes === 'object' ? script.parsedAttributes : {},
+                parseStatus: typeof script.parseStatus === 'string' ? script.parseStatus : '',
+                parseDiagnostics: script.parseDiagnostics && typeof script.parseDiagnostics === 'object' ? script.parseDiagnostics : null
+            }))
+            .sort((left, right) => compareStrings(left.id as string, right.id as string)),
+        sceneScriptBindings: asArray<SnapshotRecord>(section.sceneScriptBindings)
+            .map((binding) => ({
+                id: typeof binding.id === 'string' ? binding.id : '',
+                sceneId: typeof binding.sceneId === 'string' ? binding.sceneId : '',
+                sceneEntityStableId: typeof binding.sceneEntityStableId === 'string' ? binding.sceneEntityStableId : '',
+                scriptAssetId: typeof binding.scriptAssetId === 'string' ? binding.scriptAssetId : '',
+                scriptName: typeof binding.scriptName === 'string' ? binding.scriptName : '',
+                attributeValues: binding.attributeValues && typeof binding.attributeValues === 'object' ? binding.attributeValues : {},
+                bindingSchemaVersion: typeof binding.bindingSchemaVersion === 'string' ? binding.bindingSchemaVersion : '1',
+                platformoEntityId: typeof binding.platformoEntityId === 'string' ? binding.platformoEntityId : null,
+                sortOrder: typeof binding.sortOrder === 'number' ? binding.sortOrder : 0,
+                enabled: binding.enabled !== false
+            }))
+            .sort((left, right) => compareStrings(left.id as string, right.id as string)),
+        generatedArtifacts: asArray<SnapshotRecord>(section.generatedArtifacts)
+            .map((artifact) => ({
+                id: typeof artifact.id === 'string' ? artifact.id : '',
+                scriptAssetId: typeof artifact.scriptAssetId === 'string' ? artifact.scriptAssetId : '',
+                sourceModuleId: typeof artifact.sourceModuleId === 'string' ? artifact.sourceModuleId : null,
+                sourceModuleCodename: typeof artifact.sourceModuleCodename === 'string' ? artifact.sourceModuleCodename : null,
+                sourceModulePath: typeof artifact.sourceModulePath === 'string' ? artifact.sourceModulePath : null,
+                sourceChecksum: typeof artifact.sourceChecksum === 'string' ? artifact.sourceChecksum : null,
+                outputFile: normalizePlayCanvasFileReference(artifact.outputFile),
+                scriptName: typeof artifact.scriptName === 'string' ? artifact.scriptName : '',
+                moduleExportName: typeof artifact.moduleExportName === 'string' ? artifact.moduleExportName : null,
+                scriptKind: typeof artifact.scriptKind === 'string' ? artifact.scriptKind : '',
+                parseStatus: typeof artifact.parseStatus === 'string' ? artifact.parseStatus : '',
+                generatedAt: typeof artifact.generatedAt === 'string' ? artifact.generatedAt : null,
+                parsedAt: typeof artifact.parsedAt === 'string' ? artifact.parsedAt : null
+            }))
+            .sort((left, right) => compareStrings(left.id as string, right.id as string)),
+        runtimeManifests: asArray<unknown>(section.runtimeManifests)
+            .map(normalizePlayCanvasRuntimeManifest)
+            .sort((left, right) => {
+                if ((left.projectId as string) !== (right.projectId as string)) {
+                    return compareStrings(left.projectId as string, right.projectId as string)
+                }
+                return compareStrings(String(left.sceneId ?? ''), String(right.sceneId ?? ''))
+            })
     }
 }
 
@@ -423,6 +600,19 @@ export const normalizePublicationSnapshotForHash = (
             return compareStrings(left.version as string, right.version as string)
         })
 
+    const playcanvasRuntimeManifests =
+        snapshot.playcanvasRuntimeManifests === undefined
+            ? undefined
+            : asArray<unknown>(snapshot.playcanvasRuntimeManifests)
+                  .map(normalizePlayCanvasRuntimeManifest)
+                  .sort((left, right) => {
+                      if ((left.projectId as string) !== (right.projectId as string)) {
+                          return compareStrings(left.projectId as string, right.projectId as string)
+                      }
+                      return compareStrings(String(left.sceneId ?? ''), String(right.sceneId ?? ''))
+                  })
+    const playcanvasProjects = normalizePlayCanvasProjectsSection(snapshot.playcanvasProjects)
+
     const layouts = asArray<unknown>(snapshot.layouts)
         .map(normalizeLayout)
         .sort((left, right) => {
@@ -540,6 +730,8 @@ export const normalizePublicationSnapshotForHash = (
         systemFields,
         modules,
         packages,
+        ...(playcanvasProjects === undefined ? {} : { playcanvasProjects }),
+        ...(playcanvasRuntimeManifests === undefined ? {} : { playcanvasRuntimeManifests }),
         layouts,
         scopedLayouts,
         layoutZoneWidgets,

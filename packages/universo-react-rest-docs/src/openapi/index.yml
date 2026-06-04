@@ -10792,6 +10792,1023 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /metahub/{metahubId}/playcanvas/projects:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    post:
+      tags:
+        - PlayCanvas Projects
+      summary: POST /metahub/{metahubId}/playcanvas/projects
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_post_metahub_metahubId_playcanvas_projects
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects/{projectId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    patch:
+      tags:
+        - PlayCanvas Projects
+      summary: PATCH /metahub/{metahubId}/playcanvas/projects/{projectId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_patch_metahub_metahubId_playcanvas_projects_projectId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - PlayCanvas Projects
+      summary: DELETE /metahub/{metahubId}/playcanvas/projects/{projectId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_delete_metahub_metahubId_playcanvas_projects_projectId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/assets:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects/{projectId}/assets
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId_assets
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId_assets_assetId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: assetId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    put:
+      tags:
+        - PlayCanvas Projects
+      summary: PUT /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_put_metahub_metahubId_playcanvas_projects_projectId_assets_assetId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: assetId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET
+        /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId_assets_assetId_file
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: assetId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    put:
+      tags:
+        - PlayCanvas Projects
+      summary: PUT
+        /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_put_metahub_metahubId_playcanvas_projects_projectId_assets_assetId_file
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: assetId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - PlayCanvas Projects
+      summary: DELETE
+        /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_delete_metahub_metahubId_playcanvas_projects_projectId_assets_assetId_file
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: assetId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/export:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects/{projectId}/export
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId_export
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/files:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects/{projectId}/files
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId_files
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    put:
+      tags:
+        - PlayCanvas Projects
+      summary: PUT /metahub/{metahubId}/playcanvas/projects/{projectId}/files
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_put_metahub_metahubId_playcanvas_projects_projectId_files
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - PlayCanvas Projects
+      summary: DELETE /metahub/{metahubId}/playcanvas/projects/{projectId}/files
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_delete_metahub_metahubId_playcanvas_projects_projectId_files
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/generated-artifacts/{artifactId}:
+    put:
+      tags:
+        - PlayCanvas Projects
+      summary: PUT
+        /metahub/{metahubId}/playcanvas/projects/{projectId}/generated-artifacts/{artifactId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_put_metahub_metahubId_playcanvas_projects_projectId_generated_artifacts_artifactId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: artifactId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/publish:
+    post:
+      tags:
+        - PlayCanvas Projects
+      summary: POST /metahub/{metahubId}/playcanvas/projects/{projectId}/publish
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_post_metahub_metahubId_playcanvas_projects_projectId_publish
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/scenes:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects/{projectId}/scenes
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId_scenes
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/scenes/{sceneId}:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/projects/{projectId}/scenes/{sceneId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_projects_projectId_scenes_sceneId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: sceneId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: sceneId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    put:
+      tags:
+        - PlayCanvas Projects
+      summary: PUT /metahub/{metahubId}/playcanvas/projects/{projectId}/scenes/{sceneId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_put_metahub_metahubId_playcanvas_projects_projectId_scenes_sceneId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: sceneId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: sceneId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/script-assets/{scriptAssetId}:
+    put:
+      tags:
+        - PlayCanvas Projects
+      summary: PUT
+        /metahub/{metahubId}/playcanvas/projects/{projectId}/script-assets/{scriptAssetId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_put_metahub_metahubId_playcanvas_projects_projectId_script_assets_scriptAssetId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: scriptAssetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: scriptAssetId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/projects/{projectId}/script-bindings/{bindingId}:
+    put:
+      tags:
+        - PlayCanvas Projects
+      summary: PUT
+        /metahub/{metahubId}/playcanvas/projects/{projectId}/script-bindings/{bindingId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_put_metahub_metahubId_playcanvas_projects_projectId_script_bindings_bindingId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectId path parameter.
+        - name: bindingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: bindingId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /metahub/{metahubId}/publication/{publicationId}:
     get:
       tags:

@@ -69,6 +69,7 @@ storage-e2e/
 ## uploads
 **/uploads
 packages/universo-react-core-backend/bin/storage
+packages/universo-react-metahubs-backend/storage
 
 ## compressed
 **/*.tgz

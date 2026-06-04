@@ -15,7 +15,6 @@ import {
     resolveCompatiblePackageAttachmentConfig,
     resolveCompatiblePackageAttachmentConfigOrThrow,
     resolveDefaultPackageAttachmentConfig,
-    resolvePackageAttachmentConfig,
     resolveStoredPackageAttachmentConfig
 } from '../domains/packages/services/packageConfigValidation'
 

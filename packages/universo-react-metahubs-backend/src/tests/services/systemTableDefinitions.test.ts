@@ -8,7 +8,6 @@ import {
 } from '../../domains/metahubs/services/systemTableDefinitions'
 import { codenamePrimaryTextSql } from '../../domains/shared/codename'
 import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
-import { calculateSystemTableDiff, SystemChangeType } from '../../domains/metahubs/services/systemTableDiff'
 
 describe('systemTableDefinitions', () => {
     describe('SYSTEM_TABLES array', () => {
@@ -144,63 +143,20 @@ describe('systemTableDefinitions', () => {
             expect(defs).toBe(SYSTEM_TABLES)
         })
 
-        it('keeps the previous module-table definition for version 2', () => {
-            const previousDefs = SYSTEM_TABLE_VERSIONS.get(2)
-            const previousModules = previousDefs?.find((table) => table.name === '_mhb_modules')
-            const scopedIndex = previousModules?.indexes?.find((index) => index.name === 'idx_mhb_modules_codename_active_unique')
+        it('keeps the current complete table set in baseline version 1', () => {
+            const defs = SYSTEM_TABLE_VERSIONS.get(1) ?? []
+            const names = defs.map((table) => table.name)
+            const modules = defs.find((table) => table.name === '_mhb_modules')
+            const moduleColumns = new Set(modules?.columns.map((column) => column.name))
 
-            expect(previousModules).toBeDefined()
-            expect(scopedIndex?.columns).toEqual([codenamePrimaryTextSql('codename')])
-        })
-
-        it('keeps ECAE tables out of the historical version 3 definitions', () => {
-            const previousDefs = SYSTEM_TABLE_VERSIONS.get(3) ?? []
-            const previousNames = previousDefs.map((table) => table.name)
-
-            expect(previousNames).not.toContain('_mhb_entity_type_definitions')
-            expect(previousNames).not.toContain('_mhb_actions')
-            expect(previousNames).not.toContain('_mhb_event_bindings')
-        })
-
-        it('keeps file-backed module source columns out of historical version 3 definitions', () => {
-            const previousDefs = SYSTEM_TABLE_VERSIONS.get(3) ?? []
-            const previousModules = previousDefs.find((table) => table.name === '_mhb_modules')
-            const previousColumns = new Map(previousModules?.columns.map((column) => [column.name, column]))
-
-            expect(previousModules).toBeDefined()
-            expect(previousColumns.get('source_code')).toMatchObject({ nullable: false })
-            expect(previousColumns.has('storage_mode')).toBe(false)
-            expect(previousColumns.has('source_path')).toBe(false)
-            expect(previousColumns.has('source_checksum')).toBe(false)
-            expect(previousColumns.has('source_last_read_at')).toBe(false)
-            expect(previousColumns.has('source_last_compile_at')).toBe(false)
-            expect(previousColumns.has('source_last_compile_status')).toBe(false)
-            expect(previousColumns.has('source_last_compile_message_code')).toBe(false)
-        })
-
-        it('migrates version 3 module source storage changes as additive version 4 changes', () => {
-            const previousDefs = SYSTEM_TABLE_VERSIONS.get(3) ?? []
-            const currentDefs = SYSTEM_TABLE_VERSIONS.get(4) ?? []
-            const diff = calculateSystemTableDiff(previousDefs, currentDefs, 3, 4)
-            const moduleChanges = diff.additive.filter((change) => change.tableName === '_mhb_modules')
-            const changedColumns = moduleChanges
-                .filter((change) => change.type === SystemChangeType.ADD_COLUMN || change.type === SystemChangeType.ALTER_COLUMN)
-                .map((change) => change.columnName)
-
-            expect(diff.destructive).toEqual([])
-            expect(changedColumns).toEqual(
-                expect.arrayContaining([
-                    'source_code',
-                    'storage_mode',
-                    'source_path',
-                    'source_checksum',
-                    'source_last_read_at',
-                    'source_last_compile_at',
-                    'source_last_compile_status',
-                    'source_last_compile_message_code'
-                ])
-            )
-            expect(moduleChanges.some((change) => change.type === SystemChangeType.ADD_INDEX)).toBe(true)
+            expect(defs).toBe(SYSTEM_TABLES)
+            expect(names).toContain('_mhb_entity_type_definitions')
+            expect(names).toContain('_mhb_actions')
+            expect(names).toContain('_mhb_event_bindings')
+            expect(names).toContain('_mhb_playcanvas_projects')
+            expect(names).toContain('_mhb_playcanvas_publication_manifests')
+            expect(moduleColumns.has('storage_mode')).toBe(true)
+            expect(moduleColumns.has('source_path')).toBe(true)
         })
 
         it('returns undefined for unknown version', () => {

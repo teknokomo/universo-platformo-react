@@ -12,7 +12,7 @@ export const setEntityPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'set',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: STANDARD_SET_NAME,
     description: STANDARD_SET_DESCRIPTION,
     meta: {

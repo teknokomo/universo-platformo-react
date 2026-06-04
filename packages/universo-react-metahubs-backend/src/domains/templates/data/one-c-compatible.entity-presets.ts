@@ -103,7 +103,7 @@ export const oneCConstantPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-constant',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Constants', 'Константы'),
     description: vlc('Top-level single-value configuration values.', 'Константы верхнего уровня.'),
     meta: { author: 'universo-platformo', tags: ['preset', '1c-compatible', 'constant'], icon: 'IconVariable' },
@@ -156,7 +156,7 @@ export const oneCCatalogPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-catalog',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Catalogs', 'Справочники'),
     description: vlc(
         'Reference-like hierarchical catalogs with codes and predefined rows.',
@@ -203,7 +203,7 @@ export const oneCDocumentPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-document',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Documents', 'Документы'),
     description: vlc(
         'Transactional documents with numbering, lifecycle, tabular parts, and posting metadata.',
@@ -271,7 +271,7 @@ export const oneCDocumentJournalPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-document-journal',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Document Journals', 'Журналы документов'),
     description: vlc(
         'Virtual journals over multiple document types using reusable union datasource metadata.',
@@ -317,7 +317,7 @@ export const oneCInformationRegisterPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-information-register',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Information Registers', 'Регистры сведений'),
     description: vlc(
         'Fact registers with dimensions, resources, periodicity, and registrar policy.',
@@ -372,7 +372,7 @@ export const oneCAccumulationRegisterPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-accumulation-register',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Accumulation Registers', 'Регистры накопления'),
     description: vlc(
         'Balance registers with movement direction and synchronous projection metadata.',
@@ -428,7 +428,7 @@ export const oneCChartOfAccountsPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-chart-of-accounts',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Charts of Accounts', 'Планы счетов'),
     description: vlc(
         'Preview accounting account hierarchy with typed chart behavior.',
@@ -479,7 +479,7 @@ export const oneCCharacteristicTypesPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-chart-of-characteristic-types',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Characteristic Type Charts', 'Планы видов характеристик'),
     description: vlc(
         'Preview dynamic characteristic governance for typed analytic dimensions.',
@@ -528,7 +528,7 @@ export const oneCAccountingRegisterPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-accounting-register',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Accounting Registers', 'Регистры бухгалтерии'),
     description: vlc(
         'Preview debit/credit accounting register metadata with dimensions and resources.',
@@ -583,7 +583,7 @@ export const oneCCalculationTypesPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-chart-of-calculation-types',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Calculation Type Charts', 'Планы видов расчета'),
     description: vlc('Preview calculation type dependency graph metadata.', 'Предварительная модель графа зависимостей видов расчета.'),
     meta: { author: 'universo-platformo', tags: ['preset', '1c-compatible', 'calculation', 'preview'], icon: 'IconCalculator' },
@@ -626,7 +626,7 @@ export const oneCCalculationRegisterPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'one-c-calculation-register',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Calculation Registers', 'Регистры расчета'),
     description: vlc(
         'Preview calculation register metadata for action/base periods and recalculation.',

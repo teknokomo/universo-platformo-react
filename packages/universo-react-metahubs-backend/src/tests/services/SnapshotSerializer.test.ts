@@ -819,4 +819,132 @@ describe('SnapshotSerializer system field propagation', () => {
             })
         ])
     })
+
+    it('keeps PlayCanvas authoring project snapshots out of runtime publication snapshots', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const objectsService = {
+            findAllByKind: jest.fn(async () => [])
+        }
+        const componentsService = {
+            findAllFlatForSnapshot: jest.fn(async () => []),
+            getObjectSystemFieldsSnapshot: jest.fn(async () => null),
+            listObjectSystemComponents: jest.fn(async () => [])
+        }
+        const entityTypeService = {
+            listTypes: jest.fn(async () => [])
+        }
+        const packagesService = {
+            listPublishedPackages: jest.fn(async () => [
+                {
+                    packageName: editorPackageName,
+                    version: '0.1.0',
+                    source: {
+                        kind: 'workspace',
+                        packageName: editorPackageName,
+                        importName: 'PlayCanvasEditor',
+                        upstreamPackageName: 'playcanvas-editor',
+                        upstreamVersion: '0.1.0',
+                        runtimeTargets: ['client']
+                    }
+                }
+            ]),
+            listMetahubSnapshotPackages: jest.fn(async () => [
+                {
+                    packageName: editorPackageName,
+                    version: '0.1.0',
+                    source: {
+                        kind: 'workspace',
+                        packageName: editorPackageName,
+                        importName: 'PlayCanvasEditor',
+                        upstreamPackageName: 'playcanvas-editor',
+                        upstreamVersion: '0.1.0',
+                        runtimeTargets: ['client']
+                    },
+                    config: {
+                        schemaVersion: '1',
+                        kind: 'display',
+                        display: {
+                            mode: 'embeddedIframe',
+                            developmentUrl: null,
+                            showArtifactOnlyNotice: true
+                        },
+                        playcanvasProject: {
+                            defaultProjectId: projectId
+                        }
+                    }
+                }
+            ])
+        }
+        const playCanvasProjectSnapshotService = {
+            exportSnapshot: jest.fn(async () => ({
+                schemaVersion: 1,
+                projects: [
+                    {
+                        schemaVersion: '1',
+                        id: projectId,
+                        codename: createCodenameVlc('playcanvas_project'),
+                        displayName: createCodenameVlc('PlayCanvas Project'),
+                        packageRef: {
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            compatibilityStatus: 'compatible'
+                        },
+                        settings: {},
+                        publicationConfig: {}
+                    }
+                ],
+                scenes: [],
+                assets: [],
+                scriptAssets: [],
+                sceneScriptBindings: [],
+                generatedArtifacts: [],
+                runtimeManifests: [
+                    {
+                        schemaVersion: '1',
+                        projectId,
+                        sceneId: null,
+                        checksum: 'runtime-checksum',
+                        assets: [],
+                        scripts: []
+                    }
+                ]
+            }))
+        }
+
+        const serializer = new SnapshotSerializer(
+            objectsService as never,
+            componentsService as never,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            entityTypeService as never,
+            undefined,
+            undefined,
+            undefined,
+            packagesService as never,
+            playCanvasProjectSnapshotService as never
+        )
+
+        const runtimeSnapshot = await serializer.serializeMetahub('metahub-1')
+        const metahubSnapshot = await serializer.serializeMetahub('metahub-1', { playCanvasMode: 'snapshot' })
+
+        expect(runtimeSnapshot.playcanvasProjects).toBeUndefined()
+        expect(runtimeSnapshot.playcanvasRuntimeManifests).toHaveLength(1)
+        expect(metahubSnapshot.playcanvasProjects?.projects).toHaveLength(1)
+        expect(metahubSnapshot.playcanvasRuntimeManifests).toBeUndefined()
+        expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(1, 'metahub-1', {
+            includeRuntimeManifests: true,
+            projectIds: [projectId]
+        })
+        expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(2, 'metahub-1', {
+            includeRuntimeManifests: false,
+            projectIds: undefined
+        })
+        expect(packagesService.listPublishedPackages).toHaveBeenCalledTimes(2)
+        expect(packagesService.listMetahubSnapshotPackages).toHaveBeenCalledTimes(1)
+    })
 })

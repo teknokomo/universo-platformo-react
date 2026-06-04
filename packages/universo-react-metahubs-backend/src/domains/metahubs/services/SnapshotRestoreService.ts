@@ -50,6 +50,12 @@ import {
     ModuleSourceFileService
 } from '../../modules/services/ModuleSourceFileService'
 import { metahubModulesStorageColumnsAvailable } from '../../modules/services/modulesStore'
+import { PlayCanvasProjectFileService } from '../../playcanvas-projects/services/PlayCanvasProjectFileService'
+import {
+    PlayCanvasProjectSnapshotService,
+    type RestoredPlayCanvasProjectFileBackup,
+    type StalePlayCanvasProjectFileCandidate
+} from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
 
 const log = createLogger('SnapshotRestoreService')
 
@@ -116,12 +122,25 @@ export class SnapshotRestoreService {
     constructor(
         private readonly knex: Knex,
         private readonly schemaName: string,
-        private readonly moduleSourceFileService = new ModuleSourceFileService()
+        private readonly moduleSourceFileService = new ModuleSourceFileService(),
+        private readonly playCanvasProjectFileService = new PlayCanvasProjectFileService(),
+        private readonly playCanvasProjectSnapshotService = new PlayCanvasProjectSnapshotService(
+            createKnexExecutor(knex),
+            {
+                ensureSchema: async () => schemaName
+            } as unknown as import('../../metahubs/services/MetahubSchemaService').MetahubSchemaService,
+            playCanvasProjectFileService
+        )
     ) {}
 
     async restoreFromSnapshot(metahubId: string, snapshot: MetahubSnapshot, userId: string): Promise<void> {
         const restoredModuleSourceBackups: RestoredModuleSourceBackup[] = []
+        const restoredPlayCanvasFileBackups: RestoredPlayCanvasProjectFileBackup[] = []
         const staleModuleSourceCandidates = new Map<string, StaleModuleSourceCandidate>()
+        const shouldRestorePlayCanvasProjects = snapshot.playcanvasProjects !== undefined
+        const stalePlayCanvasFileCandidates = shouldRestorePlayCanvasProjects
+            ? await this.playCanvasProjectSnapshotService.collectStoredLocalFileCandidates(metahubId, this.schemaName)
+            : new Map<string, StalePlayCanvasProjectFileCandidate>()
         try {
             await this.knex.transaction(async (trx) => {
                 await this.restoreEntityTypeDefinitions(trx, snapshot, userId)
@@ -147,11 +166,23 @@ export class SnapshotRestoreService {
                     restoredModuleSourceBackups,
                     staleModuleSourceCandidates
                 )
+                const playCanvasProjectIdMap = shouldRestorePlayCanvasProjects
+                    ? await this.playCanvasProjectSnapshotService.restoreSnapshot({
+                          trx,
+                          metahubId,
+                          schemaName: this.schemaName,
+                          snapshot: snapshot.playcanvasProjects,
+                          moduleIdMap,
+                          entityIdMap,
+                          userId,
+                          restoredFileBackups: restoredPlayCanvasFileBackups
+                      })
+                    : new Map<string, string>()
                 const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, moduleIdMap, userId)
                 await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
                 await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
                 await this.restoreSettings(trx, snapshot, userId)
-                await this.restorePackages(trx, metahubId, snapshot, userId)
+                await this.restorePackages(trx, metahubId, snapshot, userId, playCanvasProjectIdMap)
             })
         } catch (error) {
             for (const backup of restoredModuleSourceBackups.reverse()) {
@@ -177,10 +208,35 @@ export class SnapshotRestoreService {
                     })
                 }
             }
+            for (const backup of restoredPlayCanvasFileBackups.reverse()) {
+                try {
+                    if (!(await this.isCurrentRestoredPlayCanvasFile(metahubId, backup))) {
+                        continue
+                    }
+                    if (backup.previousContent === null) {
+                        await this.playCanvasProjectFileService.delete({ metahubId, branchSlug: this.schemaName }, backup.sourcePath)
+                    } else {
+                        await this.playCanvasProjectFileService.write(
+                            { metahubId, branchSlug: this.schemaName },
+                            backup.sourcePath,
+                            backup.previousContent,
+                            { mime: backup.mime }
+                        )
+                    }
+                } catch (rollbackError) {
+                    log.warn('Failed to roll back PlayCanvas project file during snapshot restore rollback', {
+                        metahubId,
+                        schemaName: this.schemaName,
+                        sourcePath: backup.sourcePath,
+                        error: rollbackError
+                    })
+                }
+            }
             throw error
         }
 
         await this.deleteStaleModuleSourceFiles(metahubId, staleModuleSourceCandidates)
+        await this.deleteStalePlayCanvasProjectFiles(metahubId, stalePlayCanvasFileCandidates, restoredPlayCanvasFileBackups)
     }
 
     private async deleteStaleModuleSourceFiles(
@@ -214,6 +270,69 @@ export class SnapshotRestoreService {
         return this.isCurrentSourceChecksum(metahubId, backup.sourcePath, backup.writtenChecksum)
     }
 
+    private async isCurrentRestoredPlayCanvasFile(metahubId: string, backup: RestoredPlayCanvasProjectFileBackup): Promise<boolean> {
+        try {
+            const current = await this.playCanvasProjectFileService.read({ metahubId, branchSlug: this.schemaName }, backup.sourcePath)
+            return current.checksum === backup.writtenChecksum
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return false
+            }
+            throw error
+        }
+    }
+
+    private async deleteStalePlayCanvasProjectFiles(
+        metahubId: string,
+        sourceCandidates: Map<string, StalePlayCanvasProjectFileCandidate>,
+        restoredFiles: RestoredPlayCanvasProjectFileBackup[]
+    ): Promise<void> {
+        for (const restored of restoredFiles) {
+            sourceCandidates.delete(restored.sourcePath)
+        }
+
+        for (const candidate of sourceCandidates.values()) {
+            try {
+                if (!(await this.isCurrentPlayCanvasFileChecksum(metahubId, candidate.sourcePath, candidate.checksum))) {
+                    log.warn('Skipped stale PlayCanvas project file cleanup because the external file changed', {
+                        metahubId,
+                        schemaName: this.schemaName,
+                        sourcePath: candidate.sourcePath,
+                        expectedChecksum: candidate.checksum
+                    })
+                    continue
+                }
+                await this.playCanvasProjectFileService.delete({ metahubId, branchSlug: this.schemaName }, candidate.sourcePath)
+            } catch (error) {
+                log.warn('Failed to clean up stale PlayCanvas project file after snapshot restore', {
+                    metahubId,
+                    schemaName: this.schemaName,
+                    sourcePath: candidate.sourcePath,
+                    error
+                })
+            }
+        }
+    }
+
+    private async isCurrentPlayCanvasFileChecksum(
+        metahubId: string,
+        sourcePath: string,
+        expectedChecksum: string | null
+    ): Promise<boolean> {
+        if (!expectedChecksum) {
+            return false
+        }
+        try {
+            const current = await this.playCanvasProjectFileService.read({ metahubId, branchSlug: this.schemaName }, sourcePath)
+            return current.checksum === expectedChecksum
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return false
+            }
+            throw error
+        }
+    }
+
     private async isCurrentSourceChecksum(metahubId: string, sourcePath: string, expectedSourceChecksum: string | null): Promise<boolean> {
         if (!expectedSourceChecksum) {
             return false
@@ -229,7 +348,13 @@ export class SnapshotRestoreService {
         }
     }
 
-    private async restorePackages(qb: Knex.Transaction, metahubId: string, snapshot: MetahubSnapshot, userId: string): Promise<void> {
+    private async restorePackages(
+        qb: Knex.Transaction,
+        metahubId: string,
+        snapshot: MetahubSnapshot,
+        userId: string,
+        playCanvasProjectIdMap: Map<string, string>
+    ): Promise<void> {
         if (!Array.isArray(snapshot.packages)) {
             return
         }
@@ -238,7 +363,32 @@ export class SnapshotRestoreService {
             if (!item || typeof item.packageName !== 'string' || typeof item.version !== 'string') {
                 throw new Error('Metahub snapshot contains an invalid package dependency')
             }
-            return item
+            const config = item.config
+            if (config?.kind !== 'display') {
+                return item
+            }
+            const defaultProjectId = config.playcanvasProject?.defaultProjectId
+            if (!defaultProjectId) {
+                return item
+            }
+            const remappedProjectId = playCanvasProjectIdMap.get(defaultProjectId)
+            if (!remappedProjectId) {
+                throw new MetahubValidationError('Metahub snapshot package config references a missing PlayCanvas project', {
+                    messageCode: 'playcanvas.snapshot.missingPackageDefaultProjectReference',
+                    packageName: item.packageName,
+                    sourceId: defaultProjectId
+                })
+            }
+            return {
+                ...item,
+                config: {
+                    ...config,
+                    playcanvasProject: {
+                        ...config.playcanvasProject,
+                        defaultProjectId: remappedProjectId
+                    }
+                }
+            }
         })
 
         await replaceMetahubPackagesFromSnapshot(createKnexExecutor(qb), {

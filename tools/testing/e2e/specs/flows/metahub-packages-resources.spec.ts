@@ -1,5 +1,5 @@
 import { createLocalizedContent } from '@universo-react/utils'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { PNG } from 'pngjs'
 
 import { expect, test } from '../../fixtures/test'
@@ -16,6 +16,7 @@ import { recordCreatedGlobalUser, recordCreatedMetahub } from '../../support/bac
 import { createLoggedInBrowserContext } from '../../support/browser/auth'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
+    expectLocatorHasNoInlineOverflow,
     expectNoPageHorizontalOverflow,
     expectNoTechnicalLeakage,
     expectNoVisibleTextPatterns,
@@ -29,6 +30,29 @@ const resolveUserRoleIds = (roles: Array<{ id?: string; codename?: string }>): s
 }
 
 const rawPackageTextPatterns = [/@universo-react\//, /@colyseus\//, /\bcolyseus\.js\b/i]
+
+const projectCardByName = (projectsPanel: Locator, projectName: string) =>
+    projectsPanel.getByRole('heading', { name: projectName }).locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
+
+const expectImageLoaded = async (image: Locator, label: string) => {
+    await expect(image, `${label} must be visible`).toBeVisible()
+    const imageState = await image.evaluate((node) => {
+        const element = node as HTMLImageElement
+        return {
+            alt: element.alt,
+            src: element.getAttribute('src') ?? '',
+            complete: element.complete,
+            naturalWidth: element.naturalWidth,
+            naturalHeight: element.naturalHeight
+        }
+    })
+
+    expect(imageState.alt, `${label} must have useful alt text`).toBeTruthy()
+    expect(imageState.src, `${label} must have a non-empty source`).toBeTruthy()
+    expect(imageState.complete, `${label} must finish loading`).toBeTruthy()
+    expect(imageState.naturalWidth, `${label} must have loaded pixels`).toBeGreaterThan(0)
+    expect(imageState.naturalHeight, `${label} must have loaded pixels`).toBeGreaterThan(0)
+}
 
 const openPlayCanvasEditorSettingsDialog = async (page: Page) => {
     const editorRow = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
@@ -224,6 +248,198 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(editorAttachDialog).toHaveCount(0)
         const editorRow = packagesTab.getByRole('row', { name: /PlayCanvas Editor/ })
         await expect(editorRow.getByText('Connected')).toBeVisible()
+        const projectsPanel = packagesTab.getByText('PlayCanvas projects').locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
+        await expect(projectsPanel.getByText('No PlayCanvas projects yet')).toBeVisible()
+        await expectImageLoaded(projectsPanel.getByRole('img', { name: 'No PlayCanvas projects' }), 'PlayCanvas projects empty state image')
+        await projectsPanel.getByRole('button', { name: 'Create project' }).click()
+        const createProjectDialog = page.getByRole('dialog', { name: 'Create PlayCanvas project' })
+        await expect(createProjectDialog).toBeVisible()
+        await expect(createProjectDialog.getByTestId('dialog-resize-handle')).toHaveCount(0)
+        await expect(createProjectDialog.getByLabel(/Codename|Кодовое имя/)).toHaveCount(0)
+        await expect(createProjectDialog.getByRole('button', { name: 'Create' })).toBeVisible()
+        await expect(createProjectDialog.getByRole('button', { name: 'Create project' })).toHaveCount(0)
+        await createProjectDialog.getByLabel('Project name').focus()
+        await expectLocatorHasNoInlineOverflow(
+            createProjectDialog.locator('label', { hasText: 'Project name' }),
+            'PlayCanvas create project label'
+        )
+        await expectLocatorHasNoInlineOverflow(
+            createProjectDialog.getByRole('button', { name: 'Create' }),
+            'PlayCanvas create project button'
+        )
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-project-create-dialog-en.png'), fullPage: true })
+        await createProjectDialog.getByRole('button', { name: 'Create' }).click()
+        await expect(createProjectDialog.getByText('Enter a project name.')).toBeVisible()
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-project-create-validation-en.png'), fullPage: true })
+        await createProjectDialog.getByLabel('Project name').fill('Flight Authoring')
+        const createProjectRequest = page.waitForRequest((request) => {
+            return request.method() === 'POST' && /\/api\/v1\/metahub\/[^/]+\/playcanvas\/projects$/.test(request.url())
+        })
+        await createProjectDialog.getByLabel('Project name').press('Enter')
+        const createProjectPayload = await (await createProjectRequest).postDataJSON()
+        expect(createProjectPayload.displayName).toBeTruthy()
+        expect(createProjectPayload.codename).toBeUndefined()
+        await expect(createProjectDialog).toHaveCount(0)
+        const authoringProjectCard = projectCardByName(projectsPanel, 'Flight Authoring')
+        await expect(authoringProjectCard).toBeVisible()
+        await expect(authoringProjectCard.getByText('Default', { exact: true })).toBeVisible()
+        await expect(authoringProjectCard.getByText('Ready', { exact: true })).toBeVisible()
+        await expect(authoringProjectCard.getByText(/0 scenes, 0 assets, 0 scripts, 0 generated artifacts/)).toBeVisible()
+        await projectsPanel.getByRole('button', { name: 'Create project' }).click()
+        const createSecondProjectDialog = page.getByRole('dialog', { name: 'Create PlayCanvas project' })
+        await expect(createSecondProjectDialog).toBeVisible()
+        await createSecondProjectDialog.getByLabel('Project name').fill('Flight Backup')
+        const createSecondProjectRequest = page.waitForRequest((request) => {
+            return request.method() === 'POST' && /\/api\/v1\/metahub\/[^/]+\/playcanvas\/projects$/.test(request.url())
+        })
+        await createSecondProjectDialog.getByRole('button', { name: 'Create' }).click()
+        await createSecondProjectRequest
+        await expect(createSecondProjectDialog).toHaveCount(0)
+        const backupProjectCard = projectCardByName(projectsPanel, 'Flight Backup')
+        await expect(backupProjectCard).toBeVisible()
+        await expect(backupProjectCard.getByText('Default', { exact: true })).toHaveCount(0)
+        const defaultProjectSelect = projectsPanel.getByLabel('Default project')
+        await expect(defaultProjectSelect).toContainText('Flight Authoring')
+        const configEndpointPattern = /\/api\/v1\/metahub\/[^/]+\/package\/[^/]+\/config$/
+        const waitForDefaultSave = () =>
+            page.waitForResponse(
+                (response) =>
+                    response.request().method() === 'PATCH' && configEndpointPattern.test(new URL(response.url()).pathname) && response.ok()
+            )
+        const backupDefaultSave = waitForDefaultSave()
+        await defaultProjectSelect.click()
+        await page.getByRole('option', { name: 'Flight Backup' }).click()
+        await backupDefaultSave
+        await expect(defaultProjectSelect).toContainText('Flight Backup')
+        await expect(backupProjectCard.getByText('Default', { exact: true })).toBeVisible()
+        await expect(authoringProjectCard.getByText('Default', { exact: true })).toHaveCount(0)
+        const resetDefaultSave = waitForDefaultSave()
+        await defaultProjectSelect.click()
+        await page.getByRole('option', { name: 'No default project' }).click()
+        await resetDefaultSave
+        await expect(defaultProjectSelect).toContainText('No default project')
+        await expect(projectsPanel.getByText('Default', { exact: true })).toHaveCount(0)
+        const authoringDefaultSave = waitForDefaultSave()
+        await defaultProjectSelect.click()
+        await page.getByRole('option', { name: 'Flight Authoring' }).click()
+        await authoringDefaultSave
+        await expect(defaultProjectSelect).toContainText('Flight Authoring')
+        await expect(authoringProjectCard.getByText('Default', { exact: true })).toBeVisible()
+        await expectNoTechnicalLeakage(projectsPanel, {
+            label: 'PlayCanvas projects panel',
+            checkUuidSubstrings: true
+        })
+        await expectNoVisibleTextPatterns(projectsPanel, [/^\{.*\}$/m, /\[object Object\]/, /playcanvas-projects\//], {
+            label: 'PlayCanvas projects panel'
+        })
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas projects panel desktop')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-projects-panel-en.png'), fullPage: true })
+        await page.setViewportSize({ width: 768, height: 900 })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        const tabletProjectsPanel = page
+            .getByTestId('metahub-packages-tab')
+            .getByText('PlayCanvas projects')
+            .locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
+        await expect(tabletProjectsPanel.getByRole('heading', { name: 'Flight Authoring' })).toBeVisible()
+        await expect(tabletProjectsPanel.getByRole('heading', { name: 'Flight Backup' })).toBeVisible()
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas projects panel tablet')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-projects-panel-tablet.png'), fullPage: true })
+        await page.setViewportSize({ width: 390, height: 844 })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        const mobileProjectsPanel = page
+            .getByTestId('metahub-packages-tab')
+            .getByText('PlayCanvas projects')
+            .locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
+        await expect(mobileProjectsPanel.getByRole('heading', { name: 'Flight Authoring' })).toBeVisible()
+        await expect(mobileProjectsPanel.getByRole('heading', { name: 'Flight Backup' })).toBeVisible()
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas projects panel mobile')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-projects-panel-mobile.png'), fullPage: true })
+        await page.setViewportSize({ width: 1280, height: 900 })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await projectsPanel.getByRole('button', { name: 'Delete Flight Authoring' }).focus()
+        await page.keyboard.press('Enter')
+        const deleteProjectDialog = page.getByRole('dialog', { name: 'Delete PlayCanvas project' })
+        await expect(deleteProjectDialog).toBeVisible()
+        await expect(deleteProjectDialog.getByRole('button', { name: 'Delete' })).toBeVisible()
+        await expect(deleteProjectDialog.getByRole('button', { name: 'Delete project' })).toHaveCount(0)
+        await expectLocatorHasNoInlineOverflow(
+            deleteProjectDialog.getByRole('button', { name: 'Delete' }),
+            'PlayCanvas delete project button'
+        )
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-project-delete-dialog-en.png'), fullPage: true })
+        await deleteProjectDialog.getByRole('button', { name: 'Cancel' }).click()
+        await expect(authoringProjectCard).toBeVisible()
+        await projectsPanel.getByRole('button', { name: 'Delete Flight Authoring' }).click()
+        const confirmDeleteProjectDialog = page.getByRole('dialog', { name: 'Delete PlayCanvas project' })
+        await expect(confirmDeleteProjectDialog).toBeVisible()
+        const deleteProjectResponse = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'DELETE' &&
+                /\/api\/v1\/metahub\/[^/]+\/playcanvas\/projects\/[^/]+$/.test(new URL(response.url()).pathname) &&
+                response.ok()
+        )
+        await confirmDeleteProjectDialog.getByRole('button', { name: 'Delete' }).click()
+        await deleteProjectResponse
+        await expect(confirmDeleteProjectDialog).toHaveCount(0)
+        await expect(projectsPanel.getByRole('heading', { name: 'Flight Authoring' })).toHaveCount(0)
+        await expect(backupProjectCard).toBeVisible()
+        const backupDefaultAfterDeleteSave = waitForDefaultSave()
+        await defaultProjectSelect.click()
+        await page.getByRole('option', { name: 'Flight Backup' }).click()
+        await backupDefaultAfterDeleteSave
+        await expect(defaultProjectSelect).toContainText('Flight Backup')
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await expect(page.getByRole('heading', { name: 'Ресурсы' })).toBeVisible()
+        const ruProjectsPanel = page
+            .getByTestId('metahub-packages-tab')
+            .getByText('Проекты PlayCanvas')
+            .locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
+        await expect(ruProjectsPanel.getByLabel('Проект по умолчанию')).toBeVisible()
+        await ruProjectsPanel.getByLabel('Проект по умолчанию').click()
+        await expect(page.getByRole('option', { name: 'Без проекта по умолчанию' })).toBeVisible()
+        await expect(page.getByRole('option', { name: 'Flight Backup' })).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(ruProjectsPanel.getByRole('button', { name: 'Создать проект' })).toBeVisible()
+        await expect(ruProjectsPanel.getByRole('button', { name: 'Удалить Flight Backup' })).toBeVisible()
+        await ruProjectsPanel.getByRole('button', { name: 'Создать проект' }).click()
+        const ruCreateProjectDialog = page.getByRole('dialog', { name: 'Создать проект PlayCanvas' })
+        await expect(ruCreateProjectDialog).toBeVisible()
+        await expect(ruCreateProjectDialog.getByLabel('Название проекта')).toBeVisible()
+        await ruCreateProjectDialog.getByLabel('Название проекта').focus()
+        await expectLocatorHasNoInlineOverflow(
+            ruCreateProjectDialog.locator('label', { hasText: 'Название проекта' }),
+            'PlayCanvas create project label ru'
+        )
+        await expect(ruCreateProjectDialog.getByRole('button', { name: 'Создать' })).toBeVisible()
+        await expect(ruCreateProjectDialog.getByRole('button', { name: 'Создать проект' })).toHaveCount(0)
+        await ruCreateProjectDialog.getByRole('button', { name: 'Отмена' }).click()
+        await expect(ruCreateProjectDialog).toHaveCount(0)
+        await ruProjectsPanel.getByRole('button', { name: 'Удалить Flight Backup' }).click()
+        const ruDeleteProjectDialog = page.getByRole('dialog', { name: 'Удалить проект PlayCanvas' })
+        await expect(ruDeleteProjectDialog).toBeVisible()
+        await expect(ruDeleteProjectDialog.getByText('Удалить Flight Backup и файлы этого проекта PlayCanvas.')).toBeVisible()
+        await expect(ruDeleteProjectDialog.getByRole('button', { name: 'Удалить' })).toBeVisible()
+        await expect(ruDeleteProjectDialog.getByRole('button', { name: 'Удалить проект' })).toHaveCount(0)
+        await expectLocatorHasNoInlineOverflow(
+            ruDeleteProjectDialog.getByRole('button', { name: 'Удалить' }),
+            'PlayCanvas delete project button ru'
+        )
+        await ruDeleteProjectDialog.getByRole('button', { name: 'Отмена' }).click()
+        await expect(ruDeleteProjectDialog).toHaveCount(0)
+        await expectNoTechnicalLeakage(page.getByTestId('metahub-packages-tab'), {
+            label: 'Metahub packages PlayCanvas projects panel ru',
+            checkUuidSubstrings: true
+        })
+        await expectNoVisibleTextPatterns(page.getByTestId('metahub-packages-tab'), rawPackageTextPatterns, {
+            label: 'Metahub packages PlayCanvas projects panel ru'
+        })
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-projects-panel-ru.png'), fullPage: true })
+        await applyBrowserPreferences(page, { language: 'en' })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible()
+
         const authoringHostEndpointPattern = /\/api\/v1\/metahub\/[^/]+\/packages\/playcanvas-editor\/authoring-host$/
 
         await editorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).focus()
@@ -262,7 +478,6 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
                 })
             })
         })
-        const configEndpointPattern = /\/api\/v1\/metahub\/[^/]+\/package\/[^/]+\/config$/
         await page.route(configEndpointPattern, async (route) => {
             if (route.request().method() === 'PATCH') {
                 await route.fulfill({
@@ -321,12 +536,17 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
 
         const editorRowForSeparateMode = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
         await editorRowForSeparateMode.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        const separateHostPopupPromise = page.waitForEvent('popup')
         await page.getByRole('menuitem', { name: 'Open editor' }).click()
-        await page.waitForURL(`**/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
-        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
-        await expect(page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
-        await expect(page.getByText('This editor is configured to open separately.')).toBeVisible()
-        const separateEditorLink = page.getByRole('link', { name: 'Open editor' })
+        const separateHostPage = await separateHostPopupPromise
+        await separateHostPage.waitForLoadState('domcontentloaded')
+        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/resources$`))
+        await applyBrowserPreferences(separateHostPage, { language: 'en' })
+        await expect(separateHostPage).toHaveURL(new RegExp(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor$`))
+        await expect(separateHostPage.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expect(separateHostPage.getByRole('link', { name: 'Back to packages' })).toBeVisible()
+        await expect(separateHostPage.getByText('This editor is configured to open separately.')).toBeVisible()
+        const separateEditorLink = separateHostPage.getByRole('link', { name: 'Open editor' })
         await expect(separateEditorLink).toHaveAttribute('target', '_blank')
         await expect(separateEditorLink).toHaveAttribute('rel', /noopener/)
         await expect(separateEditorLink).toHaveAttribute('rel', /noreferrer/)
@@ -335,7 +555,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
             /\/metahub\/[^/]+\/resources\/packages\/playcanvas-editor\/editor\?view=sandboxed-frame$/
         )
         await expect(separateEditorLink).not.toHaveAttribute('href', /editor-artifact\/index\.html/)
-        const popupPromise = page.waitForEvent('popup')
+        const popupPromise = separateHostPage.waitForEvent('popup')
         await separateEditorLink.click()
         const separateEditorPage = await popupPromise
         await separateEditorPage.waitForLoadState('domcontentloaded')
@@ -345,6 +565,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expectPlayCanvasEditorIframeLoaded(separateEditorPage)
         await expectNoPageHorizontalOverflow(separateEditorPage, 'PlayCanvas Editor separate sandboxed host page')
         await separateEditorPage.close()
+        await separateHostPage.close()
 
         await page.goto(`/metahub/${metahub.id}/resources`)
         const editorRowForEmbeddedMode = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
@@ -373,35 +594,39 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
             })
         })
         await editorRowForEmbeddedMode.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        const embeddedHostPopupPromise = page.waitForEvent('popup')
         await page.getByRole('menuitem', { name: 'Open editor' }).click()
-        await page.waitForURL(`**/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
-        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
-        await expect(page.getByText('Loading editor frame...')).toBeVisible()
-        const hostResponse = await page.request.get(page.url())
+        const embeddedHostPage = await embeddedHostPopupPromise
+        await embeddedHostPage.waitForLoadState('domcontentloaded')
+        await applyBrowserPreferences(embeddedHostPage, { language: 'en' })
+        await expect(embeddedHostPage).toHaveURL(new RegExp(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor$`))
+        await expect(embeddedHostPage.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        const hostResponse = await embeddedHostPage.request.get(embeddedHostPage.url())
         expect(hostResponse.ok()).toBeTruthy()
         expect(hostResponse.headers()['content-security-policy']).toContain("frame-src 'self'")
         expect(hostResponse.headers()['content-security-policy']).toContain("child-src 'self'")
-        await expectPlayCanvasEditorIframeLoaded(page)
-        const editorFrameSrc = await page.locator('iframe[title="PlayCanvas Editor"]').getAttribute('src')
+        await expectPlayCanvasEditorIframeLoaded(embeddedHostPage)
+        const editorFrameSrc = await embeddedHostPage.locator('iframe[title="PlayCanvas Editor"]').getAttribute('src')
         expect(editorFrameSrc).toBeTruthy()
         const anonymousArtifactContext = await browser.newContext()
         try {
             const anonymousArtifactResponse = await anonymousArtifactContext.request.get(
-                new URL(editorFrameSrc ?? '', page.url()).toString()
+                new URL(editorFrameSrc ?? '', embeddedHostPage.url()).toString()
             )
             expect(anonymousArtifactResponse.ok()).toBeTruthy()
         } finally {
             await anonymousArtifactContext.close()
         }
-        await expect(page.getByText('Editor artifact is ready.')).toBeVisible()
+        await expect(embeddedHostPage.getByText('Editor artifact is ready.')).toBeVisible()
         await page.unroute(editorArtifactIndexPattern)
-        await expectPlayCanvasEditorHostKeyboardLoop(page)
-        await expectNoTechnicalLeakage(page.locator('body'), {
+        await expectPlayCanvasEditorHostKeyboardLoop(embeddedHostPage)
+        await expectNoTechnicalLeakage(embeddedHostPage.locator('body'), {
             label: 'PlayCanvas Editor host page',
             checkUuidSubstrings: true
         })
-        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor host page desktop')
-        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host.png'), fullPage: true })
+        await expectNoPageHorizontalOverflow(embeddedHostPage, 'PlayCanvas Editor host page desktop')
+        await embeddedHostPage.screenshot({ path: testInfo.outputPath('playcanvas-editor-host.png'), fullPage: true })
+        await embeddedHostPage.close()
 
         await page.route(authoringHostEndpointPattern, async (route) => {
             const response = await route.fetch()
@@ -486,6 +711,43 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
             }
         })
 
+        memberContext = await createLoggedInBrowserContext(
+            browser,
+            {
+                email: memberUser.email ?? memberEmail,
+                password: memberPassword
+            },
+            { basePathAfterLogin: `/metahub/${metahub.id}/resources` }
+        )
+        await applyBrowserPreferences(memberContext.page, { language: 'en' })
+        const readOnlyProjectRequests: string[] = []
+        await memberContext.page.route(/\/api\/v1\/metahub\/[^/]+\/playcanvas\/projects(?:\/.*)?$/, async (route) => {
+            readOnlyProjectRequests.push(route.request().url())
+            await route.fulfill({
+                status: 403,
+                contentType: 'application/json',
+                body: JSON.stringify({ error: 'forbidden' })
+            })
+        })
+        await memberContext.page.goto(`/metahub/${metahub.id}/resources`, { waitUntil: 'networkidle' })
+        await expect(memberContext.page.getByTestId('metahub-packages-tab')).toBeVisible()
+        const readOnlyEditorProjectsPanel = memberContext.page
+            .getByTestId('metahub-packages-tab')
+            .getByText('PlayCanvas projects')
+            .locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
+        await expect(
+            readOnlyEditorProjectsPanel.getByText(
+                'Project storage is available to metahub managers. You can view connected packages, but cannot change PlayCanvas projects.'
+            )
+        ).toBeVisible()
+        await expect(readOnlyEditorProjectsPanel.getByRole('button', { name: 'Create project' })).toHaveCount(0)
+        expect(readOnlyProjectRequests).toEqual([])
+        await expectNoPageHorizontalOverflow(memberContext.page, 'Read-only PlayCanvas projects panel')
+        await memberContext.page.screenshot({ path: testInfo.outputPath('playcanvas-projects-panel-readonly-member.png'), fullPage: true })
+        await memberContext.page.unroute(/\/api\/v1\/metahub\/[^/]+\/playcanvas\/projects(?:\/.*)?$/)
+        await memberContext.context.close()
+        memberContext = null
+
         memberContext = await createLoggedInBrowserContext(browser, { email: memberUser.email ?? memberEmail, password: memberPassword })
         await applyBrowserPreferences(memberContext.page, { language: 'en' })
         await memberContext.page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
@@ -494,6 +756,8 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(memberContext.page.getByText('You do not have permission to open this editor.')).toBeVisible()
         await expect(memberContext.page.getByText('Failed to load editor settings.')).toHaveCount(0)
         await expect(memberContext.page.locator('iframe[title="PlayCanvas Editor"]')).toHaveCount(0)
+        await memberContext.context.close()
+        memberContext = null
 
         await page.goto(`/metahub/${metahub.id}/resources`)
         await expect(page.getByTestId('metahub-packages-tab')).toBeVisible()
@@ -629,14 +893,20 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(mobileSettingsDialog).toHaveCount(0)
         await scrollPackagesTableActionsIntoViewByGesture(page)
         await mobileEditorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        const mobileHostPopupPromise = page.waitForEvent('popup')
         await page.getByRole('menuitem', { name: 'Open editor' }).click()
-        await page.waitForURL(`**/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
-        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
-        await expectPlayCanvasEditorIframeLoaded(page)
-        await expect(page.getByText('Editor artifact is ready.')).toBeVisible()
-        await expectPlayCanvasEditorHostKeyboardLoop(page)
-        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor mobile host action path')
-        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host-mobile-action-path.png'), fullPage: true })
+        const mobileHostPage = await mobileHostPopupPromise
+        await mobileHostPage.waitForLoadState('domcontentloaded')
+        await applyBrowserPreferences(mobileHostPage, { language: 'en' })
+        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/resources$`))
+        await expect(mobileHostPage).toHaveURL(new RegExp(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor$`))
+        await expect(mobileHostPage.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expectPlayCanvasEditorIframeLoaded(mobileHostPage)
+        await expect(mobileHostPage.getByText('Editor artifact is ready.')).toBeVisible()
+        await expectPlayCanvasEditorHostKeyboardLoop(mobileHostPage)
+        await expectNoPageHorizontalOverflow(mobileHostPage, 'PlayCanvas Editor mobile host action path')
+        await mobileHostPage.screenshot({ path: testInfo.outputPath('playcanvas-editor-host-mobile-action-path.png'), fullPage: true })
+        await mobileHostPage.close()
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.setViewportSize({ width: 1280, height: 900 })

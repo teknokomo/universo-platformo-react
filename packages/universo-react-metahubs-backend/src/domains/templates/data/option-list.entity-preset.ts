@@ -12,7 +12,7 @@ export const enumerationEntityPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'enumeration',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: STANDARD_ENUMERATION_NAME,
     description: STANDARD_ENUMERATION_DESCRIPTION,
     meta: {

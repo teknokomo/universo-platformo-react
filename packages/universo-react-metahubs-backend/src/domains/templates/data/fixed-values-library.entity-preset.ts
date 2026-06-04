@@ -6,7 +6,7 @@ export const fixedValuesLibraryEntityPreset: EntityTypePresetManifest = {
     $schema: 'entity-type-preset/v1',
     codename: 'fixed-values-library',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: vlc('Constants Library', 'Библиотека констант'),
     description: vlc(
         'Set-style preset for typed constants and lightweight automation without runtime publication widgets.',

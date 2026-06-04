@@ -44,6 +44,7 @@
     -   [Настройки общего поведения](platform/metahubs/shared-behavior-settings.md)
 -   [Приложения](platform/applications.md)
 -   [Пакет PlayCanvas Editor](platform/playcanvas-editor.md)
+-   [Проекты PlayCanvas](platform/playcanvas-projects.md)
 -   [Администрирование](platform/admin.md)
 -   [Публикации](platform/publications.md)
 

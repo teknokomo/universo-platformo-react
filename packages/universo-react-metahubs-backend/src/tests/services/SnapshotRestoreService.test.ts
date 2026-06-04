@@ -28,6 +28,13 @@ jest.mock('../../persistence', () => ({
 import { SnapshotRestoreService } from '../../domains/metahubs/services/SnapshotRestoreService'
 import { computeModuleSourceChecksum } from '../../domains/modules/services/ModuleSourceFileService'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
+import { createLocalizedContent } from '@universo-react/utils'
+import {
+    PLAYCANVAS_EDITOR_PACKAGE_NAME,
+    PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+    PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+    type PlayCanvasProjectSnapshotSection
+} from '@universo-react/types'
 
 function createMockKnex(
     options: {
@@ -93,6 +100,7 @@ function createMockKnex(
     })
 
     const knex = {
+        raw: jest.fn(async () => ({ rows: [] })),
         transaction: trxFn
     }
 
@@ -137,9 +145,11 @@ describe('SnapshotRestoreService', () => {
             ...overrides
         } as unknown as MetahubSnapshot)
 
+    const deletedTablesWithLayouts = ['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts']
+
     it('creates entities and components from a minimal snapshot', async () => {
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', makeMinimalSnapshot(), 'user-1')
 
@@ -158,7 +168,7 @@ describe('SnapshotRestoreService', () => {
 
     it('restores package dependencies from snapshot through the package registry', async () => {
         const { knex } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot(
             'metahub-1',
@@ -193,9 +203,83 @@ describe('SnapshotRestoreService', () => {
         })
     })
 
+    it('remaps PlayCanvas package default project pointers during snapshot restore', async () => {
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        const sourceProjectId = '019e8afa-0000-7000-8000-000000000001'
+        const playcanvasProjects: PlayCanvasProjectSnapshotSection = {
+            schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+            projects: [
+                {
+                    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                    id: sourceProjectId,
+                    codename: createLocalizedContent('en', 'playcanvas_project'),
+                    displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                    description: null,
+                    packageRef: {
+                        packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                        version: '0.1.0',
+                        compatibilityStatus: 'compatible'
+                    },
+                    settings: {},
+                    defaultSceneId: null,
+                    publicationConfig: {}
+                }
+            ],
+            scenes: [],
+            assets: [],
+            scriptAssets: [],
+            sceneScriptBindings: [],
+            generatedArtifacts: []
+        }
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({
+                playcanvasProjects,
+                packages: [
+                    {
+                        packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                        version: '0.1.0',
+                        source: {
+                            kind: 'workspace',
+                            packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                            importName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                            upstreamPackageName: 'playcanvas/editor',
+                            upstreamVersion: '0.1.0',
+                            runtimeTargets: ['client']
+                        },
+                        config: {
+                            schemaVersion: '1',
+                            kind: 'display',
+                            display: {
+                                mode: 'embeddedIframe',
+                                developmentUrl: null,
+                                showArtifactOnlyNotice: true
+                            },
+                            playcanvasProject: {
+                                defaultProjectId: sourceProjectId
+                            }
+                        }
+                    }
+                ]
+            }),
+            'user-1'
+        )
+
+        const restoredProjectId = (insertedRows['_mhb_playcanvas_projects']?.[0] as { id?: string } | undefined)?.id
+        const restoredPackagesArg = mockReplaceMetahubPackagesFromSnapshot.mock.calls[0]?.[1] as
+            | { packages?: Array<{ config?: { playcanvasProject?: { defaultProjectId?: string | null } } }> }
+            | undefined
+
+        expect(restoredProjectId).toBeTruthy()
+        expect(restoredProjectId).not.toBe(sourceProjectId)
+        expect(restoredPackagesArg?.packages?.[0]?.config?.playcanvasProject?.defaultProjectId).toBe(restoredProjectId)
+    })
+
     it('replaces existing package dependencies when a snapshot explicitly contains no packages', async () => {
         const { knex } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot(
             'metahub-1',
@@ -214,7 +298,7 @@ describe('SnapshotRestoreService', () => {
 
     it('rejects imported ledger configs with invalid field references before restoring entities', async () => {
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
         const snapshot = makeMinimalSnapshot({
             entities: {
                 'old-ledger-id': {
@@ -266,7 +350,7 @@ describe('SnapshotRestoreService', () => {
     it('updates existing entity type definitions instead of inserting duplicates during snapshot restore', async () => {
         const { knex, mockBuilder, insertedRows } = createMockKnex()
         mockBuilder.first.mockResolvedValueOnce({ id: 'existing-page-type' })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot(
             'metahub-1',
@@ -298,7 +382,7 @@ describe('SnapshotRestoreService', () => {
 
     it('normalizes imported Page block content through the shared storage schema', async () => {
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot(
             'metahub-1',
@@ -374,7 +458,7 @@ describe('SnapshotRestoreService', () => {
 
     it('rejects unsafe imported Page block content before writing objects', async () => {
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await expect(
             service.restoreFromSnapshot(
@@ -433,7 +517,7 @@ describe('SnapshotRestoreService', () => {
 
     it('rejects imported Page block content that violates Entity-specific block constraints', async () => {
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await expect(
             service.restoreFromSnapshot(
@@ -529,7 +613,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -570,7 +654,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -611,7 +695,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -649,11 +733,11 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows, deletedTables } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
+        expect(deletedTables).toEqual(deletedTablesWithLayouts)
         expect(insertedRows['_mhb_layouts']).toHaveLength(1)
         expect(insertedRows['_mhb_layouts']![0]).toMatchObject({
             scope_entity_id: null,
@@ -747,7 +831,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows, deletedTables } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -804,7 +888,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -874,7 +958,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow(expectedMessage)
         expect(insertedRows['_mhb_modules']).toBeUndefined()
@@ -977,7 +1061,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -1017,13 +1101,58 @@ describe('SnapshotRestoreService', () => {
         const snapshot = makeMinimalSnapshot({ layouts: [], layoutZoneWidgets: [] } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows, deletedTables } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
+        expect(deletedTables).toEqual(deletedTablesWithLayouts)
         expect(insertedRows['_mhb_layouts']).toBeUndefined()
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
+    })
+
+    it('does not touch PlayCanvas storage when importing a legacy snapshot without a PlayCanvas section', async () => {
+        const { knex } = createMockKnex()
+        const playCanvasProjectSnapshotService = {
+            collectStoredLocalFileCandidates: jest.fn(),
+            restoreSnapshot: jest.fn()
+        }
+        const service = new SnapshotRestoreService(
+            knex as any,
+            'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+            undefined as any,
+            undefined as any,
+            playCanvasProjectSnapshotService as any
+        )
+
+        await service.restoreFromSnapshot('metahub-1', makeMinimalSnapshot(), 'user-1')
+
+        expect(playCanvasProjectSnapshotService.collectStoredLocalFileCandidates).not.toHaveBeenCalled()
+        expect(playCanvasProjectSnapshotService.restoreSnapshot).not.toHaveBeenCalled()
+    })
+
+    it('does not delete existing PlayCanvas project files when importing a legacy snapshot without a PlayCanvas section', async () => {
+        const { knex } = createMockKnex()
+        const playCanvasProjectFileService = {
+            read: jest.fn(),
+            write: jest.fn(),
+            delete: jest.fn()
+        }
+        const playCanvasProjectSnapshotService = {
+            collectStoredLocalFileCandidates: jest.fn(async () => new Map([['playcanvas-projects/project-1/scenes/scene-1.json', {}]])),
+            restoreSnapshot: jest.fn()
+        }
+        const service = new SnapshotRestoreService(
+            knex as any,
+            'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+            undefined as any,
+            playCanvasProjectFileService as any,
+            playCanvasProjectSnapshotService as any
+        )
+
+        await service.restoreFromSnapshot('metahub-1', makeMinimalSnapshot(), 'user-1')
+
+        expect(playCanvasProjectSnapshotService.collectStoredLocalFileCandidates).not.toHaveBeenCalled()
+        expect(playCanvasProjectFileService.delete).not.toHaveBeenCalled()
     })
 
     it('deletes stale file-backed module source files after a successful snapshot restore', async () => {
@@ -1037,12 +1166,12 @@ describe('SnapshotRestoreService', () => {
             storageColumnsAvailable: true,
             existingModuleSourcePaths: ['modules/general/old-shared.ts']
         })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
         expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/old-shared.ts'
         )
     })
@@ -1058,12 +1187,12 @@ describe('SnapshotRestoreService', () => {
             storageColumnsAvailable: true,
             existingModuleSourcePaths: [{ sourcePath: 'modules/general/old-shared.ts', sourceChecksum: 'old-source-checksum' }]
         })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
         expect(moduleSourceFileService.read).toHaveBeenCalledWith(
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/old-shared.ts'
         )
         expect(moduleSourceFileService.delete).not.toHaveBeenCalled()
@@ -1112,22 +1241,22 @@ describe('SnapshotRestoreService', () => {
             storageColumnsAvailable: true,
             existingModuleSourcePaths: ['modules/general/old-shared.ts']
         })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).resolves.toBeUndefined()
 
         expect(moduleSourceFileService.write).toHaveBeenCalledTimes(1)
         expect(moduleSourceFileService.write).toHaveBeenCalledWith(
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/new-shared.ts',
             "export const shared = 'new'"
         )
         expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/old-shared.ts'
         )
         expect(moduleSourceFileService.delete).not.toHaveBeenCalledWith(
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/new-shared.ts'
         )
     })
@@ -1174,7 +1303,7 @@ describe('SnapshotRestoreService', () => {
             delete: jest.fn().mockResolvedValue(undefined)
         }
         const { knex, insertedRows } = createMockKnex({ storageColumnsAvailable: true })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -1183,7 +1312,7 @@ describe('SnapshotRestoreService', () => {
             source_checksum: computeModuleSourceChecksum(sourceCode)
         })
         expect(moduleSourceFileService.write).toHaveBeenCalledWith(
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/new-shared.ts',
             sourceCode
         )
@@ -1230,7 +1359,7 @@ describe('SnapshotRestoreService', () => {
             delete: jest.fn()
         }
         const { knex } = createMockKnex({ storageColumnsAvailable: true })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
             message: 'Snapshot file-backed module source checksum does not match its content',
@@ -1286,7 +1415,7 @@ describe('SnapshotRestoreService', () => {
         }
         mockReplaceMetahubPackagesFromSnapshot.mockRejectedValueOnce(new Error('package restore failed'))
         const { knex } = createMockKnex({ storageColumnsAvailable: true })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow('package restore failed')
 
@@ -1371,19 +1500,19 @@ describe('SnapshotRestoreService', () => {
         }
         mockReplaceMetahubPackagesFromSnapshot.mockRejectedValueOnce(new Error('package restore failed'))
         const { knex } = createMockKnex({ storageColumnsAvailable: true })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow('package restore failed')
 
         expect(moduleSourceFileService.delete).toHaveBeenCalledTimes(2)
         expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
             1,
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/second.ts'
         )
         expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
             2,
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/first.ts'
         )
     })
@@ -1463,13 +1592,13 @@ describe('SnapshotRestoreService', () => {
             delete: jest.fn().mockResolvedValue(undefined)
         }
         const { knex } = createMockKnex({ storageColumnsAvailable: true })
-        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', moduleSourceFileService as any)
 
         await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow('write failed')
 
         expect(moduleSourceFileService.delete).toHaveBeenCalledTimes(1)
         expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
-            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             'modules/general/first.ts'
         )
     })
@@ -1537,7 +1666,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -1603,7 +1732,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         // Should not throw; orphaned constants are skipped with a warning
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
@@ -1710,7 +1839,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as Partial<MetahubSnapshot>)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -1772,7 +1901,7 @@ describe('SnapshotRestoreService', () => {
         })
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
@@ -1838,7 +1967,7 @@ describe('SnapshotRestoreService', () => {
         } as unknown as MetahubSnapshot)
 
         const { knex, insertedRows } = createMockKnex()
-        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 

@@ -55,6 +55,141 @@
 
 ---
 
+## 2026-06-04 - Metahub Structure Baseline Reset
+
+-   Reset metahub branch structure numbering back to baseline
+    `CURRENT_STRUCTURE_VERSION = 1` and public semver `0.1.0` for the current
+    test-stage project where databases are recreated from scratch.
+-   Kept the full current system-table surface, including PlayCanvas authoring
+    tables, in `SYSTEM_TABLE_VERSIONS[1]` so fresh metahubs are created with
+    the complete baseline without structure-version bumps.
+-   Reset built-in template and entity preset `minStructureVersion` values to
+    `0.1.0` and aligned backend/frontend tests and mocks with the baseline.
+
+## 2026-06-04 - PlayCanvas Projects UI QA Round 8 Closure
+
+-   Closed the user-reported PlayCanvas projects UI defects: empty states now
+    render accessible images, the editor open action matches its new-tab icon,
+    create/delete dialog footer labels use the shared short actions, and the
+    create form spacing no longer clips the focused label.
+-   Strengthened frontend unit and Playwright coverage for loaded empty-state
+    images, short localized dialog actions, no inline overflow around focused
+    labels/buttons, and popup behavior for separate and embedded editor modes.
+-   Verification passed: metahubs-frontend test suite (75 files, 325 tests),
+    metahubs-frontend lint/build, root E2E build against local minimal
+    Supabase, and focused chromium `@packages` Playwright flow (2 tests).
+
+## 2026-06-04 - PlayCanvas Project Storage Model QA Round 7 Closure
+
+-   Closed the Round 7 PlayCanvas storage validation gaps: scene payload refs
+    must be JSON under `playcanvas-projects/{projectId}/scenes/`, asset refs
+    must stay under `assets/`, script/generated-script asset refs require
+    JavaScript MIME/extension, non-script sidecar refs remain JSON-only for the
+    current bounded slice, and generated artifacts must be JavaScript under
+    `generated/`.
+-   Canonicalized PlayCanvas metadata file paths before persistence so validated
+    paths cannot later become untracked because of trailing whitespace or
+    non-canonical separators.
+-   Fixed generated artifact placeholder persistence by keeping
+    `output_checksum` nullable until a real file checksum exists; the current
+    metahub system table definition now matches that service/store contract.
+-   Aligned PlayCanvas project health with runtime export by ignoring
+    metadata-only asset placeholders in publish-blocking counts while still
+    blocking non-ready concrete file references.
+-   Fixed PlayCanvas-only application runtime sync messaging so manifest-only
+    updates are reported as `PlayCanvas runtime manifests updated`.
+-   Verification passed: focused metahubs-backend PlayCanvas/snapshot/package
+    Jest matrix (185 tests), applications-backend PlayCanvas sync Jest, shared
+    types Vitest (111 tests), metahubs/applications backend ESLint, sequential
+    `@universo-react/types`, `@universo-react/applications-backend`, and
+    `@universo-react/metahubs-backend` builds, `tools/lint-db-access.mjs`,
+    GitBook i18n check, `git diff --check`, local minimal Supabase Playwright
+    packages/resources flow (2 tests), and final local autoreview with no
+    accepted/actionable findings. Local Supabase was stopped after E2E.
+
+## 2026-06-03 - PlayCanvas Project Storage Model QA Round 6 Closure
+
+### Summary
+
+Closed the remaining PlayCanvas project file lifecycle QA findings around project-vs-asset file ownership, fail-closed metadata marker updates, and first-time metadata upsert DTOs.
+
+### Completed
+
+-   Split project-level file path ownership from asset file ownership so asset-owned files are handled only by asset file endpoints.
+-   Made PlayCanvas project and asset file metadata marker updates return affected-row evidence and fail closed when no metadata row is updated.
+-   Preserved physical file rollback for failed write metadata updates and prevented physical delete when missing-marker updates touch zero rows.
+-   Allowed first-time scene, asset, script, binding, and generated-artifact metadata upserts without requiring `expectedVersion`.
+-   Added focused service, store, and controller regressions for asset-owned project endpoint rejection, zero-row marker rollback, and optional create-version semantics.
+
+### Verified
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand --testPathPattern 'PlayCanvasProjectsService|playCanvasProjectsStore|playCanvasProjectsController'`
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand --testPathPattern 'PlayCanvas|playCanvas|SnapshotSerializer|SnapshotRestore|structureVersions|ModuleSourceFileService|packageConfigValidation'`
+-   `pnpm --filter @universo-react/metahubs-backend lint`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `node tools/lint-db-access.mjs`
+-   `git diff --check`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --prompt 'Review QA Round 6 closure for PlayCanvas project file lifecycle fixes. Focus on project-vs-asset file ownership, zero-row marker fail-closed behavior, rollback on metadata update failure, optional expectedVersion create semantics, SQL safety, and tests. Ignore unrelated pre-existing broad PlayCanvas storage-model work unless it directly affects these fixes.'`
+
+## 2026-06-03 - PlayCanvas Project Storage Model for Metahubs
+
+### Summary
+
+Implemented the first PlayCanvas project storage model slice for metahubs. PlayCanvas projects now have shared contracts, branch-scoped authoring tables, safe local file references, snapshot lifecycle coverage, published runtime manifest sync, and a minimal package-surface UI for connected PlayCanvas Editor packages.
+
+### Completed
+
+-   Added shared PlayCanvas project, scene, asset, script, generated artifact, snapshot, and runtime manifest contracts in `@universo-react/types`.
+-   Extended fresh metahub branch baseline system-table definitions with `_mhb_playcanvas_*` authoring tables without increasing the structure version.
+-   Added application runtime `_app_playcanvas_manifests` schema support and publication hash/sync persistence for published PlayCanvas manifests.
+-   Implemented metahub PlayCanvas project CRUD and safe file read/write/delete routes through `DbExecutor` stores and a guarded local file service.
+-   Integrated PlayCanvas project metadata and local file payloads into snapshot export, restore, copy, delete, and publication serialization flows.
+-   Added a PlayCanvas projects panel inside the existing metahub Packages resources surface, preserving package display settings and the default project pointer.
+-   Updated EN/RU GitBook docs, summaries, OpenAPI generation, and localized UI copy.
+
+### Verified
+
+-   `pnpm --filter @universo-react/types test -- playcanvasProjects.test.ts`
+-   `pnpm --filter @universo-react/metahubs-backend test -- PlayCanvasProjectFileService.test.ts PlayCanvasProjectSnapshotService.test.ts packageConfigValidation.test.ts structureVersions.test.ts systemTableDefinitions.test.ts`
+-   `pnpm --filter @universo-react/applications-backend test -- syncPlayCanvasPersistence.test.ts`
+-   `pnpm --filter @universo-react/utils exec vitest run --config vitest.config.ts src/serialization/__tests__/publicationSnapshotHash.test.ts`
+-   `pnpm --filter @universo-react/metahubs-frontend test -- MetahubPackagesTab.test.tsx queryKeys.test.ts`
+-   `pnpm --filter @universo-react/playcanvas-editor editor:build && pnpm --filter @universo-react/playcanvas-editor editor:smoke`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "metahub resources packages tab is usable and localized"`
+-   `node tools/lint-db-access.mjs`
+-   `pnpm --filter @universo-react/types build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/applications-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/core-frontend build`
+-   `pnpm --filter @universo-react/rest-docs build`
+
+## 2026-06-03 - PlayCanvas Project Storage Model QA Closure
+
+### Summary
+
+Closed the remaining implementation QA findings for PlayCanvas project storage and runtime publication. Project-scoped publish/export is isolated before runtime manifest generation, authoring snapshots no longer require runtime-ready projects, and runtime publication now fails closed only for selected publishable resources.
+
+### Completed
+
+-   Scoped PlayCanvas project publish/export to the requested project before runtime manifest generation.
+-   Split authoring snapshot export from runtime manifest generation so draft or recovery-state projects remain portable.
+-   Limited runtime publication to configured package default projects and skipped metadata-only asset placeholders without producing null runtime URLs.
+-   Merged scene/asset readiness status columns into exported file references before runtime gating.
+-   Hardened runtime manifest persistence so stale application manifests are removed when the latest publication removes projects.
+-   Corrected PlayCanvas optimistic-lock diagnostics and added project ownership validation for exported script/binding/artifact rows.
+
+### Verified
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/services/playCanvasProjectsStore.test.ts src/tests/services/PlayCanvasProjectSnapshotService.test.ts src/tests/services/PlayCanvasProjectsService.test.ts src/tests/services/SnapshotSerializer.test.ts src/tests/controllers/playCanvasProjectsController.test.ts`
+-   `pnpm --filter @universo-react/applications-backend test -- --runTestsByPath src/tests/routes/sync/syncPlayCanvasPersistence.test.ts`
+-   `pnpm --filter @universo-react/utils build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/applications-backend build`
+-   `git diff --check`
+-   `node tools/lint-db-access.mjs`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+
 ## 2026-06-02 - File-Backed Module Snapshot/Delete Integrity Closure
 
 ### Summary
@@ -2755,3 +2890,120 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
     `storage-e2e` so runner finalization, manual E2E cleanup, and full E2E
     reset remove temporary file-backed module sources without touching the
     manual `storage` source root.
+
+### 2026-06-03: PlayCanvas Project Storage Model Implementation Closure
+
+-   Implemented the metahub PlayCanvas project storage model across shared
+    contracts, metahub branch system tables, local project file storage,
+    backend routes, package default-project settings, snapshot export/restore,
+    metahub copy/delete lifecycle, publication hashing, and application runtime
+    manifest sync.
+-   Added the minimal package-surface UI for creating, listing, selecting, and
+    deleting PlayCanvas projects when the PlayCanvas Editor package is attached,
+    with EN/RU localization and existing MUI package-surface patterns.
+-   Closed lifecycle QA findings around orphan child rows, stale restored files,
+    stale package default-project pointers, actual file checksum export,
+    runtime manifest module-id remapping, import-time canonical publication
+    snapshots, schema-ddl system-table expectations, and canonical VLC snapshot
+    validation.
+-   Verification passed: Prettier on touched files; focused `@universo-react/types`,
+    `schema-ddl`, `metahubs-backend`, `applications-backend`, and
+    `metahubs-frontend` tests; dependent package builds; `node
+tools/lint-db-access.mjs`; `git diff --check`; local minimal Supabase
+    Playwright packages flow from the implementation pass; and final local
+    autoreview with no accepted/actionable findings.
+
+### 2026-06-03: PlayCanvas Project Storage Model QA Repair Closure
+
+-   Closed post-QA defects in project child-row ownership guards, snapshot
+    runtime manifest remapping, asset-scoped file route enforcement, application
+    sync change detection, and package-surface create/delete UX validation.
+-   Regenerated OpenAPI and refreshed EN/RU GitBook documentation for the
+    backend adapter-facing PlayCanvas project API, asset-scoped file routes,
+    auto-generated codenames, and snapshot remap behavior.
+-   Verification passed: focused metahubs-backend, applications-backend,
+    metahubs-frontend, and types tests/builds; Prettier; OpenAPI generation;
+    `git diff --check`; `tools/lint-db-access.mjs`; GitBook i18n docs check;
+    local minimal Supabase E2E build; and Playwright Chromium packages-flow
+    evidence.
+-   Follow-up autoreview finding fixed: snapshot restore now returns the
+    PlayCanvas project id remap and applies it to restored package attachment
+    `playcanvasProject.defaultProjectId` values before persistence, with a
+    focused regression covering the remapped pointer.
+-   Follow-up service validation finding fixed: project settings updates now
+    verify a non-null `defaultSceneId` belongs to the same PlayCanvas project
+    before persisting it, while keeping `null` as an explicit clear operation.
+-   Follow-up frontend cache finding fixed: deleting a PlayCanvas project now
+    invalidates both the project list and package/detail queries so backend
+    default-project pointer cleanup is reflected without a reload.
+-   Follow-up publication correctness finding fixed: snapshot export now always
+    rebuilds PlayCanvas runtime manifests from current project metadata instead
+    of trusting stored publication manifests that may be stale after edits.
+-   Follow-up duplicate-name finding fixed: auto-generated PlayCanvas project
+    codenames now use a bounded uniqueness suffix lookup before insert, with a
+    regression for repeated display names.
+-   Follow-up runtime manifest finding fixed: generated PlayCanvas runtime
+    manifests now include the selected scene payload file and project asset file
+    paths as runtime asset URLs, using the enriched file checksums from snapshot
+    export.
+-   Follow-up application sync findings fixed: PlayCanvas manifest persistence
+    now uses a partial-index-compatible `ON CONFLICT` target and correctly
+    soft-deletes all active runtime manifests when publishing a snapshot with no
+    PlayCanvas manifests.
+-   Follow-up generated artifact response finding fixed: generated artifact
+    `RETURNING` now normalizes persisted output path/checksum/MIME back into
+    the adapter-facing `outputFile` object.
+-   Final local autoreview passed clean with no accepted/actionable findings
+    after the QA repair loop.
+
+### 2026-06-03: PlayCanvas Project Storage Model Final Autoreview Closure
+
+-   Closed the remaining snapshot lifecycle gaps found by final local
+    autoreview: missing PlayCanvas storage tables no longer break copy/export,
+    absent PlayCanvas snapshot sections no longer delete existing PlayCanvas
+    files, and unsupported PlayCanvas snapshot versions are rejected before
+    destructive cleanup.
+-   Aligned PlayCanvas project CRUD with package default-project validation by
+    resolving project routes against the metahub default branch schema instead
+    of the user's active branch.
+-   Narrowed module source tree copying to the `modules/` namespace so metahub
+    copy no longer pre-copies sibling `playcanvas-projects/` files before
+    PlayCanvas snapshot restore remaps project ids and writes bundled files.
+-   Verification passed: focused metahubs-backend lifecycle tests, PlayCanvas
+    project and module file service regressions, metahubs-frontend package UI
+    Vitest, applications-backend PlayCanvas sync Jest, types/utils tests,
+    `tools/lint-db-access.mjs`, GitBook i18n docs check, `git diff --check`,
+    sequential dependent package builds, and final local autoreview with no
+    accepted/actionable findings.
+
+### 2026-06-03: PlayCanvas Project Storage Model Final QA Closure
+
+-   Closed the last QA findings around PlayCanvas health aggregation, orphan
+    project-level file guards, runtime manifest gating, and authoring path
+    leakage in runtime publication snapshots.
+-   Tightened authoring data access: PlayCanvas project export and file read
+    endpoints now require `manageMetahub`, matching the sensitivity of bundled
+    snapshot/file content, and a controller permission regression locks the
+    intended route contract.
+-   Verification passed: focused metahubs-backend PlayCanvas/controller,
+    snapshot, package, and metahub copy tests; applications-backend PlayCanvas
+    sync tests; metahubs-frontend package UI Vitest; `tools/lint-db-access.mjs`;
+    GitBook i18n docs check; Prettier on touched files; and `git diff --check`.
+
+### 2026-06-03: PlayCanvas Project Storage Model Round 5 QA Closure
+
+-   Closed Round 5 lifecycle defects: PlayCanvas publication manifest
+    persistence now runs inside publication transactions, project delete
+    separates pointer-cleanup rollback from partial file-cleanup fail-closed
+    behavior, and requested PlayCanvas project ids fail closed during snapshot
+    export instead of being silently dropped.
+-   Preserved metahub copy restore file rollback, included asset file refs in
+    project file ownership checks, normalized persisted runtime manifest
+    metadata for application sync diffs, and removed the package settings
+    `autoFocus` accessibility lint issue.
+-   Verification passed: focused PlayCanvas/Snapshot metahubs-backend Jest,
+    applications-backend PlayCanvas sync Jest, metahubs-frontend package UI
+    Vitest/lint, types and utils Vitest suites, backend/application lints,
+    `tools/lint-db-access.mjs`, `git diff --check`, Prettier on touched files,
+    sidecar static QA, and final local autoreview with no accepted/actionable
+    findings.

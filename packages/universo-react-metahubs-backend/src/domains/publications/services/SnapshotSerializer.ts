@@ -18,6 +18,8 @@ import {
     type MetahubModuleDefinition,
     type MetahubSnapshotPackage,
     type MetahubSnapshotVersionEnvelope,
+    type PlayCanvasProjectSnapshotSection,
+    type PlayCanvasRuntimeManifest,
     type SharedBehavior,
     type SharedEntityKind,
     type VersionedLocalizedContent
@@ -31,6 +33,7 @@ import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptio
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
+import { PlayCanvasProjectSnapshotService } from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
@@ -81,6 +84,19 @@ const mergeEntitySnapshotConfig = (
     }
 }
 
+const collectPlayCanvasRuntimeProjectIds = (packages: MetahubSnapshotPackage[]): string[] => {
+    const ids = new Set<string>()
+    for (const item of packages) {
+        const config = item.config
+        if (config?.kind !== 'display') continue
+        const projectId = config.playcanvasProject?.defaultProjectId
+        if (typeof projectId === 'string' && projectId.trim()) {
+            ids.add(projectId)
+        }
+    }
+    return [...ids]
+}
+
 export interface MetahubSnapshot {
     version: 1
     versionEnvelope: MetahubSnapshotVersionEnvelope
@@ -98,6 +114,8 @@ export interface MetahubSnapshot {
     systemFields?: Record<string, ObjectSystemFieldsSnapshot>
     modules?: MetahubSnapshotModule[]
     packages?: MetahubSnapshotPackage[]
+    playcanvasProjects?: PlayCanvasProjectSnapshotSection
+    playcanvasRuntimeManifests?: PlayCanvasRuntimeManifest[]
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
@@ -311,7 +329,8 @@ export class SnapshotSerializer {
         private readonly settingsService?: {
             findAll(metahubId: string): Promise<Array<{ key: string; value: unknown }>>
         },
-        private readonly packagesService?: MetahubPackagesService
+        private readonly packagesService?: MetahubPackagesService,
+        private readonly playCanvasProjectSnapshotService?: PlayCanvasProjectSnapshotService
     ) {}
 
     private static toSnapshotCodenameValue(value: unknown): SnapshotCodenameValue {
@@ -688,9 +707,10 @@ export class SnapshotSerializer {
         options?: Partial<MetahubSnapshotVersionEnvelope> & {
             runtimePolicy?: MetahubRuntimePolicySnapshot
             packageMode?: 'runtime' | 'metahub'
+            playCanvasMode?: 'runtime' | 'snapshot' | 'none'
         }
     ): Promise<MetahubSnapshot> {
-        const { runtimePolicy, packageMode = 'runtime', ...versionEnvelope } = options ?? {}
+        const { runtimePolicy, packageMode = 'runtime', playCanvasMode = 'runtime', ...versionEnvelope } = options ?? {}
         const { typeByKind, entityTypeDefinitions } = await this.loadSnapshotTypeDefinitions(metahubId)
         const objectKinds = [...typeByKind.keys()].filter((kind) => {
             const definition = typeByKind.get(kind)
@@ -743,6 +763,26 @@ export class SnapshotSerializer {
                       value: setting.value as Record<string, unknown>
                   }))
             : []
+        const playCanvasRuntimeConfigPackages =
+            this.packagesService && this.playCanvasProjectSnapshotService && playCanvasMode === 'runtime'
+                ? packageMode === 'metahub'
+                    ? publishedPackages
+                    : await this.packagesService.listMetahubSnapshotPackages(metahubId)
+                : []
+        const playCanvasRuntimeProjectIds =
+            playCanvasMode === 'runtime' ? collectPlayCanvasRuntimeProjectIds(playCanvasRuntimeConfigPackages) : undefined
+        const shouldExportPlayCanvasProjects =
+            this.playCanvasProjectSnapshotService &&
+            playCanvasMode !== 'none' &&
+            (playCanvasMode !== 'runtime' || (playCanvasRuntimeProjectIds?.length ?? 0) > 0)
+        const playcanvasProjects = shouldExportPlayCanvasProjects
+            ? await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
+                  includeRuntimeManifests: playCanvasMode === 'runtime',
+                  projectIds: playCanvasRuntimeProjectIds
+              })
+            : undefined
+        const playcanvasRuntimeManifests =
+            playCanvasMode === 'runtime' && playcanvasProjects?.runtimeManifests?.length ? playcanvasProjects.runtimeManifests : undefined
 
         const elementObjectIds = serializedObjects
             .filter(({ kind, object }) => {
@@ -958,6 +998,8 @@ export class SnapshotSerializer {
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
             modules: publishedModules.length > 0 ? publishedModules : undefined,
             packages: publishedPackages.length > 0 ? publishedPackages : undefined,
+            playcanvasProjects: playCanvasMode === 'snapshot' ? playcanvasProjects : undefined,
+            playcanvasRuntimeManifests,
             settings: settings.length > 0 ? settings : undefined,
             runtimePolicy
         }

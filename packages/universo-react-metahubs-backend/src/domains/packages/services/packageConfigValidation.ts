@@ -21,7 +21,13 @@ const packageAttachmentDisplayConfigSchema = z
                 developmentUrl: z.string().url().max(2048).nullable().optional(),
                 showArtifactOnlyNotice: z.boolean()
             })
+            .strict(),
+        playcanvasProject: z
+            .object({
+                defaultProjectId: z.string().uuid().nullable()
+            })
             .strict()
+            .optional()
     })
     .strict()
 
@@ -222,7 +228,12 @@ export const resolvePackageAttachmentConfig = (
             mode: config.display.mode,
             developmentUrl: config.display.mode === 'developmentUrl' ? config.display.developmentUrl ?? null : null,
             showArtifactOnlyNotice: config.display.showArtifactOnlyNotice
-        }
+        },
+        playcanvasProject: config.playcanvasProject
+            ? {
+                  defaultProjectId: config.playcanvasProject.defaultProjectId
+              }
+            : undefined
     }
 
     if (normalized.display.mode === 'developmentUrl' && validateDevelopmentUrlAllowlist) {
