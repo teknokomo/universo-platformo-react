@@ -30,8 +30,16 @@ const EDITOR_PACKAGE_BLOCKED_EXPORT_PATHS = ['vendor/', 'playcanvas-editor/']
 const ALLOWED_EDITOR_PACKAGE_METADATA_FILES = new Set([
     'packages/universo-react-metahubs-backend/src/domains/packages/data/seed-packages.json',
     'packages/universo-react-metahubs-backend/src/domains/packages/services/packageConfigValidation.ts',
+    'packages/universo-react-metahubs-backend/src/domains/metahubs/services/systemTableDefinitions.ts',
+    'packages/universo-react-metahubs-backend/src/tests/routes/metahubsRoutes.test.ts',
     'packages/universo-react-metahubs-backend/src/tests/services/PackageSeeder.test.ts',
-    'packages/universo-react-types/src/common/packages.ts'
+    'packages/universo-react-metahubs-backend/src/tests/services/PlayCanvasProjectsService.test.ts',
+    'packages/universo-react-metahubs-backend/src/tests/services/packageConfigValidation.test.ts',
+    'packages/universo-react-metahubs-backend/src/tests/services/playCanvasProjectsStore.test.ts',
+    'packages/universo-react-metahubs-frontend/src/domains/packages/ui/MetahubPackagesTab.tsx',
+    'packages/universo-react-types/src/common/packages.ts',
+    'packages/universo-react-types/src/common/playcanvasProjects.ts',
+    'packages/universo-react-utils/src/serialization/__tests__/publicationSnapshotHash.test.ts'
 ])
 
 const toRelative = (absolutePath) => path.relative(ROOT, absolutePath).split(path.sep).join('/')

@@ -6,7 +6,7 @@ const presetManifest = {
     $schema: 'entity-type-preset/v1' as const,
     codename: 'object',
     version: '0.1.0',
-    minStructureVersion: '0.4.0',
+    minStructureVersion: '0.1.0',
     name: {
         _schema: '1' as const,
         _primary: 'en',

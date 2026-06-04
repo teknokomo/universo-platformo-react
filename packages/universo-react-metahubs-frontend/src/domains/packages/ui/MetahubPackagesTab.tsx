@@ -32,7 +32,7 @@ import {
     Typography
 } from '@mui/material'
 import type { SelectChangeEvent } from '@mui/material/Select'
-import { EmptyListState, FlowListTable, type FlowListTableData, type TableColumn } from '@universo-react/template-mui'
+import { APIEmptySVG, EmptyListState, FlowListTable, type FlowListTableData, type TableColumn } from '@universo-react/template-mui'
 import { ConfirmDeleteDialog, StandardDialog } from '@universo-react/template-mui/components/dialogs'
 import type {
     MetahubPackageAttachment,
@@ -41,13 +41,15 @@ import type {
     PackageAttachmentConfig,
     PackageAuthoringSurfaceDescriptor,
     PackageDisplayMode,
+    PlayCanvasProjectSummary,
     VersionedLocalizedContent
 } from '@universo-react/types'
+import { createLocalizedContent } from '@universo-react/utils'
 import type { Metahub } from '../../../types'
 import { getLocalizedContentText, normalizeLocale } from '../../../utils/localizedInput'
 import { useMetahubDetails } from '../../metahubs/hooks'
 import { metahubsQueryKeys } from '../../shared'
-import { packagesApi } from '../api'
+import { packagesApi, playcanvasProjectsApi } from '../api'
 
 interface PackageTableRow extends FlowListTableData {
     packageName: string
@@ -83,6 +85,8 @@ const sortVersions = (versions: string[]): string[] =>
 
 const resolveDisplayConfig = (config: PackageAttachmentConfig): Extract<PackageAttachmentConfig, { kind: 'display' }> | null =>
     config.kind === 'display' ? config : null
+
+const PLAYCANVAS_EDITOR_PACKAGE_NAME = '@universo-react/playcanvas-editor'
 
 const buildRows = (items: MetahubPackageCatalogItem[], attachedItems: MetahubPackageAttachment[], locale: string): PackageTableRow[] => {
     const grouped = new Map<string, MetahubPackageCatalogItem[]>()
@@ -121,6 +125,343 @@ const notifyPackageMutationError = (t: TFunction, enqueueSnackbar: ReturnType<ty
     enqueueSnackbar(t('packages.notifications.mutationFailed', 'Package operation failed. Please refresh and try again.'), {
         variant: 'error'
     })
+}
+
+function PlayCanvasProjectsPanel({
+    metahubId,
+    row,
+    canManage,
+    locale,
+    invalidatePackages
+}: {
+    metahubId: string
+    row: PackageTableRow
+    canManage: boolean
+    locale: string
+    invalidatePackages: () => Promise<void>
+}) {
+    const { t } = useTranslation(['metahubs', 'common'])
+    const { enqueueSnackbar } = useSnackbar()
+    const queryClient = useQueryClient()
+    const [createOpen, setCreateOpen] = useState(false)
+    const [nameDraft, setNameDraft] = useState('')
+    const [createSubmitted, setCreateSubmitted] = useState(false)
+    const [pendingDelete, setPendingDelete] = useState<PlayCanvasProjectSummary | null>(null)
+
+    const projectsQuery = useQuery({
+        queryKey: metahubsQueryKeys.playcanvasProjects(metahubId),
+        queryFn: () => playcanvasProjectsApi.list(metahubId),
+        enabled: Boolean(metahubId && row.attached && canManage)
+    })
+
+    const invalidateProjects = async () => {
+        await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.playcanvasProjects(metahubId) })
+    }
+    const displayConfig = row.config.kind === 'display' ? row.config : null
+
+    const createMutation = useMutation({
+        mutationFn: () =>
+            playcanvasProjectsApi.create(metahubId, {
+                displayName: createLocalizedContent(locale, nameDraft.trim()),
+                description: null,
+                packageVersion: row.version
+            }),
+        onSuccess: async (project) => {
+            enqueueSnackbar(t('packages.projects.notifications.created', 'PlayCanvas project created'), { variant: 'success' })
+            setCreateOpen(false)
+            setNameDraft('')
+            setCreateSubmitted(false)
+            await invalidateProjects()
+            if (row.attachmentId && displayConfig && !displayConfig.playcanvasProject?.defaultProjectId) {
+                await packagesApi.updateConfig(metahubId, row.attachmentId, {
+                    config: {
+                        ...displayConfig,
+                        playcanvasProject: { defaultProjectId: project.id }
+                    }
+                })
+                await invalidatePackages()
+            }
+        },
+        onError: () => {
+            enqueueSnackbar(t('packages.projects.notifications.createFailed', 'Failed to create PlayCanvas project'), { variant: 'error' })
+        }
+    })
+
+    const setDefaultMutation = useMutation({
+        mutationFn: (projectId: string | null) => {
+            if (!row.attachmentId) {
+                throw new Error('Package attachment is required')
+            }
+            if (!displayConfig) {
+                throw new Error('Package display settings are required')
+            }
+            return packagesApi.updateConfig(metahubId, row.attachmentId, {
+                config: {
+                    ...displayConfig,
+                    playcanvasProject: { defaultProjectId: projectId }
+                }
+            })
+        },
+        onSuccess: async () => {
+            enqueueSnackbar(t('packages.projects.notifications.defaultSaved', 'Default PlayCanvas project saved'), { variant: 'success' })
+            await invalidatePackages()
+        },
+        onError: () => {
+            enqueueSnackbar(t('packages.projects.notifications.defaultFailed', 'Failed to save default PlayCanvas project'), {
+                variant: 'error'
+            })
+        }
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: (project: PlayCanvasProjectSummary) => playcanvasProjectsApi.remove(metahubId, project.id, project.version),
+        onSuccess: async () => {
+            enqueueSnackbar(t('packages.projects.notifications.deleted', 'PlayCanvas project deleted'), { variant: 'success' })
+            setPendingDelete(null)
+            await Promise.all([invalidateProjects(), invalidatePackages()])
+        },
+        onError: () => {
+            enqueueSnackbar(t('packages.projects.notifications.deleteFailed', 'Failed to delete PlayCanvas project'), { variant: 'error' })
+        }
+    })
+
+    const projects = projectsQuery.data ?? []
+    const defaultProjectId = displayConfig?.playcanvasProject?.defaultProjectId ?? ''
+    const selectedDefaultExists = defaultProjectId ? projects.some((project) => project.id === defaultProjectId) : true
+    const nameError = createSubmitted && nameDraft.trim().length === 0
+    const canSubmitCreate = nameDraft.trim().length > 0
+    const closeCreateDialog = () => {
+        setCreateOpen(false)
+        setNameDraft('')
+        setCreateSubmitted(false)
+    }
+    const submitCreate = () => {
+        setCreateSubmitted(true)
+        if (!canSubmitCreate || createMutation.isPending) return
+        createMutation.mutate()
+    }
+
+    const statusLabel = (project: PlayCanvasProjectSummary) =>
+        project.publishable
+            ? t('packages.projects.status.ready', 'Ready')
+            : t(`packages.projects.status.${project.status}`, 'Needs attention')
+
+    return (
+        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+            <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent='space-between' gap={1}>
+                    <Stack spacing={0.5}>
+                        <Typography variant='subtitle2'>{t('packages.projects.title', 'PlayCanvas projects')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t('packages.projects.description', 'Project storage used by the connected PlayCanvas Editor package.')}
+                        </Typography>
+                    </Stack>
+                    {canManage ? (
+                        <Button
+                            startIcon={<AddRoundedIcon />}
+                            variant='outlined'
+                            size='small'
+                            disabled={createMutation.isPending}
+                            onClick={() => {
+                                setCreateSubmitted(false)
+                                setCreateOpen(true)
+                            }}
+                        >
+                            {t('packages.projects.actions.create', 'Create project')}
+                        </Button>
+                    ) : null}
+                </Stack>
+
+                {!canManage ? (
+                    <Alert severity='info'>
+                        {t(
+                            'packages.projects.readOnly',
+                            'Project storage is available to metahub managers. You can view connected packages, but cannot change PlayCanvas projects.'
+                        )}
+                    </Alert>
+                ) : projectsQuery.isLoading ? (
+                    <Stack direction='row' spacing={1} alignItems='center'>
+                        <CircularProgress size={18} />
+                        <Typography variant='body2' color='text.secondary'>
+                            {t('packages.projects.loading', 'Loading PlayCanvas projects...')}
+                        </Typography>
+                    </Stack>
+                ) : projectsQuery.isError ? (
+                    <Alert severity='error'>{t('packages.projects.loadError', 'Failed to load PlayCanvas projects.')}</Alert>
+                ) : projects.length === 0 ? (
+                    <EmptyListState
+                        image={APIEmptySVG}
+                        imageAlt={t('packages.projects.empty.imageAlt', 'No PlayCanvas projects')}
+                        title={t('packages.projects.empty.title', 'No PlayCanvas projects yet')}
+                        description={t('packages.projects.empty.description', 'Create a project before connecting the Editor bridge.')}
+                    />
+                ) : (
+                    <Stack spacing={1.25}>
+                        <FormControl fullWidth size='small'>
+                            <InputLabel id='playcanvas-default-project-label'>
+                                {t('packages.projects.defaultProject', 'Default project')}
+                            </InputLabel>
+                            <Select
+                                labelId='playcanvas-default-project-label'
+                                label={t('packages.projects.defaultProject', 'Default project')}
+                                value={defaultProjectId}
+                                displayEmpty
+                                disabled={!canManage || setDefaultMutation.isPending}
+                                onChange={(event) => setDefaultMutation.mutate(event.target.value || null)}
+                            >
+                                <MenuItem value=''>{t('packages.projects.defaultNone', 'No default project')}</MenuItem>
+                                {projects.map((project) => (
+                                    <MenuItem key={project.id} value={project.id}>
+                                        {resolveText(project.displayName, locale, t('packages.projects.unnamed', 'Unnamed project'))}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        {!selectedDefaultExists ? (
+                            <Alert severity='warning'>
+                                {t('packages.projects.defaultMissing', 'The saved default project is no longer available.')}
+                            </Alert>
+                        ) : null}
+                        {projects.map((project) => (
+                            <Box key={project.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                                <Stack
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    alignItems={{ sm: 'center' }}
+                                    justifyContent='space-between'
+                                    gap={1}
+                                >
+                                    <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+                                        <Stack direction='row' spacing={1} flexWrap='wrap' alignItems='center'>
+                                            <Typography variant='subtitle2' sx={{ overflowWrap: 'anywhere' }}>
+                                                {resolveText(
+                                                    project.displayName,
+                                                    locale,
+                                                    t('packages.projects.unnamed', 'Unnamed project')
+                                                )}
+                                            </Typography>
+                                            {project.id === defaultProjectId ? (
+                                                <Chip size='small' color='primary' label={t('packages.projects.defaultChip', 'Default')} />
+                                            ) : null}
+                                            <Chip
+                                                size='small'
+                                                color={project.publishable ? 'success' : 'warning'}
+                                                label={statusLabel(project)}
+                                            />
+                                        </Stack>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'packages.projects.counts',
+                                                '{{scenes}} scenes, {{assets}} assets, {{scripts}} scripts, {{artifacts}} generated artifacts',
+                                                {
+                                                    scenes: project.sceneCount,
+                                                    assets: project.assetCount,
+                                                    scripts: project.scriptCount,
+                                                    artifacts: project.generatedArtifactCount
+                                                }
+                                            )}
+                                        </Typography>
+                                    </Stack>
+                                    <Tooltip title={t('packages.projects.actions.delete', 'Delete project')}>
+                                        <span>
+                                            <IconButton
+                                                size='small'
+                                                disabled={!canManage || deleteMutation.isPending}
+                                                aria-label={t('packages.projects.actions.deleteNamed', 'Delete {{projectName}}', {
+                                                    projectName: resolveText(
+                                                        project.displayName,
+                                                        locale,
+                                                        t('packages.projects.unnamed', 'Unnamed project')
+                                                    )
+                                                })}
+                                                onClick={() => setPendingDelete(project)}
+                                            >
+                                                <DeleteOutlineRoundedIcon fontSize='small' />
+                                            </IconButton>
+                                        </span>
+                                    </Tooltip>
+                                </Stack>
+                            </Box>
+                        ))}
+                    </Stack>
+                )}
+            </Stack>
+
+            <StandardDialog
+                open={createOpen}
+                onClose={closeCreateDialog}
+                maxWidth='sm'
+                fullWidth
+                title={t('packages.projects.dialogs.create.title', 'Create PlayCanvas project')}
+                disablePresentationControls
+                dialogContentProps={{ sx: { pt: '16px !important' } }}
+                actions={
+                    <>
+                        <Button onClick={closeCreateDialog} disabled={createMutation.isPending}>
+                            {t('packages.dialogs.cancel', 'Cancel')}
+                        </Button>
+                        <Button variant='contained' disabled={createMutation.isPending} type='submit' form='playcanvas-project-create-form'>
+                            {t('common:actions.create', 'Create')}
+                        </Button>
+                    </>
+                }
+            >
+                <Stack
+                    id='playcanvas-project-create-form'
+                    component='form'
+                    noValidate
+                    spacing={2}
+                    onSubmit={(event) => {
+                        event.preventDefault()
+                        submitCreate()
+                    }}
+                    sx={{ pt: 0.5 }}
+                >
+                    <TextField
+                        label={t('packages.projects.fields.name', 'Project name')}
+                        value={nameDraft}
+                        onChange={(event) => setNameDraft(event.target.value)}
+                        fullWidth
+                        size='small'
+                        required
+                        error={nameError}
+                        helperText={
+                            nameError
+                                ? t('packages.projects.validation.nameRequired', 'Enter a project name.')
+                                : t('packages.projects.fields.nameHelper', 'This name is shown in the metahub package settings.')
+                        }
+                    />
+                </Stack>
+            </StandardDialog>
+            <ConfirmDeleteDialog
+                open={Boolean(pendingDelete)}
+                title={t('packages.projects.dialogs.delete.title', 'Delete PlayCanvas project')}
+                description={
+                    pendingDelete
+                        ? t(
+                              'packages.projects.dialogs.delete.description',
+                              'Delete {{projectName}} and its PlayCanvas project files. Disconnecting the package does not delete projects.',
+                              {
+                                  projectName: resolveText(
+                                      pendingDelete.displayName,
+                                      locale,
+                                      t('packages.projects.unnamed', 'Unnamed project')
+                                  )
+                              }
+                          )
+                        : ''
+                }
+                confirmButtonText={t('common:actions.delete', 'Delete')}
+                deletingButtonText={t('packages.projects.dialogs.delete.deleting', 'Deleting...')}
+                cancelButtonText={t('packages.dialogs.cancel', 'Cancel')}
+                loading={deleteMutation.isPending}
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={async () => {
+                    if (!pendingDelete) return
+                    await deleteMutation.mutateAsync(pendingDelete)
+                }}
+            />
+        </Box>
+    )
 }
 
 export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
@@ -269,7 +610,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                 const displayConfig = resolveDisplayConfig(config) ?? resolveDisplayConfig(row.authoringSurface.defaultConfig)
                 setMutationErrorVisible(false)
                 setSettingsDraft({
-                    row,
+                    row: { ...row, config },
                     mode: displayConfig?.display.mode ?? 'disabled',
                     developmentUrl: displayConfig?.display.developmentUrl ?? '',
                     showArtifactOnlyNotice: displayConfig?.display.showArtifactOnlyNotice ?? true,
@@ -307,15 +648,19 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         setMutationErrorVisible(false)
     }
 
-    const buildSettingsConfig = (draft: PackageSettingsDraft): PackageAttachmentConfig => ({
-        schemaVersion: '1',
-        kind: 'display',
-        display: {
-            mode: draft.mode,
-            developmentUrl: draft.mode === 'developmentUrl' ? draft.developmentUrl.trim() || null : null,
-            showArtifactOnlyNotice: draft.showArtifactOnlyNotice
+    const buildSettingsConfig = (draft: PackageSettingsDraft): PackageAttachmentConfig => {
+        const displayConfig = resolveDisplayConfig(draft.row.config)
+        return {
+            schemaVersion: '1',
+            kind: 'display',
+            display: {
+                mode: draft.mode,
+                developmentUrl: draft.mode === 'developmentUrl' ? draft.developmentUrl.trim() || null : null,
+                showArtifactOnlyNotice: draft.showArtifactOnlyNotice
+            },
+            playcanvasProject: displayConfig?.playcanvasProject
         }
-    })
+    }
 
     const resolveSettingsValidationError = (draft: PackageSettingsDraft | null): string | null => {
         if (!draft || draft.mode !== 'developmentUrl') {
@@ -343,7 +688,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         if (row.authoringSurface.kind !== 'playcanvasEditor' || !metahubId) {
             return
         }
-        window.location.assign(`/metahub/${metahubId}/resources/packages/${row.authoringSurface.packageSlug}/editor`)
+        window.open(`/metahub/${metahubId}/resources/packages/${row.authoringSurface.packageSlug}/editor`, '_blank', 'noopener,noreferrer')
     }
 
     const getRowActionLabel = (key: string, fallback: string, row: PackageTableRow) => t(key, fallback, { packageName: row.name })
@@ -459,6 +804,8 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
     if (rows.length === 0) {
         return (
             <EmptyListState
+                image={APIEmptySVG}
+                imageAlt={t('packages.empty.imageAlt', 'No packages available')}
                 title={t('packages.empty.title', 'No packages available')}
                 description={t('packages.empty.description', 'Package registry will appear here after platform bootstrap.')}
             />
@@ -564,6 +911,26 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                         )
                     }}
                 />
+                {rows
+                    .filter(
+                        (row) =>
+                            row.attached &&
+                            row.authoringSurface.kind === 'playcanvasEditor' &&
+                            row.packageName === PLAYCANVAS_EDITOR_PACKAGE_NAME
+                    )
+                    .map((row) =>
+                        metahubId ? (
+                            <Box key={`${row.packageName}-projects`} sx={{ mt: 2 }}>
+                                <PlayCanvasProjectsPanel
+                                    metahubId={metahubId}
+                                    row={row}
+                                    canManage={canManagePackages}
+                                    locale={locale}
+                                    invalidatePackages={invalidatePackages}
+                                />
+                            </Box>
+                        ) : null
+                    )}
                 <Menu
                     anchorEl={actionMenu?.anchor ?? null}
                     open={Boolean(actionMenu)}

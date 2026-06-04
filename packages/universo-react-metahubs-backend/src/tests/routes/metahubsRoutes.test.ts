@@ -14,8 +14,41 @@ const mockDropSchema = jest.fn(async () => undefined)
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockUuidToLockKey = jest.fn((value: string) => value)
+const mockPoolKnexTransaction = jest.fn(async (cb: (trx: unknown) => Promise<unknown>) =>
+    cb({
+        withSchema: jest.fn(() => ({
+            from: jest.fn(() => ({ del: jest.fn(async () => undefined) })),
+            into: jest.fn(() => ({ insert: jest.fn(async () => undefined) }))
+        }))
+    })
+)
 const mockSoftDelete = jest.fn(async () => true)
 const mockRestoreFromSnapshot = jest.fn(async () => undefined)
+const mockExportPlayCanvasSnapshotFromSchema = jest.fn(async () => ({
+    schemaVersion: 1,
+    projects: [
+        {
+            id: 'source-playcanvas-project-id',
+            codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'pc_project' } } },
+            displayName: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'PlayCanvas Project' } } },
+            packageRef: {
+                packageName: '@universo-react/playcanvas-editor',
+                compatibilityStatus: 'compatible'
+            },
+            schemaVersion: '1',
+            settings: {},
+            defaultSceneId: null,
+            publicationConfig: {}
+        }
+    ],
+    scenes: [],
+    assets: [],
+    scriptAssets: [],
+    sceneScriptBindings: [],
+    generatedArtifacts: [],
+    runtimeManifests: []
+}))
+const mockRestorePlayCanvasSnapshot = jest.fn(async () => new Map([['source-playcanvas-project-id', 'target-playcanvas-project-id']]))
 const mockSerializeMetahub = jest.fn(async () => ({
     version: 1,
     generatedAt: '2026-04-04T00:00:00.000Z',
@@ -57,6 +90,7 @@ jest.mock('../../domains/ddl', () => ({
         cloner: { clone: (...args: unknown[]) => mockClone(...args) },
         generator: { dropSchema: (...args: unknown[]) => mockDropSchema(...args) }
     }),
+    poolKnexTransaction: (cb: (trx: unknown) => Promise<unknown>) => mockPoolKnexTransaction(cb),
     createPoolSnapshotRestoreService: () => ({
         restoreFromSnapshot: (...args: unknown[]) => mockRestoreFromSnapshot(...args)
     })
@@ -173,6 +207,21 @@ jest.mock('../../domains/modules/services/ModuleSourceFileService', () => ({
     }))
 }))
 
+jest.mock('../../domains/playcanvas-projects/services/PlayCanvasProjectFileService', () => ({
+    __esModule: true,
+    PlayCanvasProjectFileService: jest.fn().mockImplementation(() => ({
+        deleteMetahubTree: jest.fn(async () => undefined)
+    }))
+}))
+
+jest.mock('../../domains/playcanvas-projects/services/PlayCanvasProjectSnapshotService', () => ({
+    __esModule: true,
+    PlayCanvasProjectSnapshotService: jest.fn().mockImplementation(() => ({
+        exportSnapshotFromSchema: (...args: unknown[]) => mockExportPlayCanvasSnapshotFromSchema(...args),
+        restoreSnapshot: (...args: unknown[]) => mockRestorePlayCanvasSnapshot(...args)
+    }))
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
@@ -233,14 +282,8 @@ describe('Metahubs Routes', () => {
                 switch (fallbackVersion) {
                     case 1:
                         return '0.1.0'
-                    case 2:
-                        return '0.2.0'
-                    case 3:
-                        return '0.3.0'
-                    case 4:
-                        return '0.4.0'
                     default:
-                        return '0.4.0'
+                        return '0.1.0'
                 }
             }
         )
@@ -251,10 +294,38 @@ describe('Metahubs Routes', () => {
         mockDropSchema.mockClear()
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
+        mockPoolKnexTransaction.mockClear()
         mockUuidToLockKey.mockImplementation((value: string) => value)
         mockSoftDelete.mockResolvedValue(true)
         mockCopyMetahubPackages.mockResolvedValue(0)
         mockDeleteMetahubTree.mockResolvedValue(undefined)
+        mockExportPlayCanvasSnapshotFromSchema.mockClear()
+        mockRestorePlayCanvasSnapshot.mockClear()
+        mockExportPlayCanvasSnapshotFromSchema.mockResolvedValue({
+            schemaVersion: 1,
+            projects: [
+                {
+                    id: 'source-playcanvas-project-id',
+                    codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'pc_project' } } },
+                    displayName: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'PlayCanvas Project' } } },
+                    packageRef: {
+                        packageName: '@universo-react/playcanvas-editor',
+                        compatibilityStatus: 'compatible'
+                    },
+                    schemaVersion: '1',
+                    settings: {},
+                    defaultSceneId: null,
+                    publicationConfig: {}
+                }
+            ],
+            scenes: [],
+            assets: [],
+            scriptAssets: [],
+            sceneScriptBindings: [],
+            generatedArtifacts: [],
+            runtimeManifests: []
+        })
+        mockRestorePlayCanvasSnapshot.mockResolvedValue(new Map([['source-playcanvas-project-id', 'target-playcanvas-project-id']]))
         mockSerializeMetahub.mockResolvedValue({
             version: 1,
             generatedAt: '2026-04-04T00:00:00.000Z',
@@ -701,12 +772,17 @@ describe('Metahubs Routes', () => {
                 _uplUpdatedAt: new Date()
             })
 
-            mockCreateBranch.mockResolvedValue({
-                id: 'new-branch-1',
-                metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
-                codename: 'main',
-                schemaName: 'mhb_018f8a787b8f7c1da111222233334444_b1'
-            })
+            mockCreateBranch.mockImplementation(
+                async (_tx: unknown, input: { branchNumber: number; codename: unknown; schemaName: string }) => ({
+                    id: input.branchNumber === 1 ? 'new-branch-1' : 'new-branch-2',
+                    metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    codename: input.codename,
+                    schemaName: input.schemaName
+                })
+            )
+            mockRestorePlayCanvasSnapshot
+                .mockResolvedValueOnce(new Map([['source-playcanvas-project-id', 'target-default-branch-project-id']]))
+                .mockResolvedValueOnce(new Map([['source-playcanvas-project-id', 'target-feature-branch-project-id']]))
 
             mockAddMetahubMember.mockResolvedValue({
                 id: 'membership-new',
@@ -733,13 +809,13 @@ describe('Metahubs Routes', () => {
                 .send({
                     name: { en: 'Source Metahub (copy)' },
                     codename: testCodenameVlc('source-hub-copy'),
-                    copyDefaultBranchOnly: true,
+                    copyDefaultBranchOnly: false,
                     copyAccess: true
                 })
                 .expect(201)
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334444')
-            expect(mockClone).toHaveBeenCalledTimes(1)
+            expect(mockClone).toHaveBeenCalledTimes(2)
             expect(mockClone).toHaveBeenCalledWith(
                 expect.objectContaining({
                     sourceSchema: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
@@ -760,6 +836,85 @@ describe('Metahubs Routes', () => {
                     metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
                     userId: 'test-user-id',
                     role: 'owner'
+                })
+            )
+            expect(mockCopyMetahubPackages).toHaveBeenCalledWith(expect.anything(), {
+                sourceMetahubId: 'metahub-1',
+                targetMetahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                userId: 'test-user-id'
+            })
+            expect(mockExportPlayCanvasSnapshotFromSchema).toHaveBeenCalledWith('metahub-1', 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+            expect(mockRestorePlayCanvasSnapshot).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    schemaName: 'mhb_018f8a787b8f7c1da111222233334444_b1'
+                })
+            )
+            expect(txQuery).toHaveBeenCalledWith(expect.stringContaining('playcanvasProject,defaultProjectId'), [
+                '018f8a78-7b8f-7c1d-a111-222233334444',
+                'target-default-branch-project-id',
+                'test-user-id',
+                'source-playcanvas-project-id'
+            ])
+        })
+
+        it('continues copy when a source branch has no PlayCanvas project snapshot', async () => {
+            mockFindMetahubById.mockResolvedValue({
+                id: 'metahub-1',
+                codename: 'source-hub',
+                slug: 'source-hub',
+                isPublic: false,
+                defaultBranchId: 'branch-1',
+                templateId: null,
+                templateVersionId: null,
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Source Metahub' } }
+                },
+                description: null
+            })
+            mockFindBranchesByMetahub.mockResolvedValue([
+                {
+                    id: 'branch-1',
+                    metahubId: 'metahub-1',
+                    sourceBranchId: null,
+                    branchNumber: 1,
+                    codename: 'main',
+                    schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                    structureVersion: '0.1.0',
+                    lastTemplateVersionId: 'tpl-v100',
+                    lastTemplateVersionLabel: '0.1.0',
+                    lastTemplateSyncedAt: new Date('2026-02-12T11:00:00.000Z'),
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main' } } },
+                    description: null,
+                    _uplDeleted: false,
+                    _mhbDeleted: false
+                }
+            ])
+            mockFindMetahubByCodename.mockResolvedValue(null)
+            mockFindMetahubBySlug.mockResolvedValue(null)
+            mockExportPlayCanvasSnapshotFromSchema.mockResolvedValueOnce(undefined)
+            mockRestorePlayCanvasSnapshot.mockResolvedValueOnce(new Map())
+            mockExec.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('uuid_generate_v7')) return [{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }]
+                return []
+            })
+
+            const app = buildApp()
+
+            await request(app)
+                .post('/metahub/metahub-1/copy')
+                .send({
+                    name: { en: 'Source Metahub (copy)' },
+                    codename: testCodenameVlc('source-hub-copy'),
+                    copyDefaultBranchOnly: true
+                })
+                .expect(201)
+
+            expect(mockRestorePlayCanvasSnapshot).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    snapshot: undefined
                 })
             )
             expect(mockCopyMetahubPackages).toHaveBeenCalledWith(expect.anything(), {
@@ -824,7 +979,6 @@ describe('Metahubs Routes', () => {
                 .expect(500)
 
             expect(mockDeleteMetahubTree).toHaveBeenCalledWith('018f8a78-7b8f-7c1d-a111-222233334444')
-            expect(mockDropSchema).toHaveBeenCalledWith('mhb_018f8a787b8f7c1da111222233334444_b1')
         })
     })
 
@@ -1994,7 +2148,8 @@ describe('Metahubs Routes', () => {
                 expect.objectContaining({
                     runtimePolicy: {
                         workspaceMode: 'required'
-                    }
+                    },
+                    playCanvasMode: 'none'
                 })
             )
             expect(mockCreatePublicationVersion).toHaveBeenCalledWith(
@@ -2031,7 +2186,7 @@ describe('Metahubs Routes', () => {
                 id: 'branch-main',
                 schemaName: 'test_schema',
                 metahubId: 'new-metahub-id',
-                structureVersion: 4
+                structureVersion: 1
             })
             mockCreatePublication.mockResolvedValueOnce({ id: 'pub-1' })
             mockCreatePublicationVersion.mockResolvedValueOnce({ id: 'version-1', versionNumber: 1 })
@@ -2401,7 +2556,7 @@ describe('Metahubs Routes', () => {
                 id: 'branch-main',
                 schemaName: 'test_schema',
                 metahubId,
-                structureVersion: 4
+                structureVersion: 1
             })
             mockSerializeMetahub.mockImplementationOnce(
                 async (_resolvedMetahubId: string, versionEnvelope?: { structureVersion?: string }) => ({
@@ -2409,7 +2564,7 @@ describe('Metahubs Routes', () => {
                     generatedAt: '2026-04-12T00:00:00.000Z',
                     metahubId,
                     versionEnvelope: {
-                        structureVersion: versionEnvelope?.structureVersion ?? '0.4.0',
+                        structureVersion: versionEnvelope?.structureVersion ?? '0.1.0',
                         templateVersion: null,
                         snapshotFormatVersion: 3
                     },

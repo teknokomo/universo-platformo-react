@@ -25,6 +25,9 @@ export interface PackageAttachmentDisplayConfig {
         developmentUrl?: string | null
         showArtifactOnlyNotice: boolean
     }
+    playcanvasProject?: {
+        defaultProjectId?: string | null
+    }
 }
 
 export type PackageAttachmentConfig = PackageAttachmentEmptyConfig | PackageAttachmentDisplayConfig

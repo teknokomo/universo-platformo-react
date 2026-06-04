@@ -21,10 +21,13 @@ import {
     attachMetahubPackage,
     changeMetahubPackageVersion,
     detachMetahubPackage,
+    findBranchByIdAndMetahub,
+    findMetahubByIdNotDeleted,
     listMetahubPackages,
     listPackageCatalog,
     updateMetahubPackageConfig
 } from '../../../persistence'
+import { findPlayCanvasProject } from '../../playcanvas-projects/services/playCanvasProjectsStore'
 
 const packageNameSchema = z
     .string()
@@ -150,6 +153,30 @@ const getPlayCanvasEditorAttachment = async (
         throw new MetahubValidationError('Package authoring surface slug is not unique for this metahub')
     }
     return matches[0]
+}
+
+const resolveDefaultBranchSchemaName = async (
+    exec: Parameters<typeof findMetahubByIdNotDeleted>[0],
+    metahubId: string
+): Promise<string> => {
+    const metahub = await findMetahubByIdNotDeleted(exec, metahubId)
+    if (!metahub?.defaultBranchId) {
+        throw new MetahubValidationError('Metahub default branch is not configured', {
+            messageCode: 'metahubs.defaultBranchMissing',
+            metahubId
+        })
+    }
+
+    const branch = await findBranchByIdAndMetahub(exec, metahub.defaultBranchId, metahubId)
+    if (!branch) {
+        throw new MetahubValidationError('Metahub default branch was not found', {
+            messageCode: 'metahubs.defaultBranchNotFound',
+            metahubId,
+            branchId: metahub.defaultBranchId
+        })
+    }
+
+    return branch.schemaName
 }
 
 const resolveArtifactPath = (relativePath: string): string => {
@@ -473,6 +500,16 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                 throw new MetahubNotFoundError('Metahub package', req.params.attachmentId)
             }
             const config = resolvePackageAttachmentConfig(parsed.data.config, attachment.authoringSurface)
+            if (config.kind === 'display' && config.playcanvasProject?.defaultProjectId) {
+                const schemaName = await resolveDefaultBranchSchemaName(exec, metahubId)
+                const project = await findPlayCanvasProject(exec, schemaName, config.playcanvasProject.defaultProjectId)
+                if (!project) {
+                    throw new MetahubValidationError('PlayCanvas default project was not found', {
+                        messageCode: 'playcanvas.projects.defaultProjectNotFound',
+                        projectId: config.playcanvasProject.defaultProjectId
+                    })
+                }
+            }
 
             const item = await updateMetahubPackageConfig(exec, {
                 metahubId,

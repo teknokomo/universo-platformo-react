@@ -1461,6 +1461,63 @@
             "versionChanged": "Package version updated",
             "mutationFailed": "Package operation failed. Please refresh and try again."
         },
+        "projects": {
+            "title": "PlayCanvas projects",
+            "description": "Project storage used by the connected PlayCanvas Editor package.",
+            "loading": "Loading PlayCanvas projects...",
+            "loadError": "Failed to load PlayCanvas projects.",
+            "readOnly": "Project storage is available to metahub managers. You can view connected packages, but cannot change PlayCanvas projects.",
+            "unnamed": "Unnamed project",
+            "defaultProject": "Default project",
+            "defaultNone": "No default project",
+            "defaultChip": "Default",
+            "defaultMissing": "The saved default project is no longer available.",
+            "counts": "{{scenes}} scenes, {{assets}} assets, {{scripts}} scripts, {{artifacts}} generated artifacts",
+            "empty": {
+                "title": "No PlayCanvas projects yet",
+                "imageAlt": "No PlayCanvas projects",
+                "description": "Create a project before connecting the Editor bridge."
+            },
+            "fields": {
+                "name": "Project name",
+                "nameHelper": "This name is shown in the metahub package settings."
+            },
+            "validation": {
+                "nameRequired": "Enter a project name."
+            },
+            "status": {
+                "ready": "Ready",
+                "missing": "Missing files",
+                "checksumMismatch": "Checksum mismatch",
+                "unsupportedType": "Unsupported type",
+                "deferredProvider": "Deferred storage",
+                "regenerable": "Regenerable",
+                "publishBlocking": "Blocked for publishing"
+            },
+            "actions": {
+                "create": "Create project",
+                "delete": "Delete project",
+                "deleteNamed": "Delete {{projectName}}"
+            },
+            "dialogs": {
+                "create": {
+                    "title": "Create PlayCanvas project"
+                },
+                "delete": {
+                    "title": "Delete PlayCanvas project",
+                    "description": "Delete {{projectName}} and its PlayCanvas project files. Disconnecting the package does not delete projects.",
+                    "deleting": "Deleting..."
+                }
+            },
+            "notifications": {
+                "created": "PlayCanvas project created",
+                "createFailed": "Failed to create PlayCanvas project",
+                "defaultSaved": "Default PlayCanvas project saved",
+                "defaultFailed": "Failed to save default PlayCanvas project",
+                "deleted": "PlayCanvas project deleted",
+                "deleteFailed": "Failed to delete PlayCanvas project"
+            }
+        },
         "editorHost": {
             "fallbackName": "Package editor",
             "loading": "Loading editor...",
@@ -1478,6 +1535,7 @@
         },
         "empty": {
             "title": "No packages available",
+            "imageAlt": "No packages available",
             "description": "Package registry will appear here after platform bootstrap."
         }
     },

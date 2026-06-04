@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { I18nextProvider } from 'react-i18next'
@@ -8,7 +8,7 @@ import { getInstance as getI18nInstance } from '@universo-react/i18n/instance'
 import type { MetahubPackageAttachment, MetahubPackageCatalogItem, PackageAttachmentConfig } from '@universo-react/types'
 import { createLocalizedContent } from '@universo-react/utils'
 import '../../../../i18n'
-import { packagesApi } from '../../api'
+import { packagesApi, playcanvasProjectsApi } from '../../api'
 import { MetahubPackagesTab } from '../MetahubPackagesTab'
 
 const mockUseMetahubDetails = vi.fn()
@@ -32,6 +32,12 @@ vi.mock('../../api', () => ({
         updateConfig: vi.fn(),
         getAuthoringHost: vi.fn(),
         detach: vi.fn()
+    },
+    playcanvasProjectsApi: {
+        list: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        remove: vi.fn()
     }
 }))
 
@@ -179,6 +185,33 @@ describe('MetahubPackagesTab', () => {
             }
         })
         vi.mocked(packagesApi.detach).mockResolvedValue(undefined)
+        vi.mocked(playcanvasProjectsApi.list).mockResolvedValue([])
+        vi.mocked(playcanvasProjectsApi.create).mockResolvedValue({
+            id: '018f0000-0000-7000-8000-000000000010',
+            displayName: createLocalizedContent('ru', 'Полетная сцена'),
+            codename: createLocalizedContent('ru', 'poletnaya_scena'),
+            version: 1,
+            compatibilityStatus: 'compatible',
+            status: 'ready',
+            sceneCount: 0,
+            assetCount: 0,
+            scriptCount: 0,
+            generatedArtifactCount: 0,
+            publishable: true
+        })
+        vi.mocked(playcanvasProjectsApi.remove).mockResolvedValue({
+            id: '018f0000-0000-7000-8000-000000000010',
+            displayName: createLocalizedContent('ru', 'Полетная сцена'),
+            codename: createLocalizedContent('ru', 'poletnaya_scena'),
+            version: 1,
+            compatibilityStatus: 'compatible',
+            status: 'ready',
+            sceneCount: 0,
+            assetCount: 0,
+            scriptCount: 0,
+            generatedArtifactCount: 0,
+            publishable: true
+        })
     })
 
     it('renders registry packages without raw ids and connects a selected package', async () => {
@@ -384,6 +417,117 @@ describe('MetahubPackagesTab', () => {
                 { variant: 'error' }
             )
         })
+    })
+
+    it('creates PlayCanvas projects from a user-facing name without exposing codename', async () => {
+        const user = userEvent.setup()
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
+
+        renderTab()
+
+        expect(await screen.findByAltText('Проектов PlayCanvas нет')).toBeInTheDocument()
+        await user.click(await screen.findByRole('button', { name: 'Создать проект' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Создать проект PlayCanvas' })
+        expect(dialog).toBeInTheDocument()
+        expect(within(dialog).getByText('Название проекта')).toBeInTheDocument()
+        const projectNameInput = within(dialog).getByRole('textbox')
+        expect(within(dialog).queryByLabelText(/Кодовое имя|Codename/)).not.toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Создать' })).toBeInTheDocument()
+        expect(within(dialog).queryByRole('button', { name: 'Создать проект' })).not.toBeInTheDocument()
+
+        await user.click(within(dialog).getByRole('button', { name: 'Создать' }))
+        expect(await within(dialog).findByText('Введите название проекта.')).toBeInTheDocument()
+
+        await user.type(projectNameInput, 'Полетная сцена')
+        await user.click(within(dialog).getByRole('button', { name: 'Создать' }))
+
+        await waitFor(() => {
+            expect(playcanvasProjectsApi.create).toHaveBeenCalledWith('metahub-1', {
+                displayName: expect.objectContaining({ _primary: 'ru' }),
+                description: null,
+                packageVersion: '0.1.0'
+            })
+        })
+        expect(JSON.stringify(vi.mocked(playcanvasProjectsApi.create).mock.calls[0]?.[1])).not.toContain('codename')
+    })
+
+    it('does not call manage-only PlayCanvas project APIs for read-only metahub members', async () => {
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
+        mockUseMetahubDetails.mockReturnValue({
+            data: { permissions: { manageMetahub: false } },
+            isLoading: false
+        })
+
+        renderTab()
+
+        expect(await screen.findByText('Проекты PlayCanvas')).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Хранилище проектов доступно управляющим метахабом. Вы можете просматривать подключённые пакеты, но не можете изменять проекты PlayCanvas.'
+            )
+        ).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Создать проект' })).not.toBeInTheDocument()
+        expect(playcanvasProjectsApi.list).not.toHaveBeenCalled()
+        expect(playcanvasProjectsApi.create).not.toHaveBeenCalled()
+    })
+
+    it('deletes PlayCanvas projects by hidden id while showing only the project name', async () => {
+        const user = userEvent.setup()
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
+        vi.mocked(playcanvasProjectsApi.list).mockResolvedValue([
+            {
+                id: '018f0000-0000-7000-8000-000000000010',
+                displayName: createLocalizedContent('ru', 'Полетная сцена'),
+                codename: createLocalizedContent('ru', 'poletnaya_scena'),
+                version: 7,
+                compatibilityStatus: 'compatible',
+                status: 'ready',
+                sceneCount: 0,
+                assetCount: 0,
+                scriptCount: 0,
+                generatedArtifactCount: 0,
+                publishable: true
+            }
+        ])
+
+        renderTab()
+
+        expect(await screen.findByText('Полетная сцена')).toBeInTheDocument()
+        expect(screen.queryByText('018f0000-0000-7000-8000-000000000010')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Удалить Полетная сцена' }))
+        expect(await screen.findByRole('dialog', { name: 'Удалить проект PlayCanvas' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Удалить' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Удалить проект' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Удалить' }))
+
+        await waitFor(() => {
+            expect(playcanvasProjectsApi.remove).toHaveBeenCalledWith('metahub-1', '018f0000-0000-7000-8000-000000000010', 7)
+        })
+        await waitFor(() => {
+            expect(vi.mocked(packagesApi.listAttached).mock.calls.length).toBeGreaterThanOrEqual(2)
+        })
+    })
+
+    it('opens the PlayCanvas Editor host from the package menu in a new tab', async () => {
+        const user = userEvent.setup()
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
+
+        try {
+            renderTab()
+
+            await user.click(await screen.findByRole('button', { name: 'Действия для PlayCanvas Editor' }))
+            await user.click(screen.getByRole('menuitem', { name: 'Открыть редактор' }))
+
+            expect(openSpy).toHaveBeenCalledWith(
+                '/metahub/metahub-1/resources/packages/playcanvas-editor/editor',
+                '_blank',
+                'noopener,noreferrer'
+            )
+        } finally {
+            openSpy.mockRestore()
+        }
     })
 
     it('saves PlayCanvas Editor development URL settings with a typed config payload', async () => {

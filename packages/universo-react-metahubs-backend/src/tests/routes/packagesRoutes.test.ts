@@ -11,8 +11,12 @@ const mockListMetahubPackages = jest.fn()
 const mockListPackageCatalog = jest.fn()
 const mockUpdateMetahubPackageConfig = jest.fn()
 const mockChangeMetahubPackageVersion = jest.fn()
+const mockFindMetahubByIdNotDeleted = jest.fn()
+const mockFindBranchByIdAndMetahub = jest.fn()
 const mockAccess = jest.fn()
 const mockRealpath = jest.fn()
+const mockEnsureSchema = jest.fn()
+const mockFindPlayCanvasProject = jest.fn()
 
 const mockDbSession = { isReleased: () => false }
 const editorPackageName = `@universo-react/${'playcanvas-editor'}`
@@ -49,7 +53,14 @@ jest.mock('../../domains/shared/guards', () => ({
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
-    MetahubSchemaService: jest.fn().mockImplementation(() => ({}))
+    MetahubSchemaService: jest.fn().mockImplementation(() => ({
+        ensureSchema: (...args: unknown[]) => mockEnsureSchema(...args)
+    }))
+}))
+
+jest.mock('../../domains/playcanvas-projects/services/playCanvasProjectsStore', () => ({
+    __esModule: true,
+    findPlayCanvasProject: (...args: unknown[]) => mockFindPlayCanvasProject(...args)
 }))
 
 jest.mock('../../persistence', () => ({
@@ -57,6 +68,8 @@ jest.mock('../../persistence', () => ({
     attachMetahubPackage: jest.fn(),
     changeMetahubPackageVersion: (...args: unknown[]) => mockChangeMetahubPackageVersion(...args),
     detachMetahubPackage: jest.fn(),
+    findBranchByIdAndMetahub: (...args: unknown[]) => mockFindBranchByIdAndMetahub(...args),
+    findMetahubByIdNotDeleted: (...args: unknown[]) => mockFindMetahubByIdNotDeleted(...args),
     listMetahubPackages: (...args: unknown[]) => mockListMetahubPackages(...args),
     listPackageCatalog: (...args: unknown[]) => mockListPackageCatalog(...args),
     updateMetahubPackageConfig: (...args: unknown[]) => mockUpdateMetahubPackageConfig(...args)
@@ -149,6 +162,10 @@ describe('Packages Routes', () => {
         mockEnsureMetahubAccess.mockResolvedValue(undefined)
         mockAccess.mockResolvedValue(undefined)
         mockRealpath.mockImplementation(async (filePath: string) => filePath)
+        mockEnsureSchema.mockResolvedValue('mhb_schema')
+        mockFindMetahubByIdNotDeleted.mockResolvedValue({ id: 'metahub-1', defaultBranchId: 'branch-default' })
+        mockFindBranchByIdAndMetahub.mockResolvedValue({ id: 'branch-default', metahubId: 'metahub-1', schemaName: 'mhb_default_schema' })
+        mockFindPlayCanvasProject.mockResolvedValue({ id: '019e8afa-0000-7000-8000-000000000001' })
         mockListMetahubPackages.mockResolvedValue([playCanvasAttachment, noneAttachment])
         mockListPackageCatalog.mockResolvedValue([])
         mockUpdateMetahubPackageConfig.mockImplementation(async (_exec, input) => ({
@@ -596,5 +613,54 @@ describe('Packages Routes', () => {
             userId: 'user-1',
             expectedPackageId: 'pkg-playcanvas'
         })
+    })
+
+    it('validates PlayCanvas default project pointer before saving package config', async () => {
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    ...displayConfig,
+                    playcanvasProject: {
+                        defaultProjectId: '019e8afa-0000-7000-8000-000000000001'
+                    }
+                }
+            })
+            .expect(200)
+
+        expect(mockEnsureSchema).not.toHaveBeenCalled()
+        expect(mockFindMetahubByIdNotDeleted).toHaveBeenCalledWith(mockExec, 'metahub-1')
+        expect(mockFindBranchByIdAndMetahub).toHaveBeenCalledWith(mockExec, 'branch-default', 'metahub-1')
+        expect(mockFindPlayCanvasProject).toHaveBeenCalledWith(mockExec, 'mhb_default_schema', '019e8afa-0000-7000-8000-000000000001')
+        expect(mockUpdateMetahubPackageConfig).toHaveBeenCalledWith(mockExec, {
+            metahubId: 'metahub-1',
+            attachmentId: 'attach-playcanvas',
+            config: {
+                ...displayConfig,
+                playcanvasProject: {
+                    defaultProjectId: '019e8afa-0000-7000-8000-000000000001'
+                }
+            },
+            userId: 'user-1',
+            expectedPackageId: 'pkg-playcanvas'
+        })
+    })
+
+    it('rejects stale PlayCanvas default project pointers before saving package config', async () => {
+        mockFindPlayCanvasProject.mockResolvedValueOnce(null)
+
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    ...displayConfig,
+                    playcanvasProject: {
+                        defaultProjectId: '019e8afa-0000-7000-8000-000000000001'
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
     })
 })

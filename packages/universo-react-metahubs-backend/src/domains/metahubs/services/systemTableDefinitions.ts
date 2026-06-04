@@ -565,6 +565,236 @@ const mhbEntityTypeDefinitions: SystemTableDef = {
     ]
 }
 
+const mhbPlayCanvasProjects: SystemTableDef = {
+    name: '_mhb_playcanvas_projects',
+    description: 'PlayCanvas project authoring records stored in a metahub branch',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'codename', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'display_name', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'description', type: 'jsonb', nullable: true },
+        { name: 'package_name', type: 'string', length: 160, nullable: false, defaultTo: '@universo-react/playcanvas-editor' },
+        { name: 'package_version', type: 'string', length: 80, nullable: true },
+        { name: 'compatibility_status', type: 'string', length: 40, nullable: false, defaultTo: 'compatible' },
+        { name: 'compatibility_notes', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'schema_version', type: 'string', length: 20, nullable: false, defaultTo: '1' },
+        { name: 'settings', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'default_scene_id', type: 'uuid', nullable: true },
+        { name: 'publication_config', type: 'jsonb', nullable: false, defaultTo: '{}' }
+    ],
+    indexes: [
+        {
+            name: 'idx_mhb_playcanvas_projects_codename_active',
+            columns: [codenamePrimaryTextSql('codename')],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
+        { name: 'idx_mhb_playcanvas_projects_package', columns: ['package_name', 'package_version'] },
+        { name: 'idx_mhb_playcanvas_projects_compatibility', columns: ['compatibility_status'] }
+    ]
+}
+
+const mhbPlayCanvasScenes: SystemTableDef = {
+    name: '_mhb_playcanvas_scenes',
+    description: 'PlayCanvas scene metadata and payload file references',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'project_id', type: 'uuid', nullable: false },
+        { name: 'codename', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'display_name', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'payload_schema_version', type: 'string', length: 20, nullable: false, defaultTo: '1' },
+        { name: 'payload_file', type: 'jsonb', nullable: true },
+        { name: 'payload', type: 'jsonb', nullable: true },
+        { name: 'checksum', type: 'string', length: 128, nullable: true },
+        { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 0 },
+        { name: 'publish', type: 'boolean', nullable: false, defaultTo: true },
+        { name: 'status', type: 'string', length: 40, nullable: false, defaultTo: 'ready' }
+    ],
+    foreignKeys: [{ column: 'project_id', referencesTable: '_mhb_playcanvas_projects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_scenes_project', columns: ['project_id', 'sort_order'] },
+        {
+            name: 'idx_mhb_playcanvas_scenes_project_codename_active',
+            columns: ['project_id', codenamePrimaryTextSql('codename')],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbPlayCanvasAssets: SystemTableDef = {
+    name: '_mhb_playcanvas_assets',
+    description: 'PlayCanvas asset metadata and file references',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'project_id', type: 'uuid', nullable: false },
+        { name: 'stable_asset_id', type: 'string', length: 160, nullable: false },
+        { name: 'asset_type', type: 'string', length: 40, nullable: false },
+        { name: 'name', type: 'string', length: 255, nullable: false },
+        { name: 'virtual_path', type: 'jsonb', nullable: false, defaultTo: '[]' },
+        { name: 'file_ref', type: 'jsonb', nullable: true },
+        { name: 'file_hash', type: 'string', length: 128, nullable: true },
+        { name: 'mime', type: 'string', length: 160, nullable: true },
+        { name: 'size', type: 'integer', nullable: true },
+        { name: 'provider', type: 'string', length: 40, nullable: false, defaultTo: 'local' },
+        { name: 'metadata', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'publish', type: 'boolean', nullable: false, defaultTo: true },
+        { name: 'status', type: 'string', length: 40, nullable: false, defaultTo: 'ready' }
+    ],
+    foreignKeys: [{ column: 'project_id', referencesTable: '_mhb_playcanvas_projects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_assets_project', columns: ['project_id'] },
+        { name: 'idx_mhb_playcanvas_assets_type', columns: ['asset_type'] },
+        { name: 'idx_mhb_playcanvas_assets_file_hash', columns: ['file_hash'] },
+        {
+            name: 'idx_mhb_playcanvas_assets_stable_active',
+            columns: ['project_id', 'stable_asset_id'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_playcanvas_assets_virtual_path_active',
+            columns: ['project_id', '(virtual_path::text)'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbPlayCanvasScriptAssets: SystemTableDef = {
+    name: '_mhb_playcanvas_script_assets',
+    description: 'PlayCanvas script asset metadata mapped to Platformo modules',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'asset_id', type: 'uuid', nullable: false },
+        { name: 'module_id', type: 'uuid', nullable: true },
+        { name: 'module_codename', type: 'string', length: 160, nullable: true },
+        { name: 'module_source_path', type: 'string', length: 512, nullable: true },
+        { name: 'script_name', type: 'string', length: 160, nullable: false },
+        { name: 'script_kind', type: 'string', length: 20, nullable: false, defaultTo: 'esm' },
+        { name: 'parsed_attributes', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'parse_status', type: 'string', length: 40, nullable: false, defaultTo: 'ready' },
+        { name: 'parse_diagnostics', type: 'jsonb', nullable: true }
+    ],
+    foreignKeys: [
+        { column: 'asset_id', referencesTable: '_mhb_playcanvas_assets', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'module_id', referencesTable: '_mhb_modules', referencesColumn: 'id', onDelete: 'SET NULL' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_script_assets_asset', columns: ['asset_id'] },
+        { name: 'idx_mhb_playcanvas_script_assets_module', columns: ['module_id'] },
+        {
+            name: 'idx_mhb_playcanvas_script_assets_name_active',
+            columns: ['asset_id', 'script_name'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbPlayCanvasSceneScriptBindings: SystemTableDef = {
+    name: '_mhb_playcanvas_scene_script_bindings',
+    description: 'Per-scene PlayCanvas script component values',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'scene_id', type: 'uuid', nullable: false },
+        { name: 'scene_entity_stable_id', type: 'string', length: 160, nullable: false },
+        { name: 'script_asset_id', type: 'uuid', nullable: false },
+        { name: 'script_name', type: 'string', length: 160, nullable: false },
+        { name: 'attribute_values', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'binding_schema_version', type: 'string', length: 20, nullable: false, defaultTo: '1' },
+        { name: 'platformo_entity_id', type: 'uuid', nullable: true },
+        { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 0 },
+        { name: 'enabled', type: 'boolean', nullable: false, defaultTo: true }
+    ],
+    foreignKeys: [
+        { column: 'scene_id', referencesTable: '_mhb_playcanvas_scenes', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'script_asset_id', referencesTable: '_mhb_playcanvas_script_assets', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'platformo_entity_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'SET NULL' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_scene_bindings_scene', columns: ['scene_id', 'sort_order'] },
+        { name: 'idx_mhb_playcanvas_scene_bindings_script', columns: ['script_asset_id'] }
+    ]
+}
+
+const mhbPlayCanvasGeneratedArtifacts: SystemTableDef = {
+    name: '_mhb_playcanvas_generated_artifacts',
+    description: 'Generated PlayCanvas Editor-consumable script artifacts',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'script_asset_id', type: 'uuid', nullable: false },
+        { name: 'source_module_id', type: 'uuid', nullable: true },
+        { name: 'source_module_codename', type: 'string', length: 160, nullable: true },
+        { name: 'source_module_path', type: 'string', length: 512, nullable: true },
+        { name: 'source_checksum', type: 'string', length: 128, nullable: true },
+        { name: 'output_file', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'output_path', type: 'string', length: 512, nullable: false },
+        { name: 'output_checksum', type: 'string', length: 128, nullable: true },
+        { name: 'output_mime', type: 'string', length: 160, nullable: true },
+        { name: 'script_name', type: 'string', length: 160, nullable: false },
+        { name: 'module_export_name', type: 'string', length: 160, nullable: true },
+        { name: 'script_kind', type: 'string', length: 20, nullable: false, defaultTo: 'esm' },
+        { name: 'parse_status', type: 'string', length: 40, nullable: false, defaultTo: 'ready' },
+        { name: 'generated_at', type: 'timestamptz', nullable: true },
+        { name: 'parsed_at', type: 'timestamptz', nullable: true }
+    ],
+    foreignKeys: [
+        { column: 'script_asset_id', referencesTable: '_mhb_playcanvas_script_assets', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'source_module_id', referencesTable: '_mhb_modules', referencesColumn: 'id', onDelete: 'SET NULL' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_artifacts_script_asset', columns: ['script_asset_id'] },
+        { name: 'idx_mhb_playcanvas_artifacts_source_module', columns: ['source_module_id'] },
+        { name: 'idx_mhb_playcanvas_artifacts_output_checksum', columns: ['output_checksum'] }
+    ]
+}
+
+const mhbPlayCanvasPackageCompatibility: SystemTableDef = {
+    name: '_mhb_playcanvas_package_compatibility',
+    description: 'Compatibility checks and migrations for PlayCanvas project package versions',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'project_id', type: 'uuid', nullable: false },
+        { name: 'package_name', type: 'string', length: 160, nullable: false },
+        { name: 'package_version', type: 'string', length: 80, nullable: true },
+        { name: 'storage_schema_version', type: 'string', length: 20, nullable: false, defaultTo: '1' },
+        { name: 'compatibility_status', type: 'string', length: 40, nullable: false },
+        { name: 'migration_id', type: 'string', length: 160, nullable: true },
+        { name: 'migration_diagnostics', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'checked_at', type: 'timestamptz', nullable: true },
+        { name: 'migrated_at', type: 'timestamptz', nullable: true }
+    ],
+    foreignKeys: [{ column: 'project_id', referencesTable: '_mhb_playcanvas_projects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_compat_project', columns: ['project_id'] },
+        { name: 'idx_mhb_playcanvas_compat_status', columns: ['compatibility_status'] }
+    ]
+}
+
+const mhbPlayCanvasPublicationManifests: SystemTableDef = {
+    name: '_mhb_playcanvas_publication_manifests',
+    description: 'Normalized PlayCanvas runtime manifests prepared during metahub publication',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'project_id', type: 'uuid', nullable: false },
+        { name: 'selected_scene_id', type: 'uuid', nullable: true },
+        { name: 'manifest_schema_version', type: 'string', length: 20, nullable: false, defaultTo: '1' },
+        { name: 'runtime_manifest', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'manifest_checksum', type: 'string', length: 128, nullable: false },
+        { name: 'source_project_checksum', type: 'string', length: 128, nullable: true },
+        { name: 'published', type: 'boolean', nullable: false, defaultTo: false }
+    ],
+    foreignKeys: [
+        { column: 'project_id', referencesTable: '_mhb_playcanvas_projects', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'selected_scene_id', referencesTable: '_mhb_playcanvas_scenes', referencesColumn: 'id', onDelete: 'SET NULL' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_publication_project', columns: ['project_id'] },
+        { name: 'idx_mhb_playcanvas_publication_checksum', columns: ['manifest_checksum'] }
+    ]
+}
+
 const mhbActions: SystemTableDef = {
     name: '_mhb_actions',
     description: 'Executable actions attached to design-time metahub objects',
@@ -651,18 +881,25 @@ export const SYSTEM_TABLES_V4: SystemTableDef[] = [
     mhbActions,
     mhbEventBindings
 ]
-export const SYSTEM_TABLES: SystemTableDef[] = SYSTEM_TABLES_V4
+export const SYSTEM_TABLES_V5: SystemTableDef[] = [
+    ...SYSTEM_TABLES_V4,
+    mhbPlayCanvasProjects,
+    mhbPlayCanvasScenes,
+    mhbPlayCanvasAssets,
+    mhbPlayCanvasScriptAssets,
+    mhbPlayCanvasSceneScriptBindings,
+    mhbPlayCanvasGeneratedArtifacts,
+    mhbPlayCanvasPackageCompatibility,
+    mhbPlayCanvasPublicationManifests
+]
+export const SYSTEM_TABLES: SystemTableDef[] = SYSTEM_TABLES_V5
 
 /**
  * Maps a structure version number to its table definitions.
- * Single-version registry — all schemas use the current table definitions.
+ * Single-version registry — this test-stage project recreates databases from
+ * scratch, so all current system tables are part of baseline structure v1.
  */
-export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([
-    [1, SYSTEM_TABLES_V3],
-    [2, SYSTEM_TABLES_V2],
-    [3, SYSTEM_TABLES_V3],
-    [4, SYSTEM_TABLES]
-])
+export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([[1, SYSTEM_TABLES]])
 
 export interface SystemStructureSnapshotTable {
     name: string

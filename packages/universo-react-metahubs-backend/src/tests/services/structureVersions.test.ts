@@ -8,21 +8,31 @@ import {
 } from '../../domains/metahubs/services/structureVersions'
 
 describe('structureVersions registry', () => {
-    it('exposes v4 as current structure revision', () => {
-        expect(CURRENT_STRUCTURE_VERSION).toBe(4)
+    it('exposes v1 as current structure revision', () => {
+        expect(CURRENT_STRUCTURE_VERSION).toBe(1)
     })
 
     it('exposes current semver label', () => {
-        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.4.0')
+        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.1.0')
     })
 
-    it('exposes ECAE tables in current structure version', () => {
+    it('exposes ECAE and PlayCanvas tables in current structure version', () => {
         const current = getStructureVersion(CURRENT_STRUCTURE_VERSION)
         expect(current.tables).toContain('_mhb_values')
         expect(current.tables).toContain('_mhb_constants')
         expect(current.tables).toContain('_mhb_entity_type_definitions')
         expect(current.tables).toContain('_mhb_actions')
         expect(current.tables).toContain('_mhb_event_bindings')
+        expect(current.tables).toContain('_mhb_playcanvas_projects')
+        expect(current.tables).toContain('_mhb_playcanvas_generated_artifacts')
+    })
+
+    it('allows missing generated artifact output checksum until the artifact file is written', () => {
+        const current = getStructureVersion(CURRENT_STRUCTURE_VERSION)
+        const generatedArtifacts = current.definitions.find((table) => table.name === '_mhb_playcanvas_generated_artifacts')
+        const outputChecksum = generatedArtifacts?.columns.find((column) => column.name === 'output_checksum')
+
+        expect(outputChecksum).toMatchObject({ nullable: true })
     })
 
     it('throws for unknown numeric version', () => {
@@ -69,14 +79,6 @@ describe('structureVersionToSemver', () => {
         expect(structureVersionToSemver('0.1.0')).toBe('0.1.0')
     })
 
-    it('converts previous numeric version to historical semver', () => {
-        expect(structureVersionToSemver(2)).toBe('0.2.0')
-    })
-
-    it('converts current numeric version to the bumped semver', () => {
-        expect(structureVersionToSemver(4)).toBe('0.4.0')
-    })
-
     it('returns current semver for empty string', () => {
         expect(structureVersionToSemver('')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
@@ -115,15 +117,7 @@ describe('semverToStructureVersion', () => {
         expect(semverToStructureVersion(1)).toBe(1)
     })
 
-    it('converts previous semver to numeric version', () => {
-        expect(semverToStructureVersion('0.2.0')).toBe(2)
-    })
-
-    it('converts current bumped semver to numeric version', () => {
-        expect(semverToStructureVersion('0.4.0')).toBe(4)
-    })
-
-    it('clamps future semver to CURRENT + 1', () => {
+    it('treats non-baseline semver labels as future unsupported structure versions', () => {
         expect(semverToStructureVersion('99.0.0')).toBe(CURRENT_STRUCTURE_VERSION + 1)
     })
 
@@ -147,7 +141,7 @@ describe('normalizeStoredStructureVersion', () => {
 
     it('normalizes numeric version to semver', () => {
         expect(normalizeStoredStructureVersion(1)).toBe('0.1.0')
-        expect(normalizeStoredStructureVersion(4)).toBe('0.4.0')
+        expect(normalizeStoredStructureVersion(999)).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
 
     it('normalizes null to current semver', () => {

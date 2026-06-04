@@ -2,8 +2,8 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { isSuperuser, getGlobalRoleCodename } from '@universo-react/admin-backend'
 import { applyRlsContext } from '@universo-react/auth-backend'
-import { getPoolExecutor } from '@universo-react/database'
-import type { PackageAttachmentConfig, PackageSourceDescriptor } from '@universo-react/types'
+import { createKnexExecutor, getPoolExecutor } from '@universo-react/database'
+import type { PackageAttachmentConfig, PackageSourceDescriptor, PlayCanvasProjectSnapshotSection } from '@universo-react/types'
 import {
     activeAppRowCondition,
     buildSnapshotEnvelope,
@@ -76,6 +76,9 @@ import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import { ModuleSourceFileService } from '../../modules/services/ModuleSourceFileService'
 import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
+import { PlayCanvasProjectFileService } from '../../playcanvas-projects/services/PlayCanvasProjectFileService'
+import { PlayCanvasProjectSnapshotService } from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
+import type { RestoredPlayCanvasProjectFileBackup } from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -84,12 +87,18 @@ import { SnapshotSerializer } from '../../publications/services/SnapshotSerializ
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
-import { createPoolSnapshotRestoreService } from '../../ddl'
+import {
+    createPoolSnapshotRestoreService,
+    poolKnexTransaction,
+    getDDLServices,
+    uuidToLockKey,
+    acquirePoolAdvisoryLock,
+    releasePoolAdvisoryLock
+} from '../../ddl'
 import type { MetahubSnapshotTransportEnvelope } from '@universo-react/types'
 import { SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo-react/types'
 import { structureVersionToSemver } from '../services/structureVersions'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
-import { getDDLServices, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import { MetahubNotFoundError, MetahubDomainError } from '../../shared/domainErrors'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 import { createLogger } from '../../../utils/logger'
@@ -290,6 +299,51 @@ const cleanupClonedSchemas = async (
         }
     }
     return cleanupFailures
+}
+
+const collectPlayCanvasSnapshotIdentityMaps = (
+    snapshot: PlayCanvasProjectSnapshotSection | undefined
+): { moduleIdMap: Map<string, string>; entityIdMap: Map<string, string> } => {
+    const moduleIdMap = new Map<string, string>()
+    const entityIdMap = new Map<string, string>()
+    if (!snapshot) {
+        return { moduleIdMap, entityIdMap }
+    }
+
+    for (const script of snapshot.scriptAssets) {
+        if (script.moduleId) moduleIdMap.set(script.moduleId, script.moduleId)
+    }
+    for (const artifact of snapshot.generatedArtifacts) {
+        if (artifact.sourceModuleId) moduleIdMap.set(artifact.sourceModuleId, artifact.sourceModuleId)
+    }
+    for (const binding of snapshot.sceneScriptBindings) {
+        if (binding.platformoEntityId) entityIdMap.set(binding.platformoEntityId, binding.platformoEntityId)
+    }
+
+    return { moduleIdMap, entityIdMap }
+}
+
+const remapCopiedPlayCanvasPackagePointers = async (
+    tx: DbExecutor,
+    targetMetahubId: string,
+    projectIdMap: Map<string, string>,
+    userId: string
+): Promise<void> => {
+    for (const [sourceProjectId, targetProjectId] of projectIdMap) {
+        await tx.query(
+            `UPDATE metahubs.rel_metahub_packages
+                SET config = jsonb_set(config, '{playcanvasProject,defaultProjectId}', to_jsonb($2::text), true),
+                    _upl_updated_at = NOW(),
+                    _upl_updated_by = $3,
+                    _upl_version = _upl_version + 1
+              WHERE metahub_id = $1
+                AND is_active = true
+                AND _upl_deleted = false
+                AND _app_deleted = false
+                AND config #>> '{playcanvasProject,defaultProjectId}' = $4`,
+            [targetMetahubId, targetProjectId, userId, sourceProjectId]
+        )
+    }
 }
 
 const cleanupImportedMetahubInTx = async (tx: DbExecutor, metahubId: string, userId: string): Promise<void> => {
@@ -570,6 +624,36 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
         result[locale] = `${content}${suffix}`
     }
     return result
+}
+
+const rollbackCopiedPlayCanvasProjectFiles = async (
+    fileService: PlayCanvasProjectFileService,
+    scope: { metahubId: string; branchSlug: string },
+    backups: RestoredPlayCanvasProjectFileBackup[]
+): Promise<void> => {
+    for (const backup of backups.reverse()) {
+        try {
+            const current = await fileService.stat(scope, backup.sourcePath)
+            if (!current.exists || current.checksum !== backup.writtenChecksum) {
+                continue
+            }
+            if (backup.previousContent === null) {
+                await fileService.delete(scope, backup.sourcePath)
+            } else {
+                await fileService.write(scope, backup.sourcePath, backup.previousContent, {
+                    expectedCurrentChecksum: backup.writtenChecksum,
+                    mime: backup.mime
+                })
+            }
+        } catch (rollbackError) {
+            log.warn('Failed to roll back copied PlayCanvas project file', {
+                metahubId: scope.metahubId,
+                schemaName: scope.branchSlug,
+                sourcePath: backup.sourcePath,
+                error: rollbackError
+            })
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1264,12 +1348,49 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         }
 
         const sourceFileService = new ModuleSourceFileService()
+        const playCanvasProjectFileService = new PlayCanvasProjectFileService()
+        const defaultBranchPlayCanvasProjectIdMap = new Map<string, string>()
         try {
             for (const planItem of branchClonePlan) {
                 await sourceFileService.copyTree(
                     { metahubId, branchSlug: planItem.sourceBranch.schemaName },
                     { metahubId: newMetahubId, branchSlug: planItem.schemaName }
                 )
+                const snapshot = await new PlayCanvasProjectSnapshotService(
+                    exec,
+                    { ensureSchema: async () => planItem.sourceBranch.schemaName } as never,
+                    playCanvasProjectFileService
+                ).exportSnapshotFromSchema(metahubId, planItem.sourceBranch.schemaName)
+                const { moduleIdMap, entityIdMap } = collectPlayCanvasSnapshotIdentityMaps(snapshot)
+                const restoredPlayCanvasFileBackups: RestoredPlayCanvasProjectFileBackup[] = []
+                const branchProjectIdMap = await poolKnexTransaction(async (trx) =>
+                    new PlayCanvasProjectSnapshotService(
+                        createKnexExecutor(trx),
+                        { ensureSchema: async () => planItem.schemaName } as never,
+                        playCanvasProjectFileService
+                    ).restoreSnapshot({
+                        trx,
+                        metahubId: newMetahubId,
+                        schemaName: planItem.schemaName,
+                        snapshot,
+                        moduleIdMap,
+                        entityIdMap,
+                        userId,
+                        restoredFileBackups: restoredPlayCanvasFileBackups
+                    })
+                ).catch(async (error) => {
+                    await rollbackCopiedPlayCanvasProjectFiles(
+                        playCanvasProjectFileService,
+                        { metahubId: newMetahubId, branchSlug: planItem.schemaName },
+                        restoredPlayCanvasFileBackups
+                    )
+                    throw error
+                })
+                if (planItem.sourceBranch.id === defaultSourceBranch.id) {
+                    for (const [sourceProjectId, targetProjectId] of branchProjectIdMap) {
+                        defaultBranchPlayCanvasProjectIdMap.set(sourceProjectId, targetProjectId)
+                    }
+                }
             }
 
             const copied = await exec.transaction(async (tx) => {
@@ -1341,6 +1462,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     targetMetahubId: copiedMetahub.id,
                     userId
                 })
+                await remapCopiedPlayCanvasPackagePointers(tx, copiedMetahub.id, defaultBranchPlayCanvasProjectIdMap, userId)
 
                 if (parsed.data.copyAccess) {
                     const sourceMembers = await tx.query<{
@@ -1389,6 +1511,13 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         } catch (error) {
             await sourceFileService.deleteMetahubTree(newMetahubId).catch((cleanupError) => {
                 log.warn('Failed to cleanup copied metahub module source tree after metadata transaction failure', {
+                    metahubId,
+                    newMetahubId,
+                    cleanupError
+                })
+            })
+            await playCanvasProjectFileService.deleteMetahubTree(newMetahubId).catch((cleanupError) => {
+                log.warn('Failed to cleanup copied metahub PlayCanvas project file tree after metadata transaction failure', {
                     metahubId,
                     newMetahubId,
                     cleanupError
@@ -1703,6 +1832,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         MetahubSchemaService.clearCache(metahubId)
         await new ModuleSourceFileService().deleteMetahubTree(metahubId).catch((error) => {
             log.warn('Module source files cleanup failed after metahub deletion', {
+                metahubId,
+                error: error instanceof Error ? error.message : String(error)
+            })
+        })
+        await new PlayCanvasProjectFileService().deleteMetahubTree(metahubId).catch((error) => {
+            log.warn('PlayCanvas project files cleanup failed after metahub deletion', {
                 metahubId,
                 error: error instanceof Error ? error.message : String(error)
             })
@@ -2099,7 +2234,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 actionService,
                 eventBindingService,
                 new MetahubSettingsService(exec, schemaService),
-                new MetahubPackagesService(exec)
+                new MetahubPackagesService(exec),
+                new PlayCanvasProjectSnapshotService(exec, schemaService)
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
                 structureVersion:
@@ -2108,7 +2244,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                         : await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion),
                 templateVersion:
                     typeof importedVersionEnvelope?.templateVersion === 'string' ? importedVersionEnvelope.templateVersion : undefined,
-                ...(importedRuntimePolicy ? { runtimePolicy: importedRuntimePolicy } : {})
+                ...(importedRuntimePolicy ? { runtimePolicy: importedRuntimePolicy } : {}),
+                playCanvasMode: 'none'
             })
             await attachLayoutsToSnapshot({
                 schemaService,
@@ -2179,6 +2316,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     await exec.transaction(cleanup)
                 }
                 await new ModuleSourceFileService().deleteMetahubTree(metahub.id)
+                await new PlayCanvasProjectFileService().deleteMetahubTree(metahub.id)
                 MetahubSchemaService.clearCache(metahub.id)
             } catch (cleanupError) {
                 return res.status(500).json({
@@ -2253,14 +2391,16 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             actionService,
             eventBindingService,
             new MetahubSettingsService(exec, schemaService),
-            new MetahubPackagesService(exec)
+            new MetahubPackagesService(exec),
+            new PlayCanvasProjectSnapshotService(exec, schemaService)
         )
 
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
 
         const snapshot = await serializer.serializeMetahub(metahubId, {
             structureVersion: publicStructureVersion,
-            packageMode: 'metahub'
+            packageMode: 'metahub',
+            playCanvasMode: 'snapshot'
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })

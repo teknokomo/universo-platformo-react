@@ -21,6 +21,8 @@ The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it is
 
 The package can build and verify a static artifact. Metahubs can connect it from **Resources → Packages**, configure how the editor opens, and load the static artifact through the authenticated metahub package route. It does not yet provide metahub scene storage, asset upload, collaboration, backend API emulation, iframe bridge messaging, Colyseus authoring, or AI/MCP scene editing.
 
+The platform now has a first PlayCanvas project storage model for metahubs. See [PlayCanvas Projects](playcanvas-projects.md) for project metadata tables, file namespace rules, snapshot behavior, and runtime manifest sync.
+
 ## Commands
 
 ```bash
@@ -55,4 +57,4 @@ Metahub copy, snapshot export, and snapshot import preserve these package displa
 
 ## Future Integration
 
-Later briefs can add a metahub storage adapter, asset pipeline, module external-file integration, Colyseus authoring, iframe bridge messaging, and AI/MCP tooling. Those integrations must preserve the artifact boundary unless a new approved plan changes it.
+Later briefs can add the Editor iframe bridge/storage adapter, asset processing pipeline, S3 provider configuration, Colyseus authoring, and AI/MCP tooling. Those integrations must preserve the artifact boundary unless a new approved plan changes it.

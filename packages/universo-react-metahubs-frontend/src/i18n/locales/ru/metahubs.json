@@ -1473,6 +1473,63 @@
             "versionChanged": "Версия пакета обновлена",
             "mutationFailed": "Не удалось выполнить операцию с пакетом. Обновите страницу и попробуйте ещё раз."
         },
+        "projects": {
+            "title": "Проекты PlayCanvas",
+            "description": "Хранилище проектов, которое использует подключённый пакет PlayCanvas Editor.",
+            "loading": "Загрузка проектов PlayCanvas...",
+            "loadError": "Не удалось загрузить проекты PlayCanvas.",
+            "readOnly": "Хранилище проектов доступно управляющим метахабом. Вы можете просматривать подключённые пакеты, но не можете изменять проекты PlayCanvas.",
+            "unnamed": "Проект без названия",
+            "defaultProject": "Проект по умолчанию",
+            "defaultNone": "Без проекта по умолчанию",
+            "defaultChip": "По умолчанию",
+            "defaultMissing": "Сохранённый проект по умолчанию больше недоступен.",
+            "counts": "Сцен: {{scenes}}, ассетов: {{assets}}, скриптов: {{scripts}}, сгенерированных артефактов: {{artifacts}}",
+            "empty": {
+                "title": "Проектов PlayCanvas пока нет",
+                "imageAlt": "Проектов PlayCanvas нет",
+                "description": "Создайте проект до подключения bridge редактора."
+            },
+            "fields": {
+                "name": "Название проекта",
+                "nameHelper": "Это название отображается в настройках пакетов метахаба."
+            },
+            "validation": {
+                "nameRequired": "Введите название проекта."
+            },
+            "status": {
+                "ready": "Готов",
+                "missing": "Не хватает файлов",
+                "checksumMismatch": "Контрольная сумма не совпадает",
+                "unsupportedType": "Тип не поддерживается",
+                "deferredProvider": "Отложенное хранилище",
+                "regenerable": "Можно пересоздать",
+                "publishBlocking": "Публикация заблокирована"
+            },
+            "actions": {
+                "create": "Создать проект",
+                "delete": "Удалить проект",
+                "deleteNamed": "Удалить {{projectName}}"
+            },
+            "dialogs": {
+                "create": {
+                    "title": "Создать проект PlayCanvas"
+                },
+                "delete": {
+                    "title": "Удалить проект PlayCanvas",
+                    "description": "Удалить {{projectName}} и файлы этого проекта PlayCanvas. Отключение пакета не удаляет проекты.",
+                    "deleting": "Удаление..."
+                }
+            },
+            "notifications": {
+                "created": "Проект PlayCanvas создан",
+                "createFailed": "Не удалось создать проект PlayCanvas",
+                "defaultSaved": "Проект PlayCanvas по умолчанию сохранён",
+                "defaultFailed": "Не удалось сохранить проект PlayCanvas по умолчанию",
+                "deleted": "Проект PlayCanvas удалён",
+                "deleteFailed": "Не удалось удалить проект PlayCanvas"
+            }
+        },
         "editorHost": {
             "fallbackName": "Редактор пакета",
             "loading": "Загрузка редактора...",
@@ -1490,6 +1547,7 @@
         },
         "empty": {
             "title": "Нет доступных пакетов",
+            "imageAlt": "Доступных пакетов нет",
             "description": "Реестр пакетов появится здесь после начальной загрузки платформы."
         }
     },

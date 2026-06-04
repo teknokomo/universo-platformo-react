@@ -241,7 +241,7 @@ export const handlers = [
                           $schema: 'entity-type-preset/v1',
                           codename: template.codename,
                           version: template.activeVersion?.versionLabel ?? '0.1.0',
-                          minStructureVersion: '0.4.0',
+                          minStructureVersion: '0.1.0',
                           name: template.name,
                           description: template.description,
                           entityType: {

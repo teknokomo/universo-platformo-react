@@ -65,6 +65,7 @@ import {
 } from './syncLayoutPersistence'
 import { hasPublishedModulesChanges, persistPublishedModules } from './syncModulePersistence'
 import { hasPublishedPackagesChanges, persistPublishedPackages } from './syncPackagePersistence'
+import { hasPublishedPlayCanvasManifestChanges, persistPublishedPlayCanvasManifests } from './syncPlayCanvasPersistence'
 
 // --- Connector sync touch ---
 
@@ -145,14 +146,18 @@ export async function syncApplicationSchemaFromSource(options: {
             })
             const modulesNeedUpdate = await hasPublishedModulesChanges({
                 schemaName: application.schemaName,
-                snapshot: source.snapshot
+                snapshot: runtimeSnapshot
             })
             const packagesNeedUpdate = await hasPublishedPackagesChanges({
                 schemaName: application.schemaName,
-                snapshot: source.snapshot
+                snapshot: runtimeSnapshot
+            })
+            const playCanvasManifestsNeedUpdate = await hasPublishedPlayCanvasManifestChanges({
+                schemaName: application.schemaName,
+                snapshot: runtimeSnapshot
             })
             const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
-            const hasRuntimeMetadataChanges = hasUiChanges || modulesNeedUpdate || packagesNeedUpdate
+            const hasRuntimeMetadataChanges = hasUiChanges || modulesNeedUpdate || packagesNeedUpdate || playCanvasManifestsNeedUpdate
 
             const schemaSyncedAt = new Date()
             const installedReleaseMetadata = buildInstalledReleaseMetadataFromBundle(
@@ -177,6 +182,7 @@ export async function syncApplicationSchemaFromSource(options: {
                     applicationId: application.id,
                     schemaName: application.schemaName!,
                     snapshotHash: source.snapshotHash,
+                    publicationId: source.publicationId,
                     snapshot: source.snapshot,
                     entities: source.entities,
                     migrationManager,
@@ -224,6 +230,8 @@ export async function syncApplicationSchemaFromSource(options: {
                         ? 'Runtime modules updated'
                         : packagesNeedUpdate
                         ? 'Runtime packages updated'
+                        : playCanvasManifestsNeedUpdate
+                        ? 'PlayCanvas runtime manifests updated'
                         : 'Schema is already up to date',
                     ...(seedWarnings.length > 0 ? { seedWarnings } : {})
                 }
@@ -260,6 +268,7 @@ export async function syncApplicationSchemaFromSource(options: {
                             applicationId: application.id,
                             schemaName: application.schemaName!,
                             snapshotHash: source.snapshotHash,
+                            publicationId: source.publicationId,
                             snapshot: source.snapshot,
                             entities: source.entities,
                             migrationManager,
@@ -401,14 +410,18 @@ export async function syncApplicationSchemaFromSource(options: {
             })
             const modulesNeedUpdate = await hasPublishedModulesChanges({
                 schemaName: application.schemaName!,
-                snapshot: source.snapshot
+                snapshot: runtimeSnapshot
             })
             const packagesNeedUpdate = await hasPublishedPackagesChanges({
                 schemaName: application.schemaName!,
-                snapshot: source.snapshot
+                snapshot: runtimeSnapshot
+            })
+            const playCanvasManifestsNeedUpdate = await hasPublishedPlayCanvasManifestChanges({
+                schemaName: application.schemaName!,
+                snapshot: runtimeSnapshot
             })
             const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
-            const hasRuntimeMetadataChanges = hasUiChanges || modulesNeedUpdate || packagesNeedUpdate
+            const hasRuntimeMetadataChanges = hasUiChanges || modulesNeedUpdate || packagesNeedUpdate || playCanvasManifestsNeedUpdate
 
             const latestMigration = await migrationManager.getLatestMigration(application.schemaName!)
             const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
@@ -457,6 +470,7 @@ export async function syncApplicationSchemaFromSource(options: {
                     applicationId: application.id,
                     schemaName: application.schemaName!,
                     snapshotHash: source.snapshotHash,
+                    publicationId: source.publicationId,
                     snapshot: source.snapshot,
                     entities: source.entities,
                     migrationManager,
@@ -512,6 +526,8 @@ export async function syncApplicationSchemaFromSource(options: {
                         ? 'Runtime modules updated'
                         : packagesNeedUpdate
                         ? 'Runtime packages updated'
+                        : playCanvasManifestsNeedUpdate
+                        ? 'PlayCanvas runtime manifests updated'
                         : hasElementChanges
                         ? 'Predefined elements updated'
                         : 'Schema is already up to date',
@@ -567,6 +583,7 @@ export async function syncApplicationSchemaFromSource(options: {
                         applicationId: application.id,
                         schemaName: application.schemaName!,
                         snapshotHash: source.snapshotHash,
+                        publicationId: source.publicationId,
                         snapshot: source.snapshot,
                         entities: source.entities,
                         migrationManager,
@@ -996,6 +1013,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
     applicationId: string
     schemaName: string
     snapshotHash?: string | null
+    publicationId?: string | null
     snapshot: PublishedApplicationSnapshot
     entities: EntityDefinition[]
     migrationManager: DDLServices['migrationManager']
@@ -1047,6 +1065,16 @@ export async function runPublishedApplicationRuntimeSync(options: {
         persistPublishedPackages({
             schemaName,
             snapshot: runtimeSnapshot,
+            userId,
+            trx
+        })
+    )
+    await runSchemaSyncStep(`runtimeSync:${applicationId}:playcanvasManifests`, async () =>
+        persistPublishedPlayCanvasManifests({
+            schemaName,
+            snapshot: runtimeSnapshot,
+            publicationId: options.publicationId ?? null,
+            sourceMetahubId: typeof runtimeSnapshot.metahubId === 'string' ? runtimeSnapshot.metahubId : null,
             userId,
             trx
         })

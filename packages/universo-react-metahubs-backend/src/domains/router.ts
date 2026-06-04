@@ -11,6 +11,7 @@ import { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/rou
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 import { createModulesRoutes } from './modules/routes/modulesRoutes'
 import { createPackagesRoutes } from './packages/routes/packagesRoutes'
+import { createPlayCanvasProjectsRoutes } from './playcanvas-projects/routes/playCanvasProjectsRoutes'
 import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
@@ -88,6 +89,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createPackagesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createModulesRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createPlayCanvasProjectsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityTypesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityInstancesRoutes(ensureAuth, getDbExecutor, read, write))

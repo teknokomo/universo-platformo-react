@@ -137,17 +137,36 @@ describe('ModuleSourceFileService', () => {
         await fs.rm(outsideRoot, { recursive: true, force: true })
     })
 
-    it('rejects copying module source trees when the source branch root is a symlink', async () => {
+    it('copies only module source files and does not duplicate sibling PlayCanvas project files', async () => {
         const sourceScope = { metahubId: 'metahub-1', branchSlug: 'branch-main' }
         const targetScope = { metahubId: 'metahub-2', branchSlug: 'branch-main' }
         const sourceRoot = service.branchRoot(sourceScope)
         const targetRoot = service.branchRoot(targetScope)
-        const linkedRoot = path.join(root, 'linked-branch-root')
 
-        await fs.mkdir(path.dirname(sourceRoot), { recursive: true })
-        await fs.mkdir(path.join(linkedRoot, 'modules', 'general'), { recursive: true })
-        await fs.writeFile(path.join(linkedRoot, 'modules', 'general', 'shared.ts'), 'export default class Shared {}', 'utf8')
-        await fs.symlink(linkedRoot, sourceRoot)
+        await fs.mkdir(path.join(sourceRoot, 'modules', 'general'), { recursive: true })
+        await fs.writeFile(path.join(sourceRoot, 'modules', 'general', 'shared.ts'), 'export default class Shared {}', 'utf8')
+        await fs.mkdir(path.join(sourceRoot, 'playcanvas-projects', 'project-1', 'scenes'), { recursive: true })
+        await fs.writeFile(path.join(sourceRoot, 'playcanvas-projects', 'project-1', 'scenes', 'scene.json'), '{}', 'utf8')
+
+        await service.copyTree(sourceScope, targetScope)
+
+        await expect(fs.readFile(path.join(targetRoot, 'modules', 'general', 'shared.ts'), 'utf8')).resolves.toBe(
+            'export default class Shared {}'
+        )
+        await expect(fs.stat(path.join(targetRoot, 'playcanvas-projects'))).rejects.toMatchObject({ code: 'ENOENT' })
+    })
+
+    it('rejects copying module source trees when the source modules root is a symlink', async () => {
+        const sourceScope = { metahubId: 'metahub-1', branchSlug: 'branch-main' }
+        const targetScope = { metahubId: 'metahub-2', branchSlug: 'branch-main' }
+        const sourceRoot = service.branchRoot(sourceScope)
+        const targetRoot = service.branchRoot(targetScope)
+        const linkedRoot = path.join(root, 'linked-modules-root')
+
+        await fs.mkdir(sourceRoot, { recursive: true })
+        await fs.mkdir(path.join(linkedRoot, 'general'), { recursive: true })
+        await fs.writeFile(path.join(linkedRoot, 'general', 'shared.ts'), 'export default class Shared {}', 'utf8')
+        await fs.symlink(linkedRoot, path.join(sourceRoot, 'modules'))
 
         await expect(service.copyTree(sourceScope, targetScope)).rejects.toThrow('symbolic links')
         await expect(fs.stat(targetRoot)).rejects.toMatchObject({ code: 'ENOENT' })

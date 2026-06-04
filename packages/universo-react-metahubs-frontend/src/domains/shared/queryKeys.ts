@@ -76,6 +76,9 @@ export const metahubsQueryKeys = {
     packages: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'packages'] as const,
     packagesCatalog: (metahubId: string) => [...metahubsQueryKeys.packages(metahubId), 'catalog'] as const,
     packagesAttached: (metahubId: string) => [...metahubsQueryKeys.packages(metahubId), 'attached'] as const,
+    playcanvasProjects: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'playcanvasProjects'] as const,
+    playcanvasProject: (metahubId: string, projectId: string) =>
+        [...metahubsQueryKeys.playcanvasProjects(metahubId), 'detail', projectId] as const,
 
     // ============ NEW ARCHITECTURE QUERY KEYS ============
 

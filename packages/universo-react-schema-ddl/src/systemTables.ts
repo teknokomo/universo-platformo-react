@@ -16,6 +16,7 @@ const SYSTEM_TABLE_ORDER = [
     '_app_values',
     '_app_modules',
     '_app_packages',
+    '_app_playcanvas_manifests',
     '_app_layouts',
     '_app_widgets'
 ] as const

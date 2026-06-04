@@ -1,5 +1,14 @@
 # Current Research
 
+## 2026-06-03: PlayCanvas project storage model for metahubs
+
+-   Research artifact created: `memory-bank/research/playcanvas-project-storage-model-for-metahubs-research-2026-06-03.md`.
+-   Scope decision: plan PlayCanvas project storage as a metahub authoring store before Editor bridge/adapter work; do not store scene/asset/script payloads in package attachment config or application runtime sync by default.
+-   Recommended model candidate: hybrid branch-scoped DB metadata for projects/scenes/assets/script links plus a separate provider-backed PlayCanvas project file store for scene files, asset payloads, and generated `.js/.mjs` artifacts.
+-   Existing file-backed Modules are now an implemented dependency: keep TS/TSX source ownership in Modules, reference them from PlayCanvas script assets through remappable module ids plus stable logical identifiers, and track generated artifacts separately.
+-   Lifecycle implication: snapshot export/import, metahub copy/delete, file remap/rollback, and canonical publication hash updates must be planned together; unknown PlayCanvas snapshot fields will not affect runtime sync unless normalized into `publicationSnapshotHash.ts` or existing hashed fields.
+-   Runtime implication: the current `playcanvasCanvas` widget is module/widget-driven, not Editor scene-driven. Publication should produce a normalized runtime manifest or explicit widget projection; direct Editor scene JSON consumption requires separate stability/versioning proof.
+
 ## 2026-06-01: Modules as external files for PlayCanvas-ready authoring
 
 -   Research artifact created: `memory-bank/research/modules-external-files-playcanvas-research-2026-06-01.md`.

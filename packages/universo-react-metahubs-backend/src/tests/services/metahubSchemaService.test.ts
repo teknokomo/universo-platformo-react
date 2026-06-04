@@ -144,6 +144,7 @@ jest.mock('../../persistence', () => ({
 
 import { MetahubSchemaService } from '../../domains/metahubs/services/MetahubSchemaService'
 import { SystemTableMigrator } from '../../domains/metahubs/services/SystemTableMigrator'
+import { SYSTEM_TABLES } from '../../domains/metahubs/services/systemTableDefinitions'
 import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
 import { MetahubConflictError, MetahubMigrationRequiredError } from '../../domains/shared/domainErrors'
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
@@ -215,23 +216,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
     })
 
     it('returns schema in read_only mode for fully initialized and up-to-date branch without acquiring lock', async () => {
-        seedExpectedTables([
-            '_mhb_objects',
-            '_mhb_constants',
-            '_mhb_components',
-            '_mhb_values',
-            '_mhb_elements',
-            '_mhb_settings',
-            '_mhb_layouts',
-            '_mhb_widgets',
-            '_mhb_layout_widget_overrides',
-            '_mhb_shared_entity_overrides',
-            '_mhb_migrations',
-            '_mhb_modules',
-            '_mhb_entity_type_definitions',
-            '_mhb_actions',
-            '_mhb_event_bindings'
-        ])
+        seedExpectedTables(SYSTEM_TABLES.map((table) => table.name))
 
         const exec = setupExec(CURRENT_STRUCTURE_VERSION)
         const service = new MetahubSchemaService(exec)
@@ -548,7 +533,7 @@ describe('MetahubSchemaService create options', () => {
         await expect(service.resolvePublicStructureVersion('mhb_test_schema', CURRENT_STRUCTURE_VERSION)).resolves.toBe('0.1.0')
     })
 
-    it('rewrites the baseline migration row to the imported snapshot structure version', async () => {
+    it('rewrites the baseline migration row to the imported snapshot baseline structure version', async () => {
         tablePresence.set('_mhb_migrations', true)
         migrationRows.push({
             id: 'migration-1',
@@ -561,13 +546,13 @@ describe('MetahubSchemaService create options', () => {
         const exec = createSchemaServiceExec()
         const service = new MetahubSchemaService(exec)
 
-        await service.rewriteBaselineMigrationVersion('mhb_test_schema', '0.4.0')
+        await service.rewriteBaselineMigrationVersion('mhb_test_schema', '0.1.0')
 
         expect(migrationRows[0]).toEqual(
             expect.objectContaining({
-                name: 'baseline_structure_v4',
-                from_version: 4,
-                to_version: 4
+                name: 'baseline_structure_v1',
+                from_version: 1,
+                to_version: 1
             })
         )
     })

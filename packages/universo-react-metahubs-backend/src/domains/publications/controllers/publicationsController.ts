@@ -48,6 +48,8 @@ import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptio
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
+import { PlayCanvasProjectSnapshotService } from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
+import { replacePlayCanvasPublicationManifests } from '../../playcanvas-projects/services/playCanvasProjectsStore'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -69,6 +71,22 @@ const resolveTemplateVersionLabel = async (exec: SqlQueryable, templateVersionId
     if (!templateVersionId) return null
     const templateVersion = await findTemplateVersionById(exec, templateVersionId)
     return templateVersion?.versionLabel ?? null
+}
+
+const persistPlayCanvasPublicationManifestsInTransaction = async (
+    tx: DbExecutor,
+    branchSchemaName: string,
+    snapshot: MetahubSnapshot,
+    userId: string
+): Promise<void> => {
+    const manifests = snapshot.playcanvasRuntimeManifests ?? []
+    const projectIds = manifests.map((manifest) => manifest.projectId)
+    await replacePlayCanvasPublicationManifests(tx, branchSchemaName, {
+        projectIds,
+        manifests,
+        userId,
+        replaceScope: 'branch'
+    })
 }
 
 const resolveBearerAccessToken = (req: Request): string | null => {
@@ -253,7 +271,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             actionService,
             eventBindingService,
             new MetahubSettingsService(params.exec, params.schemaService),
-            new MetahubPackagesService(params.exec)
+            new MetahubPackagesService(params.exec),
+            new PlayCanvasProjectSnapshotService(params.exec, params.schemaService)
         )
     }
 
@@ -585,6 +604,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 branchId: effectiveBranchId,
                 userId
             })
+            await persistPlayCanvasPublicationManifestsInTransaction(tx, branch.schemaName, snapshot, userId)
 
             await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [firstVersion.id, publication.id])
 
@@ -1297,6 +1317,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 isActive: true,
                 userId
             })
+            await persistPlayCanvasPublicationManifestsInTransaction(tx, branch.schemaName, snapshot, userId)
 
             await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
 

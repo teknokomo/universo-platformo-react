@@ -21,6 +21,8 @@ description: Foundation-пакет артефакта PlayCanvas Editor.
 
 Пакет может собрать и проверить static artifact. Метахабы могут подключить его через **Resources → Packages**, настроить способ открытия редактора и загрузить static artifact через authenticated host route пакетов метахаба. Сам iframe получает короткоживущий tokenized artifact URL, чтобы static JS/CSS ассеты загружались внутри sandbox без `allow-same-origin`. Он ещё не реализует хранение сцен в метахабе, загрузку ассетов, collaboration, backend API emulation, iframe bridge messaging, Colyseus authoring или AI/MCP scene editing.
 
+В платформе теперь есть первый срез модели хранения проектов PlayCanvas для метахабов. См. [Проекты PlayCanvas](playcanvas-projects.md): таблицы metadata проекта, правила file namespace, поведение снимков и синхронизация runtime manifests.
+
 ## Команды
 
 ```bash
@@ -55,4 +57,4 @@ pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
 
 ## Будущая интеграция
 
-Следующие брифы могут добавить metahub storage adapter, asset pipeline, module external-file integration, Colyseus authoring, iframe bridge messaging и AI/MCP tooling. Эти интеграции должны сохранять artifact boundary, если новый утверждённый план явно не изменит архитектуру.
+Следующие брифы могут добавить Editor iframe bridge/storage adapter, asset processing pipeline, S3 provider configuration, Colyseus authoring и AI/MCP tooling. Эти интеграции должны сохранять artifact boundary, если новый утверждённый план явно не изменит архитектуру.

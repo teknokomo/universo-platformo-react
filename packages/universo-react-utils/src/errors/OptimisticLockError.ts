@@ -30,6 +30,7 @@ export interface ConflictInfo {
         | 'event_binding'
         | 'application'
         | 'connector'
+        | 'playcanvasProject'
     /** Version the client expected */
     expectedVersion: number
     /** Actual current version in the database */

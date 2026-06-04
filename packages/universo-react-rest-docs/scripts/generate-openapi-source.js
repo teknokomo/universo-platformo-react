@@ -223,6 +223,12 @@ const routeSources = [
         publicPathMatchers: [/^\/metahub\/:metahubId\/packages\/:packageSlug\/editor-artifact-token\//]
     },
     {
+        file: 'packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts',
+        mountPrefix: '',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity
+    },
+    {
         file: 'packages/universo-react-metahubs-backend/src/domains/shared/routes/sharedEntityOverridesRoutes.ts',
         mountPrefix: '',
         tag: 'Shared Entity Overrides',

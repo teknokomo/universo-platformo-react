@@ -1411,6 +1411,64 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_packages created`)
         }
 
+        const hasPlayCanvasManifests = await knex.schema.withSchema(schemaName).hasTable('_app_playcanvas_manifests')
+        console.log(`[SchemaGenerator] _app_playcanvas_manifests exists: ${hasPlayCanvasManifests}`)
+
+        if (!hasPlayCanvasManifests) {
+            console.log(`[SchemaGenerator] Creating _app_playcanvas_manifests...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_playcanvas_manifests', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.uuid('publication_id').nullable()
+                table.uuid('source_metahub_id').nullable()
+                table.uuid('source_project_id').notNullable()
+                table.uuid('source_scene_id').nullable()
+                table.string('manifest_schema_version', 20).notNullable().defaultTo('1')
+                table.string('manifest_checksum', 128).notNullable()
+                table.jsonb('runtime_manifest').notNullable().defaultTo('{}')
+                table.integer('asset_count').notNullable().defaultTo(0)
+                table.integer('script_count').notNullable().defaultTo(0)
+                table.integer('artifact_count').notNullable().defaultTo(0)
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.index(['source_project_id'], 'idx_app_playcanvas_manifests_project')
+                table.index(['source_scene_id'], 'idx_app_playcanvas_manifests_scene')
+                table.index(['manifest_checksum'], 'idx_app_playcanvas_manifests_checksum')
+            })
+
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_playcanvas_manifests_project_active
+                ON "${schemaName}"._app_playcanvas_manifests (source_project_id)
+                WHERE _upl_deleted = false AND _app_deleted = false
+            `)
+            console.log(`[SchemaGenerator] _app_playcanvas_manifests created`)
+        }
+
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)
             await knex.schema.withSchema(schemaName).createTable('_app_settings', (table) => {

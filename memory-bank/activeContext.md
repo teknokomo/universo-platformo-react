@@ -4,6 +4,29 @@
 
 ---
 
+## Current Focus: PlayCanvas Project Storage Model QA Round 7 Closure (2026-06-04)
+
+-   QA Round 7 implementation is complete for the PlayCanvas Project Storage
+    Model.
+-   Role-specific PlayCanvas file metadata now enforces canonical project paths,
+    required MIME classes, and directory-specific JSON/JavaScript constraints
+    before scene, asset, or generated-artifact metadata is persisted.
+-   Generated artifact metadata now keeps `output_checksum` nullable until the
+    physical artifact file supplies a SHA-256 checksum, and the current metahub
+    system table definition matches that service contract without a schema or
+    template version bump.
+-   PlayCanvas project health aggregation no longer treats metadata-only asset
+    placeholders as publish blockers when runtime export intentionally skips
+    assets without file references.
+-   PlayCanvas-only application runtime manifest changes now produce an
+    explicit sync update message instead of reporting the schema as already up
+    to date.
+-   Verification passed focused backend/types/applications tests, package lints,
+    sequential package builds, DB-access guard, GitBook i18n check, whitespace
+    diff check, local minimal Supabase Playwright packages/resources flow, and
+    final local autoreview with no accepted/actionable findings.
+-   The local Supabase E2E profile was stopped after the browser run.
+
 ## Current Focus: Memory Bank Compression (2026-05-23)
 
 -   Running comprehensive MB compression to optimize file sizes and information density.
