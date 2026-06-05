@@ -45,11 +45,11 @@ jobs:
             - name: Check PlayCanvas Editor package
               run: |
                   node -e "const [major,minor,patch]=process.versions.node.split('.').map(Number); if (major < 22 || (major === 22 && (minor < 22 || (minor === 22 && patch < 0)))) process.exit(1)"
-                  pnpm --filter @universo-react/playcanvas-editor test
-                  pnpm --filter @universo-react/playcanvas-editor editor:build
-                  pnpm --filter @universo-react/playcanvas-editor editor:smoke
-                  pnpm --filter @universo-react/playcanvas-editor exec playwright install --with-deps chromium
-                  pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
+                  pnpm --filter @universo-react/playcanvas-editor-frontend test
+                  pnpm --filter @universo-react/playcanvas-editor-frontend editor:build
+                  pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
+                  pnpm --filter @universo-react/playcanvas-editor-frontend exec playwright install --with-deps chromium
+                  pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
             - name: Lint database access standard
               run: node tools/lint-db-access.mjs
             - name: Check LMS runtime release gates

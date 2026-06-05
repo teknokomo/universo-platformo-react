@@ -33,7 +33,7 @@ const source = {
     upstreamVersion: '0.17.43',
     runtimeTargets: ['server'] as const
 }
-const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 
 const config = {
     schemaVersion: '1' as const,
@@ -155,7 +155,7 @@ describe('packagesStore', () => {
 
     it('rejects active PlayCanvas Editor authoring slug collisions across package names before registry writes', async () => {
         const exec = createExec()
-        jest.mocked(exec.query).mockResolvedValueOnce([{ packageName: `@universo-react/${'playcanvas-editor'}-fork` }])
+        jest.mocked(exec.query).mockResolvedValueOnce([{ packageName: `@universo-react/${'playcanvas-editor-frontend'}-fork` }])
 
         await expect(
             upsertPackageRegistryItem(exec, {

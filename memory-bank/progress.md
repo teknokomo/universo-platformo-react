@@ -55,6 +55,28 @@
 
 ---
 
+## 2026-06-05 - PlayCanvas Editor Frontend Package Rename
+
+-   Renamed the workspace package boundary from the generic PlayCanvas Editor
+    package name to `packages/universo-react-playcanvas-editor-frontend` /
+    `@universo-react/playcanvas-editor-frontend`.
+-   Kept the user-facing package slug and routes stable as `playcanvas-editor`
+    so metahub package records, resource URLs, and UI labels continue to
+    describe the product rather than the technical frontend boundary.
+-   Updated workspace metadata, CI/tooling filters, Vitest workspace entries,
+    package isolation guardrails, seed/default package metadata, validation
+    references, docs, and current Memory Bank state references to the frontend
+    package name.
+-   Verification passed: lockfile refresh, Prettier on touched files,
+    package-naming/catalog-version/package-isolation guardrails, focused
+    PlayCanvas Editor frontend tests/build/smoke/browser-smoke, affected
+    types/utils/metahubs-frontend tests, targeted metahubs-backend package and
+    PlayCanvas regressions, full root `pnpm build`, and local minimal Supabase
+    Playwright `@packages` E2E.
+-   Full metahubs-backend package test still has unrelated pre-existing
+    failures outside this rename slice; targeted backend regressions for the
+    renamed package paths passed.
+
 ## 2026-06-04 - PlayCanvas Editor Bridge QA Round 4 Closure
 
 -   Closed the remaining bridge QA risks: recoverable 409 save conflicts no
@@ -69,14 +91,14 @@
     wrong session/nonce messages do not reach the bridge API, and confirms
     save conflicts do not leave global artifact error markers.
 -   Verification passed: Prettier on touched files; `pnpm --filter
-@universo-react/playcanvas-editor editor:build`; `pnpm --filter
-@universo-react/playcanvas-editor test`; `pnpm --filter
+@universo-react/playcanvas-editor-frontend editor:build`; `pnpm --filter
+@universo-react/playcanvas-editor-frontend test`; `pnpm --filter
 @universo-react/metahubs-frontend lint`; `pnpm --filter
 @universo-react/metahubs-frontend test -- src/domains/packages/api/__tests__/playcanvasEditorBridgeApi.test.ts
 --runInBand` with the package runner completing 76 files / 326 tests;
     `pnpm --filter @universo-react/core-backend test -- --runInBand
 src/__tests__/csrf.test.ts`; `pnpm --filter
-@universo-react/playcanvas-editor editor:browser-smoke`; `git diff
+@universo-react/playcanvas-editor-frontend editor:browser-smoke`; `git diff
 --check`; and local minimal Supabase Playwright Chromium packages flow with
     2/2 tests passing.
 
@@ -237,7 +259,7 @@ Implemented the first PlayCanvas project storage model slice for metahubs. PlayC
 -   `pnpm --filter @universo-react/applications-backend test -- syncPlayCanvasPersistence.test.ts`
 -   `pnpm --filter @universo-react/utils exec vitest run --config vitest.config.ts src/serialization/__tests__/publicationSnapshotHash.test.ts`
 -   `pnpm --filter @universo-react/metahubs-frontend test -- MetahubPackagesTab.test.tsx queryKeys.test.ts`
--   `pnpm --filter @universo-react/playcanvas-editor editor:build && pnpm --filter @universo-react/playcanvas-editor editor:smoke`
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend editor:build && pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke`
 -   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "metahub resources packages tab is usable and localized"`
 -   `node tools/lint-db-access.mjs`
 -   `pnpm --filter @universo-react/types build`
@@ -617,10 +639,10 @@ without weakening the iframe sandbox.
 
 -   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand src/tests/routes/packagesRoutes.test.ts src/tests/persistence/packagesStore.test.ts src/tests/services/MetahubPackagesService.test.ts src/tests/services/MetahubModulesService.test.ts src/tests/services/SnapshotSerializer.test.ts src/tests/services/PackageSeeder.test.ts`
 -   `pnpm --dir packages/universo-react-metahubs-frontend exec vitest run --config vitest.config.ts src/domains/packages/ui/__tests__/MetahubPackagesTab.test.tsx --coverage.enabled=false`
--   `pnpm --filter @universo-react/playcanvas-editor test`
--   `pnpm --filter @universo-react/playcanvas-editor editor:build`
--   `pnpm --filter @universo-react/playcanvas-editor editor:smoke`
--   `pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke`
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend test`
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend editor:build`
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke`
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke`
 -   `pnpm run check:snapshot-fixtures-contract`
 -   `pnpm --filter @universo-react/core-backend test -- --runInBand src/__tests__/App.initDatabase.test.ts`
 -   `pnpm --filter @universo-react/types build`
@@ -666,7 +688,7 @@ settings without leaking them into runtime publication snapshots.
 
 -   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand src/tests/routes/packagesRoutes.test.ts src/tests/persistence/packagesStore.test.ts src/tests/services/SnapshotSerializer.test.ts src/tests/services/PackageSeeder.test.ts`
 -   `pnpm --dir packages/universo-react-metahubs-frontend exec vitest run --config vitest.config.ts src/domains/packages/ui/__tests__/MetahubPackagesTab.test.tsx --coverage.enabled=false`
--   `pnpm --filter @universo-react/playcanvas-editor test`
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend test`
 -   `pnpm --filter @universo-react/types build`
 -   `pnpm --filter @universo-react/metahubs-frontend build`
 -   `pnpm --filter @universo-react/metahubs-backend build`
@@ -2645,7 +2667,7 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
 
 ### 2026-05-31: PlayCanvas Editor Package Foundation Implementation
 
--   Added the isolated `@universo-react/playcanvas-editor` workspace package
+-   Added the isolated `@universo-react/playcanvas-editor-frontend` workspace package
     around a vendored PlayCanvas Editor `v2.22.1` snapshot pinned to commit
     `0fcd44253ba1bba39c13d45b069265167249ecb6`.
 -   Implemented artifact-only build and smoke tooling that builds upstream
@@ -2701,7 +2723,7 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
 -   Extended the metahubs package schema/system-app metadata with
     `obj_packages.authoring_surface` and `rel_metahub_packages.config`,
     including a forward migration and initial schema parity coverage.
--   Seeded `@universo-react/playcanvas-editor` as an authoring-only package with
+-   Seeded `@universo-react/playcanvas-editor-frontend` as an authoring-only package with
     empty `runtimeTargets`, default embedded display config, and artifact
     metadata while keeping runtime publication snapshots and module package
     imports filtered to runtime-capable packages only.

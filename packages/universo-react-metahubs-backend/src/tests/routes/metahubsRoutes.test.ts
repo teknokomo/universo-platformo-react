@@ -32,7 +32,7 @@ const mockExportPlayCanvasSnapshotFromSchema = jest.fn(async () => ({
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'pc_project' } } },
             displayName: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'PlayCanvas Project' } } },
             packageRef: {
-                packageName: '@universo-react/playcanvas-editor',
+                packageName: '@universo-react/playcanvas-editor-frontend',
                 compatibilityStatus: 'compatible'
             },
             schemaVersion: '1',
@@ -309,7 +309,7 @@ describe('Metahubs Routes', () => {
                     codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'pc_project' } } },
                     displayName: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'PlayCanvas Project' } } },
                     packageRef: {
-                        packageName: '@universo-react/playcanvas-editor',
+                        packageName: '@universo-react/playcanvas-editor-frontend',
                         compatibilityStatus: 'compatible'
                     },
                     schemaVersion: '1',
@@ -894,6 +894,19 @@ describe('Metahubs Routes', () => {
             ])
             mockFindMetahubByCodename.mockResolvedValue(null)
             mockFindMetahubBySlug.mockResolvedValue(null)
+            mockCreateMetahub.mockResolvedValue({
+                id: '018f8a78-7b8f-7c1d-a111-222233334444',
+                codename: 'SourceHubCopy',
+                slug: 'source-hub-copy',
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Source Metahub (copy)' } } },
+                description: null,
+                isPublic: false,
+                templateId: null,
+                templateVersionId: null,
+                _uplVersion: 1,
+                _uplCreatedAt: new Date(),
+                _uplUpdatedAt: new Date()
+            })
             mockExportPlayCanvasSnapshotFromSchema.mockResolvedValueOnce(undefined)
             mockRestorePlayCanvasSnapshot.mockResolvedValueOnce(new Map())
             mockExec.query.mockImplementation(async (sql: string) => {

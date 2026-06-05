@@ -50,7 +50,7 @@ export interface PlayCanvasEditorAuthoringSurfaceDescriptor {
     supportedDisplayModes: readonly PackageDisplayMode[]
     defaultConfig: PackageAttachmentDisplayConfig
     artifact?: {
-        packageName: '@universo-react/playcanvas-editor'
+        packageName: '@universo-react/playcanvas-editor-frontend'
         manifestFileName: 'universo-artifact-manifest.json'
         outputRoot: 'dist/editor'
         smokeMode: PlayCanvasEditorArtifactMode

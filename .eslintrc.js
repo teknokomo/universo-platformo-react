@@ -19,8 +19,8 @@ module.exports = {
         '**/dist',
         '**/build',
         '**/package-lock.json',
-        'packages/universo-react-playcanvas-editor/vendor/**',
-        'packages/universo-react-playcanvas-editor/.tmp/**'
+        'packages/universo-react-playcanvas-editor-frontend/vendor/**',
+        'packages/universo-react-playcanvas-editor-frontend/.tmp/**'
     ],
     plugins: ['@typescript-eslint', 'unused-imports'],
     overrides: [

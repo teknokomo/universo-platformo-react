@@ -4,14 +4,14 @@ description: PlayCanvas Editor artifact package foundation.
 
 # PlayCanvas Editor Package
 
-`@universo-react/playcanvas-editor` is the Platformo foundation package for the official PlayCanvas Editor frontend artifact.
+`@universo-react/playcanvas-editor-frontend` is the Platformo foundation package for the official PlayCanvas Editor frontend artifact.
 
 The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it isolated from the runtime MUI shells. It is not a React component package and it is registered as an authoring-only metahub package with no runtime targets.
 
 ## Current Scope
 
--   Workspace package: `packages/universo-react-playcanvas-editor/`
--   Package name: `@universo-react/playcanvas-editor`
+-   Workspace package: `packages/universo-react-playcanvas-editor-frontend/`
+-   Package name: `@universo-react/playcanvas-editor-frontend`
 -   Upstream repository: `https://github.com/playcanvas/editor`
 -   Upstream tag: `v2.22.1`
 -   Upstream commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
@@ -29,10 +29,10 @@ The platform now has a first PlayCanvas project storage model for metahubs. See 
 ## Commands
 
 ```bash
-pnpm --filter @universo-react/playcanvas-editor test
-pnpm --filter @universo-react/playcanvas-editor editor:build
-pnpm --filter @universo-react/playcanvas-editor editor:smoke
-pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend test
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:build
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 ```
 
 The package intentionally does not define a normal `build` script yet. Root `pnpm build` does not build the Editor artifact until the package is deliberately enrolled in the root Turbo pipeline.
@@ -76,7 +76,7 @@ The hosted artifact serializes scene data from the Editor-side `entities:list` a
 
 Do not copy `sessionToken`, artifact tokens, full tokenized artifact URLs, bridge nonces, request bodies, or exported snapshots into public logs or tickets. Use sanitized request ids, metahub names, package slug, artifact status, HTTP status, and browser console categories instead.
 
--   **Artifact unavailable**: verify that `pnpm --filter @universo-react/playcanvas-editor editor:build` and `editor:smoke` pass, then check the package attachment status in **Resources → Packages**. The user-facing host should show `artifactStatus` as a safe state and must not expose filesystem paths or tokenized URLs.
+-   **Artifact unavailable**: verify that `pnpm --filter @universo-react/playcanvas-editor-frontend editor:build` and `editor:smoke` pass, then check the package attachment status in **Resources → Packages**. The user-facing host should show `artifactStatus` as a safe state and must not expose filesystem paths or tokenized URLs.
 -   **Editor frame cannot load**: check that `PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN` points to a browser-reachable origin different from the platform UI origin. For trusted reverse proxies, set `PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN` or enable `PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS=true` only when the edge proxy strips untrusted forwarded headers.
 -   **Permission blocked**: the host and bridge require current `manageMetahub` access. Recheck metahub membership and package attachment state; do not reuse artifact links from another user or an old browser tab.
 -   **Save conflict**: reload the latest scene from the conflict dialog and save again. The backend compares scene checksums and intentionally fails closed when another write changed the stored payload.

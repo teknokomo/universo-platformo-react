@@ -66,7 +66,7 @@ export const packageAuthoringSurfaceSchema = z
                 defaultConfig: packageAttachmentDisplayConfigSchema,
                 artifact: z
                     .object({
-                        packageName: z.literal('@universo-react/playcanvas-editor'),
+                        packageName: z.literal('@universo-react/playcanvas-editor-frontend'),
                         manifestFileName: z.literal('universo-artifact-manifest.json'),
                         outputRoot: z.literal('dist/editor'),
                         smokeMode: z.enum(playcanvasEditorArtifactModes),

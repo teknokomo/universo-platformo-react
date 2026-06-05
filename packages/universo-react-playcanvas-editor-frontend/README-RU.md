@@ -1,4 +1,4 @@
-# @universo-react/playcanvas-editor
+# @universo-react/playcanvas-editor-frontend
 
 Foundation-пакет для официального frontend-артефакта PlayCanvas Editor.
 
@@ -16,10 +16,10 @@ Foundation-пакет для официального frontend-артефакт�
 ## Команды
 
 ```bash
-pnpm --filter @universo-react/playcanvas-editor test
-pnpm --filter @universo-react/playcanvas-editor editor:build
-pnpm --filter @universo-react/playcanvas-editor editor:smoke
-pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend test
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:build
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 ```
 
 В foundation-срезе пакет не определяет обычный script `build`. Root `pnpm build` не должен автоматически собирать Editor artifact, пока явно не подтверждена совместимость Node, pnpm, dependencies, Turbo, CI и guardrail-проверок.

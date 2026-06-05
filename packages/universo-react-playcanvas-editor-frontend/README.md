@@ -1,4 +1,4 @@
-# @universo-react/playcanvas-editor
+# @universo-react/playcanvas-editor-frontend
 
 Foundation package for the official PlayCanvas Editor frontend artifact.
 
@@ -16,10 +16,10 @@ This package is intentionally an artifact boundary, not a React/MUI component li
 ## Commands
 
 ```bash
-pnpm --filter @universo-react/playcanvas-editor test
-pnpm --filter @universo-react/playcanvas-editor editor:build
-pnpm --filter @universo-react/playcanvas-editor editor:smoke
-pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend test
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:build
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 ```
 
 The package does not define a normal `build` script in this foundation slice. Root `pnpm build` should not pick up the Editor artifact until Node, pnpm, dependency, Turbo, CI, and guardrail compatibility are intentionally approved.

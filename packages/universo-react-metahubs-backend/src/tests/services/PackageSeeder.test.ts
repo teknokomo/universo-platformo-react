@@ -27,7 +27,7 @@ describe('PackageSeeder', () => {
             '@universo-react/colyseus-client',
             '@universo-react/colyseus-server',
             '@universo-react/playcanvas-engine',
-            '@universo-react/playcanvas-editor'
+            '@universo-react/playcanvas-editor-frontend'
         ])
         expect(exec.query).toHaveBeenCalledWith(expect.stringContaining('ON CONFLICT (package_name, version)'), expect.any(Array))
         expect(logger.error).not.toHaveBeenCalled()
@@ -38,7 +38,7 @@ describe('PackageSeeder', () => {
         expect(legacyBuiltinPackageSeedChecksumSource).toContain('@universo-react/colyseus-client')
         expect(legacyBuiltinPackageSeedChecksumSource).toContain('@universo-react/colyseus-server')
         expect(legacyBuiltinPackageSeedChecksumSource).toContain('@universo-react/playcanvas-engine')
-        expect(legacyBuiltinPackageSeedChecksumSource).not.toContain('@universo-react/playcanvas-editor')
+        expect(legacyBuiltinPackageSeedChecksumSource).not.toContain('@universo-react/playcanvas-editor-frontend')
         expect(legacyBuiltinPackageSeedChecksumSource).not.toContain('playcanvasEditor')
     })
 
@@ -49,11 +49,11 @@ describe('PackageSeeder', () => {
 
         expect(exec.query).toHaveBeenCalledTimes(3)
         expect(logger.info).toHaveBeenCalledWith('[PackageSeeder] Seed complete: 3 upserted, 0 errors')
-        expect(JSON.stringify(jest.mocked(exec.query).mock.calls)).not.toContain('@universo-react/playcanvas-editor')
+        expect(JSON.stringify(jest.mocked(exec.query).mock.calls)).not.toContain('@universo-react/playcanvas-editor-frontend')
     })
 
     it('ties the authoring settings migration checksum to the current package seed contract', () => {
-        expect(packageAuthoringSettingsSeedChecksumSource).toContain('@universo-react/playcanvas-editor')
+        expect(packageAuthoringSettingsSeedChecksumSource).toContain('@universo-react/playcanvas-editor-frontend')
         expect(packageAuthoringSettingsSeedChecksumSource).toContain('playcanvasEditor')
     })
 
@@ -65,7 +65,7 @@ describe('PackageSeeder', () => {
     })
 
     it('seeds PlayCanvas Editor with an authoring-only display config contract', () => {
-        const playcanvasEditor = builtinPackageSeeds.find((seed) => seed.packageName === '@universo-react/playcanvas-editor')
+        const playcanvasEditor = builtinPackageSeeds.find((seed) => seed.packageName === '@universo-react/playcanvas-editor-frontend')
 
         expect(playcanvasEditor?.source.runtimeTargets).toEqual([])
         expect(playcanvasEditor?.authoringSurface).toMatchObject({
@@ -83,24 +83,24 @@ describe('PackageSeeder', () => {
                 }
             },
             artifact: {
-                packageName: '@universo-react/playcanvas-editor',
+                packageName: '@universo-react/playcanvas-editor-frontend',
                 manifestFileName: 'universo-artifact-manifest.json',
                 outputRoot: 'dist/editor',
-                smokeMode: 'artifact-only'
+                smokeMode: 'universo-hosted'
             }
         })
     })
 
     it('rejects malformed package authoring surface seed descriptors before upsert', async () => {
         const logger = { info: jest.fn(), error: jest.fn() }
-        const playcanvasEditor = builtinPackageSeeds.find((seed) => seed.packageName === '@universo-react/playcanvas-editor')
+        const playcanvasEditor = builtinPackageSeeds.find((seed) => seed.packageName === '@universo-react/playcanvas-editor-frontend')
         expect(playcanvasEditor).toBeDefined()
         if (!playcanvasEditor) {
             throw new Error('PlayCanvas Editor seed is missing')
         }
         const malformedSeed = {
             ...playcanvasEditor,
-            packageName: '@universo-react/playcanvas-editor-malformed',
+            packageName: '@universo-react/playcanvas-editor-frontend-malformed',
             authoringSurface: {
                 schemaVersion: '1',
                 kind: 'playcanvasEditor',
@@ -116,7 +116,7 @@ describe('PackageSeeder', () => {
                     }
                 },
                 artifact: {
-                    packageName: '@universo-react/playcanvas-editor',
+                    packageName: '@universo-react/playcanvas-editor-frontend',
                     manifestFileName: 'universo-artifact-manifest.json',
                     outputRoot: 'dist/editor',
                     smokeMode: 'artifact-only'

@@ -87,7 +87,7 @@ const sortVersions = (versions: string[]): string[] =>
 const resolveDisplayConfig = (config: PackageAttachmentConfig): Extract<PackageAttachmentConfig, { kind: 'display' }> | null =>
     config.kind === 'display' ? config : null
 
-const PLAYCANVAS_EDITOR_PACKAGE_NAME = '@universo-react/playcanvas-editor'
+const PLAYCANVAS_EDITOR_PACKAGE_NAME = '@universo-react/playcanvas-editor-frontend'
 
 const buildRows = (items: MetahubPackageCatalogItem[], attachedItems: MetahubPackageAttachment[], locale: string): PackageTableRow[] => {
     const grouped = new Map<string, MetahubPackageCatalogItem[]>()

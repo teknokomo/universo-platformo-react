@@ -13,7 +13,7 @@ description: Подключение workspace-пакетов к метахабу
 -   `@universo-react/colyseus-client`
 -   `@universo-react/colyseus-server`
 -   `@universo-react/playcanvas-engine`
--   `@universo-react/playcanvas-editor`
+-   `@universo-react/playcanvas-editor-frontend`
 
 Project-local MMOOMM skills в `.agents/skills/` используют эти обёртки как
 источник версий: PlayCanvas Engine guidance ориентирован на `playcanvas@2.18.1`,

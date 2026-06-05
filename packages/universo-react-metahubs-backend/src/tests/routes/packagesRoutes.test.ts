@@ -23,7 +23,7 @@ const mockUpdatePlayCanvasProject = jest.fn()
 const mockUpsertPlayCanvasScene = jest.fn()
 
 const mockDbSession = { isReleased: () => false }
-const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 const decodeEditorArtifactToken = (artifactPath: string): { parentOrigin?: unknown } => {
     const token = artifactPath.match(/editor-artifact-token\/([^/]+)/)?.[1]
     if (!token) return {}
@@ -457,7 +457,7 @@ describe('Packages Routes', () => {
                 ...playCanvasAttachment,
                 id: 'attach-playcanvas-fork',
                 packageId: 'pkg-playcanvas-fork',
-                packageName: `@universo-react/${'playcanvas-editor'}-fork`
+                packageName: `@universo-react/${'playcanvas-editor-frontend'}-fork`
             }
         ])
 

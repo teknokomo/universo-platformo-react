@@ -5,7 +5,7 @@
 -   Research artifact created: `memory-bank/research/playcanvas-editor-runtime-host-bridge-storage-adapter-research-2026-06-04.md`.
 -   QA-updated on 2026-06-04 with stricter bridge schema guidance, corrected script/generated route coverage, explicit opaque-origin `postMessage` target-origin handling, local Editor/runtime docs coverage, and an open `@universo-react/utils` scope question.
 -   Scope decision: proceed to PLAN only after treating the first implementation as a proof of the real Editor host seam, not as full PlayCanvas Cloud parity.
--   Critical finding: the current `@universo-react/playcanvas-editor` artifact is still intentionally `artifact-only`; the build overwrites `dist/editor/index.html` with a safe unavailable page, so implementation must add a real supported artifact mode and manifest/readiness contract before the iframe can become usable.
+-   Critical finding: the current `@universo-react/playcanvas-editor-frontend` artifact is still intentionally `artifact-only`; the build overwrites `dist/editor/index.html` with a safe unavailable page, so implementation must add a real supported artifact mode and manifest/readiness contract before the iframe can become usable.
 -   Upstream integration implication: vendored Editor source depends on injected `window.config`, REST globals, realtime scene/asset flows, and script parse pipeline acknowledgements, so pure postMessage-only storage is not proven sufficient without a deliberate Editor seam or shim.
 -   Bridge/security implication: the current iframe sandbox can produce opaque-origin messaging; the bridge must validate `event.source`, session nonce/expiry, schema, request ids, and capabilities, and any `allow-same-origin`/CSP relaxation must be an explicit security decision.
 -   Storage implication: the adapter must preserve existing PlayCanvas project write ordering and checksum guards: metadata path first, guarded file write second, metadata/status refresh third, with localized conflict states.
@@ -44,15 +44,15 @@
 ## 2026-05-31: PlayCanvas Editor package foundation
 
 -   Research artifact created: `memory-bank/research/playcanvas-editor-package-foundation-research-2026-05-31.md`.
--   Scope decision: first slice should create a private `@universo-react/playcanvas-editor` artifact package, not a MUI component library and not a metahub storage/API bridge.
--   Package-boundary decision: use an Universo-owned top-level manifest at `packages/universo-react-playcanvas-editor/`; keep upstream `playcanvas/editor` source isolated so upstream `package.json` does not blindly drive pnpm workspace install or catalog checks.
+-   Scope decision: first slice should create a private `@universo-react/playcanvas-editor-frontend` artifact package, not a MUI component library and not a metahub storage/API bridge.
+-   Package-boundary decision: use an Universo-owned top-level manifest at `packages/universo-react-playcanvas-editor-frontend/`; keep upstream `playcanvas/editor` source isolated so upstream `package.json` does not blindly drive pnpm workspace install or catalog checks.
 -   Build implication: do not include the package in root `pnpm build` until Node, pnpm, Turbo output, catalog, and supply-chain constraints are proven. Start with package-local build/smoke commands.
 -   Upstream conflict: Editor README says Node 18+, but current upstream `package.json` requires Node `>=22.22.0`; local root requires Node `>=22.6.0`.
 -   Upstream snapshot: current `playcanvas/editor` `main` was observed at commit `92ce00254db223e33ee72fda3ad01979bee714b7`, package version `2.22.1`; future PLAN should pin a commit/tag or re-verify before implementation.
 -   License implication: upstream Editor is MIT, but vendoring/bundling must preserve the PlayCanvas Ltd. copyright/license notice.
 -   Smoke-mode implication: upstream `use_local_frontend` loads a local frontend bundle inside `playcanvas.com/editor/...`; it is not proof of a self-contained offline Editor or Universo backend/API bridge.
 -   Serving implication: future static serving should mount a reserved Editor artifact route before the core frontend SPA fallback and define explicit CSP/cache/content-type headers; MUI/core may host only a thin iframe container.
--   Integration implication: do not seed `@universo-react/playcanvas-editor` into the metahub package registry or use Modules/external files for the Editor app in the foundation slice.
+-   Integration implication: do not seed `@universo-react/playcanvas-editor-frontend` into the metahub package registry or use Modules/external files for the Editor app in the foundation slice.
 
 ## 2026-05-28: MMOOMM flight simulator metahub configuration
 

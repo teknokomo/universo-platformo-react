@@ -7,7 +7,7 @@ jest.mock('../../persistence', () => ({
 
 import { MetahubPackagesService } from '../../domains/packages/services/MetahubPackagesService'
 
-const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 
 const packageSource = (runtimeTargets: string[]) => ({
     kind: 'workspace' as const,

@@ -26,7 +26,7 @@ const createCodenameVlc = (primary: string, secondary?: string) => ({
     }
 })
 
-const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 
 describe('SnapshotSerializer system field propagation', () => {
     it('rejects ledger snapshot publication when config references non-existing fields', async () => {

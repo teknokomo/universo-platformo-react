@@ -13,7 +13,7 @@ The registry contains built-in workspace wrappers and authoring packages:
 -   `@universo-react/colyseus-client`
 -   `@universo-react/colyseus-server`
 -   `@universo-react/playcanvas-engine`
--   `@universo-react/playcanvas-editor`
+-   `@universo-react/playcanvas-editor-frontend`
 
 The project-local MMOOMM skills under `.agents/skills/` use these wrappers as
 their version source of truth: PlayCanvas Engine guidance targets

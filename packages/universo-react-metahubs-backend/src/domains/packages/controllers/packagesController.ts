@@ -47,7 +47,7 @@ const packageSlugSchema = z
     .regex(/^[a-z0-9][a-z0-9-]*$/)
 const artifactRoot =
     process.env.PLAYCANVAS_EDITOR_ARTIFACT_ROOT ??
-    path.resolve(__dirname, '../../../../../../packages/universo-react-playcanvas-editor/dist/editor')
+    path.resolve(__dirname, '../../../../../../packages/universo-react-playcanvas-editor-frontend/dist/editor')
 const artifactTokenTtlMs = 5 * 60 * 1000
 let artifactDevelopmentTokenSecret: string | null = null
 const resolveArtifactTokenSecret = (): string => {

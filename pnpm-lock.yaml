@@ -2145,7 +2145,7 @@ importers:
         specifier: 'catalog:'
         version: 0.15.7(typescript@5.9.3)
 
-  packages/universo-react-playcanvas-editor:
+  packages/universo-react-playcanvas-editor-frontend:
     dependencies:
       '@playcanvas/attribute-parser':
         specifier: ^1.10.1
@@ -22263,7 +22263,7 @@ snapshots:
       minipass-fetch: 2.1.2
       minipass-flush: 1.0.7
       minipass-pipeline: 1.2.4
-      negotiator: 0.6.3
+      negotiator: 0.6.4
       promise-retry: 2.0.1
       socks-proxy-agent: 7.0.0
       ssri: 9.0.1
@@ -22284,7 +22284,7 @@ snapshots:
       minipass-fetch: 3.0.5
       minipass-flush: 1.0.7
       minipass-pipeline: 1.2.4
-      negotiator: 0.6.3
+      negotiator: 0.6.4
       promise-retry: 2.0.1
       socks-proxy-agent: 7.0.0
       ssri: 10.0.6
@@ -22305,7 +22305,7 @@ snapshots:
       minipass-fetch: 1.4.1
       minipass-flush: 1.0.7
       minipass-pipeline: 1.2.4
-      negotiator: 0.6.3
+      negotiator: 0.6.4
       promise-retry: 2.0.1
       socks-proxy-agent: 6.2.1
       ssri: 8.0.1

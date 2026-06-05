@@ -403,7 +403,7 @@ describe('normalizePublicationSnapshotForHash', () => {
     })
 
     it('includes package attachment config in canonical hash normalization when present', () => {
-        const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+        const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
         const basePackage = {
             packageName: editorPackageName,
             version: '0.1.0',
@@ -588,7 +588,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                     schemaVersion: '1',
                     codename: createCodenameVlc('flight_project'),
                     displayName: createCodenameVlc('Flight Project'),
-                    packageRef: { packageName: '@universo-react/playcanvas-editor', compatibilityStatus: 'compatible' },
+                    packageRef: { packageName: '@universo-react/playcanvas-editor-frontend', compatibilityStatus: 'compatible' },
                     settings: {},
                     defaultSceneId: 'scene-1',
                     publicationConfig: {}

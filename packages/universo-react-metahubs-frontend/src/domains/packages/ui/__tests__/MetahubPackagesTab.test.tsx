@@ -46,7 +46,7 @@ vi.mock('../../../metahubs/hooks', () => ({
 }))
 
 const i18n = getI18nInstance()
-const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 
 const createQueryClient = () =>
     new QueryClient({

@@ -10,7 +10,7 @@ const mockIncrementVersion = jest.fn()
 const mockUpdateWithVersionCheck = jest.fn()
 const mockListEditableTypes = jest.fn()
 const mockListMetahubPackages = jest.fn()
-const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 const computeTestChecksum = (sourceCode: string) => require('crypto').createHash('sha256').update(sourceCode, 'utf8').digest('hex')
 
 jest.mock('@universo-react/modules-engine', () => ({
