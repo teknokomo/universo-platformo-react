@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto'
 import type {
     CreatePlayCanvasProjectRequest,
     PlayCanvasAsset,
     PlayCanvasGeneratedArtifact,
     PlayCanvasFileReference,
+    PlayCanvasEditorCompatibilityProtocolDescriptor,
+    PlayCanvasEditorCompatibilitySettingsDocument,
     PlayCanvasEditorMinimalAssetMetadata,
     PlayCanvasEditorScenePayload,
     PlayCanvasProjectSummary,
@@ -13,19 +16,25 @@ import type {
     UpdatePlayCanvasProjectSettingsRequest
 } from '@universo-react/types'
 import {
+    PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
+    PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
+    PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
     PLAYCANVAS_PROJECT_FILE_ROOT,
     PLAYCANVAS_PROJECT_SCHEMA_VERSION,
     isPlayCanvasAssetFileReference,
     isPlayCanvasGeneratedArtifactFileReference,
     isPlayCanvasJsonFileReference,
     isPlayCanvasScenePayloadFileReference,
-    isPlayCanvasScriptFileReference
+    isPlayCanvasScriptFileReference,
+    playCanvasEditorCompatibilityProtocolDescriptorSchema,
+    playCanvasEditorCompatibilitySettingsDocumentSchema
 } from '@universo-react/types'
 import { playCanvasEditorScenePayloadSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { createCodenameVLC, createLocalizedContent, generateUuidV7, OptimisticLockError } from '@universo-react/utils'
+import stableStringify from 'json-stable-stringify'
 import type { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
-import { MetahubValidationError } from '../../shared/domainErrors'
+import { MetahubConflictError, MetahubDomainError, MetahubValidationError } from '../../shared/domainErrors'
 import { createLogger } from '../../../utils/logger'
 import {
     assertPlayCanvasProjectMimeForPath,
@@ -33,6 +42,7 @@ import {
     PlayCanvasProjectFileService
 } from './PlayCanvasProjectFileService'
 import type { PlayCanvasProjectFileReadResult, PlayCanvasProjectFileScope } from './PlayCanvasProjectFileService'
+import { PlayCanvasEditorBridgeSessionService } from './PlayCanvasEditorBridgeSessionService'
 import { PlayCanvasProjectSnapshotService } from './PlayCanvasProjectSnapshotService'
 import {
     clearPlayCanvasDefaultProjectPointers,
@@ -63,6 +73,58 @@ import {
 
 const log = createLogger('PlayCanvasProjectsService')
 const STRICT_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+const COMPATIBILITY_SETTINGS_KEY = 'playCanvasEditorCompatibility'
+const COMPATIBILITY_SCENE_SAVE_COMMAND_TYPE = 'compatibility.scene.save'
+const COMPATIBILITY_SETTINGS_WRITE_COMMAND_TYPE = 'compatibility.settings.write'
+
+type CompatibilitySettingsKind = PlayCanvasEditorCompatibilitySettingsDocument['kind']
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+
+const settingsDocumentId = (kind: CompatibilitySettingsKind, projectId: string, userId: string): string => {
+    switch (kind) {
+        case 'user':
+            return `user_${userId}`
+        case 'projectUser':
+            return `project_${projectId}_${userId}`
+        case 'projectPrivate':
+            return `project-private_${projectId}`
+    }
+}
+
+const hashEditorCompatibilityReplayFingerprint = (value: unknown): string =>
+    createHash('sha256')
+        .update(stableStringify(value) ?? JSON.stringify(value))
+        .digest('hex')
+
+const compatibilitySceneSaveSessionId = (input: { metahubId: string; projectId: string; sceneId: string; userId: string }): string =>
+    `compatibility:${input.metahubId}:${input.projectId}:${input.sceneId}:${input.userId}`
+
+const compatibilitySettingsWriteSessionId = (input: {
+    metahubId: string
+    projectId: string
+    kind: CompatibilitySettingsKind
+    userId: string
+}): string => `compatibility:${input.metahubId}:${input.projectId}:settings:${input.kind}:${input.userId}`
+
+const isEditorCompatibilitySceneSaveResult = (
+    value: unknown
+): value is { scene: PlayCanvasScene & { version: number }; payload: PlayCanvasEditorScenePayload | null; checksum: string | null } => {
+    if (!value || typeof value !== 'object') return false
+    const record = value as Record<string, unknown>
+    const scene = record.scene as Record<string, unknown> | undefined
+    return (
+        !!scene &&
+        typeof scene === 'object' &&
+        typeof scene.id === 'string' &&
+        (record.payload === null || typeof record.payload === 'object') &&
+        (record.checksum === null || typeof record.checksum === 'string')
+    )
+}
+
+const isEditorCompatibilitySettingsWriteResult = (value: unknown): value is PlayCanvasEditorCompatibilitySettingsDocument =>
+    playCanvasEditorCompatibilitySettingsDocumentSchema.safeParse(value).success
 
 const slugifyProjectName = (value: string): string => {
     const normalized = value
@@ -198,6 +260,88 @@ export class PlayCanvasProjectsService {
             return summarizePlayCanvasProject(this.exec, schemaName, latest)
         }
         throw this.optimisticError(row.id, row.version)
+    }
+
+    async describeEditorCompatibilityProtocol(
+        metahubId: string,
+        projectId: string,
+        userId: string
+    ): Promise<PlayCanvasEditorCompatibilityProtocolDescriptor> {
+        const project = await this.getProject(metahubId, projectId, userId)
+        const defaultSceneId = project.defaultSceneId ?? null
+        const disabledSurface = {
+            status: 'disabled' as const,
+            reason: 'notRequiredForUniversoBridgeMinimal'
+        }
+        const stubbedSurface = {
+            status: 'stubbed' as const,
+            reason: 'cloudOnlySurfaceOutsideFirstSlice'
+        }
+        const branchId = defaultSceneId ?? project.id
+
+        return playCanvasEditorCompatibilityProtocolDescriptorSchema.parse({
+            schemaVersion: PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
+            mode: PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
+            upstream: {
+                repository: 'https://github.com/playcanvas/editor',
+                minimumTag: 'v2.23.4'
+            },
+            project,
+            defaultSceneId,
+            identity: {
+                self: {
+                    id: userId,
+                    role: 'designer'
+                },
+                owner: {
+                    id: metahubId,
+                    type: 'metahub'
+                },
+                permissions: {
+                    read: true,
+                    write: true,
+                    admin: false
+                },
+                branch: {
+                    id: branchId,
+                    name: 'Main',
+                    active: true
+                },
+                teams: [],
+                organizations: []
+            },
+            endpoints: {
+                rest: disabledSurface,
+                realtime: disabledSurface,
+                messenger: disabledSurface
+            },
+            shareDb: {
+                requiredCollections: ['scenes', 'assets', 'settings'],
+                persisted: false,
+                persistence: 'not-implemented',
+                sceneStorage: 'metahub-playcanvas-project-storage'
+            },
+            cloudOnly: {
+                store: stubbedSurface,
+                jobs: stubbedSurface,
+                branchesCheckpoints: stubbedSurface,
+                sourcefiles: stubbedSurface,
+                publishing: stubbedSurface,
+                usersCollaboration: stubbedSurface,
+                assetPipeline: stubbedSurface
+            },
+            documents: {
+                codeEditorSourcefiles: {
+                    status: 'unsupported',
+                    reason: 'codeEditorSourcefilesOutsideFirstSlice'
+                }
+            },
+            settingsDocuments: {
+                user: `user_${userId}`,
+                projectUser: `project_${project.id}_${userId}`,
+                projectPrivate: `project-private_${project.id}`
+            }
+        })
     }
 
     async createProject(metahubId: string, input: CreatePlayCanvasProjectRequest, userId: string): Promise<PlayCanvasProjectSummary> {
@@ -354,7 +498,7 @@ export class PlayCanvasProjectsService {
         sceneId: string,
         input: {
             payload: PlayCanvasEditorScenePayload
-            expectedCurrentChecksum: string | null
+            expectedCurrentChecksum?: string | null
         },
         userId: string
     ): Promise<{ scene: PlayCanvasScene & { version: number }; checksum: string | null }> {
@@ -447,6 +591,88 @@ export class PlayCanvasProjectsService {
         }
     }
 
+    async saveEditorCompatibilityScene(
+        metahubId: string,
+        projectId: string,
+        sceneId: string,
+        input: {
+            requestId: string
+            payload: PlayCanvasEditorScenePayload
+            expectedCurrentChecksum?: string | null
+        },
+        userId: string
+    ): Promise<{ scene: PlayCanvasScene & { version: number }; payload: PlayCanvasEditorScenePayload | null; checksum: string | null }> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const replayInput = {
+            sessionId: compatibilitySceneSaveSessionId({ metahubId, projectId, sceneId, userId }),
+            requestId: input.requestId,
+            commandType: COMPATIBILITY_SCENE_SAVE_COMMAND_TYPE,
+            fingerprint: hashEditorCompatibilityReplayFingerprint({
+                payload: input.payload,
+                expectedCurrentChecksum: input.expectedCurrentChecksum
+            }),
+            expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
+            userId
+        }
+        const claimed = await sessionService.claimReplay(this.exec, schemaName, replayInput)
+        if (!claimed) {
+            const storedResponse = await sessionService.readReplayResponse(this.exec, schemaName, replayInput)
+            if (storedResponse?.status === 'completed' && isEditorCompatibilitySceneSaveResult(storedResponse.response)) {
+                return storedResponse.response
+            }
+            throw new MetahubConflictError('PlayCanvas Editor compatibility scene save replay is already in progress', {
+                messageCode: 'playcanvas.editorCompatibility.replayRejected',
+                requestId: input.requestId
+            })
+        }
+
+        let mutationCommitted = false
+        let replayClaimReleased = false
+        const releaseReplayClaim = async () => {
+            if (replayClaimReleased) return
+            replayClaimReleased = true
+            await sessionService.releaseReplay(this.exec, schemaName, replayInput).catch(() => undefined)
+        }
+        try {
+            const saved = await this.saveEditorScene(
+                metahubId,
+                projectId,
+                sceneId,
+                {
+                    payload: input.payload,
+                    expectedCurrentChecksum: input.expectedCurrentChecksum
+                },
+                userId
+            )
+            mutationCommitted = true
+            const read = await this.readEditorScene(metahubId, projectId, sceneId, userId)
+            const response = { ...saved, payload: read.payload }
+            const completed = await sessionService.completeReplay(this.exec, schemaName, {
+                ...replayInput,
+                response,
+                userId
+            })
+            if (!completed) {
+                throw new MetahubDomainError({
+                    message: 'PlayCanvas Editor compatibility replay response could not be recorded',
+                    statusCode: 503,
+                    code: 'SCHEMA_SYNC_FAILED',
+                    details: {
+                        messageCode: 'playcanvas.editorCompatibility.replayCompletionFailed',
+                        requestId: input.requestId
+                    }
+                })
+            }
+            return response
+        } catch (error) {
+            if (!mutationCommitted) {
+                await releaseReplayClaim()
+            }
+            throw error
+        }
+    }
+
     async listAssets(metahubId: string, projectId: string, _userId: string): Promise<(PlayCanvasAsset & { version: number })[]> {
         const schemaName = await this.resolveSchemaName(metahubId)
         await this.requireProject(schemaName, projectId)
@@ -484,6 +710,153 @@ export class PlayCanvasProjectsService {
                 hash: asset.file?.hash ?? null,
                 size: asset.file?.size ?? null
             }))
+    }
+
+    async readEditorCompatibilitySettings(
+        metahubId: string,
+        projectId: string,
+        kind: CompatibilitySettingsKind,
+        userId: string
+    ): Promise<PlayCanvasEditorCompatibilitySettingsDocument> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        const project = await this.requireProject(schemaName, projectId)
+        const documentId = settingsDocumentId(kind, projectId, userId)
+        const compatibilitySettings = asRecord(project.settings[COMPATIBILITY_SETTINGS_KEY])
+        const settingsDocuments = asRecord(compatibilitySettings.settingsDocuments)
+        const existing = asRecord(settingsDocuments[documentId])
+        const revision = typeof existing.revision === 'string' ? existing.revision : `project-${project.version}`
+        const data = asRecord(existing.data)
+
+        return playCanvasEditorCompatibilitySettingsDocumentSchema.parse({
+            kind,
+            documentId,
+            data,
+            revision
+        })
+    }
+
+    async writeEditorCompatibilitySettings(
+        metahubId: string,
+        projectId: string,
+        kind: CompatibilitySettingsKind,
+        input: {
+            data: PlayCanvasEditorCompatibilitySettingsDocument['data']
+            expectedRevision?: string
+            requestId: string
+        },
+        userId: string
+    ): Promise<PlayCanvasEditorCompatibilitySettingsDocument> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const replayInput = {
+            sessionId: compatibilitySettingsWriteSessionId({ metahubId, projectId, kind, userId }),
+            requestId: input.requestId,
+            commandType: COMPATIBILITY_SETTINGS_WRITE_COMMAND_TYPE,
+            fingerprint: hashEditorCompatibilityReplayFingerprint({
+                kind,
+                data: input.data,
+                expectedRevision: input.expectedRevision
+            }),
+            expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
+            userId
+        }
+        const claimed = await sessionService.claimReplay(this.exec, schemaName, replayInput)
+        if (!claimed) {
+            const storedResponse = await sessionService.readReplayResponse(this.exec, schemaName, replayInput)
+            if (storedResponse?.status === 'completed' && isEditorCompatibilitySettingsWriteResult(storedResponse.response)) {
+                return storedResponse.response
+            }
+            throw new MetahubConflictError('PlayCanvas Editor compatibility settings write replay is already in progress', {
+                messageCode: 'playcanvas.editorCompatibility.replayRejected',
+                requestId: input.requestId
+            })
+        }
+
+        let mutationCommitted = false
+        let replayClaimReleased = false
+        const releaseReplayClaim = async () => {
+            if (replayClaimReleased) return
+            replayClaimReleased = true
+            await sessionService.releaseReplay(this.exec, schemaName, replayInput).catch(() => undefined)
+        }
+        try {
+            const project = await this.requireProject(schemaName, projectId)
+            const documentId = settingsDocumentId(kind, projectId, userId)
+            const current = await this.readEditorCompatibilitySettings(metahubId, projectId, kind, userId)
+            if (input.expectedRevision && input.expectedRevision !== current.revision) {
+                throw new OptimisticLockError({
+                    entityId: projectId,
+                    entityType: 'playcanvasProject',
+                    expectedVersion: Number(input.expectedRevision.replace(/^project-/, '')) || 0,
+                    actualVersion: project.version,
+                    updatedAt: new Date(0),
+                    updatedBy: null
+                })
+            }
+
+            const compatibilitySettings = asRecord(project.settings[COMPATIBILITY_SETTINGS_KEY])
+            const settingsDocuments = asRecord(compatibilitySettings.settingsDocuments)
+            const nextRevision = `project-${project.version + 1}`
+            const nextSettings = {
+                ...project.settings,
+                [COMPATIBILITY_SETTINGS_KEY]: {
+                    ...compatibilitySettings,
+                    settingsDocuments: {
+                        ...settingsDocuments,
+                        [documentId]: {
+                            kind,
+                            data: input.data,
+                            revision: nextRevision,
+                            requestId: input.requestId,
+                            updatedAt: new Date().toISOString()
+                        }
+                    }
+                }
+            }
+
+            const updated = await updatePlayCanvasProject(
+                this.exec,
+                schemaName,
+                projectId,
+                {
+                    settings: nextSettings,
+                    expectedVersion: project.version
+                },
+                userId
+            )
+            if (!updated) {
+                throw this.optimisticError(projectId, project.version)
+            }
+            mutationCommitted = true
+            const response = playCanvasEditorCompatibilitySettingsDocumentSchema.parse({
+                kind,
+                documentId,
+                data: input.data,
+                revision: nextRevision
+            })
+            const completed = await sessionService.completeReplay(this.exec, schemaName, {
+                ...replayInput,
+                response,
+                userId
+            })
+            if (!completed) {
+                throw new MetahubDomainError({
+                    message: 'PlayCanvas Editor compatibility settings replay response could not be recorded',
+                    statusCode: 503,
+                    code: 'SCHEMA_SYNC_FAILED',
+                    details: {
+                        messageCode: 'playcanvas.editorCompatibility.replayCompletionFailed',
+                        requestId: input.requestId
+                    }
+                })
+            }
+            return response
+        } catch (error) {
+            if (!mutationCommitted) {
+                await releaseReplayClaim()
+            }
+            throw error
+        }
     }
 
     async writeAssetMetadata(
@@ -884,7 +1257,7 @@ export class PlayCanvasProjectsService {
         }
     }
 
-    private async requireProject(schemaName: string, projectId: string): Promise<void> {
+    private async requireProject(schemaName: string, projectId: string) {
         const existing = await findPlayCanvasProject(this.exec, schemaName, projectId)
         if (!existing) {
             throw new MetahubValidationError('PlayCanvas project was not found', {
@@ -892,6 +1265,7 @@ export class PlayCanvasProjectsService {
                 projectId
             })
         }
+        return existing
     }
 
     private assertProjectPath(projectId: string, sourcePath: string): string {

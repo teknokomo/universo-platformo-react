@@ -11,7 +11,7 @@ const cookieParser = require('cookie-parser')
 import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
-import apiV1Router from './routes'
+import apiV1Router, { configureApiRouteCsrfProtection } from './routes'
 import {
     passport,
     createAuthRouter,
@@ -345,6 +345,7 @@ export class App {
         this.app.use(passport.session())
 
         const csrfProtection = createCsrfProtection()
+        configureApiRouteCsrfProtection(csrfProtection)
         const loginRateLimitWindowMs = parsePositiveInt(process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS, 60_000)
         const loginRateLimitMax = parsePositiveInt(process.env.AUTH_LOGIN_RATE_LIMIT_MAX, 10)
 

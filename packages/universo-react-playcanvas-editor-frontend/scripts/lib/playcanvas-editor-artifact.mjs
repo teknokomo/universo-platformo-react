@@ -3,17 +3,166 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { z } from 'zod'
 
 export const upstreamRepository = 'https://github.com/playcanvas/editor'
-export const upstreamTag = 'v2.22.1'
-export const upstreamCommit = '0fcd44253ba1bba39c13d45b069265167249ecb6'
-export const upstreamPackageVersion = '2.22.1'
+export const upstreamTag = 'v2.23.4'
+export const upstreamCommit = 'c4916f4973963341984499f2d919f8bfd38e417c'
+export const upstreamPackageVersion = '2.23.4'
 export const nodeRequirement = '>=22.22.0'
 export const artifactOutputRoot = 'dist/editor'
 export const artifactModes = ['artifact-only', 'universo-hosted']
 export const defaultArtifactMode = 'universo-hosted'
 export const manifestFileName = 'universo-artifact-manifest.json'
 export const bridgeBootstrapFileName = 'universo-bridge-bootstrap.js'
+
+const hostedEditorUrlSchema = z
+    .object({
+        api: z.string().min(1),
+        home: z.string().min(1),
+        frontend: z.string().url(),
+        engine: z.string().url(),
+        images: z.string().min(1),
+        messenger: z.object({ ws: z.string().min(1) }).strict(),
+        realtime: z.object({ http: z.string().min(1) }).strict(),
+        relay: z.object({ ws: z.string().min(1) }).strict()
+    })
+    .strict()
+
+export const hostedEditorConfigSchema = z
+    .object({
+        project: z
+            .object({
+                id: z.string().min(1),
+                name: z.string().min(1),
+                private: z.literal(true),
+                permissions: z
+                    .object({
+                        read: z.array(z.string().min(1)).min(1),
+                        write: z.array(z.string().min(1)).min(1),
+                        admin: z.array(z.string().min(1)).max(0)
+                    })
+                    .strict(),
+                settings: z.object({ engineV2: z.boolean() }).passthrough(),
+                playUrl: z.string().min(1)
+            })
+            .strict(),
+        scene: z.object({ id: z.string().min(1), uniqueId: z.string().min(1) }).strict(),
+        self: z
+            .object({
+                id: z.string().min(1),
+                username: z.string().min(1),
+                branch: z.object({ id: z.string().min(1), name: z.string().min(1), merge: z.null() }).strict(),
+                flags: z
+                    .object({
+                        openedEditor: z.literal(true),
+                        superUser: z.literal(false),
+                        tips: z.object({ howdoi: z.boolean() }).strict()
+                    })
+                    .strict()
+            })
+            .strict(),
+        owner: z.object({ id: z.string().min(1), username: z.string().min(1), size: z.number().int().min(0) }).strict(),
+        branch: z.object({ id: z.string().min(1), name: z.string().min(1) }).strict(),
+        url: hostedEditorUrlSchema,
+        aws: z.object({ s3Prefix: z.string() }).strict(),
+        schema: z.object({ asset: z.unknown(), scene: z.unknown(), settings: z.unknown() }).passthrough(),
+        engineVersions: z.record(z.unknown()),
+        sentry: z.object({ enabled: z.literal(false) }).strict(),
+        accessToken: z.string().max(0),
+        selfHosted: z.literal(true),
+        universoHosted: z.literal(true),
+        universoBridge: z.unknown().nullable()
+    })
+    .strict()
+
+const getLocalizedName = (value, fallback) => {
+    if (!value || typeof value !== 'object') return fallback
+    const primary = typeof value._primary === 'string' ? value._primary : null
+    const primaryContent = primary && value.locales?.[primary]?.content
+    if (typeof primaryContent === 'string' && primaryContent.trim()) return primaryContent.trim()
+    const first = Object.values(value.locales || {}).find((entry) => typeof entry?.content === 'string' && entry.content.trim())
+    return typeof first?.content === 'string' ? first.content.trim() : fallback
+}
+
+export const createHostedEditorConfig = (descriptor, artifactBaseUrl = 'http://127.0.0.1/editor/') => {
+    const selectedProject = descriptor?.selectedProject || null
+    const project = selectedProject?.project || null
+    const projectId = typeof project?.id === 'string' && project.id ? project.id : 'universo-artifact-project'
+    const sceneId =
+        typeof selectedProject?.defaultSceneId === 'string' && selectedProject.defaultSceneId
+            ? selectedProject.defaultSceneId
+            : 'universo-artifact-scene'
+    const projectName = getLocalizedName(project?.displayName, 'Universo Project')
+    const base = new URL(artifactBaseUrl)
+
+    const config = {
+        project: {
+            id: projectId,
+            name: projectName,
+            private: true,
+            permissions: { read: [projectId], write: [projectId], admin: [] },
+            settings: { engineV2: true },
+            playUrl: '/'
+        },
+        scene: { id: sceneId, uniqueId: sceneId },
+        self: {
+            id: 'universo-editor-user',
+            username: 'universo',
+            branch: { id: 'universo-local-branch', name: 'Main', merge: null },
+            flags: { openedEditor: true, superUser: false, tips: { howdoi: true } }
+        },
+        owner: { id: 'universo-owner', username: 'universo', size: 0 },
+        branch: { id: 'universo-local-branch', name: 'Main' },
+        url: {
+            api: '/',
+            home: '/',
+            frontend: base.href,
+            engine: new URL('js/playcanvas-engine.js', base).href,
+            images: '/',
+            messenger: { ws: 'ws://127.0.0.1/disabled' },
+            realtime: { http: 'http://127.0.0.1/disabled' },
+            relay: { ws: 'ws://127.0.0.1/disabled' }
+        },
+        aws: { s3Prefix: '' },
+        schema: {
+            asset: { type: { $enum: ['script', 'texture', 'material', 'model', 'json', 'template'] } },
+            animstategraphData: {},
+            materialData: {},
+            scene: {
+                entities: {
+                    $of: {
+                        components: {
+                            camera: { enabled: { $type: 'boolean', $default: true } },
+                            light: { enabled: { $type: 'boolean', $default: true } },
+                            render: { enabled: { $type: 'boolean', $default: true } },
+                            script: {
+                                enabled: { $type: 'boolean', $default: true },
+                                scripts: { $type: 'array', $default: [] },
+                                order: { $type: 'array', $default: [] }
+                            }
+                        }
+                    }
+                },
+                settings: { physics: {}, render: {} }
+            },
+            settings: {
+                width: { $type: 'number', $default: 1280, $scope: 'project' },
+                height: { $type: 'number', $default: 720, $scope: 'project' },
+                useLegacyScripts: { $type: 'boolean', $default: false, $scope: 'project' },
+                editor: { $type: 'object', $default: {}, $scope: 'user' }
+            }
+        },
+        engineVersions: {},
+        sentry: { enabled: false },
+        accessToken: '',
+        selfHosted: true,
+        universoHosted: true,
+        universoBridge: descriptor || null
+    }
+
+    return hostedEditorConfigSchema.parse(config)
+}
 
 const currentFile = fileURLToPath(import.meta.url)
 export const packageRoot = path.resolve(path.dirname(currentFile), '..', '..')
@@ -421,12 +570,105 @@ export const writeBridgeBootstrap = (targetRoot) => {
     const payload = payloadOverride && typeof payloadOverride === 'object' ? payloadOverride : serializeCurrentScene();
     marker.saving = true;
     try {
-      const response = await sendBridgeCommand('scene.save', {
-        projectId,
-        sceneId,
-        expectedCurrentChecksum: marker.currentSceneChecksum || null,
-        payload
-      });
+      const compatibilityConfig =
+        marker.compatibilityConfig ||
+        (marker.compatibilityConfigPromise ? await marker.compatibilityConfigPromise.catch(() => null) : null);
+      let response;
+      if (
+        compatibilityConfig?.auth?.scheme === 'signed-header' &&
+        typeof compatibilityConfig.auth.accessToken === 'string' &&
+        typeof compatibilityConfig.auth.headerName === 'string' &&
+        typeof compatibilityConfig.endpoints?.scenes === 'string'
+      ) {
+        if (!marker.currentSceneChecksum) {
+          const sceneReadResponse = await fetch(compatibilityConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId), {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              [compatibilityConfig.auth.headerName]: compatibilityConfig.auth.accessToken
+            },
+            cache: 'no-store'
+          })
+            .then((readResponse) => (readResponse.ok ? readResponse.json() : null))
+            .catch(() => null);
+          marker.currentSceneChecksum =
+            sceneReadResponse?.item?.scene?.checksum ||
+            sceneReadResponse?.item?.checksum ||
+            sceneReadResponse?.scene?.checksum ||
+            sceneReadResponse?.checksum ||
+            marker.currentSceneChecksum ||
+            null;
+        }
+        let csrfToken =
+          typeof marker.compatibilityCsrfToken?.token === 'string' && marker.compatibilityCsrfToken.token
+            ? marker.compatibilityCsrfToken.token
+            : null;
+        const csrfHeaderName =
+          (typeof marker.compatibilityCsrfToken?.headerName === 'string' && marker.compatibilityCsrfToken.headerName) ||
+          compatibilityConfig.csrf?.headerName ||
+          'X-CSRF-Token';
+        if (!csrfToken) {
+          const csrf = await fetch(compatibilityConfig.csrf?.tokenUrl || '/api/v1/auth/csrf', {
+            credentials: 'include',
+            cache: 'no-store'
+          })
+            .then((csrfResponse) => (csrfResponse.ok ? csrfResponse.json() : null))
+            .catch(() => null);
+          csrfToken =
+            typeof csrf?.token === 'string'
+              ? csrf.token
+              : typeof csrf?.csrfToken === 'string'
+                ? csrf.csrfToken
+                : typeof csrf?.item?.token === 'string'
+                  ? csrf.item.token
+                  : null;
+        }
+        const restResponse = await fetch(compatibilityConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId), {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            [compatibilityConfig.auth.headerName]: compatibilityConfig.auth.accessToken,
+            'content-type': 'application/json',
+            ...(csrfToken ? { [csrfHeaderName]: csrfToken } : {})
+          },
+          body: JSON.stringify({
+            requestId: createUuidV7(),
+            expectedCurrentChecksum: marker.currentSceneChecksum || null,
+            payload
+          })
+        });
+        const body = await restResponse.json().catch(() => null);
+        if (!restResponse.ok || !body?.ok) {
+          const error = new Error('PlayCanvas Editor compatibility REST save failed');
+          error.ok = false;
+          error.status = restResponse.status;
+          error.code =
+            typeof body?.code === 'string' ? body.code : restResponse.status === 409 ? 'saveConflict' : 'saveFailed';
+          error.requestId = typeof body?.requestId === 'string' ? body.requestId : undefined;
+          error.response = body;
+          window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
+            type: 'bridge.saveError',
+            ok: false,
+            code: error.code,
+            status: error.status,
+            requestId: error.requestId,
+            sessionId: bridgeSessionId,
+            nonce: bridgeNonce,
+            source: 'universo-playcanvas-editor-artifact'
+          });
+          throw error;
+        }
+        response = { ok: true, data: body.item, requestId: body.requestId };
+        marker.lastCompatibilityRestSave = body;
+      } else {
+        response = await sendBridgeCommand('scene.save', {
+          projectId,
+          sceneId,
+          expectedCurrentChecksum: marker.currentSceneChecksum || null,
+          payload
+        });
+        marker.lastBridgeSave = response;
+      }
       marker.lastSavedScene = response;
       marker.currentSceneChecksum = response?.data?.checksum || response?.data?.scene?.checksum || marker.currentSceneChecksum || null;
       marker.dirty = false;
@@ -555,6 +797,25 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return typeof first?.content === 'string' ? first.content.trim() : fallback;
   };
 
+  const assertHostedConfig = (config) => {
+    if (!config || typeof config !== 'object') throw new Error('Hosted Editor config is missing');
+    if (!config.project?.id || !config.project?.name) throw new Error('Hosted Editor project config is incomplete');
+    if (!config.scene?.id || !config.scene?.uniqueId) throw new Error('Hosted Editor scene config is incomplete');
+    if (!Array.isArray(config.project.permissions?.read) || !Array.isArray(config.project.permissions?.write)) {
+      throw new Error('Hosted Editor permission config is incomplete');
+    }
+    if (!Array.isArray(config.project.permissions?.admin) || config.project.permissions.admin.length !== 0) {
+      throw new Error('Hosted Editor config must not grant synthetic admin privileges');
+    }
+    if (config.self?.flags?.superUser !== false) {
+      throw new Error('Hosted Editor config must not grant synthetic superUser privileges');
+    }
+    if (!config.url?.frontend || !config.url?.engine || !config.schema?.scene || !config.schema?.settings) {
+      throw new Error('Hosted Editor upstream boot config is incomplete');
+    }
+    return config;
+  };
+
   const createHostedConfig = (descriptor) => {
     const selectedProject = descriptor?.selectedProject || null;
     const project = selectedProject?.project || null;
@@ -566,12 +827,12 @@ export const writeBridgeBootstrap = (targetRoot) => {
     const projectName = getLocalizedName(project?.displayName, 'Universo Project');
     const artifactBaseUrl = new URL('./', window.location.href).href;
 
-    return {
+    return assertHostedConfig({
       project: {
         id: projectId,
         name: projectName,
         private: true,
-        permissions: { read: [projectId], write: [projectId], admin: [projectId] },
+        permissions: { read: [projectId], write: [projectId], admin: [] },
         settings: { engineV2: true },
         playUrl: '/'
       },
@@ -580,7 +841,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         id: 'universo-editor-user',
         username: 'universo',
         branch: { id: 'universo-local-branch', name: 'Main', merge: null },
-        flags: { openedEditor: true, superUser: true, tips: { howdoi: true } }
+        flags: { openedEditor: true, superUser: false, tips: { howdoi: true } }
       },
       owner: { id: 'universo-owner', username: 'universo', size: 0 },
       branch: { id: 'universo-local-branch', name: 'Main' },
@@ -629,7 +890,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       selfHosted: true,
       universoHosted: true,
       universoBridge: descriptor || null
-    };
+    });
   };
 
   const loadEditorBundle = () => {
@@ -670,13 +931,35 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	  };
 
   const bootstrapProjectStorage = (descriptor) => {
-    const selectedProject = descriptor?.selectedProject || null;
-    const projectId = selectedProject?.project?.id;
-    const sceneId = selectedProject?.defaultSceneId;
-    if (typeof projectId !== 'string' || !projectId) return;
+	    const selectedProject = descriptor?.selectedProject || null;
+	    const projectId = selectedProject?.project?.id;
+	    const sceneId = selectedProject?.defaultSceneId;
+	    if (typeof projectId !== 'string' || !projectId) return;
+    if (descriptor?.compatibilityConfig && typeof descriptor.compatibilityConfig === 'object') {
+      marker.compatibilityConfig = descriptor.compatibilityConfig;
+      marker.compatibilityConfigReady = true;
+      if (window.config) {
+        window.config.universoCompatibilityConfig = marker.compatibilityConfig;
+      }
+    }
+    if (
+      descriptor?.compatibilityCsrfToken &&
+      typeof descriptor.compatibilityCsrfToken === 'object' &&
+      typeof descriptor.compatibilityCsrfToken.token === 'string' &&
+      typeof descriptor.compatibilityCsrfToken.headerName === 'string'
+    ) {
+      marker.compatibilityCsrfToken = {
+        token: descriptor.compatibilityCsrfToken.token,
+        headerName: descriptor.compatibilityCsrfToken.headerName
+      };
+    }
 
-    void (async () => {
-      try {
+	    void (async () => {
+	      try {
+        marker.compatibilityProtocol = await sendBridgeCommand('protocol.describe');
+        if (window.config) {
+          window.config.universoCompatibilityProtocol = marker.compatibilityProtocol?.data?.protocol || null;
+        }
         marker.lastLoadedProject = await sendBridgeCommand('project.loadSelected');
         const loadedSelectedProject = applyLoadedProjectResponse(marker.lastLoadedProject);
         const activeProjectId = loadedSelectedProject?.project?.id || projectId;
@@ -687,9 +970,41 @@ export const writeBridgeBootstrap = (targetRoot) => {
           marker.currentSceneChecksum =
             marker.lastLoadedScene?.data?.scene?.checksum || marker.lastLoadedScene?.data?.checksum || marker.currentSceneChecksum || null;
 	        }
+        const compatibilityConfigUrl =
+          '/api/v1/metahub/' +
+          encodeURIComponent(descriptor.metahubId || '') +
+          '/playcanvas/editor-compatible/projects/' +
+          encodeURIComponent(activeProjectId) +
+          '/config';
+        if (!marker.compatibilityConfig && descriptor.metahubId) {
+          marker.compatibilityConfigReady = false;
+          marker.compatibilityConfigPromise = fetch(compatibilityConfigUrl, {
+            credentials: 'include',
+            cache: 'no-store'
+          })
+            .then(async (compatibilityConfigResponse) => {
+              if (!compatibilityConfigResponse.ok) return null;
+              const compatibilityConfigBody = await compatibilityConfigResponse.json();
+              return compatibilityConfigBody?.item || null;
+            })
+            .then((compatibilityConfig) => {
+              marker.compatibilityConfig = compatibilityConfig;
+              marker.compatibilityConfigReady = true;
+              if (window.config) {
+                window.config.universoCompatibilityConfig = marker.compatibilityConfig;
+              }
+              return compatibilityConfig;
+            })
+            .catch((error) => {
+              marker.compatibilityConfigReady = false;
+              marker.compatibilityConfigError = error;
+              return null;
+            });
+          await marker.compatibilityConfigPromise;
+        }
         installEditorSaveAdapter();
-	      } catch (error) {
-	        marker.storageError = error;
+		      } catch (error) {
+		        marker.storageError = error;
 	      }
     })();
   };

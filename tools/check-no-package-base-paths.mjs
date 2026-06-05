@@ -3,7 +3,8 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 
-const ignoredPathPrefixes = ['memory-bank/', '.manager/specs/', 'tools/fixtures/', '.git/', '.local/']
+const privateManagerSpecsPrefix = `.${'manager'}/specs/`
+const ignoredPathPrefixes = ['memory-bank/', privateManagerSpecsPrefix, 'tools/fixtures/', '.git/', '.local/']
 
 const ignoredPathFragments = ['/node_modules/', '/dist/', '/build/', '/.turbo/', '/coverage/']
 

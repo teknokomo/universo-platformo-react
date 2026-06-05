@@ -203,7 +203,7 @@
             "packageName": "@universo-react/playcanvas-editor-frontend",
             "importName": "@universo-react/playcanvas-editor-frontend",
             "upstreamPackageName": "playcanvas-editor",
-            "upstreamVersion": "2026-05-31-vendor",
+            "upstreamVersion": "2026-06-05-vendor",
             "runtimeTargets": []
         },
         "authoringSurface": {

@@ -13,9 +13,9 @@ The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it is
 -   Workspace package: `packages/universo-react-playcanvas-editor-frontend/`
 -   Package name: `@universo-react/playcanvas-editor-frontend`
 -   Upstream repository: `https://github.com/playcanvas/editor`
--   Upstream tag: `v2.22.1`
--   Upstream commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
--   Upstream package version: `2.22.1`
+-   Upstream tag: `v2.23.4`
+-   Upstream commit: `c4916f4973963341984499f2d919f8bfd38e417c`
+-   Upstream package version: `2.23.4`
 -   Required Node.js version for Editor build: `>=22.22.0`
 -   Default artifact mode: `universo-hosted`
 -   Fallback artifact mode: `artifact-only`
@@ -68,9 +68,9 @@ Metahub copy, snapshot export, and snapshot import preserve these package displa
 
 The authoring host descriptor includes `playcanvasEditor` when the attached package can open an Universo-hosted bridge session. The MUI host sends typed commands to `POST /metahub/{metahubId}/playcanvas/editor-bridge/commands` with `sessionToken` in the JSON body and a command envelope containing UUID v7 `requestId`, UUID v7 `sessionId`, and the session `nonce`.
 
-The first bridge contract supports `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close`, and `bridge.dirtyState`. `scene.save` uses replay protection keyed by `requestId` and returns the stored success response for safe duplicate retries. If the saved scene checksum changed, the backend returns `saveConflict` with HTTP 409 and the host shows a localized conflict dialog instead of leaking raw storage details.
+The first bridge contract supports `protocol.describe`, `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close`, and `bridge.dirtyState`. `protocol.describe` exposes the current minimal compatibility descriptor for the upstream `v2.23.4` Editor slice: single-user identity, branch-equivalent context, cloud-only no-op surfaces, and explicit non-parity for ShareDB realtime and messenger endpoints. The isolated compatibility namespace also exposes manager-only same-origin REST endpoints for `config`, `scenes`, `assets`, `settings`, and typed `cloud-only` no-op responses under `/api/v1/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}`. The compatibility `config` includes a short-lived signed-header token contract: send `auth.accessToken` as `X-PlayCanvas-Editor-Token` on compatibility REST requests while keeping the normal authenticated platform session. Mutations also use the standard CSRF contract: fetch `/api/v1/auth/csrf` and send the returned token as `X-CSRF-Token`. This REST surface persists single-user scene payloads and scoped settings through existing metahub PlayCanvas project storage; it is not a full PlayCanvas Cloud-compatible API, does not provide ShareDB op persistence, and does not implement collaboration or cloud jobs. Scene saves and scoped settings writes use replay protection keyed by `requestId` and return the stored success response for safe duplicate retries. If the saved scene checksum changed, the backend returns `saveConflict` with HTTP 409 and the host shows a localized conflict dialog instead of leaking raw storage details.
 
-The hosted artifact serializes scene data from the Editor-side `entities:list` and `assets:list` APIs. When the upstream Editor bundle does not initialize the entity API in the sandboxed hosted mode, the artifact installs a minimal hosted entity adapter behind the same `editor.call('entities:new')` and `editor.call('entities:list')` methods. This keeps authoring actions visible inside the iframe, marks the bridge dirty through `entities:add`, and still saves through the normal `scene.save` command instead of staging synthetic payloads from the parent page.
+The hosted artifact serializes scene data from the Editor-side `entities:list` and `assets:list` APIs. When the upstream Editor bundle does not initialize the entity API in the sandboxed hosted mode, the artifact installs a minimal hosted entity adapter behind the same `editor.call('entities:new')` and `editor.call('entities:list')` methods. This keeps authoring actions visible inside the iframe, marks the bridge dirty through `entities:add`, and saves through compatibility REST when `config` is available, with `scene.save` retained only as a bootstrap/fallback bridge command.
 
 ## Troubleshooting
 

@@ -35,10 +35,11 @@ The backend exposes storage-model endpoints and the first manager-only Editor br
 -   asset metadata and asset-scoped file reads/writes under `/projects/{projectId}/assets`;
 -   script asset, scene binding, generated artifact, publish, and export endpoints.
 -   typed Editor bridge commands at `/metahub/{metahubId}/playcanvas/editor-bridge/commands`.
+-   minimal Editor compatibility REST under `/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}` for `config`, scene list/read/save, asset summaries, scoped settings, and explicit cloud-only no-op descriptors.
 
 All routes require metahub management permission and use no-store responses for mutable authoring state. File writes are limited to small JSON/JS/MJS payloads, strict base64 bodies, MIME allow-listing, project-local paths, and optional SHA-256 content assertions. Asset-scoped file routes validate that `{assetId}` already points at the requested file reference.
 
-The current bridge slice supports selected project loading, scene list/read/save, minimal JSON asset metadata, bridge capabilities, close, and dirty-state messages. It is a bounded Universo-hosted bridge, not PlayCanvas Cloud API parity.
+The current bridge and compatibility REST slices support selected project loading, scene list/read/save, minimal JSON asset metadata, scoped settings, bridge capabilities, close, and dirty-state messages. They are bounded Universo-hosted authoring surfaces, not PlayCanvas Cloud API parity, and they do not provide ShareDB operation persistence or collaborative editing.
 
 ## Snapshots and Copy
 

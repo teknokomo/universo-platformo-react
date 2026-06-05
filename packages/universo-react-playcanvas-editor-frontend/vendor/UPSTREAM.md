@@ -1,12 +1,12 @@
 # Upstream PlayCanvas Editor
 
 -   Repository: https://github.com/playcanvas/editor
--   Tag: `v2.22.1`
--   Commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
+-   Tag: `v2.23.4`
+-   Commit: `c4916f4973963341984499f2d919f8bfd38e417c`
 -   Upstream package: `@playcanvas/editor`
--   Upstream package version: `2.22.1`
+-   Upstream package version: `2.23.4`
 -   Upstream Node requirement: `>=22.22.0`
--   Snapshot date: 2026-05-31
+-   Snapshot date: 2026-06-05
 -   License: MIT
 -   Copyright: `Copyright (c) 2011-2026 PlayCanvas Ltd.`
 
@@ -14,7 +14,9 @@
 
 The upstream source is kept under `vendor/playcanvas-editor/` as an isolated artifact source tree. The upstream manifest is stored as `vendor/package.playcanvas-editor.json` instead of `package.json` so the Universo workspace and recursive package checks do not treat it as a workspace package or active package manifest.
 
-The first foundation slice uses artifact-only smoke mode. It proves that the pinned Editor frontend can be built from the Universo package boundary and that the resulting artifact can be served as static files. It does not prove PlayCanvas-hosted project persistence, asset upload, collaboration, backend API emulation, or metahub storage.
+The default local artifact mode is `universo-hosted`. It builds the pinned upstream Editor frontend, serves it from the Universo package boundary, injects the bounded Universo bridge bootstrap, and persists the current bridge-minimal scene payload through metahub PlayCanvas project storage. The `artifact-only` mode remains as an explicit fail-closed placeholder for diagnostics.
+
+This boundary still does not claim PlayCanvas Cloud parity: PlayCanvas-shaped REST, durable ShareDB realtime, messenger, broad asset upload, collaboration, and full upstream backend API emulation remain outside the current bridge-minimal slice.
 
 ## Local Changes
 

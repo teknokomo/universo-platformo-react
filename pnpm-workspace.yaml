@@ -10,6 +10,7 @@ packages:
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
     - qs
+    - playcanvas
 
 # blockExoticSubdeps: only direct deps may use git repos / tarball URLs;
 # transitive deps must come from the registry.

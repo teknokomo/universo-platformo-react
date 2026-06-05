@@ -57,6 +57,7 @@
         "@universo-react/migrations-catalog": "workspace:*",
         "@universo-react/migrations-core": "workspace:*",
         "@universo-react/profile-backend": "workspace:*",
+        "@universo-react/playcanvas-editor-backend": "workspace:*",
         "@universo-react/schema-ddl": "workspace:*",
         "@universo-react/types": "workspace:*",
         "@universo-react/utils": "workspace:*",

@@ -63,6 +63,7 @@ export type PackageAuthoringSurfaceDescriptor = PackageAuthoringSurfaceNoneDescr
 export type PackageArtifactStatus = 'available' | 'missing' | 'disabled' | 'blocked' | 'misconfigured'
 
 export interface PackageAuthoringHostDescriptor {
+    metahubId: string
     packageSlug: string
     packageName: string
     version: string

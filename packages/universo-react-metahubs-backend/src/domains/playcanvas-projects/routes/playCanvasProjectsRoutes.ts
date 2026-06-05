@@ -1,23 +1,82 @@
 import { Router, type RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import {
+    createPlayCanvasEditorCompatibilityRoutes,
+    createPlayCanvasEditorCompatibilityTokenService
+} from '@universo-react/playcanvas-editor-backend'
+import type { PlayCanvasEditorCompatibilityContext } from '@universo-react/playcanvas-editor-backend'
 import type { DbExecutor } from '../../../utils'
 import { asyncHandler } from '../../shared/asyncHandler'
 import { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
+import type { MetahubHandlerContext } from '../../shared/createMetahubHandler'
 import { createPlayCanvasProjectsController } from '../controllers/playCanvasProjectsController'
+import { PlayCanvasProjectsService } from '../services/PlayCanvasProjectsService'
 
 export function createPlayCanvasProjectsRoutes(
     ensureAuth: RequestHandler,
     getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
-    writeLimiter: RateLimitRequestHandler
+    writeLimiter: RateLimitRequestHandler,
+    csrfProtection: RequestHandler
 ): Router {
     const router = Router({ mergeParams: true })
     router.use(ensureAuth)
 
     const createHandler = createMetahubHandlerFactory(getDbExecutor)
     const ctrl = createPlayCanvasProjectsController(createHandler)
+    const tokenService = createPlayCanvasEditorCompatibilityTokenService()
+    const compatibilityRoutes = createPlayCanvasEditorCompatibilityRoutes({
+        readLimiter,
+        writeLimiter,
+        csrfProtection,
+        tokenService,
+        createHandler: (handler, options) =>
+            createHandler(async (ctx) => handler(ctx as MetahubHandlerContext & PlayCanvasEditorCompatibilityContext), options),
+        createProjectPort: (ctx) => {
+            const requestContext = ctx as unknown as MetahubHandlerContext
+            const service = new PlayCanvasProjectsService(requestContext.exec, requestContext.schemaService)
+            return {
+                describeProtocol: ({ metahubId, projectId, userId }) =>
+                    service.describeEditorCompatibilityProtocol(metahubId, projectId, userId),
+                resolveProject: ({ metahubId, projectId, userId }) => service.getProject(metahubId, projectId, userId),
+                listScenes: ({ metahubId, projectId, userId }) => service.listScenes(metahubId, projectId, userId),
+                readScene: ({ metahubId, projectId, sceneId, userId }) => service.readEditorScene(metahubId, projectId, sceneId, userId),
+                saveScene: ({ metahubId, projectId, sceneId, userId, requestId, payload, expectedCurrentChecksum }) =>
+                    service.saveEditorCompatibilityScene(
+                        metahubId,
+                        projectId,
+                        sceneId,
+                        { requestId, payload, expectedCurrentChecksum },
+                        userId
+                    ),
+                listAssets: async ({ metahubId, projectId, userId }) => {
+                    const assets = await service.listAssets(metahubId, projectId, userId)
+                    return assets.map((asset) => ({
+                        id: asset.id,
+                        stableAssetId: asset.stableAssetId,
+                        type: asset.type,
+                        name: asset.name,
+                        virtualPath: asset.virtualPath.length > 0 ? asset.virtualPath.join('/') : '/',
+                        mime: asset.file?.mime ?? null,
+                        hash: asset.file?.hash ?? null,
+                        size: asset.file?.size ?? null
+                    }))
+                },
+                readSettings: ({ metahubId, projectId, userId, kind }) =>
+                    service.readEditorCompatibilitySettings(metahubId, projectId, kind, userId),
+                writeSettings: ({ metahubId, projectId, userId, kind, requestId, data, expectedRevision }) =>
+                    service.writeEditorCompatibilitySettings(metahubId, projectId, kind, { data, expectedRevision, requestId }, userId)
+            }
+        }
+    })
 
     router.post('/metahub/:metahubId/playcanvas/editor-bridge/commands', writeLimiter, asyncHandler(ctrl.editorBridgeCommand))
+    router.use('/', compatibilityRoutes)
+    router.get(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/protocol',
+        readLimiter,
+        asyncHandler(ctrl.editorCompatibleProtocol)
+    )
     router.get('/metahub/:metahubId/playcanvas/projects', readLimiter, asyncHandler(ctrl.list))
     router.post('/metahub/:metahubId/playcanvas/projects', writeLimiter, asyncHandler(ctrl.create))
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId', readLimiter, asyncHandler(ctrl.getById))

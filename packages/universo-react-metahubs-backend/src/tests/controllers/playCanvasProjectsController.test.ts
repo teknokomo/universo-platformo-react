@@ -435,6 +435,253 @@ describe('createPlayCanvasProjectsController permissions', () => {
         loadSelectedProjectForEditor.mockRestore()
     })
 
+    it('returns the minimal compatibility protocol descriptor through the existing bridge boundary', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const requestId = '019e8afa-0000-7000-8000-000000000002'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            userId: 'user-1',
+            capabilities: ['protocol.describe']
+        })
+        const describeEditorCompatibilityProtocol = jest
+            .spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol')
+            .mockResolvedValue({
+                schemaVersion: '1',
+                mode: 'universo-bridge-minimal',
+                upstream: {
+                    repository: 'https://github.com/playcanvas/editor',
+                    minimumTag: 'v2.23.4'
+                },
+                project: { id: projectId, defaultSceneId: projectId },
+                defaultSceneId: projectId,
+                identity: {
+                    self: { id: 'user-1', role: 'designer' },
+                    owner: { id: 'metahub-1', type: 'metahub' },
+                    permissions: { read: true, write: true, admin: false },
+                    branch: { id: projectId, name: 'Main', active: true },
+                    teams: [],
+                    organizations: []
+                },
+                endpoints: {
+                    rest: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' },
+                    realtime: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' },
+                    messenger: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' }
+                },
+                shareDb: {
+                    requiredCollections: ['scenes', 'assets', 'settings'],
+                    persisted: false,
+                    persistence: 'not-implemented',
+                    sceneStorage: 'metahub-playcanvas-project-storage'
+                },
+                cloudOnly: {
+                    store: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    jobs: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    branchesCheckpoints: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    sourcefiles: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    publishing: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    usersCollaboration: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    assetPipeline: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' }
+                },
+                documents: {
+                    codeEditorSourcefiles: { status: 'unsupported', reason: 'codeEditorSourcefilesOutsideFirstSlice' }
+                },
+                settingsDocuments: {
+                    user: 'user_user-1',
+                    projectUser: `project_${projectId}_user-1`,
+                    projectPrivate: `project-private_${projectId}`
+                }
+            } as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'protocol.describe',
+                        requestId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(describeEditorCompatibilityProtocol).toHaveBeenCalledWith('metahub-1', projectId, 'user-1')
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: true,
+                requestId,
+                data: {
+                    protocol: expect.objectContaining({
+                        mode: 'universo-bridge-minimal',
+                        defaultSceneId: projectId
+                    })
+                }
+            })
+        )
+
+        describeEditorCompatibilityProtocol.mockRestore()
+    })
+
+    it('exposes a read-only editor-compatible protocol namespace without bridge session tokens', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const describeEditorCompatibilityProtocol = jest
+            .spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol')
+            .mockResolvedValue({
+                schemaVersion: '1',
+                mode: 'universo-bridge-minimal',
+                upstream: {
+                    repository: 'https://github.com/playcanvas/editor',
+                    minimumTag: 'v2.23.4'
+                },
+                project: null,
+                defaultSceneId: null,
+                identity: {
+                    self: { id: 'user-1', role: 'designer' },
+                    owner: { id: 'metahub-1', type: 'metahub' },
+                    permissions: { read: true, write: true, admin: false },
+                    branch: { id: projectId, name: 'Main', active: true },
+                    teams: [],
+                    organizations: []
+                },
+                endpoints: {
+                    rest: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' },
+                    realtime: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' },
+                    messenger: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' }
+                },
+                shareDb: {
+                    requiredCollections: ['scenes', 'assets', 'settings'],
+                    persisted: false,
+                    persistence: 'not-implemented',
+                    sceneStorage: 'metahub-playcanvas-project-storage'
+                },
+                cloudOnly: {
+                    store: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    jobs: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    branchesCheckpoints: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    sourcefiles: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    publishing: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    usersCollaboration: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                    assetPipeline: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' }
+                },
+                documents: {
+                    codeEditorSourcefiles: { status: 'unsupported', reason: 'codeEditorSourcefilesOutsideFirstSlice' }
+                },
+                settingsDocuments: {
+                    user: 'user_user-1',
+                    projectUser: `project_${projectId}_user-1`,
+                    projectPrivate: `project-private_${projectId}`
+                }
+            } as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            json: jest.fn()
+        }
+
+        await ctrl.editorCompatibleProtocol({
+            req: {
+                params: { projectId }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec: { query: jest.fn() },
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(describeEditorCompatibilityProtocol).toHaveBeenCalledWith('metahub-1', projectId, 'user-1')
+        expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store')
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                item: expect.objectContaining({
+                    mode: 'universo-bridge-minimal',
+                    endpoints: expect.objectContaining({
+                        realtime: expect.objectContaining({ status: 'disabled' })
+                    })
+                })
+            })
+        )
+
+        describeEditorCompatibilityProtocol.mockRestore()
+    })
+
     it('returns a stored successful bridge save response for duplicate retries', async () => {
         const projectId = '019e8afa-0000-7000-8000-000000000001'
         const sceneId = '019e8afa-0000-7000-8000-000000000002'
@@ -561,6 +808,253 @@ describe('createPlayCanvasProjectsController permissions', () => {
         expect(saveEditorScene).not.toHaveBeenCalled()
         expect(res.status).not.toHaveBeenCalledWith(409)
         expect(res.json).toHaveBeenCalledWith(storedResponse)
+
+        saveEditorScene.mockRestore()
+    })
+
+    it('returns stored bridge save responses when retry payload keys are ordered differently', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const requestId = '019e8afa-0000-7000-8000-000000000005'
+        const saveResult = {
+            checksum: 'b'.repeat(64),
+            scene: {
+                id: sceneId,
+                checksum: 'b'.repeat(64)
+            }
+        }
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const saveEditorScene = jest.spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene').mockResolvedValue(saveResult as never)
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const firstRes = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        firstRes.status.mockReturnValue(firstRes)
+        const retryRes = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        retryRes.status.mockReturnValue(retryRes)
+        const replayRows = new Map<string, { value: unknown }>()
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-hosted'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId: projectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) {
+                    const key = String(params?.[1] ?? '')
+                    if (replayRows.has(key)) {
+                        return []
+                    }
+                    replayRows.set(key, { value: JSON.parse(String(params?.[2])) })
+                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_app_settings')) {
+                    const [key, sessionId, storedRequestId, commandType, fingerprint, response] = params ?? []
+                    const current = replayRows.get(String(key))?.value as
+                        | {
+                              sessionId?: string
+                              requestId?: string
+                              commandType?: string
+                              fingerprint?: string
+                          }
+                        | undefined
+                    if (
+                        current?.sessionId === sessionId &&
+                        current.requestId === storedRequestId &&
+                        current.commandType === commandType &&
+                        current.fingerprint === fingerprint
+                    ) {
+                        replayRows.set(String(key), {
+                            value: {
+                                ...current,
+                                status: 'completed',
+                                response: JSON.parse(String(response))
+                            }
+                        })
+                        return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
+                    }
+                    return []
+                }
+                if (sql.includes('SELECT') && sql.includes('_app_settings')) {
+                    const [key, sessionId, storedRequestId, commandType, fingerprint] = params ?? []
+                    const row = replayRows.get(String(key))
+                    const value = row?.value as
+                        | {
+                              sessionId?: string
+                              requestId?: string
+                              commandType?: string
+                              fingerprint?: string
+                          }
+                        | undefined
+                    if (
+                        value?.sessionId === sessionId &&
+                        value.requestId === storedRequestId &&
+                        value.commandType === commandType &&
+                        value.fingerprint === fingerprint
+                    ) {
+                        return [row]
+                    }
+                    return []
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+        const firstCommand = {
+            type: 'scene.save',
+            requestId,
+            sessionId: session.payload.sessionId,
+            nonce: session.payload.nonce,
+            projectId,
+            sceneId,
+            expectedCurrentChecksum: 'a'.repeat(64),
+            payload: {
+                schemaVersion: '1',
+                metadata: {
+                    alpha: 1,
+                    beta: 2
+                },
+                entities: [
+                    {
+                        id: 'entity-1',
+                        components: {
+                            render: { enabled: true, type: 'box' },
+                            script: { order: 1 }
+                        }
+                    }
+                ]
+            }
+        }
+        const retriedCommand = {
+            type: 'scene.save',
+            requestId,
+            sessionId: session.payload.sessionId,
+            nonce: session.payload.nonce,
+            projectId,
+            sceneId,
+            expectedCurrentChecksum: 'a'.repeat(64),
+            payload: {
+                entities: [
+                    {
+                        components: {
+                            script: { order: 1 },
+                            render: { type: 'box', enabled: true }
+                        },
+                        id: 'entity-1'
+                    }
+                ],
+                metadata: {
+                    beta: 2,
+                    alpha: 1
+                },
+                schemaVersion: '1'
+            }
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: firstCommand
+                }
+            },
+            res: firstRes,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: retriedCommand
+                }
+            },
+            res: retryRes,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(saveEditorScene).toHaveBeenCalledTimes(1)
+        expect(firstRes.status).not.toHaveBeenCalledWith(409)
+        expect(firstRes.json).toHaveBeenCalledWith({
+            ok: true,
+            requestId,
+            data: saveResult
+        })
+        expect(retryRes.status).not.toHaveBeenCalledWith(409)
+        expect(retryRes.json).toHaveBeenCalledWith({
+            ok: true,
+            requestId,
+            data: saveResult
+        })
 
         saveEditorScene.mockRestore()
     })
@@ -767,7 +1261,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
         saveEditorScene.mockRestore()
     })
 
-    it('rejects editor scene saves outside the session default scene', async () => {
+    it('releases replay claims when editor scene saves are outside the session default scene', async () => {
         const projectId = '019e8afa-0000-7000-8000-000000000001'
         const sceneId = '019e8afa-0000-7000-8000-000000000002'
         const otherSceneId = '019e8afa-0000-7000-8000-000000000007'
@@ -852,7 +1346,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
             })
         }
 
-        await ctrl.editorBridgeCommand({
+        const invalidSaveRequest = {
             req: {
                 body: {
                     sessionToken: session.token,
@@ -876,11 +1370,24 @@ describe('createPlayCanvasProjectsController permissions', () => {
             userId: 'user-1',
             exec,
             schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
-        } as never)
+        } as never
+
+        await ctrl.editorBridgeCommand(invalidSaveRequest)
+        await ctrl.editorBridgeCommand(invalidSaveRequest)
 
         expect(saveEditorScene).not.toHaveBeenCalled()
-        expect(res.status).toHaveBeenCalledWith(403)
-        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: false, code: 'unsupportedCapability', requestId }))
+        expect(res.status).toHaveBeenCalledTimes(2)
+        expect(res.status).toHaveBeenNthCalledWith(1, 403)
+        expect(res.status).toHaveBeenNthCalledWith(2, 403)
+        expect(res.status).not.toHaveBeenCalledWith(409)
+        expect(res.json).toHaveBeenCalledTimes(2)
+        expect(res.json).toHaveBeenNthCalledWith(1, expect.objectContaining({ ok: false, code: 'unsupportedCapability', requestId }))
+        expect(res.json).toHaveBeenNthCalledWith(2, expect.objectContaining({ ok: false, code: 'unsupportedCapability', requestId }))
+        expect(
+            jest
+                .mocked(exec.query)
+                .mock.calls.filter((call) => String(call[0]).includes('DELETE FROM') && String(call[0]).includes('_app_settings'))
+        ).toHaveLength(4)
 
         saveEditorScene.mockRestore()
     })

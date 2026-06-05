@@ -7,6 +7,23 @@ import {
     type PlayCanvasProjectSummary,
     type PlayCanvasScene
 } from './playcanvasProjects'
+import {
+    PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
+    PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
+    type PlayCanvasEditorCompatibilityIdentityDescriptor,
+    type PlayCanvasEditorCompatibilityProtocolDescriptor,
+    type PlayCanvasEditorCompatibilitySurfaceDescriptor
+} from './playcanvasEditorCompatibility'
+
+export {
+    PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
+    PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
+    playCanvasEditorCompatibilityIdentityDescriptorSchema,
+    playCanvasEditorCompatibilityProtocolDescriptorSchema,
+    type PlayCanvasEditorCompatibilityIdentityDescriptor,
+    type PlayCanvasEditorCompatibilityProtocolDescriptor,
+    type PlayCanvasEditorCompatibilitySurfaceDescriptor
+} from './playcanvasEditorCompatibility'
 
 export const PLAYCANVAS_EDITOR_BRIDGE_VERSION = '1' as const
 export const PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS = 5 * 60 * 1000
@@ -16,6 +33,7 @@ export const PLAYCANVAS_EDITOR_BRIDGE_MAX_SCENE_ASSETS = 2000
 export const PLAYCANVAS_EDITOR_BRIDGE_MAX_JSON_DEPTH = 24
 
 export const PLAYCANVAS_EDITOR_BRIDGE_CAPABILITIES = [
+    'protocol.describe',
     'project.loadSelected',
     'scene.list',
     'scene.read',
@@ -55,6 +73,23 @@ export const playCanvasEditorUuidV7Schema = z
         message: 'Expected UUID v7'
     })
 const persistedUuidSchema = z.string().uuid()
+
+export const playCanvasEditorBridgeSessionClaimsSchema = z
+    .object({
+        sessionId: playCanvasEditorUuidV7Schema,
+        metahubId: z.string().min(1).max(128),
+        packageSlug: z.string().min(1).max(128),
+        projectId: persistedUuidSchema.nullable(),
+        defaultSceneId: persistedUuidSchema.nullable().optional(),
+        userId: z.string().min(1).max(256),
+        nonce: z.string().min(32).max(256),
+        expiresAt: z.number().int().positive(),
+        bridgeVersion: z.literal(PLAYCANVAS_EDITOR_BRIDGE_VERSION),
+        capabilities: z.array(z.enum(PLAYCANVAS_EDITOR_BRIDGE_CAPABILITIES)).max(PLAYCANVAS_EDITOR_BRIDGE_MAX_CAPABILITIES)
+    })
+    .strict()
+
+export type PlayCanvasEditorBridgeSessionClaims = z.infer<typeof playCanvasEditorBridgeSessionClaimsSchema>
 
 export const playCanvasEditorSha256Schema = z.string().regex(/^[a-f0-9]{64}$/i)
 
@@ -196,6 +231,9 @@ export const playCanvasEditorBridgeCommandSchema = z.discriminatedUnion('type', 
         capabilities: z.array(z.enum(PLAYCANVAS_EDITOR_BRIDGE_CAPABILITIES)).max(PLAYCANVAS_EDITOR_BRIDGE_MAX_CAPABILITIES)
     }),
     commandBaseSchema.extend({
+        type: z.literal('protocol.describe')
+    }),
+    commandBaseSchema.extend({
         type: z.literal('project.loadSelected')
     }),
     commandBaseSchema.extend({
@@ -240,6 +278,7 @@ export const playCanvasEditorBridgeCommandSchema = z.discriminatedUnion('type', 
 export type PlayCanvasEditorBridgeCommand = z.infer<typeof playCanvasEditorBridgeCommandSchema>
 
 export type PlayCanvasEditorBridgeResultData =
+    | { protocol: PlayCanvasEditorCompatibilityProtocolDescriptor }
     | { project: PlayCanvasProjectSummary | null }
     | { scenes: Pick<PlayCanvasScene, 'id' | 'displayName' | 'codename' | 'checksum' | 'sortOrder' | 'publish'>[] }
     | { scene: PlayCanvasScene; payload: PlayCanvasEditorScenePayload | null }

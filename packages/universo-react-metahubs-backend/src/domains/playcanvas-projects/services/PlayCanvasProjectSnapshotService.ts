@@ -124,6 +124,43 @@ const isRuntimeReadyLocalFile = (file: PlayCanvasFileReference | null | undefine
     (file.status === undefined || file.status === 'ready')
 
 const isReadyStatus = (value: unknown): boolean => value === undefined || value === null || value === 'ready'
+const COMPATIBILITY_SETTINGS_KEY = 'playCanvasEditorCompatibility'
+
+const remapCompatibilitySettingsDocumentIds = (settings: JsonRecord, oldProjectId: string, newProjectId: string): JsonRecord => {
+    const compatibilitySettings = asRecord(settings[COMPATIBILITY_SETTINGS_KEY])
+    const settingsDocuments = asRecord(compatibilitySettings.settingsDocuments)
+    if (Object.keys(settingsDocuments).length === 0) {
+        return settings
+    }
+
+    const remappedDocuments: JsonRecord = {}
+    for (const [documentId, value] of Object.entries(settingsDocuments)) {
+        let nextDocumentId = documentId
+        if (documentId.startsWith(`project_${oldProjectId}_`)) {
+            continue
+        } else if (documentId === `project-private_${oldProjectId}`) {
+            nextDocumentId = `project-private_${newProjectId}`
+        } else if (documentId.startsWith('user_')) {
+            continue
+        }
+        if (Object.prototype.hasOwnProperty.call(remappedDocuments, nextDocumentId)) {
+            throw new MetahubValidationError('PlayCanvas project snapshot contains duplicate compatibility settings documents', {
+                messageCode: 'playcanvas.snapshot.duplicateCompatibilitySettingsDocument',
+                documentId: nextDocumentId
+            })
+        }
+        const document = asRecord(value)
+        remappedDocuments[nextDocumentId] = typeof document.documentId === 'string' ? { ...document, documentId: nextDocumentId } : value
+    }
+
+    return {
+        ...settings,
+        [COMPATIBILITY_SETTINGS_KEY]: {
+            ...compatibilitySettings,
+            settingsDocuments: remappedDocuments
+        }
+    }
+}
 
 const assertRuntimeReadyFileRef = (
     file: PlayCanvasFileReference | null | undefined,
@@ -1021,6 +1058,7 @@ export class PlayCanvasProjectSnapshotService {
 
         for (const project of section.projects) {
             const projectId = requireMapped(projectIdMap, project.id, 'playcanvas.snapshot.missingProjectReference')
+            const settings = remapCompatibilitySettingsDocumentIds(project.settings, project.id, projectId)
             await params.trx
                 .withSchema(params.schemaName)
                 .into('_mhb_playcanvas_projects')
@@ -1034,7 +1072,7 @@ export class PlayCanvasProjectSnapshotService {
                     compatibility_status: project.packageRef.compatibilityStatus,
                     compatibility_notes: project.packageRef.compatibilityNotes ?? {},
                     schema_version: project.schemaVersion,
-                    settings: project.settings,
+                    settings,
                     default_scene_id: project.defaultSceneId
                         ? requireMapped(sceneIdMap, project.defaultSceneId, 'playcanvas.snapshot.missingSceneReference')
                         : null,

@@ -1608,6 +1608,9 @@ importers:
       '@universo-react/modules-engine':
         specifier: workspace:*
         version: link:../universo-react-modules-engine
+      '@universo-react/playcanvas-editor-backend':
+        specifier: workspace:*
+        version: link:../universo-react-playcanvas-editor-backend
       '@universo-react/profile-backend':
         specifier: workspace:*
         version: link:../universo-react-profile-backend
@@ -2145,11 +2148,48 @@ importers:
         specifier: 'catalog:'
         version: 0.15.7(typescript@5.9.3)
 
+  packages/universo-react-playcanvas-editor-backend:
+    dependencies:
+      '@universo-react/types':
+        specifier: workspace:*
+        version: link:../universo-react-types
+      express:
+        specifier: ^4.18.2
+        version: 4.22.1
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: 22.19.18
+        version: 22.19.18
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.15.7(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 2.1.9(@types/node@22.19.18)(happy-dom@20.8.9)(jsdom@20.0.3)(msw@2.12.10(@types/node@22.19.18)(typescript@5.9.3))(sass-embedded@1.98.0)(sass@1.98.0)(terser@5.46.0)
+
   packages/universo-react-playcanvas-editor-frontend:
     dependencies:
       '@playcanvas/attribute-parser':
         specifier: ^1.10.1
         version: 1.10.1(@typescript-eslint/parser@8.56.1(eslint@8.57.1)(typescript@5.9.3))(jiti@2.6.1)
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@jsquash/avif':
         specifier: 1.3.0
@@ -2230,8 +2270,11 @@ importers:
         specifier: github:playcanvas/ot-text#b3d5f9610f3a78a7782bbc3b466e1b88355d59e7
         version: https://codeload.github.com/playcanvas/ot-text/tar.gz/b3d5f9610f3a78a7782bbc3b466e1b88355d59e7
       playcanvas:
-        specifier: 'catalog:'
-        version: 2.18.1
+        specifier: 2.19.5
+        version: 2.19.5
+      pngjs:
+        specifier: 5.0.0
+        version: 5.0.0
       postcss:
         specifier: 8.5.10
         version: 8.5.10
@@ -7457,6 +7500,10 @@ packages:
     resolution: {integrity: sha512-ej1sPFR5+0YWtaVp6S1N1FVz69TQCqmrkGeRvQxZeAB1nAIcjNTHVwrZtYtWFFBmQsF40/uDLehsW5KuYC99mg==}
     engines: {node: ^18.12.0 || >= 20.9.0}
 
+  canvas@3.2.3:
+    resolution: {integrity: sha512-PzE5nJZPz72YUAfo8oTp0u3fqqY7IzlTubneAihqDYAUcBk7ryeCmBbdJBEdaH0bptSOe2VT2Zwcb3UaFyaSWw==}
+    engines: {node: ^18.12.0 || >= 20.9.0}
+
   cardinal@2.1.1:
     resolution: {integrity: sha512-JSr5eOgoEymtYHBjNWyjrMqet9Am2miJhlfKNdqLp6zoeAh0KN5dRAcxlecj5mAJrmQomgiOBj35xHLrFjqBpw==}
     hasBin: true
@@ -11069,6 +11116,10 @@ packages:
   playcanvas@2.18.1:
     resolution: {integrity: sha512-R+60EWFgPwgwqvnzP81sZbRfwJdL8EG5MLV+vJ+aeG6+Djt4IvpfJAHzYKRHak0I4oYtCCZwdLBygFboLBMCWQ==}
     engines: {node: '>=18.0.0'}
+
+  playcanvas@2.19.5:
+    resolution: {integrity: sha512-oc97+uMc2GZ7CuogQAhpXLhCXY0QDFMFUChSuOIxIplIabSUc72URLKc1ppev2qHslmPjze3E0YrMrknDSi10A==}
+    engines: {node: '>=18.3.0'}
 
   playwright-core@1.58.2:
     resolution: {integrity: sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==}
@@ -18855,7 +18906,7 @@ snapshots:
   buffer@4.9.2:
     dependencies:
       base64-js: 1.5.1
-      ieee754: 1.1.13
+      ieee754: 1.2.1
       isarray: 1.0.0
 
   buffer@5.7.1:
@@ -18979,6 +19030,12 @@ snapshots:
   caniuse-lite@1.0.30001776: {}
 
   canvas@3.2.1:
+    dependencies:
+      node-addon-api: 7.1.1
+      prebuild-install: 7.1.3
+    optional: true
+
+  canvas@3.2.3:
     dependencies:
       node-addon-api: 7.1.1
       prebuild-install: 7.1.3
@@ -23439,6 +23496,13 @@ snapshots:
       '@webgpu/types': 0.1.70
     optionalDependencies:
       canvas: 3.2.1
+
+  playcanvas@2.19.5:
+    dependencies:
+      '@types/webxr': 0.5.24
+      '@webgpu/types': 0.1.70
+    optionalDependencies:
+      canvas: 3.2.3
 
   playwright-core@1.58.2: {}
 

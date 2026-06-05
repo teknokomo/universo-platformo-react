@@ -1,5 +1,18 @@
 # Current Research
 
+## 2026-06-05: PlayCanvas Editor minimal compatibility backend
+
+-   Research artifact created: `memory-bank/research/playcanvas-editor-minimal-compatibility-backend-research-2026-06-05.md`.
+-   QA-reviewed on 2026-06-05: clarified that no PLAN artifact exists yet, upstream `.nvmrc` pins Node `22.22.3`, the current hosted `window.config` is bridge-only evidence, candidate REST endpoints remain unverified until browser tracing, and ShareDB cannot use default in-memory persistence outside tests/demos.
+-   Scope decision: the next slice is not another bounded postMessage bridge extension; it is an upstream-compatible backend investigation for shell/config, REST facade, ShareDB realtime, messenger stubs, and metahub-scoped persistence.
+-   Upstream prerequisite: update the vendored Editor from `v2.22.1` to at least `v2.23.4` and repeat boot/network/WebSocket tracing after the update; upstream package metadata requires Node `>=22.22.0`.
+-   Core finding: unmodified upstream Editor expects a broad `window.config`, PlayCanvas-shaped REST endpoints, ShareDB collections for `scenes`, `assets`, and `settings`, and a separate messenger WebSocket. A pure REST save or current bridge command API is not enough for full upstream UI behavior.
+-   Architecture implication: a separate `@universo-react/playcanvas-editor-backend` package is justified only if it owns PlayCanvas-compatible protocol logic while receiving metahub access, schema, storage, file, and package-attachment adapters from `metahubs-backend`.
+-   Storage implication: existing `_mhb_playcanvas_*` tables are reusable candidates, but PLAN must decide whether ShareDB requires a new branch-scoped document/op persistence layer or can translate safely into existing scene/asset/settings records.
+-   Implementation follow-up: the corrective slice keeps ShareDB persistence explicitly `not-implemented`, validates compatibility contracts with Zod, adds a separate `@universo-react/playcanvas-editor-backend` package, and exposes manager-only same-origin `/playcanvas/editor-compatible/...` REST routes for config, scenes, assets, settings, and typed cloud-only no-op surfaces while continuing to persist scene edits through secured metahub PlayCanvas storage.
+-   Layer implication: metahub branch owns authoring records, package attachment config owns display/default-project settings, and runtime manifests remain publication outputs; this slice is Platformo authoring infrastructure, not workspace end-user content.
+-   QA implication: acceptance needs browser evidence for real upstream boot, stable realtime/messenger behavior, visible hierarchy/inspector/viewport, one mutation, persistence, reload/reopen, security negatives, and no layout overflow.
+
 ## 2026-06-04: PlayCanvas Editor runtime host, bridge, and storage adapter
 
 -   Research artifact created: `memory-bank/research/playcanvas-editor-runtime-host-bridge-storage-adapter-research-2026-06-04.md`.

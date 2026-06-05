@@ -62,7 +62,11 @@ export function getRateLimiters(): { read: RateLimitRequestHandler; write: RateL
 /**
  * Create all metahubs service routes
  */
-export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExecutor: () => DbExecutor): Router {
+export function createMetahubsServiceRoutes(
+    ensureAuth: RequestHandler,
+    getDbExecutor: () => DbExecutor,
+    csrfProtection: RequestHandler
+): Router {
     const router = Router()
 
     const { read, write } = getRateLimiters()
@@ -89,7 +93,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createPackagesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createModulesRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createPlayCanvasProjectsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createPlayCanvasProjectsRoutes(ensureAuth, getDbExecutor, read, write, csrfProtection))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityTypesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityInstancesRoutes(ensureAuth, getDbExecutor, read, write))

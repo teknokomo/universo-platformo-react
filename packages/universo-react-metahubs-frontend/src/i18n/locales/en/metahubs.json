@@ -1494,6 +1494,12 @@
                 "regenerable": "Regenerable",
                 "publishBlocking": "Blocked for publishing"
             },
+            "compatibility": {
+                "compatible": "Compatible",
+                "needsMigration": "Needs update",
+                "unsupported": "Unsupported",
+                "blocked": "Blocked"
+            },
             "actions": {
                 "create": "Create project",
                 "delete": "Delete project",
@@ -1528,6 +1534,7 @@
             "misconfigured": "Editor display settings are incomplete.",
             "defaultProjectRequired": "Select a default PlayCanvas project before opening the editor.",
             "defaultProjectUnavailable": "The selected default PlayCanvas project is unavailable.",
+            "mobileUnsupported": "PlayCanvas Editor is available on larger screens. Open it on a desktop or tablet to edit this project.",
             "openSeparately": "This editor is configured to open separately.",
             "backToPackages": "Back to packages",
             "frameLoading": "Loading editor frame...",

@@ -2,20 +2,14 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { qSchemaTable } from '@universo-react/database'
 import type { DbExecutor } from '@universo-react/utils'
 import { generateUuidV7 } from '@universo-react/utils'
-import { PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS, type PlayCanvasEditorBridgeCapability } from '@universo-react/types'
+import {
+    PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
+    playCanvasEditorBridgeSessionClaimsSchema,
+    type PlayCanvasEditorBridgeCapability,
+    type PlayCanvasEditorBridgeSessionClaims
+} from '@universo-react/types'
 
-interface BridgeSessionPayload {
-    sessionId: string
-    metahubId: string
-    packageSlug: string
-    projectId: string | null
-    defaultSceneId?: string | null
-    userId: string
-    nonce: string
-    expiresAt: number
-    bridgeVersion: '1'
-    capabilities: PlayCanvasEditorBridgeCapability[]
-}
+type BridgeSessionPayload = PlayCanvasEditorBridgeSessionClaims
 
 interface BridgeReplayValue {
     sessionId: string
@@ -117,24 +111,12 @@ export class PlayCanvasEditorBridgeSessionService {
         if (!timingSafeEqualString(sign(encodedPayload), signature)) {
             return null
         }
-        const payload = decode<Partial<BridgeSessionPayload>>(encodedPayload)
-        if (
-            !payload ||
-            typeof payload.sessionId !== 'string' ||
-            typeof payload.metahubId !== 'string' ||
-            typeof payload.packageSlug !== 'string' ||
-            (payload.projectId !== null && typeof payload.projectId !== 'string') ||
-            (payload.defaultSceneId !== undefined && payload.defaultSceneId !== null && typeof payload.defaultSceneId !== 'string') ||
-            typeof payload.userId !== 'string' ||
-            typeof payload.nonce !== 'string' ||
-            typeof payload.expiresAt !== 'number' ||
-            payload.expiresAt <= Date.now() ||
-            payload.bridgeVersion !== '1' ||
-            !Array.isArray(payload.capabilities)
-        ) {
+        const payload = decode<unknown>(encodedPayload)
+        const parsed = playCanvasEditorBridgeSessionClaimsSchema.safeParse(payload)
+        if (!parsed.success || parsed.data.expiresAt <= Date.now()) {
             return null
         }
-        return payload as BridgeSessionPayload
+        return parsed.data
     }
 
     async claimReplay(

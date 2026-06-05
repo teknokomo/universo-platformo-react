@@ -1,7 +1,42 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
+import { PNG } from 'pngjs'
 
 const expectHeaderContains = (headers: Record<string, string>, name: string, expected: string) => {
     expect(headers[name.toLowerCase()]).toContain(expected)
+}
+
+const expectNonBlankScreenshot = async (locator: Locator, path: string) => {
+    const screenshot = await locator.screenshot({ path })
+    const png = PNG.sync.read(screenshot)
+    const buckets = new Set<string>()
+    let sampledOpaquePixels = 0
+    const { data, height, width } = png
+    const sampleStepX = Math.max(1, Math.floor(width / 24))
+    const sampleStepY = Math.max(1, Math.floor(height / 24))
+    for (let y = 0; y < height; y += sampleStepY) {
+        for (let x = 0; x < width; x += sampleStepX) {
+            const index = (y * width + x) * 4
+            const alpha = data[index + 3] ?? 0
+            if (alpha === 0) continue
+            sampledOpaquePixels += 1
+            const red = Math.floor((data[index] ?? 0) / 32)
+            const green = Math.floor((data[index + 1] ?? 0) / 32)
+            const blue = Math.floor((data[index + 2] ?? 0) / 32)
+            buckets.add(`${red}:${green}:${blue}`)
+        }
+    }
+    for (let index = 0; index < data.length && buckets.size <= 1; index += 4 * 97) {
+        const alpha = data[index + 3] ?? 0
+        if (alpha === 0) continue
+        sampledOpaquePixels += 1
+        const red = Math.floor((data[index] ?? 0) / 32)
+        const green = Math.floor((data[index + 1] ?? 0) / 32)
+        const blue = Math.floor((data[index + 2] ?? 0) / 32)
+        buckets.add(`${red}:${green}:${blue}`)
+    }
+    expect(sampledOpaquePixels).toBeGreaterThan(20)
+    expect(buckets.size).toBeGreaterThan(1)
+    expect(new Set(screenshot).size).toBeGreaterThan(16)
 }
 
 test('PlayCanvas Editor hosted artifact shell is safe and nonblank', async ({ page }, testInfo) => {
@@ -75,7 +110,10 @@ test('PlayCanvas Editor hosted artifact shell is safe and nonblank', async ({ pa
             })
         )
         .toBe(true)
-    await page.locator('body').screenshot({ path: testInfo.outputPath(`playcanvas-editor-artifact-smoke-${testInfo.project.name}.png`) })
+    await expectNonBlankScreenshot(
+        page.locator('body'),
+        testInfo.outputPath(`playcanvas-editor-artifact-smoke-${testInfo.project.name}.png`)
+    )
     expect(consoleErrors).toEqual([])
     expect(failedRequests).toEqual([])
 })
@@ -138,6 +176,17 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
                             window.bridgeCommands.push(event.data.type);
                             window.bridgePayloads.push(event.data);
                             const isSave = event.data.type === 'scene.save';
+                            const protocolData = {
+                                protocol: {
+                                    schemaVersion: '1',
+                                    mode: 'universo-bridge-minimal',
+                                    upstream: {
+                                        repository: 'https://github.com/playcanvas/editor',
+                                        minimumTag: 'v2.23.4'
+                                    },
+                                    defaultSceneId: '${sceneId}'
+                                }
+                            };
                             const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
 	                            frame.contentWindow.postMessage({
 	                                type: 'bridge.response',
@@ -148,7 +197,9 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
 	                                    ok: true,
                                     requestId: event.data.requestId,
                                     type: event.data.type,
-                                    data: isSave
+                                    data: event.data.type === 'protocol.describe'
+                                        ? protocolData
+                                        : isSave
                                         ? {
                                             checksum: '${'b'.repeat(64)}',
                                             scene: { checksum: '${'b'.repeat(64)}' }
@@ -205,7 +256,7 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
                                         expiresAt: new Date(Date.now() + 60000).toISOString(),
                                         bridgeVersion: '1',
                                         writeMode: 'manager',
-                                        capabilities: ['editor.ready', 'project.loadSelected', 'scene.list', 'scene.read']
+                                        capabilities: ['editor.ready', 'protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read']
                                     },
                                     selectedProject: {
                                         project: {
@@ -263,12 +314,16 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
     const initializedConfig = await frame.locator('body').evaluate(() => ({
         projectId: window.config?.project?.id,
         projectName: window.config?.project?.name,
-        sceneId: window.config?.scene?.id
+        sceneId: window.config?.scene?.id,
+        adminPermissions: window.config?.project?.permissions?.admin,
+        superUser: window.config?.self?.flags?.superUser
     }))
     expect(initializedConfig).toEqual({
         projectId,
         projectName: 'Sandbox PlayCanvas Project',
-        sceneId
+        sceneId,
+        adminPermissions: [],
+        superUser: false
     })
     const initialSecurityState = await frame.locator('body').evaluate(() => {
         const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
@@ -290,7 +345,15 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
     expect(initialSecurityState.trustedParentOrigin).toBeTruthy()
     await expect
         .poll(() => page.evaluate(() => (window as unknown as { bridgeCommands?: string[] }).bridgeCommands ?? []), { timeout: 20_000 })
-        .toEqual(['project.loadSelected', 'scene.list', 'scene.read'])
+        .toEqual(['protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read'])
+    const protocolState = await frame.locator('body').evaluate(() => ({
+        markerMode: window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.compatibilityProtocol?.data?.protocol?.mode,
+        configMode: window.config?.universoCompatibilityProtocol?.mode
+    }))
+    expect(protocolState).toEqual({
+        markerMode: 'universo-bridge-minimal',
+        configMode: 'universo-bridge-minimal'
+    })
 
     const saveResult = await frame.locator('body').evaluate(async () => {
         const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
@@ -311,7 +374,7 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
     })
     await expect
         .poll(() => page.evaluate(() => (window as unknown as { bridgeCommands?: string[] }).bridgeCommands ?? []), { timeout: 20_000 })
-        .toEqual(['project.loadSelected', 'scene.list', 'scene.read', 'scene.save'])
+        .toEqual(['protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save'])
     const savePayload = await page.evaluate(
         () =>
             (
@@ -341,7 +404,7 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
     })
     await expect
         .poll(() => page.evaluate(() => (window as unknown as { bridgeCommands?: string[] }).bridgeCommands ?? []), { timeout: 20_000 })
-        .toEqual(['project.loadSelected', 'scene.list', 'scene.read', 'scene.save', 'scene.save'])
+        .toEqual(['protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save', 'scene.save'])
     const rejectedBeforeSpoofedResponse = await frame
         .locator('body')
         .evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.securityRejectedMessages ?? 0)
@@ -374,9 +437,10 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
         .poll(() => frame.locator('body').evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.rejectedMessageReasons ?? []))
         .toContain('untrusted-bridge-response')
 
-    await page.locator('iframe[title="PlayCanvas Editor"]').screenshot({
-        path: testInfo.outputPath(`playcanvas-editor-artifact-sandbox-${testInfo.project.name}.png`)
-    })
+    await expectNonBlankScreenshot(
+        page.locator('iframe[title="PlayCanvas Editor"]'),
+        testInfo.outputPath(`playcanvas-editor-artifact-sandbox-${testInfo.project.name}.png`)
+    )
     expect(consoleErrors).toEqual([])
     expect(failedRequests).toEqual([])
 })
@@ -418,16 +482,28 @@ test('PlayCanvas Editor hosted artifact updates legacy default scene state befor
                                 publishable: false
                             };
                             const responseData =
-                                event.data.type === 'project.loadSelected'
-                                    ? { project }
-                                    : event.data.type === 'scene.read'
-                                      ? {
-                                            scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
-                                            payload: { schemaVersion: '1', entities: [] }
-                                        }
-                                      : event.data.type === 'scene.save'
-                                        ? { checksum: '${'b'.repeat(64)}', scene: { id: '${sceneId}', checksum: '${'b'.repeat(64)}' } }
-                                        : {};
+                                event.data.type === 'protocol.describe'
+                                    ? {
+                                          protocol: {
+                                              schemaVersion: '1',
+                                              mode: 'universo-bridge-minimal',
+                                              upstream: {
+                                                  repository: 'https://github.com/playcanvas/editor',
+                                                  minimumTag: 'v2.23.4'
+                                              },
+                                              defaultSceneId: '${sceneId}'
+                                          }
+                                      }
+                                    : event.data.type === 'project.loadSelected'
+                                      ? { project }
+                                      : event.data.type === 'scene.read'
+                                        ? {
+                                              scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
+                                              payload: { schemaVersion: '1', entities: [] }
+                                          }
+                                        : event.data.type === 'scene.save'
+                                          ? { checksum: '${'b'.repeat(64)}', scene: { id: '${sceneId}', checksum: '${'b'.repeat(64)}' } }
+                                          : {};
 	                            frame.contentWindow.postMessage({
 	                                type: 'bridge.response',
 	                                source: 'universo-playcanvas-editor-host',
@@ -457,7 +533,7 @@ test('PlayCanvas Editor hosted artifact updates legacy default scene state befor
                                         expiresAt: new Date(Date.now() + 60000).toISOString(),
                                         bridgeVersion: '1',
                                         writeMode: 'manager',
-                                        capabilities: ['editor.ready', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
+                                        capabilities: ['editor.ready', 'protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
                                     },
                                     selectedProject: {
                                         project: {
@@ -548,33 +624,45 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
                             window.bridgePayloads.push(event.data);
                             const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
                             const responseData =
-                                event.data.type === 'project.loadSelected'
+                                event.data.type === 'protocol.describe'
                                     ? {
-                                          project: {
-                                              id: '${projectId}',
-                                              displayName: {
-                                                  _primary: 'en',
-                                                  locales: { en: { content: 'Hosted Adapter Project' } }
+                                          protocol: {
+                                              schemaVersion: '1',
+                                              mode: 'universo-bridge-minimal',
+                                              upstream: {
+                                                  repository: 'https://github.com/playcanvas/editor',
+                                                  minimumTag: 'v2.23.4'
                                               },
-                                              version: 1,
-                                              defaultSceneId: '${sceneId}',
-                                              compatibilityStatus: 'compatible',
-                                              status: 'ready',
-                                              sceneCount: 1,
-                                              assetCount: 0,
-                                              scriptCount: 0,
-                                              generatedArtifactCount: 0,
-                                              publishable: false
+                                              defaultSceneId: '${sceneId}'
                                           }
                                       }
-                                    : event.data.type === 'scene.read'
+                                    : event.data.type === 'project.loadSelected'
                                       ? {
-                                            scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
-                                            payload: { schemaVersion: '1', entities: [] }
+                                            project: {
+                                                id: '${projectId}',
+                                                displayName: {
+                                                    _primary: 'en',
+                                                    locales: { en: { content: 'Hosted Adapter Project' } }
+                                                },
+                                                version: 1,
+                                                defaultSceneId: '${sceneId}',
+                                                compatibilityStatus: 'compatible',
+                                                status: 'ready',
+                                                sceneCount: 1,
+                                                assetCount: 0,
+                                                scriptCount: 0,
+                                                generatedArtifactCount: 0,
+                                                publishable: false
+                                            }
                                         }
-                                      : event.data.type === 'scene.save'
-                                        ? { checksum: '${'c'.repeat(64)}', scene: { id: '${sceneId}', checksum: '${'c'.repeat(64)}' } }
-                                        : {};
+                                      : event.data.type === 'scene.read'
+                                        ? {
+                                              scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
+                                              payload: { schemaVersion: '1', entities: [] }
+                                          }
+                                        : event.data.type === 'scene.save'
+                                          ? { checksum: '${'c'.repeat(64)}', scene: { id: '${sceneId}', checksum: '${'c'.repeat(64)}' } }
+                                          : {};
                             frame.contentWindow.postMessage({
                                 type: 'bridge.response',
                                 source: 'universo-playcanvas-editor-host',
@@ -604,7 +692,7 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
                                         expiresAt: new Date(Date.now() + 60000).toISOString(),
                                         bridgeVersion: '1',
                                         writeMode: 'manager',
-                                        capabilities: ['editor.ready', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
+                                        capabilities: ['editor.ready', 'protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
                                     },
                                     selectedProject: {
                                         project: {
@@ -644,7 +732,12 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
 
     const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
     await expect(frame.locator('#layout-toolbar .pcui-button.logo')).toHaveCount(0)
+    await expect(frame.locator('[aria-label="Scene entities"]')).toBeVisible()
     await expect(frame.getByRole('button', { name: 'Add entity' })).toBeVisible()
+    const fallbackOverflow = await frame
+        .locator('body')
+        .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(fallbackOverflow).toBeLessThanOrEqual(1)
     await expect
         .poll(
             () =>
@@ -680,6 +773,9 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
     expect(entity).toEqual(expect.objectContaining({ id: expect.any(String), name: expect.any(String) }))
     const actualEntityName = String((entity as { name?: unknown }).name || 'Entity')
     await expect(frame.locator('body')).toContainText(actualEntityName)
+    await expect(frame.locator('body')).not.toContainText('[object Object]')
+    await expect(frame.locator('body')).not.toContainText(/\{[\s\S]*"[^"]+"\s*:/)
+    await expect(frame.locator('body')).not.toContainText(/\b[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i)
     await expect.poll(() => frame.locator('body').evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.dirty === true)).toBe(true)
 
     await frame.locator('body').evaluate(async () => {
@@ -697,4 +793,291 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
             name: actualEntityName
         })
     ])
+})
+
+test('PlayCanvas Editor hosted artifact saves through compatibility REST when config is available', async ({ page, baseURL }) => {
+    const iframeUrl = new URL('/?locale=en', baseURL ?? 'http://127.0.0.1:3487').toString()
+    const metahubId = '019e9148-9999-7000-8000-000000000001'
+    const projectId = '019e9148-9999-7000-8000-000000000002'
+    const sceneId = '019e9148-9999-7000-8000-000000000003'
+    const checksumBefore = 'a'.repeat(64)
+    const checksumAfter = 'd'.repeat(64)
+    const compatibilityToken = 'test-compatibility-token-'.padEnd(48, 'x')
+    let configRequestCount = 0
+    let csrfRequestCount = 0
+    let forceSceneSaveConflict = false
+    const restSceneSaves: Array<{ headers: Record<string, string>; body: { expectedCurrentChecksum?: string; payload?: unknown } }> = []
+
+    await page.route(/\/api\/v1\/metahub\/[^/]+\/playcanvas\/editor-compatible\/projects\/[^/]+\/config$/, async (route) => {
+        configRequestCount += 1
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                ok: true,
+                item: {
+                    mode: 'universo-compatibility-rest-minimal',
+                    projectId,
+                    defaultSceneId: sceneId,
+                    permissions: { read: true, write: true, admin: false },
+                    auth: {
+                        scheme: 'signed-header',
+                        headerName: 'X-PlayCanvas-Editor-Token',
+                        accessToken: compatibilityToken,
+                        expiresAt: new Date(Date.now() + 60_000).toISOString()
+                    },
+                    csrf: { tokenUrl: '/api/v1/auth/csrf', headerName: 'X-CSRF-Token' },
+                    endpoints: {
+                        scenes: `/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/scenes`,
+                        assets: `/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/assets`,
+                        settings: `/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/settings`,
+                        cloudOnly: `/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/cloud-only`
+                    }
+                }
+            })
+        })
+    })
+    await page.route('**/api/v1/auth/csrf', async (route) => {
+        csrfRequestCount += 1
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ token: 'test-csrf' }) })
+    })
+    await page.route(/\/api\/v1\/metahub\/[^/]+\/playcanvas\/editor-compatible\/projects\/[^/]+\/scenes\/[^/]+$/, async (route) => {
+        const request = route.request()
+        const requestBody = request.postDataJSON() as { expectedCurrentChecksum?: string; payload?: unknown; requestId?: unknown }
+        if (forceSceneSaveConflict && request.method() === 'PUT') {
+            await route.fulfill({
+                status: 409,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    ok: false,
+                    requestId: requestBody.requestId,
+                    code: 'saveConflict',
+                    status: 409
+                })
+            })
+            return
+        }
+        restSceneSaves.push({
+            headers: request.headers(),
+            body: requestBody
+        })
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                ok: true,
+                requestId: restSceneSaves[0]?.body ? (restSceneSaves[0].body as { requestId?: unknown }).requestId : undefined,
+                item: {
+                    checksum: checksumAfter,
+                    scene: { id: sceneId, checksum: checksumAfter },
+                    payload: (request.postDataJSON() as { payload?: unknown })?.payload
+                }
+            })
+        })
+    })
+
+    await page.setContent(`
+        <!doctype html>
+        <html lang="en">
+            <body style="margin:0">
+                <script>
+                    window.bridgePayloads = [];
+                    window.addEventListener('message', (event) => {
+                        if (!event.data) return;
+                        if (event.data.requestId) {
+                            window.bridgePayloads.push(event.data);
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            const responseData =
+                                event.data.type === 'protocol.describe'
+                                    ? { protocol: { schemaVersion: '1', mode: 'universo-bridge-minimal', defaultSceneId: '${sceneId}' } }
+                                    : event.data.type === 'project.loadSelected'
+                                      ? {
+                                            project: {
+                                                id: '${projectId}',
+                                                displayName: { _primary: 'en', locales: { en: { content: 'REST Project' } } },
+                                                version: 1,
+                                                defaultSceneId: '${sceneId}',
+                                                compatibilityStatus: 'compatible',
+                                                status: 'ready',
+                                                sceneCount: 1,
+                                                assetCount: 0,
+                                                scriptCount: 0,
+                                                generatedArtifactCount: 0,
+                                                publishable: false
+                                            },
+                                            defaultSceneId: '${sceneId}'
+                                        }
+                                      : event.data.type === 'scene.read'
+                                        ? {
+                                              scene: { id: '${sceneId}', checksum: '${checksumBefore}' },
+                                              payload: { schemaVersion: '1', entities: [] }
+                                          }
+                                        : {};
+                            frame.contentWindow.postMessage({
+                                type: 'bridge.response',
+                                source: 'universo-playcanvas-editor-host',
+                                commandType: event.data.type,
+                                requestId: event.data.requestId,
+                                response: { ok: true, requestId: event.data.requestId, type: event.data.type, data: responseData }
+                            }, '*');
+                            return;
+                        }
+                        if (event.data.type !== 'editor.bootstrap.requestInit') return;
+                        window.setTimeout(() => {
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            frame.contentWindow.postMessage({
+                                type: 'editor.bootstrap.init',
+                                source: 'universo-playcanvas-editor-host',
+                                bootstrapRequestId: event.data.bootstrapRequestId,
+                                descriptor: {
+                                    schemaVersion: '1',
+                                    metahubId: '${metahubId}',
+                                    bridge: {
+                                        sessionId: '019e9148-a649-7218-b147-1e0d5ca9e45d',
+                                        nonce: '019e9148a6497218b1471e0d5ca9e45d019e9148a6497218b1471e0d5ca9e45d',
+                                        expiresAt: new Date(Date.now() + 60000).toISOString(),
+                                        bridgeVersion: '1',
+                                        writeMode: 'manager',
+                                        capabilities: ['editor.ready', 'protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
+                                    },
+                                    selectedProject: {
+                                        project: {
+                                            id: '${projectId}',
+                                            displayName: { _primary: 'en', locales: { en: { content: 'REST Project' } } },
+                                            version: 1,
+                                            defaultSceneId: '${sceneId}',
+                                            compatibilityStatus: 'compatible',
+                                            status: 'ready',
+                                            sceneCount: 1,
+                                            assetCount: 0,
+                                            scriptCount: 0,
+                                            generatedArtifactCount: 0,
+                                            publishable: false
+                                        },
+                                        defaultSceneId: '${sceneId}'
+                                    },
+                                    compatibilityConfig: {
+                                        mode: 'universo-compatibility-rest-minimal',
+                                        projectId: '${projectId}',
+                                        defaultSceneId: '${sceneId}',
+                                        permissions: { read: true, write: true, admin: false },
+                                        auth: {
+                                            scheme: 'signed-header',
+                                            headerName: 'X-PlayCanvas-Editor-Token',
+                                            accessToken: '${compatibilityToken}',
+                                            expiresAt: new Date(Date.now() + 60000).toISOString()
+                                        },
+                                        csrf: { tokenUrl: '/api/v1/auth/csrf', headerName: 'X-CSRF-Token' },
+                                        endpoints: {
+                                            scenes: '/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/scenes',
+                                            assets: '/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/assets',
+                                            settings: '/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/settings',
+                                            cloudOnly: '/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/cloud-only'
+                                        }
+                                    },
+                                    compatibilityCsrfToken: {
+                                        headerName: 'X-CSRF-Token',
+                                        token: 'host-provided-csrf'
+                                    },
+                                    compatibilityStatus: 'ready'
+                                },
+                            }, '*');
+                        }, 100);
+                    });
+                </script>
+                <iframe
+                    title="PlayCanvas Editor"
+                    src="${iframeUrl}"
+                    sandbox="allow-scripts allow-same-origin"
+                    referrerpolicy="no-referrer"
+                    style="width:960px;height:640px;border:0"
+                ></iframe>
+            </body>
+        </html>
+    `)
+
+    const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(
+                    (_body, requestCount) => ({
+                        scheme: window.config?.universoCompatibilityConfig?.auth?.scheme,
+                        storageError: String(window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.storageError?.message ?? ''),
+                        metahubId: window.config?.universoBridge?.metahubId,
+                        selectedProjectId: window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.selectedProject?.project?.id,
+                        selectedSceneId: window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.selectedProject?.defaultSceneId,
+                        configRequestCount: requestCount.config,
+                        csrfRequestCount: requestCount.csrf
+                    }),
+                    { config: configRequestCount, csrf: csrfRequestCount }
+                ),
+            { timeout: 10_000 }
+        )
+        .toEqual({
+            scheme: 'signed-header',
+            storageError: '',
+            metahubId,
+            selectedProjectId: projectId,
+            selectedSceneId: sceneId,
+            configRequestCount: 0,
+            csrfRequestCount: 0
+        })
+    expect(configRequestCount).toBe(0)
+    expect(csrfRequestCount).toBe(0)
+
+    await frame.locator('body').evaluate(async () => {
+        await window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__.saveCurrentScene({
+            schemaVersion: '1',
+            entities: [{ id: 'rest-entity', name: 'REST Entity' }]
+        })
+    })
+
+    expect(restSceneSaves).toHaveLength(1)
+    expect(restSceneSaves[0]?.headers['x-playcanvas-editor-token']).toBe(compatibilityToken)
+    expect(restSceneSaves[0]?.headers['x-csrf-token']).toBe('host-provided-csrf')
+    expect(restSceneSaves[0]?.body).toMatchObject({
+        requestId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+        expectedCurrentChecksum: checksumBefore,
+        payload: { entities: [{ id: 'rest-entity', name: 'REST Entity' }] }
+    })
+    const bridgeSavePayload = await page.evaluate(
+        () =>
+            (window as unknown as { bridgePayloads?: Array<{ type?: string }> }).bridgePayloads?.find(
+                (item) => item.type === 'scene.save'
+            ) ?? null
+    )
+    expect(bridgeSavePayload).toBeNull()
+
+    forceSceneSaveConflict = true
+    const conflictResult = await frame.locator('body').evaluate(async () => {
+        const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        try {
+            await bridge.saveCurrentScene({
+                schemaVersion: '1',
+                entities: [{ id: 'conflict-entity', name: 'Conflict Entity' }]
+            })
+            return { ok: true }
+        } catch (error) {
+            const envelope = error as { ok?: unknown; code?: unknown; status?: unknown }
+            return {
+                ok: envelope.ok,
+                code: envelope.code,
+                status: envelope.status
+            }
+        }
+    })
+    expect(conflictResult).toEqual({ ok: false, code: 'saveConflict', status: 409 })
+    await expect
+        .poll(
+            () =>
+                page.evaluate(
+                    () =>
+                        (
+                            window as unknown as { bridgePayloads?: Array<{ type?: string; code?: string; status?: number }> }
+                        ).bridgePayloads?.find((item) => item.type === 'bridge.saveError') ?? null
+                ),
+            { timeout: 5_000 }
+        )
+        .toEqual(expect.objectContaining({ code: 'saveConflict', status: 409 }))
 })

@@ -1,3 +1,93 @@
+# PlayCanvas Editor Minimal Compatibility Backend Implementation Tasks
+
+> Date: 2026-06-05
+> Source plan: `memory-bank/plan/playcanvas-editor-minimal-compatibility-backend-plan-2026-06-05.md`
+> Source brief: private manager brief for the PlayCanvas Editor minimal compatibility backend slice
+
+## QA Typecheck, Replay, And Snapshot Remap Closure Checklist
+
+> Date: 2026-06-05
+> Trigger: IMPLEMENT after QA found type-check, settings replay, and snapshot restore lifecycle defects.
+
+-   [x] Pass a host-fetched CSRF token through the PlayCanvas Editor bootstrap descriptor so sandboxed compatibility REST saves use the authenticated platform session.
+-   [x] Fix the new PlayCanvas Editor backend package test fixtures so direct TypeScript checks pass.
+-   [x] Make PlayCanvas Editor compatibility settings writes idempotent by `requestId` and payload fingerprint.
+-   [x] Remap PlayCanvas Editor compatibility settings document ids during PlayCanvas project snapshot restore/copy.
+-   [x] Add focused regression tests for settings replay and restored compatibility settings ids.
+-   [x] Add an explicit CSRF token/header contract for compatibility REST mutations.
+-   [x] Keep scene/settings replay claims after committed mutations when replay-response persistence fails to block duplicate retries.
+-   [x] Run focused type-check, tests, lint/build, Prettier/diff checks, and autoreview.
+
+## True Compatibility Backend Closure Checklist
+
+> Date: 2026-06-05
+> Trigger: IMPLEMENT after QA found that the bridge-minimal descriptor slice does not complete the original backend plan.
+
+### Scope
+
+Implement the first real PlayCanvas Editor compatibility backend boundary beyond the bridge-minimal descriptor. This closure must add a package-owned protocol layer, metahub-injected adapters, schema-valid config/REST contracts, durable single-user document persistence using existing metahub PlayCanvas storage where possible, no-op messenger/realtime status contracts that fail closed, and browser/test evidence that does not overclaim PlayCanvas Cloud parity.
+
+### Checklist
+
+-   [x] Create `@universo-react/playcanvas-editor-backend` as a non-user-facing protocol package with typed route factories and no private metahub imports.
+-   [x] Extend shared compatibility contracts for Editor config, REST scene/assets/settings DTOs, protocol token claims, and explicit no-op messenger/realtime descriptors.
+-   [x] Implement metahub-owned adapters in `metahubs-backend` and mount isolated `/playcanvas/editor-compatible/...` REST routes with `manageMetahub`, Zod validation, no-store responses, and fail-closed project access.
+-   [x] Implement the first durable single-user compatibility REST loop: project descriptor, scene list/read/save, settings read/write, assets empty/list shell, and cloud-only typed no-op responses backed by existing PlayCanvas project storage.
+-   [x] Add backend Jest/Vitest coverage for package route factories, adapters, DTO validation, auth/role failures, save/reload persistence, replay/idempotency, and unsupported cloud-only surfaces.
+-   [x] Strengthen Playwright/browser evidence for real keyboard shortcuts, mobile selected-project unsupported state, no raw IDs/JSON/tokens, screenshots, and compatibility REST status.
+-   [x] Update OpenAPI, GitBook docs, package READMEs, and Memory Bank so the completed bridge-minimal slice and new compatibility backend slice are not conflated.
+-   [x] Run Prettier, focused lint/build/test, browser smoke, local minimal Supabase E2E, and autoreview before closeout.
+
+## Scope
+
+Implement the first sovereign PlayCanvas Editor compatibility slice: update the vendored upstream Editor to `v2.23.4`, trace the current boot contract, add typed compatibility contracts, expose a metahub-scoped `protocol.describe` bridge capability, preserve the existing `playcanvas-editor` user-facing slug and bridge fallback, and prove the current browser edit/persist/reload loop with focused tests and documentation. Full PlayCanvas Cloud-compatible REST, ShareDB realtime, and messenger backend surfaces remain out of this completed slice and must stay explicitly documented as future work.
+
+## Checklist
+
+-   [x] Phase 0: Update the vendored PlayCanvas Editor artifact to upstream `v2.23.4`, align metadata/dependencies/docs, and run artifact metadata/smoke checks.
+-   [x] Phase 0/1: Trace the updated artifact boot/config/REST/WebSocket/messenger behavior and decide that a separate backend package is not required for this bridge-minimal slice.
+-   [x] Phase 1/2: Add shared compatibility contracts and a typed `protocol.describe` descriptor for the current single-user bridge mode, including explicit disabled REST/realtime/messenger surfaces.
+-   [x] Phase 2/3: Preserve the existing secured metahub bridge/storage path and expose the minimal required protocol surface through metahub-owned adapters; do not claim PlayCanvas Cloud-compatible REST, ShareDB, or messenger implementation in this slice.
+-   [x] Phase 4: Reuse existing backend routes/adapters/storage lifecycle with no new persistence tables, no DDL/migration changes, and no schema/template version bump.
+-   [x] Phase 5: Update only required MUI host/settings states with existing template primitives, localized EN/RU text, and no raw IDs/JSON/protocol leakage.
+-   [x] Phase 6/7: Add focused Jest/Vitest/Playwright coverage for contracts, security failures, persistence/reload, responsive UX, and browser evidence with local minimal Supabase where required.
+-   [x] Phase 8/9: Update GitBook docs, package READMEs, OpenAPI notes where applicable, run Prettier/lint/build/test checks, update Memory Bank progress, and close with verification notes.
+
+## QA Corrective Closure Checklist
+
+-   [x] Make `protocol.describe` read-only so it no longer initializes or mutates the default scene outside replay-guarded commands.
+-   [x] Require iframe `event.source` to match the real PlayCanvas Editor iframe before accepting bootstrap requests.
+-   [x] Split compatibility descriptor contracts into `playcanvasEditorCompatibility.ts` and validate returned descriptors with Zod.
+-   [x] Validate bridge session token claims with a strict shared Zod schema and reject unknown token fields.
+-   [x] Reduce synthetic compatibility privileges by removing descriptor/client `admin` and `superUser` claims.
+-   [x] Clarify ShareDB status as `not-implemented` while documenting that current scene saves use metahub PlayCanvas storage.
+-   [x] Add a read-only `/playcanvas/editor-compatible/.../protocol` namespace for the current descriptor without claiming PlayCanvas Cloud REST/WS parity.
+-   [x] Strengthen artifact browser smoke evidence with responsive screenshot size checks and explicit no-admin/no-superUser assertions.
+-   [x] Update docs/OpenAPI sources/Memory Bank to reflect the corrected bridge-minimal scope.
+
+## QA Replay/OpenAPI/E2E Oracle Closure Checklist
+
+-   [x] Release replay claims on early `scene.save` capability rejection and cover the retry contract with a regression.
+-   [x] Canonicalize replay fingerprints for nested JSON command payloads and cover equivalent key-order retries.
+-   [x] Document PlayCanvas file endpoint `sourcePath` and checksum preconditions in generated OpenAPI.
+-   [x] Strengthen PlayCanvas Editor artifact browser smoke screenshot oracles without requiring full upstream toolbar in bridge-minimal mode.
+-   [x] Run focused backend/rest-docs/editor checks, Prettier, and update progress notes.
+
+## QA Final Contract Drift Closure Checklist
+
+-   [x] Align PlayCanvas asset file OpenAPI endpoints with runtime `sourcePath` and checksum guards.
+-   [x] Synchronize the PlayCanvas Editor frontend public smoke-mode export with the hosted artifact mode.
+-   [x] Run focused rest-docs/editor/backend checks, Prettier/diff checks, and update progress notes.
+
+## QA Final E2E And Contract Closure Checklist
+
+-   [x] Declare the PlayCanvas Editor browser-smoke PNG parser dependency explicitly.
+-   [x] Replace stale artifact-only wording in the PlayCanvas Editor upstream vendor note.
+-   [x] Make the minimal compatibility protocol descriptor avoid claiming that the current user owns the project.
+-   [x] Strengthen Playwright evidence for real duplicate bridge replay retries and stabilize the conflict-to-dirty flow.
+-   [x] Close minor UX fallback and viewport evidence gaps.
+-   [x] Run focused tests, local minimal Supabase E2E, Prettier, lint/build/static checks, autoreview, and update progress notes.
+
 # PlayCanvas Editor Frontend Package Rename Implementation Tasks
 
 > Date: 2026-06-05
@@ -228,3 +318,18 @@ Close the QA blockers found after the first implementation pass. This work compl
 -   [x] Lock bridge scene saves to scene-owned payload paths so one scene cannot overwrite another scene's file.
 -   [x] Strengthen unit, artifact, and Playwright tests so fallback `Add entity` is not accepted as real Editor UI proof.
 -   [x] Run focused backend/frontend/editor tests, lint, Prettier, Playwright evidence where practical, and autoreview.
+
+## PlayCanvas Editor Minimal Compatibility Backend QA Closure Checklist
+
+> Date: 2026-06-05
+> Scope: close QA findings for the minimal compatibility REST backend slice.
+
+-   [x] Add a short-lived compatibility REST token boundary and bind it to metahub, project, user, package slug, mode, expiry, and origin.
+-   [x] Route iframe save through the compatibility REST scene endpoint when the compatibility config is available, with bridge fallback only before config bootstrap.
+-   [x] Prevent user-scoped compatibility settings from being carried into restored/copied project snapshots.
+-   [x] Extend focused route/service tests for token negatives, role/CSRF negatives, replay fingerprint conflicts, and snapshot settings filtering.
+-   [x] Update E2E/agent coverage so the compatibility backend package and focused route/service tests run explicitly and browser tests assert the compatibility REST save path.
+-   [x] Pass a host-fetched CSRF token through the PlayCanvas Editor bootstrap descriptor so sandboxed compatibility REST saves use the authenticated platform session.
+-   [x] Normalize PlayCanvas Editor compatibility REST conflict errors and surface them in the host UI.
+-   [x] Update docs and Memory Bank progress for the corrected security/test contract.
+-   [x] Run focused builds, lints, tests, Prettier/diff checks, and autoreview.
