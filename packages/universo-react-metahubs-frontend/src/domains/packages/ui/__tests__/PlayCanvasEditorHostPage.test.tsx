@@ -4,7 +4,7 @@ import { I18nextProvider } from 'react-i18next'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInstance as getI18nInstance } from '@universo-react/i18n/instance'
-import type { PackageAuthoringHostDescriptor } from '@universo-react/types'
+import { PLAYCANVAS_EDITOR_PACKAGE_NAME, type PackageAuthoringHostDescriptor } from '@universo-react/types'
 import { createLocalizedContent } from '@universo-react/utils'
 import '../../../../i18n'
 import { packagesApi } from '../../api'
@@ -41,7 +41,7 @@ const createQueryClient = () =>
 const hostDescriptor = (): PackageAuthoringHostDescriptor => ({
     metahubId: 'metahub-1',
     packageSlug: 'playcanvas-editor',
-    packageName: '@universo-react/playcanvas-editor-frontend',
+    packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
     version: '0.1.0',
     displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
     description: createLocalizedContent('en', 'Authoring-only PlayCanvas Editor package.'),

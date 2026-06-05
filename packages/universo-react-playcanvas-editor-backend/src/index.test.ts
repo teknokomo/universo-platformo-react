@@ -1,7 +1,12 @@
 import express from 'express'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Server } from 'node:http'
-import type { PlayCanvasEditorCompatibilityProtocolDescriptor, PlayCanvasScene, VersionedLocalizedContent } from '@universo-react/types'
+import {
+    PLAYCANVAS_EDITOR_PACKAGE_NAME,
+    type PlayCanvasEditorCompatibilityProtocolDescriptor,
+    type PlayCanvasScene,
+    type VersionedLocalizedContent
+} from '@universo-react/types'
 import {
     createPlayCanvasEditorCompatibilityConfig,
     createPlayCanvasEditorCompatibilityRoutes,
@@ -128,7 +133,7 @@ const createTestServer = async () => {
                     codename: localized('playcanvas_project'),
                     displayName: localized('PlayCanvas Project'),
                     description: null,
-                    packageName: '@universo-react/playcanvas-editor-frontend',
+                    packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
                     packageVersion: '0.1.0',
                     compatibilityStatus: 'compatible',
                     compatibilityNotes: {},

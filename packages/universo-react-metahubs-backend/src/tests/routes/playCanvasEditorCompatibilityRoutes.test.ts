@@ -1,5 +1,6 @@
 import express from 'express'
 import type { ErrorRequestHandler, RequestHandler } from 'express'
+import { PLAYCANVAS_EDITOR_PACKAGE_NAME } from '@universo-react/types'
 import { createPlayCanvasProjectsRoutes } from '../../domains/playcanvas-projects/routes/playCanvasProjectsRoutes'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
 
@@ -388,7 +389,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
             codename: {},
             displayName: {},
             description: null,
-            packageName: '@universo-react/playcanvas-editor-frontend',
+            packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
             packageVersion: '0.1.0',
             compatibilityStatus: 'compatible',
             compatibilityNotes: {},
