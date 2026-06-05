@@ -89,6 +89,16 @@ const resolveDisplayConfig = (config: PackageAttachmentConfig): Extract<PackageA
 
 const PLAYCANVAS_EDITOR_PACKAGE_NAME = '@universo-react/playcanvas-editor-frontend'
 
+const formatPackageNameFallback = (packageName: string): string => {
+    const unscoped = packageName.split('/').pop() ?? packageName
+    return unscoped
+        .replace(/^universo-react-?/, '')
+        .split('-')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ')
+}
+
 const buildRows = (items: MetahubPackageCatalogItem[], attachedItems: MetahubPackageAttachment[], locale: string): PackageTableRow[] => {
     const grouped = new Map<string, MetahubPackageCatalogItem[]>()
     const attachmentByPackageName = new Map(attachedItems.map((item) => [item.packageName, item]))
@@ -106,7 +116,7 @@ const buildRows = (items: MetahubPackageCatalogItem[], attachedItems: MetahubPac
 
             return {
                 id: packageName,
-                name: resolveText(selected.displayName, locale, packageName),
+                name: resolveText(selected.displayName, locale, formatPackageNameFallback(packageName)),
                 packageName,
                 version: attached?.attachedVersion ?? selected.version,
                 description: resolveText(selected.description ?? null, locale, ''),
@@ -242,10 +252,24 @@ function PlayCanvasProjectsPanel({
         createMutation.mutate()
     }
 
-    const statusLabel = (project: PlayCanvasProjectSummary) =>
-        project.publishable
+    const statusLabel = (project: PlayCanvasProjectSummary) => {
+        if (project.compatibilityStatus !== 'compatible') {
+            return t(`packages.projects.compatibility.${project.compatibilityStatus}`, 'Compatibility issue')
+        }
+        return project.publishable
             ? t('packages.projects.status.ready', 'Ready')
             : t(`packages.projects.status.${project.status}`, 'Needs attention')
+    }
+
+    const statusColor = (project: PlayCanvasProjectSummary) => {
+        if (project.compatibilityStatus === 'blocked' || project.compatibilityStatus === 'unsupported') {
+            return 'error' as const
+        }
+        if (project.compatibilityStatus === 'needsMigration') {
+            return 'warning' as const
+        }
+        return project.publishable ? ('success' as const) : ('warning' as const)
+    }
 
     return (
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
@@ -343,11 +367,7 @@ function PlayCanvasProjectsPanel({
                                             {project.id === defaultProjectId ? (
                                                 <Chip size='small' color='primary' label={t('packages.projects.defaultChip', 'Default')} />
                                             ) : null}
-                                            <Chip
-                                                size='small'
-                                                color={project.publishable ? 'success' : 'warning'}
-                                                label={statusLabel(project)}
-                                            />
+                                            <Chip size='small' color={statusColor(project)} label={statusLabel(project)} />
                                         </Stack>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(

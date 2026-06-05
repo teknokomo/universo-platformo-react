@@ -55,6 +55,200 @@
 
 ---
 
+## 2026-06-05 - PlayCanvas Editor Compatibility Backend QA Repair
+
+-   Closed the QA findings for the minimal PlayCanvas Editor compatibility
+    backend around direct TypeScript checks, settings replay, and snapshot
+    restore lifecycle.
+-   Fixed the new backend package test fixtures so package-level
+    `tsc --noEmit` validates the test source against the exported shared DTO
+    types.
+-   Made compatibility settings writes replay-idempotent by `requestId`,
+    command fingerprint, project, settings kind, and user before mutating
+    project settings.
+-   Remapped project-scoped PlayCanvas Editor compatibility settings document ids
+    during PlayCanvas project snapshot restore so copied/restored projects no
+    longer retain old project ids in `settingsDocuments`.
+-   Added an explicit same-origin CSRF contract to the compatibility REST config:
+    callers fetch `/api/v1/auth/csrf` and send the token as `X-CSRF-Token` on
+    REST mutations instead of bypassing the global API CSRF middleware.
+-   Hardened scene/settings replay completion failures so a failed replay-response
+    write after a committed mutation keeps the in-progress claim as a duplicate
+    retry barrier instead of allowing the same request id to mutate storage
+    twice.
+-   Added focused regressions for duplicate settings write replay and restored
+    compatibility settings document ids, release-on-replay-completion-failure,
+    route/package assertions for the exposed CSRF metadata, bridge fallback
+    bootstrap on compatibility-config failure, artifact-origin token binding,
+    and no-Referer platform origin fallback for absolute compatibility REST
+    endpoints.
+-   Verification passed: direct backend package TypeScript check, backend package
+    Vitest, focused metahubs-backend service/route Jest, host-page Vitest,
+    artifact package Vitest, artifact Playwright compatibility REST smoke,
+    package lint/build checks, root local-Supabase `build:e2e`, targeted
+    Chromium `metahub resources packages tab` E2E, `git diff --check` with only
+    vendored CRLF warnings, local E2E Supabase shutdown, and final
+    `.agents/skills/autoreview/scripts/autoreview --mode local` with no
+    accepted/actionable findings.
+
+## 2026-06-05 - PlayCanvas Editor Minimal Compatibility REST Backend
+
+-   Added `@universo-react/playcanvas-editor-backend` as a non-user-facing
+    protocol package that exports typed Express route factories and keeps
+    metahub storage/access dependencies injected through ports.
+-   Extended shared PlayCanvas Editor compatibility contracts with Zod schemas
+    for REST config, scene save/read DTOs, asset summaries, scoped settings
+    documents, token claims, and explicit cloud-only no-op responses.
+-   Mounted manager-only same-origin compatibility REST routes under
+    `/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}`
+    for `config`, `scenes`, `assets`, `settings`, and `cloud-only` surfaces.
+-   The route factory now wraps async Express handlers so host-level access
+    failures and domain errors flow through the normal error middleware instead
+    of relying on Express 5 semantics.
+-   Closed final autoreview findings in the compatibility adapter: root-level
+    PlayCanvas assets now expose an explicit `/` compatibility `virtualPath`,
+    and REST scene saves are replay-idempotent by `requestId` through the
+    existing `_app_settings` replay store before mutating scene storage.
+-   Added route-level Jest coverage for metahub access, role denial, invalid
+    write fail-closed behavior, scene save adapter flow, root-level asset
+    listing, scoped settings writes, and duplicate scene-save replay, plus
+    standalone Vitest coverage for the backend package factory.
+-   Updated generated OpenAPI, GitBook docs, package READMEs, and Memory Bank so
+    the bridge-minimal slice and the new compatibility REST slice are no longer
+    conflated. ShareDB operation persistence, messenger WebSocket, collaboration,
+    PlayCanvas Cloud jobs, and broad asset pipeline parity remain explicitly out
+    of scope.
+-   Verification passed:
+    `pnpm --filter @universo-react/metahubs-backend test -- PlayCanvasProjectsService.test.ts playCanvasProjectsController.test.ts playCanvasEditorCompatibilityRoutes.test.ts --runInBand`;
+    `pnpm --filter @universo-react/metahubs-backend build`;
+    `pnpm --filter @universo-react/metahubs-backend lint`;
+    `pnpm --filter @universo-react/playcanvas-editor-backend test`;
+    `pnpm --filter @universo-react/playcanvas-editor-backend build`;
+    `pnpm --filter @universo-react/playcanvas-editor-backend lint`;
+    `pnpm --filter @universo-react/types test -- playcanvasEditorBridge.test.ts --runInBand`;
+    `pnpm --filter @universo-react/types build`;
+    `pnpm --filter @universo-react/rest-docs validate`;
+    `git diff --check` with only existing vendored CRLF warnings; and
+    `.agents/skills/autoreview/scripts/autoreview --mode local`, which reported
+    no accepted/actionable findings.
+
+## 2026-06-05 - PlayCanvas Editor Minimal Compatibility Backend E2E Closure
+
+-   Closed the final E2E and contract findings for the PlayCanvas Editor
+    bridge-minimal slice.
+-   Declared the PlayCanvas Editor browser-smoke PNG parser dependency
+    (`pngjs`) in the frontend package manifest instead of relying on a
+    transitive dependency.
+-   Corrected the compatibility descriptor owner semantics: `identity.owner`
+    can now be `metahub`, and the backend descriptor reports the metahub as the
+    owner instead of implying the current user owns the project.
+-   Updated the generated OpenAPI source and descriptor tests so the
+    `user|metahub` owner contract is validated consistently.
+-   Replaced stale artifact-only wording in `vendor/UPSTREAM.md` with the
+    current `universo-hosted` bridge-minimal scope and explicit non-parity
+    notes for PlayCanvas Cloud REST, ShareDB realtime, and messenger surfaces.
+-   Strengthened Playwright coverage for duplicate bridge replay responses,
+    clean conflict-to-dirty recovery, real shortcut saves after visible editor
+    changes, and user-facing package-name fallback text.
+-   Fixed an autoreview data-loss finding in the PlayCanvas Editor host: compact
+    viewport changes no longer unmount an already loaded editor iframe, and a
+    focused component regression now preserves the iframe while showing the
+    compact viewport warning.
+-   Verification passed:
+    `pnpm --filter @universo-react/rest-docs validate`;
+    `pnpm --filter @universo-react/types test -- playcanvasEditorBridge.test.ts --runInBand`;
+    `pnpm --filter @universo-react/types build`;
+    `pnpm --filter @universo-react/metahubs-backend test -- src/tests/controllers/playCanvasProjectsController.test.ts src/tests/services/PlayCanvasEditorBridgeSessionService.test.ts --runInBand`;
+    `pnpm --filter @universo-react/metahubs-frontend test -- MetahubPackagesTab.test.tsx --runInBand`;
+    `pnpm --filter @universo-react/playcanvas-editor-frontend test`;
+    `pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke`;
+    `pnpm --filter @universo-react/metahubs-backend lint`;
+    `pnpm --filter @universo-react/metahubs-backend build`;
+    `pnpm --filter @universo-react/metahubs-frontend lint`;
+    `pnpm --filter @universo-react/metahubs-frontend build`;
+    local minimal Supabase E2E
+    `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "metahub resources packages tab"`;
+    `git diff --check` with only existing vendored CRLF warnings; and
+    `.agents/skills/autoreview/scripts/autoreview --mode local`, which reported
+    no remaining accepted/actionable findings after the compact viewport fix.
+-   The E2E runtime requires fresh built workspace artifacts; rebuilding
+    `@universo-react/types` was necessary so production-mode imports picked up
+    the updated compatibility schema from `dist`.
+-   Full PlayCanvas Cloud-compatible REST, ShareDB realtime, and messenger
+    backend surfaces remain out of this completed bridge-minimal slice.
+
+## 2026-06-05 - PlayCanvas Editor Minimal Compatibility Backend Final Drift Closure
+
+-   Closed the final contract drift findings from the bridge-minimal PlayCanvas
+    Editor compatibility QA pass.
+-   Asset file OpenAPI now matches the runtime contract for
+    `/metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file`:
+    GET requires `sourcePath`, PUT uses a strict
+    `PlayCanvasAssetFileWriteRequest`, and DELETE requires both `sourcePath` and
+    `expectedCurrentChecksum`.
+-   The PlayCanvas Editor frontend public artifact manifest export now reports
+    `universo-hosted`, matching the artifact builder default and package seed
+    metadata, with a focused Vitest regression.
+-   Verification passed: rest-docs route/source validation and OpenAPI lint,
+    PlayCanvas Editor Vitest, focused metahubs-backend controller Jest,
+    metahubs-backend lint/build, Prettier on touched files, and
+    `git diff --check` with only pre-existing vendored CRLF warnings.
+
+## 2026-06-05 - PlayCanvas Editor Minimal Compatibility Backend QA Closure
+
+-   Closed the QA findings for the bridge-minimal PlayCanvas Editor
+    compatibility slice without claiming PlayCanvas Cloud parity.
+-   Bridge replay protection now releases claims for early non-mutating
+    `scene.save` capability rejections and uses `json-stable-stringify` for
+    canonical nested JSON command fingerprints.
+-   Added controller regressions for unsupported default-scene retries and
+    successful save retries with equivalent nested payloads in a different key
+    order.
+-   Generated OpenAPI now documents the PlayCanvas project file endpoint
+    `sourcePath` query parameter, delete checksum precondition, and strict PUT
+    request body schema.
+-   Playwright evidence now distinguishes `upstream-toolbar` from
+    `hosted-fallback` mode, adds semantic fallback assertions, and replaces
+    byte-size screenshot checks with PNG pixel-diversity oracles.
+-   Verification passed: focused metahubs-backend controller Jest,
+    metahubs-backend lint/build, rest-docs validate, PlayCanvas Editor Vitest,
+    PlayCanvas Editor browser smoke across desktop/tablet/mobile, Prettier on
+    touched files, targeted Chromium packages/resources E2E on local minimal
+    Supabase, local E2E Supabase shutdown, and `git diff --check` with only
+    pre-existing vendored CRLF warnings.
+
+## 2026-06-05 - PlayCanvas Editor Minimal Bridge Compatibility Slice
+
+-   Updated the vendored PlayCanvas Editor frontend artifact to upstream
+    `v2.23.4` and recorded the upstream release metadata, local dependency
+    policy, package metadata, docs, and artifact smoke expectations.
+-   Added the typed `protocol.describe` bridge command and compatibility
+    descriptor for the current `universo-bridge-minimal` mode. The descriptor
+    explicitly reports that PlayCanvas Cloud-compatible REST, ShareDB realtime,
+    and messenger surfaces are disabled in this slice.
+-   Closed the QA hardening gaps by making `protocol.describe` read-only,
+    validating compatibility descriptors and bridge session claims with strict
+    Zod schemas, rejecting iframe bootstrap requests from non-editor sources,
+    removing synthetic admin/superUser claims, and splitting ShareDB status
+    from the metahub scene storage bridge.
+-   Integrated the descriptor through the metahub PlayCanvas project service,
+    bridge controller, read-only `/playcanvas/editor-compatible/.../protocol`
+    namespace, hosted artifact bootstrap, generated OpenAPI docs, and
+    PlayCanvas Editor host E2E assertions without adding a premature full
+    backend package or new persistence tables.
+-   Kept the existing secured metahub bridge/storage path as the implemented
+    authoring surface, including visible entity creation, save shortcut
+    prevention, save/reload persistence, conflict handling, responsive host
+    states, package settings, and EN/RU localized UX.
+-   Verification passed: focused shared types tests/build/lint, metahubs-backend
+    bridge controller tests/build/lint, metahubs-frontend tests/build/lint,
+    PlayCanvas Editor frontend tests/build/smoke/browser-smoke, REST docs lint,
+    full local-Supabase E2E build, `git diff --check`, Prettier checks, and
+    local minimal Supabase Chromium packages/resources Playwright flow with 2/2
+    tests passing. The first E2E grep attempt used the wrong filter and found
+    no tests; the corrected flow passed after stabilizing the host Ctrl+S and
+    iframe navigation test oracles.
+
 ## 2026-06-05 - PlayCanvas Editor Frontend Package Rename
 
 -   Renamed the workspace package boundary from the generic PlayCanvas Editor
@@ -3144,6 +3338,43 @@ tools/lint-db-access.mjs`; `git diff --check`; local minimal Supabase
     the adapter-facing `outputFile` object.
 -   Final local autoreview passed clean with no accepted/actionable findings
     after the QA repair loop.
+
+### 2026-06-05: PlayCanvas Editor Minimal Compatibility Backend QA Follow-up
+
+-   Closed the sandboxed PlayCanvas Editor compatibility REST save gaps found
+    during QA.
+-   The metahub host now fetches a platform CSRF token through the authenticated
+    API client and passes it through the editor bootstrap descriptor, so the
+    sandboxed artifact does not need to fetch `/api/v1/auth/csrf` from inside
+    the iframe.
+-   The host normalizes loopback artifact URLs between `localhost`,
+    `127.0.0.1`, and IPv6 loopback aliases when the protocol and port match the
+    current page, preventing cookie/session drift in E2E and local development.
+-   The artifact hydrates the current scene checksum before the first
+    compatibility REST write when needed, uses the host-provided CSRF token, and
+    reports direct REST save success through the dirty-state transition.
+-   Host bootstrap now retains pending iframe `bootstrapRequestId` values and
+    replays `editor.bootstrap.init` after the compatibility config and CSRF
+    token queries resolve, avoiding a race where the iframe requested init
+    before the descriptor was ready.
+-   Compatibility config requests now include the iframe artifact origin; the
+    backend signs the short-lived REST token for that artifact origin and emits
+    absolute platform REST/CSRF endpoints when the platform origin is known.
+-   Direct compatibility REST conflicts now throw a normalized
+    `{ ok: false, code: 'saveConflict', status: 409 }` envelope and emit an
+    authenticated `bridge.saveError` message so the host shows the save conflict
+    alert and dialog.
+-   Snapshot restore now filters both global `user_*` and project-user
+    `project_<projectId>_<userId>` compatibility settings documents, while
+    still remapping project-private settings to the restored project id.
+-   The Playwright oracle now accepts `expectedCurrentChecksum: null` for the
+    first file-backed save when the compatibility backend still serves an inline
+    scene with no persisted checksum.
+-   Verification passed: Prettier on touched files, focused metahubs-frontend
+    host Vitest, PlayCanvas Editor artifact build, focused artifact Playwright
+    compatibility REST smoke, focused metahubs-backend snapshot service Jest,
+    root `build:e2e` with local minimal Supabase environment, and targeted
+    Chromium `metahub resources packages tab` E2E on local minimal Supabase.
 
 ### 2026-06-04: PlayCanvas Editor Runtime Host QA Closure
 

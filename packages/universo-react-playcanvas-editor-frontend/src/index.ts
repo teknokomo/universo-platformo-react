@@ -1,25 +1,12 @@
 export const PLAYCANVAS_EDITOR_UPSTREAM_REPOSITORY = 'https://github.com/playcanvas/editor'
-export const PLAYCANVAS_EDITOR_UPSTREAM_TAG = 'v2.22.1'
-export const PLAYCANVAS_EDITOR_UPSTREAM_COMMIT = '0fcd44253ba1bba39c13d45b069265167249ecb6'
-export const PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION = '2.22.1'
+export const PLAYCANVAS_EDITOR_UPSTREAM_TAG = 'v2.23.4'
+export const PLAYCANVAS_EDITOR_UPSTREAM_COMMIT = 'c4916f4973963341984499f2d919f8bfd38e417c'
+export const PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION = '2.23.4'
 export const PLAYCANVAS_EDITOR_NODE_REQUIREMENT = '>=22.22.0'
 export const PLAYCANVAS_EDITOR_ARTIFACT_OUTPUT_ROOT = 'dist/editor'
-export const PLAYCANVAS_EDITOR_SMOKE_MODE = 'artifact-only'
+export const PLAYCANVAS_EDITOR_SMOKE_MODE = 'universo-hosted'
 
-export type PlayCanvasEditorSmokeMode = typeof PLAYCANVAS_EDITOR_SMOKE_MODE
-
-export interface PlayCanvasEditorArtifactManifest {
-    upstreamRepository: typeof PLAYCANVAS_EDITOR_UPSTREAM_REPOSITORY
-    upstreamTag: typeof PLAYCANVAS_EDITOR_UPSTREAM_TAG
-    upstreamCommit: typeof PLAYCANVAS_EDITOR_UPSTREAM_COMMIT
-    upstreamPackageVersion: typeof PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION
-    nodeRequirement: typeof PLAYCANVAS_EDITOR_NODE_REQUIREMENT
-    outputRoot: typeof PLAYCANVAS_EDITOR_ARTIFACT_OUTPUT_ROOT
-    smokeMode: PlayCanvasEditorSmokeMode
-    builtAt: string
-}
-
-export const createPlayCanvasEditorArtifactManifest = (builtAt: string): PlayCanvasEditorArtifactManifest => ({
+export const createPlayCanvasEditorArtifactManifest = (builtAt) => ({
     upstreamRepository: PLAYCANVAS_EDITOR_UPSTREAM_REPOSITORY,
     upstreamTag: PLAYCANVAS_EDITOR_UPSTREAM_TAG,
     upstreamCommit: PLAYCANVAS_EDITOR_UPSTREAM_COMMIT,

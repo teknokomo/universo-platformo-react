@@ -10,6 +10,7 @@ import {
     assertRootLockfileHash,
     assertVendorMetadata,
     createArtifactManifest,
+    createHostedEditorConfig,
     packageRoot,
     readRootLockfileHash,
     upstreamCommit,
@@ -17,19 +18,52 @@ import {
     validateArtifactManifest
 } from '../scripts/lib/playcanvas-editor-artifact.mjs'
 import { resolveArtifactRequest } from '../scripts/serve-editor.mjs'
+import {
+    createPlayCanvasEditorArtifactManifest,
+    PLAYCANVAS_EDITOR_SMOKE_MODE,
+    PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION
+} from '../src/index.ts'
 
 describe('PlayCanvas Editor artifact metadata', () => {
     it('keeps upstream metadata and license attribution consistent', () => {
         expect(() => assertVendorMetadata()).not.toThrow()
-        expect(upstreamPackageVersion).toBe('2.22.1')
-        expect(upstreamCommit).toBe('0fcd44253ba1bba39c13d45b069265167249ecb6')
+        expect(upstreamPackageVersion).toBe('2.23.4')
+        expect(upstreamCommit).toBe('c4916f4973963341984499f2d919f8bfd38e417c')
     })
 
     it('validates the pinned artifact manifest and rejects drift', () => {
-        const manifest = createArtifactManifest('2026-05-31T00:00:00.000Z')
+        const manifest = createArtifactManifest('2026-06-05T00:00:00.000Z')
         expect(() => validateArtifactManifest(manifest)).not.toThrow()
         expect(() => validateArtifactManifest({ ...manifest, upstreamCommit: 'unexpected' })).toThrow(/upstreamCommit mismatch/)
         expect(() => validateArtifactManifest({ ...manifest, localPath: packageRoot })).toThrow(/keys/)
+    })
+
+    it('keeps the public package manifest aligned with the hosted artifact mode', () => {
+        expect(PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION).toBe('2.23.4')
+        expect(PLAYCANVAS_EDITOR_SMOKE_MODE).toBe('universo-hosted')
+        expect(createPlayCanvasEditorArtifactManifest('2026-06-05T00:00:00.000Z').smokeMode).toBe('universo-hosted')
+    })
+
+    it('builds a schema-valid hosted Editor config without synthetic admin privileges', () => {
+        const config = createHostedEditorConfig(
+            {
+                selectedProject: {
+                    project: {
+                        id: '019e9146-fd1b-7d1d-a858-d1e96485d901',
+                        displayName: {
+                            _primary: 'en',
+                            locales: { en: { content: 'Sandbox PlayCanvas Project' } }
+                        }
+                    },
+                    defaultSceneId: '019e9147-16c4-738c-ab0f-b98c443ee676'
+                }
+            },
+            'http://127.0.0.1/editor/'
+        )
+
+        expect(config.project.permissions.admin).toEqual([])
+        expect(config.self.flags.superUser).toBe(false)
+        expect(config.project.name).toBe('Sandbox PlayCanvas Project')
     })
 
     it('fails closed on unsupported Node versions', () => {

@@ -7,9 +7,9 @@ This package is intentionally an artifact boundary, not a React/MUI component li
 ## Upstream
 
 -   Repository: https://github.com/playcanvas/editor
--   Tag: `v2.22.1`
--   Commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
--   Package version: `2.22.1`
+-   Tag: `v2.23.4`
+-   Commit: `c4916f4973963341984499f2d919f8bfd38e417c`
+-   Package version: `2.23.4`
 -   Node requirement: `>=22.22.0`
 -   License: MIT, with attribution in `NOTICE.md`
 
@@ -30,7 +30,7 @@ The default artifact mode is `universo-hosted`.
 
 `universo-hosted` builds the pinned upstream Editor files, writes a minimal Universo shell, injects `window.config`, and loads the bridge bootstrap script. `artifact-only` remains available through `UNIVERSO_PLAYCANVAS_EDITOR_ARTIFACT_MODE=artifact-only` as a fail-closed unavailable page.
 
-The hosted bridge slice supports the first manager-only metahub authoring path: project context, scene list/read/save, bounded JSON scene payloads, and minimal JSON asset metadata. It does not implement PlayCanvas Cloud parity, collaboration, broad binary assets, Colyseus authoring, implicit runtime publication, or MCP/AI tooling.
+The hosted bridge slice supports the first manager-only metahub authoring path: a `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads, and minimal JSON asset metadata. The backend also exposes a minimal same-origin compatibility REST namespace under `/playcanvas/editor-compatible/...` for `config`, `scenes`, `assets`, `settings`, and explicit cloud-only no-op descriptors. It does not implement PlayCanvas Cloud parity, ShareDB operation persistence, collaboration, broad binary assets, Colyseus authoring, implicit runtime publication, or MCP/AI tooling.
 
 ## Hosted Artifact Security
 

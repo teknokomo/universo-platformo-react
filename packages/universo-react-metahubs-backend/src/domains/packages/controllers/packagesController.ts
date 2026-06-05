@@ -470,6 +470,7 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                       })
                     : null
             const descriptor: PackageAuthoringHostDescriptor = {
+                metahubId,
                 packageSlug: item.authoringSurface.packageSlug,
                 packageName: item.packageName,
                 version: item.version,

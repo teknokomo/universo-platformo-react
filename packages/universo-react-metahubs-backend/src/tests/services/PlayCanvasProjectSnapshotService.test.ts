@@ -1706,4 +1706,108 @@ describe('PlayCanvasProjectSnapshotService', () => {
         expect(runtimeManifest.checksum).not.toBe('old-checksum')
         expect(manifestRow?.manifest_checksum).toBe(runtimeManifest.checksum)
     })
+
+    it('filters user-scoped PlayCanvas Editor compatibility settings and remaps project-private ids during restore', async () => {
+        const insertedRows: Record<string, unknown>[] = []
+        const oldProjectId = '019e8afa-0000-7000-8000-000000000021'
+        const sceneId = '019e8afa-0000-7000-8000-000000000022'
+        const trx = {
+            withSchema: jest.fn(() => ({
+                from: jest.fn(() => ({ del: jest.fn(async () => undefined) })),
+                into: jest.fn(() => ({
+                    insert: jest.fn(async (row: Record<string, unknown>) => {
+                        insertedRows.push(row)
+                    })
+                }))
+            }))
+        }
+        const service = new PlayCanvasProjectSnapshotService(makeExec({}), makeSchemaService() as never)
+
+        await service.restoreSnapshot({
+            trx: trx as never,
+            metahubId: 'metahub-1',
+            schemaName: TEST_SCHEMA,
+            snapshot: {
+                schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+                projects: [
+                    {
+                        id: oldProjectId,
+                        codename: createLocalizedContent('en', 'project_one'),
+                        displayName: createLocalizedContent('en', 'Project One'),
+                        packageRef: {
+                            packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                            version: '0.1.0',
+                            compatibilityStatus: 'compatible'
+                        },
+                        schemaVersion: '1',
+                        settings: {
+                            playCanvasEditorCompatibility: {
+                                settingsDocuments: {
+                                    [`project_${oldProjectId}_user-1`]: {
+                                        kind: 'projectUser',
+                                        documentId: `project_${oldProjectId}_user-1`,
+                                        data: { grid: { snap: true } },
+                                        revision: 'project-3'
+                                    },
+                                    [`project-private_${oldProjectId}`]: {
+                                        kind: 'projectPrivate',
+                                        documentId: `project-private_${oldProjectId}`,
+                                        data: { panels: { hierarchy: true } },
+                                        revision: 'project-3'
+                                    },
+                                    'user_user-1': {
+                                        kind: 'user',
+                                        documentId: 'user_user-1',
+                                        data: { theme: 'dark' },
+                                        revision: 'project-3'
+                                    }
+                                }
+                            }
+                        },
+                        defaultSceneId: sceneId,
+                        publicationConfig: {}
+                    }
+                ],
+                scenes: [
+                    {
+                        id: sceneId,
+                        projectId: oldProjectId,
+                        codename: createLocalizedContent('en', 'scene_one'),
+                        displayName: createLocalizedContent('en', 'Scene One'),
+                        payloadSchemaVersion: '1',
+                        payload: {},
+                        payloadFile: null,
+                        checksum: null,
+                        sortOrder: 0,
+                        publish: true
+                    }
+                ],
+                assets: [],
+                scriptAssets: [],
+                sceneScriptBindings: [],
+                generatedArtifacts: []
+            },
+            moduleIdMap: new Map(),
+            entityIdMap: new Map(),
+            userId: 'user-1'
+        })
+
+        const projectRow = insertedRows.find((row) => 'settings' in row)
+        const restoredProjectId = projectRow?.id as string
+        const settings = projectRow?.settings as {
+            playCanvasEditorCompatibility?: {
+                settingsDocuments?: Record<string, { documentId?: string }>
+            }
+        }
+        const documents = settings.playCanvasEditorCompatibility?.settingsDocuments
+
+        expect(restoredProjectId).toBeTruthy()
+        expect(restoredProjectId).not.toBe(oldProjectId)
+        expect(documents).toHaveProperty(`project-private_${restoredProjectId}`)
+        expect(documents).not.toHaveProperty('user_user-1')
+        expect(documents).not.toHaveProperty(`project_${restoredProjectId}_user-1`)
+        expect(documents).not.toHaveProperty(`project_${oldProjectId}_user-1`)
+        expect(documents).not.toHaveProperty(`project-private_${oldProjectId}`)
+        expect(documents?.[`project-private_${restoredProjectId}`]?.documentId).toBe(`project-private_${restoredProjectId}`)
+    })
 })

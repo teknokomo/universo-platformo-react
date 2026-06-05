@@ -13,9 +13,9 @@ description: Foundation-пакет артефакта PlayCanvas Editor.
 -   Workspace package: `packages/universo-react-playcanvas-editor-frontend/`
 -   Package name: `@universo-react/playcanvas-editor-frontend`
 -   Upstream repository: `https://github.com/playcanvas/editor`
--   Upstream tag: `v2.22.1`
--   Upstream commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
--   Upstream package version: `2.22.1`
+-   Upstream tag: `v2.23.4`
+-   Upstream commit: `c4916f4973963341984499f2d919f8bfd38e417c`
+-   Upstream package version: `2.23.4`
 -   Required Node.js version for Editor build: `>=22.22.0`
 -   Default artifact mode: `universo-hosted`
 -   Fallback artifact mode: `artifact-only`
@@ -68,9 +68,9 @@ pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 
 Authoring host descriptor содержит `playcanvasEditor`, когда подключённый пакет может открыть Universo-hosted bridge session. MUI host отправляет типизированные команды в `POST /metahub/{metahubId}/playcanvas/editor-bridge/commands` с `sessionToken` в JSON body и command envelope с UUID v7 `requestId`, UUID v7 `sessionId` и session `nonce`.
 
-Первый bridge contract поддерживает `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close` и `bridge.dirtyState`. `scene.save` использует replay protection по `requestId` и возвращает сохранённый success response для безопасных повторных retries. Если checksum сохранённой сцены изменился, backend возвращает `saveConflict` с HTTP 409, а host показывает локализованный conflict dialog без утечки raw storage details.
+Первый bridge contract поддерживает `protocol.describe`, `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close` и `bridge.dirtyState`. `protocol.describe` отдаёт текущий minimal compatibility descriptor для upstream Editor `v2.23.4`: single-user identity, branch-equivalent context, cloud-only no-op surfaces и явное отсутствие parity для ShareDB realtime и messenger endpoints. Изолированный compatibility namespace также отдаёт manager-only same-origin REST endpoints для `config`, `scenes`, `assets`, `settings` и типизированных `cloud-only` no-op responses в `/api/v1/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}`. Compatibility `config` включает short-lived signed-header token contract: `auth.accessToken` нужно отправлять как `X-PlayCanvas-Editor-Token` на compatibility REST requests, сохраняя обычную authenticated platform session. Mutations дополнительно используют стандартный CSRF contract: нужно получить token через `/api/v1/auth/csrf` и отправлять его как `X-CSRF-Token`. Этот REST surface сохраняет single-user payloads сцен и scoped settings через существующее хранилище PlayCanvas projects в метахабе; это не полный PlayCanvas Cloud-compatible API, без ShareDB op persistence, collaboration и cloud jobs. Сохранения сцен и scoped settings writes используют replay protection по `requestId` и возвращают сохранённый success response для безопасных повторных retries. Если checksum сохранённой сцены изменился, backend возвращает `saveConflict` с HTTP 409, а host показывает локализованный conflict dialog без утечки raw storage details.
 
-Hosted artifact сериализует scene data через Editor-side API `entities:list` и `assets:list`. Если upstream Editor bundle в sandboxed hosted mode не инициализирует entity API, artifact устанавливает минимальный hosted entity adapter за теми же методами `editor.call('entities:new')` и `editor.call('entities:list')`. Так authoring action остаётся видимым внутри iframe, bridge получает dirty state через `entities:add`, а сохранение всё равно идёт обычной командой `scene.save`, без staged synthetic payload из parent page.
+Hosted artifact сериализует scene data через Editor-side API `entities:list` и `assets:list`. Если upstream Editor bundle в sandboxed hosted mode не инициализирует entity API, artifact устанавливает минимальный hosted entity adapter за теми же методами `editor.call('entities:new')` и `editor.call('entities:list')`. Так authoring action остаётся видимым внутри iframe, bridge получает dirty state через `entities:add`, а сохранение идёт через compatibility REST при наличии `config`; `scene.save` сохраняется только как bootstrap/fallback bridge command.
 
 ## Устранение неполадок
 

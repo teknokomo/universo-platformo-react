@@ -1,5 +1,6 @@
 import type { DbExecutor } from '@universo-react/utils'
 import { createLocalizedContent } from '@universo-react/utils'
+import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
 
 const TEST_SCHEMA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
@@ -214,6 +215,469 @@ describe('PlayCanvasProjectsService', () => {
         })
 
         readProjectFile.mockRestore()
+    })
+
+    it('stores user-scoped PlayCanvas Editor compatibility settings by document id', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: params?.[2],
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 8
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const claimReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        const completeReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+
+        await expect(
+            service.writeEditorCompatibilitySettings(
+                'metahub-1',
+                PROJECT_ID,
+                'projectUser',
+                {
+                    requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+                    data: { grid: { snap: true } }
+                },
+                'user-2'
+            )
+        ).resolves.toMatchObject({
+            kind: 'projectUser',
+            documentId: `project_${PROJECT_ID}_user-2`,
+            revision: 'project-8'
+        })
+
+        const updateCall = jest.mocked(exec.query).mock.calls.find((call) => String(call[0]).includes('UPDATE'))
+        const nextSettings = updateCall?.[1]?.[2] as {
+            playCanvasEditorCompatibility?: {
+                settingsDocuments?: Record<string, unknown>
+            }
+        }
+        expect(nextSettings.playCanvasEditorCompatibility?.settingsDocuments).toHaveProperty(`project_${PROJECT_ID}_user-2`)
+        expect(nextSettings.playCanvasEditorCompatibility?.settingsDocuments).not.toHaveProperty('projectUser')
+        claimReplay.mockRestore()
+        completeReplay.mockRestore()
+    })
+
+    it('replays compatibility settings writes by request id without mutating project settings twice', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: params?.[2],
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 8
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const response = {
+            kind: 'projectUser' as const,
+            documentId: `project_${PROJECT_ID}_user-2`,
+            data: { grid: { snap: true } },
+            revision: 'project-8'
+        }
+        const claimReplay = jest
+            .spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay')
+            .mockResolvedValueOnce(true)
+            .mockResolvedValueOnce(false)
+        const completeReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        const readReplayResponse = jest
+            .spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse')
+            .mockResolvedValue({ status: 'completed', response })
+        const releaseReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+        const input = {
+            requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+            expectedRevision: 'project-7',
+            data: { grid: { snap: true } }
+        }
+
+        await expect(service.writeEditorCompatibilitySettings('metahub-1', PROJECT_ID, 'projectUser', input, 'user-2')).resolves.toEqual(
+            response
+        )
+        await expect(service.writeEditorCompatibilitySettings('metahub-1', PROJECT_ID, 'projectUser', input, 'user-2')).resolves.toEqual(
+            response
+        )
+
+        expect(jest.mocked(exec.query).mock.calls.filter((call) => String(call[0]).includes('UPDATE')).length).toBe(1)
+        expect(completeReplay).toHaveBeenCalledTimes(1)
+        expect(readReplayResponse).toHaveBeenCalledTimes(1)
+        expect(releaseReplay).not.toHaveBeenCalled()
+        expect(claimReplay).toHaveBeenNthCalledWith(
+            1,
+            exec,
+            TEST_SCHEMA,
+            expect.objectContaining({
+                sessionId: `compatibility:metahub-1:${PROJECT_ID}:settings:projectUser:user-2`,
+                requestId: input.requestId,
+                commandType: 'compatibility.settings.write'
+            })
+        )
+    })
+
+    it('rejects compatibility settings replay when the same request id has a different fingerprint', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [{ id: PROJECT_ID, settings: params?.[2], version: 8 }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse').mockResolvedValue(null)
+        const input = {
+            requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+            expectedRevision: 'project-7',
+            data: { grid: { snap: true } }
+        }
+
+        await expect(
+            service.writeEditorCompatibilitySettings('metahub-1', PROJECT_ID, 'projectUser', input, 'user-2')
+        ).resolves.toMatchObject({
+            revision: 'project-8'
+        })
+        await expect(
+            service.writeEditorCompatibilitySettings(
+                'metahub-1',
+                PROJECT_ID,
+                'projectUser',
+                { ...input, data: { grid: { snap: false } } },
+                'user-2'
+            )
+        ).rejects.toMatchObject({ details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.replayRejected' }) })
+
+        expect(jest.mocked(exec.query).mock.calls.filter((call) => String(call[0]).includes('UPDATE')).length).toBe(1)
+    })
+
+    it('keeps compatibility settings replay claims after committed writes when replay response persistence fails', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: params?.[2],
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 8
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(false)
+        const releaseReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+
+        await expect(
+            service.writeEditorCompatibilitySettings(
+                'metahub-1',
+                PROJECT_ID,
+                'projectUser',
+                {
+                    requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+                    expectedRevision: 'project-7',
+                    data: { grid: { snap: true } }
+                },
+                'user-2'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.replayCompletionFailed' })
+        })
+
+        expect(releaseReplay).not.toHaveBeenCalled()
+    })
+
+    it('replays compatibility scene saves by request id without mutating the scene twice', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const sceneSaveResult = {
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'b'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: { schemaVersion: '1', entities: [{ id: 'entity-1', name: 'Entity' }] },
+            checksum: 'b'.repeat(64)
+        }
+        const saveEditorScene = jest.spyOn(service, 'saveEditorScene').mockResolvedValue({
+            scene: sceneSaveResult.scene,
+            checksum: sceneSaveResult.checksum
+        })
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: sceneSaveResult.scene,
+            payload: sceneSaveResult.payload
+        })
+        const claimReplay = jest
+            .spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay')
+            .mockResolvedValueOnce(true)
+            .mockResolvedValueOnce(false)
+        const completeReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        const readReplayResponse = jest
+            .spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse')
+            .mockResolvedValue({ status: 'completed', response: sceneSaveResult })
+        const releaseReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+        const input = {
+            requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+            expectedCurrentChecksum: 'a'.repeat(64),
+            payload: sceneSaveResult.payload
+        }
+
+        await expect(service.saveEditorCompatibilityScene('metahub-1', PROJECT_ID, SCENE_ID, input, 'user-1')).resolves.toEqual(
+            sceneSaveResult
+        )
+        await expect(service.saveEditorCompatibilityScene('metahub-1', PROJECT_ID, SCENE_ID, input, 'user-1')).resolves.toEqual(
+            sceneSaveResult
+        )
+
+        expect(saveEditorScene).toHaveBeenCalledTimes(1)
+        expect(completeReplay).toHaveBeenCalledTimes(1)
+        expect(readReplayResponse).toHaveBeenCalledTimes(1)
+        expect(releaseReplay).not.toHaveBeenCalled()
+        expect(claimReplay).toHaveBeenNthCalledWith(
+            1,
+            exec,
+            TEST_SCHEMA,
+            expect.objectContaining({
+                sessionId: `compatibility:metahub-1:${PROJECT_ID}:${SCENE_ID}:user-1`,
+                requestId: input.requestId,
+                commandType: 'compatibility.scene.save'
+            })
+        )
+    })
+
+    it('rejects compatibility scene save replay when the same request id has a different fingerprint', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const saveEditorScene = jest.spyOn(service, 'saveEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'b'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            checksum: 'b'.repeat(64)
+        })
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'b'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: { schemaVersion: '1', entities: [{ id: 'entity-1', name: 'Entity' }] }
+        })
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse').mockResolvedValue(null)
+        const input = {
+            requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+            expectedCurrentChecksum: 'a'.repeat(64),
+            payload: { schemaVersion: '1', entities: [{ id: 'entity-1', name: 'Entity' }] }
+        }
+
+        await expect(service.saveEditorCompatibilityScene('metahub-1', PROJECT_ID, SCENE_ID, input, 'user-1')).resolves.toMatchObject({
+            checksum: 'b'.repeat(64)
+        })
+        await expect(
+            service.saveEditorCompatibilityScene(
+                'metahub-1',
+                PROJECT_ID,
+                SCENE_ID,
+                { ...input, payload: { schemaVersion: '1', entities: [{ id: 'entity-2', name: 'Entity 2' }] } },
+                'user-1'
+            )
+        ).rejects.toMatchObject({ details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.replayRejected' }) })
+
+        expect(saveEditorScene).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps compatibility scene save replay claims after committed saves when replay response persistence fails', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const sceneSaveResult = {
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'b'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: { schemaVersion: '1', entities: [{ id: 'entity-1', name: 'Entity' }] },
+            checksum: 'b'.repeat(64)
+        }
+        jest.spyOn(service, 'saveEditorScene').mockResolvedValue({
+            scene: sceneSaveResult.scene,
+            checksum: sceneSaveResult.checksum
+        })
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: sceneSaveResult.scene,
+            payload: sceneSaveResult.payload
+        })
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(false)
+        const releaseReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+
+        await expect(
+            service.saveEditorCompatibilityScene(
+                'metahub-1',
+                PROJECT_ID,
+                SCENE_ID,
+                {
+                    requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+                    expectedCurrentChecksum: 'a'.repeat(64),
+                    payload: sceneSaveResult.payload
+                },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.replayCompletionFailed' })
+        })
+
+        expect(releaseReplay).not.toHaveBeenCalled()
     })
 
     it('adds a suffix to auto-generated project codenames when the display name repeats', async () => {

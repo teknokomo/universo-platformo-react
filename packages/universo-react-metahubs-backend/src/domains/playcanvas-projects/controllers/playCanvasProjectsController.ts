@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { createHash } from 'node:crypto'
+import stableStringify from 'json-stable-stringify'
 import {
     CodenameVLCSchema,
     LocalizedStringAllowEmptySchema,
@@ -98,7 +99,10 @@ const bridgeCommandBodySchema = z
     .strict()
 const replayGuardedBridgeCommands = new Set(['project.loadSelected', 'scene.save'])
 
-const hashBridgeCommand = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex')
+const hashBridgeCommand = (value: unknown): string =>
+    createHash('sha256')
+        .update(stableStringify(value) ?? JSON.stringify(value))
+        .digest('hex')
 
 const completeReplayAfterSuccess = async (
     sessionService: PlayCanvasEditorBridgeSessionService,
@@ -134,6 +138,24 @@ const completeReplayAfterSuccess = async (
                 messageCode: 'playcanvas.editorBridge.replayCompletionFailed'
             }
         })
+    }
+}
+
+const releaseReplayClaim = async (
+    sessionService: PlayCanvasEditorBridgeSessionService,
+    exec: Parameters<PlayCanvasEditorBridgeSessionService['releaseReplay']>[0],
+    replayClaim: {
+        schemaName: string
+        input: {
+            sessionId: string
+            requestId: string
+            commandType: string
+            fingerprint: string
+        }
+    } | null
+): Promise<void> => {
+    if (replayClaim) {
+        await sessionService.releaseReplay(exec, replayClaim.schemaName, replayClaim.input).catch(() => undefined)
     }
 }
 
@@ -452,6 +474,13 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         let completedSuccessfulBridgeOperation = false
         try {
             switch (command.type) {
+                case 'protocol.describe': {
+                    if (!session.projectId) {
+                        return sendBridgeError(res, { requestId: command.requestId, code: 'projectUnavailable', status: 404 })
+                    }
+                    const protocol = await service.describeEditorCompatibilityProtocol(metahubId, session.projectId, userId)
+                    return res.json({ ok: true, requestId: command.requestId, data: { protocol } })
+                }
                 case 'project.loadSelected': {
                     const project = session.projectId
                         ? await service.loadSelectedProjectForEditor(metahubId, session.projectId, userId)
@@ -473,6 +502,7 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
                     const defaultSceneId =
                         session.defaultSceneId ?? (await service.getProject(metahubId, command.projectId, userId)).defaultSceneId ?? null
                     if (!defaultSceneId || command.sceneId !== defaultSceneId) {
+                        await releaseReplayClaim(sessionService, exec, replayClaim)
                         return sendBridgeError(res, { requestId: command.requestId, code: 'unsupportedCapability', status: 403 })
                     }
                     const item = await service.saveEditorScene(
@@ -508,7 +538,7 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
             }
         } catch (error) {
             if (replayClaim && !completedSuccessfulBridgeOperation) {
-                await sessionService.releaseReplay(exec, replayClaim.schemaName, replayClaim.input).catch(() => undefined)
+                await releaseReplayClaim(sessionService, exec, replayClaim)
             }
             if (error instanceof OptimisticLockError) {
                 return sendBridgeError(res, { requestId: command.requestId, code: 'saveConflict', status: 409 })
@@ -525,6 +555,16 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
             throw error
         }
     }, undefined)
+
+    const editorCompatibleProtocol = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const service = new PlayCanvasProjectsService(exec, schemaService)
+            const protocol = await service.describeEditorCompatibilityProtocol(metahubId, req.params.projectId, userId)
+            res.setHeader('Cache-Control', 'no-store')
+            return res.json({ item: protocol })
+        },
+        { permission: 'manageMetahub' }
+    )
 
     const remove = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
@@ -620,6 +660,7 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         publishProjectState,
         exportProjectState,
         editorBridgeCommand,
+        editorCompatibleProtocol,
         readFile,
         writeFile,
         deleteFile

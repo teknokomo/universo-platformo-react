@@ -1,5 +1,5 @@
 import express from 'express'
-import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express'
+import type { Router as ExpressRouter, Request, Response, NextFunction, RequestHandler } from 'express'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import pingRouter from './ping'
 // Universo Platformo | Logger
@@ -36,6 +36,18 @@ import helmet from 'helmet'
 import { createSupabaseAdminClient } from '../utils/supabaseAdmin'
 
 const router: ExpressRouter = express.Router()
+let apiRouteCsrfProtection: RequestHandler | null = null
+
+export const configureApiRouteCsrfProtection = (csrfProtection: RequestHandler): void => {
+    apiRouteCsrfProtection = csrfProtection
+}
+
+const requireConfiguredCsrfProtection: RequestHandler = (req, res, next) => {
+    if (!apiRouteCsrfProtection) {
+        return res.status(500).json({ error: 'CSRF protection is not configured' })
+    }
+    return apiRouteCsrfProtection(req, res, next)
+}
 
 // Create RLS-enabled authentication middleware
 const ensureAuthWithRls = createEnsureAuthWithRls({ getKnex })
@@ -78,7 +90,7 @@ router.use('/locales', publicLocalesRouter)
 let metahubsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!metahubsRouter) {
-        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, getPoolExecutor)
+        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, getPoolExecutor, requireConfiguredCsrfProtection)
     }
     if (metahubsRouter) {
         metahubsRouter(req, res, next)

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import { StandardDialog } from '@universo-react/template-mui/components/dialogs'
@@ -42,6 +42,22 @@ const uuidV7Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 
 const readRequestId = (value: unknown): string | null => (typeof value === 'string' && uuidV7Pattern.test(value) ? value : null)
 
+const loopbackHostnames = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
+
+const normalizeLoopbackArtifactUrl = (artifactUrl: string, pageLocation: Location): string => {
+    const resolved = new URL(artifactUrl, pageLocation.href)
+    const current = new URL(pageLocation.origin)
+    if (
+        loopbackHostnames.has(resolved.hostname) &&
+        loopbackHostnames.has(current.hostname) &&
+        resolved.protocol === current.protocol &&
+        resolved.port === current.port
+    ) {
+        resolved.hostname = current.hostname
+    }
+    return resolved.href
+}
+
 const isAuthenticatedFrameMessage = (data: Record<string, unknown>, bridgeDescriptor: PlayCanvasEditorBridgeSessionDescriptor): boolean =>
     data.sessionId === bridgeDescriptor.sessionId && data.nonce === bridgeDescriptor.nonce
 
@@ -73,6 +89,8 @@ const createBridgeCommand = (
     }
 
     switch (type) {
+        case 'protocol.describe':
+            return parseBridgeCommand({ ...base, type })
         case 'project.loadSelected':
             return parseBridgeCommand({ ...base, type })
         case 'scene.list':
@@ -131,10 +149,14 @@ export default function PlayCanvasEditorHostPage() {
     const [searchParams] = useSearchParams()
     const { t, i18n } = useTranslation(['metahubs'])
     const queryClient = useQueryClient()
+    const theme = useTheme()
+    const isCompactEditorViewport = useMediaQuery(theme.breakpoints.down('sm'))
     const locale = normalizeLocale(i18n.language)
     const iframeRef = useRef<HTMLIFrameElement | null>(null)
     const backLinkRef = useRef<HTMLAnchorElement | null>(null)
     const trustedFrameSourceRef = useRef<MessageEventSource | null>(null)
+    const dirtyRef = useRef(false)
+    const pendingBootstrapRequestIdRef = useRef<string | null>(null)
     const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>('disabled')
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
     const [dirty, setDirty] = useState(false)
@@ -166,18 +188,61 @@ export default function PlayCanvasEditorHostPage() {
         if (!host?.artifactUrl) {
             return null
         }
-        const separator = host.artifactUrl.includes('?') ? '&' : '?'
-        return `${host.artifactUrl}${separator}locale=${encodeURIComponent(locale)}`
+        const normalizedArtifactUrl = normalizeLoopbackArtifactUrl(host.artifactUrl, window.location)
+        const separator = normalizedArtifactUrl.includes('?') ? '&' : '?'
+        return `${normalizedArtifactUrl}${separator}locale=${encodeURIComponent(locale)}`
     }, [displayConfig?.display.developmentUrl, host?.artifactUrl, locale, mode])
+    const frameOrigin = useMemo(() => {
+        if (!frameUrl) return null
+        return new URL(frameUrl, window.location.href).origin
+    }, [frameUrl])
     const [frameStatus, setFrameStatus] = useState<FrameStatus>('checking')
     const bridgeDescriptor = host?.playcanvasEditor?.bridge ?? null
     const bridgeEnabled = Boolean(bridgeDescriptor && mode !== 'developmentUrl')
+    const selectedProjectId = host?.playcanvasEditor?.selectedProject?.project.id ?? null
+    const compatibilityConfigQuery = useQuery({
+        queryKey: [
+            ...metahubsQueryKeys.packagesAttached(metahubId),
+            'playcanvas-editor-compatibility-config',
+            selectedProjectId,
+            frameOrigin
+        ],
+        queryFn: () => packagesApi.getPlayCanvasEditorCompatibilityConfig(metahubId, selectedProjectId ?? '', frameOrigin),
+        enabled: Boolean(bridgeEnabled && selectedProjectId && frameOrigin)
+    })
+    const compatibilityCsrfTokenQuery = useQuery({
+        queryKey: [...metahubsQueryKeys.packagesAttached(metahubId), 'playcanvas-editor-compatibility-csrf', selectedProjectId],
+        queryFn: () => packagesApi.getCsrfToken(),
+        enabled: Boolean(bridgeEnabled && selectedProjectId && compatibilityConfigQuery.data?.csrf)
+    })
     const bootstrapDescriptor = useMemo(() => {
         if (!host?.playcanvasEditor || !bridgeDescriptor) {
             return null
         }
+        if (bridgeEnabled && selectedProjectId && !compatibilityConfigQuery.data && !compatibilityConfigQuery.isError) {
+            return null
+        }
+        if (
+            bridgeEnabled &&
+            selectedProjectId &&
+            compatibilityConfigQuery.data?.csrf &&
+            !compatibilityCsrfTokenQuery.data &&
+            !compatibilityCsrfTokenQuery.isError
+        ) {
+            return null
+        }
         return {
             schemaVersion: host.playcanvasEditor.schemaVersion,
+            metahubId: host.metahubId,
+            packageSlug: host.packageSlug,
+            compatibilityConfig: compatibilityConfigQuery.data ?? null,
+            compatibilityCsrfToken:
+                compatibilityConfigQuery.data?.csrf && compatibilityCsrfTokenQuery.data
+                    ? {
+                          headerName: compatibilityConfigQuery.data.csrf.headerName,
+                          token: compatibilityCsrfTokenQuery.data
+                      }
+                    : null,
             bridge: {
                 sessionId: bridgeDescriptor.sessionId,
                 nonce: bridgeDescriptor.nonce,
@@ -189,11 +254,23 @@ export default function PlayCanvasEditorHostPage() {
             selectedProject: host.playcanvasEditor.selectedProject ?? null,
             compatibilityStatus: host.playcanvasEditor.compatibilityStatus
         }
-    }, [bridgeDescriptor, host?.playcanvasEditor])
+    }, [
+        bridgeDescriptor,
+        bridgeEnabled,
+        compatibilityConfigQuery.data,
+        compatibilityConfigQuery.isError,
+        compatibilityCsrfTokenQuery.data,
+        compatibilityCsrfTokenQuery.isError,
+        host?.metahubId,
+        host?.packageSlug,
+        host?.playcanvasEditor,
+        selectedProjectId
+    ])
     const postBootstrapInit = useCallback(
         (bootstrapRequestId: string) => {
             if (!bootstrapRequestId || !bootstrapDescriptor || !iframeRef.current?.contentWindow || !frameUrl) {
-                return
+                pendingBootstrapRequestIdRef.current = bootstrapRequestId || pendingBootstrapRequestIdRef.current
+                return false
             }
             const targetOrigin = new URL(frameUrl, window.location.href).origin
             iframeRef.current.contentWindow.postMessage(
@@ -206,6 +283,10 @@ export default function PlayCanvasEditorHostPage() {
                 },
                 targetOrigin
             )
+            if (pendingBootstrapRequestIdRef.current === bootstrapRequestId) {
+                pendingBootstrapRequestIdRef.current = null
+            }
+            return true
         },
         [bootstrapDescriptor, frameUrl, locale]
     )
@@ -229,8 +310,10 @@ export default function PlayCanvasEditorHostPage() {
                 }
                 const bootstrapRequestId = bridge?.bootstrapRequestId
                 if (typeof bootstrapRequestId === 'string' && bootstrapRequestId) {
-                    postBootstrapInit(bootstrapRequestId)
-                    return
+                    pendingBootstrapRequestIdRef.current = bootstrapRequestId
+                    if (postBootstrapInit(bootstrapRequestId)) {
+                        return
+                    }
                 }
             } catch {
                 return
@@ -241,6 +324,13 @@ export default function PlayCanvasEditorHostPage() {
         }
         tryPostBootstrapInit()
     }, [postBootstrapInit])
+
+    useEffect(() => {
+        const bootstrapRequestId = pendingBootstrapRequestIdRef.current
+        if (bootstrapRequestId) {
+            postBootstrapInit(bootstrapRequestId)
+        }
+    }, [bootstrapDescriptor, postBootstrapInit])
 
     useEffect(() => {
         if (!frameUrl) {
@@ -307,6 +397,9 @@ export default function PlayCanvasEditorHostPage() {
                 return
             }
             if (data.type === 'editor.bootstrap.requestInit') {
+                if (event.source !== iframeRef.current.contentWindow) {
+                    return
+                }
                 const bootstrapRequestId =
                     typeof (data as { bootstrapRequestId?: unknown }).bootstrapRequestId === 'string'
                         ? (data as { bootstrapRequestId: string }).bootstrapRequestId
@@ -343,10 +436,23 @@ export default function PlayCanvasEditorHostPage() {
                 return
             }
             if (data.type === 'bridge.dirtyState' && typeof data.dirty === 'boolean') {
+                const wasDirty = dirtyRef.current
+                dirtyRef.current = data.dirty
                 setDirty(data.dirty)
                 if (!data.dirty) {
-                    setSaveStatus((current) => (current === 'saving' ? 'saved' : current))
+                    setSaveStatus((current) => (current === 'saving' || wasDirty ? 'saved' : current))
                 }
+            }
+            if (data.type === 'bridge.saveError') {
+                const status = typeof data.status === 'number' ? data.status : null
+                const code = typeof data.code === 'string' ? data.code : null
+                if (status === 409 || code === 'saveConflict') {
+                    setSaveStatus('conflict')
+                    setSaveConflictDialogOpen(true)
+                } else {
+                    setSaveStatus('error')
+                }
+                return
             }
             if (data.type === 'bridge.focusBackLink') {
                 backLinkRef.current?.focus()
@@ -605,6 +711,16 @@ export default function PlayCanvasEditorHostPage() {
         )
     }
 
+    if (isCompactEditorViewport && mode !== 'developmentUrl' && frameStatus !== 'loaded' && !dirty) {
+        return renderState(
+            'warning',
+            t(
+                'packages.editorHost.mobileUnsupported',
+                'PlayCanvas Editor is available on larger screens. Open it on a desktop or tablet to edit this project.'
+            )
+        )
+    }
+
     return (
         <Stack sx={{ minHeight: 'calc(100vh - 96px)', p: 2 }} spacing={1.5}>
             {renderHeader()}
@@ -626,6 +742,14 @@ export default function PlayCanvasEditorHostPage() {
                         : bridgeStatus === 'error'
                         ? t('packages.editorHost.bridgeError', 'Editor bridge failed.')
                         : t('packages.editorHost.bridgeWaiting', 'Waiting for editor bridge...')}
+                </Alert>
+            ) : null}
+            {isCompactEditorViewport && mode !== 'developmentUrl' ? (
+                <Alert severity='warning'>
+                    {t(
+                        'packages.editorHost.mobileUnsupported',
+                        'PlayCanvas Editor is available on larger screens. Open it on a desktop or tablet to edit this project.'
+                    )}
                 </Alert>
             ) : null}
             {dirty ? (

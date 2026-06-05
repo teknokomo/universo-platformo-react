@@ -244,6 +244,21 @@ describe('MetahubPackagesTab', () => {
         })
     })
 
+    it('uses a user-facing package name fallback when catalog displayName is empty', async () => {
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([
+            catalogItem({
+                packageName: '@universo-react/custom-authoring-package',
+                displayName: createLocalizedContent('ru', ''),
+                description: createLocalizedContent('ru', '')
+            })
+        ])
+
+        renderTab()
+
+        expect(await screen.findByText('Custom Authoring Package')).toBeInTheDocument()
+        expect(screen.queryByText('@universo-react/custom-authoring-package')).not.toBeInTheDocument()
+    })
+
     it('disconnects an attached package by attachment id without showing the id', async () => {
         const user = userEvent.setup()
         vi.mocked(packagesApi.listCatalog).mockResolvedValue([

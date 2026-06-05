@@ -2,6 +2,7 @@ import type {
     AttachMetahubPackageRequest,
     ChangeMetahubPackageVersionRequest,
     PackageAuthoringHostDescriptor,
+    PlayCanvasEditorCompatibilityConfig,
     UpdateMetahubPackageConfigRequest,
     MetahubPackageAttachment,
     MetahubPackageCatalogItem
@@ -39,6 +40,19 @@ export const packagesApi = {
     getAuthoringHost: async (metahubId: string, packageSlug: string) => {
         const { data } = await apiClient.get<PackageAuthoringHostDescriptor>(`/metahub/${metahubId}/packages/${packageSlug}/authoring-host`)
         return data
+    },
+
+    getPlayCanvasEditorCompatibilityConfig: async (metahubId: string, projectId: string, artifactOrigin?: string | null) => {
+        const { data } = await apiClient.get<{ item: PlayCanvasEditorCompatibilityConfig }>(
+            `/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/config`,
+            artifactOrigin ? { params: { artifactOrigin } } : undefined
+        )
+        return data.item
+    },
+
+    getCsrfToken: async () => {
+        const { data } = await apiClient.get<{ csrfToken: string }>('auth/csrf')
+        return data.csrfToken
     },
 
     detach: async (metahubId: string, attachmentId: string) => {

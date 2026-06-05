@@ -35,10 +35,11 @@ Backend предоставляет endpoints модели хранения и п
 -   metadata ассетов и asset-scoped чтение/запись файлов в `/projects/{projectId}/assets`;
 -   endpoints script assets, scene bindings, generated artifacts, publish и export.
 -   типизированные команды Editor bridge в `/metahub/{metahubId}/playcanvas/editor-bridge/commands`.
+-   minimal Editor compatibility REST в `/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}` для `config`, списка/чтения/сохранения сцен, summaries ассетов, scoped settings и явных cloud-only no-op descriptors.
 
 Все routes требуют права управления метахабом и возвращают no-store responses для изменяемого authoring state. Запись файлов ограничена небольшими JSON/JS/MJS payloads, строгим base64, MIME allow-list, project-local paths и optional SHA-256 content assertions. Asset-scoped file routes проверяют, что `{assetId}` уже ссылается на запрошенный file reference.
 
-Текущий bridge-срез поддерживает загрузку выбранного проекта, список/чтение/сохранение сцен, minimal JSON asset metadata, bridge capabilities, close и dirty-state messages. Это ограниченный Universo-hosted bridge, а не parity с PlayCanvas Cloud API.
+Текущие bridge и compatibility REST slices поддерживают загрузку выбранного проекта, список/чтение/сохранение сцен, minimal JSON asset metadata, scoped settings, bridge capabilities, close и dirty-state messages. Это ограниченные Universo-hosted authoring surfaces, а не parity с PlayCanvas Cloud API, без ShareDB operation persistence и collaborative editing.
 
 ## Снимки и копирование
 

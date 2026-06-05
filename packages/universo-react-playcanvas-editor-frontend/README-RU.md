@@ -7,9 +7,9 @@ Foundation-пакет для официального frontend-артефакт�
 ## Upstream
 
 -   Repository: https://github.com/playcanvas/editor
--   Tag: `v2.22.1`
--   Commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
--   Package version: `2.22.1`
+-   Tag: `v2.23.4`
+-   Commit: `c4916f4973963341984499f2d919f8bfd38e417c`
+-   Package version: `2.23.4`
 -   Node requirement: `>=22.22.0`
 -   License: MIT, attribution находится в `NOTICE.md`
 
@@ -30,7 +30,7 @@ pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 
 `universo-hosted` собирает закреплённые upstream Editor files, создаёт минимальный Universo shell, injects `window.config` и подключает bridge bootstrap script. `artifact-only` остаётся доступным через `UNIVERSO_PLAYCANVAS_EDITOR_ARTIFACT_MODE=artifact-only` как fail-closed unavailable page.
 
-Hosted bridge-срез поддерживает первый manager-only путь authoring в метахабе: project context, scene list/read/save, bounded JSON scene payloads и minimal JSON asset metadata. Он не реализует PlayCanvas Cloud parity, collaboration, широкий binary assets pipeline, Colyseus authoring, implicit runtime publication или MCP/AI tooling.
+Hosted bridge-срез поддерживает первый manager-only путь authoring в метахабе: `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads и minimal JSON asset metadata. Backend также отдаёт minimal same-origin compatibility REST namespace `/playcanvas/editor-compatible/...` для `config`, `scenes`, `assets`, `settings` и явных cloud-only no-op descriptors. Он не реализует PlayCanvas Cloud parity, ShareDB operation persistence, collaboration, широкий binary assets pipeline, Colyseus authoring, implicit runtime publication или MCP/AI tooling.
 
 ## Безопасность hosted artifact
 

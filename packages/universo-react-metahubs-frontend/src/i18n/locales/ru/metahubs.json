@@ -1506,6 +1506,12 @@
                 "regenerable": "Можно пересоздать",
                 "publishBlocking": "Публикация заблокирована"
             },
+            "compatibility": {
+                "compatible": "Совместим",
+                "needsMigration": "Нужно обновление",
+                "unsupported": "Не поддерживается",
+                "blocked": "Заблокирован"
+            },
             "actions": {
                 "create": "Создать проект",
                 "delete": "Удалить проект",
@@ -1540,6 +1546,7 @@
             "misconfigured": "Настройки отображения редактора заполнены не полностью.",
             "defaultProjectRequired": "Выберите проект PlayCanvas по умолчанию перед открытием редактора.",
             "defaultProjectUnavailable": "Выбранный проект PlayCanvas по умолчанию недоступен.",
+            "mobileUnsupported": "PlayCanvas Editor доступен на более крупных экранах. Откройте его на компьютере или планшете, чтобы редактировать этот проект.",
             "openSeparately": "Редактор настроен на открытие отдельно.",
             "backToPackages": "Назад к пакетам",
             "frameLoading": "Загрузка фрейма редактора...",

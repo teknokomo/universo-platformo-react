@@ -255,6 +255,72 @@ const manualOperations = [
         tag: 'System',
         security: publicSecurity,
         description: 'Database health endpoint mounted directly by the core backend runtime.'
+    },
+    {
+        method: 'get',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/config',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Manager-only minimal PlayCanvas Editor compatibility REST config for a metahub project.',
+        responseSchema: 'PlayCanvasEditorCompatibilityConfig'
+    },
+    {
+        method: 'get',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/scenes',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Manager-only list of scene summaries exposed through the minimal PlayCanvas Editor compatibility REST namespace.',
+        responseSchema: 'PlayCanvasEditorCompatibilitySceneSummaryList'
+    },
+    {
+        method: 'get',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/scenes/:sceneId',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Manager-only scene read endpoint for the minimal PlayCanvas Editor compatibility REST namespace.',
+        responseSchema: 'PlayCanvasEditorCompatibilitySceneReadResponse'
+    },
+    {
+        method: 'put',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/scenes/:sceneId',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Manager-only scene save endpoint for the minimal PlayCanvas Editor compatibility REST namespace.',
+        requestSchema: 'PlayCanvasEditorCompatibilitySceneSaveRequest',
+        responseSchema: 'PlayCanvasEditorCompatibilitySceneSaveResponse'
+    },
+    {
+        method: 'get',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/assets',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Manager-only asset summary list for the minimal PlayCanvas Editor compatibility REST namespace.',
+        responseSchema: 'PlayCanvasEditorCompatibilityAssetSummaryList'
+    },
+    {
+        method: 'get',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/settings/:kind',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Manager-only scoped settings document read for the minimal PlayCanvas Editor compatibility REST namespace.',
+        responseSchema: 'PlayCanvasEditorCompatibilitySettingsDocumentResponse'
+    },
+    {
+        method: 'put',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/settings/:kind',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Manager-only scoped settings document write for the minimal PlayCanvas Editor compatibility REST namespace.',
+        requestSchema: 'PlayCanvasEditorCompatibilitySettingsWriteRequest',
+        responseSchema: 'PlayCanvasEditorCompatibilitySettingsWriteResponse'
+    },
+    {
+        method: 'get',
+        path: '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/cloud-only/:surface',
+        tag: 'PlayCanvas Projects',
+        security: bearerSecurity,
+        description: 'Explicit no-op descriptor for PlayCanvas Cloud-only surfaces outside the first Universo backend slice.',
+        responseSchema: 'PlayCanvasEditorCompatibilityNoOpResponse'
     }
 ]
 
@@ -345,6 +411,52 @@ const successResponse = (schemaName, description = 'Successful response.') => ({
 
 const createdResponse = (schemaName) => successResponse(schemaName, 'Successful create or action response.')
 
+const playCanvasProjectFileSourcePathQueryParameter = {
+    name: 'sourcePath',
+    in: 'query',
+    required: true,
+    schema: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 512
+    },
+    description: 'Metahub-scoped PlayCanvas project file source path to read, write, or delete.'
+}
+
+const playCanvasAssetFileSourcePathQueryParameter = {
+    name: 'sourcePath',
+    in: 'query',
+    required: true,
+    schema: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 512
+    },
+    description: 'Metahub-scoped PlayCanvas asset file source path to read, write, or delete.'
+}
+
+const playCanvasExpectedCurrentChecksumQueryParameter = {
+    name: 'expectedCurrentChecksum',
+    in: 'query',
+    required: true,
+    schema: {
+        type: 'string',
+        pattern: '^[a-fA-F0-9]{64}$'
+    },
+    description: 'Current file checksum required before deleting a PlayCanvas project file.'
+}
+
+const playCanvasAssetExpectedCurrentChecksumQueryParameter = {
+    name: 'expectedCurrentChecksum',
+    in: 'query',
+    required: true,
+    schema: {
+        type: 'string',
+        pattern: '^[a-fA-F0-9]{64}$'
+    },
+    description: 'Current file checksum required before deleting a PlayCanvas asset file.'
+}
+
 const packageOperationOverrides = {
     'GET /metahub/{metahubId}/packages': {
         responses: {
@@ -402,6 +514,41 @@ const packageOperationOverrides = {
             200: successResponse('PlayCanvasEditorBridgeResponse')
         },
         removeResponses: ['201']
+    },
+    'GET /metahub/{metahubId}/playcanvas/projects/{projectId}/files': {
+        parameters: [playCanvasProjectFileSourcePathQueryParameter],
+        responses: {}
+    },
+    'PUT /metahub/{metahubId}/playcanvas/projects/{projectId}/files': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('PlayCanvasProjectFileWriteRequest')
+        },
+        responses: {}
+    },
+    'DELETE /metahub/{metahubId}/playcanvas/projects/{projectId}/files': {
+        parameters: [playCanvasProjectFileSourcePathQueryParameter, playCanvasExpectedCurrentChecksumQueryParameter],
+        responses: {}
+    },
+    'GET /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file': {
+        parameters: [playCanvasAssetFileSourcePathQueryParameter],
+        responses: {}
+    },
+    'PUT /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('PlayCanvasAssetFileWriteRequest')
+        },
+        responses: {}
+    },
+    'DELETE /metahub/{metahubId}/playcanvas/projects/{projectId}/assets/{assetId}/file': {
+        parameters: [playCanvasAssetFileSourcePathQueryParameter, playCanvasAssetExpectedCurrentChecksumQueryParameter],
+        responses: {}
+    },
+    'GET /metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}/protocol': {
+        responses: {
+            200: successResponse('PlayCanvasEditorCompatibilityProtocolResponse')
+        }
     }
 }
 
@@ -423,6 +570,11 @@ const applyOperationOverride = (openApiOperation, method, openApiPath) => {
     return {
         ...openApiOperation,
         ...('requestBody' in override ? { requestBody: override.requestBody } : {}),
+        ...('parameters' in override
+            ? {
+                  parameters: [...(openApiOperation.parameters ?? []), ...override.parameters]
+              }
+            : {}),
         responses
     }
 }
@@ -496,8 +648,21 @@ const buildSpec = () => {
             summary: `${manual.method.toUpperCase()} ${openApiPath}`,
             description: manual.description,
             operationId: sanitizeOperationId(`${manual.tag}_${manual.method}_${openApiPath}`),
-            parameters: buildParameters(manual.path),
-            responses: buildResponses(manual.method, manual.security.length > 0),
+            parameters: [...buildParameters(manual.path), ...(manual.parameters ?? [])],
+            responses: {
+                ...buildResponses(manual.method, manual.security.length > 0),
+                ...(manual.responseSchema ? { 200: successResponse(manual.responseSchema) } : {}),
+                ...(manual.responses ?? {})
+            },
+            ...(manual.requestSchema
+                ? {
+                      requestBody: {
+                          required: true,
+                          ...jsonSchemaRef(manual.requestSchema)
+                      }
+                  }
+                : {}),
+            ...(manual.requestBody ? { requestBody: manual.requestBody } : {}),
             ...(manual.security.length > 0 ? { security: manual.security } : {})
         }
     }
@@ -818,6 +983,422 @@ const buildSpec = () => {
                     required: ['schemaVersion', 'bridge', 'compatibilityStatus'],
                     description: 'PlayCanvas Editor bridge descriptor embedded in the package authoring host response.'
                 },
+                PlayCanvasEditorCompatibilitySurfaceDescriptor: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        status: { type: 'string', enum: ['stubbed', 'disabled', 'unsupported'] },
+                        reason: { type: 'string' }
+                    },
+                    required: ['status', 'reason'],
+                    description: 'Compatibility surface status for the current bridge-minimal PlayCanvas Editor slice.'
+                },
+                PlayCanvasEditorCompatibilityProtocolDescriptor: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        schemaVersion: { type: 'string', enum: ['1'] },
+                        mode: { type: 'string', enum: ['universo-bridge-minimal'] },
+                        upstream: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                repository: { type: 'string', enum: ['https://github.com/playcanvas/editor'] },
+                                minimumTag: { type: 'string', enum: ['v2.23.4'] }
+                            },
+                            required: ['repository', 'minimumTag']
+                        },
+                        project: {
+                            oneOf: [{ $ref: '#/components/schemas/PlayCanvasProjectSummary' }, { type: 'null' }]
+                        },
+                        defaultSceneId: { type: ['string', 'null'], format: 'uuid' },
+                        identity: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                self: {
+                                    type: 'object',
+                                    additionalProperties: false,
+                                    properties: {
+                                        id: { type: 'string' },
+                                        role: { type: 'string', enum: ['designer'] }
+                                    },
+                                    required: ['id', 'role']
+                                },
+                                owner: {
+                                    type: 'object',
+                                    additionalProperties: false,
+                                    properties: {
+                                        id: { type: 'string' },
+                                        type: { type: 'string', enum: ['user', 'metahub'] }
+                                    },
+                                    required: ['id', 'type']
+                                },
+                                permissions: {
+                                    type: 'object',
+                                    additionalProperties: false,
+                                    properties: {
+                                        read: { type: 'boolean', enum: [true] },
+                                        write: { type: 'boolean', enum: [true] },
+                                        admin: { type: 'boolean', enum: [false] }
+                                    },
+                                    required: ['read', 'write', 'admin']
+                                },
+                                branch: {
+                                    type: 'object',
+                                    additionalProperties: false,
+                                    properties: {
+                                        id: { type: 'string' },
+                                        name: { type: 'string' },
+                                        active: { type: 'boolean', enum: [true] }
+                                    },
+                                    required: ['id', 'name', 'active']
+                                },
+                                teams: { type: 'array', maxItems: 0 },
+                                organizations: { type: 'array', maxItems: 0 }
+                            },
+                            required: ['self', 'owner', 'permissions', 'branch', 'teams', 'organizations']
+                        },
+                        endpoints: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                rest: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                realtime: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                messenger: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' }
+                            },
+                            required: ['rest', 'realtime', 'messenger']
+                        },
+                        shareDb: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                requiredCollections: {
+                                    type: 'array',
+                                    items: { type: 'string', enum: ['scenes', 'assets', 'settings'] },
+                                    minItems: 3,
+                                    maxItems: 3
+                                },
+                                persisted: { type: 'boolean', enum: [false] },
+                                persistence: { type: 'string', enum: ['not-implemented'] },
+                                sceneStorage: { type: 'string', enum: ['metahub-playcanvas-project-storage'] }
+                            },
+                            required: ['requiredCollections', 'persisted', 'persistence', 'sceneStorage']
+                        },
+                        cloudOnly: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                store: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                jobs: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                branchesCheckpoints: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                sourcefiles: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                publishing: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                usersCollaboration: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' },
+                                assetPipeline: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' }
+                            },
+                            required: [
+                                'store',
+                                'jobs',
+                                'branchesCheckpoints',
+                                'sourcefiles',
+                                'publishing',
+                                'usersCollaboration',
+                                'assetPipeline'
+                            ]
+                        },
+                        documents: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                codeEditorSourcefiles: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySurfaceDescriptor' }
+                            },
+                            required: ['codeEditorSourcefiles']
+                        },
+                        settingsDocuments: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                user: { type: 'string' },
+                                projectUser: { type: 'string' },
+                                projectPrivate: { type: 'string' }
+                            },
+                            required: ['user', 'projectUser', 'projectPrivate']
+                        }
+                    },
+                    required: [
+                        'schemaVersion',
+                        'mode',
+                        'upstream',
+                        'project',
+                        'defaultSceneId',
+                        'identity',
+                        'endpoints',
+                        'shareDb',
+                        'cloudOnly',
+                        'documents',
+                        'settingsDocuments'
+                    ],
+                    description: 'Read-only PlayCanvas Editor compatibility descriptor for the current bridge-minimal slice.'
+                },
+                PlayCanvasEditorCompatibilityProtocolResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        item: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilityProtocolDescriptor' }
+                    },
+                    required: ['item']
+                },
+                PlayCanvasEditorCompatibilityConfig: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        schemaVersion: { type: 'string', enum: ['1'] },
+                        mode: { type: 'string', enum: ['universo-compatibility-rest-minimal'] },
+                        protocol: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilityProtocolDescriptor' },
+                        projectId: { type: 'string', format: 'uuid' },
+                        defaultSceneId: { type: ['string', 'null'], format: 'uuid' },
+                        userId: { type: 'string' },
+                        permissions: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                read: { type: 'boolean', enum: [true] },
+                                write: { type: 'boolean', enum: [true] },
+                                admin: { type: 'boolean', enum: [false] }
+                            },
+                            required: ['read', 'write', 'admin']
+                        },
+                        endpoints: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                scenes: { type: 'string' },
+                                assets: { type: 'string' },
+                                settings: { type: 'string' },
+                                cloudOnly: { type: 'string' }
+                            },
+                            required: ['scenes', 'assets', 'settings', 'cloudOnly']
+                        },
+                        auth: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                scheme: { type: 'string', enum: ['signed-header'] },
+                                headerName: { type: 'string', enum: ['X-PlayCanvas-Editor-Token'] },
+                                accessToken: { type: 'string', minLength: 32 },
+                                expiresAt: { type: 'string', format: 'date-time' }
+                            },
+                            required: ['scheme', 'headerName', 'accessToken', 'expiresAt'],
+                            description:
+                                'Short-lived signed compatibility REST token contract. Send accessToken in headerName on compatibility REST requests together with the normal authenticated platform session.'
+                        },
+                        csrf: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                tokenUrl: { type: 'string', enum: ['/api/v1/auth/csrf'] },
+                                headerName: { type: 'string', enum: ['X-CSRF-Token'] }
+                            },
+                            required: ['tokenUrl', 'headerName'],
+                            description:
+                                'CSRF token contract for same-origin compatibility REST mutations. Fetch tokenUrl and send the token in headerName on PUT requests.'
+                        }
+                    },
+                    required: [
+                        'schemaVersion',
+                        'mode',
+                        'protocol',
+                        'projectId',
+                        'defaultSceneId',
+                        'userId',
+                        'permissions',
+                        'endpoints',
+                        'auth',
+                        'csrf'
+                    ],
+                    description: 'Minimal same-origin REST config exposed to the PlayCanvas Editor compatibility adapter.'
+                },
+                PlayCanvasEditorCompatibilitySceneSummary: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        displayName: { $ref: '#/components/schemas/GenericObject' },
+                        codename: { $ref: '#/components/schemas/GenericObject' },
+                        checksum: { type: ['string', 'null'], pattern: '^[a-fA-F0-9]{64}$' },
+                        sortOrder: { type: 'integer' },
+                        publish: { type: 'boolean' },
+                        version: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['id', 'displayName', 'codename']
+                },
+                PlayCanvasEditorCompatibilitySceneSummaryList: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySceneSummary' }
+                        }
+                    },
+                    required: ['items']
+                },
+                PlayCanvasEditorCompatibilityScene: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        projectId: { type: 'string', format: 'uuid' },
+                        displayName: { $ref: '#/components/schemas/GenericObject' },
+                        codename: { $ref: '#/components/schemas/GenericObject' },
+                        payloadSchemaVersion: { type: 'string' },
+                        payloadFile: {
+                            oneOf: [{ $ref: '#/components/schemas/GenericObject' }, { type: 'null' }]
+                        },
+                        checksum: { type: ['string', 'null'], pattern: '^[a-fA-F0-9]{64}$' },
+                        sortOrder: { type: 'integer' },
+                        publish: { type: 'boolean' },
+                        version: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['id', 'projectId', 'displayName', 'codename', 'payloadSchemaVersion', 'payloadFile', 'checksum']
+                },
+                PlayCanvasEditorCompatibilitySceneReadResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        item: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                scene: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilityScene' },
+                                payload: {
+                                    oneOf: [{ $ref: '#/components/schemas/PlayCanvasEditorScenePayload' }, { type: 'null' }]
+                                }
+                            },
+                            required: ['scene', 'payload']
+                        }
+                    },
+                    required: ['item']
+                },
+                PlayCanvasEditorCompatibilitySceneSaveRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        requestId: { type: 'string', format: 'uuid' },
+                        payload: { $ref: '#/components/schemas/PlayCanvasEditorScenePayload' },
+                        expectedCurrentChecksum: { type: ['string', 'null'], pattern: '^[a-fA-F0-9]{64}$' }
+                    },
+                    required: ['requestId', 'payload']
+                },
+                PlayCanvasEditorCompatibilitySceneSaveResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        ok: { type: 'boolean', enum: [true] },
+                        requestId: { type: 'string', format: 'uuid' },
+                        item: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                scene: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilityScene' },
+                                payload: {
+                                    oneOf: [{ $ref: '#/components/schemas/PlayCanvasEditorScenePayload' }, { type: 'null' }]
+                                },
+                                checksum: { type: ['string', 'null'], pattern: '^[a-fA-F0-9]{64}$' }
+                            },
+                            required: ['scene', 'payload', 'checksum']
+                        }
+                    },
+                    required: ['ok', 'requestId', 'item']
+                },
+                PlayCanvasEditorCompatibilityAssetSummary: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        stableAssetId: { type: 'string' },
+                        type: { type: 'string' },
+                        name: { type: 'string' },
+                        virtualPath: { type: 'string' },
+                        mime: { type: ['string', 'null'] },
+                        hash: { type: ['string', 'null'] },
+                        size: { type: ['integer', 'null'], minimum: 0 }
+                    },
+                    required: ['id', 'stableAssetId', 'type', 'name', 'virtualPath', 'mime', 'hash', 'size']
+                },
+                PlayCanvasEditorCompatibilityAssetSummaryList: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilityAssetSummary' }
+                        }
+                    },
+                    required: ['items']
+                },
+                PlayCanvasEditorCompatibilitySettingsDocument: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        kind: { type: 'string', enum: ['user', 'projectUser', 'projectPrivate'] },
+                        documentId: { type: 'string' },
+                        data: { $ref: '#/components/schemas/GenericObject' },
+                        revision: { type: 'string' }
+                    },
+                    required: ['kind', 'documentId', 'data', 'revision']
+                },
+                PlayCanvasEditorCompatibilitySettingsDocumentResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        item: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySettingsDocument' }
+                    },
+                    required: ['item']
+                },
+                PlayCanvasEditorCompatibilitySettingsWriteRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        requestId: { type: 'string', format: 'uuid' },
+                        data: { $ref: '#/components/schemas/GenericObject' },
+                        expectedRevision: { type: 'string' }
+                    },
+                    required: ['requestId', 'data']
+                },
+                PlayCanvasEditorCompatibilitySettingsWriteResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        ok: { type: 'boolean', enum: [true] },
+                        requestId: { type: 'string', format: 'uuid' },
+                        item: { $ref: '#/components/schemas/PlayCanvasEditorCompatibilitySettingsDocument' }
+                    },
+                    required: ['ok', 'requestId', 'item']
+                },
+                PlayCanvasEditorCompatibilityNoOpResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        ok: { type: 'boolean', enum: [true] },
+                        surface: {
+                            type: 'string',
+                            enum: [
+                                'store',
+                                'jobs',
+                                'branchesCheckpoints',
+                                'sourcefiles',
+                                'publishing',
+                                'usersCollaboration',
+                                'assetPipeline'
+                            ]
+                        },
+                        status: { type: 'string', enum: ['stubbed'] },
+                        reason: { type: 'string', enum: ['cloudOnlySurfaceOutsideFirstSlice'] }
+                    },
+                    required: ['ok', 'surface', 'status', 'reason']
+                },
                 PackageAuthoringHostDescriptor: {
                     type: 'object',
                     additionalProperties: false,
@@ -857,6 +1438,7 @@ const buildSpec = () => {
                 PlayCanvasEditorBridgeCapability: {
                     type: 'string',
                     enum: [
+                        'protocol.describe',
                         'project.loadSelected',
                         'scene.list',
                         'scene.read',
@@ -951,7 +1533,10 @@ const buildSpec = () => {
                                 {
                                     type: 'object',
                                     properties: {
-                                        type: { type: 'string', enum: ['project.loadSelected', 'bridge.capabilities'] }
+                                        type: {
+                                            type: 'string',
+                                            enum: ['protocol.describe', 'project.loadSelected', 'bridge.capabilities']
+                                        }
                                     },
                                     required: ['type']
                                 }
@@ -1033,6 +1618,78 @@ const buildSpec = () => {
                         command: { $ref: '#/components/schemas/PlayCanvasEditorBridgeCommand' }
                     },
                     required: ['sessionToken', 'command']
+                },
+                PlayCanvasProjectFileWriteRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        sourcePath: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 512,
+                            description: 'Metahub-scoped PlayCanvas project file source path to write.'
+                        },
+                        contentBase64: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 13_981_016,
+                            pattern: '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$',
+                            description: 'Base64-encoded file content bounded by the backend file payload limit.'
+                        },
+                        expectedChecksum: {
+                            type: ['string', 'null'],
+                            pattern: '^[a-fA-F0-9]{64}$',
+                            description: 'Optional checksum expected for the newly written file content.'
+                        },
+                        expectedCurrentChecksum: {
+                            type: ['string', 'null'],
+                            pattern: '^[a-fA-F0-9]{64}$',
+                            description: 'Required current checksum guard; use null only for first-time writes.'
+                        },
+                        mime: {
+                            type: ['string', 'null'],
+                            enum: ['application/json', 'text/javascript', 'application/javascript', null],
+                            description: 'Optional allowed MIME class for PlayCanvas JSON or JavaScript files.'
+                        }
+                    },
+                    required: ['sourcePath', 'contentBase64', 'expectedCurrentChecksum'],
+                    description: 'Strict PlayCanvas project file write payload accepted by the metahub file endpoint.'
+                },
+                PlayCanvasAssetFileWriteRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        sourcePath: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 512,
+                            description: 'Metahub-scoped PlayCanvas asset file source path to write.'
+                        },
+                        contentBase64: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 13_981_016,
+                            pattern: '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$',
+                            description: 'Base64-encoded asset file content bounded by the backend file payload limit.'
+                        },
+                        expectedChecksum: {
+                            type: ['string', 'null'],
+                            pattern: '^[a-fA-F0-9]{64}$',
+                            description: 'Optional checksum expected for the newly written asset file content.'
+                        },
+                        expectedCurrentChecksum: {
+                            type: ['string', 'null'],
+                            pattern: '^[a-fA-F0-9]{64}$',
+                            description: 'Required current checksum guard; use null only for first-time asset file writes.'
+                        },
+                        mime: {
+                            type: ['string', 'null'],
+                            enum: ['application/json', 'text/javascript', 'application/javascript', null],
+                            description: 'Optional allowed MIME class for PlayCanvas JSON or JavaScript asset files.'
+                        }
+                    },
+                    required: ['sourcePath', 'contentBase64', 'expectedCurrentChecksum'],
+                    description: 'Strict PlayCanvas asset file write payload accepted by the metahub asset file endpoint.'
                 },
                 PlayCanvasEditorBridgeSuccessResponse: {
                     type: 'object',
