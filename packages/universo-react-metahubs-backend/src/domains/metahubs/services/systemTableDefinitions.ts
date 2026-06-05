@@ -573,7 +573,7 @@ const mhbPlayCanvasProjects: SystemTableDef = {
         { name: 'codename', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'display_name', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'description', type: 'jsonb', nullable: true },
-        { name: 'package_name', type: 'string', length: 160, nullable: false, defaultTo: '@universo-react/playcanvas-editor' },
+        { name: 'package_name', type: 'string', length: 160, nullable: false, defaultTo: '@universo-react/playcanvas-editor-frontend' },
         { name: 'package_version', type: 'string', length: 80, nullable: true },
         { name: 'compatibility_status', type: 'string', length: 40, nullable: false, defaultTo: 'compatible' },
         { name: 'compatibility_notes', type: 'jsonb', nullable: false, defaultTo: '{}' },

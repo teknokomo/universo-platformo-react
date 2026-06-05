@@ -98,7 +98,7 @@
         "test:e2e:doctor": "node tools/testing/e2e/support/backend/run-e2e-doctor.mjs",
         "test:e2e:reset": "node tools/testing/e2e/support/backend/run-cleanup.mjs",
         "test:e2e:reset:dry": "node tools/testing/e2e/support/backend/run-cleanup.mjs --dry-run",
-        "test:e2e:agent": "pnpm run check:no-package-base-paths && pnpm run check:package-naming && pnpm run check:apps-template-isolation && pnpm run check:playcanvas-editor-isolation && pnpm --filter @universo-react/playcanvas-editor test && pnpm --filter @universo-react/playcanvas-editor editor:build && pnpm --filter @universo-react/playcanvas-editor editor:smoke && pnpm run playwright:install && pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke && pnpm run check:runtime-no-lms-forks && pnpm run check:lms-fixture-contract && pnpm run check:mmoomm-flight-fixture-contract && pnpm run build:e2e && pnpm run test:e2e:smoke && pnpm run test:e2e:flows",
+        "test:e2e:agent": "pnpm run check:no-package-base-paths && pnpm run check:package-naming && pnpm run check:apps-template-isolation && pnpm run check:playcanvas-editor-isolation && pnpm --filter @universo-react/playcanvas-editor-frontend test && pnpm --filter @universo-react/playcanvas-editor-frontend editor:build && pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke && pnpm run playwright:install && pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke && pnpm run check:runtime-no-lms-forks && pnpm run check:lms-fixture-contract && pnpm run check:mmoomm-flight-fixture-contract && pnpm run build:e2e && pnpm run test:e2e:smoke && pnpm run test:e2e:flows",
         "check:react-bundle": "node tools/testing/check-react-require.mjs",
         "quick": "pretty-quick --staged",
         "postinstall": "husky install",
@@ -214,8 +214,8 @@
         "**/dist",
         "**/node_modules",
         "**/build",
-        "packages/universo-react-playcanvas-editor/vendor/**",
-        "packages/universo-react-playcanvas-editor/.tmp/**",
+        "packages/universo-react-playcanvas-editor-frontend/vendor/**",
+        "packages/universo-react-playcanvas-editor-frontend/.tmp/**",
         "**/package-lock.json"
     ],
     "prettier": {

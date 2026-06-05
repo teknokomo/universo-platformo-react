@@ -4,8 +4,8 @@ jest.mock('@universo-react/database', () => ({
 }))
 
 jest.mock('../../domains/packages/services/PackageSeeder', () => ({
-    playCanvasEditorPackageName: `@universo-react/${'playcanvas-editor'}`,
-    packageAuthoringSettingsSeedChecksumSource: `builtin-metahub-package-authoring-settings-seed-migration-v1:@universo-react/${'playcanvas-editor'}:playcanvasEditor`,
+    playCanvasEditorPackageName: `@universo-react/${'playcanvas-editor-frontend'}`,
+    packageAuthoringSettingsSeedChecksumSource: `builtin-metahub-package-authoring-settings-seed-migration-v1:@universo-react/${'playcanvas-editor-frontend'}:playcanvasEditor`,
     seedPackages: jest.fn(async () => undefined)
 }))
 
@@ -36,7 +36,7 @@ describe('addPackageAuthoringSettingsMigration', () => {
             })
         )
         const packageFilter = jest.mocked(seedPackages).mock.calls[0]?.[1]?.packageFilter
-        expect(packageFilter?.({ packageName: `@universo-react/${'playcanvas-editor'}` } as never)).toBe(true)
+        expect(packageFilter?.({ packageName: `@universo-react/${'playcanvas-editor-frontend'}` } as never)).toBe(true)
         expect(packageFilter?.({ packageName: `@universo-react/${'playcanvas-engine'}` } as never)).toBe(false)
         expect(knex.raw).toHaveBeenCalledWith(expect.stringContaining('ADD COLUMN IF NOT EXISTS authoring_surface'))
         expect(knex.raw).toHaveBeenCalledWith(expect.stringContaining('ADD COLUMN IF NOT EXISTS config JSONB'))

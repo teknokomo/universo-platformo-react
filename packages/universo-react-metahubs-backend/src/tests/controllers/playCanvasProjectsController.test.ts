@@ -5,7 +5,7 @@ import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/ser
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 
 const TEST_SCHEMA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
-const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 
 const bridgeManagerAccessRows = (sql: string): unknown[] | null => {
     if (sql.includes('SELECT admin.is_superuser')) {

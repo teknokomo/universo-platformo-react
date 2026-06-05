@@ -5,7 +5,7 @@ import { CodenameVLCSchema, LocalizedStringOptionalSchema, LocalizedStringSchema
 export const PLAYCANVAS_PROJECT_SCHEMA_VERSION = '1' as const
 export const PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION = '1' as const
 export const PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION = 1 as const
-export const PLAYCANVAS_EDITOR_PACKAGE_NAME = '@universo-react/playcanvas-editor' as const
+export const PLAYCANVAS_EDITOR_PACKAGE_NAME = '@universo-react/playcanvas-editor-frontend' as const
 export const PLAYCANVAS_PROJECT_FILE_ROOT = 'playcanvas-projects' as const
 export const PLAYCANVAS_PROJECT_FILE_MAX_BYTES = 5 * 1024 * 1024
 export const PLAYCANVAS_PROJECT_FILE_BASE64_MAX_CHARS = Math.ceil((PLAYCANVAS_PROJECT_FILE_MAX_BYTES * 4) / 3) + 4

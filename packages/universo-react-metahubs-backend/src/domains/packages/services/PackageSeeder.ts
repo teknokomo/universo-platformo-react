@@ -4,7 +4,7 @@ import { builtinPackageSeeds } from '../data'
 import { upsertPackageRegistryItem } from '../../../persistence'
 import { resolvePackageAuthoringSurface } from './packageConfigValidation'
 
-export const playCanvasEditorPackageName = `@universo-react/${'playcanvas-editor'}`
+export const playCanvasEditorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
 type BuiltinPackageSeed = (typeof builtinPackageSeeds)[number]
 
 export interface PackageSeederLogger {

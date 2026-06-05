@@ -16,7 +16,7 @@ describe('packageConfigValidation', () => {
             }
         },
         artifact: {
-            packageName: '@universo-react/playcanvas-editor' as const,
+            packageName: '@universo-react/playcanvas-editor-frontend' as const,
             manifestFileName: 'universo-artifact-manifest.json' as const,
             outputRoot: 'dist/editor' as const,
             smokeMode: 'artifact-only' as const

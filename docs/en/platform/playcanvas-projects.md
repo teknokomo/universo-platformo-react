@@ -4,7 +4,7 @@ description: Metahub storage model for PlayCanvas Editor projects.
 
 # PlayCanvas Projects
 
-PlayCanvas projects are design-time records stored inside a metahub branch. They let a connected `@universo-react/playcanvas-editor` package own project metadata without putting scenes, assets, or generated artifacts into `rel_metahub_packages.config`.
+PlayCanvas projects are design-time records stored inside a metahub branch. They let a connected `@universo-react/playcanvas-editor-frontend` package own project metadata without putting scenes, assets, or generated artifacts into `rel_metahub_packages.config`.
 
 ## Storage Model
 

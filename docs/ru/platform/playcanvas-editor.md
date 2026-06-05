@@ -4,14 +4,14 @@ description: Foundation-пакет артефакта PlayCanvas Editor.
 
 # Пакет PlayCanvas Editor
 
-`@universo-react/playcanvas-editor` — foundation-пакет Platformo для официального frontend-артефакта PlayCanvas Editor.
+`@universo-react/playcanvas-editor-frontend` — foundation-пакет Platformo для официального frontend-артефакта PlayCanvas Editor.
 
 Пакет содержит закреплённый upstream snapshot PlayCanvas Editor и изолирует его от runtime MUI shells. Это не пакет React-компонентов; он регистрируется как authoring-only пакет метахаба без runtime targets.
 
 ## Текущий охват
 
--   Workspace package: `packages/universo-react-playcanvas-editor/`
--   Package name: `@universo-react/playcanvas-editor`
+-   Workspace package: `packages/universo-react-playcanvas-editor-frontend/`
+-   Package name: `@universo-react/playcanvas-editor-frontend`
 -   Upstream repository: `https://github.com/playcanvas/editor`
 -   Upstream tag: `v2.22.1`
 -   Upstream commit: `0fcd44253ba1bba39c13d45b069265167249ecb6`
@@ -29,10 +29,10 @@ description: Foundation-пакет артефакта PlayCanvas Editor.
 ## Команды
 
 ```bash
-pnpm --filter @universo-react/playcanvas-editor test
-pnpm --filter @universo-react/playcanvas-editor editor:build
-pnpm --filter @universo-react/playcanvas-editor editor:smoke
-pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend test
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:build
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
+pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 ```
 
 Пакет намеренно пока не определяет обычный script `build`. Root `pnpm build` не собирает Editor artifact, пока пакет не будет явно подключён к root Turbo pipeline.
@@ -76,7 +76,7 @@ Hosted artifact сериализует scene data через Editor-side API `en
 
 Не копируйте `sessionToken`, artifact tokens, полные tokenized artifact URLs, bridge nonces, request bodies или экспортированные snapshots в публичные логи и тикеты. Используйте очищенные request ids, названия метахабов, package slug, artifact status, HTTP status и категории browser console.
 
--   **Artifact unavailable**: проверьте, что `pnpm --filter @universo-react/playcanvas-editor editor:build` и `editor:smoke` проходят, затем проверьте состояние подключения пакета в **Resources → Packages**. User-facing host должен показывать `artifactStatus` как безопасное состояние и не раскрывать filesystem paths или tokenized URLs.
+-   **Artifact unavailable**: проверьте, что `pnpm --filter @universo-react/playcanvas-editor-frontend editor:build` и `editor:smoke` проходят, затем проверьте состояние подключения пакета в **Resources → Packages**. User-facing host должен показывать `artifactStatus` как безопасное состояние и не раскрывать filesystem paths или tokenized URLs.
 -   **Editor frame cannot load**: проверьте, что `PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN` указывает на доступный из браузера origin, отличный от origin platform UI. Для доверенных reverse proxies задайте `PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN` или включайте `PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS=true` только когда edge proxy отбрасывает недоверенные forwarded headers.
 -   **Permission blocked**: host и bridge требуют текущий доступ `manageMetahub`. Перепроверьте membership метахаба и состояние подключения пакета; не используйте artifact links от другого пользователя или из старой вкладки браузера.
 -   **Save conflict**: загрузите последнюю версию сцены через conflict dialog и сохраните снова. Backend сравнивает scene checksums и намеренно fail-closed, если другой write изменил сохранённый payload.

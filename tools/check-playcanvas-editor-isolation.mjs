@@ -6,18 +6,18 @@ import path from 'node:path'
 
 const ROOT = process.cwd()
 const PACKAGES_DIR = path.join(ROOT, 'packages')
-const EDITOR_PACKAGE_DIR = 'packages/universo-react-playcanvas-editor'
+const EDITOR_PACKAGE_DIR = 'packages/universo-react-playcanvas-editor-frontend'
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.md', '.mdx'])
 const IGNORED_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.turbo', '.tmp'])
 const BLOCKED_REFERENCES = [
-    '@universo-react/playcanvas-editor',
+    '@universo-react/playcanvas-editor-frontend',
     '@playcanvas/editor',
     '@playcanvas/pcui',
     '@playcanvas/observer',
-    'packages/universo-react-playcanvas-editor/vendor',
+    'packages/universo-react-playcanvas-editor-frontend/vendor',
     'vendor/playcanvas-editor',
-    '../universo-react-playcanvas-editor/vendor',
-    '../../universo-react-playcanvas-editor/vendor'
+    '../universo-react-playcanvas-editor-frontend/vendor',
+    '../../universo-react-playcanvas-editor-frontend/vendor'
 ]
 const EDITOR_PACKAGE_BLOCKED_PUBLIC_REEXPORTS = [
     '@playcanvas/editor',
@@ -73,7 +73,7 @@ const isAllowedEditorPackageFile = (relativeFile) => {
 }
 
 const isAllowedEditorPackageMetadataReference = (relativeFile, blocked) =>
-    blocked === '@universo-react/playcanvas-editor' && ALLOWED_EDITOR_PACKAGE_METADATA_FILES.has(relativeFile)
+    blocked === '@universo-react/playcanvas-editor-frontend' && ALLOWED_EDITOR_PACKAGE_METADATA_FILES.has(relativeFile)
 
 const violations = []
 

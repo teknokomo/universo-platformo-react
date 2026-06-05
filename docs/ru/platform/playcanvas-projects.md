@@ -4,7 +4,7 @@ description: Модель хранения проектов PlayCanvas Editor в
 
 # Проекты PlayCanvas
 
-Проекты PlayCanvas — это design-time записи внутри ветки метахаба. Они позволяют подключённому пакету `@universo-react/playcanvas-editor` хранить metadata проекта без помещения сцен, ассетов или сгенерированных артефактов в `rel_metahub_packages.config`.
+Проекты PlayCanvas — это design-time записи внутри ветки метахаба. Они позволяют подключённому пакету `@universo-react/playcanvas-editor-frontend` хранить metadata проекта без помещения сцен, ассетов или сгенерированных артефактов в `rel_metahub_packages.config`.
 
 ## Модель хранения
 

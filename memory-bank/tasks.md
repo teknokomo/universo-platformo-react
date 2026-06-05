@@ -1,3 +1,23 @@
+# PlayCanvas Editor Frontend Package Rename Implementation Tasks
+
+> Date: 2026-06-05
+> Source plan: `memory-bank/plan/playcanvas-editor-frontend-package-rename-plan-2026-06-05.md`
+
+## Scope
+
+Rename the PlayCanvas Editor artifact workspace to the frontend package boundary `packages/universo-react-playcanvas-editor-frontend` / `@universo-react/playcanvas-editor-frontend`. Keep the user-facing package slug and routes as `playcanvas-editor`.
+
+## Checklist
+
+-   [x] Inventory active old package references and classify slug-only references before editing.
+-   [x] Rename the workspace folder and package manifest to the frontend package name.
+-   [x] Update workspace, CI, lint, Vitest, and guardrail tooling to the new package name and path.
+-   [x] Update shared constants, package registry seeds/defaults, validation, and artifact path references while keeping the metahub slug stable.
+-   [x] Update affected tests and fixtures so package metadata uses the new name and slug/route expectations remain stable.
+-   [x] Update package READMEs, GitBook docs, and current Memory Bank state references.
+-   [x] Regenerate PNPM lockfile metadata and run focused formatting/checks/tests.
+-   [x] Run final stale-reference scans, update progress, and document any verification constraints.
+
 # PlayCanvas Editor Runtime Host, Bridge, and Storage Adapter Implementation Tasks
 
 > Date: 2026-06-04

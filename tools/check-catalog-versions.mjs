@@ -15,7 +15,9 @@ const PRIORITIZED_DEPENDENCIES = new Set([
     'tsdown',
     'vite'
 ])
-const ALLOWED_VERSION_EXCEPTIONS = new Map([['packages/universo-react-playcanvas-editor/package.json::devDependencies::vite', '7.3.2']])
+const ALLOWED_VERSION_EXCEPTIONS = new Map([
+    ['packages/universo-react-playcanvas-editor-frontend/package.json::devDependencies::vite', '7.3.2']
+])
 const CHECKED_SECTIONS = ['dependencies', 'devDependencies']
 const IGNORED_DIRS = new Set(['node_modules', 'dist', 'build', '.git', '.turbo', '.tmp'])
 

@@ -1,7 +1,7 @@
 {
-    "name": "@universo-react/playcanvas-editor",
+    "name": "@universo-react/playcanvas-editor-frontend",
     "version": "0.1.0",
-    "description": "Universo package boundary for the PlayCanvas Editor frontend artifact",
+    "description": "Universo frontend artifact boundary for the PlayCanvas Editor",
     "main": "./src/index.ts",
     "types": "./src/index.ts",
     "exports": {
