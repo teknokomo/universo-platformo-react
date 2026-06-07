@@ -17,7 +17,7 @@ import type {
 } from '@universo-react/types'
 import {
     PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
-    PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
+    PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
     PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
     PLAYCANVAS_PROJECT_FILE_ROOT,
     PLAYCANVAS_PROJECT_SCHEMA_VERSION,
@@ -26,9 +26,11 @@ import {
     isPlayCanvasJsonFileReference,
     isPlayCanvasScenePayloadFileReference,
     isPlayCanvasScriptFileReference,
+    playCanvasEditorCompatibilityScenePayloadSchema,
     playCanvasEditorCompatibilityProtocolDescriptorSchema,
     playCanvasEditorCompatibilitySettingsDocumentSchema
 } from '@universo-react/types'
+import { createPlayCanvasEditorNumericAssetId, createPlayCanvasEditorNumericIds } from '@universo-react/playcanvas-editor-backend'
 import { playCanvasEditorScenePayloadSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { createCodenameVLC, createLocalizedContent, generateUuidV7, OptimisticLockError } from '@universo-react/utils'
@@ -74,8 +76,15 @@ import {
 const log = createLogger('PlayCanvasProjectsService')
 const STRICT_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 const COMPATIBILITY_SETTINGS_KEY = 'playCanvasEditorCompatibility'
+const REALTIME_SETTINGS_KEY = 'playCanvasEditorRealtime'
 const COMPATIBILITY_SCENE_SAVE_COMMAND_TYPE = 'compatibility.scene.save'
 const COMPATIBILITY_SETTINGS_WRITE_COMMAND_TYPE = 'compatibility.settings.write'
+
+const isCurrentChecksumMismatch = (error: unknown): error is MetahubValidationError =>
+    error instanceof MetahubValidationError && error.details?.messageCode === 'playcanvas.files.path.currentChecksumMismatch'
+
+const areEditorScenePayloadsEqual = (left: PlayCanvasEditorScenePayload | null, right: PlayCanvasEditorScenePayload): boolean =>
+    Boolean(left && stableStringify(left) === stableStringify(right))
 
 type CompatibilitySettingsKind = PlayCanvasEditorCompatibilitySettingsDocument['kind']
 
@@ -90,6 +99,171 @@ const settingsDocumentId = (kind: CompatibilitySettingsKind, projectId: string, 
             return `project_${projectId}_${userId}`
         case 'projectPrivate':
             return `project-private_${projectId}`
+        default:
+            throw new MetahubValidationError('Unsupported PlayCanvas Editor compatibility settings document kind', {
+                messageCode: 'playcanvas.editorCompatibility.unsupportedSettingsDocumentKind',
+                kind
+            })
+    }
+}
+
+const realtimeSettingsDocumentKind = (documentId: string): CompatibilitySettingsKind | null => {
+    if (/^user_\d+$/.test(documentId)) return 'user'
+    if (/^project_\d+_\d+$/.test(documentId)) return 'projectUser'
+    if (/^project-private_\d+$/.test(documentId)) return 'projectPrivate'
+    if (/^project_\d+$/.test(documentId)) return 'projectPrivate'
+    return null
+}
+
+const readRealtimeSettingsDocumentVersion = (document: Record<string, unknown>): number =>
+    typeof document.version === 'number' && Number.isInteger(document.version) && document.version >= 0 ? document.version : 0
+
+const waitForRealtimeSettingsRetry = (attempt: number): Promise<void> =>
+    new Promise((resolve) => {
+        setTimeout(resolve, attempt * 25)
+    })
+
+const createDefaultEditorScenePayload = (): PlayCanvasEditorScenePayload => ({
+    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+    settings: {
+        priority_scripts: [],
+        physics: {
+            gravity: [0, -9.81, 0]
+        },
+        render: {
+            global_ambient: [0.2, 0.2, 0.2],
+            skybox: null,
+            skyType: 'infinite',
+            skyMeshPosition: [0, 0, 0],
+            skyMeshRotation: [0, 0, 0],
+            skyMeshScale: [1, 1, 1],
+            skyCenter: [0, 0, 0],
+            skyboxIntensity: 1,
+            skyboxRotation: [0, 0, 0],
+            skyboxMip: 0,
+            skyDepthWrite: false,
+            clusteredLightingEnabled: true,
+            lightingCells: [10, 3, 10],
+            lightingMaxLightsPerCell: 255,
+            lightingCookiesEnabled: true,
+            lightingCookieAtlasResolution: 2048,
+            lightingShadowsEnabled: true,
+            lightingShadowAtlasResolution: 2048,
+            lightingShadowType: 0,
+            lightingAreaLightsEnabled: true,
+            tonemapping: 0,
+            exposure: 1,
+            gamma_correction: 1,
+            fog: 'none',
+            fog_start: 1,
+            fog_end: 1000,
+            fog_density: 0,
+            fog_color: [0, 0, 0]
+        }
+    },
+    entities: [
+        {
+            id: 'root',
+            name: 'Root',
+            parentId: null,
+            enabled: true,
+            components: {},
+            children: []
+        }
+    ]
+})
+
+const createRealtimeRootEntity = (children: string[] = []): Record<string, unknown> => ({
+    resource_id: 'root',
+    name: 'Root',
+    parent: null,
+    enabled: true,
+    components: {},
+    children
+})
+
+const normalizeRealtimeSceneEntities = (
+    entities: PlayCanvasEditorScenePayload['entities'] = []
+): Record<string, Record<string, unknown>> => {
+    const normalized = new Map<string, Record<string, unknown>>()
+    let rootId: string | null = null
+    const rootChildren = new Set<string>()
+
+    for (const entity of entities) {
+        const isRoot = entity.id === 'root'
+        if (isRoot) {
+            rootId = entity.id
+        }
+        normalized.set(entity.id, {
+            resource_id: entity.id,
+            name: entity.name ?? (isRoot ? 'Root' : 'Entity'),
+            parent: entity.parentId ?? null,
+            enabled: entity.enabled ?? true,
+            components: entity.components ?? {},
+            children: Array.isArray(entity.children) ? entity.children : []
+        })
+    }
+
+    if (!rootId) {
+        rootId = 'root'
+        normalized.set(rootId, createRealtimeRootEntity())
+    }
+
+    for (const [id, entity] of normalized) {
+        if (id === rootId) continue
+        if (entity.parent === null || entity.parent === undefined || !normalized.has(String(entity.parent))) {
+            entity.parent = rootId
+            rootChildren.add(id)
+        }
+    }
+
+    const root = normalized.get(rootId) ?? createRealtimeRootEntity()
+    const existingRootChildren = Array.isArray(root.children)
+        ? root.children.filter((child): child is string => {
+              if (typeof child !== 'string' || !normalized.has(child) || child === rootId) return false
+              return normalized.get(child)?.parent === rootId
+          })
+        : []
+    for (const child of existingRootChildren) {
+        rootChildren.add(child)
+    }
+    root.children = Array.from(rootChildren)
+    normalized.set(rootId, { ...root, parent: null, children: root.children })
+
+    return Object.fromEntries(normalized)
+}
+
+const createDefaultRealtimeProjectSettingsDocument = (input: {
+    documentId: string
+    numericProjectId: number
+}): Record<string, unknown> => ({
+    id: input.documentId,
+    project: input.numericProjectId,
+    scripts: [],
+    useLegacyScripts: false,
+    engineV2: true,
+    width: 1280,
+    height: 720
+})
+
+const normalizeRealtimeSettingsDocumentData = (
+    documentId: string,
+    data: Record<string, unknown>,
+    input: { numericProjectId: number; numericUserId: number }
+): Record<string, unknown> => {
+    if (/^project_\d+$/.test(documentId)) {
+        return {
+            ...createDefaultRealtimeProjectSettingsDocument({ documentId, numericProjectId: input.numericProjectId }),
+            ...data,
+            scripts: Array.isArray(data.scripts) ? data.scripts : []
+        }
+    }
+
+    return {
+        id: documentId,
+        userId: input.numericUserId,
+        projectId: input.numericProjectId,
+        ...data
     }
 }
 
@@ -137,7 +311,7 @@ const slugifyProjectName = (value: string): string => {
     return normalized || 'playcanvas_project'
 }
 
-const getPrimaryText = (value: CreatePlayCanvasProjectRequest['displayName']): string => {
+const getPrimaryText = (value: PlayCanvasProjectSummary['displayName']): string => {
     const primary = value._primary
     const primaryValue = value.locales?.[primary]?.content
     if (typeof primaryValue === 'string' && primaryValue.trim()) return primaryValue.trim()
@@ -217,10 +391,7 @@ export class PlayCanvasProjectsService {
                         codename: createCodenameVLC('en', 'main-scene'),
                         displayName: createLocalizedContent('en', 'Main Scene'),
                         payloadSchemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
-                        payload: {
-                            schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
-                            entities: []
-                        },
+                        payload: createDefaultEditorScenePayload(),
                         payloadFile: null,
                         checksum: null,
                         sortOrder: 0,
@@ -269,25 +440,32 @@ export class PlayCanvasProjectsService {
     ): Promise<PlayCanvasEditorCompatibilityProtocolDescriptor> {
         const project = await this.getProject(metahubId, projectId, userId)
         const defaultSceneId = project.defaultSceneId ?? null
-        const disabledSurface = {
-            status: 'disabled' as const,
-            reason: 'notRequiredForUniversoBridgeMinimal'
+        const enabledSurface = {
+            status: 'enabled' as const,
+            reason: 'universoFullUpstreamUi'
         }
         const stubbedSurface = {
             status: 'stubbed' as const,
             reason: 'cloudOnlySurfaceOutsideFirstSlice'
         }
         const branchId = defaultSceneId ?? project.id
+        const numericIds = createPlayCanvasEditorNumericIds({
+            metahubId,
+            projectId,
+            sceneId: branchId,
+            userId
+        })
 
         return playCanvasEditorCompatibilityProtocolDescriptorSchema.parse({
             schemaVersion: PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
-            mode: PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
+            mode: PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
             upstream: {
                 repository: 'https://github.com/playcanvas/editor',
                 minimumTag: 'v2.23.4'
             },
             project,
             defaultSceneId,
+            numericIds,
             identity: {
                 self: {
                     id: userId,
@@ -311,14 +489,15 @@ export class PlayCanvasProjectsService {
                 organizations: []
             },
             endpoints: {
-                rest: disabledSurface,
-                realtime: disabledSurface,
-                messenger: disabledSurface
+                rest: enabledSurface,
+                realtime: enabledSurface,
+                messenger: enabledSurface,
+                relay: enabledSurface
             },
             shareDb: {
                 requiredCollections: ['scenes', 'assets', 'settings'],
-                persisted: false,
-                persistence: 'not-implemented',
+                persisted: true,
+                persistence: 'snapshot-port',
                 sceneStorage: 'metahub-playcanvas-project-storage'
             },
             cloudOnly: {
@@ -346,68 +525,69 @@ export class PlayCanvasProjectsService {
 
     async createProject(metahubId: string, input: CreatePlayCanvasProjectRequest, userId: string): Promise<PlayCanvasProjectSummary> {
         const schemaName = await this.resolveSchemaName(metahubId)
-        const codename =
-            input.codename ??
-            (await this.createUniqueProjectCodename(
+        return this.exec.transaction(async (tx) => {
+            const codename =
+                input.codename ??
+                (await this.createUniqueProjectCodename(
+                    schemaName,
+                    input.displayName._primary,
+                    slugifyProjectName(getPrimaryText(input.displayName)),
+                    tx
+                ))
+            const row = await createPlayCanvasProject(
+                tx,
                 schemaName,
-                input.displayName._primary,
-                slugifyProjectName(getPrimaryText(input.displayName))
-            ))
-        const row = await createPlayCanvasProject(
-            this.exec,
-            schemaName,
-            {
-                codename,
-                displayName: input.displayName,
-                description: input.description ?? null,
-                packageVersion: input.packageVersion ?? null,
-                settings: {}
-            },
-            userId
-        )
-        const sceneId = generateUuidV7()
-        const scene = await upsertPlayCanvasScene(
-            this.exec,
-            schemaName,
-            row.id,
-            {
-                id: sceneId,
-                codename: createCodenameVLC(input.displayName._primary, 'main-scene'),
-                displayName: createLocalizedContent(input.displayName._primary, 'Main Scene'),
-                payloadSchemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
-                payload: {
-                    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
-                    entities: []
+                {
+                    codename,
+                    displayName: input.displayName,
+                    description: input.description ?? null,
+                    packageVersion: input.packageVersion ?? null,
+                    settings: {}
                 },
-                payloadFile: null,
-                checksum: null,
-                sortOrder: 0,
-                publish: true
-            },
-            userId
-        )
-        const updated = await updatePlayCanvasProject(
-            this.exec,
-            schemaName,
-            row.id,
-            {
-                defaultSceneId: scene.id,
-                expectedVersion: row.version
-            },
-            userId
-        )
-        if (!updated) {
-            throw this.optimisticError(row.id, row.version)
-        }
-        return summarizePlayCanvasProject(this.exec, schemaName, updated)
+                userId
+            )
+            const sceneId = generateUuidV7()
+            const scene = await upsertPlayCanvasScene(
+                tx,
+                schemaName,
+                row.id,
+                {
+                    id: sceneId,
+                    codename: createCodenameVLC(input.displayName._primary, 'main-scene'),
+                    displayName: createLocalizedContent(input.displayName._primary, 'Main Scene'),
+                    payloadSchemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                    payload: createDefaultEditorScenePayload(),
+                    payloadFile: null,
+                    checksum: null,
+                    sortOrder: 0,
+                    publish: true
+                },
+                userId
+            )
+            const updated = await updatePlayCanvasProject(
+                tx,
+                schemaName,
+                row.id,
+                {
+                    defaultSceneId: scene.id,
+                    expectedVersion: row.version
+                },
+                userId
+            )
+            if (!updated) {
+                throw this.optimisticError(row.id, row.version)
+            }
+            return summarizePlayCanvasProject(tx, schemaName, updated)
+        })
     }
 
     private async createUniqueProjectCodename(
         schemaName: string,
         locale: string,
-        baseCodename: string
+        baseCodename: string,
+        exec: DbExecutor = this.exec
     ): Promise<NonNullable<CreatePlayCanvasProjectRequest['codename']>> {
-        const existingCodenames = new Set(await listPlayCanvasProjectCodenamesByPrefix(this.exec, schemaName, baseCodename))
+        const existingCodenames = new Set(await listPlayCanvasProjectCodenamesByPrefix(exec, schemaName, baseCodename))
         for (let index = 0; index < 100; index += 1) {
             const candidate = index === 0 ? baseCodename : `${baseCodename}-${index + 1}`
             if (!existingCodenames.has(candidate)) {
@@ -856,6 +1036,268 @@ export class PlayCanvasProjectsService {
                 await releaseReplayClaim()
             }
             throw error
+        }
+    }
+
+    async loadEditorRealtimeDocument(input: {
+        metahubId: string
+        projectId: string
+        sceneId: string
+        userId: string
+        collection: 'scenes' | 'assets' | 'settings'
+        documentId: string
+        numericProjectId: number
+        numericSceneId: number
+        numericUserId: number
+    }): Promise<{
+        collection: 'scenes' | 'assets' | 'settings'
+        id: string
+        data: Record<string, unknown>
+        version?: number
+        checksum?: string | null
+        revision?: string | null
+    } | null> {
+        if (input.collection === 'scenes') {
+            const read = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
+            return {
+                collection: 'scenes',
+                id: input.documentId,
+                version: read.scene.version,
+                checksum: read.scene.checksum ?? null,
+                data: {
+                    item_id: input.numericSceneId,
+                    name: getPrimaryText(read.scene.displayName),
+                    settings: read.payload?.settings ?? { physics: {}, render: {} },
+                    entities: normalizeRealtimeSceneEntities(read.payload?.entities ?? []),
+                    scene: input.numericSceneId
+                }
+            }
+        }
+
+        if (input.collection === 'settings') {
+            if (!realtimeSettingsDocumentKind(input.documentId)) {
+                throw new MetahubValidationError('Unsupported PlayCanvas Editor realtime settings document', {
+                    messageCode: 'playcanvas.editorRealtime.unsupportedSettingsDocument',
+                    documentId: input.documentId
+                })
+            }
+            const schemaName = await this.resolveSchemaName(input.metahubId)
+            const project = await this.requireProject(schemaName, input.projectId)
+            const realtimeSettings = asRecord(project.settings[REALTIME_SETTINGS_KEY])
+            const documents = asRecord(realtimeSettings.documents)
+            const existing = asRecord(documents[input.documentId])
+            return {
+                collection: 'settings',
+                id: input.documentId,
+                data: normalizeRealtimeSettingsDocumentData(input.documentId, asRecord(existing.data), {
+                    numericProjectId: input.numericProjectId,
+                    numericUserId: input.numericUserId
+                }),
+                version: readRealtimeSettingsDocumentVersion(existing),
+                revision: String(readRealtimeSettingsDocumentVersion(existing))
+            }
+        }
+
+        const schemaName = await this.resolveSchemaName(input.metahubId)
+        const assets = await listPlayCanvasAssets(this.exec, schemaName, input.projectId)
+        const asset = assets.find((candidate) => String(createPlayCanvasEditorNumericAssetId(candidate.id)) === input.documentId)
+        if (!asset) {
+            throw new MetahubValidationError('Unsupported PlayCanvas Editor realtime asset document', {
+                messageCode: 'playcanvas.editorRealtime.unsupportedAssetDocument',
+                documentId: input.documentId
+            })
+        }
+        return {
+            collection: 'assets',
+            id: input.documentId,
+            data: {
+                item_id: Number(input.documentId),
+                branch_id: input.numericSceneId,
+                project: input.numericProjectId,
+                name: asset.name,
+                type: asset.type,
+                file: asset.file
+                    ? {
+                          filename: asset.virtualPath.length > 0 ? asset.virtualPath[asset.virtualPath.length - 1] : asset.name,
+                          hash: asset.file.hash,
+                          size: asset.file.size,
+                          url: '',
+                          variants: null
+                      }
+                    : null,
+                path: [],
+                tags: [],
+                data: null,
+                meta: null,
+                preload: true,
+                source: false
+            },
+            version: asset.version
+        }
+    }
+
+    async persistEditorRealtimeDocument(input: {
+        metahubId: string
+        projectId: string
+        sceneId: string
+        userId: string
+        collection: 'scenes' | 'assets' | 'settings'
+        documentId: string
+        data: Record<string, unknown>
+        version: number
+        checksum?: string | null
+        revision?: string | null
+    }): Promise<{ checksum?: string | null; revision?: string | null } | void> {
+        if (input.collection === 'scenes') {
+            const entitiesRecord =
+                input.data.entities && typeof input.data.entities === 'object' && !Array.isArray(input.data.entities)
+                    ? (input.data.entities as Record<string, Record<string, unknown>>)
+                    : {}
+            const syntheticRootIds = new Set(
+                Object.entries(entitiesRecord)
+                    .filter(
+                        ([id, entity]) =>
+                            id === 'root' ||
+                            (entity.resource_id === 'root' &&
+                                (entity.parent === null || entity.parent === undefined) &&
+                                typeof entity.name === 'string' &&
+                                entity.name.toLowerCase() === 'root')
+                    )
+                    .map(([id]) => id)
+            )
+            const entityIdByDocumentId = new Map(
+                Object.entries(entitiesRecord)
+                    .filter(([documentId]) => !syntheticRootIds.has(documentId))
+                    .map(([documentId, entity]) => [
+                        documentId,
+                        typeof entity.resource_id === 'string' && entity.resource_id ? entity.resource_id : documentId
+                    ])
+            )
+            const resolveRealtimeEntityId = (value: unknown): string | null => {
+                if (typeof value !== 'string' || syntheticRootIds.has(value)) {
+                    return null
+                }
+                return entityIdByDocumentId.get(value) ?? value
+            }
+            const payload = playCanvasEditorCompatibilityScenePayloadSchema.parse({
+                schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                settings:
+                    input.data.settings && typeof input.data.settings === 'object' && !Array.isArray(input.data.settings)
+                        ? (input.data.settings as Record<string, never>)
+                        : {},
+                entities: Object.entries(entitiesRecord)
+                    .filter(([id]) => !syntheticRootIds.has(id))
+                    .map(([id, entity]) => ({
+                        id: entityIdByDocumentId.get(id) ?? id,
+                        name: typeof entity.name === 'string' ? entity.name : 'Entity',
+                        parentId: resolveRealtimeEntityId(entity.parent),
+                        enabled: typeof entity.enabled === 'boolean' ? entity.enabled : true,
+                        components:
+                            entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
+                                ? (entity.components as Record<string, never>)
+                                : {},
+                        children: Array.isArray(entity.children)
+                            ? entity.children
+                                  .map((child) => resolveRealtimeEntityId(child))
+                                  .filter((child): child is string => typeof child === 'string')
+                            : []
+                    }))
+            })
+            const currentBeforeSave = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
+            if (areEditorScenePayloadsEqual(currentBeforeSave.payload, payload)) {
+                return { checksum: currentBeforeSave.scene.checksum ?? null }
+            }
+            const expectedCurrentChecksum = input.checksum !== undefined ? input.checksum : currentBeforeSave.scene.checksum ?? null
+            try {
+                const saved = await this.saveEditorCompatibilityScene(
+                    input.metahubId,
+                    input.projectId,
+                    input.sceneId,
+                    {
+                        requestId: generateUuidV7(),
+                        payload,
+                        expectedCurrentChecksum
+                    },
+                    input.userId
+                )
+                return { checksum: saved.checksum ?? null }
+            } catch (error) {
+                if (!isCurrentChecksumMismatch(error)) {
+                    throw error
+                }
+
+                const current = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
+                if (!areEditorScenePayloadsEqual(current.payload, payload)) {
+                    throw error
+                }
+                return { checksum: current.scene.checksum ?? null }
+            }
+        }
+
+        if (input.collection === 'settings') {
+            const kind = realtimeSettingsDocumentKind(input.documentId)
+            if (!kind) {
+                throw new MetahubValidationError('Unsupported PlayCanvas Editor realtime settings document', {
+                    messageCode: 'playcanvas.editorRealtime.unsupportedSettingsDocument',
+                    documentId: input.documentId
+                })
+            }
+            const parsed = playCanvasEditorCompatibilitySettingsDocumentSchema.parse({
+                kind,
+                documentId: input.documentId,
+                data: input.data,
+                revision: String(input.version)
+            })
+            const schemaName = await this.resolveSchemaName(input.metahubId)
+            const maxAttempts = 8
+            for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                const project = await this.requireProject(schemaName, input.projectId)
+                const realtimeSettings = asRecord(project.settings[REALTIME_SETTINGS_KEY])
+                const documents = asRecord(realtimeSettings.documents)
+                const existing = asRecord(documents[input.documentId])
+                const existingVersion = readRealtimeSettingsDocumentVersion(existing)
+                if (input.revision !== undefined && input.revision !== null && input.revision !== String(existingVersion)) {
+                    if (stableStringify(asRecord(existing.data)) === stableStringify(parsed.data)) {
+                        return { revision: String(existingVersion) }
+                    }
+                    throw new MetahubValidationError('PlayCanvas Editor realtime settings revision mismatch', {
+                        messageCode: 'playcanvas.editorRealtime.settingsRevisionMismatch',
+                        documentId: input.documentId,
+                        expectedRevision: input.revision,
+                        actualRevision: String(existingVersion)
+                    })
+                }
+                const updated = await updatePlayCanvasProject(
+                    this.exec,
+                    schemaName,
+                    input.projectId,
+                    {
+                        settings: {
+                            ...project.settings,
+                            [REALTIME_SETTINGS_KEY]: {
+                                ...realtimeSettings,
+                                documents: {
+                                    ...documents,
+                                    [input.documentId]: {
+                                        data: parsed.data,
+                                        version: input.version,
+                                        updatedAt: new Date().toISOString()
+                                    }
+                                }
+                            }
+                        },
+                        expectedVersion: project.version
+                    },
+                    input.userId
+                )
+                if (updated) {
+                    return { revision: String(input.version) }
+                }
+                if (attempt === maxAttempts) {
+                    throw this.optimisticError(input.projectId, project.version)
+                }
+                await waitForRealtimeSettingsRetry(attempt)
+            }
         }
     }
 

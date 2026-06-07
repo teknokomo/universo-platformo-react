@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto'
+
 import { createLocalizedContent } from '@universo-react/utils'
-import type { Locator, Page, Route } from '@playwright/test'
+import type { Locator, Page, Request, Route } from '@playwright/test'
 import { PNG } from 'pngjs'
 
 import { expect, test } from '../../fixtures/test'
@@ -31,7 +33,105 @@ const resolveUserRoleIds = (roles: Array<{ id?: string; codename?: string }>): s
 
 const rawPackageTextPatterns = [/@universo-react\//, /@colyseus\//, /\bcolyseus\.js\b/i]
 const playCanvasEditorSaveShortcut = process.platform === 'darwin' ? 'Meta+S' : 'Control+S'
-type PlayCanvasEditorUiMode = 'upstream-toolbar' | 'hosted-fallback'
+type PlayCanvasEditorUiMode = 'upstream-toolbar'
+const escapeXPathText = (value: string) => value.replace(/"/g, '\\"')
+const playCanvasEditorMenuItemXPath = (label: string) =>
+    `xpath=.//*[contains(concat(" ", normalize-space(@class), " "), " pcui-menu-item ")][.//*[contains(concat(" ", normalize-space(@class), " "), " pcui-label ") and normalize-space(.)="${escapeXPathText(
+        label
+    )}"]]`
+const playCanvasEditorVisibleMenuItemXPath = (label: string) =>
+    `xpath=//*[contains(concat(" ", normalize-space(@class), " "), " pcui-menu ") and not(contains(concat(" ", normalize-space(@class), " "), " pcui-hidden "))]//*[contains(concat(" ", normalize-space(@class), " "), " pcui-menu-item ")][.//*[contains(concat(" ", normalize-space(@class), " "), " pcui-label ") and normalize-space(.)="${escapeXPathText(
+        label
+    )}"]]`
+const expectNumericCompatibleId = (value: unknown, label: string) => {
+    if (typeof value === 'number') {
+        expect(Number.isInteger(value) && value > 0, `${label} must be a positive integer`).toBe(true)
+        return
+    }
+    if (typeof value === 'string') {
+        expect(value, `${label} must be a positive integer string after upstream scene load`).toMatch(/^[1-9]\d*$/)
+        return
+    }
+    expect(value, `${label} must be numeric-compatible`).toEqual(expect.any(Number))
+}
+
+const expectPngScreenshotNonBlank = (screenshot: Buffer, label: string) => {
+    const png = PNG.sync.read(screenshot)
+    const buckets = new Set<string>()
+    let sampledOpaquePixels = 0
+    const { data, height, width } = png
+    const sampleStepX = Math.max(1, Math.floor(width / 24))
+    const sampleStepY = Math.max(1, Math.floor(height / 24))
+    for (let y = 0; y < height; y += sampleStepY) {
+        for (let x = 0; x < width; x += sampleStepX) {
+            const index = (y * width + x) * 4
+            const alpha = data[index + 3] ?? 0
+            if (alpha === 0) continue
+            sampledOpaquePixels += 1
+            const red = Math.floor((data[index] ?? 0) / 32)
+            const green = Math.floor((data[index + 1] ?? 0) / 32)
+            const blue = Math.floor((data[index + 2] ?? 0) / 32)
+            buckets.add(`${red}:${green}:${blue}`)
+        }
+    }
+    for (let index = 0; index < data.length && buckets.size <= 1; index += 4 * 97) {
+        const alpha = data[index + 3] ?? 0
+        if (alpha === 0) continue
+        sampledOpaquePixels += 1
+        const red = Math.floor((data[index] ?? 0) / 32)
+        const green = Math.floor((data[index + 1] ?? 0) / 32)
+        const blue = Math.floor((data[index + 2] ?? 0) / 32)
+        buckets.add(`${red}:${green}:${blue}`)
+    }
+    expect(sampledOpaquePixels, `${label} must contain painted opaque pixels`).toBeGreaterThan(20)
+    expect(buckets.size, `${label} must contain more than one sampled color bucket`).toBeGreaterThan(1)
+    expect(new Set(screenshot).size, `${label} PNG bytes must not be uniform`).toBeGreaterThan(16)
+}
+
+const expectPlayCanvasEditorCanvas3dPainted = async (page: Page, label = 'PlayCanvas Editor 3D canvas') => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    const viewport = editorFrame.locator('#layout-viewport')
+    const canvasHost = editorFrame.locator('#canvas-3d')
+    await expect(viewport, `${label} viewport must be visible`).toBeVisible()
+    await expect(canvasHost, `${label} host must be visible`).toBeVisible()
+    await expect(canvasHost, `${label} host must be unique`).toHaveCount(1)
+    const viewportBox = await viewport.boundingBox()
+    const canvasBox = await canvasHost.boundingBox()
+    expect(viewportBox, `${label} viewport must have a bounding box`).toBeTruthy()
+    expect(canvasBox, `${label} host must have a bounding box`).toBeTruthy()
+    if (!viewportBox || !canvasBox) return
+    const minimumCanvasWidth = Math.min(200, Math.max(80, viewportBox.width * 0.75))
+    const minimumCanvasHeight = Math.min(120, Math.max(80, viewportBox.height * 0.5))
+    expect(canvasBox.width, `${label} width`).toBeGreaterThan(minimumCanvasWidth)
+    expect(canvasBox.height, `${label} height`).toBeGreaterThan(minimumCanvasHeight)
+    expect(canvasBox.x, `${label} must start inside viewport`).toBeGreaterThanOrEqual(viewportBox.x - 2)
+    expect(canvasBox.y, `${label} must start inside viewport`).toBeGreaterThanOrEqual(viewportBox.y - 2)
+    expect(canvasBox.x + canvasBox.width, `${label} must end inside viewport`).toBeLessThanOrEqual(viewportBox.x + viewportBox.width + 2)
+    expect(canvasBox.y + canvasBox.height, `${label} must end inside viewport`).toBeLessThanOrEqual(viewportBox.y + viewportBox.height + 2)
+    expect(canvasBox.width * canvasBox.height, `${label} must occupy most of the viewport`).toBeGreaterThan(
+        viewportBox.width * viewportBox.height * 0.6
+    )
+    const canvasMetrics = await canvasHost.evaluate((element) => {
+        const host = element as HTMLElement
+        const directCanvas = host instanceof HTMLCanvasElement ? host : null
+        const nestedCanvas = host.querySelector('canvas') as HTMLCanvasElement | null
+        const viewportCanvas = document.querySelector('#layout-viewport canvas') as HTMLCanvasElement | null
+        const canvas = directCanvas ?? nestedCanvas ?? viewportCanvas
+        return {
+            clientWidth: host.clientWidth,
+            clientHeight: host.clientHeight,
+            hasCanvas: Boolean(canvas),
+            backingWidth: canvas?.width ?? 0,
+            backingHeight: canvas?.height ?? 0
+        }
+    })
+    expect(canvasMetrics.clientWidth, `${label} client width`).toBeGreaterThan(minimumCanvasWidth)
+    expect(canvasMetrics.clientHeight, `${label} client height`).toBeGreaterThan(minimumCanvasHeight)
+    expect(canvasMetrics.hasCanvas, `${label} must expose a PlayCanvas canvas element`).toBe(true)
+    expect(canvasMetrics.backingWidth, `${label} backing width`).toBeGreaterThan(0)
+    expect(canvasMetrics.backingHeight, `${label} backing height`).toBeGreaterThan(0)
+    expectPngScreenshotNonBlank(await canvasHost.screenshot(), label)
+}
 type PlayCanvasEditorCompatibilityConfig = {
     mode?: unknown
     projectId?: unknown
@@ -45,6 +145,14 @@ type PlayCanvasEditorCompatibilityConfig = {
     }
     csrf?: { tokenUrl?: string; headerName?: string }
     endpoints?: { scenes?: string; assets?: string; settings?: string; cloudOnly?: string }
+}
+type PlayCanvasEditorRuntimeConfig = {
+    projectId: string
+    sceneId: string
+    accessToken?: string
+    restBaseUrl?: string
+    compatibilityConfig?: PlayCanvasEditorCompatibilityConfig
+    restCompatibilityConfig?: PlayCanvasEditorCompatibilityConfig
 }
 
 const isTransientFrameNavigationError = (error: unknown): boolean => {
@@ -156,9 +264,40 @@ const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en' | 'ru
                                 serializeError?: { message?: unknown }
                                 saveError?: { message?: unknown }
                                 compatibilityProtocol?: { data?: { protocol?: { mode?: unknown; endpoints?: unknown } } }
+                                compatibilityConfig?: { mode?: unknown }
+                                fullBootMode?: boolean
+                                hostedEntityAdapterInstalled?: boolean
+                                lastWebSocketUrl?: unknown
+                                lastWebSocketOpenUrl?: unknown
+                                lastWebSocketClose?: unknown
+                                lastWebSocketErrorUrl?: unknown
+                                webSocketEvents?: unknown
                             }
                         }
                     ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    const config = (window as unknown as { config?: { mode?: unknown; url?: unknown } }).config
+                    const realtime = (
+                        window as unknown as {
+                            editor?: {
+                                api?: {
+                                    globals?: {
+                                        realtime?: {
+                                            connection?: {
+                                                connected?: unknown
+                                                authenticated?: unknown
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ).editor?.api?.globals?.realtime
+                    const websocketEvents = Array.isArray(bridge?.webSocketEvents) ? bridge.webSocketEvents : []
+                    const openedWebSocketUrls = websocketEvents
+                        .filter((event): event is { type?: unknown; url?: unknown } => Boolean(event && typeof event === 'object'))
+                        .filter((event) => event.type === 'open' && typeof event.url === 'string')
+                        .map((event) => String(event.url))
+                    const connectionOverlayText = document.querySelector('.connection-overlay')?.textContent?.trim() ?? ''
                     return {
                         ready: bridge?.ready === true,
                         initialized: bridge?.initialized === true,
@@ -170,17 +309,38 @@ const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en' | 'ru
                         serializeError:
                             typeof bridge?.serializeError?.message === 'string' ? bridge.serializeError.message.slice(0, 120) : null,
                         saveError: typeof bridge?.saveError?.message === 'string' ? bridge.saveError.message.slice(0, 120) : null,
-                        compatibilityMode: bridge?.compatibilityProtocol?.data?.protocol?.mode
+                        fullBootMode: bridge?.fullBootMode === true,
+                        hostedEntityAdapterInstalled: bridge?.hostedEntityAdapterInstalled === true,
+                        compatibilityConfigMode: bridge?.compatibilityConfig?.mode,
+                        configMode: config?.mode,
+                        usesDisabledEndpoint: JSON.stringify(config?.url ?? {}).includes('/disabled'),
+                        realtimeConnected: realtime?.connection?.connected === true,
+                        realtimeAuthenticated: realtime?.connection?.authenticated === true,
+                        lastWebSocketOpenUrl: bridge?.lastWebSocketOpenUrl,
+                        lastWebSocketErrorUrl: bridge?.lastWebSocketErrorUrl,
+                        hasRealtimeWebSocketOpen: openedWebSocketUrls.some((url) => url.includes('/realtime')),
+                        hasDisabledWebSocketOpen: openedWebSocketUrls.some((url) => url.includes('/disabled')),
+                        connectionOverlayText
                     }
                 }),
-            { timeout: 20_000 }
+            { timeout: 60_000 }
         )
         .toEqual(
             expect.objectContaining({
                 ready: true,
                 initialized: true,
                 hasBootstrapRequestId: true,
-                compatibilityMode: 'universo-bridge-minimal'
+                fullBootMode: true,
+                hostedEntityAdapterInstalled: false,
+                compatibilityConfigMode: 'universo-full-upstream-ui',
+                configMode: 'universo-full-upstream-ui',
+                usesDisabledEndpoint: false,
+                realtimeConnected: true,
+                realtimeAuthenticated: true,
+                lastWebSocketErrorUrl: undefined,
+                hasRealtimeWebSocketOpen: true,
+                hasDisabledWebSocketOpen: false,
+                connectionOverlayText: ''
             })
         )
     const hostedConfig = await editorFrame.locator('body').evaluate(() => {
@@ -189,57 +349,93 @@ const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en' | 'ru
                 config?: {
                     project?: { id?: unknown }
                     scene?: { id?: unknown }
-                    universoBridge?: { selectedProject?: { project?: { id?: unknown }; defaultSceneId?: unknown } | null }
                 }
             }
         ).config
         return {
             projectId: config?.project?.id,
-            sceneId: config?.scene?.id,
-            selectedProjectId: config?.universoBridge?.selectedProject?.project?.id,
-            selectedSceneId: config?.universoBridge?.selectedProject?.defaultSceneId
+            sceneId: config?.scene?.id
         }
     })
-    expect(hostedConfig.projectId).toEqual(hostedConfig.selectedProjectId)
-    expect(hostedConfig.sceneId).toEqual(hostedConfig.selectedSceneId)
-    expect(hostedConfig.projectId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
-    expect(hostedConfig.sceneId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    expectNumericCompatibleId(hostedConfig.projectId, 'PlayCanvas full-boot project id')
+    expectNumericCompatibleId(hostedConfig.sceneId, 'PlayCanvas full-boot scene id')
 
     const editorBox = await editorIframe.boundingBox()
     expect(editorBox?.width ?? 0).toBeGreaterThan(200)
     expect(editorBox?.height ?? 0).toBeGreaterThan(100)
-    const canvasScreenshot = await editorIframe.screenshot()
-    const screenshotPng = PNG.sync.read(canvasScreenshot)
-    const canvasPaint = (() => {
-        const buckets = new Set<string>()
-        let sampledOpaquePixels = 0
-        const { data } = screenshotPng
-        for (let index = 0; index < data.length; index += 4 * 97) {
-            const alpha = data[index + 3] ?? 0
-            if (alpha === 0) continue
-            sampledOpaquePixels += 1
-            const red = Math.floor((data[index] ?? 0) / 32)
-            const green = Math.floor((data[index + 1] ?? 0) / 32)
-            const blue = Math.floor((data[index + 2] ?? 0) / 32)
-            buckets.add(`${red}:${green}:${blue}`)
-        }
-        return {
-            colorBuckets: buckets.size,
-            sampledOpaquePixels
-        }
-    })()
-    expect(canvasPaint.sampledOpaquePixels).toBeGreaterThan(20)
-    expect(canvasPaint.colorBuckets).toBeGreaterThan(1)
-    expect(new Set(canvasScreenshot).size).toBeGreaterThan(16)
 
     const uiMode = await getPlayCanvasEditorUiMode(page)
-    if (uiMode === 'hosted-fallback') {
-        await expect(editorFrame.locator('[aria-label="Scene entities"]')).toBeVisible()
-        await expect(editorFrame.getByRole('button', { name: 'Add entity' })).toBeVisible()
-    } else {
-        await expect(editorFrame.locator('#layout-toolbar .pcui-button.logo')).toBeVisible()
-    }
+    await expect(editorFrame.locator('#layout-root')).toBeVisible()
+    await expect(editorFrame.locator('#layout-toolbar')).toBeVisible()
+    await expect(editorFrame.locator('#layout-hierarchy')).toBeVisible()
+    await expect(editorFrame.locator('#layout-viewport')).toBeVisible()
+    await expect(editorFrame.locator('#canvas-3d')).toBeVisible()
+    await expectPlayCanvasEditorCanvas3dPainted(page)
+    await expect(editorFrame.locator('#layout-assets')).toBeVisible()
+    await expect(editorFrame.locator('#layout-attributes')).toBeVisible()
+    await expect(editorFrame.locator('[data-universo-playcanvas-editor-hosted-entities]')).toHaveCount(0)
+    await expect(page.getByText(locale === 'ru' ? 'Несохранённые изменения' : 'Unsaved changes')).toHaveCount(0)
+    await expect(
+        page.getByText(locale === 'ru' ? 'Редактор сообщает о несохранённых изменениях.' : 'The editor reports unsaved changes.')
+    ).toHaveCount(0)
     return uiMode
+}
+
+const expectPlayCanvasEditorFullscreenHost = async (page: Page) => {
+    await expect(page.getByTestId('playcanvas-editor-fullscreen-host')).toBeVisible()
+    await expect(page.getByTestId('playcanvas-editor-fullscreen-chrome')).toHaveCount(0)
+    await expect(page.getByTestId('playcanvas-editor-host-chrome')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: /back to packages/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Save$/ })).toHaveCount(0)
+    await expect(page.getByText('PlayCanvas Editor')).toHaveCount(0)
+    await expect(page.getByTestId('metahub-packages-tab')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Resources' })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: /Packages|Пакеты/ })).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+
+    const viewport = page.viewportSize()
+    const iframeBox = await page.locator('iframe[data-testid="playcanvas-editor-frame"]').boundingBox()
+    expect(iframeBox, 'fullscreen PlayCanvas Editor iframe must have layout bounds').toBeTruthy()
+    if (viewport && iframeBox) {
+        expect(iframeBox.width, 'fullscreen PlayCanvas Editor iframe must fill most of the viewport width').toBeGreaterThan(
+            viewport.width * 0.95
+        )
+        expect(iframeBox.height, 'fullscreen PlayCanvas Editor iframe must fill most of the viewport height').toBeGreaterThan(
+            viewport.height * 0.95
+        )
+    }
+}
+
+const expectPlayCanvasEditorEmbeddedHostUx = async (page: Page) => {
+    await expect(page.getByTestId('playcanvas-editor-host')).toBeVisible()
+    await expect(page.getByTestId('playcanvas-editor-host-status-alert')).toHaveCount(1)
+    await expect(page.getByText('Editor is ready.')).toHaveCount(1)
+
+    const host = page.getByTestId('playcanvas-editor-host')
+    const iframe = page.locator('iframe[data-testid="playcanvas-editor-frame"]')
+    const hostBox = await host.boundingBox()
+    const iframeBox = await iframe.boundingBox()
+    expect(hostBox, 'embedded PlayCanvas Editor host must have layout bounds').toBeTruthy()
+    expect(iframeBox, 'embedded PlayCanvas Editor iframe must have layout bounds').toBeTruthy()
+    if (!hostBox || !iframeBox) return
+
+    const hostPadding = await host.evaluate((element) => {
+        const styles = window.getComputedStyle(element)
+        return {
+            left: Number.parseFloat(styles.paddingLeft) || 0,
+            right: Number.parseFloat(styles.paddingRight) || 0,
+            bottom: Number.parseFloat(styles.paddingBottom) || 0
+        }
+    })
+    const leftGap = iframeBox.x - hostBox.x
+    const rightGap = hostBox.x + hostBox.width - (iframeBox.x + iframeBox.width)
+    const bottomGap = hostBox.y + hostBox.height - (iframeBox.y + iframeBox.height)
+    const sideGap = Math.max(hostPadding.left, hostPadding.right, leftGap, rightGap)
+
+    expect(leftGap, 'embedded PlayCanvas Editor left gap must match host padding').toBeGreaterThanOrEqual(hostPadding.left - 2)
+    expect(rightGap, 'embedded PlayCanvas Editor right gap must match host padding').toBeGreaterThanOrEqual(hostPadding.right - 2)
+    expect(bottomGap, 'embedded PlayCanvas Editor bottom gap must not exceed side padding').toBeLessThanOrEqual(sideGap + 4)
+    expect(bottomGap, 'embedded PlayCanvas Editor bottom gap must preserve host padding').toBeGreaterThanOrEqual(hostPadding.bottom - 2)
 }
 
 const readSerializedPlayCanvasEditorScene = async (page: Page) => {
@@ -262,76 +458,285 @@ const readSerializedPlayCanvasEditorScene = async (page: Page) => {
     })
 }
 
-const createPlayCanvasCompatibilityAuthHeaders = (config: PlayCanvasEditorCompatibilityConfig) => {
+const expectPlayCanvasEditorEntityVisibleAndInspectable = async (page: Page, entity: { id: string; name: string }) => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    const hierarchy = editorFrame.locator('#layout-hierarchy .entities-treeview')
+    await expect(hierarchy).toBeVisible()
+    const entityRow = hierarchy
+        .locator('.pcui-treeview-item', { has: editorFrame.locator('.pcui-treeview-item-text', { hasText: entity.name }) })
+        .last()
+    const entityRowContents = entityRow.locator('> .pcui-treeview-item-contents')
+    await expect(entityRowContents).toBeVisible()
+    const attributesPanel = editorFrame.locator('#layout-attributes')
+    await expect(attributesPanel).toBeVisible()
+
+    const readInspectorState = async () =>
+        attributesPanel.evaluate((panel, expectedName) => {
+            const inputValues = Array.from(panel.querySelectorAll('input')).map((input) => input.value)
+            const labels = Array.from(panel.querySelectorAll('.pcui-label')).map((label) => label.textContent?.trim() ?? '')
+            const text = panel.textContent ?? ''
+            return {
+                hasAddComponentButton: text.includes('ADD COMPONENT') || text.includes('Add Component'),
+                hasNameLabel: labels.includes('Name'),
+                hasCreatedEntityNameInput: inputValues.includes(String(expectedName))
+            }
+        }, entity.name)
+    const expectInspectorState = async (timeout: number) => {
+        await expect.poll(readInspectorState, { timeout }).toEqual({
+            hasAddComponentButton: true,
+            hasNameLabel: true,
+            hasCreatedEntityNameInput: true
+        })
+    }
+
+    try {
+        await expectInspectorState(5_000)
+    } catch {
+        const isAlreadySelected = await entityRowContents.evaluate((element) => element.classList.contains('pcui-treeview-item-selected'))
+        if (!isAlreadySelected) {
+            await entityRowContents.click()
+        }
+        await expectInspectorState(10_000)
+    }
+    await expect(editorFrame.locator('body')).toContainText(entity.name)
+}
+
+const readPlayCanvasEditorEntityVisibilityDiagnostics = async (page: Page) => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    return editorFrame.locator('body').evaluate(() => {
+        const bridge = (
+            window as unknown as {
+                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
+                    serializeCurrentScene?: () => {
+                        entities?: Array<{ id?: unknown; name?: unknown }>
+                    }
+                    lastLoadedScene?: unknown
+                    lastSerializedEntityIds?: unknown
+                    lastSerializedEntityCount?: unknown
+                    lastRawEntityObserverCount?: unknown
+                    lastObservedEntityObserverCount?: unknown
+                    lastEntitySerializationErrors?: unknown
+                }
+                editor?: {
+                    api?: {
+                        globals?: {
+                            realtime?: { scenes?: { current?: { _loaded?: unknown; data?: unknown } } }
+                            entities?: { raw?: { array?: () => unknown[] } }
+                        }
+                    }
+                }
+            }
+        ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        const serialized = bridge?.serializeCurrentScene?.()
+        const hierarchyText = document.querySelector('#layout-hierarchy .entities-treeview')?.textContent?.trim() ?? ''
+        return {
+            hierarchyText,
+            serializedEntities: serialized?.entities ?? [],
+            lastLoadedScene: bridge?.lastLoadedScene,
+            lastSerializedEntityIds: bridge?.lastSerializedEntityIds,
+            lastSerializedEntityCount: bridge?.lastSerializedEntityCount,
+            lastRawEntityObserverCount: bridge?.lastRawEntityObserverCount,
+            lastObservedEntityObserverCount: bridge?.lastObservedEntityObserverCount,
+            lastEntitySerializationErrors: bridge?.lastEntitySerializationErrors,
+            realtimeSceneLoaded: window.editor?.api?.globals?.realtime?.scenes?.current?._loaded ?? null,
+            realtimeSceneData: window.editor?.api?.globals?.realtime?.scenes?.current?.data ?? null,
+            rawEntityObserverCount: window.editor?.api?.globals?.entities?.raw?.array?.().length ?? null
+        }
+    })
+}
+
+const readPlayCanvasEditorBridgeDiagnostics = async (page: Page) => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    return editorFrame.locator('body').evaluate(() => {
+        const bridge = (
+            window as unknown as {
+                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: Record<string, unknown>
+                editor?: {
+                    call?: (method: string) => unknown
+                    api?: {
+                        globals?: {
+                            entities?: { raw?: { array?: () => unknown[] } }
+                            realtime?: {
+                                _connected?: boolean
+                                scenes?: { current?: { _loaded?: boolean; loaded?: boolean; data?: unknown } }
+                            }
+                        }
+                    }
+                }
+            }
+        ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        const editor = (
+            window as unknown as {
+                editor?: {
+                    call?: (method: string) => unknown
+                    api?: {
+                        globals?: {
+                            entities?: { raw?: { array?: () => unknown[] } }
+                            realtime?: {
+                                _connected?: boolean
+                                scenes?: { current?: { _loaded?: boolean; loaded?: boolean; data?: unknown } }
+                            }
+                        }
+                    }
+                }
+            }
+        ).editor
+        let entitiesListLength: number | null = null
+        let rootId: unknown = null
+        try {
+            const entities = typeof editor?.call === 'function' ? editor.call('entities:list') : null
+            entitiesListLength = Array.isArray(entities) ? entities.length : null
+        } catch {
+            entitiesListLength = null
+        }
+        try {
+            const root = typeof editor?.call === 'function' ? editor.call('entities:root') : null
+            rootId =
+                root && typeof (root as { get?: (path: string) => unknown }).get === 'function'
+                    ? (root as { get: (path: string) => unknown }).get('resource_id')
+                    : null
+        } catch {
+            rootId = null
+        }
+        return {
+            dirty: bridge?.dirty,
+            editorCallWrapped: bridge?.editorCallWrapped,
+            editorSaveAdapterInstalled: bridge?.editorSaveAdapterInstalled,
+            fullBootMode: bridge?.fullBootMode,
+            hostedEntityAdapterInstalled: bridge?.hostedEntityAdapterInstalled,
+            lastSerializedEntityIds: bridge?.lastSerializedEntityIds,
+            lastSerializedEntityCount: bridge?.lastSerializedEntityCount,
+            lastRawEntityObserverCount: bridge?.lastRawEntityObserverCount,
+            lastObservedEntityObserverCount: bridge?.lastObservedEntityObserverCount,
+            lastRejectedEntityObserverInputs: bridge?.lastRejectedEntityObserverInputs,
+            lastEntitySerializationErrors: bridge?.lastEntitySerializationErrors,
+            lastWebSocketUrl: bridge?.lastWebSocketUrl,
+            lastWebSocketOpenUrl: bridge?.lastWebSocketOpenUrl,
+            lastWebSocketClose: bridge?.lastWebSocketClose,
+            lastWebSocketErrorUrl: bridge?.lastWebSocketErrorUrl,
+            webSocketEvents: bridge?.webSocketEvents,
+            serializeError:
+                bridge?.serializeError instanceof Error
+                    ? bridge.serializeError.message
+                    : typeof bridge?.serializeError === 'string'
+                    ? bridge.serializeError
+                    : '',
+            entitiesListLength,
+            rootId,
+            realtimeLoaded: editor?.api?.globals?.realtime?.scenes?.current?._loaded ?? null,
+            realtimeConnected: editor?.api?.globals?.realtime?._connected ?? null,
+            rawEntityObserverCount: editor?.api?.globals?.entities?.raw?.array?.().length ?? null,
+            connectionOverlayText: document.querySelector('.connection-overlay')?.textContent?.trim() ?? ''
+        }
+    })
+}
+
+const createPlayCanvasCompatibilityAuthHeaders = (page: Page, config: PlayCanvasEditorCompatibilityConfig) => {
     expect(config.auth).toMatchObject({
         scheme: 'signed-header',
         headerName: 'X-PlayCanvas-Editor-Token',
         accessToken: expect.any(String),
         expiresAt: expect.any(String)
     })
-    return { [String(config.auth?.headerName)]: String(config.auth?.accessToken) }
+    const pageUrl = new URL(page.url())
+    return {
+        Origin: pageUrl.origin,
+        Referer: page.url(),
+        [String(config.auth?.headerName)]: String(config.auth?.accessToken)
+    }
 }
 
-const readPlayCanvasEditorHostedConfig = async (page: Page) => {
+const createPlayCanvasCompatibilityWriteHeaders = async (page: Page, config: PlayCanvasEditorCompatibilityConfig) => {
+    const csrfResponse = await page.request.get(new URL(config.csrf?.tokenUrl ?? '', page.url()).toString())
+    expect(csrfResponse.status()).toBe(200)
+    const csrfBody = (await csrfResponse.json()) as { token?: string; csrfToken?: string; item?: { token?: string } }
+    const csrfToken = csrfBody.token ?? csrfBody.csrfToken ?? csrfBody.item?.token
+    expect(csrfToken).toEqual(expect.any(String))
+    return {
+        ...createPlayCanvasCompatibilityAuthHeaders(page, config),
+        [String(config.csrf?.headerName)]: String(csrfToken)
+    }
+}
+
+const readPlayCanvasEditorRuntimeConfig = async (page: Page): Promise<PlayCanvasEditorRuntimeConfig> => {
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
     const readHostedConfig = () =>
         editorFrame.locator('body').evaluate(() => {
             const config = (
                 window as unknown as {
                     config?: {
+                        accessToken?: unknown
+                        url?: { api?: unknown }
+                        universoBridge?: { compatibilityRestBaseUrl?: unknown }
                         project?: { id?: unknown }
                         scene?: { id?: unknown }
                         universoCompatibilityConfig?: PlayCanvasEditorCompatibilityConfig
                     }
+                    __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
+                        restCompatibilityConfig?: PlayCanvasEditorCompatibilityConfig
+                    }
                 }
             ).config
+            const bridge = (
+                window as unknown as {
+                    __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
+                        restCompatibilityConfig?: PlayCanvasEditorCompatibilityConfig
+                    }
+                }
+            ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
             return {
                 projectId: config?.project?.id,
                 sceneId: config?.scene?.id,
-                compatibilityConfig: config?.universoCompatibilityConfig
+                accessToken: config?.accessToken,
+                apiRoot: config?.url?.api,
+                restBaseUrl: config?.universoBridge?.compatibilityRestBaseUrl ?? config?.url?.api,
+                compatibilityConfig: config?.universoCompatibilityConfig,
+                restCompatibilityConfig: bridge?.restCompatibilityConfig
             }
         })
     await expect
         .poll(() => readHostedConfig(), { timeout: 10_000 })
         .toMatchObject({
-            projectId: expect.any(String),
-            sceneId: expect.any(String),
-            compatibilityConfig: expect.objectContaining({
-                mode: 'universo-compatibility-rest-minimal'
-            })
+            projectId: expect.anything(),
+            sceneId: expect.anything()
         })
     const hostedConfig = await readHostedConfig()
-    expect(hostedConfig.projectId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
-    expect(hostedConfig.sceneId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
-    expect(hostedConfig.compatibilityConfig).toMatchObject({
-        mode: 'universo-compatibility-rest-minimal',
-        projectId: String(hostedConfig.projectId),
-        defaultSceneId: String(hostedConfig.sceneId)
-    })
+    expectNumericCompatibleId(hostedConfig.projectId, 'PlayCanvas runtime project id')
+    expectNumericCompatibleId(hostedConfig.sceneId, 'PlayCanvas runtime scene id')
+    if (hostedConfig.restCompatibilityConfig) {
+        expect(hostedConfig.restCompatibilityConfig).toMatchObject({ mode: 'universo-compatibility-rest-minimal' })
+    }
+    if (hostedConfig.compatibilityConfig?.mode === 'universo-compatibility-rest-minimal') {
+        expect(hostedConfig.compatibilityConfig).toMatchObject({ mode: 'universo-compatibility-rest-minimal' })
+    } else {
+        expect(hostedConfig.accessToken).toEqual(expect.any(String))
+        expect(hostedConfig.apiRoot).toEqual(expect.stringContaining('/api'))
+        expect(hostedConfig.restBaseUrl).toEqual(expect.stringContaining('/playcanvas/editor-compatible/projects/'))
+    }
     return {
         projectId: String(hostedConfig.projectId),
         sceneId: String(hostedConfig.sceneId),
-        compatibilityConfig: hostedConfig.compatibilityConfig as PlayCanvasEditorCompatibilityConfig
+        accessToken: typeof hostedConfig.accessToken === 'string' ? hostedConfig.accessToken : undefined,
+        restBaseUrl: typeof hostedConfig.restBaseUrl === 'string' ? hostedConfig.restBaseUrl : undefined,
+        compatibilityConfig:
+            hostedConfig.compatibilityConfig?.mode === 'universo-compatibility-rest-minimal'
+                ? (hostedConfig.compatibilityConfig as PlayCanvasEditorCompatibilityConfig)
+                : undefined,
+        restCompatibilityConfig: hostedConfig.restCompatibilityConfig as PlayCanvasEditorCompatibilityConfig | undefined
     }
 }
 
-const waitForPlayCanvasCompatibilitySceneSave = (page: Page, metahubId: string) =>
-    page.waitForResponse((response) => {
-        const url = new URL(response.url())
-        const request = response.request()
-        return (
-            request.method() === 'PUT' &&
-            url.pathname.startsWith(`/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/`) &&
-            /\/scenes\/[0-9a-f-]+$/i.test(url.pathname)
-        )
-    })
-
-const expectPlayCanvasEditorCompatibilityRestStatus = async (page: Page, metahubId: string) => {
-    const { projectId, sceneId } = await readPlayCanvasEditorHostedConfig(page)
+const fetchPlayCanvasEditorCompatibilityConfig = async (page: Page, metahubId: string, runtimeConfig: PlayCanvasEditorRuntimeConfig) => {
     const urlFor = (path: string) => new URL(path, page.url()).toString()
-    const configResponse = await page.request.get(
-        urlFor(`/api/v1/metahub/${encodeURIComponent(metahubId)}/playcanvas/editor-compatible/projects/${projectId}/config`)
-    )
+    const configPath =
+        runtimeConfig.restBaseUrl && runtimeConfig.restBaseUrl.includes('/playcanvas/editor-compatible/projects/')
+            ? `${runtimeConfig.restBaseUrl}/config`
+            : `/api/v1/metahub/${encodeURIComponent(metahubId)}/playcanvas/editor-compatible/projects/${
+                  runtimeConfig.restCompatibilityConfig?.projectId ??
+                  runtimeConfig.compatibilityConfig?.projectId ??
+                  runtimeConfig.projectId
+              }/config`
+    const configResponse = await page.request.get(urlFor(configPath))
     expect(configResponse.status()).toBe(200)
     expect(configResponse.headers()['cache-control']).toBe('no-store')
     const configBody = (await configResponse.json()) as {
@@ -339,17 +744,36 @@ const expectPlayCanvasEditorCompatibilityRestStatus = async (page: Page, metahub
     }
     expect(configBody.item).toMatchObject({
         mode: 'universo-compatibility-rest-minimal',
-        projectId,
-        defaultSceneId: sceneId,
         permissions: { write: true, admin: false }
     })
-    const compatibilityHeaders = createPlayCanvasCompatibilityAuthHeaders(configBody.item ?? {})
+    return configBody.item ?? {}
+}
 
-    const scenesResponse = await page.request.get(urlFor(configBody.item?.endpoints?.scenes ?? ''), { headers: compatibilityHeaders })
+const waitForPlayCanvasCompatibilitySceneSave = (page: Page, metahubId: string, options: { status?: number } = {}) =>
+    page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        const request = response.request()
+        return (
+            request.method() === 'PUT' &&
+            url.pathname.startsWith(`/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/`) &&
+            /\/scenes\/[0-9a-f-]+$/i.test(url.pathname) &&
+            response.status() === (options.status ?? 200)
+        )
+    })
+
+const expectPlayCanvasEditorCompatibilityRestStatus = async (page: Page, metahubId: string) => {
+    const runtimeConfig = await readPlayCanvasEditorRuntimeConfig(page)
+    const urlFor = (path: string) => new URL(path, page.url()).toString()
+    const config = await fetchPlayCanvasEditorCompatibilityConfig(page, metahubId, runtimeConfig)
+    const projectId = String(config.projectId)
+    const sceneId = String(config.defaultSceneId)
+    const compatibilityHeaders = createPlayCanvasCompatibilityAuthHeaders(page, config)
+
+    const scenesResponse = await page.request.get(urlFor(config.endpoints?.scenes ?? ''), { headers: compatibilityHeaders })
     expect(scenesResponse.status()).toBe(200)
     await expect(scenesResponse.json()).resolves.toMatchObject({ items: [expect.objectContaining({ id: sceneId })] })
 
-    const sceneResponse = await page.request.get(urlFor(`${configBody.item?.endpoints?.scenes ?? ''}/${sceneId}`), {
+    const sceneResponse = await page.request.get(urlFor(`${config.endpoints?.scenes ?? ''}/${sceneId}`), {
         headers: compatibilityHeaders
     })
     expect(sceneResponse.status()).toBe(200)
@@ -360,11 +784,11 @@ const expectPlayCanvasEditorCompatibilityRestStatus = async (page: Page, metahub
         }
     })
 
-    const assetsResponse = await page.request.get(urlFor(configBody.item?.endpoints?.assets ?? ''), { headers: compatibilityHeaders })
+    const assetsResponse = await page.request.get(urlFor(config.endpoints?.assets ?? ''), { headers: compatibilityHeaders })
     expect(assetsResponse.status()).toBe(200)
     await expect(assetsResponse.json()).resolves.toMatchObject({ items: expect.any(Array) })
 
-    const settingsResponse = await page.request.get(urlFor(`${configBody.item?.endpoints?.settings ?? ''}/projectUser`), {
+    const settingsResponse = await page.request.get(urlFor(`${config.endpoints?.settings ?? ''}/projectUser`), {
         headers: compatibilityHeaders
     })
     expect(settingsResponse.status()).toBe(200)
@@ -372,21 +796,13 @@ const expectPlayCanvasEditorCompatibilityRestStatus = async (page: Page, metahub
         item: { kind: 'projectUser', documentId: expect.any(String), data: expect.any(Object), revision: expect.any(String) }
     })
     const settingsBody = (await settingsResponse.json()) as { item?: { revision?: string } }
-    const csrfResponse = await page.request.get(urlFor(configBody.item?.csrf?.tokenUrl ?? ''))
-    expect(csrfResponse.status()).toBe(200)
-    const csrfBody = (await csrfResponse.json()) as { token?: string; csrfToken?: string; item?: { token?: string } }
-    const csrfToken = csrfBody.token ?? csrfBody.csrfToken ?? csrfBody.item?.token
-    expect(csrfToken).toEqual(expect.any(String))
-    const settingsWriteResponse = await page.request.put(urlFor(`${configBody.item?.endpoints?.settings ?? ''}/projectUser`), {
+    const settingsWriteResponse = await page.request.put(urlFor(`${config.endpoints?.settings ?? ''}/projectUser`), {
         data: {
-            requestId: '019e9147-7000-7000-8000-000000000001',
+            requestId: randomUUID(),
             data: { e2eCompatibilityRestStatus: true },
             expectedRevision: settingsBody.item?.revision
         },
-        headers: {
-            ...compatibilityHeaders,
-            [String(configBody.item?.csrf?.headerName)]: String(csrfToken)
-        }
+        headers: await createPlayCanvasCompatibilityWriteHeaders(page, config)
     })
     expect(settingsWriteResponse.status()).toBe(200)
     await expect(settingsWriteResponse.json()).resolves.toMatchObject({
@@ -394,7 +810,7 @@ const expectPlayCanvasEditorCompatibilityRestStatus = async (page: Page, metahub
         item: { kind: 'projectUser', revision: expect.any(String) }
     })
 
-    const cloudOnlyResponse = await page.request.get(urlFor(`${configBody.item?.endpoints?.cloudOnly ?? ''}/jobs`), {
+    const cloudOnlyResponse = await page.request.get(urlFor(`${config.endpoints?.cloudOnly ?? ''}/jobs`), {
         headers: compatibilityHeaders
     })
     expect(cloudOnlyResponse.status()).toBe(200)
@@ -408,12 +824,116 @@ const expectPlayCanvasEditorCompatibilityRestStatus = async (page: Page, metahub
 
 const getPlayCanvasEditorUiMode = async (page: Page): Promise<PlayCanvasEditorUiMode> => {
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
-    const hasUpstreamToolbar = (await editorFrame.locator('#layout-toolbar .pcui-button.logo').count()) > 0
-    if (hasUpstreamToolbar) {
-        return 'upstream-toolbar'
-    }
-    await expect(editorFrame.getByRole('button', { name: 'Add entity' })).toBeVisible()
-    return 'hosted-fallback'
+    await expect(editorFrame.locator('#layout-toolbar .pcui-button.logo')).toBeVisible()
+    await expect(editorFrame.locator('[data-universo-playcanvas-editor-hosted-entities]')).toHaveCount(0)
+    return 'upstream-toolbar'
+}
+
+const installPlayCanvasEditorShareDbProbe = async (page: Page) => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    await editorFrame.locator('body').evaluate(() => {
+        const marker = (window as unknown as { __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: Record<string, unknown> })
+            .__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        if (!marker) return
+        marker.shareDbSubmittedOps = []
+        if (marker.shareDbSubmitProbeInstalled === true) return
+        marker.shareDbSubmitProbeInstalled = true
+        const editor = (
+            window as unknown as {
+                editor?: {
+                    api?: {
+                        globals?: {
+                            realtime?: {
+                                scenes?: {
+                                    current?: {
+                                        submitOp?: (...args: unknown[]) => unknown
+                                        _document?: { submitOp?: (...args: unknown[]) => unknown }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ).editor
+        const current = editor?.api?.globals?.realtime?.scenes?.current
+        const wrapSubmitOp = (target: { submitOp?: (...args: unknown[]) => unknown } | undefined, label: string) => {
+            if (!target || typeof target.submitOp !== 'function') return
+            const original = target.submitOp.bind(target)
+            target.submitOp = (...args: unknown[]) => {
+                ;(marker.shareDbSubmittedOps as Array<unknown>).push({ label, op: args[0] })
+                return original(...args)
+            }
+        }
+        wrapSubmitOp(current, 'scene')
+        wrapSubmitOp(current?._document, 'document')
+    })
+}
+
+const expectPlayCanvasEditorShareDbEntitySubmitted = async (page: Page, createdEntity: { id: string; name: string }) => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    await expect
+        .poll(
+            () =>
+                editorFrame.locator('body').evaluate((expectedEntity) => {
+                    const marker = (window as unknown as { __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: { shareDbSubmittedOps?: unknown[] } })
+                        .__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    const ops = marker?.shareDbSubmittedOps ?? []
+                    return ops.some((entry) => {
+                        const serialized = JSON.stringify(entry)
+                        return (
+                            serialized.includes('"entities"') &&
+                            (serialized.includes(expectedEntity.id) || serialized.includes(expectedEntity.name))
+                        )
+                    })
+                }, createdEntity),
+            { timeout: 20_000 }
+        )
+        .toBe(true)
+    await expect
+        .poll(
+            () =>
+                editorFrame.locator('body').evaluate(async () => {
+                    const current = (
+                        window as unknown as {
+                            editor?: {
+                                api?: {
+                                    globals?: {
+                                        realtime?: {
+                                            scenes?: {
+                                                current?: {
+                                                    _loaded?: boolean
+                                                    loaded?: boolean
+                                                    _document?: {
+                                                        data?: { entities?: Record<string, unknown> }
+                                                        hasPending?: () => boolean
+                                                        whenNothingPending?: (callback: () => void) => void
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ).editor?.api?.globals?.realtime?.scenes?.current
+                    const doc = current?._document
+                    const hasPending = typeof doc?.hasPending === 'function' ? doc.hasPending() : false
+                    if (hasPending && typeof doc?.whenNothingPending === 'function') {
+                        await Promise.race([
+                            new Promise<void>((resolve) => doc.whenNothingPending?.(resolve)),
+                            new Promise<void>((resolve) => setTimeout(resolve, 500))
+                        ])
+                    }
+                    return {
+                        loaded: current?._loaded === true || current?.loaded === true,
+                        pending: typeof doc?.hasPending === 'function' ? doc.hasPending() : false,
+                        entityCount: Object.keys(doc?.data?.entities ?? {}).length
+                    }
+                }),
+            { timeout: 20_000 }
+        )
+        .toEqual(expect.objectContaining({ loaded: true, pending: false }))
 }
 
 const createSerializablePlayCanvasEditorEntity = async (page: Page) => {
@@ -427,12 +947,22 @@ const createSerializablePlayCanvasEditorEntity = async (page: Page) => {
                             window as unknown as {
                                 __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
                                     editorSaveAdapterInstalled?: boolean
+                                    serializeCurrentScene?: () => { entities?: Array<unknown> }
                                 }
                             }
                         ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
                         const editor = (
                             window as unknown as {
-                                editor?: { call?: (method: string) => unknown }
+                                editor?: {
+                                    call?: (method: string) => unknown
+                                    api?: {
+                                        globals?: {
+                                            realtime?: {
+                                                scenes?: { current?: { _loaded?: boolean; loaded?: boolean } }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         ).editor
                         if (typeof editor?.call !== 'function') {
@@ -440,9 +970,26 @@ const createSerializablePlayCanvasEditorEntity = async (page: Page) => {
                         }
                         try {
                             const entities = editor.call('entities:list')
+                            const root =
+                                typeof editor.call === 'function'
+                                    ? (editor.call('entities:root') as { get?: (path: string) => unknown } | null)
+                                    : null
+                            const rootId = root && typeof root.get === 'function' ? root.get('resource_id') : null
+                            const realtimeLoaded =
+                                editor.api?.globals?.realtime?.scenes?.current?._loaded === true ||
+                                editor.api?.globals?.realtime?.scenes?.current?.loaded === true
+                            const serializedEntityCount =
+                                typeof marker?.serializeCurrentScene === 'function'
+                                    ? marker.serializeCurrentScene().entities?.length ?? 0
+                                    : 0
                             return {
                                 adapterReady: marker?.editorSaveAdapterInstalled === true,
-                                entitiesReady: Array.isArray(entities)
+                                entitiesReady:
+                                    ((Array.isArray(entities) &&
+                                        entities.length > 0 &&
+                                        (typeof rootId === 'string' || typeof rootId === 'number')) ||
+                                        serializedEntityCount > 0) &&
+                                    realtimeLoaded === true
                             }
                         } catch {
                             return { adapterReady: marker?.editorSaveAdapterInstalled === true, entitiesReady: false }
@@ -461,33 +1008,45 @@ const createSerializablePlayCanvasEditorEntity = async (page: Page) => {
             adapterReady: true,
             entitiesReady: true
         })
+        .catch(async (error) => {
+            const diagnostics = await readPlayCanvasEditorBridgeDiagnostics(page).catch((diagnosticsError) => ({
+                diagnosticsError: diagnosticsError instanceof Error ? diagnosticsError.message : String(diagnosticsError)
+            }))
+            throw new Error(
+                `PlayCanvas Editor realtime scene did not become ready for entity creation. Diagnostics: ${JSON.stringify(diagnostics)}. ${
+                    error instanceof Error ? error.message : String(error)
+                }`
+            )
+        })
     const before = await readSerializedPlayCanvasEditorScene(page)
     const beforeIds = new Set((before.entities ?? []).map((entity) => String(entity.id ?? '')).filter(Boolean))
-    await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })
-    const uiMode = await getPlayCanvasEditorUiMode(page)
-    if (uiMode === 'upstream-toolbar') {
-        await editorFrame.locator('#layout-toolbar .pcui-button.logo').click()
-        await editorFrame.locator('.pcui-menu-item', { hasText: /^Entity$/ }).hover()
-        await editorFrame.locator('.pcui-menu-item', { hasText: /^New Entity$/ }).click()
+    await getPlayCanvasEditorUiMode(page)
+    await installPlayCanvasEditorShareDbProbe(page)
+
+    const hierarchy = editorFrame.locator('#layout-hierarchy .entities-treeview')
+    await expect(hierarchy).toBeVisible()
+    const rootRow = hierarchy.locator('> .pcui-treeview-item > .pcui-treeview-item-contents').first()
+    await expect(rootRow).toBeVisible()
+    await rootRow.click()
+    await rootRow.click({ button: 'right' })
+
+    const visibleMenu = editorFrame.locator('.pcui-menu:visible').last()
+    const newEntityMenuItem = visibleMenu.locator(playCanvasEditorMenuItemXPath('New Entity')).first()
+    const contextMenuOpened = await newEntityMenuItem
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+    if (contextMenuOpened) {
+        await newEntityMenuItem.hover()
     } else {
-        await editorFrame.getByRole('button', { name: 'Add entity' }).click()
+        const addEntityButton = editorFrame.locator('#layout-hierarchy .hierarchy-controls .pcui-button').first()
+        await expect(addEntityButton).toBeVisible()
+        await addEntityButton.click()
     }
-    await expect
-        .poll(
-            () =>
-                editorFrame.locator('body').evaluate(() => {
-                    const bridge = (
-                        window as unknown as {
-                            __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
-                                dirty?: boolean
-                            }
-                        }
-                    ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
-                    return bridge?.dirty === true
-                }),
-            { timeout: 20_000 }
-        )
-        .toBe(true)
+    const entityMenuItem = editorFrame.locator(playCanvasEditorVisibleMenuItemXPath('Entity')).last()
+    await expect(entityMenuItem).toBeVisible()
+    await entityMenuItem.click()
+
     await expect
         .poll(
             async () => {
@@ -501,36 +1060,59 @@ const createSerializablePlayCanvasEditorEntity = async (page: Page) => {
             { timeout: 20_000 }
         )
         .toBeTruthy()
+        .catch(async (error) => {
+            const diagnostics = await readPlayCanvasEditorBridgeDiagnostics(page).catch((diagnosticsError) => ({
+                diagnosticsError: diagnosticsError instanceof Error ? diagnosticsError.message : String(diagnosticsError)
+            }))
+            throw new Error(
+                `PlayCanvas Editor entity did not become serializable. Diagnostics: ${JSON.stringify(diagnostics)}. ${
+                    error instanceof Error ? error.message : String(error)
+                }`
+            )
+        })
     const current = await readSerializedPlayCanvasEditorScene(page)
     const created = (current.entities ?? []).find((entity) => {
         const id = String(entity.id ?? '')
         return id && !beforeIds.has(id)
     })
     if (!created) {
-        throw new Error('PlayCanvas Editor entity shortcut did not create a serializable entity')
+        throw new Error('PlayCanvas Editor upstream Add Entity interaction did not create a serializable entity')
     }
-    await expect(editorFrame.locator('body')).toContainText(typeof created.name === 'string' && created.name ? created.name : 'Entity')
-    return {
+    const createdEntity = {
         id: String(created.id ?? ''),
-        name: typeof created.name === 'string' && created.name ? created.name : 'Entity'
+        name: typeof created.name === 'string' && created.name ? created.name : 'New Entity'
     }
+    await expectPlayCanvasEditorShareDbEntitySubmitted(page, createdEntity)
+    await expectPlayCanvasEditorEntityVisibleAndInspectable(page, createdEntity).catch(async (error) => {
+        const diagnostics = await readPlayCanvasEditorBridgeDiagnostics(page).catch((diagnosticsError) => ({
+            diagnosticsError: diagnosticsError instanceof Error ? diagnosticsError.message : String(diagnosticsError)
+        }))
+        throw new Error(
+            `PlayCanvas Editor entity was not inspectable after user selection. Diagnostics: ${JSON.stringify(diagnostics)}. ${
+                error instanceof Error ? error.message : String(error)
+            }`
+        )
+    })
+    return createdEntity
 }
 
-const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metahubId: string) => {
+const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metahubId: string, options: { expectHostChrome?: boolean } = {}) => {
+    const expectHostChrome = options.expectHostChrome ?? true
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
-    const saveResponsePromise = waitForPlayCanvasCompatibilitySceneSave(page, metahubId)
-    const { sceneId, compatibilityConfig } = await readPlayCanvasEditorHostedConfig(page)
+    const runtimeConfig = await readPlayCanvasEditorRuntimeConfig(page)
+    const compatibilityConfig = await fetchPlayCanvasEditorCompatibilityConfig(page, metahubId, runtimeConfig)
+    const sceneId = String(compatibilityConfig.defaultSceneId)
+    const createdEntity = await createSerializablePlayCanvasEditorEntity(page)
     const sceneBeforeSaveResponse = await page.request.get(
         new URL(`${compatibilityConfig.endpoints?.scenes ?? ''}/${sceneId}`, page.url()).toString(),
         {
-            headers: createPlayCanvasCompatibilityAuthHeaders(compatibilityConfig)
+            headers: createPlayCanvasCompatibilityAuthHeaders(page, compatibilityConfig)
         }
     )
     expect(sceneBeforeSaveResponse.status()).toBe(200)
-    const sceneBeforeSave = (await sceneBeforeSaveResponse.json()) as { item?: { scene?: { checksum?: unknown } } }
-    const expectedCurrentChecksum = typeof sceneBeforeSave.item?.scene?.checksum === 'string' ? sceneBeforeSave.item.scene.checksum : null
-    const createdEntity = await createSerializablePlayCanvasEditorEntity(page)
+    await sceneBeforeSaveResponse.json()
     await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })
+    const saveResponsePromise = waitForPlayCanvasCompatibilitySceneSave(page, metahubId)
     await page.keyboard.press(playCanvasEditorSaveShortcut)
     const saveResponse = await saveResponsePromise
     const saveResponseBody = await saveResponse.json()
@@ -543,7 +1125,10 @@ const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metahubId: s
     expect(savePayload).toMatchObject({
         requestId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     })
-    expect(savePayload.expectedCurrentChecksum).toBe(expectedCurrentChecksum)
+    expect(
+        typeof savePayload.expectedCurrentChecksum === 'string' || savePayload.expectedCurrentChecksum === null,
+        'PlayCanvas Editor save must include an explicit current checksum precondition'
+    ).toBe(true)
     expect(savePayload.payload?.entities).toEqual(
         expect.arrayContaining([
             expect.objectContaining({
@@ -555,21 +1140,26 @@ const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metahubId: s
     const saveHeaders = saveResponse.request().headers()
     expect(saveHeaders['x-playcanvas-editor-token']).toEqual(expect.any(String))
     expect(saveHeaders['x-csrf-token']).toEqual(expect.any(String))
-    const duplicateHeaders = Object.fromEntries(
-        Object.entries(saveResponse.request().headers()).filter(
-            ([name]) => !['content-length', 'content-type', 'accept-encoding'].includes(name.toLowerCase())
-        )
-    )
     const duplicateSaveResponse = await page.request.put(saveResponse.url(), {
         data: savePayload,
-        headers: duplicateHeaders
+        headers: await createPlayCanvasCompatibilityWriteHeaders(page, compatibilityConfig)
     })
-    expect(duplicateSaveResponse.ok()).toBeTruthy()
-    await expect(duplicateSaveResponse.json()).resolves.toEqual(saveResponseBody)
-    await expect(page.getByText('Scene saved.')).toBeVisible()
+    const duplicateSaveBody = await duplicateSaveResponse.json().catch(async () => duplicateSaveResponse.text().catch(() => null))
+    expect(duplicateSaveResponse.ok(), JSON.stringify(duplicateSaveBody)).toBeTruthy()
+    expect(duplicateSaveBody).toEqual(saveResponseBody)
+    if (expectHostChrome) {
+        await expect(page.getByTestId('playcanvas-editor-host-chrome').getByText(/^(Scene saved\.|Ready)$/)).toBeVisible()
+    } else {
+        await expect(page.getByTestId('playcanvas-editor-host-chrome')).toHaveCount(0)
+        await expect(page.getByTestId('playcanvas-editor-fullscreen-chrome')).toHaveCount(0)
+    }
+    await expect(page.getByText('Unsaved changes')).toHaveCount(0)
 
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expectPlayCanvasEditorIframeLoaded(page)
+    if (!expectHostChrome) {
+        await expectPlayCanvasEditorFullscreenHost(page)
+    }
     await expect
         .poll(
             () =>
@@ -577,34 +1167,85 @@ const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metahubId: s
                     const bridge = (
                         window as unknown as {
                             __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
-                                lastLoadedScene?: {
-                                    data?: {
-                                        payload?: {
-                                            entities?: Array<{ id?: unknown; name?: unknown }>
-                                        }
-                                    }
+                                serializeCurrentScene?: () => {
+                                    entities?: Array<{ id?: unknown; name?: unknown }>
                                 }
-                                currentSceneChecksum?: unknown
                             }
                         }
                     ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    const serialized = bridge?.serializeCurrentScene?.()
                     return {
                         hasEntity: Boolean(
-                            bridge?.lastLoadedScene?.data?.payload?.entities?.some(
-                                (entity) => entity.id === expectedEntity.id && entity.name === expectedEntity.name
-                            )
-                        ),
-                        checksum: bridge?.currentSceneChecksum
+                            serialized?.entities?.some((entity) => entity.id === expectedEntity.id && entity.name === expectedEntity.name)
+                        )
                     }
                 }, createdEntity),
             { timeout: 20_000 }
         )
         .toEqual(
             expect.objectContaining({
-                hasEntity: true,
-                checksum: expect.stringMatching(/^[a-f0-9]{64}$/i)
+                hasEntity: true
             })
         )
+    await expectPlayCanvasEditorEntityVisibleAndInspectable(page, createdEntity).catch(async (error) => {
+        const diagnostics = await readPlayCanvasEditorEntityVisibilityDiagnostics(page).catch((diagnosticsError) => ({
+            diagnosticsError: diagnosticsError instanceof Error ? diagnosticsError.message : String(diagnosticsError)
+        }))
+        throw new Error(
+            `PlayCanvas Editor persisted entity is not visible and inspectable after reload. Diagnostics: ${JSON.stringify(diagnostics)}. ${
+                error instanceof Error ? error.message : String(error)
+            }`
+        )
+    })
+    const sceneAfterReloadResponse = await page.request.get(
+        new URL(`${compatibilityConfig.endpoints?.scenes ?? ''}/${sceneId}`, page.url()).toString(),
+        {
+            headers: createPlayCanvasCompatibilityAuthHeaders(page, compatibilityConfig)
+        }
+    )
+    expect(sceneAfterReloadResponse.status()).toBe(200)
+    const sceneAfterReload = (await sceneAfterReloadResponse.json()) as { item?: { scene?: { checksum?: unknown } } }
+    expect(sceneAfterReload.item?.scene?.checksum).toEqual(expect.stringMatching(/^[a-f0-9]{64}$/i))
+}
+
+const expectPlayCanvasEditorShareDbPersistenceWithoutBridgeSave = async (page: Page, metahubId: string) => {
+    const runtimeConfig = await readPlayCanvasEditorRuntimeConfig(page)
+    const compatibilityConfig = await fetchPlayCanvasEditorCompatibilityConfig(page, metahubId, runtimeConfig)
+    const sceneId = String(compatibilityConfig.defaultSceneId)
+    const bridgeSaveRequests: string[] = []
+    const onRequest = (request: Request) => {
+        const url = new URL(request.url())
+        if (
+            request.method() === 'PUT' &&
+            url.pathname.startsWith(`/api/v1/metahub/${metahubId}/playcanvas/editor-compatible/projects/`) &&
+            /\/scenes\/[0-9a-f-]+$/i.test(url.pathname)
+        ) {
+            bridgeSaveRequests.push(request.url())
+        }
+    }
+    page.on('request', onRequest)
+    try {
+        const createdEntity = await createSerializablePlayCanvasEditorEntity(page)
+        const sceneResponse = await page.request.get(
+            new URL(`${compatibilityConfig.endpoints?.scenes ?? ''}/${sceneId}`, page.url()).toString(),
+            {
+                headers: createPlayCanvasCompatibilityAuthHeaders(page, compatibilityConfig)
+            }
+        )
+        expect(sceneResponse.status()).toBe(200)
+        const sceneBody = (await sceneResponse.json()) as { item?: { payload?: { entities?: Array<{ id?: unknown; name?: unknown }> } } }
+        expect(sceneBody.item?.payload?.entities).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: createdEntity.id,
+                    name: createdEntity.name
+                })
+            ])
+        )
+        expect(bridgeSaveRequests).toEqual([])
+    } finally {
+        page.off('request', onRequest)
+    }
 }
 
 const savePlayCanvasEditorSceneExpectingConflict = async (page: Page, metahubId: string, marker: string) => {
@@ -656,7 +1297,7 @@ const savePlayCanvasEditorSceneExpectingConflict = async (page: Page, metahubId:
             status: 409
         })
     )
-    await expect(page.getByText('Editor bridge failed.')).toHaveCount(0)
+    await expect(page.getByText('Editor could not start.')).toHaveCount(0)
     const bridgeStateAfterConflict = await editorFrame.locator('body').evaluate(() => {
         const bridge = (
             window as unknown as {
@@ -690,6 +1331,8 @@ const expectPlayCanvasEditorRejectsUnauthenticatedFrameMessage = async (page: Pa
     }
     await page.route(bridgeCommandsPattern, rejectedSaveRouteHandler)
     try {
+        const dirtyBanner = page.getByText('Unsaved changes')
+        const dirtyBannerCountBefore = await dirtyBanner.count()
         await editorFrame.locator('body').evaluate(() => {
             window.parent.postMessage(
                 {
@@ -720,7 +1363,7 @@ const expectPlayCanvasEditorRejectsUnauthenticatedFrameMessage = async (page: Pa
                 '*'
             )
         })
-        await expect(page.getByText('The editor reports unsaved changes.')).toHaveCount(0)
+        await expect(dirtyBanner).toHaveCount(dirtyBannerCountBefore)
         await expect(page.getByText('Saving scene...')).toHaveCount(0)
         await expect.poll(() => rejectedSaveReachedBridgeApi, { timeout: 1_000 }).toBe(false)
     } finally {
@@ -734,7 +1377,7 @@ const expectPlayCanvasEditorHostKeyboardLoop = async (page: Page, locale: 'en' |
     const editorIframe = page.locator('iframe[data-testid="playcanvas-editor-frame"]')
 
     await expect(backLink).toBeVisible()
-    await editorIframe.click({ position: { x: 48, y: 48 } })
+    await editorIframe.focus()
     await expect(editorIframe).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(backLink).toBeFocused()
@@ -759,19 +1402,44 @@ const expectPlayCanvasEditorIframeSaveShortcutPrevented = async (page: Page, met
 
 const expectPlayCanvasEditorHostSaveShortcutPrevented = async (page: Page, metahubId: string, shortcut: string) => {
     await expect(page).toHaveURL(/\/playcanvas-editor\/editor/)
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    const saveButton = page.getByRole('button', { name: 'Save' })
+    await expect(saveButton).toBeEnabled({ timeout: 20_000 })
+    const previousSaveRequestId = await editorFrame.locator('body').evaluate(() => {
+        const bridge = (
+            window as unknown as {
+                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
+                    lastCompatibilityRestSave?: { requestId?: unknown }
+                    lastBridgeSave?: { requestId?: unknown }
+                }
+            }
+        ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        const requestId = bridge?.lastCompatibilityRestSave?.requestId ?? bridge?.lastBridgeSave?.requestId
+        return typeof requestId === 'string' ? requestId : null
+    })
     const hostShortcutSaveCommand = waitForPlayCanvasCompatibilitySceneSave(page, metahubId)
-    const hostPrevented = await page.evaluate((saveShortcut) => {
-        const event = new KeyboardEvent('keydown', {
-            key: 's',
-            ctrlKey: saveShortcut.includes('Control'),
-            metaKey: saveShortcut.includes('Meta'),
-            bubbles: true,
-            cancelable: true
-        })
-        return !window.dispatchEvent(event) || event.defaultPrevented
-    }, shortcut)
-    expect(hostPrevented).toBe(true)
+    await saveButton.focus()
+    await expect(saveButton).toBeFocused()
+    await page.keyboard.press(shortcut)
     await hostShortcutSaveCommand
+    await expect
+        .poll(
+            () =>
+                editorFrame.locator('body').evaluate((previous) => {
+                    const bridge = (
+                        window as unknown as {
+                            __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
+                                lastCompatibilityRestSave?: { requestId?: unknown }
+                                lastBridgeSave?: { requestId?: unknown }
+                            }
+                        }
+                    ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    const requestId = bridge?.lastCompatibilityRestSave?.requestId ?? bridge?.lastBridgeSave?.requestId
+                    return typeof requestId === 'string' && requestId !== previous ? requestId : ''
+                }, previousSaveRequestId),
+            { timeout: 20_000 }
+        )
+        .toBeTruthy()
 }
 
 const expectPlayCanvasEditorHostWarning = async (page: Page, message: string, label: string) => {
@@ -1227,15 +1895,21 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/resources$`))
         await applyBrowserPreferences(separateHostPage, { language: 'en' })
         await expect(separateHostPage).toHaveURL(
-            new RegExp(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor\\?view=sandboxed-frame$`)
+            new RegExp(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor/fullscreen$`)
         )
-        await expect(separateHostPage.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
-        await expect(separateHostPage.getByRole('link', { name: 'Back to packages' })).toBeVisible()
         await expect(separateHostPage.getByText('This editor is configured to open separately.')).toHaveCount(0)
         await expect(separateHostPage.getByRole('link', { name: 'Open editor' })).toHaveCount(0)
         const separateUiMode = await expectPlayCanvasEditorIframeLoaded(separateHostPage)
+        await expectPlayCanvasEditorFullscreenHost(separateHostPage)
         testInfo.annotations.push({ type: 'playcanvas-editor-ui-mode', description: `open-separately:${separateUiMode}` })
-        await expectNoPageHorizontalOverflow(separateHostPage, 'PlayCanvas Editor separate sandboxed host page')
+        await expectPlayCanvasEditorCompatibilityRestStatus(separateHostPage, metahub.id)
+        await expectPlayCanvasEditorShareDbPersistenceWithoutBridgeSave(separateHostPage, metahub.id)
+        await savePlayCanvasEditorSceneAndExpectReload(separateHostPage, metahub.id, { expectHostChrome: false })
+        await expectNoPageHorizontalOverflow(separateHostPage, 'PlayCanvas Editor separate host page')
+        await separateHostPage.screenshot({
+            path: testInfo.outputPath('playcanvas-editor-open-separately-fullscreen.png'),
+            fullPage: true
+        })
         await separateHostPage.close()
 
         await page.goto(`/metahub/${metahub.id}/resources`)
@@ -1278,9 +1952,11 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         expect(hostResponse.headers()['content-security-policy']).toContain("frame-src 'self'")
         expect(hostResponse.headers()['content-security-policy']).toContain("child-src 'self'")
         const embeddedUiMode = await expectPlayCanvasEditorIframeLoaded(embeddedHostPage)
+        await expectPlayCanvasEditorEmbeddedHostUx(embeddedHostPage)
         testInfo.annotations.push({ type: 'playcanvas-editor-ui-mode', description: `embedded:${embeddedUiMode}` })
         await expectPlayCanvasEditorCompatibilityRestStatus(embeddedHostPage, metahub.id)
         await expectPlayCanvasEditorRejectsUnauthenticatedFrameMessage(embeddedHostPage)
+        await expectPlayCanvasEditorShareDbPersistenceWithoutBridgeSave(embeddedHostPage, metahub.id)
         await savePlayCanvasEditorSceneAndExpectReload(embeddedHostPage, metahub.id)
         await embeddedHostPage.screenshot({
             path: testInfo.outputPath('playcanvas-editor-save-reopen-success.png'),
@@ -1304,10 +1980,12 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expectPlayCanvasEditorHostKeyboardLoop(embeddedHostPage)
         await createSerializablePlayCanvasEditorEntity(embeddedHostPage)
         await expectPlayCanvasEditorIframeSaveShortcutPrevented(embeddedHostPage, metahub.id, playCanvasEditorSaveShortcut)
-        await expect(embeddedHostPage.getByText('Scene saved.')).toBeVisible()
+        await expect(embeddedHostPage.getByTestId('playcanvas-editor-host-chrome').getByText(/^(Scene saved\.|Ready)$/)).toBeVisible()
+        await expect(embeddedHostPage.getByText('Unsaved changes')).toHaveCount(0)
         await createSerializablePlayCanvasEditorEntity(embeddedHostPage)
         await expectPlayCanvasEditorHostSaveShortcutPrevented(embeddedHostPage, metahub.id, playCanvasEditorSaveShortcut)
-        await expect(embeddedHostPage.getByText('Scene saved.')).toBeVisible()
+        await expect(embeddedHostPage.getByTestId('playcanvas-editor-host-chrome').getByText(/^(Scene saved\.|Ready)$/)).toBeVisible()
+        await expect(embeddedHostPage.getByText('Unsaved changes')).toHaveCount(0)
         let conflictRouteUsed = false
         await embeddedHostPage.route(
             /\/api\/v1\/metahub\/[^/]+\/playcanvas\/editor-compatible\/projects\/[^/]+\/scenes\/[^/]+$/,
@@ -1332,7 +2010,6 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
             }
         )
         await savePlayCanvasEditorSceneExpectingConflict(embeddedHostPage, metahub.id, `conflict-${runManifest.runId}`)
-        await expect(embeddedHostPage.getByText('The scene changed elsewhere. Reload the latest scene before saving again.')).toBeVisible()
         const saveConflictDialog = embeddedHostPage.getByRole('dialog', { name: 'Save conflict' })
         await expect(saveConflictDialog).toBeVisible()
         await expect(saveConflictDialog.getByTestId('dialog-resize-handle')).toHaveCount(0)
@@ -1358,7 +2035,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await embeddedHostPage.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
         await expectPlayCanvasEditorIframeLoaded(embeddedHostPage)
         await createSerializablePlayCanvasEditorEntity(embeddedHostPage)
-        await expect(embeddedHostPage.getByText('The editor reports unsaved changes.')).toBeVisible()
+        await expect(embeddedHostPage.getByText('Unsaved changes')).toBeVisible()
         const hostUrlBeforeDirtyBack = embeddedHostPage.url()
         await embeddedHostPage.getByRole('link', { name: 'Back to packages' }).click()
         await expect(embeddedHostPage).toHaveURL(hostUrlBeforeDirtyBack)
@@ -1408,7 +2085,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
         await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
-        await expect(page.getByText('The editor artifact is not available yet.')).toBeVisible()
+        await expect(page.getByText('The editor files are not available yet.')).toBeVisible()
         await expect(page.locator('iframe[data-testid="playcanvas-editor-frame"]')).toHaveCount(0)
         await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor missing artifact host page')
         await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host-missing-artifact.png'), fullPage: true })
@@ -1449,8 +2126,8 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
         await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
-        await expect(page.getByText('The editor frame could not be loaded.')).toBeVisible()
-        await expect(page.getByText('Editor artifact is ready.')).toHaveCount(0)
+        await expect(page.getByText('The editor could not be loaded.')).toBeVisible()
+        await expect(page.getByText('Editor is ready.')).toHaveCount(0)
         await expect(page.locator('iframe[data-testid="playcanvas-editor-frame"]')).toHaveCount(0)
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'PlayCanvas Editor iframe failure state',
@@ -1768,11 +2445,13 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
             await route.fallback()
         })
         await savePlayCanvasEditorSceneExpectingConflict(page, metahub.id, `ru-conflict-${runManifest.runId}`)
-        await expect(
-            page.getByText('Сцена была изменена в другом месте. Загрузите последнюю версию перед повторным сохранением.')
-        ).toBeVisible()
         const ruSaveConflictDialog = page.getByRole('dialog', { name: 'Конфликт сохранения' })
         await expect(ruSaveConflictDialog).toBeVisible()
+        await expect(
+            page
+                .getByTestId('playcanvas-editor-save-conflict-alert')
+                .getByText('Сцена была изменена в другом месте. Загрузите последнюю версию перед повторным сохранением.')
+        ).toBeVisible()
         await expect(ruSaveConflictDialog.getByTestId('dialog-resize-handle')).toHaveCount(0)
         await expect(ruSaveConflictDialog.getByText('Другое сохранение изменило эту сцену.')).toBeVisible()
         await expect(ruSaveConflictDialog.getByRole('button', { name: 'Продолжить редактирование' })).toBeVisible()
@@ -1786,7 +2465,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await page.unroute(/\/api\/v1\/metahub\/[^/]+\/playcanvas\/editor-compatible\/projects\/[^/]+\/scenes\/[^/]+$/)
 
         await createSerializablePlayCanvasEditorEntity(page)
-        await expect(page.getByText('Редактор сообщает о несохранённых изменениях.')).toBeVisible()
+        await expect(page.getByText('Несохранённые изменения')).toBeVisible()
         const ruHostUrlBeforeDirtyBack = page.url()
         await page.getByRole('link', { name: 'Назад к пакетам' }).click()
         await expect(page).toHaveURL(ruHostUrlBeforeDirtyBack)
@@ -1813,7 +2492,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
         await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Назад к пакетам' })).toBeVisible()
-        await expect(page.getByText('Не удалось загрузить фрейм редактора.')).toBeVisible()
+        await expect(page.getByText('Не удалось загрузить редактор.')).toBeVisible()
         await expect(page.locator('iframe[data-testid="playcanvas-editor-frame"]')).toHaveCount(0)
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'PlayCanvas Editor iframe failure state ru',

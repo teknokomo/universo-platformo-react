@@ -44,7 +44,9 @@ export default function MainLayoutMUI({ disableCustomTheme, children }: MainLayo
                     <Box
                         component='main'
                         sx={(theme) => ({
-                            flexGrow: 1,
+                            flex: '1 1 0',
+                            minWidth: 0,
+                            maxWidth: '100%',
                             backgroundColor: theme.vars
                                 ? theme.vars.palette.background.default
                                 : alpha(theme.palette.background.default, 1),

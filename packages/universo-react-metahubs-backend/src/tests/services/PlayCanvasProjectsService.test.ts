@@ -1,5 +1,7 @@
 import type { DbExecutor } from '@universo-react/utils'
 import { createLocalizedContent } from '@universo-react/utils'
+import { createPlayCanvasEditorNumericAssetId } from '@universo-react/playcanvas-editor-backend'
+import { MetahubValidationError } from '../../domains/shared/domainErrors'
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
 
@@ -15,6 +17,18 @@ const makeSchemaService = () => ({
 const createProjectLookupExecutor = () =>
     ({
         query: jest.fn(async (sql: string) => {
+            if (sql.includes('AS "sceneCount"') && sql.includes('_mhb_playcanvas_scenes')) {
+                return [
+                    {
+                        sceneCount: '1',
+                        assetCount: '0',
+                        scriptCount: '0',
+                        generatedArtifactCount: '0',
+                        blockingCount: '0',
+                        publishableSceneCount: '1'
+                    }
+                ]
+            }
             if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
                 return [
                     {
@@ -39,6 +53,31 @@ const createProjectLookupExecutor = () =>
     } as unknown as DbExecutor)
 
 describe('PlayCanvasProjectsService', () => {
+    it('describes PlayCanvas Editor authoring as the explicit full upstream UI contract', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(service.describeEditorCompatibilityProtocol('metahub-1', PROJECT_ID, 'user-1')).resolves.toMatchObject({
+            mode: 'universo-full-upstream-ui',
+            endpoints: {
+                rest: { status: 'enabled' },
+                realtime: { status: 'enabled' },
+                messenger: { status: 'enabled' },
+                relay: { status: 'enabled' }
+            },
+            shareDb: {
+                requiredCollections: ['scenes', 'assets', 'settings'],
+                persisted: true,
+                persistence: 'snapshot-port'
+            },
+            numericIds: {
+                projectId: expect.any(Number),
+                sceneId: expect.any(Number),
+                selfId: expect.any(Number)
+            }
+        })
+    })
+
     it('uses the metahub default branch schema for project CRUD so package default pointers resolve consistently', async () => {
         const schemaService = {
             ensureSchema: jest.fn(async (_metahubId: string, userId?: string) => (userId ? 'active_branch_schema' : TEST_SCHEMA))
@@ -122,7 +161,11 @@ describe('PlayCanvasProjectsService', () => {
                     return [{ sceneCount: '1', assetCount: '0', scriptCount: '0', generatedArtifactCount: '0', blockingCount: '0' }]
                 }
                 throw new Error(`Unexpected SQL: ${sql}`)
-            })
+            }),
+            transaction: jest.fn(async function (this: DbExecutor, callback: (executor: DbExecutor) => Promise<unknown>) {
+                return callback(this)
+            }),
+            isReleased: jest.fn(() => false)
         } as unknown as DbExecutor
         const service = new PlayCanvasProjectsService(exec, schemaService as never)
 
@@ -140,6 +183,7 @@ describe('PlayCanvasProjectsService', () => {
 
         expect(schemaService.ensureSchema).toHaveBeenCalledWith('metahub-1')
         expect(schemaService.ensureSchema).not.toHaveBeenCalledWith('metahub-1', 'user-1')
+        expect(exec.transaction).toHaveBeenCalledTimes(1)
     })
 
     it('fails closed when an inline editor scene payload is not bridge-compatible', async () => {
@@ -292,6 +336,760 @@ describe('PlayCanvasProjectsService', () => {
         expect(nextSettings.playCanvasEditorCompatibility?.settingsDocuments).not.toHaveProperty('projectUser')
         claimReplay.mockRestore()
         completeReplay.mockRestore()
+    })
+
+    it('loads new realtime settings documents with document-level revision zero', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'settings',
+                documentId: 'project_123_456',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'settings',
+            id: 'project_123_456',
+            data: {},
+            version: 0,
+            revision: '0'
+        })
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'settings',
+                documentId: 'project_123',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'settings',
+            id: 'project_123',
+            data: {
+                id: 'project_123',
+                project: 123,
+                scripts: [],
+                useLegacyScripts: false,
+                engineV2: true,
+                width: 1280,
+                height: 720
+            },
+            version: 0,
+            revision: '0'
+        })
+    })
+
+    it('normalizes realtime scene documents with a root entity that can accept children operations', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return [
+                        {
+                            id: SCENE_ID,
+                            projectId: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'main_scene'),
+                            displayName: createLocalizedContent('en', 'Main Scene'),
+                            payloadSchemaVersion: '1',
+                            payload: {
+                                schemaVersion: '1',
+                                entities: [
+                                    {
+                                        id: 'entity-1',
+                                        name: 'Camera',
+                                        parentId: null,
+                                        enabled: true,
+                                        components: {}
+                                    }
+                                ]
+                            },
+                            payloadFile: null,
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'scenes',
+            data: {
+                entities: {
+                    root: {
+                        parent: null,
+                        children: ['entity-1']
+                    },
+                    'entity-1': {
+                        parent: 'root',
+                        children: []
+                    }
+                }
+            }
+        })
+    })
+
+    it('removes stale root child references when a realtime entity belongs to another parent', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return [
+                        {
+                            id: SCENE_ID,
+                            projectId: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'main_scene'),
+                            displayName: createLocalizedContent('en', 'Main Scene'),
+                            payloadSchemaVersion: '1',
+                            payload: {
+                                schemaVersion: '1',
+                                entities: [
+                                    {
+                                        id: 'root',
+                                        name: 'Root',
+                                        parentId: null,
+                                        enabled: true,
+                                        components: {},
+                                        children: ['parent-1', 'child-1']
+                                    },
+                                    {
+                                        id: 'parent-1',
+                                        name: 'Parent',
+                                        parentId: null,
+                                        enabled: true,
+                                        components: {},
+                                        children: ['child-1']
+                                    },
+                                    {
+                                        id: 'child-1',
+                                        name: 'Child',
+                                        parentId: 'parent-1',
+                                        enabled: true,
+                                        components: {},
+                                        children: []
+                                    }
+                                ]
+                            },
+                            payloadFile: null,
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'scenes',
+            data: {
+                entities: {
+                    root: {
+                        parent: null,
+                        children: ['parent-1']
+                    },
+                    'parent-1': {
+                        parent: 'root',
+                        children: ['child-1']
+                    },
+                    'child-1': {
+                        parent: 'parent-1',
+                        children: []
+                    }
+                }
+            }
+        })
+    })
+
+    it('loads realtime asset documents from metahub PlayCanvas assets by editor document id', async () => {
+        const editorDocumentId = createPlayCanvasEditorNumericAssetId(ASSET_ID)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('_mhb_playcanvas_assets')) {
+                    return [
+                        {
+                            id: ASSET_ID,
+                            projectId: PROJECT_ID,
+                            stableAssetId: 'asset-root',
+                            type: 'json',
+                            name: 'Root Asset',
+                            virtualPath: ['root.json'],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: `playcanvas-projects/${PROJECT_ID}/assets/root.json`,
+                                mime: 'application/json',
+                                hash: 'a'.repeat(64),
+                                size: 42,
+                                status: 'ready'
+                            },
+                            metadata: {},
+                            publish: true,
+                            version: 3
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: String(editorDocumentId),
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'assets',
+            id: String(editorDocumentId),
+            version: 3,
+            data: {
+                item_id: editorDocumentId,
+                name: 'Root Asset',
+                file: {
+                    filename: 'root.json',
+                    hash: 'a'.repeat(64),
+                    size: 42
+                }
+            }
+        })
+    })
+
+    it('persists realtime scene documents without the synthetic ShareDB root entity', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'b'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 1
+            },
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                entities: []
+            }
+        })
+        const saveEditorCompatibilityScene = jest.spyOn(service, 'saveEditorCompatibilityScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'c'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                entities: [
+                    {
+                        id: 'entity-1',
+                        name: 'Camera',
+                        parentId: null,
+                        enabled: true,
+                        components: {},
+                        children: []
+                    }
+                ]
+            },
+            checksum: 'c'.repeat(64)
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {},
+                    entities: {
+                        root: {
+                            resource_id: 'root',
+                            name: 'Root',
+                            parent: null,
+                            children: ['entity-1']
+                        },
+                        'entity-1': {
+                            resource_id: 'stable-entity-1',
+                            name: 'Camera',
+                            parent: 'root',
+                            enabled: true,
+                            components: {},
+                            children: ['root', 'entity-2']
+                        },
+                        'entity-2': {
+                            resource_id: 'stable-entity-2',
+                            name: 'Child',
+                            parent: 'entity-1',
+                            enabled: true,
+                            components: {},
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'b'.repeat(64),
+                revision: '1'
+            })
+        ).resolves.toEqual({ checksum: 'c'.repeat(64) })
+
+        expect(saveEditorCompatibilityScene).toHaveBeenCalledWith(
+            'metahub-1',
+            PROJECT_ID,
+            SCENE_ID,
+            expect.objectContaining({
+                payload: expect.objectContaining({
+                    entities: [
+                        expect.objectContaining({
+                            id: 'stable-entity-1',
+                            parentId: null,
+                            children: ['stable-entity-2']
+                        }),
+                        expect.objectContaining({
+                            id: 'stable-entity-2',
+                            parentId: 'stable-entity-1',
+                            children: []
+                        })
+                    ]
+                })
+            }),
+            'user-2'
+        )
+        const payload = saveEditorCompatibilityScene.mock.calls[0]?.[3].payload
+        expect(payload.entities).toHaveLength(2)
+        expect(payload.entities.some((entity) => entity.id === 'root')).toBe(false)
+        expect(payload.entities.some((entity) => entity.id === 'entity-1')).toBe(false)
+    })
+
+    it('fails realtime scene persistence closed on divergent compatibility checksum conflicts', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const conflict = new MetahubValidationError('Scene checksum mismatch', {
+            messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+            actualCurrentChecksum: 'c'.repeat(64)
+        })
+        const saveEditorCompatibilityScene = jest.spyOn(service, 'saveEditorCompatibilityScene').mockRejectedValue(conflict)
+        const readEditorScene = jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'c'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 3
+            },
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                entities: [
+                    {
+                        id: 'entity-2',
+                        name: 'Other',
+                        parentId: null,
+                        enabled: true,
+                        components: {},
+                        children: []
+                    }
+                ]
+            }
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {},
+                    entities: {
+                        'entity-1': {
+                            resource_id: 'entity-1',
+                            name: 'Camera',
+                            parent: null,
+                            enabled: true,
+                            components: {},
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'b'.repeat(64),
+                revision: '1'
+            })
+        ).rejects.toBe(conflict)
+
+        expect(readEditorScene).toHaveBeenCalledTimes(2)
+        expect(saveEditorCompatibilityScene).toHaveBeenCalledWith(
+            'metahub-1',
+            PROJECT_ID,
+            SCENE_ID,
+            expect.objectContaining({
+                expectedCurrentChecksum: 'b'.repeat(64)
+            }),
+            'user-2'
+        )
+    })
+
+    it('treats realtime scene checksum conflicts as idempotent when durable storage already has the same snapshot', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const conflict = new MetahubValidationError('Scene checksum mismatch', {
+            messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+            actualCurrentChecksum: 'c'.repeat(64)
+        })
+        jest.spyOn(service, 'saveEditorCompatibilityScene').mockRejectedValue(conflict)
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'c'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 3
+            },
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                entities: [
+                    {
+                        id: 'entity-1',
+                        name: 'Camera',
+                        parentId: null,
+                        enabled: true,
+                        components: {},
+                        children: []
+                    }
+                ]
+            }
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {},
+                    entities: {
+                        'entity-1': {
+                            resource_id: 'entity-1',
+                            name: 'Camera',
+                            parent: null,
+                            enabled: true,
+                            components: {},
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'b'.repeat(64),
+                revision: '1'
+            })
+        ).resolves.toEqual({ checksum: 'c'.repeat(64) })
+    })
+
+    it('persists realtime settings with document-level revision instead of project row version', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: params?.[2],
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 8
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'settings',
+                documentId: 'project_123',
+                data: {
+                    id: 'project_123',
+                    project: 123,
+                    scripts: [],
+                    useLegacyScripts: false,
+                    engineV2: true,
+                    width: 1280,
+                    height: 720
+                },
+                version: 2,
+                revision: '0'
+            })
+        ).resolves.toEqual({ revision: '2' })
+
+        const updateCall = jest.mocked(exec.query).mock.calls.find((call) => String(call[0]).includes('UPDATE'))
+        const nextSettings = updateCall?.[1]?.[2] as {
+            playCanvasEditorRealtime?: {
+                documents?: Record<string, { version?: number }>
+            }
+        }
+        expect(nextSettings.playCanvasEditorRealtime?.documents?.project_123?.version).toBe(2)
+    })
+
+    it('treats stale realtime settings snapshots as no-ops when a newer document version is already stored', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {
+                                playCanvasEditorRealtime: {
+                                    documents: {
+                                        project_123: {
+                                            data: { id: 'project_123', project: 123, scripts: [] },
+                                            version: 3
+                                        }
+                                    }
+                                }
+                            },
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 9
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'settings',
+                documentId: 'project_123',
+                data: { id: 'project_123', project: 123, scripts: [] },
+                version: 2,
+                revision: '1'
+            })
+        ).resolves.toEqual({ revision: '3' })
+
+        expect(jest.mocked(exec.query).mock.calls.some((call) => String(call[0]).includes('UPDATE'))).toBe(false)
+    })
+
+    it('rejects stale realtime settings snapshots when durable settings diverged', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {
+                                playCanvasEditorRealtime: {
+                                    documents: {
+                                        project_123: {
+                                            data: { id: 'project_123', project: 123, scripts: [], width: 1280 },
+                                            version: 3
+                                        }
+                                    }
+                                }
+                            },
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 9
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'settings',
+                documentId: 'project_123',
+                data: { id: 'project_123', project: 123, scripts: [], width: 640 },
+                version: 4,
+                revision: '1'
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorRealtime.settingsRevisionMismatch' })
+        })
+
+        expect(jest.mocked(exec.query).mock.calls.some((call) => String(call[0]).includes('UPDATE'))).toBe(false)
     })
 
     it('replays compatibility settings writes by request id without mutating project settings twice', async () => {
@@ -746,7 +1544,11 @@ describe('PlayCanvasProjectsService', () => {
                     return [{ sceneCount: '1', assetCount: '0', scriptCount: '0', generatedArtifactCount: '0', blockingCount: '0' }]
                 }
                 throw new Error(`Unexpected SQL: ${sql}`)
-            })
+            }),
+            transaction: jest.fn(async function (this: DbExecutor, callback: (executor: DbExecutor) => Promise<unknown>) {
+                return callback(this)
+            }),
+            isReleased: jest.fn(() => false)
         } as unknown as DbExecutor
         const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
 
@@ -761,6 +1563,7 @@ describe('PlayCanvasProjectsService', () => {
                 'user-1'
             )
         ).resolves.toMatchObject({ id: PROJECT_ID })
+        expect(exec.transaction).toHaveBeenCalledTimes(1)
 
         const insertCodename = jest.mocked(exec.query).mock.calls.find((call) => String(call[0]).includes('INSERT INTO'))?.[1]?.[0] as
             | { locales?: { en?: { content?: string } } }

@@ -224,8 +224,8 @@
                 "packageName": "@universo-react/playcanvas-editor-frontend",
                 "manifestFileName": "universo-artifact-manifest.json",
                 "outputRoot": "dist/editor",
-                "mode": "universo-hosted",
-                "smokeMode": "universo-hosted"
+                "mode": "universo-full-upstream-ui",
+                "smokeMode": "universo-full-upstream-ui"
             }
         }
     }

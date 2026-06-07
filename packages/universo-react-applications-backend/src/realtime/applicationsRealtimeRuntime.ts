@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'crypto'
-import type { Server as HttpServer } from 'http'
+import type { IncomingMessage, Server as HttpServer } from 'http'
 import { createRequire } from 'module'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import stableStringify from 'json-stable-stringify'
@@ -1658,7 +1658,10 @@ export const __applicationsRealtimeRuntimeTestUtils = {
     }
 }
 
-export const attachApplicationsRealtimeRuntime = async (server: HttpServer): Promise<ApplicationsRealtimeRuntimeHandle> => {
+export const attachApplicationsRealtimeRuntime = async (
+    server: HttpServer,
+    options: { shouldHandleUpgrade?: (request: IncomingMessage) => boolean } = {}
+): Promise<ApplicationsRealtimeRuntimeHandle> => {
     const { WebSocketTransport } = requireModule('@colyseus/ws-transport') as {
         WebSocketTransport: new (options: { server: HttpServer }) => Transport
     }
@@ -1668,8 +1671,48 @@ export const attachApplicationsRealtimeRuntime = async (server: HttpServer): Pro
         defineTypes: (type: unknown, fields: Record<string, unknown>) => void
     }
     const roomName = 'fixed_tick_scene'
+    const upgradeListeners = new Map<(...args: unknown[]) => void, (...args: unknown[]) => void>()
+    const filteredServer = options.shouldHandleUpgrade
+        ? new Proxy(server, {
+              get(target, prop, receiver) {
+                  if (prop === 'on' || prop === 'addListener') {
+                      return (event: string, listener: (...args: unknown[]) => void) => {
+                          if (event !== 'upgrade') {
+                              target.on(event, listener)
+                              return receiver
+                          }
+                          const wrapped = (...args: unknown[]) => {
+                              const [request, socket, head] = args
+                              if (options.shouldHandleUpgrade?.(request as IncomingMessage) === false) return
+                              listener(request, socket, head)
+                          }
+                          upgradeListeners.set(listener, wrapped)
+                          target.on('upgrade', wrapped)
+                          return receiver
+                      }
+                  }
+                  if (prop === 'off' || prop === 'removeListener') {
+                      return (event: string, listener: (...args: unknown[]) => void) => {
+                          if (event !== 'upgrade') {
+                              target.removeListener(event, listener)
+                              return receiver
+                          }
+                          const wrapped = upgradeListeners.get(listener)
+                          if (wrapped) {
+                              target.removeListener('upgrade', wrapped)
+                              upgradeListeners.delete(listener)
+                          }
+                          return receiver
+                      }
+                  }
+                  const value = Reflect.get(target, prop, receiver)
+                  return typeof value === 'function' ? value.bind(target) : value
+              }
+          })
+        : server
+
     const gameServer = new Server({
-        transport: new WebSocketTransport({ server }),
+        transport: new WebSocketTransport({ server: filteredServer }),
         gracefullyShutdown: false,
         greet: false
     })

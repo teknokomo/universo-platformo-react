@@ -524,7 +524,7 @@ describe('MetahubPackagesTab', () => {
         })
     })
 
-    it('opens the PlayCanvas Editor host from the package menu in a new tab', async () => {
+    it('opens the embedded PlayCanvas Editor host from the package menu in a new tab', async () => {
         const user = userEvent.setup()
         const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
         vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
@@ -537,6 +537,37 @@ describe('MetahubPackagesTab', () => {
 
             expect(openSpy).toHaveBeenCalledWith(
                 '/metahub/metahub-1/resources/packages/playcanvas-editor/editor',
+                '_blank',
+                'noopener,noreferrer'
+            )
+        } finally {
+            openSpy.mockRestore()
+        }
+    })
+
+    it('opens the PlayCanvas Editor fullscreen host when the package is configured to open separately', async () => {
+        const user = userEvent.setup()
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+        const displayConfig: PackageAttachmentConfig = {
+            schemaVersion: '1',
+            kind: 'display',
+            display: {
+                mode: 'openSeparately',
+                developmentUrl: null,
+                showArtifactOnlyNotice: true
+            }
+        }
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
+        vi.mocked(packagesApi.listAttached).mockResolvedValue([playCanvasEditorAttachment(displayConfig)])
+
+        try {
+            renderTab()
+
+            await user.click(await screen.findByRole('button', { name: 'Действия для PlayCanvas Editor' }))
+            await user.click(screen.getByRole('menuitem', { name: 'Открыть редактор' }))
+
+            expect(openSpy).toHaveBeenCalledWith(
+                '/metahub/metahub-1/resources/packages/playcanvas-editor/editor/fullscreen',
                 '_blank',
                 'noopener,noreferrer'
             )

@@ -8,6 +8,7 @@ import {
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MODE = 'universo-bridge-minimal' as const
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION = '1' as const
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE = 'universo-compatibility-rest-minimal' as const
+export const PLAYCANVAS_EDITOR_FULL_BOOT_MODE = 'universo-full-upstream-ui' as const
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ENTITIES = 5000
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ASSETS = 2000
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_JSON_DEPTH = 24
@@ -107,10 +108,14 @@ export const playCanvasEditorCompatibilityTokenClaimsSchema = z
     .object({
         metahubId: z.string().min(1).max(128),
         projectId: uuidSchema,
+        sceneId: uuidSchema.optional(),
         userId: z.string().min(1).max(256),
         packageSlug: z.literal('playcanvas-editor'),
-        mode: z.literal(PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE),
+        mode: z.union([z.literal(PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE), z.literal(PLAYCANVAS_EDITOR_FULL_BOOT_MODE)]),
         origin: z.string().url().optional(),
+        sessionId: z.string().min(1).max(160).optional(),
+        nonce: z.string().min(1).max(160).optional(),
+        assetDocumentIds: z.array(z.number().int().positive().max(2_147_483_647)).max(1000).optional(),
         expiresAt: z.number().int().positive()
     })
     .strict()
@@ -119,7 +124,7 @@ export type PlayCanvasEditorCompatibilityTokenClaims = z.infer<typeof playCanvas
 
 const compatibilitySurfaceDescriptorSchema = z
     .object({
-        status: z.enum(['stubbed', 'disabled', 'unsupported']),
+        status: z.enum(['enabled', 'stubbed', 'disabled', 'unsupported']),
         reason: z.string().min(1).max(160)
     })
     .strict()
@@ -178,10 +183,28 @@ export const playCanvasEditorCompatibilityIdentityDescriptorSchema = z
 
 export type PlayCanvasEditorCompatibilityIdentityDescriptor = z.infer<typeof playCanvasEditorCompatibilityIdentityDescriptorSchema>
 
-export const playCanvasEditorCompatibilityProtocolDescriptorSchema = z
+export const playCanvasEditorNumericIdMappingSchema = z
+    .object({
+        selfId: z.number().int().positive(),
+        ownerId: z.number().int().positive(),
+        projectId: z.number().int().positive(),
+        sceneId: z.number().int().positive(),
+        settingsId: z.string().min(1).max(256),
+        storage: z
+            .object({
+                metahubId: z.string().min(1).max(128),
+                projectId: uuidSchema,
+                sceneId: uuidSchema
+            })
+            .strict()
+    })
+    .strict()
+
+export type PlayCanvasEditorNumericIdMapping = z.infer<typeof playCanvasEditorNumericIdMappingSchema>
+
+const playCanvasEditorProtocolBaseSchema = z
     .object({
         schemaVersion: z.literal(PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION),
-        mode: z.literal(PLAYCANVAS_EDITOR_COMPATIBILITY_MODE),
         upstream: z
             .object({
                 repository: z.literal('https://github.com/playcanvas/editor'),
@@ -232,6 +255,36 @@ export const playCanvasEditorCompatibilityProtocolDescriptorSchema = z
     })
     .strict()
 
+export const playCanvasEditorBridgeMinimalProtocolDescriptorSchema = playCanvasEditorProtocolBaseSchema.extend({
+    mode: z.literal(PLAYCANVAS_EDITOR_COMPATIBILITY_MODE)
+})
+
+export const playCanvasEditorFullBootProtocolDescriptorSchema = playCanvasEditorProtocolBaseSchema.extend({
+    mode: z.literal(PLAYCANVAS_EDITOR_FULL_BOOT_MODE),
+    numericIds: playCanvasEditorNumericIdMappingSchema,
+    endpoints: z
+        .object({
+            rest: compatibilitySurfaceDescriptorSchema.extend({ status: z.literal('enabled') }),
+            realtime: compatibilitySurfaceDescriptorSchema.extend({ status: z.literal('enabled') }),
+            messenger: compatibilitySurfaceDescriptorSchema.extend({ status: z.literal('enabled') }),
+            relay: compatibilitySurfaceDescriptorSchema.extend({ status: z.literal('enabled') })
+        })
+        .strict(),
+    shareDb: z
+        .object({
+            requiredCollections: z.tuple([z.literal('scenes'), z.literal('assets'), z.literal('settings')]),
+            persisted: z.literal(true),
+            persistence: z.enum(['snapshot-port', 'document-op-store']),
+            sceneStorage: z.literal('metahub-playcanvas-project-storage')
+        })
+        .strict()
+})
+
+export const playCanvasEditorCompatibilityProtocolDescriptorSchema = z.discriminatedUnion('mode', [
+    playCanvasEditorBridgeMinimalProtocolDescriptorSchema,
+    playCanvasEditorFullBootProtocolDescriptorSchema
+])
+
 export type PlayCanvasEditorCompatibilityProtocolDescriptor = z.infer<typeof playCanvasEditorCompatibilityProtocolDescriptorSchema>
 
 export const playCanvasEditorCompatibilityParamsSchema = z
@@ -264,7 +317,8 @@ export const playCanvasEditorCompatibilityAssetSummarySchema = z
         virtualPath: z.string().min(1).max(512),
         mime: z.string().min(1).max(120).nullable(),
         hash: z.string().min(1).max(160).nullable(),
-        size: z.number().int().nonnegative().nullable()
+        size: z.number().int().nonnegative().nullable(),
+        editorDocumentId: z.number().int().positive().max(2_147_483_647)
     })
     .strict()
 
@@ -321,6 +375,130 @@ export const playCanvasEditorCompatibilityConfigSchema = z
     .strict()
 
 export type PlayCanvasEditorCompatibilityConfig = z.infer<typeof playCanvasEditorCompatibilityConfigSchema>
+
+export const playCanvasEditorFullBootEndpointDescriptorSchema = z
+    .object({
+        restBaseUrl: z.string().min(1),
+        realtimeWsUrl: z.string().min(1),
+        messengerWsUrl: z.string().min(1),
+        relayWsUrl: z.string().min(1)
+    })
+    .strict()
+
+export type PlayCanvasEditorFullBootEndpointDescriptor = z.infer<typeof playCanvasEditorFullBootEndpointDescriptorSchema>
+
+const fullBootUrlSchema = z
+    .string()
+    .min(1)
+    .refine((value) => !value.includes('/disabled'), {
+        message: 'Full-boot URL must not point to a disabled endpoint'
+    })
+
+const numericIdSchema = z.number().int().positive()
+
+export const playCanvasEditorFullBootConfigSchema = z
+    .object({
+        mode: z.literal(PLAYCANVAS_EDITOR_FULL_BOOT_MODE),
+        accessToken: z.string().min(32),
+        project: z
+            .object({
+                id: numericIdSchema,
+                name: z.string().min(1),
+                private: z.boolean(),
+                privateAssets: z.boolean(),
+                hasPrivateSettings: z.boolean(),
+                masterBranch: numericIdSchema,
+                permissions: z
+                    .object({
+                        read: z.array(numericIdSchema).min(1),
+                        write: z.array(numericIdSchema).min(1),
+                        admin: z.tuple([])
+                    })
+                    .strict(),
+                settings: z
+                    .object({
+                        id: z.string().min(1),
+                        engineV2: z.literal(true),
+                        width: z.number().int().positive(),
+                        height: z.number().int().positive(),
+                        scripts: z.array(z.unknown()),
+                        useLegacyScripts: z.literal(false)
+                    })
+                    .passthrough()
+            })
+            .passthrough(),
+        scene: z.object({ id: numericIdSchema, uniqueId: numericIdSchema }).strict(),
+        self: z
+            .object({
+                id: numericIdSchema,
+                username: z.string().min(1),
+                branch: z.object({ id: numericIdSchema, name: z.string().min(1) }).passthrough(),
+                flags: z.object({ superUser: z.literal(false) }).passthrough()
+            })
+            .passthrough(),
+        owner: z.object({ id: numericIdSchema, username: z.string().min(1) }).passthrough(),
+        branch: z.object({ id: numericIdSchema, name: z.string().min(1) }).passthrough(),
+        url: z
+            .object({
+                api: fullBootUrlSchema,
+                home: fullBootUrlSchema,
+                frontend: fullBootUrlSchema,
+                engine: fullBootUrlSchema,
+                images: fullBootUrlSchema,
+                static: fullBootUrlSchema,
+                store: fullBootUrlSchema,
+                howdoi: fullBootUrlSchema,
+                realtime: z.object({ http: fullBootUrlSchema }).strict(),
+                messenger: z.object({ ws: fullBootUrlSchema, http: fullBootUrlSchema }).passthrough(),
+                relay: z.object({ ws: fullBootUrlSchema, http: fullBootUrlSchema }).passthrough()
+            })
+            .passthrough(),
+        schema: z
+            .object({
+                asset: z.record(z.unknown()),
+                scene: z.record(z.unknown()),
+                settings: z.record(z.unknown())
+            })
+            .passthrough(),
+        engineVersions: z
+            .object({
+                force: z.object({ version: z.string().min(1) }).passthrough(),
+                current: z.object({ version: z.string().min(1) }).passthrough()
+            })
+            .passthrough(),
+        store: z.record(z.unknown()),
+        aws: z.record(z.unknown()),
+        wasmModules: z.array(
+            z
+                .object({
+                    moduleName: z.string().min(1),
+                    glueUrl: z.string().min(1),
+                    wasmUrl: z.string().min(1),
+                    fallbackUrl: z.string().min(1)
+                })
+                .strict()
+        ),
+        sentry: z.record(z.unknown()),
+        metrics: z.record(z.unknown()),
+        selfHosted: z.literal(true),
+        universoHosted: z.literal(true),
+        universoBridge: z
+            .object({
+                compatibilityRestBaseUrl: fullBootUrlSchema,
+                tokenRefreshUrl: fullBootUrlSchema
+            })
+            .strict()
+    })
+    .passthrough()
+
+export type PlayCanvasEditorFullBootConfig = z.infer<typeof playCanvasEditorFullBootConfigSchema>
+
+export const playCanvasEditorAnyCompatibilityConfigSchema = z.discriminatedUnion('mode', [
+    playCanvasEditorCompatibilityConfigSchema,
+    playCanvasEditorFullBootConfigSchema
+])
+
+export type PlayCanvasEditorAnyCompatibilityConfig = z.infer<typeof playCanvasEditorAnyCompatibilityConfigSchema>
 
 export const playCanvasEditorCompatibilitySceneSaveRequestSchema = z
     .object({

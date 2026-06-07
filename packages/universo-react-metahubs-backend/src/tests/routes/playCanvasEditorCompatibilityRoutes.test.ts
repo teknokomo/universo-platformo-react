@@ -9,12 +9,16 @@ const request = require('supertest') as typeof import('supertest')
 const projectId = '019e9146-fd1b-7d1d-a858-d1e96485d901'
 const sceneId = '019e9147-16c4-738c-ab0f-b98c443ee676'
 const requestId = '019e9147-27e7-7ad4-b4e4-02174d3bcfad'
+const compatibilityOrigin = 'https://editor.test'
 const originalPlayCanvasEditorParentPublicOrigin = process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
 const originalPlayCanvasEditorTrustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS
+const originalPlayCanvasEditorArtifactAllowedOrigins = process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
 
 const readCompatibilityToken = async (app: ReturnType<typeof createApp>): Promise<string> => {
     jest.spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol').mockResolvedValue(createProtocol())
-    const response = await request(app).get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`)
+    const response = await request(app)
+        .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`)
+        .set('origin', compatibilityOrigin)
     const token = response.body?.item?.auth?.accessToken
     if (typeof token !== 'string' || token.length === 0) {
         throw new Error('Compatibility token was not issued by test app')
@@ -70,6 +74,38 @@ const createProtocol = () =>
         }
     } as never)
 
+const createFullBootProtocol = () => {
+    const protocol = createProtocol() as {
+        mode: string
+        numericIds?: Record<string, number>
+        endpoints: Record<string, unknown>
+        shareDb: Record<string, unknown>
+    }
+    return {
+        ...protocol,
+        mode: 'universo-full-upstream-ui',
+        numericIds: {
+            projectId: 1001,
+            sceneId: 1002,
+            selfId: 1003,
+            ownerId: 1004,
+            settingsId: 1005
+        },
+        endpoints: {
+            rest: { status: 'enabled', reason: 'universoFullUpstreamUi' },
+            realtime: { status: 'enabled', reason: 'universoFullUpstreamUi' },
+            messenger: { status: 'enabled', reason: 'universoFullUpstreamUi' },
+            relay: { status: 'enabled', reason: 'universoFullUpstreamUi' }
+        },
+        shareDb: {
+            requiredCollections: ['scenes', 'assets', 'settings'],
+            persisted: true,
+            persistence: 'snapshot-port',
+            sceneStorage: 'metahub-playcanvas-project-storage'
+        }
+    } as never
+}
+
 const createApp = (role: 'admin' | 'member' = 'admin') => {
     const app = express()
     app.use(express.json())
@@ -110,6 +146,45 @@ const createApp = (role: 'admin' | 'member' = 'admin') => {
     return app
 }
 
+const mockFullBootProjectService = () => {
+    jest.spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol').mockResolvedValue(createFullBootProtocol())
+    jest.spyOn(PlayCanvasProjectsService.prototype, 'getProject').mockResolvedValue({
+        id: projectId,
+        codename: {},
+        displayName: { _primary: 'en', locales: { en: { content: 'PlayCanvas Project' } } },
+        description: null,
+        packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+        packageVersion: '0.1.0',
+        compatibilityStatus: 'compatible',
+        compatibilityNotes: {},
+        schemaVersion: '1',
+        settings: {},
+        defaultSceneId: sceneId,
+        publicationConfig: {},
+        sceneCount: 1,
+        assetCount: 0,
+        scriptCount: 0,
+        generatedArtifactCount: 0,
+        publishable: true,
+        status: 'ready',
+        version: 1
+    } as never)
+    jest.spyOn(PlayCanvasProjectsService.prototype, 'listScenes').mockResolvedValue([
+        {
+            id: sceneId,
+            projectId,
+            displayName: {},
+            codename: {},
+            payloadSchemaVersion: '1',
+            payloadFile: null,
+            checksum: null,
+            sortOrder: 0,
+            publish: true,
+            version: 1
+        } as never
+    ])
+}
+
 afterEach(() => {
     jest.restoreAllMocks()
     if (originalPlayCanvasEditorParentPublicOrigin === undefined) {
@@ -121,6 +196,11 @@ afterEach(() => {
         delete process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS
     } else {
         process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = originalPlayCanvasEditorTrustProxyHeaders
+    }
+    if (originalPlayCanvasEditorArtifactAllowedOrigins === undefined) {
+        delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
+    } else {
+        process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = originalPlayCanvasEditorArtifactAllowedOrigins
     }
 })
 
@@ -152,6 +232,8 @@ describe('PlayCanvas Editor compatibility routes', () => {
     })
 
     it('binds compatibility tokens to the artifact origin while keeping platform REST endpoints absolute', async () => {
+        process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN = 'https://platform.example'
+        process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = 'https://artifact.example'
         jest.spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol').mockResolvedValue(createProtocol())
         const saveEditorCompatibilityScene = jest
             .spyOn(PlayCanvasProjectsService.prototype, 'saveEditorCompatibilityScene')
@@ -175,7 +257,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
         const app = createApp()
         const configResponse = await request(app)
             .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`)
-            .set('referer', 'https://platform.example/metahub/metahub-1/resources/packages/playcanvas-editor/editor')
+            .set('referer', 'https://frontend.example/metahub/metahub-1/resources/packages/playcanvas-editor/editor')
             .query({ artifactOrigin: 'https://artifact.example' })
 
         expect(configResponse.status).toBe(200)
@@ -212,11 +294,25 @@ describe('PlayCanvas Editor compatibility routes', () => {
                 }
             })
         expect(rejectedResponse.status).toBe(401)
+
+        const missingOriginResponse = await request(app)
+            .put(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/scenes/${sceneId}`)
+            .set('x-playcanvas-editor-token', token)
+            .set('x-csrf-token', 'test-csrf')
+            .send({
+                requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfaf',
+                payload: {
+                    schemaVersion: '1',
+                    entities: []
+                }
+            })
+        expect(missingOriginResponse.status).toBe(401)
         expect(saveEditorCompatibilityScene).toHaveBeenCalledTimes(1)
     })
 
     it('keeps compatibility config endpoints on the platform origin when Referer is absent', async () => {
         process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
+        process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = 'https://artifact.example'
         jest.spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol').mockResolvedValue(createProtocol())
 
         const response = await request(createApp())
@@ -230,6 +326,30 @@ describe('PlayCanvas Editor compatibility routes', () => {
             `https://platform.example/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/scenes`
         )
         expect(response.body.item.csrf.tokenUrl).toBe('https://platform.example/api/v1/auth/csrf')
+    })
+
+    it('rejects full-boot config without an explicit trusted artifact origin', async () => {
+        mockFullBootProjectService()
+
+        const response = await request(createApp())
+            .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`)
+            .set('origin', 'https://attacker.example')
+            .query({ mode: 'universo-full-upstream-ui' })
+
+        expect(response.status).toBe(400)
+        expect(response.body).toMatchObject({ code: 'playcanvasEditor.compatibility.invalidRequest' })
+    })
+
+    it('rejects full-boot artifact origins that only match the caller origin', async () => {
+        mockFullBootProjectService()
+
+        const response = await request(createApp())
+            .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`)
+            .set('origin', 'https://attacker.example')
+            .query({ mode: 'universo-full-upstream-ui', artifactOrigin: 'https://attacker.example' })
+
+        expect(response.status).toBe(400)
+        expect(response.body).toMatchObject({ code: 'playcanvasEditor.compatibility.invalidRequest' })
     })
 
     it('persists scene payloads through the metahub project service adapter', async () => {
@@ -256,6 +376,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
         const token = await readCompatibilityToken(app)
         const response = await request(app)
             .put(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/scenes/${sceneId}`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
             .set('x-csrf-token', 'test-csrf')
             .send({
@@ -294,6 +415,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
         const token = await readCompatibilityToken(app)
         const response = await request(app)
             .put(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/scenes/${sceneId}`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
             .set('x-csrf-token', 'test-csrf')
             .send({ payload: { schemaVersion: '1', entities: [] } })
@@ -332,6 +454,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
         const token = await readCompatibilityToken(app)
         const response = await request(app)
             .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/assets`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
 
         expect(response.status).toBe(200)
@@ -339,7 +462,8 @@ describe('PlayCanvas Editor compatibility routes', () => {
             expect.objectContaining({
                 id: '019e9147-3333-7000-8000-000000000001',
                 stableAssetId: 'asset-root',
-                virtualPath: '/'
+                virtualPath: '/',
+                editorDocumentId: expect.any(Number)
             })
         ])
     })
@@ -361,12 +485,14 @@ describe('PlayCanvas Editor compatibility routes', () => {
         const token = await readCompatibilityToken(app)
         const readResponse = await request(app)
             .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/settings/projectUser`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
         expect(readResponse.status).toBe(200)
         expect(readResponse.body.item).toMatchObject({ kind: 'projectUser', revision: 'project-1' })
 
         const writeResponse = await request(app)
             .put(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/settings/projectUser`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
             .set('x-csrf-token', 'test-csrf')
             .send({ requestId, data: { grid: { snap: true } }, expectedRevision: 'project-1' })
@@ -408,6 +534,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
         const token = await readCompatibilityToken(app)
         const response = await request(app)
             .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/cloud-only/jobs`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
 
         expect(response.status).toBe(200)
@@ -425,6 +552,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
         const token = await readCompatibilityToken(createApp())
         const wrongProject = await request(createApp())
             .get('/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9147-9999-7000-8000-000000000999/scenes')
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
         expect(wrongProject.status).toBe(401)
         expect(listScenes).not.toHaveBeenCalled()
@@ -438,6 +566,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
 
         const memberWrite = await request(createApp('member'))
             .put(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/settings/projectUser`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
             .set('x-csrf-token', 'test-csrf')
             .send({ requestId, data: {} })
@@ -445,6 +574,7 @@ describe('PlayCanvas Editor compatibility routes', () => {
 
         const csrfMissing = await request(createApp())
             .put(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/settings/projectUser`)
+            .set('origin', compatibilityOrigin)
             .set('x-playcanvas-editor-token', token)
             .send({ requestId, data: {} })
         expect(csrfMissing.status).toBe(403)

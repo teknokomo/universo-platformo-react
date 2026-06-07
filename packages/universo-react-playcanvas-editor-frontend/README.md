@@ -26,11 +26,13 @@ The package does not define a normal `build` script in this foundation slice. Ro
 
 ## Artifact Modes
 
-The default artifact mode is `universo-hosted`.
+The default artifact mode is `universo-full-upstream-ui`.
 
 `universo-hosted` builds the pinned upstream Editor files, writes a minimal Universo shell, injects `window.config`, and loads the bridge bootstrap script. `artifact-only` remains available through `UNIVERSO_PLAYCANVAS_EDITOR_ARTIFACT_MODE=artifact-only` as a fail-closed unavailable page.
 
-The hosted bridge slice supports the first manager-only metahub authoring path: a `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads, and minimal JSON asset metadata. The backend also exposes a minimal same-origin compatibility REST namespace under `/playcanvas/editor-compatible/...` for `config`, `scenes`, `assets`, `settings`, and explicit cloud-only no-op descriptors. It does not implement PlayCanvas Cloud parity, ShareDB operation persistence, collaboration, broad binary assets, Colyseus authoring, implicit runtime publication, or MCP/AI tooling.
+`universo-full-upstream-ui` is the default acceptance mode for the full upstream Editor shell. In this mode the artifact still keeps the upstream Editor isolated inside the iframe, but it must receive a full-boot config from the metahub host with enabled realtime, messenger, and relay URLs. The full-boot shell does not install the hosted entity fallback adapter and does not include the `/disabled` WebSocket shim. Browser acceptance must prove the upstream DOM shell is present: `#layout-toolbar`, `#layout-hierarchy`, `#layout-viewport`, `#canvas-3d`, `#layout-assets`, and `#layout-attributes`.
+
+The hosted bridge slice supports the first manager-only metahub authoring path: a `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads, and minimal JSON asset metadata. The backend also exposes a same-origin compatibility namespace under `/playcanvas/editor-compatible/...` for `config`, `scenes`, `assets`, `settings`, single-user ShareDB-compatible snapshot persistence, and explicit cloud-only no-op descriptors. It does not implement PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, broad binary assets, Colyseus authoring, implicit runtime publication, or MCP/AI tooling.
 
 ## Hosted Artifact Security
 

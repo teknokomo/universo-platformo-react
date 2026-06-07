@@ -607,7 +607,7 @@ test('PlayCanvas Editor hosted artifact updates legacy default scene state befor
     })
 })
 
-test('PlayCanvas Editor hosted fallback adapter saves serializable entities', async ({ page, baseURL }) => {
+test('PlayCanvas Editor hosted upstream UI saves serializable entities', async ({ page, baseURL }) => {
     const iframeUrl = new URL('/?locale=en', baseURL ?? 'http://127.0.0.1:3487').toString()
     const projectId = '019e9148-7207-753f-bbb8-4797ef174025'
     const sceneId = '019e9148-8d3e-7386-9bee-398f22a2ef92'
@@ -732,12 +732,13 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
 
     const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
     await expect(frame.locator('#layout-toolbar .pcui-button.logo')).toHaveCount(0)
-    await expect(frame.locator('[aria-label="Scene entities"]')).toBeVisible()
-    await expect(frame.getByRole('button', { name: 'Add entity' })).toBeVisible()
-    const fallbackOverflow = await frame
+    await expect(frame.locator('#layout-hierarchy')).toBeVisible()
+    await expect(frame.locator('#layout-assets')).toBeVisible()
+    await expect(frame.locator('#layout-attributes')).toBeVisible()
+    const editorOverflow = await frame
         .locator('body')
         .evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-    expect(fallbackOverflow).toBeLessThanOrEqual(1)
+    expect(editorOverflow).toBeLessThanOrEqual(1)
     await expect
         .poll(
             () =>
@@ -755,7 +756,14 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
         )
         .toBe(true)
 
-    await frame.getByRole('button', { name: 'Add entity' }).click()
+    await frame.locator('body').evaluate(() => {
+        window.editor?.call?.('entities:new', {
+            name: 'Smoke Entity',
+            resource_id: 'smoke-entity',
+            enabled: true,
+            components: {}
+        })
+    })
     await expect
         .poll(
             () =>
@@ -772,7 +780,7 @@ test('PlayCanvas Editor hosted fallback adapter saves serializable entities', as
     })
     expect(entity).toEqual(expect.objectContaining({ id: expect.any(String), name: expect.any(String) }))
     const actualEntityName = String((entity as { name?: unknown }).name || 'Entity')
-    await expect(frame.locator('body')).toContainText(actualEntityName)
+    await expect(frame.locator('body')).toContainText(String((entity as { id?: unknown }).id))
     await expect(frame.locator('body')).not.toContainText('[object Object]')
     await expect(frame.locator('body')).not.toContainText(/\{[\s\S]*"[^"]+"\s*:/)
     await expect(frame.locator('body')).not.toContainText(/\b[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i)

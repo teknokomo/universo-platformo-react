@@ -24,11 +24,11 @@ const mockUpsertPlayCanvasScene = jest.fn()
 
 const mockDbSession = { isReleased: () => false }
 const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
-const decodeEditorArtifactToken = (artifactPath: string): { parentOrigin?: unknown } => {
+const decodeEditorArtifactToken = (artifactPath: string): { parentOrigin?: unknown; apiOrigin?: unknown } => {
     const token = artifactPath.match(/editor-artifact-token\/([^/]+)/)?.[1]
     if (!token) return {}
     const encodedPayload = decodeURIComponent(token).split('.')[0]
-    return JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as { parentOrigin?: unknown }
+    return JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as { parentOrigin?: unknown; apiOrigin?: unknown }
 }
 
 jest.mock('node:fs/promises', () => ({
@@ -132,7 +132,7 @@ const playCanvasAttachment: MetahubPackageAttachment = {
             packageName: editorPackageName,
             manifestFileName: 'universo-artifact-manifest.json',
             outputRoot: 'dist/editor',
-            smokeMode: 'universo-hosted'
+            smokeMode: 'universo-full-upstream-ui'
         }
     },
     config: displayConfig,
@@ -179,8 +179,8 @@ describe('Packages Routes', () => {
         mockRealpath.mockImplementation(async (filePath: string) => filePath)
         mockReadFile.mockResolvedValue(
             JSON.stringify({
-                mode: 'universo-hosted',
-                smokeMode: 'universo-hosted',
+                mode: 'universo-full-upstream-ui',
+                smokeMode: 'universo-full-upstream-ui',
                 bridgeBootstrap: 'universo-bridge-bootstrap.js'
             })
         )
@@ -252,6 +252,7 @@ describe('Packages Routes', () => {
         expect(artifactUrl.origin).toBe('https://editor-assets.example.test')
         const decodedToken = decodeEditorArtifactToken(artifactUrl.pathname)
         expect(decodedToken.parentOrigin).toBe('https://platform.example.test')
+        expect(decodedToken.apiOrigin).toBe('https://platform.example.test')
     })
 
     it('marks authoring host bridge session descriptors as no-store', async () => {
@@ -496,6 +497,9 @@ describe('Packages Routes', () => {
         expect(response.text).toBe('artifact')
         expect(response.headers['cache-control']).toBe('private, max-age=300')
         expect(response.headers['access-control-allow-origin']).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
+        expect(response.headers['content-security-policy']).toContain("connect-src 'self'")
+        expect(response.headers['content-security-policy']).toMatch(/connect-src[^;]+http:\/\/127\.0\.0\.1:\d+/)
+        expect(response.headers['content-security-policy']).toMatch(/connect-src[^;]+ws:\/\/127\.0\.0\.1:\d+/)
         expect(response.headers.vary).toContain('Origin')
         expect(response.headers['x-test-sendfile']).toContain('/assets/editor.js')
         expect(mockEnsureMetahubAccess).toHaveBeenLastCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub')

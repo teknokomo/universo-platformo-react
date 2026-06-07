@@ -107,6 +107,7 @@ interface ArtifactTokenPayload {
     packageSlug: string
     userId: string
     parentOrigin: string
+    apiOrigin: string
     expiresAt: number
 }
 
@@ -247,6 +248,21 @@ const resolveArtifactPublicOrigin = (req: Request): { artifactOrigin: string; pa
     return { artifactOrigin, parentOrigin }
 }
 
+const resolveWebSocketOrigin = (origin: string): string | null => {
+    try {
+        const parsed = new URL(origin)
+        if (parsed.protocol === 'https:') {
+            return `wss://${parsed.host}`
+        }
+        if (parsed.protocol === 'http:') {
+            return `ws://${parsed.host}`
+        }
+    } catch {
+        return null
+    }
+    return null
+}
+
 const resolveArtifactPath = (relativePath: string): string => {
     const normalized = relativePath.replace(/^\/+/, '') || 'index.html'
     if (normalized.includes('\0')) {
@@ -289,7 +305,7 @@ const resolveArtifactManifestStatus = async (manifestPath: string, expectedSmoke
             bridgeBootstrap?: unknown
         }
         if (manifest.mode === 'artifact-only' && manifest.smokeMode === 'artifact-only') {
-            if (expectedSmokeMode === 'universo-hosted') {
+            if (expectedSmokeMode === 'universo-hosted' || expectedSmokeMode === 'universo-full-upstream-ui') {
                 return 'missing'
             }
             return 'artifactOnly'
@@ -297,7 +313,7 @@ const resolveArtifactManifestStatus = async (manifestPath: string, expectedSmoke
         if (manifest.mode !== expectedSmokeMode || manifest.smokeMode !== expectedSmokeMode) {
             return 'missing'
         }
-        if (expectedSmokeMode !== 'universo-hosted') {
+        if (expectedSmokeMode !== 'universo-hosted' && expectedSmokeMode !== 'universo-full-upstream-ui') {
             return 'expected'
         }
         if (manifest.bridgeBootstrap !== 'universo-bridge-bootstrap.js') {
@@ -345,6 +361,8 @@ const readArtifactTokenPayload = (token: string): ArtifactTokenPayload | null =>
             typeof payload.userId !== 'string' ||
             typeof payload.parentOrigin !== 'string' ||
             !parseSafeHttpOrigin(payload.parentOrigin) ||
+            typeof payload.apiOrigin !== 'string' ||
+            !parseSafeHttpOrigin(payload.apiOrigin) ||
             typeof payload.expiresAt !== 'number' ||
             payload.expiresAt < Date.now()
         ) {
@@ -360,10 +378,22 @@ const sendEditorArtifactFile = async (
     req: Request,
     res: Response,
     filePath: string,
-    frameAncestorOrigins: readonly string[] = []
+    frameAncestorOrigins: readonly string[] = [],
+    connectOrigins: readonly string[] = []
 ): Promise<Response | void> => {
     const extension = path.extname(filePath).toLowerCase()
     const frameAncestors = Array.from(new Set(frameAncestorOrigins.map((origin) => parseSafeHttpOrigin(origin)).filter(Boolean)))
+    const connectSources = Array.from(
+        new Set([
+            "'self'",
+            ...connectOrigins.flatMap((origin) => {
+                const httpOrigin = parseSafeHttpOrigin(origin)
+                if (!httpOrigin) return []
+                const wsOrigin = resolveWebSocketOrigin(httpOrigin)
+                return wsOrigin ? [httpOrigin, wsOrigin] : [httpOrigin]
+            })
+        ])
+    )
     const corsOrigin = frameAncestors[0]
     res.setHeader('X-Content-Type-Options', 'nosniff')
     res.setHeader('Cache-Control', extension === '.html' ? 'no-store' : 'private, max-age=300')
@@ -378,9 +408,9 @@ const sendEditorArtifactFile = async (
     }
     res.setHeader(
         'Content-Security-Policy',
-        `sandbox allow-scripts allow-same-origin; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'self'${
-            frameAncestors.length > 0 ? ` ${frameAncestors.join(' ')}` : ''
-        }`
+        `sandbox allow-scripts allow-same-origin; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src ${connectSources.join(
+            ' '
+        )}; frame-ancestors 'self'${frameAncestors.length > 0 ? ` ${frameAncestors.join(' ')}` : ''}`
     )
     const contentType = contentTypesByExtension.get(extension)
     if (contentType) {
@@ -466,7 +496,8 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                           metahubId,
                           packageSlug: item.authoringSurface.packageSlug,
                           userId,
-                          parentOrigin: artifactPublicOrigin.parentOrigin
+                          parentOrigin: artifactPublicOrigin.parentOrigin,
+                          apiOrigin: artifactPublicOrigin.parentOrigin
                       })
                     : null
             const descriptor: PackageAuthoringHostDescriptor = {
@@ -630,7 +661,7 @@ export function createPackagesController(createHandler: ReturnType<typeof create
             return res.status(404).json({ error: 'Package artifact' })
         }
 
-        return sendEditorArtifactFile(req, res, filePath, [payload.parentOrigin])
+        return sendEditorArtifactFile(req, res, filePath, [payload.parentOrigin], [payload.apiOrigin])
     }
 
     const attach = createHandler(

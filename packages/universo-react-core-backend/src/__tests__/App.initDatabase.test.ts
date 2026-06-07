@@ -179,7 +179,7 @@ jest.mock('@universo-react/utils', () => {
     }
 })
 
-import { App, buildPlayCanvasEditorHostCsp, resolvePlayCanvasEditorRequestOrigin } from '../index'
+import { App, buildPlayCanvasEditorHostCsp, isPlayCanvasEditorHostRoute, resolvePlayCanvasEditorRequestOrigin } from '../index'
 
 describe('App.initDatabase', () => {
     beforeEach(() => {
@@ -281,6 +281,17 @@ describe('App.initDatabase', () => {
         expect(buildPlayCanvasEditorHostCsp("'self'", 'https://platform.example.test')).toBe(
             "frame-src 'self' https://playcanvas-editor.example.test; child-src 'self' https://playcanvas-editor.example.test; frame-ancestors 'self'"
         )
+    })
+
+    it('applies the PlayCanvas Editor host CSP to embedded and fullscreen host routes only', () => {
+        const request = (path: string) => ({ path, url: path } as Request)
+
+        expect(isPlayCanvasEditorHostRoute(request('/metahub/metahub-1/resources/packages/playcanvas-editor/editor'))).toBe(true)
+        expect(isPlayCanvasEditorHostRoute(request('/metahub/metahub-1/resources/packages/playcanvas-editor/editor/fullscreen'))).toBe(true)
+        expect(isPlayCanvasEditorHostRoute(request('/metahub/metahub-1/resources/packages/playcanvas-editor/editor/fullscreen/'))).toBe(
+            true
+        )
+        expect(isPlayCanvasEditorHostRoute(request('/metahub/metahub-1/resources/packages/playcanvas-editor/settings'))).toBe(false)
     })
 
     it('resolves PlayCanvas Editor request origin from forwarded headers only for trusted proxies', () => {

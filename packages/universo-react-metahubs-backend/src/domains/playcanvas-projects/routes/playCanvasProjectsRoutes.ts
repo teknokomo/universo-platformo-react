@@ -1,9 +1,6 @@
 import { Router, type RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import {
-    createPlayCanvasEditorCompatibilityRoutes,
-    createPlayCanvasEditorCompatibilityTokenService
-} from '@universo-react/playcanvas-editor-backend'
+import { createPlayCanvasEditorCompatibilityRoutes, createPlayCanvasEditorNumericAssetId } from '@universo-react/playcanvas-editor-backend'
 import type { PlayCanvasEditorCompatibilityContext } from '@universo-react/playcanvas-editor-backend'
 import type { DbExecutor } from '../../../utils'
 import { asyncHandler } from '../../shared/asyncHandler'
@@ -11,6 +8,7 @@ import { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import type { MetahubHandlerContext } from '../../shared/createMetahubHandler'
 import { createPlayCanvasProjectsController } from '../controllers/playCanvasProjectsController'
 import { PlayCanvasProjectsService } from '../services/PlayCanvasProjectsService'
+import { playCanvasEditorCompatibilityTokenService } from '../services/playCanvasEditorCompatibilityTokenService'
 
 export function createPlayCanvasProjectsRoutes(
     ensureAuth: RequestHandler,
@@ -24,12 +22,11 @@ export function createPlayCanvasProjectsRoutes(
 
     const createHandler = createMetahubHandlerFactory(getDbExecutor)
     const ctrl = createPlayCanvasProjectsController(createHandler)
-    const tokenService = createPlayCanvasEditorCompatibilityTokenService()
     const compatibilityRoutes = createPlayCanvasEditorCompatibilityRoutes({
         readLimiter,
         writeLimiter,
         csrfProtection,
-        tokenService,
+        tokenService: playCanvasEditorCompatibilityTokenService,
         createHandler: (handler, options) =>
             createHandler(async (ctx) => handler(ctx as MetahubHandlerContext & PlayCanvasEditorCompatibilityContext), options),
         createProjectPort: (ctx) => {
@@ -59,7 +56,8 @@ export function createPlayCanvasProjectsRoutes(
                         virtualPath: asset.virtualPath.length > 0 ? asset.virtualPath.join('/') : '/',
                         mime: asset.file?.mime ?? null,
                         hash: asset.file?.hash ?? null,
-                        size: asset.file?.size ?? null
+                        size: asset.file?.size ?? null,
+                        editorDocumentId: createPlayCanvasEditorNumericAssetId(asset.id)
                     }))
                 },
                 readSettings: ({ metahubId, projectId, userId, kind }) =>

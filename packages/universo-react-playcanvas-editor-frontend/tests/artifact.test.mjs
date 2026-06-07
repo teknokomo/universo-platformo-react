@@ -9,13 +9,16 @@ import {
     assertNoNestedPackageManifests,
     assertRootLockfileHash,
     assertVendorMetadata,
+    bridgeBootstrapFileName,
     createArtifactManifest,
     createHostedEditorConfig,
+    fullUpstreamUiMode,
     packageRoot,
     readRootLockfileHash,
     upstreamCommit,
     upstreamPackageVersion,
-    validateArtifactManifest
+    validateArtifactManifest,
+    writeUniversoHostedShell
 } from '../scripts/lib/playcanvas-editor-artifact.mjs'
 import { resolveArtifactRequest } from '../scripts/serve-editor.mjs'
 import {
@@ -38,10 +41,18 @@ describe('PlayCanvas Editor artifact metadata', () => {
         expect(() => validateArtifactManifest({ ...manifest, localPath: packageRoot })).toThrow(/keys/)
     })
 
-    it('keeps the public package manifest aligned with the hosted artifact mode', () => {
+    it('keeps the public package manifest aligned with the full upstream artifact mode', () => {
         expect(PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION).toBe('2.23.4')
-        expect(PLAYCANVAS_EDITOR_SMOKE_MODE).toBe('universo-hosted')
-        expect(createPlayCanvasEditorArtifactManifest('2026-06-05T00:00:00.000Z').smokeMode).toBe('universo-hosted')
+        expect(PLAYCANVAS_EDITOR_SMOKE_MODE).toBe(fullUpstreamUiMode)
+        expect(createPlayCanvasEditorArtifactManifest('2026-06-05T00:00:00.000Z').smokeMode).toBe(fullUpstreamUiMode)
+    })
+
+    it('declares the bridge bootstrap for full upstream UI mode', () => {
+        const manifest = createArtifactManifest('2026-06-05T00:00:00.000Z', fullUpstreamUiMode)
+
+        expect(manifest.mode).toBe(fullUpstreamUiMode)
+        expect(manifest.bridgeBootstrap).toBe(bridgeBootstrapFileName)
+        expect(() => validateArtifactManifest(manifest)).not.toThrow()
     })
 
     it('builds a schema-valid hosted Editor config without synthetic admin privileges', () => {
@@ -95,6 +106,67 @@ describe('PlayCanvas Editor artifact metadata', () => {
 
     it('does not run unpinned install or network source commands in build/smoke scripts', () => {
         expect(() => assertBuildScriptsDoNotInstall()).not.toThrow()
+    })
+
+    it('keeps full upstream UI bootstrap wired to the upstream editor without the hosted entity fallback', () => {
+        const sourcePath = path.join(packageRoot, 'scripts', 'lib', 'playcanvas-editor-artifact.mjs')
+        const source = fs.readFileSync(sourcePath, 'utf8')
+        const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'universo-playcanvas-editor-shell-'))
+
+        try {
+            expect(source).toContain("script.src = './js/editor.js'")
+            expect(source).toMatch(/if\s*\(\s*marker\.fullBootMode\s*!==\s*true\s*\)\s*{\s*installHostedEntityAdapter\(editorInstance\);/)
+            expect(source).toContain('const observerToJson = (value, visited = new Set()) => {')
+            expect(source).toContain('if (!value || visited.has(value)) return null;')
+            expect(source).toContain('if (value._observer && value._observer !== value) return observerToJson(value._observer, visited);')
+            expect(source).toContain('if (value._observer) return value._observer;')
+            expect(source).toContain('rawChildren.map(getEntityReferenceId).filter(Boolean)')
+            expect(source).toContain('editorInstance.api?.globals?.entities?.raw')
+            expect(source).toContain('marker.lastSerializedEntityIds = entities.map((entity) => entity.id);')
+            expect(source).toContain('const rememberScenePayloadEntities = (payload) => {')
+            expect(source).toContain('const rebindUpstreamHierarchy = () => {')
+            expect(source).toContain("const treeView = editorInstance.call('entities:hierarchy');")
+            expect(source).toContain('treeView.entities = rawEntities;')
+            expect(source).toContain("querySelector?.('.progress-overlay')")
+            expect(source).toContain("overlay.style.pointerEvents = 'none';")
+            expect(source).toContain('const hydratePersistedSceneEntities = () => {')
+            expect(source).toContain('editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities')
+            expect(source).toContain('marker.lastHydratedPersistedEntityCount = hydrated;')
+            expect(source).toContain('if (!hydratingPersistedScene) {')
+            expect(source).toContain(
+                'const cleanLoadedPayloadObservers = marker.dirty === true ? [] : scenePayloadEntitiesToObservers(fallbackPayload);'
+            )
+            expect(source).toContain('rememberScenePayloadEntities(marker.lastLoadedScene?.data?.payload);')
+            expect(source).toContain('hydratePersistedSceneEntities();')
+            expect(source).toContain("editorInstance.on('scene:raw', () => {")
+            expect(source).toContain('const force = options && options.force === true;')
+            expect(source).toContain('if (!force && (!marker.initialHydrationComplete || Date.now() < (marker.ignoreDirtyUntil || 0)))')
+            expect(source).toContain('markDirty({ force: true });')
+            expect(source).toContain("typeof input.resource_id === 'string' && input.resource_id")
+            expect(source).toContain("url.pathname === '/api/projects/' + numericProjectId + '/assets'")
+            expect(source).toContain('loadFullBootAssets().then((assets) => createJsonResponse(assets))')
+            expect(source).not.toContain('return Promise.resolve(createJsonResponse([]));')
+            expect(source).toContain("'/config?mode=universo-compatibility-rest-minimal'")
+            expect(source).toMatch(
+                /if\s*\(\s*marker\.fullBootMode\s*!==\s*true\s*\)\s*{\s*postEditorReady\(\);[\s\S]*?bootstrapProjectStorage\(descriptor\);[\s\S]*?}\s*else\s*{[\s\S]*?waitForUpstreamLayout\(\)/
+            )
+            expect(source).toContain('postEditorReady();\n          bootstrapProjectStorage(descriptor);')
+            expect(source).toContain(
+                "if (urlText.includes('/disabled')) throw new Error('Full upstream Editor config must not use disabled realtime endpoints');"
+            )
+
+            writeUniversoHostedShell(tempRoot, { mode: fullUpstreamUiMode })
+            const fullBootHtml = fs.readFileSync(path.join(tempRoot, 'index.html'), 'utf8')
+            expect(fullBootHtml).not.toContain('/disabled')
+            expect(fullBootHtml).not.toContain('UniversoHostedWebSocket')
+
+            writeUniversoHostedShell(tempRoot, { mode: 'universo-hosted' })
+            const hostedHtml = fs.readFileSync(path.join(tempRoot, 'index.html'), 'utf8')
+            expect(hostedHtml).toContain('/disabled')
+            expect(hostedHtml).toContain('UniversoHostedWebSocket')
+        } finally {
+            fs.rmSync(tempRoot, { recursive: true, force: true })
+        }
     })
 
     it('rejects direct and split-argument install or network source commands in scripts', () => {

@@ -55,6 +55,77 @@
 
 ---
 
+## 2026-06-07 - PlayCanvas Editor Full Boot UX And Reliability Closure
+
+-   Closed the remaining PlayCanvas Editor full-boot UX and reliability QA
+    findings for embedded host spacing, duplicate ready notifications, replay
+    completion durability, and atomic project creation.
+-   The metahub host now renders one localized PlayCanvas Editor status alert
+    slot in embedded mode and no host alert chrome in healthy fullscreen mode,
+    preventing duplicate "Editor is ready." notices from consuming vertical
+    space.
+-   Embedded PlayCanvas Editor iframe layout now uses bounded flex sizing and
+    hidden overflow so bottom spacing matches the side padding instead of
+    leaving an oversized gap.
+-   Replay completion after committed PlayCanvas bridge mutations now uses a
+    conflict-guarded upsert, allowing recovery when a replay row disappears
+    after the mutation commits while still rejecting different fingerprints.
+-   PlayCanvas project creation now runs project row creation, default scene
+    creation, default scene pointer update, and summary read inside one
+    transaction; project deletion remains fail-closed when physical cleanup can
+    be partial.
+-   Full-boot WebSocket pre-auth pressure remains bounded by explicit
+    unauthenticated connection limits and focused package tests.
+-   Local autoreview found two accepted defects in the final QA pass: full-boot
+    asset listing was still hard-coded empty in the artifact adapter, and the
+    pre-auth WebSocket per-address limiter trusted spoofable `X-Forwarded-For`.
+    Both findings were fixed before closeout.
+-   Full-boot asset list/detail requests now proxy through the existing
+    compatibility REST asset endpoint, map metahub assets into upstream Editor
+    asset documents, and scope ShareDB `assets` documents to exact signed token
+    `assetDocumentIds`.
+-   The unauthenticated full-boot WebSocket pressure limiter now keys pre-auth
+    sockets from the transport `remoteAddress` instead of forwarded headers.
+-   Verification passed: focused metahubs frontend Vitest and lint/build,
+    focused metahubs backend Jest and lint/build, PlayCanvas Editor backend
+    tests, root local minimal Supabase E2E build, targeted Chromium Playwright
+    `metahub resources packages tab` E2E, Prettier on touched files, and
+    `git diff --check`.
+
+## 2026-06-07 - PlayCanvas Editor Full Boot WebSocket Token Origin Closure
+
+-   Closed the QA/autoreview security finding where the full-boot config endpoint
+    could mint WebSocket-capable PlayCanvas Editor tokens for the caller's
+    request origin when no explicit artifact origin/base URL was supplied.
+-   Full-boot token issuance now fails closed unless the request provides an
+    artifact origin/base URL that passes the existing trusted artifact origin
+    allowlist. REST-minimal compatibility token behavior is unchanged.
+-   Added package-level and metahubs route-level regression tests for hostile
+    full-boot config requests without artifact origin evidence.
+
+## 2026-06-07 - PlayCanvas Editor Full Upstream UI QA Closure
+
+-   Closed the full upstream PlayCanvas Editor UI boot QA findings around
+    artifact origin trust, ShareDB document scope, WebSocket token lifecycle,
+    stale realtime persistence, and browser evidence gaps.
+-   Hardened full-boot artifact URL handling with trusted origin allowlists and
+    hostile-origin rejection coverage.
+-   Added exact ShareDB document allowlists for authenticated full-boot sessions
+    and recoverable stale persistence handling that reseeds ShareDB from durable
+    metahub storage after checksum or revision conflicts.
+-   Tightened realtime session claims with required session ids and nonces,
+    token-expiry socket closure, and active-session replay guards across
+    realtime, messenger, and relay surfaces.
+-   Strengthened Playwright evidence for upstream toolbar, hierarchy, viewport
+    canvas, assets panel, attributes panel, no fallback UI, no `/disabled`
+    endpoints, scoped nonblank canvas pixels, ShareDB submit/pending evidence,
+    persistence without bridge save, and responsive viewport coverage.
+-   Verified the closure with `pnpm --filter @universo-react/playcanvas-editor-backend test`,
+    `pnpm --filter @universo-react/playcanvas-editor-backend build`,
+    `pnpm --filter @universo-react/metahubs-backend test -- PlayCanvasProjectsService.test.ts playCanvasEditorCompatibilityRoutes.test.ts`,
+    and the focused local minimal Supabase Playwright flow
+    `metahub resources packages tab is usable and localized`.
+
 ## 2026-06-05 - PlayCanvas Editor Compatibility Backend QA Repair
 
 -   Closed the QA findings for the minimal PlayCanvas Editor compatibility

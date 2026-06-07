@@ -2,11 +2,12 @@ import type {
     AttachMetahubPackageRequest,
     ChangeMetahubPackageVersionRequest,
     PackageAuthoringHostDescriptor,
-    PlayCanvasEditorCompatibilityConfig,
+    PlayCanvasEditorAnyCompatibilityConfig,
     UpdateMetahubPackageConfigRequest,
     MetahubPackageAttachment,
     MetahubPackageCatalogItem
 } from '@universo-react/types'
+import { PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE, PLAYCANVAS_EDITOR_FULL_BOOT_MODE } from '@universo-react/types'
 import { apiClient } from '../../shared'
 
 export const packagesApi = {
@@ -42,10 +43,16 @@ export const packagesApi = {
         return data
     },
 
-    getPlayCanvasEditorCompatibilityConfig: async (metahubId: string, projectId: string, artifactOrigin?: string | null) => {
-        const { data } = await apiClient.get<{ item: PlayCanvasEditorCompatibilityConfig }>(
+    getPlayCanvasEditorCompatibilityConfig: async (
+        metahubId: string,
+        projectId: string,
+        artifactOrigin?: string | null,
+        artifactBaseUrl?: string | null,
+        mode: typeof PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE | typeof PLAYCANVAS_EDITOR_FULL_BOOT_MODE = PLAYCANVAS_EDITOR_FULL_BOOT_MODE
+    ) => {
+        const { data } = await apiClient.get<{ item: PlayCanvasEditorAnyCompatibilityConfig }>(
             `/metahub/${metahubId}/playcanvas/editor-compatible/projects/${projectId}/config`,
-            artifactOrigin ? { params: { artifactOrigin } } : undefined
+            { params: { ...(artifactOrigin ? { artifactOrigin } : {}), ...(artifactBaseUrl ? { artifactBaseUrl } : {}), mode } }
         )
         return data.item
     },

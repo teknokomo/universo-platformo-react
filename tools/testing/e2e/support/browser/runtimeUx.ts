@@ -181,12 +181,51 @@ export async function expectLocalizedValidation(
 }
 
 export async function expectNoPageHorizontalOverflow(page: Page, label: string): Promise<void> {
-    const overflowPx = await page.evaluate(() => {
+    const overflowDiagnostics = await page.evaluate(() => {
         const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0)
         const viewportWidth = Math.max(document.documentElement.clientWidth, document.body?.clientWidth ?? 0)
-        return Math.max(0, documentWidth - viewportWidth)
+        const overflowingElements = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+            .map((element) => {
+                const rect = element.getBoundingClientRect()
+                const computed = window.getComputedStyle(element)
+                return {
+                    tag: element.tagName.toLowerCase(),
+                    id: element.id || null,
+                    testId: element.getAttribute('data-testid'),
+                    role: element.getAttribute('role'),
+                    className: typeof element.className === 'string' ? element.className.slice(0, 160) : null,
+                    text: element.innerText?.replace(/\s+/g, ' ').trim().slice(0, 160) || null,
+                    left: Math.round(rect.left),
+                    right: Math.round(rect.right),
+                    width: Math.round(rect.width),
+                    scrollWidth: element.scrollWidth,
+                    clientWidth: element.clientWidth,
+                    position: computed.position,
+                    overflowX: computed.overflowX
+                }
+            })
+            .filter((entry) => entry.right > viewportWidth + 1 || entry.scrollWidth > entry.clientWidth + 1)
+            .sort(
+                (left, right) =>
+                    Math.max(right.right - viewportWidth, right.scrollWidth - right.clientWidth) -
+                    Math.max(left.right - viewportWidth, left.scrollWidth - left.clientWidth)
+            )
+            .slice(0, 8)
+        return {
+            overflowPx: Math.max(0, documentWidth - viewportWidth),
+            documentWidth,
+            viewportWidth,
+            bodyScrollWidth: document.body?.scrollWidth ?? 0,
+            bodyClientWidth: document.body?.clientWidth ?? 0,
+            documentElementScrollWidth: document.documentElement.scrollWidth,
+            documentElementClientWidth: document.documentElement.clientWidth,
+            overflowingElements
+        }
     })
-    expect(overflowPx, `${label} must not create horizontal page overflow`).toBeLessThanOrEqual(1)
+    expect(
+        overflowDiagnostics.overflowPx,
+        `${label} must not create horizontal page overflow. Diagnostics: ${JSON.stringify(overflowDiagnostics)}`
+    ).toBeLessThanOrEqual(1)
 }
 
 export async function expectNoDataGridTechnicalLeakage(

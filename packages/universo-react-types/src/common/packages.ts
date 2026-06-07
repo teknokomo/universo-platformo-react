@@ -13,7 +13,7 @@ export type PackageAuthoringSurfaceKind = (typeof PACKAGE_AUTHORING_SURFACE_KIND
 export const PACKAGE_DISPLAY_MODES = ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'] as const
 export type PackageDisplayMode = (typeof PACKAGE_DISPLAY_MODES)[number]
 
-export const PLAYCANVAS_EDITOR_ARTIFACT_MODES = ['artifact-only', 'universo-hosted'] as const
+export const PLAYCANVAS_EDITOR_ARTIFACT_MODES = ['artifact-only', 'universo-hosted', 'universo-full-upstream-ui'] as const
 export type PlayCanvasEditorArtifactMode = (typeof PLAYCANVAS_EDITOR_ARTIFACT_MODES)[number]
 
 export interface PackageAttachmentEmptyConfig {

@@ -69,7 +69,7 @@ try {
     } else {
         writeBridgeBootstrap(artifactRoot)
         writeUniversoHostedEngineContract(artifactRoot)
-        writeUniversoHostedShell(artifactRoot)
+        writeUniversoHostedShell(artifactRoot, { mode: artifactMode })
         injectBridgeBootstrap(artifactRoot)
     }
     fs.writeFileSync(artifactManifestPath, `${JSON.stringify(createArtifactManifest(undefined, artifactMode), null, 4)}\n`)
