@@ -15,7 +15,7 @@
         "editor:build": "node scripts/build-editor.mjs",
         "editor:serve": "node scripts/serve-editor.mjs",
         "editor:smoke": "node scripts/smoke-editor-artifact.mjs",
-        "editor:browser-smoke": "playwright test --config playwright.artifact.config.ts",
+        "editor:browser-smoke": "node scripts/browser-smoke-editor.mjs",
         "test": "vitest run --config vitest.config.ts"
     },
     "license": "Omsk Open License",
