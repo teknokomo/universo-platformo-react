@@ -1460,7 +1460,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
           if (url.pathname === '/api/projects/' + numericProjectId + '/assets') {
             return loadFullBootAssets().then((assets) => createJsonResponse(assets));
           }
-          const assetMatch = /^\/api\/assets\/([^/]+)$/.exec(url.pathname);
+          const assetMatch = /^\\/api\\/assets\\/([^/]+)$/.exec(url.pathname);
           if (assetMatch) {
             const assetId = decodeURIComponent(assetMatch[1]);
             const asset = marker.fullBootAssetsById?.[assetId];
