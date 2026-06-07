@@ -252,12 +252,10 @@ const resolveWebSocketOrigin = (origin: string): string | null => {
     try {
         const parsed = new URL(origin)
         if (parsed.protocol === 'https:') {
-            parsed.protocol = 'wss:'
-            return parsed.origin
+            return `wss://${parsed.host}`
         }
         if (parsed.protocol === 'http:') {
-            parsed.protocol = 'ws:'
-            return parsed.origin
+            return `ws://${parsed.host}`
         }
     } catch {
         return null

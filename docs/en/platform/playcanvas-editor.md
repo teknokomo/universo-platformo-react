@@ -17,7 +17,7 @@ The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it is
 -   Upstream commit: `c4916f4973963341984499f2d919f8bfd38e417c`
 -   Upstream package version: `2.23.4`
 -   Required Node.js version for Editor build: `>=22.22.0`
--   Default artifact mode: `universo-hosted`
+-   Default artifact mode: `universo-full-upstream-ui`
 -   Fallback artifact mode: `artifact-only`
 
 The package can build and verify a static artifact. Metahubs can connect it from **Resources → Packages**, configure how the editor opens, and load the static artifact through the authenticated metahub package route. The first Universo-hosted bridge slice adds a typed iframe bridge and manager-only storage adapter for the selected/default PlayCanvas project: load project context, list/read scenes, save a bounded JSON scene payload, list minimal JSON asset metadata, and reopen the saved scene.

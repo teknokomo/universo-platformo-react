@@ -1671,20 +1671,45 @@ export const attachApplicationsRealtimeRuntime = async (
         defineTypes: (type: unknown, fields: Record<string, unknown>) => void
     }
     const roomName = 'fixed_tick_scene'
-    const filteredServer = options.shouldHandleUpgrade ? (Object.create(server) as HttpServer) : server
-    if (options.shouldHandleUpgrade) {
-        filteredServer.on = ((event: string, listener: (...args: unknown[]) => void) => {
-            if (event !== 'upgrade') {
-                server.on(event, listener)
-                return filteredServer
-            }
-            server.on('upgrade', (request, socket, head) => {
-                if (options.shouldHandleUpgrade?.(request) === false) return
-                listener(request, socket, head)
-            })
-            return filteredServer
-        }) as HttpServer['on']
-    }
+    const upgradeListeners = new Map<(...args: unknown[]) => void, (...args: unknown[]) => void>()
+    const filteredServer = options.shouldHandleUpgrade
+        ? new Proxy(server, {
+              get(target, prop, receiver) {
+                  if (prop === 'on' || prop === 'addListener') {
+                      return (event: string, listener: (...args: unknown[]) => void) => {
+                          if (event !== 'upgrade') {
+                              target.on(event, listener)
+                              return receiver
+                          }
+                          const wrapped = (...args: unknown[]) => {
+                              const [request, socket, head] = args
+                              if (options.shouldHandleUpgrade?.(request as IncomingMessage) === false) return
+                              listener(request, socket, head)
+                          }
+                          upgradeListeners.set(listener, wrapped)
+                          target.on('upgrade', wrapped)
+                          return receiver
+                      }
+                  }
+                  if (prop === 'off' || prop === 'removeListener') {
+                      return (event: string, listener: (...args: unknown[]) => void) => {
+                          if (event !== 'upgrade') {
+                              target.removeListener(event, listener)
+                              return receiver
+                          }
+                          const wrapped = upgradeListeners.get(listener)
+                          if (wrapped) {
+                              target.removeListener('upgrade', wrapped)
+                              upgradeListeners.delete(listener)
+                          }
+                          return receiver
+                      }
+                  }
+                  const value = Reflect.get(target, prop, receiver)
+                  return typeof value === 'function' ? value.bind(target) : value
+              }
+          })
+        : server
 
     const gameServer = new Server({
         transport: new WebSocketTransport({ server: filteredServer }),

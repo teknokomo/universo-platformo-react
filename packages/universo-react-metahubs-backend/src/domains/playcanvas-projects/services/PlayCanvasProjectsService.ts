@@ -219,7 +219,10 @@ const normalizeRealtimeSceneEntities = (
 
     const root = normalized.get(rootId) ?? createRealtimeRootEntity()
     const existingRootChildren = Array.isArray(root.children)
-        ? root.children.filter((child): child is string => typeof child === 'string' && normalized.has(child) && child !== rootId)
+        ? root.children.filter((child): child is string => {
+              if (typeof child !== 'string' || !normalized.has(child) || child === rootId) return false
+              return normalized.get(child)?.parent === rootId
+          })
         : []
     for (const child of existingRootChildren) {
         rootChildren.add(child)

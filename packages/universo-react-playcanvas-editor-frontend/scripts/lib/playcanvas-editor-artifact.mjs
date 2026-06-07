@@ -376,20 +376,21 @@ export const writeBridgeBootstrap = (targetRoot) => {
 
   marker.sendCommand = sendBridgeCommand;
 
-	  const observerToJson = (value) => {
-	    if (!value) return null;
+	  const observerToJson = (value, visited = new Set()) => {
+	    if (!value || visited.has(value)) return null;
+	    visited.add(value);
 	    try {
 	      if (typeof value.latest === 'function') {
 	        const latest = value.latest();
-	        if (latest && latest !== value) return observerToJson(latest);
+	        if (latest && latest !== value) return observerToJson(latest, visited);
 	      }
 	      if (typeof value.json === 'function') return value.json();
 	      if (typeof value.toJSON === 'function') return value.toJSON();
 	      if (value.data && typeof value.data === 'object') return value.data;
 	      if (value._data && typeof value._data === 'object') return value._data;
-	      if (value.apiEntity?.observer && value.apiEntity.observer !== value) return observerToJson(value.apiEntity.observer);
-	      if (value.observer && value.observer !== value) return observerToJson(value.observer);
-	      if (value._observer && value._observer !== value) return observerToJson(value._observer);
+	      if (value.apiEntity?.observer && value.apiEntity.observer !== value) return observerToJson(value.apiEntity.observer, visited);
+	      if (value.observer && value.observer !== value) return observerToJson(value.observer, visited);
+	      if (value._observer && value._observer !== value) return observerToJson(value._observer, visited);
 	      return typeof value === 'object' ? value : null;
 	    } catch {
 	      return value && typeof value === 'object' ? value : null;

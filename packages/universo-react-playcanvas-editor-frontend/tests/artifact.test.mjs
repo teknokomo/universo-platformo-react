@@ -116,7 +116,9 @@ describe('PlayCanvas Editor artifact metadata', () => {
         try {
             expect(source).toContain("script.src = './js/editor.js'")
             expect(source).toMatch(/if\s*\(\s*marker\.fullBootMode\s*!==\s*true\s*\)\s*{\s*installHostedEntityAdapter\(editorInstance\);/)
-            expect(source).toContain('if (value._observer && value._observer !== value) return observerToJson(value._observer);')
+            expect(source).toContain('const observerToJson = (value, visited = new Set()) => {')
+            expect(source).toContain('if (!value || visited.has(value)) return null;')
+            expect(source).toContain('if (value._observer && value._observer !== value) return observerToJson(value._observer, visited);')
             expect(source).toContain('if (value._observer) return value._observer;')
             expect(source).toContain('rawChildren.map(getEntityReferenceId).filter(Boolean)')
             expect(source).toContain('editorInstance.api?.globals?.entities?.raw')

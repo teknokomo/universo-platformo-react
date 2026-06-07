@@ -479,6 +479,92 @@ describe('PlayCanvasProjectsService', () => {
         })
     })
 
+    it('removes stale root child references when a realtime entity belongs to another parent', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return [
+                        {
+                            id: SCENE_ID,
+                            projectId: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'main_scene'),
+                            displayName: createLocalizedContent('en', 'Main Scene'),
+                            payloadSchemaVersion: '1',
+                            payload: {
+                                schemaVersion: '1',
+                                entities: [
+                                    {
+                                        id: 'root',
+                                        name: 'Root',
+                                        parentId: null,
+                                        enabled: true,
+                                        components: {},
+                                        children: ['parent-1', 'child-1']
+                                    },
+                                    {
+                                        id: 'parent-1',
+                                        name: 'Parent',
+                                        parentId: null,
+                                        enabled: true,
+                                        components: {},
+                                        children: ['child-1']
+                                    },
+                                    {
+                                        id: 'child-1',
+                                        name: 'Child',
+                                        parentId: 'parent-1',
+                                        enabled: true,
+                                        components: {},
+                                        children: []
+                                    }
+                                ]
+                            },
+                            payloadFile: null,
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'scenes',
+            data: {
+                entities: {
+                    root: {
+                        parent: null,
+                        children: ['parent-1']
+                    },
+                    'parent-1': {
+                        parent: 'root',
+                        children: ['child-1']
+                    },
+                    'child-1': {
+                        parent: 'parent-1',
+                        children: []
+                    }
+                }
+            }
+        })
+    })
+
     it('loads realtime asset documents from metahub PlayCanvas assets by editor document id', async () => {
         const editorDocumentId = createPlayCanvasEditorNumericAssetId(ASSET_ID)
         const exec = {

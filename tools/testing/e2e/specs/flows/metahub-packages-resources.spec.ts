@@ -586,14 +586,18 @@ const readPlayCanvasEditorBridgeDiagnostics = async (page: Page) => {
         try {
             const entities = typeof editor?.call === 'function' ? editor.call('entities:list') : null
             entitiesListLength = Array.isArray(entities) ? entities.length : null
-        } catch {}
+        } catch {
+            entitiesListLength = null
+        }
         try {
             const root = typeof editor?.call === 'function' ? editor.call('entities:root') : null
             rootId =
                 root && typeof (root as { get?: (path: string) => unknown }).get === 'function'
                     ? (root as { get: (path: string) => unknown }).get('resource_id')
                     : null
-        } catch {}
+        } catch {
+            rootId = null
+        }
         return {
             dirty: bridge?.dirty,
             editorCallWrapped: bridge?.editorCallWrapped,
@@ -652,11 +656,6 @@ const createPlayCanvasCompatibilityWriteHeaders = async (page: Page, config: Pla
         ...createPlayCanvasCompatibilityAuthHeaders(page, config),
         [String(config.csrf?.headerName)]: String(csrfToken)
     }
-}
-
-const createPlayCanvasFullBootAuthHeaders = (runtimeConfig: PlayCanvasEditorRuntimeConfig) => {
-    expect(runtimeConfig.accessToken).toEqual(expect.any(String))
-    return { 'X-PlayCanvas-Editor-Token': String(runtimeConfig.accessToken) }
 }
 
 const readPlayCanvasEditorRuntimeConfig = async (page: Page): Promise<PlayCanvasEditorRuntimeConfig> => {
