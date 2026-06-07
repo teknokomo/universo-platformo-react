@@ -39,7 +39,7 @@ The backend exposes storage-model endpoints and the first manager-only Editor br
 
 All routes require metahub management permission and use no-store responses for mutable authoring state. File writes are limited to small JSON/JS/MJS payloads, strict base64 bodies, MIME allow-listing, project-local paths, and optional SHA-256 content assertions. Asset-scoped file routes validate that `{assetId}` already points at the requested file reference.
 
-The current bridge and compatibility REST slices support selected project loading, scene list/read/save, minimal JSON asset metadata, scoped settings, bridge capabilities, close, and dirty-state messages. They are bounded Universo-hosted authoring surfaces, not PlayCanvas Cloud API parity, and they do not provide ShareDB operation persistence or collaborative editing.
+The current bridge and compatibility slices support selected project loading, scene list/read/save, minimal JSON asset metadata, scoped settings, bridge capabilities, close, dirty-state messages, and single-user ShareDB-compatible snapshot persistence for the upstream Editor UI. They are bounded Universo-hosted authoring surfaces, not PlayCanvas Cloud API parity, and they do not provide durable ShareDB operation-log history or collaborative editing.
 
 ## Snapshots and Copy
 

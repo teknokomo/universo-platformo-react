@@ -135,6 +135,10 @@ export default defineConfig(async ({ mode }) => {
                 {
                     find: /^@universo-react\/utils\/optimistic-crud$/,
                     replacement: resolve(__dirname, '../universo-react-utils/src/optimisticCrud.ts')
+                },
+                {
+                    find: /^@universo-react\/metahubs-frontend\/i18n$/,
+                    replacement: resolve(__dirname, '../universo-react-metahubs-frontend/dist/i18n/index.mjs')
                 }
             ]
         },

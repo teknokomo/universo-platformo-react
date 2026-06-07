@@ -102,6 +102,10 @@ catalog:
 
     # Metahub package wrappers
     playcanvas: 2.18.1
+    sharedb: 3.3.2
+    ws: 8.20.1
+    '@types/sharedb': 3.3.13
+    '@types/ws': ^8.18.1
     '@colyseus/core': 0.17.43
     '@colyseus/sdk': 0.17.42
     '@colyseus/schema': 4.0.25

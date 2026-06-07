@@ -104,7 +104,7 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
             }
         }
         const query = jest.fn(async (sql: string) => {
-            if (sql.includes('UPDATE')) {
+            if (sql.includes('INSERT INTO')) {
                 return [{ id: '018f8a78-7b8f-7c1d-a111-222233334446' }]
             }
             if (sql.includes('SELECT')) {
@@ -131,8 +131,12 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
             response
         })
         expect(query).toHaveBeenCalledWith(
-            expect.stringContaining("jsonb_set(value, '{response}'"),
+            expect.stringContaining('ON CONFLICT (key) DO UPDATE'),
             expect.arrayContaining([JSON.stringify(response)])
+        )
+        expect(query).toHaveBeenCalledWith(
+            expect.stringContaining('jsonb_set("metahubs"."_app_settings".value, \'{response}\''),
+            expect.arrayContaining([expect.stringContaining('"status":"completed"')])
         )
     })
 

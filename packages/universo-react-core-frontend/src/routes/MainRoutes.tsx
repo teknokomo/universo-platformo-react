@@ -65,6 +65,9 @@ const MetahubResources = Loadable(lazy(() => import('@universo-react/metahubs-fr
 const PlayCanvasEditorHostPage = Loadable(
     lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.PlayCanvasEditorHostPage })))
 )
+const PlayCanvasEditorFullscreenPage = Loadable(
+    lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.PlayCanvasEditorFullscreenPage })))
+)
 const MetahubLayoutDetails = Loadable(
     lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails })))
 )
@@ -190,6 +193,18 @@ const MinimalRoutes = {
         </ErrorBoundary>
     ),
     children: [
+        {
+            path: 'metahub/:metahubId/resources/packages/:packageSlug/editor/fullscreen',
+            element: (
+                <AuthGuard>
+                    <RegisteredUserGuard>
+                        <MetahubMigrationGuard>
+                            <PlayCanvasEditorFullscreenPage />
+                        </MetahubMigrationGuard>
+                    </RegisteredUserGuard>
+                </AuthGuard>
+            )
+        },
         createAppRuntimeRoute({
             component: GuardedApplicationRuntime,
             guard: AuthGuard

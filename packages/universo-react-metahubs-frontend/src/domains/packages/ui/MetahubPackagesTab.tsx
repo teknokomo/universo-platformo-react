@@ -168,6 +168,12 @@ function PlayCanvasProjectsPanel({
     const invalidateProjects = async () => {
         await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.playcanvasProjects(metahubId) })
     }
+    const mergeProjectIntoCache = (project: PlayCanvasProjectSummary) => {
+        queryClient.setQueryData<PlayCanvasProjectSummary[]>(metahubsQueryKeys.playcanvasProjects(metahubId), (current = []) => {
+            const withoutProject = current.filter((item) => item.id !== project.id)
+            return [project, ...withoutProject]
+        })
+    }
     const displayConfig = row.config.kind === 'display' ? row.config : null
 
     const createMutation = useMutation({
@@ -179,10 +185,12 @@ function PlayCanvasProjectsPanel({
             }),
         onSuccess: async (project) => {
             enqueueSnackbar(t('packages.projects.notifications.created', 'PlayCanvas project created'), { variant: 'success' })
+            mergeProjectIntoCache(project)
             setCreateOpen(false)
             setNameDraft('')
             setCreateSubmitted(false)
             await invalidateProjects()
+            mergeProjectIntoCache(project)
             if (row.attachmentId && displayConfig && !displayConfig.playcanvasProject?.defaultProjectId) {
                 await packagesApi.updateConfig(metahubId, row.attachmentId, {
                     config: {
@@ -722,13 +730,10 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         if (row.authoringSurface.kind !== 'playcanvasEditor' || !metahubId) {
             return
         }
-        const displayConfig = resolveDisplayConfig(row.config)
-        const view = displayConfig?.display.mode === 'openSeparately' ? '?view=sandboxed-frame' : ''
-        window.open(
-            `/metahub/${metahubId}/resources/packages/${row.authoringSurface.packageSlug}/editor${view}`,
-            '_blank',
-            'noopener,noreferrer'
-        )
+        const displayMode = resolveDisplayConfig(row.config)?.display.mode
+        const editorPath = `/metahub/${metahubId}/resources/packages/${row.authoringSurface.packageSlug}/editor`
+        const targetPath = displayMode === 'openSeparately' ? `${editorPath}/fullscreen` : editorPath
+        window.open(targetPath, '_blank', 'noopener,noreferrer')
     }
 
     const getRowActionLabel = (key: string, fallback: string, row: PackageTableRow) => t(key, fallback, { packageName: row.name })

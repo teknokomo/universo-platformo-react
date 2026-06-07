@@ -86,7 +86,7 @@ describe('PackageSeeder', () => {
                 packageName: '@universo-react/playcanvas-editor-frontend',
                 manifestFileName: 'universo-artifact-manifest.json',
                 outputRoot: 'dist/editor',
-                smokeMode: 'universo-hosted'
+                smokeMode: 'universo-full-upstream-ui'
             }
         })
     })

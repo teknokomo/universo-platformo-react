@@ -123,6 +123,12 @@ catalogs:
     '@types/react-dom':
       specifier: ^18.3.5
       version: 18.3.7
+    '@types/sharedb':
+      specifier: 3.3.13
+      version: 3.3.13
+    '@types/ws':
+      specifier: ^8.18.1
+      version: 8.18.1
     '@uiw/codemirror-theme-sublime':
       specifier: ^4.23.0
       version: 4.25.7
@@ -222,6 +228,9 @@ catalogs:
     redux:
       specifier: ^5.0.1
       version: 5.0.1
+    sharedb:
+      specifier: 3.3.2
+      version: 3.3.2
     tsdown:
       specifier: 0.15.7
       version: 0.15.7
@@ -240,6 +249,9 @@ catalogs:
     vitest:
       specifier: ^2.1.8
       version: 2.1.9
+    ws:
+      specifier: 8.20.1
+      version: 8.20.1
 
 overrides:
   rolldown: 1.0.0-beta.43
@@ -1240,6 +1252,9 @@ importers:
       '@universo-react/modules-engine':
         specifier: workspace:*
         version: link:../universo-react-modules-engine
+      '@universo-react/playcanvas-editor-backend':
+        specifier: workspace:*
+        version: link:../universo-react-playcanvas-editor-backend
       '@universo-react/profile-backend':
         specifier: workspace:*
         version: link:../universo-react-profile-backend
@@ -2150,12 +2165,21 @@ importers:
 
   packages/universo-react-playcanvas-editor-backend:
     dependencies:
+      '@teamwork/websocket-json-stream':
+        specifier: 2.0.0
+        version: 2.0.0
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
       express:
         specifier: ^4.18.2
         version: 4.22.1
+      sharedb:
+        specifier: 'catalog:'
+        version: 3.3.2
+      ws:
+        specifier: 'catalog:'
+        version: 8.20.1
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -2166,6 +2190,12 @@ importers:
       '@types/node':
         specifier: 22.19.18
         version: 22.19.18
+      '@types/sharedb':
+        specifier: 'catalog:'
+        version: 3.3.13
+      '@types/ws':
+        specifier: 'catalog:'
+        version: 8.18.1
       eslint:
         specifier: 'catalog:'
         version: 8.57.1
@@ -2237,7 +2267,7 @@ importers:
         specifier: 22.19.18
         version: 22.19.18
       '@types/sharedb':
-        specifier: 3.3.13
+        specifier: 'catalog:'
         version: 3.3.13
       autoprefixer:
         specifier: 10.4.27
@@ -2294,7 +2324,7 @@ importers:
         specifier: 14.2.6
         version: 14.2.6
       sharedb:
-        specifier: 3.3.2
+        specifier: 'catalog:'
         version: 3.3.2
       typescript:
         specifier: 'catalog:'
@@ -6338,6 +6368,9 @@ packages:
     resolution: {integrity: sha512-0Lu6y5t+tvlTJMTO7oh5NSpJfpg/5D41LlThfepTixPYkJ0sE2Jj0m0f6yYqujBwIXlId87e234+MxG3D3g7kg==}
     peerDependencies:
       react: 18.3.1
+
+  '@teamwork/websocket-json-stream@2.0.0':
+    resolution: {integrity: sha512-SCEM44hjNyxYwrtyJrjlHmeTd9RJlZr04BAMbHSBhdW0M2IXv0SC+4XeuRXPiY7U7pJ0W8TSUwVP/28MV/ds0w==}
 
   '@testing-library/dom@9.3.4':
     resolution: {integrity: sha512-FlS4ZWlp97iiNWig0Muq8p+3rVDjRiYE+YKGbAqXOu9nwJFFOdL00kFpz42M+4huzYi86vAK1sOOfyOG45muIQ==}
@@ -17559,6 +17592,8 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.90.20
       react: 18.3.1
+
+  '@teamwork/websocket-json-stream@2.0.0': {}
 
   '@testing-library/dom@9.3.4':
     dependencies:

@@ -183,18 +183,44 @@ export class PlayCanvasEditorBridgeSessionService {
     ): Promise<boolean> {
         const table = qSchemaTable('metahubs', '_app_settings')
         const rows = await exec.query<{ id: string }>(
-            `UPDATE ${table}
-                SET value = jsonb_set(jsonb_set(value, '{response}', $6::jsonb, true), '{status}', '"completed"'::jsonb, true),
+            `INSERT INTO ${table}
+                (id, key, value, _upl_created_by, _upl_updated_by)
+             VALUES (
+                $1,
+                $2,
+                $3::jsonb,
+                NULL,
+                NULL
+             )
+             ON CONFLICT (key) DO UPDATE
+                SET value = jsonb_set(jsonb_set(${table}.value, '{response}', $8::jsonb, true), '{status}', '"completed"'::jsonb, true),
                     _upl_updated_by = NULL,
                     _upl_updated_at = NOW(),
-                    _upl_version = _upl_version + 1
-              WHERE key = $1
-                AND value->>'sessionId' = $2
-                AND value->>'requestId' = $3
-                AND value->>'commandType' = $4
-                AND value->>'fingerprint' = $5
+                    _upl_version = ${table}._upl_version + 1
+              WHERE ${table}.value->>'sessionId' = $4
+                AND ${table}.value->>'requestId' = $5
+                AND ${table}.value->>'commandType' = $6
+                AND ${table}.value->>'fingerprint' = $7
               RETURNING id`,
-            [buildReplayKey(input), input.sessionId, input.requestId, input.commandType, input.fingerprint, JSON.stringify(input.response)]
+            [
+                generateUuidV7(),
+                buildReplayKey(input),
+                JSON.stringify({
+                    sessionId: input.sessionId,
+                    requestId: input.requestId,
+                    commandType: input.commandType,
+                    fingerprint: input.fingerprint,
+                    expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
+                    userIdHash: hashAuditUserId(input.userId),
+                    status: 'completed',
+                    response: input.response
+                } satisfies BridgeReplayValue),
+                input.sessionId,
+                input.requestId,
+                input.commandType,
+                input.fingerprint,
+                JSON.stringify(input.response)
+            ]
         )
         return rows.length > 0
     }

@@ -39,7 +39,7 @@
         "@sentry/core": "^10.48.0",
         "@swc/core": "1.15.18",
         "@types/node": "catalog:",
-        "@types/sharedb": "3.3.13",
+        "@types/sharedb": "catalog:",
         "autoprefixer": "10.4.27",
         "dexie": "4.3.0",
         "esbuild": "0.27.4",
@@ -58,7 +58,7 @@
         "rollup-plugin-polyfill-node": "0.13.0",
         "sass-embedded": "1.98.0",
         "serve": "14.2.6",
-        "sharedb": "3.3.2",
+        "sharedb": "catalog:",
         "typescript": "catalog:",
         "vite": "7.3.2",
         "vitest": "catalog:"

@@ -239,7 +239,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {
@@ -370,7 +370,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {
@@ -538,7 +538,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {
@@ -751,7 +751,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {
@@ -884,7 +884,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {
@@ -1200,7 +1200,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {
@@ -1320,7 +1320,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {
@@ -1454,7 +1454,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                                     packageName: editorPackageName,
                                     manifestFileName: 'universo-artifact-manifest.json',
                                     outputRoot: 'dist/editor',
-                                    smokeMode: 'universo-hosted'
+                                    smokeMode: 'universo-full-upstream-ui'
                                 }
                             },
                             config: {

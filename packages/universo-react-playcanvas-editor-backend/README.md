@@ -13,11 +13,17 @@ Current scope:
 -   settings document read/write loop backed by metahub project settings;
 -   empty/limited assets shell;
 -   explicit typed no-op responses for cloud-only PlayCanvas surfaces.
+-   `universo-full-upstream-ui` config for the upstream Editor shell;
+-   same-origin WebSocket upgrade endpoints for realtime, messenger, and relay;
+-   ShareDB-compatible single-user snapshot persistence through an injected document port.
 
-Out of scope for this first package slice:
+The WebSocket runtime authenticates with the same short-lived signed compatibility token. Realtime and messenger authenticate with the first protocol message; relay also authenticates with a first `authenticate` message and does not put bearer tokens in the WebSocket URL. The metahub adapter mounts this runtime as a trusted Tier 2 service after signed-token validation and `manageMetahub` access checks, then persists through the metahub PlayCanvas project service.
+
+The current ShareDB boundary is snapshot-port persistence for the first full-boot slice. It seeds upstream-shaped `scenes`, `assets`, and `settings` documents, validates scene/settings snapshots before storage, and carries checksum/revision guards into storage writes. It is not yet a durable ShareDB op-store or a multi-user collaboration service.
+
+Out of scope for this package slice:
 
 -   PlayCanvas Cloud parity;
--   ShareDB realtime persistence;
--   messenger WebSocket runtime;
 -   multi-user collaboration;
+-   durable ShareDB operation history;
 -   broad binary asset pipeline.

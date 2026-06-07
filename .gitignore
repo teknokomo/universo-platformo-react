@@ -42,6 +42,7 @@ playwright-report
 test-results
 tools/testing/e2e/.auth
 tools/testing/e2e/.artifacts
+storage/
 storage-e2e/
 
 # misc

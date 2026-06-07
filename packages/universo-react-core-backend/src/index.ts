@@ -20,7 +20,13 @@ import {
     type VerifiedSupabaseJwtClaims
 } from '@universo-react/auth-backend'
 import { createGlobalAccessService } from '@universo-react/admin-backend'
-import { initializeRateLimiters as initializeMetahubsRateLimiters, seedTemplates } from '@universo-react/metahubs-backend'
+import {
+    attachMetahubPlayCanvasEditorFullBootRuntime,
+    initializeRateLimiters as initializeMetahubsRateLimiters,
+    playCanvasEditorCompatibilityTokenService,
+    seedTemplates
+} from '@universo-react/metahubs-backend'
+import { isPlayCanvasEditorFullBootUpgradeRequest } from '@universo-react/playcanvas-editor-backend'
 import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo-react/database'
 import {
     attachApplicationsRealtimeRuntime,
@@ -56,7 +62,7 @@ const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
     return 'lax'
 }
 
-const PLAYCANVAS_EDITOR_HOST_ROUTE_PATTERN = /^\/metahub\/[^/]+\/resources\/packages\/[^/]+\/editor(?:\/)?$/
+const PLAYCANVAS_EDITOR_HOST_ROUTE_PATTERN = /^\/metahub\/[^/]+\/resources\/packages\/[^/]+\/editor(?:\/fullscreen)?(?:\/)?$/
 
 const parseCspFrameOrigin = (value: string): string | null => {
     const normalized = value.trim()
@@ -138,7 +144,7 @@ export const buildPlayCanvasEditorHostCsp = (frameAncestors: string, requestOrig
     return directives.join('; ')
 }
 
-const isPlayCanvasEditorHostRoute = (req: Request): boolean => {
+export const isPlayCanvasEditorHostRoute = (req: Request): boolean => {
     const routePath = req.path || req.url.split('?')[0] || ''
     return PLAYCANVAS_EDITOR_HOST_ROUTE_PATTERN.test(routePath)
 }
@@ -527,7 +533,14 @@ export async function start(): Promise<void> {
     const server = http.createServer(serverApp.app)
 
     await serverApp.initDatabase()
-    const realtimeRuntime = await attachApplicationsRealtimeRuntime(server)
+    const realtimeRuntime = await attachApplicationsRealtimeRuntime(server, {
+        shouldHandleUpgrade: (request) => !isPlayCanvasEditorFullBootUpgradeRequest(request)
+    })
+    attachMetahubPlayCanvasEditorFullBootRuntime({
+        server,
+        getTrustedDbExecutor: getPoolExecutor,
+        tokenService: playCanvasEditorCompatibilityTokenService
+    })
     serverApp.realtimeMatchmakeMiddleware = realtimeRuntime.matchmakeMiddleware
     await serverApp.config()
 

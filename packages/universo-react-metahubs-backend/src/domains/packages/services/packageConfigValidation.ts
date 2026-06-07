@@ -3,7 +3,7 @@ import type { PackageAttachmentConfig, PackageAuthoringSurfaceDescriptor, Packag
 import { MetahubValidationError } from '../../shared/domainErrors'
 
 const displayModes = ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'] as const satisfies readonly PackageDisplayMode[]
-const playcanvasEditorArtifactModes = ['artifact-only', 'universo-hosted'] as const
+const playcanvasEditorArtifactModes = ['artifact-only', 'universo-hosted', 'universo-full-upstream-ui'] as const
 
 const packageAttachmentEmptyConfigSchema = z
     .object({

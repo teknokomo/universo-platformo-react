@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'crypto'
-import type { Server as HttpServer } from 'http'
+import type { IncomingMessage, Server as HttpServer } from 'http'
 import { createRequire } from 'module'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import stableStringify from 'json-stable-stringify'
@@ -1658,7 +1658,10 @@ export const __applicationsRealtimeRuntimeTestUtils = {
     }
 }
 
-export const attachApplicationsRealtimeRuntime = async (server: HttpServer): Promise<ApplicationsRealtimeRuntimeHandle> => {
+export const attachApplicationsRealtimeRuntime = async (
+    server: HttpServer,
+    options: { shouldHandleUpgrade?: (request: IncomingMessage) => boolean } = {}
+): Promise<ApplicationsRealtimeRuntimeHandle> => {
     const { WebSocketTransport } = requireModule('@colyseus/ws-transport') as {
         WebSocketTransport: new (options: { server: HttpServer }) => Transport
     }
@@ -1668,8 +1671,23 @@ export const attachApplicationsRealtimeRuntime = async (server: HttpServer): Pro
         defineTypes: (type: unknown, fields: Record<string, unknown>) => void
     }
     const roomName = 'fixed_tick_scene'
+    const filteredServer = options.shouldHandleUpgrade ? (Object.create(server) as HttpServer) : server
+    if (options.shouldHandleUpgrade) {
+        filteredServer.on = ((event: string, listener: (...args: unknown[]) => void) => {
+            if (event !== 'upgrade') {
+                server.on(event, listener)
+                return filteredServer
+            }
+            server.on('upgrade', (request, socket, head) => {
+                if (options.shouldHandleUpgrade?.(request) === false) return
+                listener(request, socket, head)
+            })
+            return filteredServer
+        }) as HttpServer['on']
+    }
+
     const gameServer = new Server({
-        transport: new WebSocketTransport({ server }),
+        transport: new WebSocketTransport({ server: filteredServer }),
         gracefullyShutdown: false,
         greet: false
     })

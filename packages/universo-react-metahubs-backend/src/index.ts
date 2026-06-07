@@ -11,6 +11,8 @@ export { createMetahubMigrationsRoutes } from './domains/metahubs/routes/metahub
 export { createApplicationMigrationsRoutes } from './domains/applications/routes/applicationMigrationsRoutes'
 export { loadPublishedPublicationRuntimeSource } from './domains/publications/services/loadPublishedPublicationRuntimeSource'
 export { initializeRateLimiters, getRateLimiters, createMetahubsServiceRoutes, createPublicMetahubsServiceRoutes } from './domains/router'
+export { attachMetahubPlayCanvasEditorFullBootRuntime } from './domains/playcanvas-projects/realtime/playCanvasEditorFullBootRuntime'
+export { playCanvasEditorCompatibilityTokenService } from './domains/playcanvas-projects/services/playCanvasEditorCompatibilityTokenService'
 
 // Guard exports
 export { ensureMetahubAccess, ensureHubAccess, assertNotOwner } from './domains/shared/guards'

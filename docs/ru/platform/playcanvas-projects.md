@@ -39,7 +39,7 @@ Backend предоставляет endpoints модели хранения и п
 
 Все routes требуют права управления метахабом и возвращают no-store responses для изменяемого authoring state. Запись файлов ограничена небольшими JSON/JS/MJS payloads, строгим base64, MIME allow-list, project-local paths и optional SHA-256 content assertions. Asset-scoped file routes проверяют, что `{assetId}` уже ссылается на запрошенный file reference.
 
-Текущие bridge и compatibility REST slices поддерживают загрузку выбранного проекта, список/чтение/сохранение сцен, minimal JSON asset metadata, scoped settings, bridge capabilities, close и dirty-state messages. Это ограниченные Universo-hosted authoring surfaces, а не parity с PlayCanvas Cloud API, без ShareDB operation persistence и collaborative editing.
+Текущие bridge и compatibility slices поддерживают загрузку выбранного проекта, список/чтение/сохранение сцен, minimal JSON asset metadata, scoped settings, bridge capabilities, close, dirty-state messages и single-user ShareDB-compatible snapshot persistence для upstream Editor UI. Это ограниченные Universo-hosted authoring surfaces, а не parity с PlayCanvas Cloud API, без durable ShareDB operation-log history и collaborative editing.
 
 ## Снимки и копирование
 

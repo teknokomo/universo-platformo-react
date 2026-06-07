@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Alert, Box, Button, CircularProgress, Stack, Typography, useMediaQuery, useTheme } from '@mui/material'
+import { Alert, Box, Button, Chip, CircularProgress, Stack, Typography, useMediaQuery, useTheme, type AlertColor } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import { StandardDialog } from '@universo-react/template-mui/components/dialogs'
@@ -15,6 +15,8 @@ import type {
 import {
     PLAYCANVAS_EDITOR_BRIDGE_CAPABILITIES,
     PLAYCANVAS_EDITOR_BRIDGE_VERSION,
+    PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE,
+    PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
     playCanvasEditorBridgeCommandSchema,
     playCanvasEditorBridgeErrorSchema
 } from '@universo-react/types'
@@ -144,9 +146,12 @@ const createBridgeCommand = (
     }
 }
 
-export default function PlayCanvasEditorHostPage() {
+export interface PlayCanvasEditorHostPageProps {
+    fullScreen?: boolean
+}
+
+export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCanvasEditorHostPageProps) {
     const { metahubId = '', packageSlug = '' } = useParams()
-    const [searchParams] = useSearchParams()
     const { t, i18n } = useTranslation(['metahubs'])
     const queryClient = useQueryClient()
     const theme = useTheme()
@@ -155,7 +160,9 @@ export default function PlayCanvasEditorHostPage() {
     const iframeRef = useRef<HTMLIFrameElement | null>(null)
     const backLinkRef = useRef<HTMLAnchorElement | null>(null)
     const trustedFrameSourceRef = useRef<MessageEventSource | null>(null)
+    const bridgeSessionKeyRef = useRef<string | null>(null)
     const dirtyRef = useRef(false)
+    const pendingHostSaveRef = useRef(false)
     const pendingBootstrapRequestIdRef = useRef<string | null>(null)
     const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>('disabled')
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -180,7 +187,6 @@ export default function PlayCanvasEditorHostPage() {
     const displayConfig = host?.attachmentConfig.kind === 'display' ? host.attachmentConfig : null
     const mode = displayConfig?.display.mode ?? 'disabled'
     const defaultProjectId = displayConfig?.playcanvasProject?.defaultProjectId ?? null
-    const forceSandboxedFrame = searchParams.get('view') === 'sandboxed-frame'
     const frameUrl = useMemo(() => {
         if (mode === 'developmentUrl') {
             return displayConfig?.display.developmentUrl ?? null
@@ -196,6 +202,14 @@ export default function PlayCanvasEditorHostPage() {
         if (!frameUrl) return null
         return new URL(frameUrl, window.location.href).origin
     }, [frameUrl])
+    const frameBaseUrl = useMemo(() => {
+        if (!frameUrl) return null
+        const url = new URL(frameUrl, window.location.href)
+        url.search = ''
+        url.hash = ''
+        url.pathname = url.pathname.replace(/[^/]*$/, '')
+        return url.href
+    }, [frameUrl])
     const [frameStatus, setFrameStatus] = useState<FrameStatus>('checking')
     const bridgeDescriptor = host?.playcanvasEditor?.bridge ?? null
     const bridgeEnabled = Boolean(bridgeDescriptor && mode !== 'developmentUrl')
@@ -205,15 +219,32 @@ export default function PlayCanvasEditorHostPage() {
             ...metahubsQueryKeys.packagesAttached(metahubId),
             'playcanvas-editor-compatibility-config',
             selectedProjectId,
-            frameOrigin
+            frameOrigin,
+            frameBaseUrl
         ],
-        queryFn: () => packagesApi.getPlayCanvasEditorCompatibilityConfig(metahubId, selectedProjectId ?? '', frameOrigin),
-        enabled: Boolean(bridgeEnabled && selectedProjectId && frameOrigin)
+        queryFn: () =>
+            packagesApi.getPlayCanvasEditorCompatibilityConfig(
+                metahubId,
+                selectedProjectId ?? '',
+                frameOrigin,
+                frameBaseUrl,
+                PLAYCANVAS_EDITOR_FULL_BOOT_MODE
+            ),
+        enabled: Boolean(bridgeEnabled && selectedProjectId && frameOrigin && frameBaseUrl)
     })
+    const restCompatibilityConfig =
+        compatibilityConfigQuery.data?.mode === PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE ? compatibilityConfigQuery.data : null
+    const fullBootCompatibilityConfig =
+        compatibilityConfigQuery.data?.mode === PLAYCANVAS_EDITOR_FULL_BOOT_MODE ? compatibilityConfigQuery.data : null
+    const fullBootConfigError =
+        bridgeEnabled &&
+        selectedProjectId &&
+        mode !== 'developmentUrl' &&
+        (compatibilityConfigQuery.isError || Boolean(compatibilityConfigQuery.data && !fullBootCompatibilityConfig))
     const compatibilityCsrfTokenQuery = useQuery({
         queryKey: [...metahubsQueryKeys.packagesAttached(metahubId), 'playcanvas-editor-compatibility-csrf', selectedProjectId],
         queryFn: () => packagesApi.getCsrfToken(),
-        enabled: Boolean(bridgeEnabled && selectedProjectId && compatibilityConfigQuery.data?.csrf)
+        enabled: Boolean(bridgeEnabled && selectedProjectId && restCompatibilityConfig?.csrf)
     })
     const bootstrapDescriptor = useMemo(() => {
         if (!host?.playcanvasEditor || !bridgeDescriptor) {
@@ -222,10 +253,13 @@ export default function PlayCanvasEditorHostPage() {
         if (bridgeEnabled && selectedProjectId && !compatibilityConfigQuery.data && !compatibilityConfigQuery.isError) {
             return null
         }
+        if (fullBootConfigError) {
+            return null
+        }
         if (
             bridgeEnabled &&
             selectedProjectId &&
-            compatibilityConfigQuery.data?.csrf &&
+            restCompatibilityConfig?.csrf &&
             !compatibilityCsrfTokenQuery.data &&
             !compatibilityCsrfTokenQuery.isError
         ) {
@@ -237,9 +271,9 @@ export default function PlayCanvasEditorHostPage() {
             packageSlug: host.packageSlug,
             compatibilityConfig: compatibilityConfigQuery.data ?? null,
             compatibilityCsrfToken:
-                compatibilityConfigQuery.data?.csrf && compatibilityCsrfTokenQuery.data
+                restCompatibilityConfig?.csrf && compatibilityCsrfTokenQuery.data
                     ? {
-                          headerName: compatibilityConfigQuery.data.csrf.headerName,
+                          headerName: restCompatibilityConfig.csrf.headerName,
                           token: compatibilityCsrfTokenQuery.data
                       }
                     : null,
@@ -261,9 +295,11 @@ export default function PlayCanvasEditorHostPage() {
         compatibilityConfigQuery.isError,
         compatibilityCsrfTokenQuery.data,
         compatibilityCsrfTokenQuery.isError,
+        fullBootConfigError,
         host?.metahubId,
         host?.packageSlug,
         host?.playcanvasEditor,
+        restCompatibilityConfig,
         selectedProjectId
     ])
     const postBootstrapInit = useCallback(
@@ -375,12 +411,21 @@ export default function PlayCanvasEditorHostPage() {
 
     useEffect(() => {
         if (!bridgeEnabled || !bridgeDescriptor) {
+            bridgeSessionKeyRef.current = null
             setBridgeStatus('disabled')
             setSaveStatus('idle')
             return undefined
         }
-        setBridgeStatus('waiting')
-        trustedFrameSourceRef.current = null
+        const bridgeSessionKey = `${bridgeDescriptor.sessionId}:${bridgeDescriptor.nonce}`
+        if (bridgeSessionKeyRef.current !== bridgeSessionKey) {
+            bridgeSessionKeyRef.current = bridgeSessionKey
+            trustedFrameSourceRef.current = null
+            dirtyRef.current = false
+            pendingHostSaveRef.current = false
+            setDirty(false)
+            setBridgeStatus('waiting')
+            setSaveStatus('idle')
+        }
         const expectedFrameOrigin = frameUrl ? new URL(frameUrl, window.location.href).origin : null
         const listener = (event: MessageEvent) => {
             if (!iframeRef.current?.contentWindow) {
@@ -439,8 +484,13 @@ export default function PlayCanvasEditorHostPage() {
                 const wasDirty = dirtyRef.current
                 dirtyRef.current = data.dirty
                 setDirty(data.dirty)
+                if (data.dirty) {
+                    setSaveStatus((current) => (current === 'conflict' ? 'idle' : current))
+                }
                 if (!data.dirty) {
-                    setSaveStatus((current) => (current === 'saving' || wasDirty ? 'saved' : current))
+                    const pendingHostSave = pendingHostSaveRef.current
+                    pendingHostSaveRef.current = false
+                    setSaveStatus((current) => (current === 'saving' || wasDirty || pendingHostSave ? 'saved' : current))
                 }
             }
             if (data.type === 'bridge.saveError') {
@@ -474,6 +524,7 @@ export default function PlayCanvasEditorHostPage() {
                 })
                 .then((response) => {
                     if (command.type === 'scene.save') {
+                        pendingHostSaveRef.current = false
                         setSaveStatus('saved')
                         setDirty(false)
                         void Promise.all([
@@ -500,6 +551,7 @@ export default function PlayCanvasEditorHostPage() {
                         status: 500
                     }
                     if (command.type === 'scene.save') {
+                        pendingHostSaveRef.current = false
                         if (response.code === 'saveConflict') {
                             setSaveStatus('conflict')
                             setSaveConflictDialogOpen(true)
@@ -538,18 +590,7 @@ export default function PlayCanvasEditorHostPage() {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload)
     }, [dirty])
 
-    const sandboxedSeparateHostUrl =
-        metahubId && packageSlug
-            ? `/metahub/${encodeURIComponent(metahubId)}/resources/packages/${encodeURIComponent(packageSlug)}/editor?view=sandboxed-frame`
-            : '#'
     const packagesUrl = metahubId ? `/metahub/${encodeURIComponent(metahubId)}/resources` : '#'
-    const shouldRedirectToSandboxedSeparateHost = mode === 'openSeparately' && !forceSandboxedFrame
-
-    useEffect(() => {
-        if (shouldRedirectToSandboxedSeparateHost && sandboxedSeparateHostUrl !== '#') {
-            window.location.replace(sandboxedSeparateHostUrl)
-        }
-    }, [sandboxedSeparateHostUrl, shouldRedirectToSandboxedSeparateHost])
 
     const handleBackClick = useCallback(
         (event: MouseEvent<HTMLAnchorElement>) => {
@@ -582,6 +623,7 @@ export default function PlayCanvasEditorHostPage() {
             return
         }
         const targetOrigin = new URL(frameUrl, window.location.href).origin
+        pendingHostSaveRef.current = true
         setSaveStatus('saving')
         setSaveConflictDialogOpen(false)
         iframeRef.current.contentWindow.postMessage(
@@ -595,7 +637,8 @@ export default function PlayCanvasEditorHostPage() {
             targetOrigin
         )
     }, [bridgeDescriptor, frameUrl])
-    const canRequestSave = bridgeEnabled && bridgeStatus === 'ready' && frameStatus === 'loaded' && saveStatus !== 'saving'
+    const bridgeReadyForLoadedFrame = bridgeStatus === 'ready' && frameStatus === 'loaded'
+    const canRequestSave = bridgeEnabled && bridgeReadyForLoadedFrame && saveStatus !== 'saving'
 
     useEffect(() => {
         const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -611,48 +654,245 @@ export default function PlayCanvasEditorHostPage() {
         window.addEventListener('keydown', handleSaveShortcut)
         return () => window.removeEventListener('keydown', handleSaveShortcut)
     }, [canRequestSave, handleHostSave])
-    const renderHeader = () => (
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                <Button
-                    component='a'
-                    href={packagesUrl}
-                    ref={backLinkRef}
-                    variant='outlined'
-                    startIcon={<ArrowBackRoundedIcon />}
-                    onClick={handleBackClick}
+    const renderSaveState = () => {
+        if (saveStatus === 'saving') return t('packages.editorHost.saveSaving', 'Saving scene...')
+        if (saveStatus === 'saved') return t('packages.editorHost.saveSaved', 'Scene saved.')
+        if (saveStatus === 'conflict') {
+            return t('packages.editorHost.saveConflict', 'The scene changed elsewhere. Reload the latest scene before saving again.')
+        }
+        if (saveStatus === 'error') return t('packages.editorHost.saveFailed', 'Scene save failed.')
+        if (dirty) return t('packages.editorHost.unsavedChangesCompact', 'Unsaved changes')
+        if (bridgeEnabled && !bridgeReadyForLoadedFrame) return t('packages.editorHost.bridgeWaiting', 'Preparing editor...')
+        return t('packages.editorHost.ready', 'Ready')
+    }
+    const hostStatusNotice = useMemo<{
+        severity: AlertColor
+        message: string
+        testId?: string
+    } | null>(() => {
+        if (frameStatus === 'error') {
+            return {
+                severity: 'error',
+                message: t('packages.editorHost.frameLoadError', 'The editor frame could not be loaded.')
+            }
+        }
+        if (saveStatus === 'conflict') {
+            return {
+                severity: 'error',
+                message: t('packages.editorHost.saveConflict', 'The scene changed elsewhere. Reload the latest scene before saving again.'),
+                testId: 'playcanvas-editor-save-conflict-alert'
+            }
+        }
+        if (saveStatus === 'error') {
+            return {
+                severity: 'error',
+                message: t('packages.editorHost.saveFailed', 'Scene save failed.')
+            }
+        }
+        if (isCompactEditorViewport && mode !== 'developmentUrl') {
+            return {
+                severity: 'warning',
+                message: t(
+                    'packages.editorHost.mobileUnsupported',
+                    'PlayCanvas Editor is available on larger screens. Open it on a desktop or tablet to edit this project.'
+                )
+            }
+        }
+        if (fullScreen) {
+            return null
+        }
+        if (bridgeEnabled) {
+            return {
+                severity: bridgeReadyForLoadedFrame ? 'success' : bridgeStatus === 'error' ? 'error' : 'info',
+                message: bridgeReadyForLoadedFrame
+                    ? t('packages.editorHost.bridgeReady', 'Editor bridge is ready.')
+                    : bridgeStatus === 'error'
+                    ? t('packages.editorHost.bridgeError', 'Editor bridge failed.')
+                    : t('packages.editorHost.bridgeWaiting', 'Waiting for editor bridge...')
+            }
+        }
+        if (displayConfig?.display.showArtifactOnlyNotice) {
+            return {
+                severity: frameStatus === 'loaded' && mode !== 'developmentUrl' ? 'success' : 'info',
+                message:
+                    frameStatus === 'loaded'
+                        ? mode === 'developmentUrl'
+                            ? t('packages.editorHost.developmentNotice', 'Development URL mode is active.')
+                            : t('packages.editorHost.artifactReady', 'Editor artifact is ready.')
+                        : t('packages.editorHost.frameLoading', 'Loading editor frame...')
+            }
+        }
+        return null
+    }, [
+        bridgeEnabled,
+        bridgeReadyForLoadedFrame,
+        bridgeStatus,
+        displayConfig?.display.showArtifactOnlyNotice,
+        frameStatus,
+        fullScreen,
+        isCompactEditorViewport,
+        mode,
+        saveStatus,
+        t
+    ])
+
+    const renderHeader = () => {
+        const saveState = renderSaveState()
+        const saveDisabledReason = !canRequestSave
+            ? t('packages.editorHost.saveUnavailable', 'Save becomes available after the editor loads.')
+            : undefined
+        const statusColor =
+            saveStatus === 'saved'
+                ? 'success'
+                : saveStatus === 'conflict' || saveStatus === 'error'
+                ? 'error'
+                : dirty
+                ? 'warning'
+                : 'default'
+        const headerSx = fullScreen
+            ? {
+                  minHeight: 42,
+                  px: 1,
+                  py: 0.5,
+                  bgcolor: '#202020',
+                  color: '#f5f5f5',
+                  borderBottom: '1px solid #333'
+              }
+            : undefined
+
+        return (
+            <Stack
+                data-testid={fullScreen ? 'playcanvas-editor-fullscreen-chrome' : 'playcanvas-editor-host-chrome'}
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={fullScreen ? 1 : 1.5}
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                sx={{
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    boxSizing: 'border-box',
+                    ...headerSx
+                }}
+            >
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                    sx={{ minWidth: 0, flexShrink: 0 }}
                 >
-                    {t('packages.editorHost.backToPackages', 'Back to packages')}
-                </Button>
-                <Button
-                    variant='contained'
-                    startIcon={<SaveRoundedIcon />}
-                    disabled={!canRequestSave}
-                    onClick={handleHostSave}
-                    title={
-                        !canRequestSave
-                            ? t('packages.editorHost.saveUnavailable', 'Save is available after the editor bridge is ready.')
-                            : undefined
-                    }
+                    <Button
+                        component='a'
+                        href={packagesUrl}
+                        ref={backLinkRef}
+                        variant={fullScreen ? 'text' : 'outlined'}
+                        size={fullScreen ? 'small' : 'medium'}
+                        color={fullScreen ? 'inherit' : 'primary'}
+                        startIcon={<ArrowBackRoundedIcon />}
+                        onClick={handleBackClick}
+                    >
+                        {t('packages.editorHost.backToPackages', 'Back to packages')}
+                    </Button>
+                    <Button
+                        variant={fullScreen ? 'outlined' : 'contained'}
+                        size={fullScreen ? 'small' : 'medium'}
+                        color={fullScreen ? 'inherit' : 'primary'}
+                        startIcon={<SaveRoundedIcon />}
+                        disabled={!canRequestSave}
+                        onClick={handleHostSave}
+                        aria-describedby={!canRequestSave ? 'playcanvas-editor-save-disabled-reason' : undefined}
+                    >
+                        {t('packages.editorHost.save', 'Save')}
+                    </Button>
+                </Stack>
+                <Typography
+                    variant={fullScreen ? 'body2' : 'h4'}
+                    sx={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflowWrap: 'anywhere',
+                        fontWeight: fullScreen ? 600 : undefined,
+                        color: fullScreen ? 'inherit' : undefined
+                    }}
                 >
-                    {t('packages.editorHost.save', 'Save')}
-                </Button>
+                    {displayName}
+                </Typography>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    alignItems='center'
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    sx={{ minWidth: 0, maxWidth: '100%', flexShrink: 1 }}
+                >
+                    <Chip
+                        size='small'
+                        color={statusColor}
+                        variant={fullScreen && statusColor === 'default' ? 'outlined' : 'filled'}
+                        label={saveState}
+                        sx={
+                            fullScreen
+                                ? {
+                                      color: statusColor === 'default' ? '#d8d8d8' : undefined,
+                                      borderColor: statusColor === 'default' ? '#555' : undefined,
+                                      maxWidth: { xs: '100%', sm: 360 },
+                                      '& .MuiChip-label': {
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis'
+                                      }
+                                  }
+                                : {
+                                      maxWidth: { xs: '100%', sm: 420 },
+                                      '& .MuiChip-label': {
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis'
+                                      }
+                                  }
+                        }
+                    />
+                    {dirty ? (
+                        <Button
+                            size='small'
+                            color={fullScreen ? 'inherit' : 'primary'}
+                            variant='text'
+                            onClick={() => setDirtyDialogOpen(true)}
+                        >
+                            {t('packages.editorHost.reviewDirty', 'Review')}
+                        </Button>
+                    ) : null}
+                </Stack>
+                {saveDisabledReason ? (
+                    <Typography
+                        id='playcanvas-editor-save-disabled-reason'
+                        variant='caption'
+                        sx={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)' }}
+                    >
+                        {saveDisabledReason}
+                    </Typography>
+                ) : null}
             </Stack>
-            <Typography variant='h4' sx={{ overflowWrap: 'anywhere' }}>
-                {displayName}
-            </Typography>
-        </Stack>
-    )
+        )
+    }
     const renderState = (severity: 'info' | 'warning' | 'error' | 'success', message: string) => (
-        <Stack spacing={2} sx={{ p: 3, maxWidth: 760 }}>
-            {renderHeader()}
-            <Alert severity={severity}>{message}</Alert>
+        <Stack
+            spacing={2}
+            sx={{
+                p: fullScreen ? 2 : 3,
+                width: '100%',
+                maxWidth: fullScreen ? '100%' : 760,
+                minWidth: 0,
+                boxSizing: 'border-box',
+                minHeight: fullScreen ? '100dvh' : undefined
+            }}
+        >
+            {fullScreen ? null : renderHeader()}
+            <Alert severity={severity} sx={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>
+                {message}
+            </Alert>
         </Stack>
     )
 
     if (hostQuery.isLoading) {
         return (
-            <Stack direction='row' spacing={1} alignItems='center' sx={{ p: 3 }}>
+            <Stack direction='row' spacing={1} alignItems='center' sx={{ p: fullScreen ? 2 : 3 }}>
                 <CircularProgress size={18} />
                 <Typography variant='body2' color='text.secondary'>
                     {t('packages.editorHost.loading', 'Loading editor...')}
@@ -693,21 +933,14 @@ export default function PlayCanvasEditorHostPage() {
         return renderState('warning', t('packages.editorHost.misconfigured', 'Editor display settings are incomplete.'))
     }
 
+    if (fullBootConfigError) {
+        return renderState('error', t('packages.editorHost.fullBootConfigError', 'Failed to load PlayCanvas Editor runtime config.'))
+    }
+
     if (mode !== 'developmentUrl' && !bridgeDescriptor && !defaultProjectId) {
         return renderState(
             'warning',
             t('packages.editorHost.defaultProjectRequired', 'Select a default PlayCanvas project before opening the editor.')
-        )
-    }
-
-    if (shouldRedirectToSandboxedSeparateHost) {
-        return (
-            <Stack direction='row' spacing={1} alignItems='center' sx={{ p: 3 }}>
-                <CircularProgress size={18} />
-                <Typography variant='body2' color='text.secondary'>
-                    {t('packages.editorHost.loading', 'Loading editor...')}
-                </Typography>
-            </Stack>
         )
     }
 
@@ -722,81 +955,74 @@ export default function PlayCanvasEditorHostPage() {
     }
 
     return (
-        <Stack sx={{ minHeight: 'calc(100vh - 96px)', p: 2 }} spacing={1.5}>
-            {renderHeader()}
-            {frameStatus === 'error' ? (
-                <Alert severity='error'>{t('packages.editorHost.frameLoadError', 'The editor frame could not be loaded.')}</Alert>
-            ) : displayConfig?.display.showArtifactOnlyNotice ? (
-                <Alert severity={frameStatus === 'loaded' && mode !== 'developmentUrl' ? 'success' : 'info'}>
-                    {frameStatus === 'loaded'
-                        ? mode === 'developmentUrl'
-                            ? t('packages.editorHost.developmentNotice', 'Development URL mode is active.')
-                            : t('packages.editorHost.artifactReady', 'Editor artifact is ready.')
-                        : t('packages.editorHost.frameLoading', 'Loading editor frame...')}
-                </Alert>
-            ) : null}
-            {bridgeEnabled ? (
-                <Alert severity={bridgeStatus === 'ready' ? 'success' : bridgeStatus === 'error' ? 'error' : 'info'}>
-                    {bridgeStatus === 'ready'
-                        ? t('packages.editorHost.bridgeReady', 'Editor bridge is ready.')
-                        : bridgeStatus === 'error'
-                        ? t('packages.editorHost.bridgeError', 'Editor bridge failed.')
-                        : t('packages.editorHost.bridgeWaiting', 'Waiting for editor bridge...')}
-                </Alert>
-            ) : null}
-            {isCompactEditorViewport && mode !== 'developmentUrl' ? (
-                <Alert severity='warning'>
-                    {t(
-                        'packages.editorHost.mobileUnsupported',
-                        'PlayCanvas Editor is available on larger screens. Open it on a desktop or tablet to edit this project.'
-                    )}
-                </Alert>
-            ) : null}
-            {dirty ? (
-                <Alert
-                    severity='warning'
-                    action={<Button onClick={() => setDirtyDialogOpen(true)}>{t('packages.editorHost.reviewDirty', 'Review')}</Button>}
-                >
-                    {t('packages.editorHost.unsavedChanges', 'The editor reports unsaved changes.')}
-                </Alert>
-            ) : null}
-            {saveStatus !== 'idle' ? (
-                <Alert severity={saveStatus === 'saved' ? 'success' : saveStatus === 'saving' ? 'info' : 'error'}>
-                    {saveStatus === 'saved'
-                        ? t('packages.editorHost.saveSaved', 'Scene saved.')
-                        : saveStatus === 'saving'
-                        ? t('packages.editorHost.saveSaving', 'Saving scene...')
-                        : saveStatus === 'conflict'
-                        ? t('packages.editorHost.saveConflict', 'The scene changed elsewhere. Reload the latest scene before saving again.')
-                        : t('packages.editorHost.saveFailed', 'Scene save failed.')}
-                </Alert>
-            ) : null}
-            {frameStatus !== 'checking' && frameStatus !== 'error' ? (
+        <Stack
+            data-testid={fullScreen ? 'playcanvas-editor-fullscreen-host' : 'playcanvas-editor-host'}
+            sx={{
+                height: fullScreen ? '100dvh' : 'calc(100vh - 96px)',
+                minHeight: 0,
+                p: fullScreen ? 0 : 2,
+                overflow: 'hidden',
+                bgcolor: fullScreen ? 'background.default' : undefined
+            }}
+            spacing={fullScreen ? 0 : 1.5}
+        >
+            {fullScreen ? null : (
                 <Box
-                    component='iframe'
-                    ref={iframeRef}
-                    data-testid='playcanvas-editor-frame'
-                    title={displayName}
-                    src={frameUrl}
-                    sandbox={mode === 'developmentUrl' ? 'allow-scripts' : 'allow-scripts allow-same-origin'}
-                    referrerPolicy='no-referrer'
-                    allow=''
-                    tabIndex={0}
-                    onLoad={() => {
-                        setFrameStatus('loaded')
-                        postBootstrapInitFromFrame()
-                    }}
-                    onError={() => setFrameStatus('error')}
                     sx={{
-                        flex: 1,
-                        width: '100%',
-                        minHeight: 640,
-                        border: 1,
-                        borderColor: 'divider',
-                        borderRadius: 1
+                        flex: '0 0 auto',
+                        px: 0,
+                        py: 0,
+                        zIndex: 1
                     }}
-                />
-            ) : null}
+                >
+                    {renderHeader()}
+                </Box>
+            )}
+            <Stack
+                spacing={fullScreen ? 1 : 1.5}
+                sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    p: fullScreen ? 0 : 0,
+                    overflow: 'hidden'
+                }}
+            >
+                {hostStatusNotice ? (
+                    <Alert
+                        severity={hostStatusNotice.severity}
+                        data-testid={hostStatusNotice.testId ?? 'playcanvas-editor-host-status-alert'}
+                    >
+                        {hostStatusNotice.message}
+                    </Alert>
+                ) : null}
+                {frameStatus !== 'checking' && frameStatus !== 'error' ? (
+                    <Box
+                        component='iframe'
+                        ref={iframeRef}
+                        data-testid='playcanvas-editor-frame'
+                        title={displayName}
+                        src={frameUrl}
+                        sandbox={mode === 'developmentUrl' ? 'allow-scripts' : 'allow-scripts allow-same-origin'}
+                        referrerPolicy='no-referrer'
+                        allow=''
+                        tabIndex={0}
+                        onLoad={() => {
+                            setFrameStatus('loaded')
+                            postBootstrapInitFromFrame()
+                        }}
+                        onError={() => setFrameStatus('error')}
+                        sx={{
+                            flex: '1 1 0',
+                            width: '100%',
+                            minHeight: 0,
+                            border: fullScreen ? 0 : 1,
+                            borderColor: 'divider',
+                            borderRadius: fullScreen ? 0 : 1,
+                            display: 'block'
+                        }}
+                    />
+                ) : null}
+            </Stack>
             <StandardDialog
                 open={dirtyDialogOpen}
                 onClose={() => setDirtyDialogOpen(false)}
@@ -821,12 +1047,21 @@ export default function PlayCanvasEditorHostPage() {
             </StandardDialog>
             <StandardDialog
                 open={saveConflictDialogOpen}
-                onClose={() => setSaveConflictDialogOpen(false)}
+                onClose={() => {
+                    setSaveConflictDialogOpen(false)
+                    setSaveStatus((current) => (current === 'conflict' ? 'idle' : current))
+                }}
                 title={t('packages.editorHost.saveConflictTitle', 'Save conflict')}
                 disablePresentationControls
                 actions={
                     <>
-                        <Button variant='outlined' onClick={() => setSaveConflictDialogOpen(false)}>
+                        <Button
+                            variant='outlined'
+                            onClick={() => {
+                                setSaveConflictDialogOpen(false)
+                                setSaveStatus((current) => (current === 'conflict' ? 'idle' : current))
+                            }}
+                        >
                             {t('packages.editorHost.keepEditing', 'Keep editing')}
                         </Button>
                         <Button variant='contained' onClick={handleReloadLatest}>

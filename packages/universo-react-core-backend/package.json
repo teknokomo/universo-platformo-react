@@ -53,6 +53,7 @@
         "@universo-react/database": "workspace:*",
         "@universo-react/metahubs-backend": "workspace:*",
         "@universo-react/migrations-platform": "workspace:*",
+        "@universo-react/playcanvas-editor-backend": "workspace:*",
         "@universo-react/profile-backend": "workspace:*",
         "@universo-react/start-backend": "workspace:*",
         "@universo-react/utils": "workspace:*",

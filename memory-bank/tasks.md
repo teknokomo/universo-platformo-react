@@ -1,3 +1,54 @@
+# PlayCanvas Editor Full Upstream UI WebSocket Implementation Tasks
+
+> Date: 2026-06-05
+> Source plan: `memory-bank/plan/playcanvas-editor-upstream-ui-full-boot-plan-2026-06-05.md`
+> Source brief: PlayCanvas Editor minimal compatibility backend specification, 2026-06-05.
+
+## Scope
+
+Implement the full upstream PlayCanvas Editor UI boot path inside the existing iframe artifact. The implementation must use the vendored upstream Editor UI, add same-origin WebSocket realtime/messenger/relay services, keep authoring state metahub-scoped, and avoid replacement MUI panels.
+
+## Checklist
+
+-   [x] Add full-boot shared contracts, mode descriptors, token claims, and PlayCanvas-compatible numeric id mapping.
+-   [x] Implement backend full-boot config builder and explicit full-boot REST/WS endpoint descriptors.
+-   [x] Add PlayCanvas Editor WebSocket runtime attachment at the core HTTP server upgrade point without breaking the existing applications realtime runtime.
+-   [x] Implement single-user realtime, messenger, and relay WebSocket semantics required by upstream Editor boot.
+-   [x] Implement durable metahub-backed scene/settings document adapter and persistence tests using `DbExecutor.query()` stores.
+-   [x] Integrate full-boot ports/adapters in `metahubs-backend` with fail-closed access, origin, and project/scene checks.
+-   [x] Add frontend artifact full-boot mode that loads upstream UI without fallback adapter or `/disabled` URLs.
+-   [x] Update host shell mode selection and localized unavailable/error states while reusing existing MUI primitives only.
+-   [x] Add focused unit/integration tests for contracts, config, WS handshakes, persistence, security negatives, and fallback/full-boot separation.
+-   [x] Add Playwright browser evidence for upstream toolbar, hierarchy, viewport canvas, assets panel, inspector, persistence/reload, no fallback, no `/disabled`, and no host technical leakage.
+-   [x] Update READMEs, GitBook docs, and Memory Bank progress.
+-   [x] Run local minimal Supabase E2E and Playwright browser evidence.
+-   [x] Run Prettier and focused build/test checks.
+
+## QA Security And Realtime Persistence Closure Checklist
+
+> Date: 2026-06-07
+> Trigger: IMPLEMENT after QA found full-boot token origin, ShareDB scope, stale persistence, and canvas oracle gaps.
+
+-   [x] Restrict full-boot artifact origins/base URLs to trusted same-origin/package-issued values and cover hostile query origins.
+-   [x] Enforce exact ShareDB collection/document allowlists per authenticated full-boot session before submit/persist.
+-   [x] Close full-boot WebSockets at token expiry and prevent token/session replay where the package runtime can do so without breaking normal refresh.
+-   [x] Make realtime scene/settings persistence fail closed on stale durable revisions while keeping idempotent same-payload retries.
+-   [x] Add focused backend tests for origin, ShareDB doc scope, token expiry/replay, and stale scene/settings conflicts.
+-   [x] Add Playwright canvas-scoped nonblank/bounds evidence and realtime ShareDB persistence evidence.
+-   [x] Run Prettier, focused backend/frontend/metahubs tests/builds, and local minimal Supabase E2E.
+
+## QA Fullscreen, Inspector, And WebSocket Browser Closure Checklist
+
+> Date: 2026-06-07
+> Trigger: IMPLEMENT after QA found that full upstream UI boot still lacks passing browser proof for standalone fullscreen mode, user-driven inspector selection, direct WebSocket evidence, and reload-visible persistence.
+
+-   [x] Make `openSeparately` fullscreen mode chrome-free so normal users see the upstream Editor surface without extra Universo/MUI header controls.
+-   [x] Strengthen PlayCanvas Editor browser helpers to assert direct WebSocket connection state, no disabled URLs, no connection overlays, and no fallback entity adapter.
+-   [x] Replace programmatic inspector selection bypasses with user-visible hierarchy selection or a documented upstream UI click sequence.
+-   [x] Run the create/select/save/reload proof in the open-separately fullscreen editor and assert the persisted entity is visible and inspectable after reload.
+-   [x] Update focused component/E2E tests, docs or progress notes where behavior changed.
+-   [x] Run Prettier, focused tests/builds, and local minimal Supabase Playwright evidence.
+
 # PlayCanvas Editor Minimal Compatibility Backend Implementation Tasks
 
 > Date: 2026-06-05
@@ -333,3 +384,49 @@ Close the QA blockers found after the first implementation pass. This work compl
 -   [x] Normalize PlayCanvas Editor compatibility REST conflict errors and surface them in the host UI.
 -   [x] Update docs and Memory Bank progress for the corrected security/test contract.
 -   [x] Run focused builds, lints, tests, Prettier/diff checks, and autoreview.
+
+## PlayCanvas Editor Full Boot QA Closure Checklist
+
+> Date: 2026-06-07
+> Scope: close QA findings for upstream Editor full-boot dirty state, fullscreen UX, realtime relay security, ShareDB cache safety, and browser oracles.
+
+-   [x] Harden relay WebSocket authentication by removing query-token auth, adding auth timeout/fail-closed close behavior, and bounding pending messages.
+-   [x] Make ShareDB full-boot document seeding refresh/fail closed against durable storage revisions instead of serving stale in-memory documents.
+-   [x] Fix full-boot dirty-state lifecycle so initial hydration is clean and real upstream realtime/ShareDB edits mark the host dirty.
+-   [x] Make fullscreen/open-separately host chrome minimal and non-intrusive, and remove technical terms from normal user-facing host messages.
+-   [x] Strengthen component and Playwright tests for initial clean state, fullscreen chrome contract, dirty lifecycle, and relay security.
+-   [x] Run Prettier, focused unit/backend/frontend builds, local minimal Supabase Playwright, and autoreview.
+
+## PlayCanvas Editor Full Boot QA Round 2 Closure Checklist
+
+> Date: 2026-06-07
+> Scope: close QA findings for full-boot protocol gating, WebSocket DB security, origin binding, schema strictness, and upstream UI workflow evidence.
+
+-   [x] Make REST compatibility tokens fail closed when an origin-bound token is replayed without request origin evidence.
+-   [x] Return the explicit full-boot protocol descriptor with enabled REST/realtime/messenger/relay surfaces and persisted ShareDB snapshot contract.
+-   [x] Tighten the full-boot config schema around boot-critical project, URL, schema, engine, and bridge fields.
+-   [x] Document the WebSocket realtime DB boundary as trusted Tier 2 with signed-token and manageMetahub authorization, or move it to a request-scoped session if the existing stack supports that.
+-   [x] Strengthen browser acceptance for `#layout-root`, real upstream Add Entity interaction, entity selection, and attributes inspector population.
+-   [x] Run focused backend/frontend/editor tests, Prettier, local minimal Supabase Playwright where practical, and autoreview.
+
+## PlayCanvas Editor Full Boot QA Round 3 Security Closure Checklist
+
+> Date: 2026-06-07
+> Scope: close the full-boot WebSocket token origin minting finding from QA/autoreview.
+
+-   [x] Require an explicit trusted artifact origin/base URL before issuing full-boot WebSocket tokens.
+-   [x] Add regression tests for hostile full-boot config requests without artifact origin evidence.
+-   [x] Run focused backend/metahubs tests, formatting/static checks, and autoreview.
+
+## PlayCanvas Editor Full Boot QA Round 4 UX and Reliability Closure Checklist
+
+> Date: 2026-06-07
+> Scope: close QA findings for embedded host spacing, duplicate ready notifications, browser UX oracles, WebSocket pre-auth pressure, replay reliability, and PlayCanvas project lifecycle atomicity.
+
+-   [x] Collapse PlayCanvas Editor host readiness and bridge notices into one localized status slot.
+-   [x] Normalize embedded Editor iframe layout so bottom spacing matches side padding.
+-   [x] Add focused component and Playwright assertions for a single status alert and embedded bottom-gap parity.
+-   [x] Bound unauthenticated full-boot WebSocket upgrades with explicit pre-auth connection limits.
+-   [x] Make replay completion after committed PlayCanvas mutations fail closed without leaving permanent in-progress claims.
+-   [x] Make PlayCanvas project creation atomic and project deletion fail closed on partial physical cleanup.
+-   [x] Run focused frontend/backend tests, formatting/static checks, and update progress.

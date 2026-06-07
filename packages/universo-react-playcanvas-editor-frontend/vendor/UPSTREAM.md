@@ -14,7 +14,7 @@
 
 The upstream source is kept under `vendor/playcanvas-editor/` as an isolated artifact source tree. The upstream manifest is stored as `vendor/package.playcanvas-editor.json` instead of `package.json` so the Universo workspace and recursive package checks do not treat it as a workspace package or active package manifest.
 
-The default local artifact mode is `universo-hosted`. It builds the pinned upstream Editor frontend, serves it from the Universo package boundary, injects the bounded Universo bridge bootstrap, and persists the current bridge-minimal scene payload through metahub PlayCanvas project storage. The `artifact-only` mode remains as an explicit fail-closed placeholder for diagnostics.
+The default local artifact mode is `universo-full-upstream-ui`. It builds the pinned upstream Editor frontend, serves it from the Universo package boundary, injects full-boot `window.config`, and uses the metahub PlayCanvas Editor compatibility backend for the boot-critical REST and WebSocket surfaces. The `universo-hosted` mode remains available for the older hosted bridge shell, and `artifact-only` remains as an explicit fail-closed placeholder for diagnostics.
 
 This boundary still does not claim PlayCanvas Cloud parity: PlayCanvas-shaped REST, durable ShareDB realtime, messenger, broad asset upload, collaboration, and full upstream backend API emulation remain outside the current bridge-minimal slice.
 

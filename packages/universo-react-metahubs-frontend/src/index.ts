@@ -1,5 +1,6 @@
 // Register i18n namespace (side-effect import must come first)
 import './i18n'
+import { createElement } from 'react'
 import MetahubListComponent from './domains/metahubs/ui/MetahubList'
 import MetahubBoardComponent from './domains/metahubs/ui/MetahubBoard'
 import MetahubMembersComponent from './domains/metahubs/ui/MetahubMembers'
@@ -53,6 +54,9 @@ export const RecordList = withMetahubDialogSettings(RecordListComponent)
 export const FixedValueList = withMetahubDialogSettings(FixedValueListComponent)
 export const MetahubResources = withMetahubDialogSettings(SharedResourcesPageComponent)
 export const PlayCanvasEditorHostPage = withMetahubDialogSettings(PlayCanvasEditorHostPageComponent)
+export const PlayCanvasEditorFullscreenPage = withMetahubDialogSettings(() =>
+    createElement(PlayCanvasEditorHostPageComponent, { fullScreen: true })
+)
 export const MetahubLayouts = withMetahubDialogSettings(MetahubLayoutsComponent)
 export const MetahubLayoutDetails = withMetahubDialogSettings(MetahubLayoutDetailsComponent)
 

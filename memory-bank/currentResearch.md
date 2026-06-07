@@ -1,5 +1,13 @@
 # Current Research
 
+## 2026-06-05: PlayCanvas Editor upstream UI full boot
+
+-   Research artifact created: `memory-bank/research/playcanvas-editor-upstream-ui-full-boot-research-2026-06-05.md`.
+-   Scope correction: the vendored upstream Editor already contains the real PCUI/DOM hierarchy, inspector, assets panel, toolbar, viewport controls, chat, settings, and viewport modules; the next work must not rebuild those panels in MUI.
+-   Current symptom: the visible empty canvas plus `Add Entity` experience is the bridge-minimal/fallback path, not successful full upstream Editor boot.
+-   Blocking contract: current `universo-hosted` config points realtime, messenger, and relay to `/disabled`, while the backend slice explicitly leaves WebSocket runtime outside scope; upstream scene loading depends on realtime authentication and document loading.
+-   Planning implication: the next PLAN must target a full upstream UI boot mode with real same-origin config/realtime/messenger behavior, Playwright screenshots, DOM/network/WebSocket tracing, and an acceptance gate that fails if only the fallback UI appears.
+
 ## 2026-06-05: PlayCanvas Editor minimal compatibility backend
 
 -   Research artifact created: `memory-bank/research/playcanvas-editor-minimal-compatibility-backend-research-2026-06-05.md`.

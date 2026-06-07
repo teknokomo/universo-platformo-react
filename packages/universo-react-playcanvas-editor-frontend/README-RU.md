@@ -26,11 +26,13 @@ pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 
 ## Режимы артефакта
 
-Режим артефакта по умолчанию: `universo-hosted`.
+Режим артефакта по умолчанию: `universo-full-upstream-ui`.
 
 `universo-hosted` собирает закреплённые upstream Editor files, создаёт минимальный Universo shell, injects `window.config` и подключает bridge bootstrap script. `artifact-only` остаётся доступным через `UNIVERSO_PLAYCANVAS_EDITOR_ARTIFACT_MODE=artifact-only` как fail-closed unavailable page.
 
-Hosted bridge-срез поддерживает первый manager-only путь authoring в метахабе: `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads и minimal JSON asset metadata. Backend также отдаёт minimal same-origin compatibility REST namespace `/playcanvas/editor-compatible/...` для `config`, `scenes`, `assets`, `settings` и явных cloud-only no-op descriptors. Он не реализует PlayCanvas Cloud parity, ShareDB operation persistence, collaboration, широкий binary assets pipeline, Colyseus authoring, implicit runtime publication или MCP/AI tooling.
+`universo-full-upstream-ui` — default acceptance mode для полного upstream Editor shell. В этом режиме artifact по-прежнему изолирует upstream Editor внутри iframe, но получает full-boot config от metahub host с включёнными realtime, messenger и relay URLs. Full-boot shell не устанавливает hosted entity fallback adapter и не содержит `/disabled` WebSocket shim. Browser acceptance должен подтверждать upstream DOM shell: `#layout-toolbar`, `#layout-hierarchy`, `#layout-viewport`, `#canvas-3d`, `#layout-assets` и `#layout-attributes`.
+
+Hosted bridge-срез поддерживает первый manager-only путь authoring в метахабе: `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads и minimal JSON asset metadata. Backend также отдаёт same-origin compatibility namespace `/playcanvas/editor-compatible/...` для `config`, `scenes`, `assets`, `settings`, single-user ShareDB-compatible snapshot persistence и явных cloud-only no-op descriptors. Он не реализует PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, широкий binary assets pipeline, Colyseus authoring, implicit runtime publication или MCP/AI tooling.
 
 ## Безопасность hosted artifact
 

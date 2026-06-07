@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 
 import {
     artifactManifestPath,
@@ -10,6 +11,7 @@ import {
     assertNodeVersion,
     assertVendorMetadata,
     bridgeBootstrapFileName,
+    fullUpstreamUiMode,
     packageRoot,
     validateArtifactManifest
 } from './lib/playcanvas-editor-artifact.mjs'
@@ -42,22 +44,36 @@ const manifest = JSON.parse(fs.readFileSync(artifactManifestPath, 'utf8'))
 validateArtifactManifest(manifest)
 
 const indexHtml = fs.readFileSync(requireFile('index.html'), 'utf8')
-if (manifest.mode === 'universo-hosted') {
+if (manifest.mode === 'universo-hosted' || manifest.mode === fullUpstreamUiMode) {
     const bootstrapPath = requireFile(bridgeBootstrapFileName)
+    const bootstrapSyntaxCheck = spawnSync(process.execPath, ['--check', bootstrapPath], {
+        encoding: 'utf8',
+        stdio: 'pipe'
+    })
+    if (bootstrapSyntaxCheck.status !== 0) {
+        throw new Error(
+            `Universo PlayCanvas Editor bridge bootstrap has invalid JavaScript syntax: ${
+                bootstrapSyntaxCheck.stderr || bootstrapSyntaxCheck.stdout
+            }`
+        )
+    }
     requireFile('js/playcanvas-engine.js')
     requireFile('js/playcanvas-engine.d.ts')
     if (!indexHtml.includes(bridgeBootstrapFileName) || !indexHtml.includes('./universo-bridge-bootstrap.js')) {
-        throw new Error('Universo hosted artifact is missing the bridge bootstrap script')
+        throw new Error('Universo PlayCanvas Editor artifact is missing the bridge bootstrap script')
     }
     const bootstrapSource = fs.readFileSync(bootstrapPath, 'utf8')
     if (!bootstrapSource.includes('playcanvas-engine.js')) {
-        throw new Error('Universo hosted artifact is missing the local engine contract URL')
+        throw new Error('Universo PlayCanvas Editor artifact is missing the local engine contract URL')
     }
     if (!bootstrapSource.includes('editor.bootstrap.requestInit') || !bootstrapSource.includes('editor.bootstrap.init')) {
-        throw new Error('Universo hosted artifact must wait for the platform bootstrap descriptor before loading the editor')
+        throw new Error('Universo PlayCanvas Editor artifact must wait for the platform bootstrap descriptor before loading the editor')
+    }
+    if (!bootstrapSource.includes('./js/editor.js')) {
+        throw new Error('Universo PlayCanvas Editor artifact bootstrap must load the upstream editor bundle')
     }
     if (/Artifact Unavailable|artifact-only integration surface/i.test(indexHtml)) {
-        throw new Error('Universo hosted artifact must not serve the artifact-only placeholder')
+        throw new Error('Universo PlayCanvas Editor artifact must not serve the artifact-only placeholder')
     }
 }
 if (manifest.mode === 'artifact-only' && !/Artifact Unavailable|artifact-only integration surface/i.test(indexHtml)) {

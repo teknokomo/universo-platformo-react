@@ -11,8 +11,9 @@ export const upstreamCommit = 'c4916f4973963341984499f2d919f8bfd38e417c'
 export const upstreamPackageVersion = '2.23.4'
 export const nodeRequirement = '>=22.22.0'
 export const artifactOutputRoot = 'dist/editor'
-export const artifactModes = ['artifact-only', 'universo-hosted']
-export const defaultArtifactMode = 'universo-hosted'
+export const fullUpstreamUiMode = 'universo-full-upstream-ui'
+export const artifactModes = ['artifact-only', 'universo-hosted', fullUpstreamUiMode]
+export const defaultArtifactMode = fullUpstreamUiMode
 export const manifestFileName = 'universo-artifact-manifest.json'
 export const bridgeBootstrapFileName = 'universo-bridge-bootstrap.js'
 
@@ -194,7 +195,7 @@ export const createArtifactManifest = (builtAt = new Date().toISOString(), mode 
     mode,
     smokeMode: mode,
     baseStrategy: './',
-    bridgeBootstrap: mode === 'universo-hosted' ? bridgeBootstrapFileName : null,
+    bridgeBootstrap: mode === 'universo-hosted' || mode === fullUpstreamUiMode ? bridgeBootstrapFileName : null,
     builtAt
 })
 
@@ -281,9 +282,12 @@ export const writeBridgeBootstrap = (targetRoot) => {
 		  let bootstrapRequestId = null;
 		  let bridgeSessionId = null;
 		  let bridgeNonce = null;
-		  const pendingBridgeRequests = new Map();
-		  const hostedEntityObservers = [];
-		  let hostedEntityEditor = null;
+			  const pendingBridgeRequests = new Map();
+			  const hostedEntityObservers = [];
+			  const observedEntityObservers = [];
+			  let hostedEntityEditor = null;
+			  let wrappedEditorCall = null;
+			  let hydratingPersistedScene = false;
 
 	  window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__ = marker;
 	  window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__ = (message) => {
@@ -343,11 +347,11 @@ export const writeBridgeBootstrap = (targetRoot) => {
       project,
       defaultSceneId
     };
-    if (window.config?.project) {
+    if (marker.fullBootMode !== true && window.config?.project) {
       window.config.project.id = project.id;
       window.config.project.name = getLocalizedName(project.displayName, window.config.project.name || 'Universo Project');
     }
-    if (defaultSceneId && window.config?.scene) {
+    if (marker.fullBootMode !== true && defaultSceneId && window.config?.scene) {
       window.config.scene.id = defaultSceneId;
       window.config.scene.uniqueId = defaultSceneId;
     }
@@ -372,43 +376,283 @@ export const writeBridgeBootstrap = (targetRoot) => {
 
   marker.sendCommand = sendBridgeCommand;
 
-  const observerToJson = (value) => {
-    if (!value) return null;
-    if (typeof value.json === 'function') return value.json();
-    if (typeof value.toJSON === 'function') return value.toJSON();
-    if (value.data && typeof value.data === 'object') return value.data;
-    return typeof value === 'object' ? value : null;
+	  const observerToJson = (value) => {
+	    if (!value) return null;
+	    try {
+	      if (typeof value.latest === 'function') {
+	        const latest = value.latest();
+	        if (latest && latest !== value) return observerToJson(latest);
+	      }
+	      if (typeof value.json === 'function') return value.json();
+	      if (typeof value.toJSON === 'function') return value.toJSON();
+	      if (value.data && typeof value.data === 'object') return value.data;
+	      if (value._data && typeof value._data === 'object') return value._data;
+	      if (value.apiEntity?.observer && value.apiEntity.observer !== value) return observerToJson(value.apiEntity.observer);
+	      if (value.observer && value.observer !== value) return observerToJson(value.observer);
+	      if (value._observer && value._observer !== value) return observerToJson(value._observer);
+	      return typeof value === 'object' ? value : null;
+	    } catch {
+	      return value && typeof value === 'object' ? value : null;
+	    }
+	  };
+
+	  const normalizeEntityObserver = (value) => {
+	    if (!value) return null;
+	    if (value.apiEntity?.observer) return value.apiEntity.observer;
+	    if (value.observer) return value.observer;
+	    if (value._observer) return value._observer;
+	    return value;
+	  };
+
+	  const readObserverPath = (observer, path) => {
+	    if (!observer || typeof path !== 'string') return undefined;
+	    if (typeof observer.get === 'function') {
+	      try {
+	        return observer.get(path);
+	      } catch {
+	        return undefined;
+	      }
+	    }
+	    const data = observer.data && typeof observer.data === 'object' ? observer.data : observer._data && typeof observer._data === 'object' ? observer._data : observer;
+	    return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), data);
+	  };
+
+	  const getEntityObserverId = (observer) => {
+	    const normalized = normalizeEntityObserver(observer);
+	    return (
+	      readObserverPath(normalized, 'resource_id') ||
+	      readObserverPath(normalized, 'id') ||
+	      normalized?.resource_id ||
+	      normalized?.id ||
+	      normalized?.apiEntity?.resource_id ||
+	      normalized?.apiEntity?.id ||
+	      readObserverPath(normalized?._observer, 'resource_id') ||
+	      readObserverPath(normalized?._observer, 'id') ||
+	      normalized?.apiEntity?.getGuid?.()
+	    );
+	  };
+
+	  const observerListToArray = (value) => {
+	    if (!value) return [];
+	    if (Array.isArray(value)) return value;
+	    if (typeof value.array === 'function') return value.array();
+	    if (typeof value.json === 'function') {
+	      const json = value.json();
+	      if (Array.isArray(json)) return json;
+	      if (json && typeof json === 'object') return Object.values(json);
+	      return [];
+	    }
+	    if (Array.isArray(value.data)) return value.data;
+	    if (value.data && typeof value.data === 'object') return Object.values(value.data);
+	    return [];
+	  };
+
+	  const rememberEntityObserver = (observer, fallbackData = null) => {
+	    const normalized = normalizeEntityObserver(observer);
+	    if (!normalized && (!fallbackData || typeof fallbackData !== 'object')) return;
+	    const observerCandidate = normalized || createHostedEntityObserver(fallbackData);
+	    const id = getEntityObserverId(observerCandidate);
+	    const entityObserver =
+	      typeof id === 'string' || typeof id === 'number'
+	        ? observerCandidate
+	        : fallbackData && typeof fallbackData === 'object'
+	          ? createHostedEntityObserver(fallbackData)
+	          : null;
+	    if (!entityObserver) return;
+	    const entityId = getEntityObserverId(entityObserver);
+	    if (typeof entityId !== 'string' && typeof entityId !== 'number') return;
+	    const key = String(entityId);
+	    const existingIndex = observedEntityObservers.findIndex((existing) => {
+	      const existingId = getEntityObserverId(existing);
+	      return String(existingId) === key;
+	    });
+	    if (existingIndex >= 0) {
+	      observedEntityObservers[existingIndex] = entityObserver;
+	      return;
+	    }
+	    observedEntityObservers.push(entityObserver);
+	  };
+
+  const scenePayloadEntitiesToObservers = (payload) => {
+    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.entities)) return [];
+    return payload.entities
+      .filter((entity) => entity && typeof entity === 'object' && typeof entity.id === 'string' && entity.id)
+      .map((entity) =>
+        createHostedEntityObserver({
+          id: entity.id,
+          resource_id: entity.id,
+          name: entity.name,
+          parent: entity.parentId,
+          enabled: entity.enabled,
+          components: entity.components
+        })
+      );
   };
 
-  const observerListToArray = (value) => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof value.array === 'function') return value.array();
-    if (Array.isArray(value.data)) return value.data;
-    if (value.data && typeof value.data === 'object') return Object.values(value.data);
-    return [];
+  const rememberScenePayloadEntities = (payload) => {
+    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.entities)) return;
+    for (const observer of scenePayloadEntitiesToObservers(payload)) {
+      rememberEntityObserver(observer, observerToJson(observer));
+    }
   };
 
-  const getObserverValue = (observer, path) => {
-    if (observer && typeof observer.get === 'function') return observer.get(path);
-    const raw = observerToJson(observer);
-    return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), raw);
+  const realtimeEntityRecordToCreateData = (entity, id) => {
+    if (!entity || typeof entity !== 'object') return null;
+    const resourceId = typeof entity.resource_id === 'string' && entity.resource_id ? entity.resource_id : id;
+    if (typeof resourceId !== 'string' || !resourceId) return null;
+    return {
+      resource_id: resourceId,
+      name: typeof entity.name === 'string' && entity.name ? entity.name : resourceId === 'root' ? 'Root' : 'Entity',
+      parent: typeof entity.parent === 'string' ? entity.parent : null,
+      enabled: entity.enabled !== false,
+      components: entity.components && typeof entity.components === 'object' ? entity.components : {},
+      children: []
+    };
   };
 
-  const serializeEntity = (observer) => {
-    const raw = observerToJson(observer) || {};
-    const id = raw.resource_id || raw.id || getObserverValue(observer, 'resource_id') || getObserverValue(observer, 'id');
-    if (typeof id !== 'string' && typeof id !== 'number') return null;
-    const parentId = raw.parent || raw.parent_id || getObserverValue(observer, 'parent') || null;
-    const children = Array.isArray(raw.children)
-      ? raw.children.map((child) => (typeof child === 'string' ? child : child?.resource_id || child?.id)).filter(Boolean)
+  const rebindUpstreamHierarchy = () => {
+    const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
+    if (!editorInstance) return false;
+    try {
+	      const treeView = editorInstance.call('entities:hierarchy');
+	      const rawEntities = editorInstance.call('entities:raw');
+	      if (!treeView || !rawEntities) return false;
+	      treeView.entities = rawEntities;
+	      const hierarchyPanel = editorInstance.call('layout.hierarchy');
+	      const overlay = hierarchyPanel?.dom?.querySelector?.('.progress-overlay');
+	      if (overlay) {
+	        overlay.hidden = true;
+	        overlay.style.pointerEvents = 'none';
+	        overlay.style.display = 'none';
+	      }
+	      const entityIds = typeof rawEntities.array === 'function'
+        ? rawEntities.array().map((entity) => getEntityReferenceId(entity)).filter(Boolean)
+        : [];
+      marker.lastHierarchyRebindEntityIds = entityIds;
+      marker.lastHierarchyRebindEntityCount = entityIds.length;
+      return true;
+    } catch (error) {
+      marker.lastHierarchyRebindError = error && typeof error.message === 'string' ? error.message : String(error);
+      return false;
+    }
+  };
+
+  const hydratePersistedSceneEntities = () => {
+    const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
+    const apiEntities = editorInstance?.api?.globals?.entities;
+    const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
+    if (!editorInstance || !apiEntities || !realtimeEntities || typeof realtimeEntities !== 'object' || Array.isArray(realtimeEntities)) {
+      return false;
+    }
+    const entries = Object.entries(realtimeEntities)
+      .map(([id, entity]) => realtimeEntityRecordToCreateData(entity, id))
+      .filter(Boolean);
+    if (!entries.length) return false;
+    const existing = typeof apiEntities.get === 'function' ? (id) => apiEntities.get(id) : () => null;
+    const root = entries.find((entity) => entity.resource_id === 'root' || entity.parent === null) || null;
+    const ordered = [...(root ? [root] : []), ...entries.filter((entity) => entity !== root && entity.resource_id !== 'root')];
+    let hydrated = 0;
+    hydratingPersistedScene = true;
+    try {
+      for (const entity of ordered) {
+        if (existing(entity.resource_id)) continue;
+        const created = editorInstance.call('entities:new', {
+          ...entity,
+          noHistory: true,
+          noSelect: true
+        });
+        rememberEntityObserver(created, entity);
+        hydrated += 1;
+      }
+    } finally {
+      hydratingPersistedScene = false;
+    }
+    marker.lastHydratedPersistedEntityCount = hydrated;
+    marker.lastHydratedPersistedEntityIds = ordered.map((entity) => entity.resource_id);
+    if (hydrated > 0) {
+      markHydratedClean();
+    }
+    rebindUpstreamHierarchy();
+    return hydrated > 0;
+  };
+
+	  const forgetEntityObserver = (observer) => {
+	    const id = getEntityObserverId(observer);
+	    if (typeof id !== 'string' && typeof id !== 'number') return;
+	    const key = String(id);
+	    const index = observedEntityObservers.findIndex((existing) => {
+	      const existingId = getEntityObserverId(existing);
+	      return String(existingId) === key;
+	    });
+    if (index >= 0) {
+      observedEntityObservers.splice(index, 1);
+    }
+  };
+
+  const mergeEntityObserverLists = (...lists) => {
+    const merged = [];
+    const seen = new Set();
+    const rejected = [];
+    for (const list of lists) {
+      for (const observer of observerListToArray(list)) {
+        const normalized = normalizeEntityObserver(observer);
+        const id = getEntityObserverId(normalized);
+        const key = typeof id === 'string' || typeof id === 'number' ? String(id) : '';
+        if (!key) {
+          rejected.push({
+            type: observer && typeof observer === 'object' ? observer.constructor?.name || 'object' : typeof observer,
+            keys: observer && typeof observer === 'object' ? Object.keys(observer).slice(0, 12) : []
+          });
+          continue;
+        }
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(normalized);
+      }
+    }
+    marker.lastRejectedEntityObserverInputs = rejected.slice(-20);
+    return merged;
+  };
+
+	  const getEntityReferenceId = (value) => {
+	    if (typeof value === 'string' || typeof value === 'number') return String(value);
+	    const id = getEntityObserverId(value);
+	    return typeof id === 'string' || typeof id === 'number' ? String(id) : '';
+	  };
+
+	  const getObserverValue = (observer, path) => {
+	    const direct = readObserverPath(observer, path);
+	    if (direct !== undefined) return direct;
+	    const raw = observerToJson(observer);
+	    return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), raw);
+	  };
+
+	  const serializeEntity = (observer) => {
+	    const normalized = normalizeEntityObserver(observer);
+	    const raw =
+	      normalized && typeof normalized === 'object'
+	        ? normalized.data && typeof normalized.data === 'object'
+	          ? normalized.data
+	          : normalized._data && typeof normalized._data === 'object'
+	            ? normalized._data
+	            : normalized
+	        : {};
+	    const id = getEntityObserverId(normalized);
+	    if (typeof id !== 'string' && typeof id !== 'number') return null;
+	    const parentId = getObserverValue(normalized, 'parent') || raw.parent || raw.parent_id || null;
+	    const rawChildren = getObserverValue(normalized, 'children') || raw.children;
+	    const rawComponents = getObserverValue(normalized, 'components') || raw.components;
+    const children = Array.isArray(rawChildren)
+      ? rawChildren.map(getEntityReferenceId).filter(Boolean)
       : undefined;
+	    const name = getObserverValue(normalized, 'name') || raw.name;
+	    const enabled = getObserverValue(normalized, 'enabled');
     return {
       id: String(id),
-      name: typeof raw.name === 'string' ? raw.name : typeof getObserverValue(observer, 'name') === 'string' ? getObserverValue(observer, 'name') : undefined,
+      name: typeof name === 'string' ? name : undefined,
       parentId: typeof parentId === 'string' || typeof parentId === 'number' ? String(parentId) : null,
-      enabled: typeof raw.enabled === 'boolean' ? raw.enabled : undefined,
-      components: raw.components && typeof raw.components === 'object' ? raw.components : undefined,
+      enabled: typeof enabled === 'boolean' ? enabled : typeof raw.enabled === 'boolean' ? raw.enabled : undefined,
+      components: rawComponents && typeof rawComponents === 'object' ? rawComponents : undefined,
       children
     };
   };
@@ -463,8 +707,14 @@ export const writeBridgeBootstrap = (targetRoot) => {
   };
 
   const createHostedEntityObserver = (input = {}) => {
+    const resourceId =
+      typeof input.resource_id === 'string' && input.resource_id
+        ? input.resource_id
+        : typeof input.id === 'string' && input.id
+          ? input.id
+          : createUuidV7();
     const entity = {
-      resource_id: createUuidV7(),
+      resource_id: resourceId,
       name: typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Entity',
       parent: typeof input.parent === 'string' ? input.parent : null,
       enabled: input.enabled !== false,
@@ -515,9 +765,9 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    return true;
 	  };
 
-  const serializeAsset = (observer) => {
-    const raw = observerToJson(observer) || {};
-    const id = raw.id || getObserverValue(observer, 'id');
+	  const serializeAsset = (observer) => {
+	    const raw = observerToJson(observer) || {};
+	    const id = raw.id || getObserverValue(observer, 'id');
     const type = raw.type || getObserverValue(observer, 'type');
     if ((typeof id !== 'string' && typeof id !== 'number') || typeof type !== 'string') return null;
     return {
@@ -526,22 +776,59 @@ export const writeBridgeBootstrap = (targetRoot) => {
       type,
       stableAssetId: typeof raw.uniqueId === 'string' ? raw.uniqueId : typeof raw.unique_id === 'string' ? raw.unique_id : undefined,
       mime: raw.file?.mimeType === 'application/json' ? 'application/json' : raw.file?.mime === 'application/json' ? 'application/json' : undefined,
-      metadata: raw.meta && typeof raw.meta === 'object' ? raw.meta : undefined
-    };
-  };
+	      metadata: raw.meta && typeof raw.meta === 'object' ? raw.meta : undefined
+	    };
+	  };
+
+	  const safeEditorCall = (editorInstance, methodName, ...args) => {
+	    try {
+	      return editorInstance.call(methodName, ...args);
+	    } catch (error) {
+	      marker.lastEditorCallError = {
+	        methodName,
+	        message: error && typeof error.message === 'string' ? error.message : String(error)
+	      };
+	      return null;
+	    }
+	  };
 
   const serializeCurrentScene = () => {
     const fallbackPayload = marker.lastLoadedScene?.data?.payload || null;
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     if (!editorInstance) {
       return fallbackPayload || { schemaVersion: bridgeVersion, entities: [] };
-    }
+	    }
     try {
-      const projectSettings = editorInstance.call('settings:project');
-      const entities = observerListToArray(editorInstance.call('entities:list') || editorInstance.call('entities:raw'))
-        .map(serializeEntity)
+      const projectSettings = safeEditorCall(editorInstance, 'settings:project');
+      const cleanLoadedPayloadObservers = marker.dirty === true ? [] : scenePayloadEntitiesToObservers(fallbackPayload);
+      const rawEntityObservers = mergeEntityObserverLists(
+        safeEditorCall(editorInstance, 'entities:list'),
+        safeEditorCall(editorInstance, 'entities:raw'),
+        editorInstance.api?.globals?.entities?.raw,
+        editorInstance.api?.globals?.entities?.root?.observer,
+        observedEntityObservers,
+        cleanLoadedPayloadObservers
+      );
+      const entitySerializationErrors = [];
+      const entities = rawEntityObservers
+        .map((observer) => {
+          try {
+            return serializeEntity(observer);
+          } catch (error) {
+            entitySerializationErrors.push({
+              id: getEntityObserverId(observer) || null,
+              message: error && typeof error.message === 'string' ? error.message : String(error)
+            });
+            return null;
+          }
+        })
         .filter(Boolean);
-      const assets = observerListToArray(editorInstance.call('assets:list') || editorInstance.call('assets:raw'))
+      marker.lastSerializedEntityIds = entities.map((entity) => entity.id);
+      marker.lastSerializedEntityCount = entities.length;
+      marker.lastRawEntityObserverCount = rawEntityObservers.length;
+      marker.lastObservedEntityObserverCount = observedEntityObservers.length;
+      marker.lastEntitySerializationErrors = entitySerializationErrors.slice(-20);
+      const assets = observerListToArray(safeEditorCall(editorInstance, 'assets:list') || safeEditorCall(editorInstance, 'assets:raw'))
         .map(serializeAsset)
         .filter(Boolean);
       return {
@@ -561,6 +848,9 @@ export const writeBridgeBootstrap = (targetRoot) => {
   };
 
   const saveCurrentScene = async (payloadOverride) => {
+    if (marker.saving && marker.saveCurrentScenePromise) {
+      await marker.saveCurrentScenePromise.catch(() => null);
+    }
     const selectedProject = (await ensureSelectedProjectForSave()) || null;
     const projectId = selectedProject?.project?.id;
     const sceneId = selectedProject?.defaultSceneId || window.config?.scene?.id;
@@ -569,23 +859,59 @@ export const writeBridgeBootstrap = (targetRoot) => {
     }
     const payload = payloadOverride && typeof payloadOverride === 'object' ? payloadOverride : serializeCurrentScene();
     marker.saving = true;
+    const savePromise = (async () => {
     try {
-      const compatibilityConfig =
-        marker.compatibilityConfig ||
-        (marker.compatibilityConfigPromise ? await marker.compatibilityConfigPromise.catch(() => null) : null);
+	      let compatibilityConfig =
+	        marker.restCompatibilityConfig ||
+	        (marker.restCompatibilityConfigPromise ? await marker.restCompatibilityConfigPromise.catch(() => null) : null) ||
+	        marker.compatibilityConfig ||
+	        (marker.compatibilityConfigPromise ? await marker.compatibilityConfigPromise.catch(() => null) : null);
+	      let restConfig =
+	        compatibilityConfig?.auth?.scheme === 'signed-header' &&
+	        typeof compatibilityConfig.auth.accessToken === 'string' &&
+	        typeof compatibilityConfig.auth.headerName === 'string' &&
+	        typeof compatibilityConfig.endpoints?.scenes === 'string'
+	          ? compatibilityConfig
+	          : null;
+      if (!restConfig && marker.fullBootMode === true && typeof window.config?.universoBridge?.compatibilityRestBaseUrl === 'string') {
+        const restConfigUrl =
+          window.config.universoBridge.compatibilityRestBaseUrl.replace(/\\/$/, '') +
+          '/config?mode=universo-compatibility-rest-minimal';
+	        marker.restCompatibilityConfigPromise = fetch(restConfigUrl, {
+	          credentials: 'include',
+	          cache: 'no-store'
+	        })
+	          .then(async (response) => (response.ok ? (await response.json())?.item || null : null))
+	          .then((config) => {
+	            marker.restCompatibilityConfig = config;
+	            return config;
+	          })
+	          .catch((error) => {
+	            marker.restCompatibilityConfigError = error;
+	            return null;
+	          });
+	        compatibilityConfig = await marker.restCompatibilityConfigPromise;
+	        restConfig =
+	          compatibilityConfig?.auth?.scheme === 'signed-header' &&
+	          typeof compatibilityConfig.auth.accessToken === 'string' &&
+	          typeof compatibilityConfig.auth.headerName === 'string' &&
+	          typeof compatibilityConfig.endpoints?.scenes === 'string'
+	            ? compatibilityConfig
+	            : null;
+	      }
       let response;
       if (
-        compatibilityConfig?.auth?.scheme === 'signed-header' &&
-        typeof compatibilityConfig.auth.accessToken === 'string' &&
-        typeof compatibilityConfig.auth.headerName === 'string' &&
-        typeof compatibilityConfig.endpoints?.scenes === 'string'
+        restConfig?.auth?.scheme === 'signed-header' &&
+        typeof restConfig.auth.accessToken === 'string' &&
+        typeof restConfig.auth.headerName === 'string' &&
+        typeof restConfig.endpoints?.scenes === 'string'
       ) {
         if (!marker.currentSceneChecksum) {
-          const sceneReadResponse = await fetch(compatibilityConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId), {
+          const sceneReadResponse = await fetch(restConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId), {
             method: 'GET',
             credentials: 'include',
             headers: {
-              [compatibilityConfig.auth.headerName]: compatibilityConfig.auth.accessToken
+              [restConfig.auth.headerName]: restConfig.auth.accessToken
             },
             cache: 'no-store'
           })
@@ -605,10 +931,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
             : null;
         const csrfHeaderName =
           (typeof marker.compatibilityCsrfToken?.headerName === 'string' && marker.compatibilityCsrfToken.headerName) ||
-          compatibilityConfig.csrf?.headerName ||
+          restConfig.csrf?.headerName ||
           'X-CSRF-Token';
         if (!csrfToken) {
-          const csrf = await fetch(compatibilityConfig.csrf?.tokenUrl || '/api/v1/auth/csrf', {
+          const csrf = await fetch(restConfig.csrf?.tokenUrl || '/api/v1/auth/csrf', {
             credentials: 'include',
             cache: 'no-store'
           })
@@ -623,21 +949,40 @@ export const writeBridgeBootstrap = (targetRoot) => {
                   ? csrf.item.token
                   : null;
         }
-        const restResponse = await fetch(compatibilityConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId), {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            [compatibilityConfig.auth.headerName]: compatibilityConfig.auth.accessToken,
-            'content-type': 'application/json',
-            ...(csrfToken ? { [csrfHeaderName]: csrfToken } : {})
-          },
-          body: JSON.stringify({
+        const sceneSaveUrl = restConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId);
+        const sceneSaveHeaders = {
+          [restConfig.auth.headerName]: restConfig.auth.accessToken,
+          'content-type': 'application/json',
+          ...(csrfToken ? { [csrfHeaderName]: csrfToken } : {})
+        };
+        const createSceneSaveBody = () =>
+          JSON.stringify({
             requestId: createUuidV7(),
             expectedCurrentChecksum: marker.currentSceneChecksum || null,
             payload
-          })
+          });
+        let restResponse = await fetch(sceneSaveUrl, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: sceneSaveHeaders,
+          body: createSceneSaveBody()
         });
-        const body = await restResponse.json().catch(() => null);
+        let body = await restResponse.json().catch(() => null);
+        if (
+          !restResponse.ok &&
+          marker.fullBootMode === true &&
+          body?.messageCode === 'playcanvas.files.path.currentChecksumMismatch' &&
+          typeof body.actualCurrentChecksum === 'string'
+        ) {
+          marker.currentSceneChecksum = body.actualCurrentChecksum;
+          restResponse = await fetch(sceneSaveUrl, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: sceneSaveHeaders,
+            body: createSceneSaveBody()
+          });
+          body = await restResponse.json().catch(() => null);
+        }
         if (!restResponse.ok || !body?.ok) {
           const error = new Error('PlayCanvas Editor compatibility REST save failed');
           error.ok = false;
@@ -669,26 +1014,47 @@ export const writeBridgeBootstrap = (targetRoot) => {
         });
         marker.lastBridgeSave = response;
       }
-      marker.lastSavedScene = response;
-      marker.currentSceneChecksum = response?.data?.checksum || response?.data?.scene?.checksum || marker.currentSceneChecksum || null;
-      marker.dirty = false;
-      window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
-	        type: 'bridge.dirtyState',
-	        dirty: false,
-	        sessionId: bridgeSessionId,
-	        nonce: bridgeNonce,
-	        source: 'universo-playcanvas-editor-artifact'
-	      });
-      return response;
+	      marker.lastSavedScene = response;
+	      marker.currentSceneChecksum = response?.data?.checksum || response?.data?.scene?.checksum || marker.currentSceneChecksum || null;
+	      markClean();
+	      return response;
     } finally {
       marker.saving = false;
+      if (marker.saveCurrentScenePromise === savePromise) {
+        marker.saveCurrentScenePromise = null;
+      }
     }
+    })();
+    marker.saveCurrentScenePromise = savePromise;
+    return savePromise;
   };
 
 	  marker.serializeCurrentScene = serializeCurrentScene;
 	  marker.saveCurrentScene = saveCurrentScene;
 
-	  const markDirty = () => {
+  const markClean = () => {
+    marker.dirty = false;
+    window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
+      type: 'bridge.dirtyState',
+      dirty: false,
+      sessionId: bridgeSessionId,
+      nonce: bridgeNonce,
+      source: 'universo-playcanvas-editor-artifact'
+    });
+  };
+
+  const markHydratedClean = () => {
+    marker.initialHydrationComplete = true;
+    marker.ignoreDirtyUntil = Date.now() + 750;
+    markClean();
+  };
+
+		  const markDirty = (options = {}) => {
+    const force = options && options.force === true;
+    if (!force && (!marker.initialHydrationComplete || Date.now() < (marker.ignoreDirtyUntil || 0))) {
+      marker.suppressedInitialDirtyEvents = (marker.suppressedInitialDirtyEvents || 0) + 1;
+      return;
+    }
     if (marker.dirty) return;
     marker.dirty = true;
     window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
@@ -700,30 +1066,104 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    });
   };
 
-  const installEditorSaveAdapter = () => {
-    const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
-    if (!editorInstance) {
-      window.setTimeout(installEditorSaveAdapter, 250);
-      return;
+	  const installEditorSaveAdapter = () => {
+	    const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
+	    if (!editorInstance) {
+	      window.setTimeout(installEditorSaveAdapter, 250);
+	      return;
+	    }
+	    if (marker.editorSaveAdapterInstalled && marker.editorInstance === editorInstance) return;
+	    if (marker.fullBootMode !== true) {
+	      installHostedEntityAdapter(editorInstance);
+	    }
+	    marker.editorSaveAdapterInstalled = true;
+	    marker.editorInstance = editorInstance;
+	    editorInstance.universoBridge = marker;
+	    if (typeof editorInstance.call === 'function' && editorInstance.call !== wrappedEditorCall) {
+	      const upstreamCall = editorInstance.call.bind(editorInstance);
+	      wrappedEditorCall = (methodName, ...args) => {
+	        const result = upstreamCall(methodName, ...args);
+	        if (methodName === 'entities:new') {
+	          rememberEntityObserver(result, args[0] && typeof args[0] === 'object' ? args[0] : { name: 'Entity' });
+          if (!hydratingPersistedScene) {
+            markDirty({ force: true });
+          }
+	        }
+	        return result;
+	      };
+	      editorInstance.call = wrappedEditorCall;
+	      editorInstance.universoBridgeCallWrapped = true;
+	      marker.editorCallWrapped = true;
+	    }
+	    if (typeof editorInstance.method === 'function') {
+	      editorInstance.method('universo:bridge:serializeScene', serializeCurrentScene);
+	      editorInstance.method('universo:bridge:saveScene', saveCurrentScene);
     }
-    if (marker.editorSaveAdapterInstalled) return;
-    installHostedEntityAdapter(editorInstance);
-    marker.editorSaveAdapterInstalled = true;
-    editorInstance.universoBridge = marker;
-    if (typeof editorInstance.method === 'function') {
-      editorInstance.method('universo:bridge:serializeScene', serializeCurrentScene);
-      editorInstance.method('universo:bridge:saveScene', saveCurrentScene);
-    }
-    if (typeof editorInstance.on === 'function') {
-      editorInstance.on('entities:add', markDirty);
-      editorInstance.on('entities:remove', markDirty);
+	    if (typeof editorInstance.on === 'function') {
+	      editorInstance.on('entities:add', (entity) => {
+	        rememberEntityObserver(entity, { name: getObserverValue(entity, 'name') || 'Entity' });
+        if (!hydratingPersistedScene) {
+          markDirty();
+        }
+	      });
+      editorInstance.on('entities:remove', (entity) => {
+        forgetEntityObserver(entity);
+        markDirty();
+      });
       editorInstance.on('assets:add', markDirty);
       editorInstance.on('assets:remove', markDirty);
-      editorInstance.on('settings:project:load', () => {
-        marker.projectSettingsLoaded = true;
+      editorInstance.on('load', markHydratedClean);
+	      editorInstance.on('settings:project:load', () => {
+	        marker.projectSettingsLoaded = true;
+        if (marker.fullBootMode !== true) {
+          markHydratedClean();
+        }
+	      });
+      editorInstance.on('realtime:authenticated', () => {
+        marker.realtimeAuthenticated = true;
       });
+      editorInstance.on('scene:raw', () => {
+        marker.realtimeSceneRawReceived = true;
+        rebindUpstreamHierarchy();
+        markHydratedClean();
+      });
+      editorInstance.on('realtime:load:scene', () => {
+        hydratePersistedSceneEntities();
+        markHydratedClean();
+      });
+      editorInstance.on('realtime:scene:op', markDirty);
+	    }
+    const history = editorInstance.api?.globals?.history;
+    if (history && typeof history.on === 'function' && !marker.historyDirtyAdapterInstalled) {
+      history.on('add', markDirty);
+      history.on('undo', markDirty);
+      history.on('redo', markDirty);
+      marker.historyDirtyAdapterInstalled = true;
     }
-  };
+    const realtimeScene = editorInstance.api?.globals?.realtime?.scenes?.current;
+    if (
+      realtimeScene &&
+      typeof realtimeScene.submitOp === 'function' &&
+      realtimeScene.submitOp !== marker.wrappedRealtimeSceneSubmitOp
+    ) {
+      const upstreamSubmitOp = realtimeScene.submitOp.bind(realtimeScene);
+      marker.wrappedRealtimeSceneSubmitOp = (op) => {
+        const result = upstreamSubmitOp(op);
+        markDirty();
+        return result;
+      };
+      realtimeScene.submitOp = marker.wrappedRealtimeSceneSubmitOp;
+    }
+	  };
+
+	  let editorAdapterRefreshCount = 0;
+	  const refreshEditorSaveAdapter = () => {
+	    installEditorSaveAdapter();
+	    editorAdapterRefreshCount += 1;
+	    if (editorAdapterRefreshCount < 40) {
+	      window.setTimeout(refreshEditorSaveAdapter, 500);
+	    }
+	  };
 
   window.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key && event.key.toLowerCase() === 's') {
@@ -816,6 +1256,327 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return config;
   };
 
+  const assertFullBootConfig = (config) => {
+    if (!config || typeof config !== 'object') throw new Error('Full upstream Editor config is missing');
+    if (config.mode !== 'universo-full-upstream-ui') throw new Error('Full upstream Editor config has an unsupported mode');
+    if (!config.project?.id || !config.project?.name) throw new Error('Full upstream Editor project config is incomplete');
+    if (!config.scene?.id || !config.scene?.uniqueId) throw new Error('Full upstream Editor scene config is incomplete');
+    if (!config.accessToken || typeof config.accessToken !== 'string') throw new Error('Full upstream Editor access token is missing');
+    const urlText = JSON.stringify(config.url || {});
+    if (urlText.includes('/disabled')) throw new Error('Full upstream Editor config must not use disabled realtime endpoints');
+    if (!config.url?.realtime?.http || !config.url?.messenger?.ws || !config.url?.relay?.ws) {
+      throw new Error('Full upstream Editor WebSocket endpoints are incomplete');
+    }
+    if (!Array.isArray(config.wasmModules)) {
+      throw new Error('Full upstream Editor wasmModules config must be an array');
+    }
+    if (!config.url?.frontend || !config.url?.engine || !config.schema?.scene || !config.schema?.settings) {
+      throw new Error('Full upstream Editor upstream boot config is incomplete');
+    }
+    return config;
+  };
+
+  const resolveInitialConfig = (descriptor) => {
+    if (descriptor?.compatibilityConfig?.mode === 'universo-full-upstream-ui') {
+      marker.fullBootMode = true;
+      marker.compatibilityConfig = descriptor.compatibilityConfig;
+      marker.compatibilityConfigReady = true;
+      return assertFullBootConfig(descriptor.compatibilityConfig);
+    }
+    marker.fullBootMode = false;
+    return createHostedConfig(descriptor);
+  };
+
+  const createJsonResponse = (body, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
+    });
+
+  const resolveFullBootTokenRefreshUrl = () => {
+    if (typeof window.config?.universoBridge?.tokenRefreshUrl === 'string') {
+      return window.config.universoBridge.tokenRefreshUrl;
+    }
+    if (typeof window.config?.universoBridge?.compatibilityRestBaseUrl === 'string') {
+      return window.config.universoBridge.compatibilityRestBaseUrl.replace(/\\/$/, '') + '/config?mode=universo-full-upstream-ui';
+    }
+    return null;
+  };
+
+  const refreshFullBootAccessToken = async () => {
+    if (marker.fullBootMode !== true) return window.config?.accessToken || null;
+    if (marker.fullBootAccessTokenRefreshPromise) return marker.fullBootAccessTokenRefreshPromise;
+    const refreshUrl = resolveFullBootTokenRefreshUrl();
+    if (!refreshUrl) return window.config?.accessToken || null;
+    marker.fullBootAccessTokenRefreshPromise = fetch(refreshUrl, {
+      credentials: 'include',
+      cache: 'no-store'
+    })
+      .then(async (response) => (response.ok ? (await response.json())?.item || null : null))
+      .then((config) => {
+        if (config?.mode === 'universo-full-upstream-ui' && typeof config.accessToken === 'string') {
+          window.config.accessToken = config.accessToken;
+          if (config.universoBridge && typeof config.universoBridge === 'object') {
+            window.config.universoBridge = config.universoBridge;
+          }
+          marker.compatibilityConfig = window.config;
+          marker.fullBootAccessTokenRefreshedAt = Date.now();
+          return config.accessToken;
+        }
+        return window.config?.accessToken || null;
+      })
+      .catch((error) => {
+        marker.fullBootAccessTokenRefreshError = error;
+        return window.config?.accessToken || null;
+      })
+      .finally(() => {
+        marker.fullBootAccessTokenRefreshPromise = null;
+      });
+    return marker.fullBootAccessTokenRefreshPromise;
+  };
+
+  const resolveRestCompatibilityConfig = async () => {
+    let compatibilityConfig =
+      marker.restCompatibilityConfig ||
+      (marker.restCompatibilityConfigPromise ? await marker.restCompatibilityConfigPromise.catch(() => null) : null) ||
+      null;
+    const hasRestConfig =
+      compatibilityConfig?.auth?.scheme === 'signed-header' &&
+      typeof compatibilityConfig.auth.accessToken === 'string' &&
+      typeof compatibilityConfig.auth.headerName === 'string' &&
+      typeof compatibilityConfig.endpoints?.assets === 'string';
+    if (hasRestConfig) return compatibilityConfig;
+    if (typeof window.config?.universoBridge?.compatibilityRestBaseUrl !== 'string') return null;
+    const restConfigUrl =
+      window.config.universoBridge.compatibilityRestBaseUrl.replace(/\\/$/, '') +
+      '/config?mode=universo-compatibility-rest-minimal';
+    marker.restCompatibilityConfigPromise = fetch(restConfigUrl, {
+      credentials: 'include',
+      cache: 'no-store'
+    })
+      .then(async (response) => (response.ok ? (await response.json())?.item || null : null))
+      .then((config) => {
+        marker.restCompatibilityConfig = config;
+        return config;
+      })
+      .catch((error) => {
+        marker.restCompatibilityConfigError = error;
+        return null;
+      });
+    compatibilityConfig = await marker.restCompatibilityConfigPromise;
+    return compatibilityConfig?.auth?.scheme === 'signed-header' &&
+      typeof compatibilityConfig.auth.accessToken === 'string' &&
+      typeof compatibilityConfig.auth.headerName === 'string' &&
+      typeof compatibilityConfig.endpoints?.assets === 'string'
+      ? compatibilityConfig
+      : null;
+  };
+
+  const mapCompatibilityAssetToPlayCanvasAsset = (asset) => {
+    const id = Number.isInteger(asset?.editorDocumentId) ? asset.editorDocumentId : null;
+    if (!id) return null;
+    const virtualPath = typeof asset.virtualPath === 'string' && asset.virtualPath.trim() ? asset.virtualPath.trim() : asset.name || 'asset';
+    const filename = virtualPath.split('/').filter(Boolean).pop() || asset.name || String(id);
+    return {
+      id,
+      uniqueId: String(id),
+      item_id: id,
+      branch_id: window.config?.self?.branch?.id || window.config?.scene?.id || null,
+      project: window.config?.project?.id || null,
+      type: typeof asset.type === 'string' && asset.type ? asset.type : 'json',
+      name: typeof asset.name === 'string' && asset.name ? asset.name : filename,
+      file: asset.hash
+        ? {
+            filename,
+            hash: asset.hash,
+            size: Number.isInteger(asset.size) ? asset.size : 0,
+            url: '',
+            variants: null
+          }
+        : null,
+      path: [],
+      tags: [],
+      data: null,
+      meta: null,
+      preload: true,
+      source: false
+    };
+  };
+
+  const loadFullBootAssets = async () => {
+    const restConfig = await resolveRestCompatibilityConfig();
+    if (!restConfig) return [];
+    const response = await fetch(restConfig.endpoints.assets, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        [restConfig.auth.headerName]: restConfig.auth.accessToken
+      },
+      cache: 'no-store'
+    });
+    if (!response.ok) return [];
+    const body = await response.json();
+    const assets = Array.isArray(body?.items) ? body.items.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean) : [];
+    marker.fullBootAssetsById = Object.fromEntries(assets.map((asset) => [String(asset.id), asset]));
+    return assets;
+  };
+
+  const rewriteFullBootAuthFrame = (value, token) => {
+    if (!token || typeof value !== 'string') return value;
+    if (value.startsWith('auth')) {
+      try {
+        const payload = JSON.parse(value.slice('auth'.length));
+        if (payload && typeof payload === 'object' && typeof payload.accessToken === 'string') {
+          return 'auth' + JSON.stringify({ ...payload, accessToken: token });
+        }
+      } catch {}
+      return value;
+    }
+    try {
+      const payload = JSON.parse(value);
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        ((payload.t === 'authenticate' && typeof payload.token === 'string') ||
+          (payload.name === 'authenticate' && typeof payload.token === 'string'))
+      ) {
+        return JSON.stringify({ ...payload, token });
+      }
+    } catch {}
+    return value;
+  };
+
+  const installFullBootFetchAdapter = () => {
+    if (marker.fullBootFetchAdapterInstalled || marker.fullBootMode !== true || !window.config?.project?.id) return;
+    const nativeFetch = window.fetch.bind(window);
+    const numericProjectId = String(window.config.project.id);
+    const numericSceneId = String(window.config.scene?.uniqueId || window.config.scene?.id || '');
+    window.fetch = (input, init) => {
+      const requestUrl = typeof input === 'string' ? input : input?.url;
+      if (typeof requestUrl === 'string') {
+        try {
+          const url = new URL(requestUrl, window.location.href);
+          if (url.pathname === '/api/projects/' + numericProjectId + '/assets') {
+            return loadFullBootAssets().then((assets) => createJsonResponse(assets));
+          }
+          const assetMatch = /^\/api\/assets\/([^/]+)$/.exec(url.pathname);
+          if (assetMatch) {
+            const assetId = decodeURIComponent(assetMatch[1]);
+            const asset = marker.fullBootAssetsById?.[assetId];
+            if (asset) return Promise.resolve(createJsonResponse(asset));
+            return loadFullBootAssets().then((assets) => {
+              const loaded = assets.find((item) => String(item.id) === assetId);
+              return createJsonResponse(loaded || { error: 'notFound' }, loaded ? 200 : 404);
+            });
+          }
+          if (url.pathname === '/api/projects/' + numericProjectId + '/scenes') {
+            return Promise.resolve(
+              createJsonResponse({
+                result: [
+                  {
+                    id: window.config.scene.id,
+                    uniqueId: window.config.scene.uniqueId,
+                    name: window.config.project?.name || 'Main Scene',
+                    project_id: window.config.project.id,
+                    branch_id: window.config.self?.branch?.id || window.config.scene.id
+                  }
+                ]
+              })
+            );
+          }
+          if (numericSceneId && url.pathname === '/api/scenes/' + numericSceneId) {
+            return Promise.resolve(
+              createJsonResponse({
+                id: window.config.scene.id,
+                uniqueId: window.config.scene.uniqueId,
+                name: window.config.project?.name || 'Main Scene',
+                project_id: window.config.project.id,
+                branch_id: window.config.self?.branch?.id || window.config.scene.id
+              })
+            );
+          }
+        } catch {}
+      }
+      return nativeFetch(input, init);
+    };
+    marker.fullBootFetchAdapterInstalled = true;
+  };
+
+  const installFullBootWebSocketDiagnostics = () => {
+    if (marker.fullBootWebSocketDiagnosticsInstalled || marker.fullBootMode !== true || typeof window.WebSocket !== 'function') return;
+    const NativeWebSocket = window.WebSocket;
+    const sanitizeWebSocketUrl = (value) => {
+      try {
+        const parsed = new URL(value, window.location.href);
+        parsed.searchParams.delete('access_token');
+        return parsed.href;
+      } catch {
+        return String(value || '').replace(/([?&])access_token=[^&]*/g, '$1access_token=redacted');
+      }
+    };
+    const isRelayWebSocketUrl = (value) => {
+      const relayUrl = window.config?.url?.relay?.ws;
+      try {
+        const parsed = new URL(value, window.location.href);
+        if (relayUrl) {
+          const expected = new URL(relayUrl, window.location.href);
+          if (parsed.origin === expected.origin && parsed.pathname === expected.pathname) return true;
+        }
+        return /\\/relay\\/?$/.test(parsed.pathname);
+      } catch {
+        return typeof value === 'string' && /\\/relay(?:\\?|$)/.test(value);
+      }
+    };
+    window.WebSocket = function UniversoFullBootWebSocket(url, protocols) {
+      const socket = protocols === undefined ? new NativeWebSocket(url) : new NativeWebSocket(url, protocols);
+      const urlText = typeof url === 'string' ? url : String(url?.url || url || '');
+      const diagnosticUrl = sanitizeWebSocketUrl(urlText);
+      const nativeSend = socket.send.bind(socket);
+      socket.send = (data) => {
+        if (typeof data === 'string') {
+          const rewritten = rewriteFullBootAuthFrame(data, window.config?.accessToken || null);
+          if (rewritten !== data || data.startsWith('auth') || data.includes('"authenticate"')) {
+            void refreshFullBootAccessToken().then((token) => nativeSend(rewriteFullBootAuthFrame(data, token)));
+            return;
+          }
+        }
+        nativeSend(data);
+      };
+      marker.lastWebSocketUrl = diagnosticUrl;
+      marker.webSocketEvents = [...(Array.isArray(marker.webSocketEvents) ? marker.webSocketEvents : []), { type: 'create', url: diagnosticUrl }].slice(-20);
+      socket.addEventListener('open', () => {
+        if (isRelayWebSocketUrl(urlText) && window.config?.accessToken) {
+          socket.send(JSON.stringify({ t: 'authenticate', token: window.config.accessToken }));
+        }
+        marker.lastWebSocketOpenUrl = diagnosticUrl;
+        marker.webSocketEvents = [...(Array.isArray(marker.webSocketEvents) ? marker.webSocketEvents : []), { type: 'open', url: diagnosticUrl }].slice(-20);
+      });
+      socket.addEventListener('close', (event) => {
+        marker.lastWebSocketClose = {
+          url: diagnosticUrl,
+          code: event.code,
+          reason: event.reason || '',
+          wasClean: event.wasClean
+        };
+        marker.webSocketEvents = [
+          ...(Array.isArray(marker.webSocketEvents) ? marker.webSocketEvents : []),
+          { type: 'close', url: diagnosticUrl, code: event.code, reason: event.reason || '', wasClean: event.wasClean }
+        ].slice(-20);
+      });
+      socket.addEventListener('error', () => {
+        marker.lastWebSocketErrorUrl = diagnosticUrl;
+        marker.webSocketEvents = [...(Array.isArray(marker.webSocketEvents) ? marker.webSocketEvents : []), { type: 'error', url: diagnosticUrl }].slice(-20);
+      });
+      return socket;
+    };
+    window.WebSocket.prototype = NativeWebSocket.prototype;
+    window.WebSocket.CONNECTING = NativeWebSocket.CONNECTING;
+    window.WebSocket.OPEN = NativeWebSocket.OPEN;
+    window.WebSocket.CLOSING = NativeWebSocket.CLOSING;
+    window.WebSocket.CLOSED = NativeWebSocket.CLOSED;
+    marker.fullBootWebSocketDiagnosticsInstalled = true;
+  };
+
   const createHostedConfig = (descriptor) => {
     const selectedProject = descriptor?.selectedProject || null;
     const project = selectedProject?.project || null;
@@ -893,8 +1654,75 @@ export const writeBridgeBootstrap = (targetRoot) => {
     });
   };
 
+  const installLateDomContentLoadedReplay = () => {
+    if (marker.domContentLoadedReplayInstalled) return;
+    const nativeAddEventListener = document.addEventListener.bind(document);
+    document.addEventListener = (type, listener, options) => {
+      nativeAddEventListener(type, listener, options);
+      if (type !== 'DOMContentLoaded' || document.readyState === 'loading' || typeof listener !== 'function') return;
+      queueMicrotask(() => {
+        try {
+          listener.call(document, new Event('DOMContentLoaded'));
+        } catch (error) {
+          setTimeout(() => {
+            throw error;
+          }, 0);
+        }
+      });
+    };
+    marker.domContentLoadedReplayInstalled = true;
+  };
+
+  const waitForUpstreamLayout = () =>
+    new Promise((resolve, reject) => {
+      const startedAt = Date.now();
+	      const timeoutMs = 60000;
+      const requiredSelectors = [
+        '#layout-toolbar',
+        '#layout-hierarchy',
+        '#layout-viewport',
+        '#canvas-3d',
+        '#layout-assets',
+        '#layout-attributes'
+      ];
+      const poll = () => {
+        const missingSelector = requiredSelectors.find((selector) => !document.querySelector(selector));
+        if (!missingSelector) {
+          marker.upstreamUiReady = true;
+          resolve();
+          return;
+        }
+        if (Date.now() - startedAt >= timeoutMs) {
+          const error = new Error('PlayCanvas Editor upstream layout did not become ready');
+          error.missingSelector = missingSelector;
+          marker.upstreamUiError = {
+            message: error.message,
+            missingSelector
+          };
+          reject(error);
+          return;
+        }
+        window.setTimeout(poll, 100);
+      };
+      poll();
+    });
+
+  const postEditorReady = () => {
+    if (marker.ready) return;
+    marker.ready = true;
+    window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
+      type: 'editor.ready',
+      bridgeVersion,
+      sessionId: bridgeSessionId,
+      nonce: bridgeNonce,
+      source: 'universo-playcanvas-editor-artifact',
+      selectedProject: marker.selectedProject
+    });
+  };
+
   const loadEditorBundle = () => {
     if (document.querySelector('script[data-universo-editor-bundle="true"]')) return;
+    installLateDomContentLoadedReplay();
     const script = document.createElement('script');
     script.src = './js/editor.js';
     script.defer = true;
@@ -909,25 +1737,33 @@ export const writeBridgeBootstrap = (targetRoot) => {
       clearTimeout(fallbackTimer);
       fallbackTimer = null;
     }
-	    marker.ready = true;
 	    marker.initialized = true;
 	    marker.selectedProject = descriptor?.selectedProject || null;
 	    bridgeSessionId = descriptor?.bridge?.sessionId || null;
 	    bridgeNonce = descriptor?.bridge?.nonce || null;
-	    window.config = createHostedConfig(descriptor);
+    window.config = resolveInitialConfig(descriptor);
+    installFullBootFetchAdapter();
+    installFullBootWebSocketDiagnostics();
     window.editor = window.editor || {};
 	    window.editor.universoBridge = marker;
 	    loadEditorBundle();
-    installEditorSaveAdapter();
-	    window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
-	      type: 'editor.ready',
-	      bridgeVersion,
-	      sessionId: bridgeSessionId,
-	      nonce: bridgeNonce,
-	      source: 'universo-playcanvas-editor-artifact',
-	      selectedProject: marker.selectedProject
-    });
-	    bootstrapProjectStorage(descriptor);
+	        refreshEditorSaveAdapter();
+    if (marker.fullBootMode !== true) {
+      postEditorReady();
+	      bootstrapProjectStorage(descriptor);
+    } else {
+      void waitForUpstreamLayout()
+        .then(() => {
+          postEditorReady();
+          bootstrapProjectStorage(descriptor);
+        })
+        .catch((error) => {
+          marker.ready = false;
+          marker.upstreamUiError = marker.upstreamUiError || {
+            message: error instanceof Error ? error.message : String(error)
+          };
+        });
+    }
 	  };
 
   const bootstrapProjectStorage = (descriptor) => {
@@ -967,6 +1803,9 @@ export const writeBridgeBootstrap = (targetRoot) => {
         marker.lastSceneList = await sendBridgeCommand('scene.list', { projectId: activeProjectId });
         if (typeof activeSceneId === 'string' && activeSceneId) {
 	        marker.lastLoadedScene = await sendBridgeCommand('scene.read', { projectId: activeProjectId, sceneId: activeSceneId });
+          rememberScenePayloadEntities(marker.lastLoadedScene?.data?.payload);
+          hydratePersistedSceneEntities();
+          rebindUpstreamHierarchy();
           marker.currentSceneChecksum =
             marker.lastLoadedScene?.data?.scene?.checksum || marker.lastLoadedScene?.data?.checksum || marker.currentSceneChecksum || null;
 	        }
@@ -1056,7 +1895,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    }
 	    if (!data || data.type !== 'editor.bootstrap.init') return;
 	    if (initialized) {
-	      rejectParentMessage('duplicate-bootstrap');
+	      marker.duplicateBootstrapMessages = (marker.duplicateBootstrapMessages || 0) + 1;
 	      return;
 	    }
 	    if (data.source !== 'universo-playcanvas-editor-host' || data.bootstrapRequestId !== bootstrapRequestId) {
@@ -1125,26 +1964,9 @@ export const injectBridgeBootstrap = (targetRoot) => {
     fs.writeFileSync(indexPath, nextHtml)
 }
 
-export const writeUniversoHostedShell = (targetRoot) => {
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="referrer" content="no-referrer">
-  <title>PlayCanvas Editor</title>
-  <link rel="stylesheet" href="./css/editor.css">
-  <script>
-const universoArtifactBaseUrl = new URL('./', window.location.href).href;
-const NativeWorker = window.Worker;
-window.Worker = class UniversoHostedWorker extends NativeWorker {
-  constructor(url, options) {
-    const value = typeof url === 'string' ? url : String(url);
-    const nextUrl = value.startsWith('/editor/scene/js/') ? new URL(value.replace('/editor/scene/js/', 'js/'), universoArtifactBaseUrl).href : url;
-    super(nextUrl, options);
-  }
-};
-const NativeWebSocket = window.WebSocket;
+const createHostedWebSocketShim = (mode) =>
+    mode === 'universo-hosted'
+        ? `const NativeWebSocket = window.WebSocket;
 window.WebSocket = class UniversoHostedWebSocket extends EventTarget {
   static CONNECTING = NativeWebSocket.CONNECTING;
   static OPEN = NativeWebSocket.OPEN;
@@ -1174,7 +1996,32 @@ window.WebSocket = class UniversoHostedWebSocket extends EventTarget {
 window.WebSocket.CONNECTING = NativeWebSocket.CONNECTING;
 window.WebSocket.OPEN = NativeWebSocket.OPEN;
 window.WebSocket.CLOSING = NativeWebSocket.CLOSING;
-window.WebSocket.CLOSED = NativeWebSocket.CLOSED;
+window.WebSocket.CLOSED = NativeWebSocket.CLOSED;`
+        : ''
+
+export const writeUniversoHostedShell = (targetRoot, { mode = defaultArtifactMode } = {}) => {
+    if (mode !== 'universo-hosted' && mode !== fullUpstreamUiMode) {
+        throw new Error(`Unsupported hosted shell mode: ${mode}`)
+    }
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>PlayCanvas Editor</title>
+  <link rel="stylesheet" href="./css/editor.css">
+  <script>
+const universoArtifactBaseUrl = new URL('./', window.location.href).href;
+const NativeWorker = window.Worker;
+window.Worker = class UniversoHostedWorker extends NativeWorker {
+  constructor(url, options) {
+    const value = typeof url === 'string' ? url : String(url);
+    const nextUrl = value.startsWith('/editor/scene/js/') ? new URL(value.replace('/editor/scene/js/', 'js/'), universoArtifactBaseUrl).href : url;
+    super(nextUrl, options);
+  }
+};
+${createHostedWebSocketShim(mode)}
 const hostedServiceWorkerRegistration = { active: null, installing: null, waiting: null };
 const nativeServiceWorker = navigator.serviceWorker;
 const hostedServiceWorker = {
