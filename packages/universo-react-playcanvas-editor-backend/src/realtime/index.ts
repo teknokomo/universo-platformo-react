@@ -128,19 +128,28 @@ export const parseUpgradePath = (
     }
 }
 
+export const safeSliceReason = (reason: string): string => {
+    const buf = Buffer.from(reason)
+    if (buf.length <= 123) return reason
+    return buf
+        .subarray(0, 123)
+        .toString('utf8')
+        .replace(/\uFFFD$/, '')
+}
+
 export const closeUnauthorized = (socket: WebSocket, reason = 'playcanvasEditor.fullBoot.invalidToken'): void => {
-    socket.close(4401, reason.slice(0, 120))
+    socket.close(4401, safeSliceReason(reason))
 }
 
 export const closeInternalError = (socket: WebSocket, reason = 'playcanvasEditor.fullBoot.internalError'): void => {
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-        socket.close(1011, reason.slice(0, 120))
+        socket.close(1011, safeSliceReason(reason))
     }
 }
 
 export const closePolicyViolation = (socket: WebSocket, reason = 'playcanvasEditor.fullBoot.protocolViolation'): void => {
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-        socket.close(1008, reason.slice(0, 120))
+        socket.close(1008, safeSliceReason(reason))
     }
 }
 
@@ -153,6 +162,12 @@ export const writeUpgradeTooManyRequests = (socket: import('node:net').Socket): 
 }
 
 export const getUpgradeRemoteAddress = (request: IncomingMessage): string => {
+    if (process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true') {
+        const forwardedFor = request.headers['x-forwarded-for']
+        if (typeof forwardedFor === 'string') {
+            return forwardedFor.split(',')[0].trim()
+        }
+    }
     return request.socket.remoteAddress || 'unknown'
 }
 
@@ -342,56 +357,61 @@ export const seedShareDbDocument = async (
         numericUserId: numericIds.selfId
     })
     const connection = backend.connect()
-    const doc = connection.get(input.collection, input.documentId)
-    const metadataKey = `${input.collection}:${input.documentId}`
-    const metadata: ShareDbDocumentMetadata = {
-        checksum: persisted?.checksum ?? null,
-        revision: persisted?.revision ?? null,
-        dirty: false
-    }
-    const nextData = persisted
-        ? asRecordData(persisted.data)
-        : createDefaultRealtimeDocument(input.collection, input.documentId, input.claims)
-    const metadataMatches = (current: ShareDbDocumentMetadata | undefined): boolean =>
-        current?.dirty !== true && (current?.checksum ?? null) === metadata.checksum && (current?.revision ?? null) === metadata.revision
-    await new Promise<void>((resolve, reject) => {
-        doc.fetch((error) => {
-            if (error) {
-                reject(error)
-                return
-            }
-            if (doc.type) {
-                const persistedMetadata = getShareDbPersistedMetadata(backend).get(metadataKey)
-                if (metadataMatches(persistedMetadata)) {
-                    resolve()
+    try {
+        const doc = connection.get(input.collection, input.documentId)
+        const metadataKey = `${input.collection}:${input.documentId}`
+        const metadata: ShareDbDocumentMetadata = {
+            checksum: persisted?.checksum ?? null,
+            revision: persisted?.revision ?? null,
+            dirty: false
+        }
+        const nextData = persisted
+            ? asRecordData(persisted.data)
+            : createDefaultRealtimeDocument(input.collection, input.documentId, input.claims)
+        const metadataMatches = (current: ShareDbDocumentMetadata | undefined): boolean =>
+            current?.dirty !== true &&
+            (current?.checksum ?? null) === metadata.checksum &&
+            (current?.revision ?? null) === metadata.revision
+        await new Promise<void>((resolve, reject) => {
+            doc.fetch((error) => {
+                if (error) {
+                    reject(error)
+                    return
+                }
+                if (doc.type) {
+                    const persistedMetadata = getShareDbPersistedMetadata(backend).get(metadataKey)
+                    if (metadataMatches(persistedMetadata)) {
+                        resolve()
+                        return
+                    }
+                    getShareDbPersistedMetadata(backend).set(metadataKey, metadata)
+                    getShareDbSeedWriteKeys(backend).add(metadataKey)
+                    doc.submitOp([{ p: [], od: doc.data, oi: nextData }], (submitError) => {
+                        if (submitError) {
+                            getShareDbSeedWriteKeys(backend).delete(metadataKey)
+                            reject(submitError)
+                            return
+                        }
+                        resolve()
+                    })
                     return
                 }
                 getShareDbPersistedMetadata(backend).set(metadataKey, metadata)
                 getShareDbSeedWriteKeys(backend).add(metadataKey)
-                doc.submitOp([{ p: [], od: doc.data, oi: nextData }], (submitError) => {
-                    if (submitError) {
+                doc.create(nextData, (createError) => {
+                    if (createError) {
                         getShareDbSeedWriteKeys(backend).delete(metadataKey)
-                        reject(submitError)
+                        reject(createError)
                         return
                     }
                     resolve()
                 })
-                return
-            }
-            getShareDbPersistedMetadata(backend).set(metadataKey, metadata)
-            getShareDbSeedWriteKeys(backend).add(metadataKey)
-            doc.create(nextData, (createError) => {
-                if (createError) {
-                    getShareDbSeedWriteKeys(backend).delete(metadataKey)
-                    reject(createError)
-                    return
-                }
-                resolve()
             })
         })
-    })
-    getShareDbPersistedMetadata(backend).set(metadataKey, metadata)
-    connection.close()
+        getShareDbPersistedMetadata(backend).set(metadataKey, metadata)
+    } finally {
+        connection.close()
+    }
 }
 
 export const persistShareDbSnapshot = async (
@@ -631,6 +651,7 @@ export const handleMessengerSocket = (
     reserveAuth: (socket: WebSocket, claims: PlayCanvasEditorCompatibilityTokenClaims, surface: RealtimeSurface) => boolean
 ) => {
     let authenticatedClaims: PlayCanvasEditorCompatibilityTokenClaims | null = null
+    let authenticating = false
     const authTimer = setTimeout(() => closeUnauthorized(socket, 'playcanvasEditor.fullBoot.authTimeout'), 10_000)
     socket.once('close', () => clearTimeout(authTimer))
     socket.on('message', async (data) => {
@@ -643,33 +664,39 @@ export const handleMessengerSocket = (
             const msg = parseJsonMessage(raw)
             if (!msg) return
             if (msg.name === 'authenticate') {
-                const token = typeof msg.token === 'string' ? msg.token : ''
-                const claims = validateFullBootClaims(deps.tokenService, token, {
-                    metahubId: path.metahubId,
-                    projectId: path.projectId,
-                    origin: parseSafeHttpOrigin(request.headers.origin) ?? null
-                })
-                if (!claims) {
-                    closeUnauthorized(socket)
-                    return
-                }
-                if (!(await authorizeFullBootClaims(deps, socket, claims))) return
-                if (!isSocketOpen(socket)) return
-                if (!reserveAuth(socket, claims, path.surface)) return
-                clearTimeout(authTimer)
-                authenticatedClaims = claims
-                socket.send(
-                    JSON.stringify({
-                        name: 'welcome',
-                        userId: createPlayCanvasEditorNumericIds({
-                            metahubId: claims.metahubId,
-                            projectId: claims.projectId,
-                            sceneId: claims.sceneId ?? claims.projectId,
-                            userId: claims.userId
-                        }).selfId
+                if (authenticating) return
+                authenticating = true
+                try {
+                    const token = typeof msg.token === 'string' ? msg.token : ''
+                    const claims = validateFullBootClaims(deps.tokenService, token, {
+                        metahubId: path.metahubId,
+                        projectId: path.projectId,
+                        origin: parseSafeHttpOrigin(request.headers.origin) ?? null
                     })
-                )
-                return
+                    if (!claims) {
+                        closeUnauthorized(socket)
+                        return
+                    }
+                    if (!(await authorizeFullBootClaims(deps, socket, claims))) return
+                    if (!isSocketOpen(socket)) return
+                    if (!reserveAuth(socket, claims, path.surface)) return
+                    clearTimeout(authTimer)
+                    authenticatedClaims = claims
+                    socket.send(
+                        JSON.stringify({
+                            name: 'welcome',
+                            userId: createPlayCanvasEditorNumericIds({
+                                metahubId: claims.metahubId,
+                                projectId: claims.projectId,
+                                sceneId: claims.sceneId ?? claims.projectId,
+                                userId: claims.userId
+                            }).selfId
+                        })
+                    )
+                    return
+                } finally {
+                    authenticating = false
+                }
             }
             if (!authenticatedClaims) {
                 closeUnauthorized(socket, 'playcanvasEditor.fullBoot.messengerAuthRequired')
