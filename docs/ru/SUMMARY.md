@@ -45,6 +45,8 @@
 -   [Приложения](platform/applications.md)
 -   [Пакет PlayCanvas Editor](platform/playcanvas-editor.md)
 -   [Проекты PlayCanvas](platform/playcanvas-projects.md)
+-   [Навыки PlayCanvas Editor (Skills)](platform/playcanvas-editor-skills.md)
+-   [Обзор качества кода Thermos (Thermos Review)](platform/thermos-review.md)
 -   [Администрирование](platform/admin.md)
 -   [Публикации](platform/publications.md)
 

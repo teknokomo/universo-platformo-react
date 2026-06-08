@@ -4,7 +4,18 @@
 
 The package does not own metahub schemas or storage. It exports route factories and port interfaces; `@universo-react/metahubs-backend` mounts the routes and injects metahub-scoped adapters.
 
-Current scope:
+## Package Architecture
+
+Following Phase 1 decomposition, the monolithic `index.ts` has been split into dedicated modules:
+
+-   `src/config/`: Configuration parameters and environment variables.
+-   `src/middleware/`: Express middleware, including token authentication.
+-   `src/tokens/`: Types, local interfaces (e.g. `PlayCanvasEditorCompatibilityProjectPort`), and token helpers.
+-   `src/routes/`: Route factory logic for scenes, settings, assets, etc.
+-   `src/realtime/`: Realtime ShareDB interfaces, socket wrappers, and WebSocket upgrade helpers.
+-   `src/index.ts`: Barrel exporter that maintains full backwards compatibility with consuming packages.
+
+## Current Scope
 
 -   schema-validated minimal compatibility REST routes;
 -   project config descriptor;
@@ -20,6 +31,18 @@ Current scope:
 The WebSocket runtime authenticates with the same short-lived signed compatibility token. Realtime and messenger authenticate with the first protocol message; relay also authenticates with a first `authenticate` message and does not put bearer tokens in the WebSocket URL. The metahub adapter mounts this runtime as a trusted Tier 2 service after signed-token validation and `manageMetahub` access checks, then persists through the metahub PlayCanvas project service.
 
 The current ShareDB boundary is snapshot-port persistence for the first full-boot slice. It seeds upstream-shaped `scenes`, `assets`, and `settings` documents, validates scene/settings snapshots before storage, and carries checksum/revision guards into storage writes. It is not yet a durable ShareDB op-store or a multi-user collaboration service.
+
+## Development and Testing
+
+To run unit tests:
+```bash
+pnpm --filter @universo-react/playcanvas-editor-backend test
+```
+
+To build the package:
+```bash
+pnpm --filter @universo-react/playcanvas-editor-backend build
+```
 
 Out of scope for this package slice:
 

@@ -1,0 +1,15 @@
+# Thermo-Nuclear Reviewer (Correctness & Security)
+
+Purpose: Review code changes for correctness, security, concurrency, data safety, API breaking changes, and UUID v7 compliance.
+
+Return blockers, critical/high/medium/low issues, and required fixes.
+
+Required checks:
+
+-   UUID v7 Enforcement: Ensure all newly created entity or snapshot identifiers use ordered UUID v7 instead of UUID v4 to maintain indexing and database search performance.
+-   SQL Parameterization: All database interactions must use parameterized queries (bind parameters like `$1`, `$2`). Raw SQL without parameterization or string concatenation of user-provided values is strictly forbidden.
+-   Origin Validation: WebSocket upgrades and external requests must validate origin headers against a strict whitelist to prevent CSRF/XSS and hijacking.
+-   API Compatibility: Public API routes, backend stores, and protocols must be backward compatible unless a major migration path is explicitly documented.
+-   Concurrency Safeguards: Identify potential race conditions, lost updates, double-processing of transactions, and deadlocks in database operations or memory-state mutations.
+-   Data Leakage: Sensitive data, passwords, private keys, or PII must never be logged in debug mode or returned in standard API payloads.
+-   Input Validation: All request payloads, query parameters, and external event structures must have robust schema validation (e.g., using Zod) before processing.

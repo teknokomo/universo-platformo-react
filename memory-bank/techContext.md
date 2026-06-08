@@ -262,6 +262,18 @@
 -   Backend code uses `@universo-react/utils/uuid` when it needs application-generated ids.
 -   SQL-first migrations and schema bootstrap use `DEFAULT public.uuid_generate_v7()`.
 
+## PlayCanvas Editor Skills
+
+- **PlayCanvas Editor Skills:** A suite of 9 specialized AI-agent skills (`.agents/skills/playcanvas-editor-*`) that govern scripting, assets, scenes, version control, realtime ShareDB/sockets, and platform compatibility for PlayCanvas Editor.
+
+## Thermos Quality Gate
+
+- **Thermos Review:** An automated code review framework integrated into `autoreview` via `--prompt-file` prompts:
+  - `thermos-correctness.md` (for UUID v7 order, parameterized SQL, origin validation, and security).
+  - `thermos-maintainability.md` (for modularity, circular imports, test coverage, and package boundaries).
+  - `thermos.md` (orchestrator synthesis).
+- **Drift Control:** The script `check:agent-profiles` (mapped to `pnpm check:agent-profiles`) validates that all 4 shared agent profiles in `.agents/agent-profiles/` match their 24 native copies across all 6 runtimes (.codex, .gemini, .claude, .github, .qoder, .kiro).
+
 ## Runtime And Platform Foundation Notes
 
 -   `@universo-react/schema-ddl` provides shared runtime DDL logic.

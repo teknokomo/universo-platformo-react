@@ -31,6 +31,19 @@ Non-negotiable runtime UI rules:
 -   Reuse existing MUI dashboard/app-template primitives before creating new UI.
 -   Implemented UI needs browser UX evidence, including no page-level horizontal overflow.
 
+# PlayCanvas Editor Quality Gate
+
+When work affects PlayCanvas Editor integrations, asset processing, scripting components, realtime ShareDB servers, or backend controllers, use the project-local skills `.agents/skills/playcanvas-editor-*`.
+
+# Thermos Review Quality Gate
+
+For all code modifications, code reviews, final QA passes, or when the user requests an autoreview, apply the Thermos Rubrics via the `autoreview` tool with `.agents/skills/thermos*`.
+
+- **Correctness & Security:** Validate time-ordered UUID v7 usage, verify parameterized SQL query bind parameters, check origin headers in WebSocket upgrades, prevent credentials/PII logging, and maintain API backward compatibility.
+- **Maintainability:** Ensure files are modular and not monolithic, prevent circular dependencies, require unit/integration test coverage, and enforce styling standards.
+
+Issues found are graded as CRITICAL (blocker), HIGH (fix before merge), MEDIUM (track in backlog), or LOW (suggestion). Any CRITICAL correctness or blocker maintainability finding blocks merging.
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization

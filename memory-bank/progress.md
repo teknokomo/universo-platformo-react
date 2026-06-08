@@ -55,6 +55,16 @@
 
 ---
 
+## 2026-06-08 - PlayCanvas Editor Skills and Thermos Review Integration
+
+- Implemented 9 PlayCanvas Editor Skills (`.agents/skills/playcanvas-editor-*`) and 3 Thermos Review Skills (`thermo-nuclear-review`, `thermo-nuclear-code-quality-review`, `thermos`).
+- Formulated 4 shared agent profiles under `.agents/agent-profiles/` and distributed 24 native copies across all 6 runtimes (`.codex`, `.gemini`, `.claude`, `.github`, `.qoder`, `.kiro`).
+- Created the `pnpm check:agent-profiles` (mapped to `tools/agents/check-agent-profiles.mjs`) to act as drift-control for agent profiles.
+- Integrated Thermos correctness/maintainability rubrics with the `autoreview` tool via `--prompt-file`.
+- Decomposed the 1908-line backend monolith `packages/universo-react-playcanvas-editor-backend/src/index.ts` into a modular design (`src/config/`, `src/middleware/`, `src/tokens/`, `src/routes/`, `src/realtime/`) while preserving full API backward compatibility.
+- Implemented a Vitest structure validation suite for AI Skills in `src/skills.test.ts`.
+- Verification passed: package tests, compiler types checks, and drift checking scripts run successfully.
+
 ## 2026-06-07 - PlayCanvas Editor Full Boot UX And Reliability Closure
 
 -   Closed the remaining PlayCanvas Editor full-boot UX and reliability QA
