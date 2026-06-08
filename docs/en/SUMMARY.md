@@ -45,6 +45,8 @@
 -   [Applications](platform/applications.md)
 -   [PlayCanvas Editor Package](platform/playcanvas-editor.md)
 -   [PlayCanvas Projects](platform/playcanvas-projects.md)
+-   [PlayCanvas Editor Skills](platform/playcanvas-editor-skills.md)
+-   [Thermos Code Quality Review](platform/thermos-review.md)
 -   [Admin](platform/admin.md)
 -   [Publications](platform/publications.md)
 

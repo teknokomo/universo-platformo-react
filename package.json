@@ -14,6 +14,7 @@
         "dev": "turbo run dev --parallel",
         "check:catalog-versions": "node tools/check-catalog-versions.mjs",
         "check:runtime-ux-agents": "node tools/agents/check-runtime-ux-agent-invariants.mjs",
+        "check:agent-profiles": "node tools/agents/check-agent-profiles.mjs",
         "check:runtime-no-lms-forks": "node tools/testing/check-runtime-no-lms-forks.mjs",
         "check:package-naming": "git ls-files -z | node tools/check-package-naming-convention.mjs --from-ledger memory-bank/implementation/packages-naming-ledger.json --allowlist memory-bank/implementation/packages-naming-legacy-reference-allowlist.json --stdin0",
         "check:apps-template-isolation": "node tools/check-apps-template-isolation.mjs",
