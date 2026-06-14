@@ -2365,6 +2365,11 @@ export const writeBridgeBootstrap = (targetRoot) => {
         }
       });
       editorInstance.on('realtime:load:scene', () => {
+        if (marker.dirty === true) {
+          marker.skippedDirtyRealtimeLoadScene = true;
+          marker.skippedDirtyRealtimeLoadSceneAt = Date.now();
+          return;
+        }
         ensureRealtimeSceneDocumentShape(editorInstance.api?.globals?.realtime?.scenes?.current);
         hydratePersistedSceneEntities();
         markHydratedClean();

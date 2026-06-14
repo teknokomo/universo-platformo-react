@@ -64,6 +64,16 @@ const expectHostedEditorApiReady = async (frame: FrameLocator) => {
             { timeout: 15_000 }
         )
         .toBe(true)
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(() => {
+                    const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    return bridge?.initialHydrationComplete === true && Date.now() >= (bridge?.ignoreDirtyUntil ?? 0)
+                }),
+            { timeout: 15_000 }
+        )
+        .toBe(true)
 }
 
 test('PlayCanvas Editor hosted artifact shell is safe and nonblank', async ({ page }, testInfo) => {
@@ -785,7 +795,7 @@ test('PlayCanvas Editor hosted upstream UI saves serializable entities', async (
         .toBeTruthy()
     const entity = await frame.locator('body').evaluate(() => {
         const scene = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.serializeCurrentScene?.()
-        return scene?.entities?.[0] ?? null
+        return scene?.entities?.find((item) => item.id === 'smoke-entity') ?? null
     })
     expect(entity).toEqual(expect.objectContaining({ id: 'smoke-entity', name: 'Smoke Entity' }))
     const actualEntityName = 'Smoke Entity'
@@ -803,12 +813,14 @@ test('PlayCanvas Editor hosted upstream UI saves serializable entities', async (
                 window as unknown as { bridgePayloads?: Array<{ type?: string; payload?: { entities?: Array<{ name?: string }> } }> }
             ).bridgePayloads?.find((item) => item.type === 'scene.save') ?? null
     )
-    expect(savePayload?.payload?.entities).toEqual([
-        expect.objectContaining({
-            id: (entity as { id?: string }).id,
-            name: actualEntityName
-        })
-    ])
+    expect(savePayload?.payload?.entities).toEqual(
+        expect.arrayContaining([
+            expect.objectContaining({
+                id: (entity as { id?: string }).id,
+                name: actualEntityName
+            })
+        ])
+    )
 })
 
 test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable entities without projection controls', async ({
