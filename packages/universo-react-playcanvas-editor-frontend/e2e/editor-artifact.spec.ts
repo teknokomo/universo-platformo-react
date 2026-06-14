@@ -49,7 +49,12 @@ const expectHostedEditorApiReady = async (frame: FrameLocator) => {
                 frame.locator('body').evaluate(() => {
                     const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
                     const editor = window.editor
-                    if (!bridge?.editorSaveAdapterInstalled || bridge?.apiEntitiesCreateWrapped !== true || typeof editor?.call !== 'function') return false
+                    if (
+                        !bridge?.editorSaveAdapterInstalled ||
+                        bridge?.apiEntitiesCreateWrapped !== true ||
+                        typeof editor?.call !== 'function'
+                    )
+                        return false
                     try {
                         return Array.isArray(editor.call('entities:list'))
                     } catch {
