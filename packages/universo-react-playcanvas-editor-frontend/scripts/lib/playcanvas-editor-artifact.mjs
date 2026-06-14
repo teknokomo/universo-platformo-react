@@ -1445,6 +1445,11 @@ export const writeBridgeBootstrap = (targetRoot) => {
   };
 
   const hydratePersistedSceneEntities = () => {
+    if (marker.dirty === true) {
+      marker.skippedDirtyPersistedSceneHydration = true;
+      marker.skippedDirtyPersistedSceneHydrationAt = Date.now();
+      return false;
+    }
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     const apiEntities = editorInstance?.api?.globals?.entities;
     const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
@@ -2365,14 +2370,12 @@ export const writeBridgeBootstrap = (targetRoot) => {
         }
       });
       editorInstance.on('realtime:load:scene', () => {
-        if (marker.dirty === true) {
-          marker.skippedDirtyRealtimeLoadScene = true;
-          marker.skippedDirtyRealtimeLoadSceneAt = Date.now();
-          return;
-        }
+        const wasDirty = marker.dirty === true;
         ensureRealtimeSceneDocumentShape(editorInstance.api?.globals?.realtime?.scenes?.current);
-        hydratePersistedSceneEntities();
-        markHydratedClean();
+        const hydrated = hydratePersistedSceneEntities();
+        if (hydrated || !wasDirty) {
+          markHydratedClean();
+        }
       });
 	      editorInstance.on('realtime:scene:op', markDirty);
 		    }

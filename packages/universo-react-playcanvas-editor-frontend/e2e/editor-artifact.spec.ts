@@ -987,6 +987,54 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
         }
         window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__.dirty = true
     })
+    const lateLoadState = await frame.locator('body').evaluate(() => {
+        const editor = window.editor
+        const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        if (!editor?.emit || !bridge) {
+            throw new Error('PlayCanvas Editor bridge is not available')
+        }
+        bridge.lastLoadedScene = {
+            data: {
+                payload: {
+                    schemaVersion: '1',
+                    entities: [
+                        {
+                            resource_id: 'root',
+                            name: 'Root',
+                            parent: null,
+                            children: ['stale-persisted'],
+                            position: [0, 0, 0],
+                            rotation: [0, 0, 0],
+                            scale: [1, 1, 1],
+                            components: {}
+                        },
+                        {
+                            resource_id: 'stale-persisted',
+                            name: 'Stale Persisted Entity',
+                            parent: 'root',
+                            children: [],
+                            position: [9, 9, 9],
+                            rotation: [0, 0, 0],
+                            scale: [1, 1, 1],
+                            components: {}
+                        }
+                    ]
+                }
+            }
+        }
+        editor.emit('realtime:load:scene')
+        const scene = bridge.serializeCurrentScene?.()
+        return {
+            dirty: bridge.dirty === true,
+            names: (scene?.entities ?? []).map((entity) => entity.name)
+        }
+    })
+    expect(lateLoadState).toEqual(
+        expect.objectContaining({
+            dirty: true,
+            names: expect.arrayContaining(['MMOOMM Ship', 'MMOOMM Station'])
+        })
+    )
     await expect
         .poll(
             () =>
