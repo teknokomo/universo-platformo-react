@@ -80,9 +80,11 @@ if (manifest.mode === 'artifact-only' && !/Artifact Unavailable|artifact-only in
     throw new Error('Artifact-only mode must serve the safe unavailable placeholder')
 }
 
-const scannedExtensions = new Set(['.html', '.js', '.css'])
+const scannedExtensions = new Set(['.html', '.js', '.css', '.json'])
 const forbidden =
     /@universo-react\/(?:template-mui|apps-template-mui|core-frontend|metahubs-frontend|applications-frontend)|packages\/universo-react-/i
+const forbiddenRuntimeImages =
+    /(?:https:)?\/\/playcanvas\.com\/static-assets\/(?:images|platform|instructions)|(?:\.\.\/)*static\/platform\/images\/(?:ajax-loader|loader_transparent|home\/blank_project)\.(?:gif|png)/i
 
 const scan = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -95,6 +97,9 @@ const scan = (dir) => {
         const content = fs.readFileSync(absolute, 'utf8')
         if (forbidden.test(content)) {
             throw new Error(`Generated artifact contains a forbidden Universo import/reference: ${path.relative(packageRoot, absolute)}`)
+        }
+        if (forbiddenRuntimeImages.test(content)) {
+            throw new Error(`Generated artifact contains a non-self-hosted runtime image URL: ${path.relative(packageRoot, absolute)}`)
         }
     }
 }

@@ -50,7 +50,7 @@ const createProtocol = () =>
             messenger: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' }
         },
         shareDb: {
-            requiredCollections: ['scenes', 'assets', 'settings'],
+            requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
             persisted: false,
             persistence: 'not-implemented',
             sceneStorage: 'metahub-playcanvas-project-storage'
@@ -98,7 +98,7 @@ const createFullBootProtocol = () => {
             relay: { status: 'enabled', reason: 'universoFullUpstreamUi' }
         },
         shareDb: {
-            requiredCollections: ['scenes', 'assets', 'settings'],
+            requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
             persisted: true,
             persistence: 'snapshot-port',
             sceneStorage: 'metahub-playcanvas-project-storage'

@@ -111,6 +111,8 @@ const completeReplayAfterSuccess = async (
         schemaName: string
         input: {
             sessionId: string
+            metahubId: string
+            projectId: string | null
             requestId: string
             commandType: string
             fingerprint: string
@@ -148,9 +150,12 @@ const releaseReplayClaim = async (
         schemaName: string
         input: {
             sessionId: string
+            metahubId: string
+            projectId: string | null
             requestId: string
             commandType: string
             fingerprint: string
+            userId: string
         }
     } | null
 ): Promise<void> => {
@@ -379,6 +384,16 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         { permission: 'manageMetahub' }
     )
 
+    const listPublishedRuntimeManifests = createHandler(
+        async ({ res, metahubId, exec, schemaService }) => {
+            const service = new PlayCanvasProjectsService(exec, schemaService)
+            const items = await service.listPublishedRuntimeManifests(metahubId)
+            res.setHeader('Cache-Control', 'no-store')
+            return res.json({ items })
+        },
+        { permission: 'manageMetahub' }
+    )
+
     const exportProjectState = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const service = new PlayCanvasProjectsService(exec, schemaService)
@@ -438,6 +453,8 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
             schemaName: string
             input: {
                 sessionId: string
+                metahubId: string
+                projectId: string | null
                 requestId: string
                 commandType: string
                 fingerprint: string
@@ -451,6 +468,8 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
                 schemaName: replaySchemaName,
                 input: {
                     sessionId: session.sessionId,
+                    metahubId: session.metahubId,
+                    projectId: session.projectId,
                     requestId: command.requestId,
                     commandType: command.type,
                     fingerprint: hashBridgeCommand(command),
@@ -658,6 +677,7 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         writeBinding,
         writeGeneratedArtifact,
         publishProjectState,
+        listPublishedRuntimeManifests,
         exportProjectState,
         editorBridgeCommand,
         editorCompatibleProtocol,

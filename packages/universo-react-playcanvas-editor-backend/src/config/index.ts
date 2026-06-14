@@ -65,7 +65,20 @@ export const buildDefaultEditorSchema = () => ({
                 components: {
                     camera: { enabled: { $type: 'boolean', $default: true } },
                     light: { enabled: { $type: 'boolean', $default: true } },
-                    render: { enabled: { $type: 'boolean', $default: true } },
+                    render: {
+                        enabled: { $type: 'boolean', $default: true },
+                        type: { $type: 'string', $default: 'box' },
+                        asset: { $default: null },
+                        materialAssets: { $type: 'array', $default: [null] },
+                        layers: { $type: 'array', $default: [0] },
+                        castShadows: { $type: 'boolean', $default: true },
+                        receiveShadows: { $type: 'boolean', $default: true },
+                        castShadowsLightmap: { $type: 'boolean', $default: true },
+                        lightmapped: { $type: 'boolean', $default: false },
+                        isStatic: { $type: 'boolean', $default: false },
+                        batchGroupId: { $default: null },
+                        rootBone: { $default: null }
+                    },
                     script: {
                         enabled: { $type: 'boolean', $default: true },
                         scripts: { $type: 'array', $default: [] },
@@ -286,6 +299,7 @@ export const createPlayCanvasEditorCompatibilityConfig = (input: {
         endpoints: {
             scenes: `${basePath}/scenes`,
             assets: `${basePath}/assets`,
+            sourcefiles: `${basePath}/sourcefiles`,
             settings: `${basePath}/settings`,
             cloudOnly: `${basePath}/cloud-only`
         },

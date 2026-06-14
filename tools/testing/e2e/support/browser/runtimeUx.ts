@@ -8,6 +8,12 @@ export type TechnicalLeakageOptions = {
     checkJsonLikeText?: boolean
     checkInternalValidationText?: boolean
     checkIsoDateText?: boolean
+    forbiddenVisibleTextPatterns?: RegExp[]
+}
+
+export type DataGridTechnicalLeakageOptions = TechnicalLeakageOptions & {
+    label?: string
+    requireVisibleGrid?: boolean
 }
 
 export type SemanticFieldControlContract = {
@@ -52,8 +58,15 @@ const isAllowedText = (text: string, allowTextPatterns: RegExp[]) => allowTextPa
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 const collectTechnicalLeakageIssues = (text: string, options: Required<TechnicalLeakageOptions>): string[] => {
-    const { allowTextPatterns, checkUuidOnlyLines, checkUuidSubstrings, checkJsonLikeText, checkInternalValidationText, checkIsoDateText } =
-        options
+    const {
+        allowTextPatterns,
+        checkUuidOnlyLines,
+        checkUuidSubstrings,
+        checkJsonLikeText,
+        checkInternalValidationText,
+        checkIsoDateText,
+        forbiddenVisibleTextPatterns
+    } = options
     const lines = text
         .split(/\n+/)
         .map((line) => line.trim())
@@ -70,6 +83,16 @@ const collectTechnicalLeakageIssues = (text: string, options: Required<Technical
 
     if (checkIsoDateText && ISO_DATETIME_TEXT_PATTERN.test(text) && !isAllowedText(text, allowTextPatterns)) {
         issues.push('visible raw ISO date/time text')
+    }
+
+    const forbiddenMatches = forbiddenVisibleTextPatterns.filter((pattern) => pattern.test(text) && !isAllowedText(text, allowTextPatterns))
+    if (forbiddenMatches.length > 0) {
+        issues.push(
+            `visible forbidden technical label(s): ${forbiddenMatches
+                .map((pattern) => pattern.source)
+                .slice(0, 3)
+                .join(', ')}`
+        )
     }
 
     if (checkUuidOnlyLines) {
@@ -98,7 +121,8 @@ const normalizeTechnicalLeakageOptions = (options: TechnicalLeakageOptions = {})
     checkUuidSubstrings: options.checkUuidSubstrings ?? false,
     checkJsonLikeText: options.checkJsonLikeText ?? true,
     checkInternalValidationText: options.checkInternalValidationText ?? true,
-    checkIsoDateText: options.checkIsoDateText ?? true
+    checkIsoDateText: options.checkIsoDateText ?? true,
+    forbiddenVisibleTextPatterns: options.forbiddenVisibleTextPatterns ?? []
 })
 
 export async function expectNoTechnicalLeakage(surface: Locator, options: TechnicalLeakageOptions = {}): Promise<void> {
@@ -109,7 +133,8 @@ export async function expectNoTechnicalLeakage(surface: Locator, options: Techni
         checkUuidSubstrings = false,
         checkJsonLikeText = true,
         checkInternalValidationText = true,
-        checkIsoDateText = true
+        checkIsoDateText = true,
+        forbiddenVisibleTextPatterns = []
     } = options
     const text = await readVisibleText(surface)
     const issues = collectTechnicalLeakageIssues(text, {
@@ -119,7 +144,8 @@ export async function expectNoTechnicalLeakage(surface: Locator, options: Techni
         checkUuidSubstrings,
         checkJsonLikeText,
         checkInternalValidationText,
-        checkIsoDateText
+        checkIsoDateText,
+        forbiddenVisibleTextPatterns
     })
 
     expect(issues, `${label} must not expose technical leakage`).toEqual([])
@@ -228,16 +254,15 @@ export async function expectNoPageHorizontalOverflow(page: Page, label: string):
     ).toBeLessThanOrEqual(1)
 }
 
-export async function expectNoDataGridTechnicalLeakage(
-    surface: Locator,
-    options: TechnicalLeakageOptions & { label?: string } = {}
-): Promise<void> {
+export async function expectNoDataGridTechnicalLeakage(surface: Locator, options: DataGridTechnicalLeakageOptions = {}): Promise<void> {
     const normalizedOptions = normalizeTechnicalLeakageOptions({
         ...options,
         checkUuidSubstrings: options.checkUuidSubstrings ?? true
     })
+    const { requireVisibleGrid = false } = options
     const grids = surface.locator('.MuiDataGrid-root')
     const gridCount = await grids.count()
+    let visibleGridCount = 0
 
     for (let index = 0; index < gridCount; index += 1) {
         const grid = grids.nth(index)
@@ -252,6 +277,7 @@ export async function expectNoDataGridTechnicalLeakage(
         if (!visible) {
             continue
         }
+        visibleGridCount += 1
 
         const scroller = grid.locator('.MuiDataGrid-virtualScroller').first()
         const hasScroller = await scroller
@@ -301,6 +327,13 @@ export async function expectNoDataGridTechnicalLeakage(
             await waitForLayoutFrame(surface.page())
         }
     }
+
+    if (requireVisibleGrid) {
+        expect(
+            visibleGridCount,
+            `${normalizedOptions.label ?? 'Runtime UX surface'} must contain at least one visible DataGrid`
+        ).toBeGreaterThan(0)
+    }
 }
 
 export async function expectDataGridHorizontalScrollConstrained(page: Page, label: string): Promise<void> {
@@ -329,6 +362,7 @@ export async function expectDataGridHorizontalScrollConstrained(page: Page, labe
             })
             .filter((item) => item.visible)
     })
+    expect(metrics.length, `${label} must contain at least one visible DataGrid`).toBeGreaterThan(0)
 
     for (const metric of metrics) {
         expect(metric.rootLeft, `${label} DataGrid #${metric.index} must start inside the viewport`).toBeGreaterThanOrEqual(-1)
@@ -386,6 +420,18 @@ export async function expectLocatorFitsViewport(locator: Locator, label: string)
 
     expect(box.x, `${label} must start inside the viewport`).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width, `${label} must fit inside the viewport`).toBeLessThanOrEqual(viewport.width + 1)
+}
+
+export async function expectLocatorFullyFitsViewport(locator: Locator, label: string): Promise<void> {
+    await expectLocatorFitsViewport(locator, label)
+    const box = await locator.boundingBox()
+    const viewport = locator.page().viewportSize()
+    expect(box, `${label} must be rendered`).not.toBeNull()
+    expect(viewport, `${label} requires a viewport`).not.toBeNull()
+    if (!box || !viewport) return
+
+    expect(box.y, `${label} must start inside the viewport vertically`).toBeGreaterThanOrEqual(0)
+    expect(box.y + box.height, `${label} must fit inside the viewport vertically`).toBeLessThanOrEqual(viewport.height + 1)
 }
 
 export async function expectLocatorHasNoInlineOverflow(locator: Locator, label: string): Promise<void> {

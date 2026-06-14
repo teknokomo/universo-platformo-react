@@ -53,6 +53,7 @@ import { metahubModulesStorageColumnsAvailable } from '../../modules/services/mo
 import { PlayCanvasProjectFileService } from '../../playcanvas-projects/services/PlayCanvasProjectFileService'
 import {
     PlayCanvasProjectSnapshotService,
+    type PlayCanvasProjectSnapshotRestoreResult,
     type RestoredPlayCanvasProjectFileBackup,
     type StalePlayCanvasProjectFileCandidate
 } from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
@@ -166,7 +167,7 @@ export class SnapshotRestoreService {
                     restoredModuleSourceBackups,
                     staleModuleSourceCandidates
                 )
-                const playCanvasProjectIdMap = shouldRestorePlayCanvasProjects
+                const playCanvasRestoreResult = shouldRestorePlayCanvasProjects
                     ? await this.playCanvasProjectSnapshotService.restoreSnapshot({
                           trx,
                           metahubId,
@@ -177,10 +178,15 @@ export class SnapshotRestoreService {
                           userId,
                           restoredFileBackups: restoredPlayCanvasFileBackups
                       })
-                    : new Map<string, string>()
+                    : {
+                          projectIdMap: new Map<string, string>(),
+                          sceneIdMap: new Map<string, string>(),
+                          runtimeManifestChecksumMap: new Map<string, string>()
+                      }
+                const playCanvasProjectIdMap = playCanvasRestoreResult.projectIdMap
                 const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, moduleIdMap, userId)
                 await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
-                await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
+                await this.restoreLayouts(trx, snapshot, entityIdMap, userId, playCanvasRestoreResult)
                 await this.restoreSettings(trx, snapshot, userId)
                 await this.restorePackages(trx, metahubId, snapshot, userId, playCanvasProjectIdMap)
             })
@@ -1660,7 +1666,12 @@ export class SnapshotRestoreService {
         qb: Knex.Transaction,
         snapshot: MetahubSnapshot,
         entityIdMap: Map<string, string>,
-        userId: string
+        userId: string,
+        playCanvasRestoreResult: PlayCanvasProjectSnapshotRestoreResult = {
+            projectIdMap: new Map(),
+            sceneIdMap: new Map(),
+            runtimeManifestChecksumMap: new Map()
+        }
     ): Promise<void> {
         const layouts = snapshot.layouts ?? []
         const scopedLayouts = snapshot.scopedLayouts ?? []
@@ -1689,7 +1700,7 @@ export class SnapshotRestoreService {
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},
                     description: layout.description ?? null,
-                    config: layout.config ?? {},
+                    config: this.remapPlayCanvasRuntimeManifestReferences(layout.config ?? {}, playCanvasRestoreResult),
                     is_active: layout.isActive !== false,
                     is_default: layout.isDefault ?? false,
                     sort_order: layout.sortOrder ?? 0,
@@ -1729,7 +1740,7 @@ export class SnapshotRestoreService {
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},
                     description: layout.description ?? null,
-                    config: layout.config ?? {},
+                    config: this.remapPlayCanvasRuntimeManifestReferences(layout.config ?? {}, playCanvasRestoreResult),
                     is_active: layout.isActive !== false,
                     is_default: layout.isDefault ?? false,
                     sort_order: layout.sortOrder ?? 0,
@@ -1769,7 +1780,7 @@ export class SnapshotRestoreService {
                     zone: widget.zone,
                     widget_key: widget.widgetKey,
                     sort_order: widget.sortOrder ?? 0,
-                    config: widget.config ?? {},
+                    config: this.remapPlayCanvasRuntimeManifestReferences(widget.config ?? {}, playCanvasRestoreResult),
                     is_active: widget.isActive !== false,
                     _upl_created_at: now,
                     _upl_created_by: userId,
@@ -1807,7 +1818,10 @@ export class SnapshotRestoreService {
                     base_widget_id: newBaseWidgetId,
                     zone: override.zone ?? null,
                     sort_order: override.sortOrder ?? null,
-                    config: override.config ?? null,
+                    config:
+                        override.config == null
+                            ? null
+                            : this.remapPlayCanvasRuntimeManifestReferences(override.config, playCanvasRestoreResult),
                     is_active: typeof override.isActive === 'boolean' ? override.isActive : null,
                     is_deleted_override: override.isDeletedOverride === true,
                     _upl_created_at: now,
@@ -1823,5 +1837,38 @@ export class SnapshotRestoreService {
                     _mhb_deleted: false
                 })
         }
+    }
+
+    private remapPlayCanvasRuntimeManifestReferences(
+        value: unknown,
+        playCanvasRestoreResult: PlayCanvasProjectSnapshotRestoreResult
+    ): unknown {
+        if (Array.isArray(value)) {
+            return value.map((item) => this.remapPlayCanvasRuntimeManifestReferences(item, playCanvasRestoreResult))
+        }
+        if (!value || typeof value !== 'object') {
+            return value
+        }
+        const record = value as Record<string, unknown>
+        const next: Record<string, unknown> = {}
+        for (const [key, item] of Object.entries(record)) {
+            if (key === 'runtimeManifest' && item && typeof item === 'object' && !Array.isArray(item)) {
+                const binding = item as Record<string, unknown>
+                const projectId = typeof binding.projectId === 'string' ? binding.projectId : null
+                const sceneId = typeof binding.sceneId === 'string' ? binding.sceneId : null
+                next[key] = {
+                    ...binding,
+                    projectId: projectId ? playCanvasRestoreResult.projectIdMap.get(projectId) ?? projectId : binding.projectId,
+                    sceneId: sceneId ? playCanvasRestoreResult.sceneIdMap.get(sceneId) ?? sceneId : binding.sceneId,
+                    checksum:
+                        typeof binding.checksum === 'string'
+                            ? playCanvasRestoreResult.runtimeManifestChecksumMap.get(binding.checksum) ?? binding.checksum
+                            : binding.checksum
+                }
+                continue
+            }
+            next[key] = this.remapPlayCanvasRuntimeManifestReferences(item, playCanvasRestoreResult)
+        }
+        return next
     }
 }

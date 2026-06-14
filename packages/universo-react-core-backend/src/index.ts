@@ -4,6 +4,7 @@ import { Request, Response, NextFunction, type RequestHandler } from 'express'
 import path from 'path'
 import cors from 'cors'
 import http from 'http'
+import tls from 'tls'
 import session from 'express-session'
 import { createCsrfProtection } from './middlewares/csrf'
 import rateLimit from 'express-rate-limit'
@@ -79,6 +80,46 @@ const parseCspFrameOrigin = (value: string): string | null => {
     } catch {
         return null
     }
+}
+
+const parseHttpOrigin = (value: string | undefined): string | null => {
+    if (!value) return null
+    const parsed = parseCspFrameOrigin(value)
+    return parsed && parsed !== "'self'" && parsed !== "'none'" ? parsed : null
+}
+
+const splitConfiguredHttpOrigins = (value: string | undefined): string[] =>
+    (value ?? '')
+        .split(',')
+        .map((origin) => parseHttpOrigin(origin.trim()))
+        .filter((origin): origin is string => Boolean(origin))
+
+const hasWildcardOrigin = (value: string | undefined): boolean => (value ?? '').split(',').some((origin) => origin.trim() === '*')
+
+const resolveRequestHostOrigin = (request: http.IncomingMessage): string | null => {
+    const trustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true'
+    const forwardedHost = trustProxyHeaders ? request.headers['x-forwarded-host'] : undefined
+    const host = typeof forwardedHost === 'string' ? forwardedHost.split(',')[0]?.trim() : request.headers.host
+    if (!host || Array.isArray(host) || host.includes(',')) return null
+    const forwardedProto = trustProxyHeaders ? request.headers['x-forwarded-proto'] : undefined
+    const rawProtocol = typeof forwardedProto === 'string' ? forwardedProto.split(',')[0]?.trim() : undefined
+    const protocol =
+        rawProtocol === 'https' || rawProtocol === 'http' ? rawProtocol : request.socket instanceof tls.TLSSocket ? 'https' : 'http'
+    return parseHttpOrigin(`${protocol}://${host}`)
+}
+
+export const isApplicationRealtimeUpgradeOriginAllowed = (request: http.IncomingMessage): boolean => {
+    const requestOrigin = parseHttpOrigin(String(request.headers.origin ?? ''))
+    if (!requestOrigin) return false
+
+    const requestHostOrigin = resolveRequestHostOrigin(request)
+    if (requestHostOrigin && requestHostOrigin === requestOrigin) return true
+
+    const explicitRealtimeOrigins = process.env.APPLICATION_REALTIME_WS_ORIGINS
+    if (!explicitRealtimeOrigins || hasWildcardOrigin(explicitRealtimeOrigins)) return false
+    const allowedOrigins = new Set(splitConfiguredHttpOrigins(explicitRealtimeOrigins))
+
+    return allowedOrigins.has(requestOrigin)
 }
 
 const resolvePlayCanvasEditorFrameSources = (): string[] => {
@@ -534,7 +575,8 @@ export async function start(): Promise<void> {
 
     await serverApp.initDatabase()
     const realtimeRuntime = await attachApplicationsRealtimeRuntime(server, {
-        shouldHandleUpgrade: (request) => !isPlayCanvasEditorFullBootUpgradeRequest(request)
+        shouldHandleUpgrade: (request) => !isPlayCanvasEditorFullBootUpgradeRequest(request),
+        isOriginAllowed: isApplicationRealtimeUpgradeOriginAllowed
     })
     attachMetahubPlayCanvasEditorFullBootRuntime({
         server,

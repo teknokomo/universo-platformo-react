@@ -54,6 +54,7 @@ vi.mock('@universo-react/template-mui', async () => {
             const del = descriptors.find((descriptor: any) => descriptor?.id === 'delete')
             const copy = descriptors.find((descriptor: any) => descriptor?.id === 'copy')
             const exportAction = descriptors.find((descriptor: any) => descriptor?.id === 'export')
+            const exportRuntimeAction = descriptors.find((descriptor: any) => descriptor?.id === 'exportRuntime')
 
             return (
                 <div data-testid='entity-menu'>
@@ -130,6 +131,16 @@ vi.mock('@universo-react/template-mui', async () => {
                             }}
                         >
                             export
+                        </button>
+                    ) : null}
+                    {exportRuntimeAction ? (
+                        <button
+                            type='button'
+                            onClick={() => {
+                                void exportRuntimeAction.onSelect?.(ctx)
+                            }}
+                        >
+                            export runtime
                         </button>
                     ) : null}
                     {del ? (
@@ -1153,7 +1164,13 @@ describe('MetahubList', () => {
             await user.click(screen.getByRole('button', { name: 'export' }))
 
             await waitFor(() => {
-                expect(metahubsSnapshotApi.exportMetahubSnapshot).toHaveBeenCalledWith('exportable-metahub')
+                expect(metahubsSnapshotApi.exportMetahubSnapshot).toHaveBeenCalledWith('exportable-metahub', 'snapshot')
+            })
+
+            await user.click(screen.getByRole('button', { name: 'export runtime' }))
+
+            await waitFor(() => {
+                expect(metahubsSnapshotApi.exportMetahubSnapshot).toHaveBeenCalledWith('exportable-metahub', 'snapshot-runtime')
             })
         })
     })

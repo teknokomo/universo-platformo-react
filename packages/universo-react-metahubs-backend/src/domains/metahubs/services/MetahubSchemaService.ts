@@ -27,7 +27,8 @@ import {
     normalizeStoredStructureVersion
 } from './structureVersions'
 import { SystemTableMigrator } from './SystemTableMigrator'
-import { buildSystemStructureSnapshot } from './systemTableDefinitions'
+import { SystemTableDDLGenerator } from './SystemTableDDLGenerator'
+import { ADDITIVE_CURRENT_BASELINE_TABLE_NAMES, buildSystemStructureSnapshot, findSystemTableDefinition } from './systemTableDefinitions'
 import { buildBaselineMigrationMeta, buildTemplateSeedMigrationMeta } from './metahubMigrationMeta'
 import { TemplateSeedExecutor } from '../../templates/services/TemplateSeedExecutor'
 import { TemplateSeedMigrator } from '../../templates/services/TemplateSeedMigrator'
@@ -365,6 +366,16 @@ export class MetahubSchemaService {
         if (mode === 'read_only') {
             const schemaState = await this.inspectSchemaState(resolved.schemaName, resolved.structureVersion)
             if (!schemaState.initialized) {
+                const repairedSchemaName = await this.repairReadOnlyAdditiveCurrentBaselineTables(
+                    metahubId,
+                    userId,
+                    initialCacheKey,
+                    schemaState.missingTables
+                )
+                if (repairedSchemaName) {
+                    return repairedSchemaName
+                }
+
                 throw new MetahubMigrationRequiredError('Metahub schema is not initialized. Open migrations and apply updates.', {
                     metahubId,
                     branchId: resolved.branchId,
@@ -443,21 +454,25 @@ export class MetahubSchemaService {
                 let seedChangesApplied = false
 
                 const schemaState = await this.inspectSchemaState(resolved.schemaName, resolved.structureVersion)
-                const schemaInitializedInDb = schemaState.initialized
+                const additiveTablesCreated = await this.ensureAdditiveCurrentBaselineTables(resolved.schemaName, schemaState.missingTables)
+                const schemaStateAfterAdditiveRepair = additiveTablesCreated
+                    ? await this.inspectSchemaState(resolved.schemaName, resolved.structureVersion)
+                    : schemaState
+                const schemaInitializedInDb = schemaStateAfterAdditiveRepair.initialized
                 if (schemaInitializedInDb) {
                     tablesInitCache.add(resolved.schemaName)
                 }
 
                 if (!schemaInitializedInDb) {
-                    if (schemaState.hasAnyExpectedTables) {
+                    if (schemaStateAfterAdditiveRepair.hasAnyExpectedTables) {
                         throw new MetahubMigrationRequiredError(
                             'Metahub schema is partially initialized and requires controlled migration/repair.',
                             {
                                 metahubId,
                                 branchId: resolved.branchId,
                                 schemaName: resolved.schemaName,
-                                expectedTables: schemaState.expectedTables,
-                                missingTables: schemaState.missingTables
+                                expectedTables: schemaStateAfterAdditiveRepair.expectedTables,
+                                missingTables: schemaStateAfterAdditiveRepair.missingTables
                             }
                         )
                     }
@@ -537,6 +552,53 @@ export class MetahubSchemaService {
         }
 
         return runEnsure()
+    }
+
+    private async repairReadOnlyAdditiveCurrentBaselineTables(
+        metahubId: string,
+        userId: string | undefined,
+        initialCacheKey: string,
+        missingTables: string[]
+    ): Promise<string | null> {
+        if (!this.isAdditiveCurrentBaselineOnlyMissing(missingTables)) {
+            return null
+        }
+
+        let resolved = await this.resolveBranchSchema(metahubId, userId)
+        const lockKey = uuidToLockKey(metahubId)
+        const acquired = await acquireAdvisoryLock(this.knex, lockKey)
+        if (!acquired) {
+            throw new MetahubSchemaLockTimeoutError('Could not acquire lock for additive schema repair', {
+                metahubId,
+                branchId: resolved.branchId
+            })
+        }
+
+        try {
+            resolved = await this.resolveBranchSchema(metahubId, userId)
+            const schemaState = await this.inspectSchemaState(resolved.schemaName, resolved.structureVersion)
+            if (!this.isAdditiveCurrentBaselineOnlyMissing(schemaState.missingTables)) {
+                if (schemaState.initialized) {
+                    const cacheKey = `${metahubId}:${resolved.branchId}` || initialCacheKey
+                    tablesInitCache.add(resolved.schemaName)
+                    schemaCache.set(cacheKey, resolved.schemaName)
+                    return resolved.schemaName
+                }
+                return null
+            }
+
+            await this.ensureAdditiveCurrentBaselineTables(resolved.schemaName, schemaState.missingTables)
+            const repairedState = await this.inspectSchemaState(resolved.schemaName, resolved.structureVersion)
+            if (!repairedState.initialized) {
+                return null
+            }
+            const cacheKey = `${metahubId}:${resolved.branchId}` || initialCacheKey
+            tablesInitCache.add(resolved.schemaName)
+            schemaCache.set(cacheKey, resolved.schemaName)
+            return resolved.schemaName
+        } finally {
+            await releaseAdvisoryLock(this.knex, lockKey)
+        }
     }
 
     /**
@@ -1321,5 +1383,29 @@ export class MetahubSchemaService {
             expectedTables,
             missingTables
         }
+    }
+
+    private async ensureAdditiveCurrentBaselineTables(schemaName: string, missingTables: string[]): Promise<boolean> {
+        if (!this.isAdditiveCurrentBaselineOnlyMissing(missingTables)) {
+            return false
+        }
+
+        const additiveMissingTables = missingTables
+        const generator = new SystemTableDDLGenerator(this.knex, schemaName)
+        for (const tableName of additiveMissingTables) {
+            const tableDef = findSystemTableDefinition(tableName)
+            if (!tableDef) {
+                throw new MetahubSchemaSyncError(`Additive baseline table ${tableName}`, new Error('System table definition not found'))
+            }
+            await generator.createTable(tableDef)
+        }
+        return true
+    }
+
+    private isAdditiveCurrentBaselineOnlyMissing(missingTables: string[]): boolean {
+        return (
+            missingTables.length > 0 &&
+            missingTables.every((tableName) => (ADDITIVE_CURRENT_BASELINE_TABLE_NAMES as readonly string[]).includes(tableName))
+        )
     }
 }

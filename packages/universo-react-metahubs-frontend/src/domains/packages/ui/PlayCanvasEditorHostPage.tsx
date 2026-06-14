@@ -44,22 +44,6 @@ const uuidV7Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 
 const readRequestId = (value: unknown): string | null => (typeof value === 'string' && uuidV7Pattern.test(value) ? value : null)
 
-const loopbackHostnames = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
-
-const normalizeLoopbackArtifactUrl = (artifactUrl: string, pageLocation: Location): string => {
-    const resolved = new URL(artifactUrl, pageLocation.href)
-    const current = new URL(pageLocation.origin)
-    if (
-        loopbackHostnames.has(resolved.hostname) &&
-        loopbackHostnames.has(current.hostname) &&
-        resolved.protocol === current.protocol &&
-        resolved.port === current.port
-    ) {
-        resolved.hostname = current.hostname
-    }
-    return resolved.href
-}
-
 const isAuthenticatedFrameMessage = (data: Record<string, unknown>, bridgeDescriptor: PlayCanvasEditorBridgeSessionDescriptor): boolean =>
     data.sessionId === bridgeDescriptor.sessionId && data.nonce === bridgeDescriptor.nonce
 
@@ -194,14 +178,23 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
         if (!host?.artifactUrl) {
             return null
         }
-        const normalizedArtifactUrl = normalizeLoopbackArtifactUrl(host.artifactUrl, window.location)
-        const separator = normalizedArtifactUrl.includes('?') ? '&' : '?'
-        return `${normalizedArtifactUrl}${separator}locale=${encodeURIComponent(locale)}`
+        const artifactUrl = new URL(host.artifactUrl, window.location.href)
+        artifactUrl.searchParams.set('locale', locale)
+        return artifactUrl.toString()
     }, [displayConfig?.display.developmentUrl, host?.artifactUrl, locale, mode])
     const frameOrigin = useMemo(() => {
         if (!frameUrl) return null
         return new URL(frameUrl, window.location.href).origin
     }, [frameUrl])
+    const iframeSandbox = useMemo(() => {
+        if (mode === 'developmentUrl') {
+            return 'allow-scripts'
+        }
+        if (!frameOrigin || frameOrigin === window.location.origin) {
+            return 'allow-scripts'
+        }
+        return 'allow-scripts allow-same-origin'
+    }, [frameOrigin, mode])
     const frameBaseUrl = useMemo(() => {
         if (!frameUrl) return null
         const url = new URL(frameUrl, window.location.href)
@@ -410,7 +403,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
     }, [frameUrl, mode])
 
     useEffect(() => {
-        if (!bridgeEnabled || !bridgeDescriptor) {
+        if (!bridgeEnabled || !bridgeDescriptor || !frameUrl) {
             bridgeSessionKeyRef.current = null
             setBridgeStatus('disabled')
             setSaveStatus('idle')
@@ -426,7 +419,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
             setBridgeStatus('waiting')
             setSaveStatus('idle')
         }
-        const expectedFrameOrigin = frameUrl ? new URL(frameUrl, window.location.href).origin : null
+        const expectedFrameOrigin = new URL(frameUrl, window.location.href).origin
         const listener = (event: MessageEvent) => {
             if (!iframeRef.current?.contentWindow) {
                 return
@@ -540,7 +533,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                             requestId: command.requestId,
                             response
                         },
-                        expectedFrameOrigin ?? '*'
+                        expectedFrameOrigin
                     )
                 })
                 .catch((error: unknown) => {
@@ -570,7 +563,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                             requestId: command.requestId,
                             response
                         },
-                        expectedFrameOrigin ?? '*'
+                        expectedFrameOrigin
                     )
                 })
         }
@@ -1002,7 +995,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                         data-testid='playcanvas-editor-frame'
                         title={displayName}
                         src={frameUrl}
-                        sandbox={mode === 'developmentUrl' ? 'allow-scripts' : 'allow-scripts allow-same-origin'}
+                        sandbox={iframeSandbox}
                         referrerPolicy='no-referrer'
                         allow=''
                         tabIndex={0}

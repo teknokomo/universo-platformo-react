@@ -457,6 +457,7 @@
             "detailsTitle": "Заголовок деталей",
             "detailsTable": "Таблица деталей",
             "quizWidget": "Виджет квиза",
+            "playcanvasCanvas": "Canvas PlayCanvas",
             "detailsSidePanel": "Боковая панель деталей",
             "productTree": "Дерево продуктов",
             "usersByCountryChart": "График пользователей по странам",
@@ -513,6 +514,41 @@
             "submitMethodHelp": "Необязательно. Оставьте пустым, чтобы использовать стандартную проверку ответа.",
             "emptyStateTitle": "Заголовок пустого состояния",
             "emptyStateDescription": "Описание пустого состояния"
+        },
+        "playcanvasCanvasEditor": {
+            "title": "Виджет canvas PlayCanvas",
+            "description": "Свяжите runtime canvas с опубликованной сценой PlayCanvas и runtime-модулями MMOOMM.",
+            "manifestOption": "{{scene}}{{date}}",
+            "manifestOptionWithProject": "{{scene}} · {{project}}{{date}}",
+            "manifestLoadError": "Не удалось загрузить опубликованные сцены PlayCanvas.",
+            "modulesLoadError": "Не удалось загрузить доступные runtime-модули.",
+            "sectionsLoadError": "Не удалось загрузить доступные разделы.",
+            "publishedSceneFallback": "Опубликованная сцена {{number}}",
+            "sectionTypeFallback": "Раздел",
+            "unnamedSection": "Раздел без названия",
+            "moduleFallback": {
+                "client": "Клиентский модуль",
+                "server": "Серверный модуль"
+            },
+            "validation": {
+                "invalidConfig": "Проверьте настройки виджета canvas PlayCanvas и повторите попытку.",
+                "invalidRuntimeManifest": "Выберите опубликованную сцену активного пакета отображения или очистите выбор."
+            },
+            "fields": {
+                "title": "Заголовок виджета",
+                "clientModule": "Клиентский модуль",
+                "clientModuleHelp": "Выберите поведение canvas в браузере.",
+                "serverModule": "Realtime серверный модуль",
+                "serverModuleHelp": "Необязательное серверно-авторитетное поведение сцены.",
+                "useFirstClientModule": "Использовать первый доступный клиентский модуль",
+                "noServerModule": "Без realtime серверного модуля",
+                "runtimeManifest": "Опубликованная сцена",
+                "noRuntimeManifest": "Нет опубликованной сцены",
+                "minHeight": "Минимальная высота",
+                "fitViewport": "Подстраивать под доступную высоту экрана",
+                "sections": "Показывать в разделах",
+                "sectionsHelp": "Оставьте пустым, чтобы показывать canvas во всех разделах, где активен этот макет."
+            }
         },
         "moveWidget": "Переместить виджет",
         "zoneErrors": {
@@ -1378,7 +1414,8 @@
             "values": "Значения",
             "components": "Компоненты",
             "optionValues": "Значения",
-            "modules": "Модули"
+            "runtimeModules": "Runtime-модули",
+            "modules": "Общие модули"
         },
         "shared": {
             "loading": "Загрузка общих сущностей...",
@@ -1514,6 +1551,8 @@
             },
             "actions": {
                 "create": "Создать проект",
+                "publish": "Опубликовать runtime",
+                "publishUnavailable": "Исправьте состояние проекта перед публикацией.",
                 "delete": "Удалить проект",
                 "deleteNamed": "Удалить {{projectName}}"
             },
@@ -1532,6 +1571,8 @@
                 "createFailed": "Не удалось создать проект PlayCanvas",
                 "defaultSaved": "Проект PlayCanvas по умолчанию сохранён",
                 "defaultFailed": "Не удалось сохранить проект PlayCanvas по умолчанию",
+                "published": "Проект PlayCanvas опубликован: runtime-сцен — {{count}}",
+                "publishFailed": "Не удалось опубликовать проект PlayCanvas",
                 "deleted": "Проект PlayCanvas удалён",
                 "deleteFailed": "Не удалось удалить проект PlayCanvas"
             }
@@ -2750,6 +2791,7 @@
         "importVersion": "Импорт версии конфигурации",
         "exportVersion": "Экспорт снимка",
         "exportMetahub": "Экспорт метахаба",
+        "exportRunnableMetahub": "Экспорт запускаемой конфигурации",
         "chooseFile": "Выбрать файл",
         "noFileSelected": "Файл не выбран",
         "fileSelectLabel": "Выберите файл .json конфигурации, экспортированный из Universo Platformo.",

@@ -1,3 +1,147 @@
+# MMOOMM PlayCanvas Editor Main Functionality Runtime Projection Implementation Tasks
+
+> Date: 2026-06-10
+> Source plan: `memory-bank/plan/mmoomm-playcanvas-editor-main-functionality-runtime-projection-plan-2026-06-10.md`
+> Source brief: local manager-only MMOOMM PlayCanvas runtime projection brief, dated 2026-06-09
+> Source research: `memory-bank/research/mmoomm-playcanvas-editor-main-functionality-runtime-projection-research-2026-06-10.md`
+
+## Scope
+
+Implement the UI-first MMOOMM PlayCanvas path. The canonical
+`metahubs-mmoomm-app-snapshot.json` generator must follow the same visible
+product workflow a user follows: create a metahub, connect packages, author the
+domain model through existing metahub screens, open the real PlayCanvas Editor,
+create/persist the baseline scene through the Editor surface, publish it,
+configure the runtime layout/widget through the layout UI, export the snapshot,
+and replay it in the published application. API calls may verify state or fetch
+ids needed for navigation, but they must not be the primary authoring mechanism
+for the MMOOMM configuration.
+
+## UI Contract
+
+-   Metahub creation uses the existing metahub list dialog and the `basic`
+    template. The test may look up the created id after the dialog completes.
+-   Package connection uses the existing package tab dialogs for PlayCanvas
+    Editor, PlayCanvas Engine, Colyseus Client, and Colyseus Server.
+-   Domain authoring uses existing entity list and metadata screens for Object,
+    Set, Enumeration, option values, fixed values, and modules. If a required
+    screen is missing, implement it in the existing metahubs UI rather than
+    seeding through API.
+-   PlayCanvas authoring opens the hosted Editor iframe/fullscreen surface and
+    uses visible Editor or host controls. Direct compatibility REST writes are
+    only acceptable behind a user-facing Editor action that mutates the current
+    project.
+-   Runtime layout configuration uses the layout authoring UI and widget editor
+    dialogs. Widget config must not require raw JSON entry for normal users.
+-   Export/import/runtime verification may use API calls as oracles, but the
+    produced fixture must carry browser-authored provenance.
+
+## Checklist
+
+-   [x] 2026-06-14: Normalize PlayCanvas Editor compatibility scene saves so browser-authored MMOOMM entities publish with `metadata.mmoomm.scene`.
+-   [x] 2026-06-14: Add focused backend regression coverage for direct compatibility scene saves and published runtime manifest metadata.
+-   [ ] 2026-06-14: Re-run focused backend checks plus local minimal Supabase Playwright generator/runtime proof.
+-   [ ] 2026-06-14: Run Thermos/autoreview closeout and update Memory Bank progress.
+-   [x] Phase 0: Record the original implementation checklist and verify the backend/runtime gap map.
+-   [x] Phase 1: Extend shared contracts for PlayCanvas sourcefiles, image assets, runtime manifest widget bindings, and browser-authored fixture provenance.
+-   [x] Phase 2: Extend metahub PlayCanvas storage for sourcefiles/image assets, ShareDB asset persistence, publish blocking, and persisted runtime manifests.
+-   [x] Phase 3: Extend the PlayCanvas Editor compatibility backend routes for sourcefiles, asset CRUD/file reads, publish status, and runtime-safe settings.
+-   [x] Phase 4A: Audit existing UI coverage and list every remaining authoring bypass in the MMOOMM generator.
+-   [x] Phase 4B: Add missing user-facing UI needed for MMOOMM layout/widget and PlayCanvas publish authoring using existing MUI primitives and localized EN/RU strings.
+-   [x] Phase 4C: Replace API authoring in the MMOOMM generator with UI-first steps; keep API only for navigation ids, polling, export, and contract verification. Completed for metahub creation, package connection, Object/Set/Enumeration/option values/fixed values, page content, runtime modules, layout chrome, menu widget, PlayCanvas canvas widget, PlayCanvas project publish, and the iframe-local Universo MMOOMM authoring control that mutates the current Editor scene and persists through the normal Editor save path.
+-   [x] Phase 5: Expose published PlayCanvas runtime manifests through applications backend APIs and Colyseus room option resolution.
+-   [x] Phase 6: Make `apps-template-mui` consume published PlayCanvas runtime manifests without importing metahub/editor packages.
+-   [x] Phase 7: Regenerate `metahubs-mmoomm-app-snapshot.json` from the UI-first generator and validate browser-authored provenance.
+-   [x] Phase 8: Add/extend unit, integration, and E2E tests across contracts, storage, runtime, publication hashing, UI authoring, iframe-local MMOOMM authoring controls, and Playwright evidence.
+-   [x] Phase 9: Update package READMEs, GitBook docs, Memory Bank progress/current context, then run Prettier, focused checks, and Thermos/autoreview.
+
+## 2026-06-14 Compatibility Closure Checklist
+
+> Scope: close the resumed QA finding where the full upstream PlayCanvas Editor
+> frontend could select imported MMOOMM entities but emitted ShareDB JSON0 list
+> errors and viewport component errors while authoring/reloading the scene.
+
+-   [x] Keep the vendored PlayCanvas Editor source tree unpatched; implement compatibility only at the Universo bootstrap adapter and backend protocol boundary.
+-   [x] Add backend ShareDB `apply` middleware that repairs allowed document snapshots before upstream JSON0 nested list operations are applied.
+-   [x] Preserve full-boot WebSocket token, origin, session, and allowed-document checks while adding the snapshot-shape repair.
+-   [x] Normalize persisted PlayCanvas `render` and `light` component defaults before handing scene payloads to the upstream Editor API so MMOOMM ship/station boxes hydrate with readable default material and directional key light data.
+-   [x] Add regression coverage for empty settings snapshot list-op repair and artifact guard coverage for component normalization.
+-   [x] Re-run focused Editor frontend/backend tests, builds, artifact smoke, fixture contract/drift checks, and the local minimal Supabase MMOOMM import/runtime Playwright flow with strict browser regression watcher.
+
+## QA Remediation Checklist
+
+> Date: 2026-06-10
+> Scope: close the IMPLEMENT QA findings for security, data safety, UI-first
+> evidence, runtime proof, and test reliability without bumping the metahub
+> schema/template version because the test database is recreated from scratch.
+
+-   [x] Add strict Origin validation for application Colyseus WebSocket upgrades and tests for allowed, missing, and hostile origins.
+-   [x] Persist PlayCanvas application runtime manifests by project plus scene identity instead of project id only, with multi-scene regressions.
+-   [x] Make PlayCanvas Editor sourcefile writes/delete lifecycle fail closed and path-accurate for `.js` and `.mjs` files.
+-   [x] Replace raw runtime widget codenames/checksums with user-facing selectors/labels and localized validation errors.
+-   [x] Remove the always-on MMOOMM shortcut panel from the normal Editor artifact path and gate any automation-only projection control explicitly.
+-   [x] Strengthen the MMOOMM Playwright generator/runtime oracle for runtime canvas pixels, viewport matrix, realtime connected/restored, and movement evidence.
+-   [x] Stabilize focused frontend/backend tests, run Prettier/lint/build checks, add the main MMOOMM app fixture contract script, and run Thermos/subagent review. Local minimal Supabase Playwright remains the next heavy browser proof command for CI or a dedicated E2E run.
+
+## QA Closure Checklist: Main Editor Workflow and MMOOMM Fixture Proof
+
+> Date: 2026-06-10
+> Trigger: IMPLEMENT after QA found that the current slice is still not
+> acceptable as the main PlayCanvas Editor + MMOOMM runtime projection target.
+
+-   [x] Add idempotent application schema upgrade for `_app_playcanvas_manifests` project+scene unique index before sync uses the expression conflict target.
+-   [x] Make PlayCanvas sourcefile write/delete lifecycle fail closed under stale rollback and concurrent delete/write races.
+-   [x] Add metahub additive schema sync for PlayCanvas sourcefile tables without changing the public structure/template version.
+-   [x] Replace hidden query-only MMOOMM projection authoring with a documented, localized, user-facing Editor action or a normal upstream Editor workflow.
+-   [x] Extend the generator to verify the just-created published application runtime before exporting `metahubs-mmoomm-app-snapshot.json`.
+-   [x] Extend the target MMOOMM app runtime proof with viewport matrix, multi-client Colyseus propagation, reconnect, and unsafe mutation oracles.
+-   [x] Add CI/package scripts for the main MMOOMM app fixture contract and local-Supabase runtime gate.
+-   [x] Add UX canaries for target Resources/modules/layout/runtime surfaces: no raw IDs/JSON, localized validation, semantic fields, and constrained horizontal scroll.
+-   [x] Run focused backend/frontend tests, fixture contract, Playwright local-Supabase evidence where feasible, Prettier, and Thermos/autoreview.
+
+## QA Runtime Layout Overflow Closure Checklist
+
+> Date: 2026-06-10
+> Trigger: IMPLEMENT after local minimal Supabase Playwright found that the
+> MMOOMM PlayCanvas runtime canvas overflowed the tablet viewport.
+
+-   [x] Constrain the apps-template dashboard flex layout and standalone center widgets so PlayCanvas canvas cannot create page-level horizontal overflow.
+-   [x] Run focused formatting/lint/tests and rerun the local minimal Supabase MMOOMM app runtime Playwright gate.
+
+## Autoreview P1 Closure Checklist
+
+> Date: 2026-06-10
+> Trigger: Thermos/autoreview found concrete P1 regressions in realtime WebSocket
+> origin fallback handling and PlayCanvas sourcefile delete concurrency.
+
+-   [x] Preserve the documented `CORS_ORIGINS=*` realtime WebSocket fallback while still rejecting missing or malformed Origins and honoring explicit realtime origin lists.
+-   [x] Guard PlayCanvas sourcefile metadata soft-delete with the sourcefile version read before the physical delete.
+-   [x] Run focused regressions and rerun Thermos/autoreview.
+
+## QA Imported Editor Viewport And Security Closure Checklist
+
+> Date: 2026-06-13
+> Trigger: IMPLEMENT after manual QA proved that imported MMOOMM PlayCanvas Editor scenes expose entities in hierarchy/inspector but do not render boxes in the central viewport.
+
+-   [x] Fix persisted Editor entity hydration so component paths materialize PlayCanvas engine render components and mesh instances.
+-   [ ] Add import-first Editor E2E proof that opens the Editor after snapshot import and verifies Ship/Station are renderable in the viewport.
+-   [ ] Close PlayCanvas Editor bridge postMessage target-origin fallbacks and replay user binding gaps.
+-   [ ] Close sourcefile delete CSRF/checksum and snapshot/sourcefile lifecycle gaps.
+-   [ ] Run focused formatting, unit tests, and feasible E2E/browser checks.
+
+## QA User-Reported Runtime And Fixture Closure Checklist
+
+> Date: 2026-06-11
+> Trigger: IMPLEMENT continuation after manual QA found stale canonical MMOOMM
+> fixture localization/provenance concerns and runtime/editor visual behavior
+> gaps.
+
+-   [x] Confirm the tracked MMOOMM app fixture is regenerated only by the UI-first Playwright generator and passes the strict fixture contract.
+-   [x] Run the local minimal Supabase generator path for `metahubs-mmoomm-app-snapshot.json`.
+-   [x] Run the imported MMOOMM app runtime Playwright proof against the regenerated fixture.
+-   [x] Run focused package tests/lint/build checks for the changed PlayCanvas Editor/runtime/backend surfaces.
+-   [x] Run Thermos/autoreview and resolve accepted findings.
+
 # PlayCanvas Editor Full Upstream UI WebSocket Implementation Tasks
 
 > Date: 2026-06-05
@@ -430,3 +574,95 @@ Close the QA blockers found after the first implementation pass. This work compl
 -   [x] Make replay completion after committed PlayCanvas mutations fail closed without leaving permanent in-progress claims.
 -   [x] Make PlayCanvas project creation atomic and project deletion fail closed on partial physical cleanup.
 -   [x] Run focused frontend/backend tests, formatting/static checks, and update progress.
+
+## MMOOMM PlayCanvas Editor Product Flow QA Closure Checklist
+
+> Date: 2026-06-11
+> Scope: close QA blockers for the Editor-authored MMOOMM app snapshot, runtime canvas UX, generator provenance, and safety contracts.
+
+-   [x] Persist MMOOMM Ship and Station as renderable PlayCanvas Editor entities with transforms and standard components, not metadata-only nodes.
+-   [x] Strengthen shared scene payload schemas, fixture contracts, and tests so metadata-only MMOOMM scenes fail.
+-   [x] Localize generated app menu/widget content in EN/RU and require RU labels in fixture/runtime oracles.
+-   [x] Make the PlayCanvas runtime canvas use fit-viewport sizing by default and prove it avoids the large lower blank area.
+-   [x] Correct runtime drag semantics so pointer drag moves the scene/camera model in the expected same-screen direction.
+-   [x] Prevent follow camera clipping through guarded station geometry and expose testable clearance evidence.
+-   [x] Tighten product generator/CI evidence so committed `metahubs-mmoomm-app-snapshot.json` is produced from browser-authored, saved/reopened, published state.
+-   [x] Fix backend safety regressions found by QA: snapshot export mode, sourcefile delete checksum fallback, manifest replacement atomicity/sourcefile table guard/manifest binding alignment where applicable.
+-   [x] Run focused type/editor/runtime/backend tests, fixture contract checks, Prettier/lint where practical, and Playwright E2E with local minimal Supabase if the environment supports it.
+
+## MMOOMM PlayCanvas Editor Product Flow QA Continuation Checklist
+
+> Date: 2026-06-12
+> Scope: continue the IMPLEMENT pass after QA flagged the hidden MMOOMM projection panel, metadata shortcutting, direct snapshot export API, and missing backend derivation from native editor entities.
+
+-   [x] Remove the dead `data-universo-mmoomm-projection-panel` checks from the Playwright authoring helper and artifact spec.
+-   [x] Remove the hidden MMOOMM metadata write from `configureMmoommSceneFromUserCreatedEntities`; the helper now authors normal renderable PlayCanvas entities.
+-   [x] Derive canonical MMOOMM runtime metadata in the backend from renderable native PlayCanvas Editor entities named `MMOOMM Ship` and `MMOOMM Station`.
+-   [x] Add backend regression coverage proving MMOOMM metadata is derived when the scene initially has no `metadata.mmoomm`.
+-   [x] Replace the generator's direct `/metahub/:id/export` API read with the browser MetahubList export/download action.
+-   [x] Remove the generator's direct `syncApplicationSchema` shortcut and keep only read-back polling for application schema status.
+-   [x] Run Prettier, focused editor frontend tests, editor backend tests, metahubs backend PlayCanvasProjectsService tests, fixture contract, fixture drift, and an ad-hoc TypeScript check for the changed E2E support/spec files.
+-   [x] Replace the remaining generator `createPublication` and `createPublicationLinkedApplication` API helpers with a full Playwright UI flow through PublicationList, PublicationApplicationList, and ConnectorDiffDialog.
+-   [x] Add Milestone B browser evidence for Editor Settings/Launch, Sourcefiles/Code Editor, VCS/Checkpoints, project export/import, and asset import pipeline.
+-   [x] Re-run full local minimal Supabase generator/runtime E2E after the remaining browser-flow replacement is implemented.
+-   [x] Re-run scoped Thermos/autoreview when the helper completes reliably; the 2026-06-12 scoped run timed out after 300 seconds without findings.
+
+## MMOOMM PlayCanvas Editor Product Flow Finalization Checklist
+
+> Date: 2026-06-12
+> Scope: final IMPLEMENT pass to remove the last product-generator shortcuts and close browser evidence gaps.
+
+-   [x] Move publication and linked-application creation in the MMOOMM app fixture generator to user-facing Playwright actions.
+-   [x] Drive application schema creation through the application ConnectorDiffDialog instead of backend sync helpers.
+-   [x] Add or tighten browser evidence for PlayCanvas Editor main functionality surfaces that were still missing after QA.
+-   [x] Regenerate and validate the MMOOMM app snapshot fixture through the product Playwright generator.
+-   [x] Run focused unit/static checks, local minimal Supabase E2E generator/runtime checks where feasible, Prettier, diff checks, and scoped review.
+
+## MMOOMM PlayCanvas Editor Hydration Hardening Checklist
+
+> Date: 2026-06-13
+> Scope: close the QA finding that imported renderable entities appear in hierarchy/inspector but are not visible in the central Editor viewport.
+
+-   [x] Normalize persisted and realtime scene entities into a `{ resource_id, parent, children }` shape and rebuild parent `children` from `parent` links.
+-   [x] Make persisted scene hydration fall back to saved payload entities when realtime scene data is missing or empty.
+-   [x] Let assetless persisted scenes satisfy the Editor viewport asset-load gate without forcing asset-loaded state for scenes with real assets.
+-   [x] Strengthen MMOOMM Editor Playwright checks so they assert real PlayCanvas engine entities and render mesh instances, not only nonblank canvas pixels.
+-   [x] Run formatting, focused checks, local minimal Supabase browser generator evidence, fixture contract/drift checks, and review the resulting diff.
+
+## MMOOMM PlayCanvas Editor Full Implementation QA Closure Checklist
+
+> Date: 2026-06-13
+> Scope: implement the remaining master-plan acceptance work after QA proved that the imported Editor viewport, artifact build lifecycle, security closure, and main Editor capability claims were incomplete.
+
+-   [ ] Fix persisted entity hydration so standard component paths materialize engine components and the artifact source parses, builds, and smokes.
+-   [ ] Make normal repository build/CI workflows fail closed on a missing or stale PlayCanvas Editor artifact.
+-   [ ] Add import-first Playwright proof that opens the imported MMOOMM Editor and verifies hierarchy, inspector, engine entities, render mesh instances, framing, pixels, reload, and browser errors.
+-   [ ] Close PlayCanvas Editor bridge target-origin, replay user-binding, sourcefile DELETE CSRF/checksum, publish dirty/conflict, and production realtime-secret gaps.
+-   [ ] Reconcile compatibility descriptors, documentation, fixture contents, and browser evidence with the actual Milestone A and Milestone B capability matrix.
+-   [ ] Implement or explicitly prove every remaining main Editor workflow required by the master plan: scenes/components, assets, sourcefiles/Code Editor, settings/launch, publication/export, collaboration/realtime, and VCS.
+-   [ ] Refactor touched oversized PlayCanvas implementation modules into focused boundaries without changing public contracts.
+-   [ ] Run Prettier, focused lint/tests/builds, fixture contract/drift checks, local minimal Supabase generator/import/runtime Playwright, and repeat critical browser proof.
+-   [ ] Run Thermos/autoreview and resolve all accepted correctness, security, maintainability, and test-oracle findings.
+
+## PlayCanvas Editor Backend Compatibility Thermos Follow-up
+
+> Date: 2026-06-14
+> Scope: close the four actionable findings from the full local Thermos review without patching the upstream Editor vendor.
+
+-   [x] Make ShareDB JSON0 list-operation repair transactional and non-destructive for existing arrays and incompatible values.
+-   [x] Keep full metahub PlayCanvas snapshots independent from runtime-manifest publication validation.
+-   [x] Restrict PlayCanvas canvas widget manifest selection to active display-package projects serialized by runtime publication.
+-   [x] Resolve and validate the applications realtime room signing secret at runtime attachment instead of module import.
+-   [x] Run focused tests, full metahubs-frontend tests, affected package builds/lints, local minimal Supabase MMOOMM Playwright, fixture contract/drift checks, and diff checks.
+-   [x] Repeat Thermos/autoreview and resolve any remaining accepted findings. Final helper run was stopped after a long dirty-worktree bundle timeout; scoped manual Thermos review found no new accepted findings.
+
+## MMOOMM Imported PlayCanvas Editor Viewport Closure
+
+> Date: 2026-06-14
+> Scope: fix the user-reported imported `metahubs-mmoomm-app-snapshot.json` Editor viewport where hierarchy and inspector show MMOOMM entities but the center viewport does not visibly render the Box meshes.
+
+-   [x] Reproduce and inspect the imported scene data path from fixture snapshot to persisted PlayCanvas scene, realtime ShareDB document, and upstream viewport entity/component materialization.
+-   [x] Fix backend/config/fixture normalization so `MMOOMM Ship` and `MMOOMM Station` become visible upstream PlayCanvas engine render entities without relying on vendor frontend patches.
+-   [x] Keep generated MMOOMM fixture artifacts out of the canonical fixture source path unless explicitly promoted.
+-   [x] Put the imported MMOOMM Editor viewport proof into the normal agent/E2E gate so hierarchy-only or nonblank-grid-only checks cannot pass.
+-   [x] Run focused unit/static checks, fixture contract/drift checks, local minimal Supabase MMOOMM app runtime/import E2E, and a final Thermos/autoreview pass. Final helper run was stopped after a long dirty-worktree bundle timeout; scoped manual Thermos review found no new accepted findings.

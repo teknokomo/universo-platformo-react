@@ -97,6 +97,39 @@ describe('application layout widget config contracts', () => {
         ).toThrow()
     })
 
+    it('accepts PlayCanvas canvas widget binding to a published runtime manifest', () => {
+        const checksum = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        expect(
+            parseApplicationLayoutWidgetConfig('playcanvasCanvas', {
+                title: { en: 'MMOOMM', ru: 'MMOOMM' },
+                runtimeManifest: {
+                    source: 'publishedManifest',
+                    projectId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104',
+                    sceneId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d105',
+                    checksum
+                }
+            })
+        ).toMatchObject({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104',
+                sceneId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d105',
+                checksum,
+                failClosed: true
+            }
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('playcanvasCanvas', {
+                runtimeManifest: {
+                    source: 'publishedManifest',
+                    projectId: '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104',
+                    checksum: 'not-a-checksum'
+                }
+            })
+        ).toThrow()
+    })
+
     it('accepts only implemented metric keys for overviewCards stat-card datasources', () => {
         expect(
             parseApplicationLayoutWidgetConfig('overviewCards', {

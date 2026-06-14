@@ -22,7 +22,7 @@ import { MetahubPackagesTab } from '../../../packages/ui/MetahubPackagesTab'
 import { useSharedContainerIds } from '../../../shared/hooks/useSharedContainerIds'
 import { useAllEntityTypesQuery } from '../../hooks/queries'
 
-type SharedResourcesTab = 'packages' | 'components' | 'layouts' | 'fixedValues' | 'optionValues' | 'modules'
+type SharedResourcesTab = 'packages' | 'components' | 'layouts' | 'fixedValues' | 'optionValues' | 'runtimeModules' | 'modules'
 
 interface TabConfig {
     value: SharedResourcesTab
@@ -177,7 +177,8 @@ export default function SharedResourcesPage() {
             },
             { value: 'layouts', label: t('general.tabs.layouts', 'Layouts'), visible: true },
             ...resourceTabs,
-            { value: 'modules', label: t('general.tabs.modules', 'Modules'), visible: true }
+            { value: 'runtimeModules', label: t('general.tabs.runtimeModules', 'Runtime modules'), visible: true },
+            { value: 'modules', label: t('general.tabs.modules', 'Shared modules'), visible: true }
         ].filter((tab, index, all) => all.findIndex((candidate) => candidate.value === tab.value) === index)
     }, [entityTypesQuery.data?.items, i18n.language, t, translateSurfaceTitle])
 
@@ -306,6 +307,9 @@ export default function SharedResourcesPage() {
                 {RESOURCE_SURFACE_REGISTRY.map((entry) =>
                     effectiveTab === entry.tab ? <Box key={entry.tab}>{renderSharedContent(entry.poolKind)}</Box> : null
                 )}
+                {effectiveTab === 'runtimeModules' ? (
+                    <EntityModulesTab metahubId={metahubId} attachedToKind='metahub' attachedToId={null} t={t} />
+                ) : null}
                 {effectiveTab === 'modules' ? (
                     <EntityModulesTab metahubId={metahubId} attachedToKind='general' attachedToId={null} t={t} />
                 ) : null}

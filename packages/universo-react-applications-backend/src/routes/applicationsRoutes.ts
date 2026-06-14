@@ -10,6 +10,7 @@ import { createRuntimeReportsController } from '../controllers/runtimeReportsCon
 import { createRuntimeModulesController } from '../controllers/runtimeModulesController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
+import { createRuntimePlayCanvasController } from '../controllers/runtimePlayCanvasController'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
@@ -28,6 +29,7 @@ export function createApplicationsRoutes(
     const runtimeModules = createRuntimeModulesController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
     const layouts = createApplicationLayoutsController(getDbExecutor)
+    const playCanvasRuntime = createRuntimePlayCanvasController(getDbExecutor)
 
     // ── Application CRUD ──
     router.get('/', readLimiter, asyncHandler(app.list))
@@ -69,6 +71,7 @@ export function createApplicationsRoutes(
 
     // ── Runtime rows ──
     router.get('/:applicationId/runtime', readLimiter, asyncHandler(runtime.getRuntime))
+    router.get('/:applicationId/runtime/playcanvas-manifests', readLimiter, asyncHandler(playCanvasRuntime.listManifests))
     router.post('/:applicationId/runtime/datasources/records/union', readLimiter, asyncHandler(runtime.listRecordsUnionDatasource))
     router.get('/:applicationId/runtime/rows/:rowId', readLimiter, asyncHandler(runtime.getRow))
     router.post('/:applicationId/runtime/rows', writeLimiter, asyncHandler(runtime.createRow))

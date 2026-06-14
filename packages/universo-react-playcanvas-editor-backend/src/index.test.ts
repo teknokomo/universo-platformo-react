@@ -1,7 +1,8 @@
 import express from 'express'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import http from 'node:http'
 import type { Server } from 'node:http'
+import ShareDB from 'sharedb'
 import ShareDBClient from 'sharedb/lib/client'
 import WebSocket from 'ws'
 import {
@@ -13,12 +14,16 @@ import {
 } from '@universo-react/types'
 import {
     attachPlayCanvasEditorFullBootRuntime,
+    createAllowedShareDbDocumentKeys,
+    createDefaultRealtimeDocument,
     createPlayCanvasEditorCompatibilityConfig,
     createPlayCanvasEditorCompatibilityRoutes,
     createPlayCanvasEditorFullBootConfig,
     createPlayCanvasEditorNumericIds,
     createPlayCanvasEditorCompatibilityTokenService,
-    isPlayCanvasEditorFullBootUpgradeRequest
+    isPlayCanvasEditorFullBootUpgradeRequest,
+    persistShareDbSnapshot,
+    repairSnapshotForJson0ListOperations
 } from './index'
 
 const uuid = '019e9146-fd1b-7d1d-a858-d1e96485d901'
@@ -60,7 +65,7 @@ const protocol: PlayCanvasEditorCompatibilityProtocolDescriptor = {
         messenger: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' }
     },
     shareDb: {
-        requiredCollections: ['scenes', 'assets', 'settings'],
+        requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
         persisted: false,
         persistence: 'not-implemented',
         sceneStorage: 'metahub-playcanvas-project-storage'
@@ -100,7 +105,7 @@ const fullBootProtocol: PlayCanvasEditorCompatibilityProtocolDescriptor = {
         relay: { status: 'enabled', reason: 'universoFullUpstreamUi' }
     },
     shareDb: {
-        requiredCollections: ['scenes', 'assets', 'settings'],
+        requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
         persisted: true,
         persistence: 'snapshot-port',
         sceneStorage: 'metahub-playcanvas-project-storage'
@@ -110,6 +115,47 @@ const fullBootProtocol: PlayCanvasEditorCompatibilityProtocolDescriptor = {
 const servers: Server[] = []
 const tokenService = createPlayCanvasEditorCompatibilityTokenService()
 const originalAllowedArtifactOrigins = process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
+const originalAllowedFullBootWsOrigins = process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS
+const originalCorsOrigins = process.env.CORS_ORIGINS
+const originalNodeEnv = process.env.NODE_ENV
+const originalPort = process.env.PORT
+
+describe('PlayCanvas Editor user data realtime contract', () => {
+    it('allows and seeds only the current scene and current user camera document', () => {
+        const claims = {
+            metahubId: 'metahub-1',
+            projectId: uuid,
+            sceneId,
+            userId: 'user-1',
+            packageSlug: 'playcanvas-editor',
+            mode: 'universo-full-upstream-ui',
+            origin: 'https://editor-assets.example.test',
+            sessionId: 'session-1',
+            nonce: 'nonce-1',
+            exp: Math.floor(Date.now() / 1000) + 60
+        } as const
+        const documentId = `${numericIds.sceneId}_${numericIds.selfId}`
+        const allowed = createAllowedShareDbDocumentKeys(claims)
+
+        expect(allowed).toContain(`user_data:${documentId}`)
+        expect(allowed).not.toContain(`user_data:${numericIds.sceneId}_${numericIds.selfId + 1}`)
+        expect(createDefaultRealtimeDocument('user_data', documentId, claims)).toMatchObject({
+            cameras: {
+                perspective: {
+                    position: [9.2, 6, 9],
+                    rotation: [-25, 45, 0],
+                    focus: [0, 0, 0]
+                },
+                top: { orthoHeight: 5 },
+                bottom: { orthoHeight: 5 },
+                front: { orthoHeight: 5 },
+                back: { orthoHeight: 5 },
+                left: { orthoHeight: 5 },
+                right: { orthoHeight: 5 }
+            }
+        })
+    })
+})
 
 const createTokenHeader = (projectId = uuid, userId = 'user-1') => {
     const { token } = tokenService.create({
@@ -152,7 +198,10 @@ const createFullBootTokenForArtifactOrigin = (origin: string, input: { sessionId
 const waitForEvent = <T>(target: { once: (event: string, listener: (...args: T[]) => void) => void }, event: string): Promise<T> =>
     new Promise((resolve) => target.once(event, (...args) => resolve(args[0] as T)))
 
-const createTestServer = async (descriptor: PlayCanvasEditorCompatibilityProtocolDescriptor = fullBootProtocol) => {
+const createTestServer = async (
+    descriptor: PlayCanvasEditorCompatibilityProtocolDescriptor = fullBootProtocol,
+    options: { assets?: unknown[]; sourceFiles?: PlayCanvasEditorCompatibilitySourceFileSummary[] } = {}
+) => {
     const saveScene = vi.fn(async ({ payload }) => ({
         scene: {
             id: sceneId,
@@ -174,6 +223,25 @@ const createTestServer = async (descriptor: PlayCanvasEditorCompatibilityProtoco
         data: { ...data, expectedRevision, requestId },
         revision: 'project-2'
     }))
+    const sourceFile = {
+        id: 'main-script',
+        path: 'scripts/main.mjs',
+        name: 'main.mjs',
+        hash: 'b'.repeat(64),
+        size: 34,
+        mime: 'text/javascript',
+        updatedAt: '2026-06-10T00:00:00.000Z'
+    }
+    const writeSourceFile = vi.fn(async ({ sourceFileId, path, name, content }) => ({
+        ...sourceFile,
+        id: sourceFileId,
+        path,
+        name: name ?? path.split('/').pop() ?? sourceFile.name,
+        content,
+        hash: 'c'.repeat(64),
+        size: content.length
+    }))
+    const deleteSourceFile = vi.fn(async ({ sourceFileId }) => ({ id: sourceFileId, deleted: true as const }))
     const app = express()
     app.use(express.json())
     app.use(
@@ -235,7 +303,15 @@ const createTestServer = async (descriptor: PlayCanvasEditorCompatibilityProtoco
                     payload: { schemaVersion: '1', entities: [] }
                 }),
                 saveScene,
-                listAssets: async () => [],
+                listAssets: async () => options.assets ?? [],
+                listSourceFiles: async () => options.sourceFiles ?? [sourceFile],
+                readSourceFile: async ({ sourceFileId }) => ({
+                    ...sourceFile,
+                    id: sourceFileId,
+                    content: 'export default class MainScript {}'
+                }),
+                writeSourceFile,
+                deleteSourceFile,
                 readSettings: async ({ kind }) => ({ kind, documentId: `${kind}-doc`, data: {}, revision: 'project-1' }),
                 writeSettings
             })
@@ -246,8 +322,12 @@ const createTestServer = async (descriptor: PlayCanvasEditorCompatibilityProtoco
     await new Promise<void>((resolve) => server.once('listening', resolve))
     const address = server.address()
     if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
-    return { baseUrl: `http://127.0.0.1:${address.port}`, saveScene, writeSettings }
+    return { baseUrl: `http://127.0.0.1:${address.port}`, saveScene, writeSettings, writeSourceFile, deleteSourceFile }
 }
+
+beforeEach(() => {
+    process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS = 'https://editor-assets.example.test'
+})
 
 afterEach(async () => {
     await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))))
@@ -255,6 +335,26 @@ afterEach(async () => {
         delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
     } else {
         process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = originalAllowedArtifactOrigins
+    }
+    if (originalAllowedFullBootWsOrigins === undefined) {
+        delete process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS
+    } else {
+        process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS = originalAllowedFullBootWsOrigins
+    }
+    if (originalCorsOrigins === undefined) {
+        delete process.env.CORS_ORIGINS
+    } else {
+        process.env.CORS_ORIGINS = originalCorsOrigins
+    }
+    if (originalNodeEnv === undefined) {
+        delete process.env.NODE_ENV
+    } else {
+        process.env.NODE_ENV = originalNodeEnv
+    }
+    if (originalPort === undefined) {
+        delete process.env.PORT
+    } else {
+        process.env.PORT = originalPort
     }
 })
 
@@ -272,6 +372,7 @@ describe('PlayCanvas Editor compatibility backend routes', () => {
         expect(config.mode).toBe('universo-compatibility-rest-minimal')
         expect(config.permissions).toEqual({ read: true, write: true, admin: false })
         expect(config.endpoints.scenes).toContain('/playcanvas/editor-compatible/projects/')
+        expect(config.endpoints.sourcefiles).toContain('/playcanvas/editor-compatible/projects/')
         expect(config.auth.scheme).toBe('signed-header')
         expect(config.auth.headerName).toBe('X-PlayCanvas-Editor-Token')
         expect(config.auth.accessToken).toBeTruthy()
@@ -302,6 +403,28 @@ describe('PlayCanvas Editor compatibility backend routes', () => {
         expect(saveScene).toHaveBeenCalledWith(expect.objectContaining({ requestId, sceneId, expectedCurrentChecksum: 'a'.repeat(64) }))
     })
 
+    it('accepts same-origin compatibility REST tokens when browser GET requests omit Origin and Referer', async () => {
+        const { baseUrl } = await createTestServer()
+        const { token } = tokenService.create({
+            metahubId: 'metahub-1',
+            projectId: uuid,
+            userId: 'user-1',
+            packageSlug: 'playcanvas-editor',
+            origin: baseUrl,
+            now: Date.now()
+        })
+
+        const sameOriginResponse = await fetch(`${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/scenes`, {
+            headers: { 'x-playcanvas-editor-token': token }
+        })
+        expect(sameOriginResponse.status).toBe(200)
+
+        const hostileRefererResponse = await fetch(`${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/scenes`, {
+            headers: { 'x-playcanvas-editor-token': token, referer: 'https://attacker.example.test/editor/' }
+        })
+        expect(hostileRefererResponse.status).toBe(401)
+    })
+
     it('persists settings through the compatibility endpoint with CSRF and optimistic revision', async () => {
         const { baseUrl, writeSettings } = await createTestServer()
         const token = createTokenHeader()
@@ -315,6 +438,171 @@ describe('PlayCanvas Editor compatibility backend routes', () => {
         expect(response.status).toBe(200)
         await expect(response.json()).resolves.toMatchObject({ ok: true, requestId, item: { revision: 'project-2' } })
         expect(writeSettings).toHaveBeenCalledWith(expect.objectContaining({ requestId, expectedRevision: 'project-1' }))
+    })
+
+    it('serves and mutates sourcefiles through the compatibility endpoint with CSRF and checksum guards', async () => {
+        const { baseUrl, writeSourceFile, deleteSourceFile } = await createTestServer()
+        const token = createTokenHeader()
+        const listResponse = await fetch(`${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/sourcefiles`, {
+            headers: { 'x-playcanvas-editor-token': token }
+        })
+        const listBody = await listResponse.text()
+        expect(listResponse.status).toBe(200)
+        expect(JSON.parse(listBody)).toMatchObject({ items: [{ id: 'main-script', path: 'scripts/main.mjs' }] })
+
+        const readResponse = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/sourcefiles/main-script`,
+            {
+                headers: { 'x-playcanvas-editor-token': token }
+            }
+        )
+        await expect(readResponse.json()).resolves.toMatchObject({
+            item: { id: 'main-script', content: 'export default class MainScript {}' }
+        })
+
+        const requestId = '019e9147-27e7-7ad4-b4e4-02174d3bcfad'
+        const writeResponse = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/sourcefiles/main-script`,
+            {
+                method: 'PUT',
+                headers: { 'x-playcanvas-editor-token': token, 'content-type': 'application/json', 'x-csrf-token': 'test-csrf' },
+                body: JSON.stringify({
+                    requestId,
+                    path: 'scripts/main.mjs',
+                    content: 'export default class MainScript { initialize() {} }',
+                    expectedCurrentChecksum: 'b'.repeat(64)
+                })
+            }
+        )
+        expect(writeResponse.status).toBe(200)
+        await expect(writeResponse.json()).resolves.toMatchObject({ ok: true, requestId, item: { hash: 'c'.repeat(64) } })
+        expect(writeSourceFile).toHaveBeenCalledWith(
+            expect.objectContaining({ requestId, sourceFileId: 'main-script', expectedCurrentChecksum: 'b'.repeat(64) })
+        )
+
+        const deleteResponse = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/sourcefiles/main-script`,
+            {
+                method: 'DELETE',
+                headers: { 'x-playcanvas-editor-token': token, 'content-type': 'application/json', 'x-csrf-token': 'test-csrf' },
+                body: JSON.stringify({ requestId, expectedCurrentChecksum: 'c'.repeat(64) })
+            }
+        )
+        expect(deleteResponse.status).toBe(200)
+        await expect(deleteResponse.json()).resolves.toMatchObject({ ok: true, requestId, item: { id: 'main-script', deleted: true } })
+        expect(deleteSourceFile).toHaveBeenCalledWith(
+            expect.objectContaining({ requestId, sourceFileId: 'main-script', expectedCurrentChecksum: 'c'.repeat(64) })
+        )
+    })
+
+    it('serves upstream-compatible repository sourcefile reads and deletes for the real Editor API client', async () => {
+        const { baseUrl, deleteSourceFile } = await createTestServer()
+        const token = createTokenHeader()
+
+        const repositoriesResponse = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories`,
+            { headers: { 'x-playcanvas-editor-token': token } }
+        )
+        await expect(repositoriesResponse.json()).resolves.toMatchObject({ current: 'directory', directory: 'directory' })
+
+        const listResponse = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories/directory/sourcefiles`,
+            { headers: { 'x-playcanvas-editor-token': token } }
+        )
+        await expect(listResponse.json()).resolves.toMatchObject({ result: [{ filename: 'main.mjs' }] })
+
+        const contentResponse = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories/directory/sourcefiles/main.mjs`,
+            { headers: { 'x-playcanvas-editor-token': token } }
+        )
+        expect(contentResponse.status).toBe(200)
+        await expect(contentResponse.text()).resolves.toBe('export default class MainScript {}')
+
+        const upstreamDeleteUrl = `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories/directory/sourcefiles/main.mjs?requestId=019e9147-27e7-7ad4-b4e4-02174d3bcfae&expectedCurrentChecksum=${'b'.repeat(
+            64
+        )}`
+        const csrfMissingResponse = await fetch(upstreamDeleteUrl, {
+            method: 'DELETE',
+            headers: { 'x-playcanvas-editor-token': token }
+        })
+        expect(csrfMissingResponse.status).toBe(403)
+        expect(deleteSourceFile).not.toHaveBeenCalled()
+
+        const checksumMissingResponse = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories/directory/sourcefiles/main.mjs?requestId=019e9147-27e7-7ad4-b4e4-02174d3bcfae`,
+            {
+                method: 'DELETE',
+                headers: { 'x-playcanvas-editor-token': token, 'x-csrf-token': 'test-csrf' }
+            }
+        )
+        expect(checksumMissingResponse.status).toBe(400)
+        expect(deleteSourceFile).not.toHaveBeenCalled()
+
+        const deleteResponse = await fetch(upstreamDeleteUrl, {
+            method: 'DELETE',
+            headers: { 'x-playcanvas-editor-token': token, 'x-csrf-token': 'test-csrf' }
+        })
+        expect(deleteResponse.status).toBe(200)
+        await expect(deleteResponse.json()).resolves.toMatchObject({
+            ok: true,
+            requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfae',
+            item: { id: 'main-script', deleted: true }
+        })
+        expect(deleteSourceFile).toHaveBeenCalledWith(
+            expect.objectContaining({
+                requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfae',
+                sourceFileId: 'main-script',
+                expectedCurrentChecksum: 'b'.repeat(64)
+            })
+        )
+    })
+
+    it('fails closed when upstream-compatible sourcefile basename requests are ambiguous', async () => {
+        const { baseUrl, deleteSourceFile } = await createTestServer(fullBootProtocol, {
+            sourceFiles: [
+                {
+                    id: 'folder-a-main',
+                    path: 'folderA/main.mjs',
+                    name: 'main.mjs',
+                    hash: 'a'.repeat(64),
+                    size: 10,
+                    mime: 'text/javascript',
+                    updatedAt: '2026-06-10T00:00:00.000Z'
+                },
+                {
+                    id: 'folder-b-main',
+                    path: 'folderB/main.mjs',
+                    name: 'main.mjs',
+                    hash: 'b'.repeat(64),
+                    size: 10,
+                    mime: 'text/javascript',
+                    updatedAt: '2026-06-10T00:00:00.000Z'
+                }
+            ]
+        })
+        const token = createTokenHeader()
+
+        const ambiguousRead = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories/directory/sourcefiles/main.mjs`,
+            { headers: { 'x-playcanvas-editor-token': token } }
+        )
+        expect(ambiguousRead.status).toBe(404)
+
+        const exactPathRead = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories/directory/sourcefiles/folderB/main.mjs`,
+            { headers: { 'x-playcanvas-editor-token': token } }
+        )
+        expect(exactPathRead.status).toBe(200)
+        await expect(exactPathRead.text()).resolves.toBe('export default class MainScript {}')
+
+        const ambiguousDelete = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/projects/${uuid}/repositories/directory/sourcefiles/main.mjs?requestId=019e9147-27e7-7ad4-b4e4-02174d3bcfaf&expectedCurrentChecksum=${'a'.repeat(
+                64
+            )}`,
+            { method: 'DELETE', headers: { 'x-playcanvas-editor-token': token, 'x-csrf-token': 'test-csrf' } }
+        )
+        expect(ambiguousDelete.status).toBe(404)
+        expect(deleteSourceFile).not.toHaveBeenCalled()
     })
 
     it('rejects compatibility mutations before handlers when CSRF token is missing', async () => {
@@ -406,6 +694,24 @@ describe('PlayCanvas Editor compatibility backend routes', () => {
         })
     })
 
+    it('rejects full-boot config when asset realtime document ids collide', async () => {
+        process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = 'https://assets.example.test'
+        const { baseUrl } = await createTestServer(fullBootProtocol, {
+            assets: [
+                { id: 'asset-1', editorDocumentId: 123 },
+                { id: 'asset-2', editorDocumentId: 123 }
+            ]
+        })
+        const response = await fetch(
+            `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/config?mode=universo-full-upstream-ui&artifactBaseUrl=${encodeURIComponent(
+                'https://assets.example.test/editor-artifact/'
+            )}`,
+            { headers: { origin: 'https://platform.example.test' } }
+        )
+
+        expect(response.status).toBe(400)
+    })
+
     it('rejects hostile full-boot artifact origins instead of minting tokens for them', async () => {
         const { baseUrl } = await createTestServer()
         const response = await fetch(
@@ -465,6 +771,98 @@ describe('PlayCanvas Editor full-boot runtime', () => {
                 url: `/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/%E0%A4%A/realtime`
             } as http.IncomingMessage)
         ).toBe(false)
+    })
+
+    it('rejects full-boot WebSocket upgrades before auth when the Origin is missing or not allowlisted', async () => {
+        const server = http.createServer(express())
+        servers.push(server)
+        const handle = attachPlayCanvasEditorFullBootRuntime({
+            server,
+            tokenService,
+            documentPort: {
+                loadDocument: async ({ collection, documentId }) => ({ collection, id: documentId, data: {}, version: 0 }),
+                persistDocument: async () => undefined
+            }
+        })
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        const address = server.address()
+        if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
+        const wsUrl = `ws://127.0.0.1:${address.port}/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/realtime`
+
+        const expectForbiddenUpgrade = async (socket: WebSocket) => {
+            await expect(
+                new Promise<number>((resolve, reject) => {
+                    socket.once('unexpected-response', (_request, response) => resolve(response.statusCode ?? 0))
+                    socket.once('open', () => reject(new Error('Expected full-boot upgrade to be rejected before auth')))
+                    socket.once('error', reject)
+                })
+            ).resolves.toBe(403)
+        }
+
+        await expectForbiddenUpgrade(new WebSocket(wsUrl))
+        await expectForbiddenUpgrade(new WebSocket(wsUrl, { headers: { Origin: 'https://attacker.example.test' } }))
+        await handle.close()
+    })
+
+    it('accepts same-host full-boot WebSocket upgrades and still rejects invalid realtime auth', async () => {
+        delete process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS
+        delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
+        delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
+        delete process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
+        process.env.NODE_ENV = 'production'
+        process.env.CORS_ORIGINS = '*'
+        const server = http.createServer(express())
+        servers.push(server)
+        const handle = attachPlayCanvasEditorFullBootRuntime({
+            server,
+            tokenService,
+            documentPort: {
+                loadDocument: async ({ collection, documentId }) => ({ collection, id: documentId, data: {}, version: 0 }),
+                persistDocument: async () => undefined
+            }
+        })
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        const address = server.address()
+        if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
+        const origin = `http://127.0.0.1:${address.port}`
+        const realtime = new WebSocket(
+            `ws://127.0.0.1:${address.port}/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/realtime`,
+            { headers: { Origin: origin } }
+        )
+
+        await waitForEvent<void>(realtime, 'open')
+        realtime.send(`auth${JSON.stringify({ accessToken: 'invalid-token' })}`)
+        await expect(waitForEvent<number>(realtime, 'close')).resolves.toBe(4401)
+
+        await handle.close()
+    })
+
+    it('accepts loopback sibling full-boot WebSocket upgrades and still rejects invalid realtime auth', async () => {
+        delete process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS
+        delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
+        delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
+        delete process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
+        process.env.NODE_ENV = 'development'
+        const server = http.createServer(express())
+        servers.push(server)
+        const handle = attachPlayCanvasEditorFullBootRuntime({
+            server,
+            tokenService,
+            documentPort: {
+                loadDocument: async ({ collection, documentId }) => ({ collection, id: documentId, data: {}, version: 0 }),
+                persistDocument: async () => undefined
+            }
+        })
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        const address = server.address()
+        if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
+        process.env.PORT = String(address.port)
+        const wsUrl = `ws://127.0.0.1:${address.port}/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/realtime`
+        const socket = new WebSocket(wsUrl, { headers: { Origin: `http://localhost:${address.port}` } })
+        await waitForEvent<void>(socket, 'open')
+        socket.send(`auth${JSON.stringify({ accessToken: 'invalid-token' })}`)
+        await expect(waitForEvent<number>(socket, 'close')).resolves.toBe(4401)
+        await handle.close()
     })
 
     it('builds upstream-shaped full-boot config with enabled WebSocket URLs', () => {
@@ -796,6 +1194,32 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         }
     })
 
+    it('repairs empty settings snapshots for upstream nested JSON0 list operations', () => {
+        const data: Record<string, unknown> = {}
+
+        expect(repairSnapshotForJson0ListOperations(data, [{ p: ['editor', 'cameraClearColor', 0], li: 0.118 }])).toBe(1)
+        expect(data).toEqual({ editor: { cameraClearColor: [] } })
+    })
+
+    it('traverses existing arrays without corrupting them while repairing nested JSON0 list operations', () => {
+        const row = { values: undefined }
+        const data: Record<string, unknown> = { rows: [row] }
+
+        expect(repairSnapshotForJson0ListOperations(data, [{ p: ['rows', 0, 'values', 0], li: 'value' }])).toBe(1)
+        expect(data).toEqual({ rows: [{ values: [] }] })
+        expect((data.rows as unknown[])[0]).toBe(row)
+    })
+
+    it('does not mutate snapshots when JSON0 list-operation paths contain incompatible values', () => {
+        const incompatibleParent: Record<string, unknown> = { editor: { cameraClearColor: 'black' } }
+        const missingArrayEntry: Record<string, unknown> = { rows: [] }
+
+        expect(repairSnapshotForJson0ListOperations(incompatibleParent, [{ p: ['editor', 'cameraClearColor', 0], li: 0.118 }])).toBe(0)
+        expect(incompatibleParent).toEqual({ editor: { cameraClearColor: 'black' } })
+        expect(repairSnapshotForJson0ListOperations(missingArrayEntry, [{ p: ['rows', 0, 'values', 0], li: 'value' }])).toBe(0)
+        expect(missingArrayEntry).toEqual({ rows: [] })
+    })
+
     it('rejects ShareDB submits outside the authenticated full-boot document allowlist', async () => {
         const server = http.createServer(express())
         servers.push(server)
@@ -1015,6 +1439,57 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         }
     })
 
+    it('closes ShareDB persistence connections when durable storage rejects', async () => {
+        const backend = new ShareDB()
+        const seedConnection = backend.connect()
+        const seedDoc = seedConnection.get('scenes', 'scene-1')
+        await new Promise<void>((resolve, reject) => {
+            seedDoc.create({ item_id: 1, entities: { root: { resource_id: 'root', children: [] } } }, (error) =>
+                error ? reject(error) : resolve()
+            )
+        })
+        seedConnection.close()
+
+        const originalConnect = backend.connect.bind(backend)
+        const closeConnection = vi.fn()
+        vi.spyOn(backend, 'connect').mockImplementation(() => {
+            const connection = originalConnect()
+            const originalClose = connection.close.bind(connection)
+            connection.close = () => {
+                closeConnection()
+                return originalClose()
+            }
+            return connection
+        })
+
+        const persistError = new Error('durable storage rejected')
+        await expect(
+            persistShareDbSnapshot(
+                backend,
+                {
+                    loadDocument: async () => null,
+                    persistDocument: async () => {
+                        throw persistError
+                    }
+                },
+                {
+                    metahubId: 'metahub-1',
+                    projectId: uuid,
+                    sceneId,
+                    userId: 'user-1',
+                    packageSlug: 'playcanvas-editor',
+                    mode: 'universo-full-upstream-ui',
+                    origin: 'https://editor-assets.example.test',
+                    expiresAt: Date.now() + PLAYCANVAS_EDITOR_COMPATIBILITY_TOKEN_TTL_MS
+                },
+                new Map(),
+                'scenes',
+                'scene-1'
+            )
+        ).rejects.toThrow(persistError.message)
+        expect(closeConnection).toHaveBeenCalledTimes(1)
+    })
+
     it('recovers ShareDB documents from durable storage after persistence checksum conflicts', async () => {
         const server = http.createServer(express())
         servers.push(server)
@@ -1210,6 +1685,7 @@ describe('PlayCanvas Editor full-boot runtime', () => {
     })
 
     it('rejects full-boot WebSocket auth when the browser Origin does not match the token claim', async () => {
+        process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS = 'https://editor-assets.example.test,https://attacker.example.test'
         const server = http.createServer(express())
         servers.push(server)
         const handle = attachPlayCanvasEditorFullBootRuntime({

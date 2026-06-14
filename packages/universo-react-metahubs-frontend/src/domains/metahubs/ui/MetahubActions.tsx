@@ -475,6 +475,21 @@ const metahubActions: readonly ActionDescriptor<MetahubDisplay, MetahubLocalized
         }
     },
     {
+        id: 'exportRuntime',
+        labelKey: 'export.exportRunnableMetahub',
+        icon: <FileDownloadIcon />,
+        order: 31,
+        visible: (ctx) => !isPendingEntity(ctx.entity) && Boolean(ctx.entity.permissions?.manageMetahub),
+        onSelect: async (ctx) => {
+            try {
+                await ctx.runtime?.exportRunnableMetahub?.(ctx.entity.id)
+            } catch (error: unknown) {
+                notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                throw error
+            }
+        }
+    },
+    {
         id: 'delete',
         labelKey: 'common:actions.delete',
         icon: <DeleteIcon />,

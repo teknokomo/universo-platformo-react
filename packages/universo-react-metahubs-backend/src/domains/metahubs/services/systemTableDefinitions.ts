@@ -750,6 +750,46 @@ const mhbPlayCanvasGeneratedArtifacts: SystemTableDef = {
     ]
 }
 
+const mhbPlayCanvasSourceFiles: SystemTableDef = {
+    name: '_mhb_playcanvas_sourcefiles',
+    description: 'PlayCanvas Editor sourcefile metadata and file references',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'project_id', type: 'uuid', nullable: false },
+        { name: 'stable_sourcefile_id', type: 'string', length: 160, nullable: false },
+        { name: 'name', type: 'string', length: 255, nullable: false },
+        { name: 'virtual_path', type: 'jsonb', nullable: false, defaultTo: '[]' },
+        { name: 'file_ref', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'file_path', type: 'string', length: 512, nullable: false },
+        { name: 'file_hash', type: 'string', length: 128, nullable: true },
+        { name: 'file_mime', type: 'string', length: 160, nullable: true },
+        { name: 'file_size', type: 'integer', nullable: true },
+        { name: 'script_kind', type: 'string', length: 20, nullable: false, defaultTo: 'esm' },
+        { name: 'parsed_attributes', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'parse_status', type: 'string', length: 40, nullable: false, defaultTo: 'ready' },
+        { name: 'parse_diagnostics', type: 'jsonb', nullable: true },
+        { name: 'publish', type: 'boolean', nullable: false, defaultTo: true },
+        { name: 'status', type: 'string', length: 40, nullable: false, defaultTo: 'ready' }
+    ],
+    foreignKeys: [{ column: 'project_id', referencesTable: '_mhb_playcanvas_projects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_playcanvas_sourcefiles_project', columns: ['project_id'] },
+        { name: 'idx_mhb_playcanvas_sourcefiles_file_hash', columns: ['file_hash'] },
+        {
+            name: 'idx_mhb_playcanvas_sourcefiles_stable_active',
+            columns: ['project_id', 'stable_sourcefile_id'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_playcanvas_sourcefiles_path_active',
+            columns: ['project_id', 'file_path'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
 const mhbPlayCanvasPackageCompatibility: SystemTableDef = {
     name: '_mhb_playcanvas_package_compatibility',
     description: 'Compatibility checks and migrations for PlayCanvas project package versions',
@@ -889,10 +929,15 @@ export const SYSTEM_TABLES_V5: SystemTableDef[] = [
     mhbPlayCanvasScriptAssets,
     mhbPlayCanvasSceneScriptBindings,
     mhbPlayCanvasGeneratedArtifacts,
+    mhbPlayCanvasSourceFiles,
     mhbPlayCanvasPackageCompatibility,
     mhbPlayCanvasPublicationManifests
 ]
 export const SYSTEM_TABLES: SystemTableDef[] = SYSTEM_TABLES_V5
+export const ADDITIVE_CURRENT_BASELINE_TABLE_NAMES = ['_mhb_playcanvas_sourcefiles'] as const
+
+export const findSystemTableDefinition = (tableName: string): SystemTableDef | undefined =>
+    SYSTEM_TABLES.find((table) => table.name === tableName)
 
 /**
  * Maps a structure version number to its table definitions.

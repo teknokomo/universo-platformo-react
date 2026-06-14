@@ -73,8 +73,13 @@ export const copyMetahub = (id: string, data: MetahubCopyInput = {}) => apiClien
 export const importMetahubFromSnapshot = (envelopeJson: unknown) =>
     apiClient.post<{ metahub: Metahub; publication: { id: string }; version: { id: string } }>('/metahubs/import', envelopeJson)
 
-export const exportMetahubSnapshot = async (metahubId: string): Promise<void> => {
-    const response = await apiClient.get(`/metahub/${metahubId}/export`, { responseType: 'blob' })
+export type MetahubSnapshotExportMode = 'snapshot' | 'snapshot-runtime'
+
+export const exportMetahubSnapshot = async (metahubId: string, playCanvasMode: MetahubSnapshotExportMode = 'snapshot'): Promise<void> => {
+    const response = await apiClient.get(`/metahub/${metahubId}/export`, {
+        params: { playCanvasMode },
+        responseType: 'blob'
+    })
     const blob = new Blob([response.data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')

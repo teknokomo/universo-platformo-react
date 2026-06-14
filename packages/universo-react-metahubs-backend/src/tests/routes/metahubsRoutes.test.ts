@@ -48,7 +48,15 @@ const mockExportPlayCanvasSnapshotFromSchema = jest.fn(async () => ({
     generatedArtifacts: [],
     runtimeManifests: []
 }))
-const mockRestorePlayCanvasSnapshot = jest.fn(async () => new Map([['source-playcanvas-project-id', 'target-playcanvas-project-id']]))
+const makePlayCanvasRestoreResult = (
+    entries: Array<[string, string]> = [['source-playcanvas-project-id', 'target-playcanvas-project-id']]
+) => ({
+    projectIdMap: new Map(entries),
+    sceneIdMap: new Map(),
+    runtimeManifestChecksumMap: new Map()
+})
+const mockRestorePlayCanvasSnapshot = jest.fn(async () => makePlayCanvasRestoreResult())
+const mockReplacePlayCanvasPublicationManifests = jest.fn(async () => undefined)
 const mockSerializeMetahub = jest.fn(async () => ({
     version: 1,
     generatedAt: '2026-04-04T00:00:00.000Z',
@@ -57,6 +65,7 @@ const mockSerializeMetahub = jest.fn(async () => ({
 }))
 const mockCalculateSnapshotHash = jest.fn(() => 'canonical-snapshot-hash')
 const mockAttachLayoutsToSnapshot = jest.fn(async () => undefined)
+const mockAlignPlayCanvasRuntimeManifestBindings = jest.fn(() => undefined)
 const mockCreateInitialBranch = jest.fn(async () => ({
     id: 'branch-main',
     metahubId: 'metahub-1',
@@ -113,6 +122,7 @@ jest.mock('../../domains/publications/services/SnapshotSerializer', () => ({
 
 jest.mock('../../domains/shared/snapshotLayouts', () => ({
     __esModule: true,
+    alignPlayCanvasRuntimeManifestBindings: (...args: unknown[]) => mockAlignPlayCanvasRuntimeManifestBindings(...args),
     attachLayoutsToSnapshot: (...args: unknown[]) => mockAttachLayoutsToSnapshot(...args)
 }))
 
@@ -222,6 +232,11 @@ jest.mock('../../domains/playcanvas-projects/services/PlayCanvasProjectSnapshotS
     }))
 }))
 
+jest.mock('../../domains/playcanvas-projects/services/playCanvasProjectsStore', () => ({
+    __esModule: true,
+    replacePlayCanvasPublicationManifests: (...args: unknown[]) => mockReplacePlayCanvasPublicationManifests(...args)
+}))
+
 import type { Request, Response, NextFunction } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 const express = require('express') as typeof import('express')
@@ -299,6 +314,8 @@ describe('Metahubs Routes', () => {
         mockSoftDelete.mockResolvedValue(true)
         mockCopyMetahubPackages.mockResolvedValue(0)
         mockDeleteMetahubTree.mockResolvedValue(undefined)
+        mockReplacePlayCanvasPublicationManifests.mockClear()
+        mockReplacePlayCanvasPublicationManifests.mockResolvedValue(undefined)
         mockExportPlayCanvasSnapshotFromSchema.mockClear()
         mockRestorePlayCanvasSnapshot.mockClear()
         mockExportPlayCanvasSnapshotFromSchema.mockResolvedValue({
@@ -325,7 +342,7 @@ describe('Metahubs Routes', () => {
             generatedArtifacts: [],
             runtimeManifests: []
         })
-        mockRestorePlayCanvasSnapshot.mockResolvedValue(new Map([['source-playcanvas-project-id', 'target-playcanvas-project-id']]))
+        mockRestorePlayCanvasSnapshot.mockResolvedValue(makePlayCanvasRestoreResult())
         mockSerializeMetahub.mockResolvedValue({
             version: 1,
             generatedAt: '2026-04-04T00:00:00.000Z',
@@ -781,8 +798,8 @@ describe('Metahubs Routes', () => {
                 })
             )
             mockRestorePlayCanvasSnapshot
-                .mockResolvedValueOnce(new Map([['source-playcanvas-project-id', 'target-default-branch-project-id']]))
-                .mockResolvedValueOnce(new Map([['source-playcanvas-project-id', 'target-feature-branch-project-id']]))
+                .mockResolvedValueOnce(makePlayCanvasRestoreResult([['source-playcanvas-project-id', 'target-default-branch-project-id']]))
+                .mockResolvedValueOnce(makePlayCanvasRestoreResult([['source-playcanvas-project-id', 'target-feature-branch-project-id']]))
 
             mockAddMetahubMember.mockResolvedValue({
                 id: 'membership-new',
@@ -908,7 +925,7 @@ describe('Metahubs Routes', () => {
                 _uplUpdatedAt: new Date()
             })
             mockExportPlayCanvasSnapshotFromSchema.mockResolvedValueOnce(undefined)
-            mockRestorePlayCanvasSnapshot.mockResolvedValueOnce(new Map())
+            mockRestorePlayCanvasSnapshot.mockResolvedValueOnce(makePlayCanvasRestoreResult([]))
             mockExec.query.mockImplementation(async (sql: string) => {
                 if (sql.includes('uuid_generate_v7')) return [{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }]
                 return []
@@ -2039,6 +2056,12 @@ describe('Metahubs Routes', () => {
                     })
                 })
             )
+            expect(mockReplacePlayCanvasPublicationManifests).toHaveBeenCalledWith(transactionExecutors[1], 'test_schema', {
+                projectIds: [],
+                manifests: [],
+                userId: 'test-user-id',
+                replaceScope: 'branch'
+            })
             expect(mockSerializeMetahub).toHaveBeenCalledWith('new-metahub-id', expect.not.objectContaining({ packageMode: 'metahub' }))
             expect(mockAttachLayoutsToSnapshot).toHaveBeenCalledWith(
                 expect.objectContaining({ metahubId: 'new-metahub-id', userId: 'test-user-id' })
@@ -2162,7 +2185,7 @@ describe('Metahubs Routes', () => {
                     runtimePolicy: {
                         workspaceMode: 'required'
                     },
-                    playCanvasMode: 'none'
+                    playCanvasMode: 'runtime'
                 })
             )
             expect(mockCreatePublicationVersion).toHaveBeenCalledWith(
@@ -2590,12 +2613,61 @@ describe('Metahubs Routes', () => {
                 const response = await request(app).get(`/metahub/${metahubId}/export`).expect(200)
                 const envelope = JSON.parse(response.text)
 
-                expect(resolvePublicStructureSpy).toHaveBeenCalledWith('test_schema', 4)
-                expect(mockSerializeMetahub).toHaveBeenCalledWith(metahubId, expect.objectContaining({ structureVersion: '0.1.0' }))
+                expect(resolvePublicStructureSpy).toHaveBeenCalledWith('test_schema', 1)
+                expect(mockSerializeMetahub).toHaveBeenCalledWith(
+                    metahubId,
+                    expect.objectContaining({ structureVersion: '0.1.0', playCanvasMode: 'snapshot' })
+                )
                 expect(envelope.snapshot.versionEnvelope.structureVersion).toBe('0.1.0')
             } finally {
                 resolvePublicStructureSpy.mockRestore()
             }
+        })
+
+        it('exports a self-contained PlayCanvas snapshot only when the explicit runtime mode is requested', async () => {
+            const metahubId = '00000000-0000-0000-0000-000000000001'
+            mockFindMetahubById.mockResolvedValueOnce({
+                id: metahubId,
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-metahub'),
+                defaultBranchId: 'branch-main'
+            })
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId,
+                structureVersion: 1
+            })
+
+            const app = buildApp()
+            await request(app).get(`/metahub/${metahubId}/export?playCanvasMode=snapshot-runtime`).expect(200)
+
+            expect(mockSerializeMetahub).toHaveBeenCalledWith(
+                metahubId,
+                expect.objectContaining({ packageMode: 'metahub', playCanvasMode: 'snapshot-runtime' })
+            )
+        })
+
+        it('rejects unsupported metahub export query modes', async () => {
+            const metahubId = '00000000-0000-0000-0000-000000000001'
+            mockFindMetahubById.mockResolvedValueOnce({
+                id: metahubId,
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-metahub'),
+                defaultBranchId: 'branch-main'
+            })
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId,
+                structureVersion: 1
+            })
+
+            const app = buildApp()
+            const response = await request(app).get(`/metahub/${metahubId}/export?playCanvasMode=runtime`).expect(400)
+
+            expect(response.body.error).toBe('Invalid export query')
+            expect(mockSerializeMetahub).not.toHaveBeenCalled()
         })
     })
 })

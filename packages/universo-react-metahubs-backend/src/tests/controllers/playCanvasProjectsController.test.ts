@@ -471,7 +471,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                     messenger: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' }
                 },
                 shareDb: {
-                    requiredCollections: ['scenes', 'assets', 'settings'],
+                    requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
                     persisted: false,
                     persistence: 'not-implemented',
                     sceneStorage: 'metahub-playcanvas-project-storage'
@@ -625,7 +625,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                     messenger: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' }
                 },
                 shareDb: {
-                    requiredCollections: ['scenes', 'assets', 'settings'],
+                    requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
                     persisted: false,
                     persistence: 'not-implemented',
                     sceneStorage: 'metahub-playcanvas-project-storage'

@@ -60,6 +60,36 @@ export function createPlayCanvasProjectsRoutes(
                         editorDocumentId: createPlayCanvasEditorNumericAssetId(asset.id)
                     }))
                 },
+                listSourceFiles: ({ metahubId, projectId, userId }) =>
+                    service.listEditorCompatibilitySourceFiles(metahubId, projectId, userId),
+                readSourceFile: ({ metahubId, projectId, sourceFileId, userId }) =>
+                    service.readEditorCompatibilitySourceFile(metahubId, projectId, sourceFileId, userId),
+                writeSourceFile: ({
+                    metahubId,
+                    projectId,
+                    sourceFileId,
+                    userId,
+                    requestId,
+                    path,
+                    name,
+                    content,
+                    expectedCurrentChecksum
+                }) =>
+                    service.writeEditorCompatibilitySourceFile(
+                        metahubId,
+                        projectId,
+                        sourceFileId,
+                        { requestId, path, name, content, expectedCurrentChecksum },
+                        userId
+                    ),
+                deleteSourceFile: ({ metahubId, projectId, sourceFileId, userId, requestId, expectedCurrentChecksum }) =>
+                    service.deleteEditorCompatibilitySourceFile(
+                        metahubId,
+                        projectId,
+                        sourceFileId,
+                        { requestId, expectedCurrentChecksum },
+                        userId
+                    ),
                 readSettings: ({ metahubId, projectId, userId, kind }) =>
                     service.readEditorCompatibilitySettings(metahubId, projectId, kind, userId),
                 writeSettings: ({ metahubId, projectId, userId, kind, requestId, data, expectedRevision }) =>
@@ -105,6 +135,7 @@ export function createPlayCanvasProjectsRoutes(
         asyncHandler(ctrl.writeGeneratedArtifact)
     )
     router.post('/metahub/:metahubId/playcanvas/projects/:projectId/publish', writeLimiter, asyncHandler(ctrl.publishProjectState))
+    router.get('/metahub/:metahubId/playcanvas/published-runtime-manifests', readLimiter, asyncHandler(ctrl.listPublishedRuntimeManifests))
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId/export', readLimiter, asyncHandler(ctrl.exportProjectState))
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId/files', readLimiter, asyncHandler(ctrl.readFile))
     router.put('/metahub/:metahubId/playcanvas/projects/:projectId/files', writeLimiter, asyncHandler(ctrl.writeFile))

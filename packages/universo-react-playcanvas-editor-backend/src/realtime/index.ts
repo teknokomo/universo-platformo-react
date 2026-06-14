@@ -15,7 +15,7 @@ import { parseSafeHttpOrigin } from '../middleware/index.js'
 import { validateFullBootClaims } from '../tokens/index.js'
 
 export interface PlayCanvasEditorRealtimeDocument {
-    collection: 'scenes' | 'assets' | 'settings'
+    collection: RealtimeCollection
     id: string
     data: Record<string, unknown>
     version?: number
@@ -29,7 +29,7 @@ export interface PlayCanvasEditorRealtimeDocumentPort {
         projectId: string
         sceneId: string
         userId: string
-        collection: 'scenes' | 'assets' | 'settings'
+        collection: RealtimeCollection
         documentId: string
         numericProjectId: number
         numericSceneId: number
@@ -40,7 +40,7 @@ export interface PlayCanvasEditorRealtimeDocumentPort {
         projectId: string
         sceneId: string
         userId: string
-        collection: 'scenes' | 'assets' | 'settings'
+        collection: RealtimeCollection
         documentId: string
         data: Record<string, unknown>
         version: number
@@ -66,7 +66,7 @@ export interface PlayCanvasEditorRealtimeRuntimeHandle {
     }
 }
 
-export type RealtimeCollection = 'scenes' | 'assets' | 'settings'
+export type RealtimeCollection = 'scenes' | 'assets' | 'settings' | 'user_data'
 export type RealtimeSurface = 'realtime' | 'messenger' | 'relay'
 
 export const parseJsonMessage = (value: unknown): Record<string, unknown> | null => {
@@ -161,6 +161,90 @@ export const writeUpgradeTooManyRequests = (socket: import('node:net').Socket): 
     socket.destroy()
 }
 
+export const writeUpgradeForbidden = (socket: import('node:net').Socket): void => {
+    if (socket.destroyed) return
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
+    socket.destroy()
+}
+
+const splitConfiguredOrigins = (value: string | undefined): string[] =>
+    (value ?? '')
+        .split(',')
+        .map((item) => parseSafeHttpOrigin(item))
+        .filter((origin): origin is string => Boolean(origin))
+
+const addLoopbackSiblingOrigin = (origins: Set<string>, origin: string): void => {
+    try {
+        const url = new URL(origin)
+        if (url.hostname === '127.0.0.1') {
+            url.hostname = 'localhost'
+            origins.add(url.origin)
+        } else if (url.hostname === 'localhost') {
+            url.hostname = '127.0.0.1'
+            origins.add(url.origin)
+        }
+    } catch {
+        // Ignore malformed origins that were already filtered by parseSafeHttpOrigin.
+    }
+}
+
+export const resolveAllowedFullBootUpgradeOrigins = (): Set<string> => {
+    const origins = new Set<string>()
+    for (const origin of [
+        ...splitConfiguredOrigins(process.env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS),
+        ...splitConfiguredOrigins(process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS),
+        ...splitConfiguredOrigins(process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN),
+        ...splitConfiguredOrigins(process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN)
+    ]) {
+        origins.add(origin)
+        addLoopbackSiblingOrigin(origins, origin)
+    }
+    return origins
+}
+
+const splitHeaderValue = (value: string | string[] | undefined): string | undefined => {
+    const selected = Array.isArray(value) ? value[0] : value
+    return selected?.split(',')[0]?.trim() || undefined
+}
+
+const resolveUpgradeHost = (request: IncomingMessage): string | undefined => {
+    const forwardedHost =
+        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true' ? splitHeaderValue(request.headers['x-forwarded-host']) : undefined
+    return forwardedHost ?? splitHeaderValue(request.headers.host)
+}
+
+const parseHostAsOriginUrl = (host: string, protocol: string): URL | null => {
+    try {
+        const parsed = new URL(`${protocol}//${host}`)
+        if (!parsed.hostname) return null
+        return parsed
+    } catch {
+        return null
+    }
+}
+
+const isLoopbackHost = (hostname: string): boolean => ['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname)
+
+export const isSameHostOrLoopbackSiblingUpgradeOrigin = (request: IncomingMessage, requestOrigin: string): boolean => {
+    const host = resolveUpgradeHost(request)
+    if (!host) return false
+    try {
+        const originUrl = new URL(requestOrigin)
+        const hostUrl = parseHostAsOriginUrl(host, originUrl.protocol)
+        if (!hostUrl) return false
+        if (originUrl.host === hostUrl.host) return true
+        return isLoopbackHost(originUrl.hostname) && isLoopbackHost(hostUrl.hostname) && originUrl.port === hostUrl.port
+    } catch {
+        return false
+    }
+}
+
+export const isFullBootUpgradeOriginAllowed = (request: IncomingMessage): boolean => {
+    const requestOrigin = parseSafeHttpOrigin(request.headers.origin)
+    if (!requestOrigin) return false
+    return resolveAllowedFullBootUpgradeOrigins().has(requestOrigin) || isSameHostOrLoopbackSiblingUpgradeOrigin(request, requestOrigin)
+}
+
 export const getUpgradeRemoteAddress = (request: IncomingMessage): string => {
     if (process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true') {
         const forwardedFor = request.headers['x-forwarded-for']
@@ -220,6 +304,82 @@ export const authorizeFullBootClaims = async (
 export const asRecordData = (value: unknown): Record<string, unknown> =>
     value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 
+export const isJson0ListOperation = (op: unknown): op is { p: unknown[]; li?: unknown; ld?: unknown; lm?: unknown } =>
+    Boolean(
+        op &&
+            typeof op === 'object' &&
+            Array.isArray((op as { p?: unknown }).p) &&
+            (op as { p: unknown[] }).p.length >= 2 &&
+            Number.isInteger((op as { p: unknown[] }).p[(op as { p: unknown[] }).p.length - 1]) &&
+            (Object.prototype.hasOwnProperty.call(op, 'li') ||
+                Object.prototype.hasOwnProperty.call(op, 'ld') ||
+                Object.prototype.hasOwnProperty.call(op, 'lm'))
+    )
+
+export const ensureArrayPathForJson0ListOperation = (data: Record<string, unknown>, op: { p: unknown[] }): boolean => {
+    const path = op.p.slice(0, -1)
+    if (path.length === 0) return false
+    const pendingWrites: Array<{
+        container: Record<string, unknown> | unknown[]
+        key: string | number
+        value: Record<string, unknown> | []
+    }> = []
+    let current: Record<string, unknown> | unknown[] = data
+
+    for (let index = 0; index < path.length; index += 1) {
+        const key = path[index]
+        const isLeaf = index === path.length - 1
+        let existing: unknown
+        let normalizedKey: string | number
+
+        if (Array.isArray(current)) {
+            if (!Number.isInteger(key) || Number(key) < 0 || Number(key) >= current.length) return false
+            normalizedKey = Number(key)
+            existing = current[normalizedKey]
+        } else {
+            if (typeof key !== 'string' && typeof key !== 'number') return false
+            normalizedKey = String(key)
+            existing = current[normalizedKey]
+        }
+
+        if (isLeaf) {
+            if (existing !== undefined) return false
+            pendingWrites.push({ container: current, key: normalizedKey, value: [] })
+            break
+        }
+
+        if (existing === undefined) {
+            if (Array.isArray(current)) return false
+            const next = Number.isInteger(path[index + 1]) ? [] : {}
+            pendingWrites.push({ container: current, key: normalizedKey, value: next })
+            current = next
+            continue
+        }
+        if (!existing || typeof existing !== 'object') return false
+        current = existing as Record<string, unknown> | unknown[]
+    }
+
+    for (const write of pendingWrites) {
+        if (Array.isArray(write.container)) {
+            write.container[write.key as number] = write.value
+        } else {
+            write.container[String(write.key)] = write.value
+        }
+    }
+    return pendingWrites.length > 0
+}
+
+export const repairSnapshotForJson0ListOperations = (data: Record<string, unknown>, ops: unknown): number => {
+    const list = Array.isArray(ops) ? ops : [ops]
+    let repaired = 0
+    for (const op of list) {
+        if (isJson0ListOperation(op) && ensureArrayPathForJson0ListOperation(data, op)) {
+            repaired += 1
+        }
+    }
+    return repaired
+}
+
 export type ShareDbDocumentMetadata = { checksum?: string | null; revision?: string | null; dirty?: boolean }
 
 export const shareDbPersistedMetadata = new WeakMap<ShareDB, Map<string, ShareDbDocumentMetadata>>()
@@ -276,6 +436,7 @@ export const createAllowedShareDbDocumentKeys = (claims: PlayCanvasEditorCompati
         `settings:user_${numericIds.selfId}`,
         `settings:project_${numericIds.projectId}_${numericIds.selfId}`,
         `settings:project-private_${numericIds.projectId}`,
+        `user_data:${numericIds.sceneId}_${numericIds.selfId}`,
         ...(claims.assetDocumentIds ?? []).map((id) => `assets:${id}`)
     ])
 }
@@ -286,7 +447,7 @@ export const isAllowedShareDbDocument = (backend: ShareDB, collection: unknown, 
     getShareDbAllowedDocumentKeys(backend).has(`${collection}:${documentId}`)
 
 export const createDefaultRealtimeDocument = (
-    collection: 'scenes' | 'assets' | 'settings',
+    collection: RealtimeCollection,
     documentId: string,
     claims: PlayCanvasEditorCompatibilityTokenClaims
 ): Record<string, unknown> => {
@@ -322,6 +483,23 @@ export const createDefaultRealtimeDocument = (
             id: documentId,
             userId: numericIds.selfId,
             projectId: numericIds.projectId
+        }
+    }
+    if (collection === 'user_data') {
+        return {
+            cameras: {
+                perspective: {
+                    position: [9.2, 6, 9],
+                    rotation: [-25, 45, 0],
+                    focus: [0, 0, 0]
+                },
+                top: { position: [0, 1000, 0], rotation: [-90, 0, 0], focus: [0, 0, 0], orthoHeight: 5 },
+                bottom: { position: [0, -1000, 0], rotation: [90, 0, 0], focus: [0, 0, 0], orthoHeight: 5 },
+                front: { position: [0, 0, 1000], rotation: [0, 0, 0], focus: [0, 0, 0], orthoHeight: 5 },
+                back: { position: [0, 0, -1000], rotation: [0, 180, 0], focus: [0, 0, 0], orthoHeight: 5 },
+                left: { position: [-1000, 0, 0], rotation: [0, -90, 0], focus: [0, 0, 0], orthoHeight: 5 },
+                right: { position: [1000, 0, 0], rotation: [0, 90, 0], focus: [0, 0, 0], orthoHeight: 5 }
+            }
         }
     }
     return {
@@ -423,40 +601,43 @@ export const persistShareDbSnapshot = async (
     documentId: string
 ): Promise<void> => {
     const connection = backend.connect()
-    const doc = connection.get(collection, documentId)
-    await new Promise<void>((resolve, reject) => {
-        doc.fetch((error) => {
-            if (error) {
-                reject(error)
-                return
-            }
-            const metadataKey = `${collection}:${documentId}`
-            const metadata = persistedMetadata.get(metadataKey)
-            persistedMetadata.set(metadataKey, { ...metadata, dirty: true })
-            port.persistDocument({
-                metahubId: claims.metahubId,
-                projectId: claims.projectId,
-                sceneId: claims.sceneId ?? claims.projectId,
-                userId: claims.userId,
-                collection,
-                documentId,
-                data: asRecordData(doc.data),
-                version: doc.version,
-                checksum: metadata?.checksum ?? null,
-                revision: metadata?.revision ?? null
-            })
-                .then((updated) => {
-                    persistedMetadata.set(metadataKey, {
-                        checksum: updated?.checksum ?? metadata?.checksum ?? null,
-                        revision: updated?.revision ?? metadata?.revision ?? null,
-                        dirty: false
-                    })
-                    resolve()
+    try {
+        const doc = connection.get(collection, documentId)
+        await new Promise<void>((resolve, reject) => {
+            doc.fetch((error) => {
+                if (error) {
+                    reject(error)
+                    return
+                }
+                const metadataKey = `${collection}:${documentId}`
+                const metadata = persistedMetadata.get(metadataKey)
+                persistedMetadata.set(metadataKey, { ...metadata, dirty: true })
+                port.persistDocument({
+                    metahubId: claims.metahubId,
+                    projectId: claims.projectId,
+                    sceneId: claims.sceneId ?? claims.projectId,
+                    userId: claims.userId,
+                    collection,
+                    documentId,
+                    data: asRecordData(doc.data),
+                    version: doc.version,
+                    checksum: metadata?.checksum ?? null,
+                    revision: metadata?.revision ?? null
                 })
-                .catch(reject)
+                    .then((updated) => {
+                        persistedMetadata.set(metadataKey, {
+                            checksum: updated?.checksum ?? metadata?.checksum ?? null,
+                            revision: updated?.revision ?? metadata?.revision ?? null,
+                            dirty: false
+                        })
+                        resolve()
+                    })
+                    .catch(reject)
+            })
         })
-    })
-    connection.close()
+    } finally {
+        connection.close()
+    }
 }
 
 export const queueShareDbSnapshotPersistence = (
@@ -528,6 +709,17 @@ export const createScopedShareDbBackend = (
             next(new Error('playcanvasEditor.fullBoot.documentNotAllowed'))
             return
         }
+        next()
+    })
+    backend.use('apply', (context, next) => {
+        const collection = context.collection as RealtimeCollection
+        const documentId = context.id as string
+        if (!isAllowedShareDbDocument(backend, collection, documentId)) {
+            next()
+            return
+        }
+        const snapshotData = asRecordData((context as { snapshot?: { data?: unknown } }).snapshot?.data)
+        repairSnapshotForJson0ListOperations(snapshotData, (context as { op?: { op?: unknown } }).op?.op)
         next()
     })
     backend.use('afterWrite', (context, next) => {
@@ -625,6 +817,12 @@ export const handleRealtimeSocket = (
                     claims,
                     collection: 'settings',
                     documentId: `project-private_${numericIds.projectId}`
+                }),
+                seedShareDbDocument(backend, {
+                    port: deps.documentPort,
+                    claims,
+                    collection: 'user_data',
+                    documentId: `${numericIds.sceneId}_${numericIds.selfId}`
                 })
             ])
             socket.send('auth{"ok":true}')
@@ -891,6 +1089,10 @@ export const attachPlayCanvasEditorFullBootRuntime = (deps: PlayCanvasEditorReal
     const onUpgrade = (request: IncomingMessage, socket: import('node:net').Socket, head: Buffer) => {
         const path = parseUpgradePath(request, basePath)
         if (!path) return
+        if (!isFullBootUpgradeOriginAllowed(request)) {
+            writeUpgradeForbidden(socket)
+            return
+        }
         const releasePendingAuth = reservePendingAuthSocket(request)
         if (!releasePendingAuth) {
             writeUpgradeTooManyRequests(socket)

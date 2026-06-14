@@ -707,7 +707,7 @@ export class SnapshotSerializer {
         options?: Partial<MetahubSnapshotVersionEnvelope> & {
             runtimePolicy?: MetahubRuntimePolicySnapshot
             packageMode?: 'runtime' | 'metahub'
-            playCanvasMode?: 'runtime' | 'snapshot' | 'none'
+            playCanvasMode?: 'runtime' | 'snapshot' | 'snapshot-runtime' | 'none'
         }
     ): Promise<MetahubSnapshot> {
         const { runtimePolicy, packageMode = 'runtime', playCanvasMode = 'runtime', ...versionEnvelope } = options ?? {}
@@ -763,22 +763,25 @@ export class SnapshotSerializer {
                       value: setting.value as Record<string, unknown>
                   }))
             : []
+        const includePlayCanvasRuntime = playCanvasMode === 'runtime' || playCanvasMode === 'snapshot-runtime'
+        const includePlayCanvasSnapshot = playCanvasMode === 'snapshot' || playCanvasMode === 'snapshot-runtime'
         const playCanvasRuntimeConfigPackages =
-            this.packagesService && this.playCanvasProjectSnapshotService && playCanvasMode === 'runtime'
+            this.packagesService && this.playCanvasProjectSnapshotService && includePlayCanvasRuntime
                 ? packageMode === 'metahub'
                     ? publishedPackages
                     : await this.packagesService.listMetahubSnapshotPackages(metahubId)
                 : []
-        const playCanvasRuntimeProjectIds =
-            playCanvasMode === 'runtime' ? collectPlayCanvasRuntimeProjectIds(playCanvasRuntimeConfigPackages) : undefined
+        const playCanvasRuntimeProjectIds = includePlayCanvasRuntime
+            ? collectPlayCanvasRuntimeProjectIds(playCanvasRuntimeConfigPackages)
+            : undefined
+        const includePlayCanvasRuntimeManifests = includePlayCanvasRuntime && (playCanvasRuntimeProjectIds?.length ?? 0) > 0
         const shouldExportPlayCanvasProjects =
             this.playCanvasProjectSnapshotService &&
-            playCanvasMode !== 'none' &&
-            (playCanvasMode !== 'runtime' || (playCanvasRuntimeProjectIds?.length ?? 0) > 0)
+            (includePlayCanvasSnapshot || (playCanvasMode === 'runtime' && includePlayCanvasRuntimeManifests))
         const playcanvasProjects = shouldExportPlayCanvasProjects
             ? await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
-                  includeRuntimeManifests: playCanvasMode === 'runtime',
-                  projectIds: playCanvasRuntimeProjectIds
+                  includeRuntimeManifests: includePlayCanvasRuntimeManifests,
+                  projectIds: includePlayCanvasRuntimeManifests ? playCanvasRuntimeProjectIds : undefined
               })
             : undefined
         const playcanvasRuntimeManifests =
@@ -998,7 +1001,7 @@ export class SnapshotSerializer {
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
             modules: publishedModules.length > 0 ? publishedModules : undefined,
             packages: publishedPackages.length > 0 ? publishedPackages : undefined,
-            playcanvasProjects: playCanvasMode === 'snapshot' ? playcanvasProjects : undefined,
+            playcanvasProjects: includePlayCanvasSnapshot ? playcanvasProjects : undefined,
             playcanvasRuntimeManifests,
             settings: settings.length > 0 ? settings : undefined,
             runtimePolicy

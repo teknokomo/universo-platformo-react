@@ -25,6 +25,7 @@ describe('structureVersions registry', () => {
         expect(current.tables).toContain('_mhb_event_bindings')
         expect(current.tables).toContain('_mhb_playcanvas_projects')
         expect(current.tables).toContain('_mhb_playcanvas_generated_artifacts')
+        expect(current.tables).toContain('_mhb_playcanvas_sourcefiles')
     })
 
     it('allows missing generated artifact output checksum until the artifact file is written', () => {

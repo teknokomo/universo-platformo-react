@@ -1462,8 +1462,11 @@ export class SchemaGenerator {
             })
 
             await knex.raw(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_playcanvas_manifests_project_active
-                ON "${schemaName}"._app_playcanvas_manifests (source_project_id)
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_playcanvas_manifests_project_scene_active
+                ON "${schemaName}"._app_playcanvas_manifests (
+                    source_project_id,
+                    COALESCE(source_scene_id, '00000000-0000-0000-0000-000000000000'::uuid)
+                )
                 WHERE _upl_deleted = false AND _app_deleted = false
             `)
             console.log(`[SchemaGenerator] _app_playcanvas_manifests created`)

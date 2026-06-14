@@ -28,9 +28,12 @@ module.exports = {
         '^@universo-react/modules-engine/(.*)$': path.join(repoRoot, 'packages/universo-react-modules-engine/src/$1'),
         '^@universo-react/playcanvas-editor-backend$': path.join(
             repoRoot,
-            'packages/universo-react-playcanvas-editor-backend/src/index.ts'
+            'packages/universo-react-playcanvas-editor-backend/dist/index.js'
         ),
-        '^@universo-react/playcanvas-editor-backend/(.*)$': path.join(repoRoot, 'packages/universo-react-playcanvas-editor-backend/src/$1'),
+        '^@universo-react/playcanvas-editor-backend/(.*)$': path.join(
+            repoRoot,
+            'packages/universo-react-playcanvas-editor-backend/dist/$1'
+        ),
         '^@universo-react/utils$': path.join(repoRoot, 'packages/universo-react-utils/src/index.ts'),
         '^@universo-react/utils/database$': path.join(repoRoot, 'packages/universo-react-utils/src/database/index.ts'),
         '^@universo-react/utils/database/(.*)$': path.join(repoRoot, 'packages/universo-react-utils/src/database/$1'),

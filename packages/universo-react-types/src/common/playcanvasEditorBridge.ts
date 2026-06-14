@@ -7,13 +7,7 @@ import {
     type PlayCanvasProjectSummary,
     type PlayCanvasScene
 } from './playcanvasProjects'
-import {
-    PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
-    PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
-    type PlayCanvasEditorCompatibilityIdentityDescriptor,
-    type PlayCanvasEditorCompatibilityProtocolDescriptor,
-    type PlayCanvasEditorCompatibilitySurfaceDescriptor
-} from './playcanvasEditorCompatibility'
+import type { PlayCanvasEditorCompatibilityProtocolDescriptor } from './playcanvasEditorCompatibility'
 
 export {
     PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
@@ -122,12 +116,17 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.union([jsonPrimitiveSchema, z.array(jsonValueSchema).max(5000), z.record(z.string().max(160), jsonValueSchema)])
 )
 
+const sceneEntityVector3Schema = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()])
+
 const sceneEntitySchema = z
     .object({
         id: z.string().min(1).max(160),
         name: z.string().max(255).optional(),
         parentId: z.string().min(1).max(160).nullable().optional(),
         enabled: z.boolean().optional(),
+        position: sceneEntityVector3Schema.optional(),
+        rotation: sceneEntityVector3Schema.optional(),
+        scale: sceneEntityVector3Schema.optional(),
         components: z.record(z.string().max(80), jsonValueSchema).optional(),
         children: z.array(z.string().min(1).max(160)).max(512).optional()
     })

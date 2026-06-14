@@ -48,6 +48,7 @@ describe('local Supabase env writer', () => {
             SESSION_SECRET: 'kept-session-secret',
             BOOTSTRAP_SUPERUSER_EMAIL: 'admin@example.test',
             CUSTOM_FEATURE_FLAG: 'enabled',
+            PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS: 'http://127.0.0.1:3000,http://localhost:3000',
             SMARTCAPTCHA_REGISTRATION_ENABLED: 'false'
         })
     })
@@ -120,6 +121,7 @@ describe('local Supabase env writer', () => {
         expect(env.AUTH_LOGIN_RATE_LIMIT_MAX).toBe('300')
         expect(env.API_RATE_LIMIT_READ_MAX).toBe('5000')
         expect(env.API_RATE_LIMIT_WRITE_MAX).toBe('2500')
+        expect(env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS).toBe('http://127.0.0.1:3100,http://localhost:3100')
     })
 
     it('normalizes E2E user email domains from accidental full email values', () => {

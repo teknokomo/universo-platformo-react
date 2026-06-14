@@ -272,6 +272,22 @@ describe('Packages Routes', () => {
         expect(response.headers['cache-control']).toBe('no-store')
     })
 
+    it('does not expose removed MMOOMM authoring controls from PlayCanvas Editor host descriptors', async () => {
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    ...displayConfig,
+                    playcanvasProject: { defaultProjectId: '019e8afa-0000-7000-8000-000000000001' }
+                }
+            }
+        ])
+
+        const response = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+
+        expect(response.body.playcanvasEditor).not.toHaveProperty('mmoommAuthoring')
+    })
+
     it('returns a bridge-ready descriptor for a legacy PlayCanvas project without mutating it from GET', async () => {
         mockListMetahubPackages.mockResolvedValueOnce([
             {

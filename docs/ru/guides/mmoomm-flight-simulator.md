@@ -26,3 +26,22 @@ canvas-виджет представлены через Objects, Modules и gene
 sequenced prediction с подтверждением сервера; remote ships интерполируются из
 authoritative room state. Короткие сетевые разрывы используют Colyseus
 reconnection и не должны создавать дубли кораблей.
+
+## Snapshot, созданный через PlayCanvas Editor
+
+Канонический MMOOMM snapshot приложения, созданный через PlayCanvas Editor,
+находится в `tools/fixtures/metahubs-mmoomm-app-snapshot.json`. Он создаётся
+Playwright-генератором `metahubs-mmoomm-app-export`, который проходит браузерный
+продуктовый сценарий вместо прямой записи snapshot.
+
+Генератор создаёт метахаб из шаблона `basic`, подключает пакеты Colyseus и
+PlayCanvas, создаёт MMOOMM Object/Set/Enumeration модель и runtime-модули через
+UI метахаба, открывает hosted PlayCanvas Editor, применяет базовую сцену с
+кораблём и станцией через видимый iframe-local MMOOMM authoring control,
+публикует PlayCanvas project, настраивает runtime dashboard widgets и экспортирует
+snapshot.
+
+Runtime replay test импортирует этот snapshot, создаёт и синхронизирует
+опубликованное приложение, открывает раздел `Space` и проверяет, что PlayCanvas
+canvas использует опубликованный runtime manifest, созданный через Editor, а не
+fallback scene data.

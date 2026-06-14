@@ -6,6 +6,8 @@ import type {
     PlayCanvasFileReference,
     PlayCanvasEditorCompatibilityProtocolDescriptor,
     PlayCanvasEditorCompatibilitySettingsDocument,
+    PlayCanvasEditorCompatibilitySourceFileDocument,
+    PlayCanvasEditorCompatibilitySourceFileSummary,
     PlayCanvasEditorMinimalAssetMetadata,
     PlayCanvasEditorScenePayload,
     PlayCanvasProjectSummary,
@@ -13,6 +15,7 @@ import type {
     PlayCanvasScene,
     PlayCanvasSceneScriptBinding,
     PlayCanvasScriptAsset,
+    PlayCanvasSourceFile,
     UpdatePlayCanvasProjectSettingsRequest
 } from '@universo-react/types'
 import {
@@ -23,9 +26,11 @@ import {
     PLAYCANVAS_PROJECT_SCHEMA_VERSION,
     isPlayCanvasAssetFileReference,
     isPlayCanvasGeneratedArtifactFileReference,
+    isPlayCanvasImageFileReference,
     isPlayCanvasJsonFileReference,
     isPlayCanvasScenePayloadFileReference,
     isPlayCanvasScriptFileReference,
+    isPlayCanvasSourceFileReference,
     playCanvasEditorCompatibilityScenePayloadSchema,
     playCanvasEditorCompatibilityProtocolDescriptorSchema,
     playCanvasEditorCompatibilitySettingsDocumentSchema
@@ -52,9 +57,12 @@ import {
     findPlayCanvasAsset,
     findPlayCanvasProject,
     findPlayCanvasScene,
+    findPlayCanvasSourceFileByStableId,
     listPlayCanvasProjects,
     listPlayCanvasAssets,
+    listPlayCanvasPublicationManifests,
     listPlayCanvasScenes,
+    listPlayCanvasSourceFiles,
     markPlayCanvasAssetFileReferenceMissing,
     markPlayCanvasAssetFileReferenceReady,
     markPlayCanvasProjectFileReferenceMissing,
@@ -62,6 +70,7 @@ import {
     playCanvasProjectMetadataFileReferenceExists,
     listPlayCanvasProjectCodenamesByPrefix,
     restoreSoftDeletedPlayCanvasProject,
+    replacePlayCanvasPublicationManifests,
     softDeletePlayCanvasProject,
     softDeletePlayCanvasScene,
     summarizePlayCanvasProject,
@@ -70,8 +79,11 @@ import {
     upsertPlayCanvasGeneratedArtifact,
     upsertPlayCanvasScene,
     upsertPlayCanvasSceneScriptBinding,
-    upsertPlayCanvasScriptAsset
+    upsertPlayCanvasScriptAsset,
+    upsertPlayCanvasSourceFile,
+    softDeletePlayCanvasSourceFileByStableId
 } from './playCanvasProjectsStore'
+import { createPlayCanvasEditorUserData, normalizePlayCanvasEditorUserData } from './playCanvasEditorUserData'
 
 const log = createLogger('PlayCanvasProjectsService')
 const STRICT_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
@@ -79,17 +91,276 @@ const COMPATIBILITY_SETTINGS_KEY = 'playCanvasEditorCompatibility'
 const REALTIME_SETTINGS_KEY = 'playCanvasEditorRealtime'
 const COMPATIBILITY_SCENE_SAVE_COMMAND_TYPE = 'compatibility.scene.save'
 const COMPATIBILITY_SETTINGS_WRITE_COMMAND_TYPE = 'compatibility.settings.write'
+const COMPATIBILITY_SOURCEFILE_WRITE_COMMAND_TYPE = 'compatibility.sourcefile.write'
+const COMPATIBILITY_SOURCEFILE_DELETE_COMMAND_TYPE = 'compatibility.sourcefile.delete'
+const CLOUD_ONLY_SURFACE_REASON = 'playcanvasCloudOnlySurfaceOutsideUniversoScope'
+const UNIVERSO_SOURCEFILES_REASON = 'universoDurableJavaScriptSourcefilesEnabled'
 
 const isCurrentChecksumMismatch = (error: unknown): error is MetahubValidationError =>
     error instanceof MetahubValidationError && error.details?.messageCode === 'playcanvas.files.path.currentChecksumMismatch'
 
-const areEditorScenePayloadsEqual = (left: PlayCanvasEditorScenePayload | null, right: PlayCanvasEditorScenePayload): boolean =>
-    Boolean(left && stableStringify(left) === stableStringify(right))
+const areEditorScenePayloadsEqual = (left: PlayCanvasEditorScenePayload | null, right: PlayCanvasEditorScenePayload): boolean => {
+    const leftComparable = normalizeEditorScenePayloadForComparison(left)
+    const rightComparable = normalizeEditorScenePayloadForComparison(right)
+    return Boolean(leftComparable && stableStringify(leftComparable) === stableStringify(rightComparable))
+}
 
-type CompatibilitySettingsKind = PlayCanvasEditorCompatibilitySettingsDocument['kind']
+type PlayCanvasEditorVector3Tuple = [number, number, number]
 
 const asRecord = (value: unknown): Record<string, unknown> =>
     value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+
+const readPlayCanvasEditorVector3Tuple = (
+    value: unknown,
+    fallback?: PlayCanvasEditorVector3Tuple
+): PlayCanvasEditorVector3Tuple | undefined => {
+    if (Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(item))) {
+        return [value[0] as number, value[1] as number, value[2] as number]
+    }
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, unknown>
+        const x = record.x ?? record[0]
+        const y = record.y ?? record[1]
+        const z = record.z ?? record[2]
+        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+            return [x as number, y as number, z as number]
+        }
+    }
+    return fallback
+}
+
+const findEditorSceneEntityById = (payload: PlayCanvasEditorScenePayload | null | undefined, entityId: string) =>
+    payload?.entities?.find((entity) => entity.id === entityId)
+
+type PlayCanvasEditorEntityComponents = NonNullable<PlayCanvasEditorScenePayload['entities'][number]['components']>
+
+const UNSAFE_EDITOR_COMPONENT_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
+
+const createEditorComponentRecord = (): Record<string, unknown> => Object.create(null) as Record<string, unknown>
+
+const assertSafeEditorComponentPath = (path: string[]): void => {
+    if (path.length === 0 || path.some((segment) => !segment || UNSAFE_EDITOR_COMPONENT_PATH_SEGMENTS.has(segment))) {
+        throw new MetahubValidationError('Unsafe PlayCanvas Editor component path', {
+            messageCode: 'playcanvas.editor.scenePayloadUnsafeComponentPath',
+            path: path.join('.')
+        })
+    }
+}
+
+const cloneEditorComponentRecord = (value: unknown): Record<string, unknown> => {
+    const target = createEditorComponentRecord()
+    for (const [key, item] of Object.entries(asRecord(value))) {
+        assertSafeEditorComponentPath([key])
+        target[key] = item
+    }
+    return target
+}
+
+const assignNestedRecordPath = (target: Record<string, unknown>, path: string[], value: unknown): void => {
+    assertSafeEditorComponentPath(path)
+    let current = target
+    for (const segment of path.slice(0, -1)) {
+        const next = Object.prototype.hasOwnProperty.call(current, segment) ? current[segment] : undefined
+        if (!next || typeof next !== 'object' || Array.isArray(next)) {
+            current[segment] = createEditorComponentRecord()
+        }
+        current = current[segment] as Record<string, unknown>
+    }
+    current[path[path.length - 1]] = value
+}
+
+const mergeComponentRecord = (target: Record<string, unknown>, componentName: string, value: unknown): void => {
+    assertSafeEditorComponentPath([componentName])
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const merged = cloneEditorComponentRecord(target[componentName])
+        for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+            assertSafeEditorComponentPath([key])
+            merged[key] = item
+        }
+        target[componentName] = merged
+        return
+    }
+    target[componentName] = value
+}
+
+const normalizeEditorEntityComponents = (componentsInput: unknown, entityInput?: unknown): PlayCanvasEditorEntityComponents => {
+    const source = asRecord(componentsInput)
+    const entitySource = asRecord(entityInput)
+    const components = createEditorComponentRecord()
+
+    for (const [key, value] of Object.entries(source)) {
+        if (key.includes('.')) continue
+        assertSafeEditorComponentPath([key])
+        components[key] = value
+    }
+
+    for (const [key, value] of Object.entries(source)) {
+        const path = key.split('.').filter(Boolean)
+        if (path.length < 2) continue
+        assignNestedRecordPath(components, path, value)
+    }
+
+    for (const [key, value] of Object.entries(entitySource)) {
+        if (!key.startsWith('components.')) continue
+        const path = key.slice('components.'.length).split('.').filter(Boolean)
+        if (path.length === 0) continue
+        if (path.length === 1) {
+            mergeComponentRecord(components, path[0], value)
+        } else {
+            assignNestedRecordPath(components, path, value)
+        }
+    }
+
+    return components as PlayCanvasEditorEntityComponents
+}
+
+const normalizeEditorSceneEntityForSave = (
+    entity: PlayCanvasEditorScenePayload['entities'][number]
+): PlayCanvasEditorScenePayload['entities'][number] => ({
+    ...entity,
+    components: normalizeEditorEntityComponents(entity.components, entity)
+})
+
+const isRenderableEditorEntity = (entity: PlayCanvasEditorScenePayload['entities'][number]): boolean => {
+    const components = asRecord(entity.components)
+    const render = asRecord(components.render)
+    return entity.enabled !== false && Object.keys(render).length > 0 && render.enabled !== false
+}
+
+const toMmoommVector = (tuple: PlayCanvasEditorVector3Tuple) => ({ x: tuple[0], y: tuple[1], z: tuple[2] })
+
+const stripMmoommRuntimeSceneMetadata = (metadata: Record<string, unknown> | undefined): Record<string, unknown> | undefined => {
+    if (!metadata) return undefined
+    const mmoomm = asRecord(metadata.mmoomm)
+    if (Object.keys(mmoomm).length === 0) return metadata
+    const { scene: _scene, provenance, ...mmoommRest } = mmoomm
+    const provenanceRecord = asRecord(provenance)
+    const { authoringFlow: _authoringFlow, ...provenanceRest } = provenanceRecord
+    const nextMmoomm = {
+        ...mmoommRest,
+        ...(Object.keys(provenanceRest).length > 0 ? { provenance: provenanceRest } : {})
+    }
+    const { mmoomm: _mmoomm, ...metadataRest } = metadata
+    return Object.keys(nextMmoomm).length > 0 ? { ...metadataRest, mmoomm: nextMmoomm } : metadataRest
+}
+
+const deriveMmoommMetadataFromEditorEntities = (
+    metadata: Record<string, unknown> | undefined,
+    entities: PlayCanvasEditorScenePayload['entities']
+): Record<string, unknown> | undefined => {
+    const ship = entities.find((entity) => entity.name === 'MMOOMM Ship' && isRenderableEditorEntity(entity))
+    const station = entities.find((entity) => entity.name === 'MMOOMM Station' && isRenderableEditorEntity(entity))
+    if (!ship || !station) return stripMmoommRuntimeSceneMetadata(metadata)
+
+    const shipPosition = readPlayCanvasEditorVector3Tuple(ship.position, [0, 0, 0]) ?? [0, 0, 0]
+    const stationPosition = readPlayCanvasEditorVector3Tuple(station.position, [72, 0, -48]) ?? [72, 0, -48]
+    const shipScale = readPlayCanvasEditorVector3Tuple(ship.scale, [12, 4, 4]) ?? [12, 4, 4]
+    const stationScale = readPlayCanvasEditorVector3Tuple(station.scale, [48, 16, 16]) ?? [48, 16, 16]
+
+    return {
+        ...metadata,
+        mmoomm: {
+            ...asRecord(metadata?.mmoomm),
+            scene: {
+                ...asRecord(asRecord(metadata?.mmoomm).scene),
+                controlledObjectId: ship.id,
+                targetObjectId: station.id,
+                cruiseSpeed: 36,
+                intentDistance: 720,
+                objects: [
+                    {
+                        id: ship.id,
+                        position: toMmoommVector(shipPosition),
+                        scale: toMmoommVector(shipScale),
+                        selectable: true
+                    },
+                    {
+                        id: station.id,
+                        position: toMmoommVector(stationPosition),
+                        scale: toMmoommVector(stationScale),
+                        selectable: true,
+                        guard: true
+                    }
+                ]
+            },
+            provenance: {
+                ...asRecord(asRecord(metadata?.mmoomm).provenance),
+                authoringFlow: 'playcanvas-editor-native-scene'
+            }
+        }
+    }
+}
+
+const syncMmoommMetadataWithEditorEntities = (
+    metadata: Record<string, unknown> | undefined,
+    entities: PlayCanvasEditorScenePayload['entities']
+): Record<string, unknown> | undefined => {
+    const derivedMetadata = deriveMmoommMetadataFromEditorEntities(metadata, entities)
+    if (!derivedMetadata) return undefined
+    const mmoomm =
+        derivedMetadata?.mmoomm && typeof derivedMetadata.mmoomm === 'object' && !Array.isArray(derivedMetadata.mmoomm)
+            ? (derivedMetadata.mmoomm as Record<string, unknown>)
+            : null
+    const scene =
+        mmoomm?.scene && typeof mmoomm.scene === 'object' && !Array.isArray(mmoomm.scene) ? (mmoomm.scene as Record<string, unknown>) : null
+    if (!mmoomm || !scene) return derivedMetadata
+    const entityById = new Map(entities.map((entity) => [entity.id, entity]))
+    const objects = Array.isArray(scene.objects) ? scene.objects : []
+    return {
+        ...derivedMetadata,
+        mmoomm: {
+            ...mmoomm,
+            scene: {
+                ...scene,
+                objects: objects
+                    .filter((item): item is Record<string, unknown> => item != null && typeof item === 'object' && !Array.isArray(item))
+                    .map((item) => {
+                        const entity = typeof item.id === 'string' ? entityById.get(item.id) : undefined
+                        const position = entity ? readPlayCanvasEditorVector3Tuple(entity.position) : undefined
+                        const scale = entity ? readPlayCanvasEditorVector3Tuple(entity.scale) : undefined
+                        return {
+                            ...item,
+                            ...(position ? { position: { x: position[0], y: position[1], z: position[2] } } : {}),
+                            ...(scale ? { scale: { x: scale[0], y: scale[1], z: scale[2] } } : {})
+                        }
+                    })
+            },
+            provenance: {
+                ...asRecord(mmoomm.provenance),
+                authoringFlow: 'playcanvas-editor-native-scene'
+            }
+        }
+    }
+}
+
+type CompatibilitySettingsKind = PlayCanvasEditorCompatibilitySettingsDocument['kind']
+
+const asStringArray = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : []
+
+const isPlayCanvasAssetType = (value: unknown): value is PlayCanvasAsset['type'] =>
+    ['scene', 'script', 'generatedScript', 'texture', 'model', 'audio', 'json', 'other'].includes(String(value))
+
+const resolveRealtimeAssetDocument = (
+    assets: (PlayCanvasAsset & { version: number })[],
+    documentId: string
+): (PlayCanvasAsset & { version: number }) | never => {
+    const matches = assets.filter((candidate) => String(createPlayCanvasEditorNumericAssetId(candidate.id)) === documentId)
+    if (matches.length === 1) {
+        return matches[0]
+    }
+    if (matches.length > 1) {
+        throw new MetahubValidationError('PlayCanvas Editor realtime asset document id collision', {
+            messageCode: 'playcanvas.editorRealtime.assetDocumentIdCollision',
+            documentId,
+            assetIds: matches.map((asset) => asset.id)
+        })
+    }
+    throw new MetahubValidationError('Unsupported PlayCanvas Editor realtime asset document', {
+        messageCode: 'playcanvas.editorRealtime.unsupportedAssetDocument',
+        documentId
+    })
+}
 
 const settingsDocumentId = (kind: CompatibilitySettingsKind, projectId: string, userId: string): string => {
     switch (kind) {
@@ -113,6 +384,64 @@ const realtimeSettingsDocumentKind = (documentId: string): CompatibilitySettings
     if (/^project-private_\d+$/.test(documentId)) return 'projectPrivate'
     if (/^project_\d+$/.test(documentId)) return 'projectPrivate'
     return null
+}
+
+const assertRealtimeUserDataDocumentId = (documentId: string, numericSceneId: number, numericUserId: number): void => {
+    if (documentId !== `${numericSceneId}_${numericUserId}`) {
+        throw new MetahubValidationError('Unsupported PlayCanvas Editor realtime user data document', {
+            messageCode: 'playcanvas.editorRealtime.unsupportedUserDataDocument',
+            documentId
+        })
+    }
+}
+
+const normalizeEditorSourceFilePath = (
+    projectId: string,
+    sourceFileId: string,
+    inputPath: string,
+    fileService: PlayCanvasProjectFileService
+): string => {
+    const normalized = inputPath.replace(/\\/g, '/').trim()
+    if (!normalized || normalized.startsWith('/') || normalized.includes('\0')) {
+        throw new MetahubValidationError('PlayCanvas sourcefile path must be relative', {
+            messageCode: 'playcanvas.files.sourcefile.pathMismatch',
+            sourceFileId,
+            sourcePath: inputPath
+        })
+    }
+    const storagePrefix = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/sourcefiles/`
+    const storageProjectPrefix = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/`
+    if (normalized.startsWith(storagePrefix)) {
+        return assertSafeRelativePlayCanvasProjectPath(normalized)
+    }
+    if (normalized.startsWith(storageProjectPrefix)) {
+        throw new MetahubValidationError('Sourcefile path does not match the sourcefiles storage namespace', {
+            messageCode: 'playcanvas.files.sourcefile.pathMismatch',
+            sourceFileId,
+            sourcePath: normalized
+        })
+    }
+    const parts = normalized.split('/').filter(Boolean)
+    if (parts.some((part) => part === '..' || part.startsWith('.'))) {
+        throw new MetahubValidationError('PlayCanvas sourcefile path cannot contain hidden or parent segments', {
+            messageCode: 'playcanvas.files.path.hiddenOrParentSegment',
+            sourceFileId,
+            sourcePath: normalized
+        })
+    }
+    const filename = parts[parts.length - 1] ?? `${sourceFileId}.mjs`
+    const dot = filename.lastIndexOf('.')
+    const extension = dot >= 0 ? filename.slice(dot) : '.mjs'
+    return fileService.buildDefaultSourceFilePath(projectId, sourceFileId, extension === '.js' ? '.js' : '.mjs')
+}
+
+const normalizeEditorSourceFileStableId = (sourceFileId: string): string => sourceFileId.replace(/\.[cm]?js$/i, '')
+
+const getEditorSourceFileName = (sourceFileId: string, inputPath: string, requestedName?: string): string => {
+    if (requestedName?.trim()) return requestedName.trim()
+    const normalized = inputPath.replace(/\\/g, '/').trim()
+    const filename = normalized.split('/').filter(Boolean).pop()
+    return filename && !filename.startsWith('.') ? filename : `${sourceFileId}.mjs`
 }
 
 const readRealtimeSettingsDocumentVersion = (document: Record<string, unknown>): number =>
@@ -173,6 +502,49 @@ const createDefaultEditorScenePayload = (): PlayCanvasEditorScenePayload => ({
     ]
 })
 
+const normalizeEditorSceneSettings = (value: unknown): PlayCanvasEditorScenePayload['settings'] => {
+    const defaults = createDefaultEditorScenePayload().settings as Record<string, unknown>
+    const record = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+    const physics = record.physics && typeof record.physics === 'object' && !Array.isArray(record.physics) ? record.physics : {}
+    const render = record.render && typeof record.render === 'object' && !Array.isArray(record.render) ? record.render : {}
+    const defaultPhysics =
+        defaults.physics && typeof defaults.physics === 'object' && !Array.isArray(defaults.physics) ? defaults.physics : {}
+    const defaultRender = defaults.render && typeof defaults.render === 'object' && !Array.isArray(defaults.render) ? defaults.render : {}
+    return {
+        priority_scripts: Array.isArray(record.priority_scripts) ? record.priority_scripts : [],
+        physics: {
+            ...defaultPhysics,
+            ...physics
+        },
+        render: {
+            ...defaultRender,
+            ...render
+        }
+    }
+}
+
+function normalizeEditorScenePayloadForComparison(payload: PlayCanvasEditorScenePayload | null): PlayCanvasEditorScenePayload | null {
+    if (!payload) return null
+    return playCanvasEditorCompatibilityScenePayloadSchema.parse({
+        ...payload,
+        settings: normalizeEditorSceneSettings(payload.settings)
+    })
+}
+
+const normalizeEditorCompatibilityScenePayloadForSave = (payload: PlayCanvasEditorScenePayload): PlayCanvasEditorScenePayload => {
+    const metadata =
+        payload.metadata && typeof payload.metadata === 'object' && !Array.isArray(payload.metadata)
+            ? (payload.metadata as Record<string, unknown>)
+            : undefined
+    const entities = (payload.entities ?? []).map(normalizeEditorSceneEntityForSave)
+    return playCanvasEditorCompatibilityScenePayloadSchema.parse({
+        ...payload,
+        settings: normalizeEditorSceneSettings(payload.settings),
+        entities,
+        metadata: syncMmoommMetadataWithEditorEntities(metadata, entities)
+    })
+}
+
 const createRealtimeRootEntity = (children: string[] = []): Record<string, unknown> => ({
     resource_id: 'root',
     name: 'Root',
@@ -187,19 +559,24 @@ const normalizeRealtimeSceneEntities = (
 ): Record<string, Record<string, unknown>> => {
     const normalized = new Map<string, Record<string, unknown>>()
     let rootId: string | null = null
-    const rootChildren = new Set<string>()
 
     for (const entity of entities) {
         const isRoot = entity.id === 'root'
         if (isRoot) {
             rootId = entity.id
         }
+        const position = readPlayCanvasEditorVector3Tuple(entity.position, isRoot ? [0, 0, 0] : undefined)
+        const rotation = readPlayCanvasEditorVector3Tuple(entity.rotation, isRoot ? [0, 0, 0] : undefined)
+        const scale = readPlayCanvasEditorVector3Tuple(entity.scale, isRoot ? [1, 1, 1] : undefined)
         normalized.set(entity.id, {
             resource_id: entity.id,
             name: entity.name ?? (isRoot ? 'Root' : 'Entity'),
             parent: entity.parentId ?? null,
             enabled: entity.enabled ?? true,
-            components: entity.components ?? {},
+            ...(position ? { position } : {}),
+            ...(rotation ? { rotation } : {}),
+            ...(scale ? { scale } : {}),
+            components: normalizeEditorEntityComponents(entity.components, entity),
             children: Array.isArray(entity.children) ? entity.children : []
         })
     }
@@ -209,26 +586,62 @@ const normalizeRealtimeSceneEntities = (
         normalized.set(rootId, createRealtimeRootEntity())
     }
 
+    const hasParentCycle = (entityId: string, parentId: string): boolean => {
+        const visited = new Set<string>([entityId])
+        let current: string | null = parentId
+        while (current) {
+            if (visited.has(current)) return true
+            visited.add(current)
+            const parent = normalized.get(current)
+            if (!parent) return false
+            current = typeof parent.parent === 'string' ? parent.parent : null
+        }
+        return false
+    }
+
     for (const [id, entity] of normalized) {
-        if (id === rootId) continue
-        if (entity.parent === null || entity.parent === undefined || !normalized.has(String(entity.parent))) {
+        if (id === rootId) {
+            entity.parent = null
+            continue
+        }
+        const parentId = typeof entity.parent === 'string' ? entity.parent : null
+        if (!parentId || !normalized.has(parentId) || parentId === id || hasParentCycle(id, parentId)) {
             entity.parent = rootId
-            rootChildren.add(id)
         }
     }
 
-    const root = normalized.get(rootId) ?? createRealtimeRootEntity()
-    const existingRootChildren = Array.isArray(root.children)
-        ? root.children.filter((child): child is string => {
-              if (typeof child !== 'string' || !normalized.has(child) || child === rootId) return false
-              return normalized.get(child)?.parent === rootId
-          })
-        : []
-    for (const child of existingRootChildren) {
-        rootChildren.add(child)
+    const childrenByParent = new Map<string, string[]>()
+    const appendChild = (parentId: string, childId: string): void => {
+        const children = childrenByParent.get(parentId) ?? []
+        if (!children.includes(childId)) {
+            children.push(childId)
+        }
+        childrenByParent.set(parentId, children)
     }
-    root.children = Array.from(rootChildren)
-    normalized.set(rootId, { ...root, parent: null, children: root.children })
+
+    for (const [id, entity] of normalized) {
+        const existingChildren = Array.isArray(entity.children) ? entity.children : []
+        for (const childId of existingChildren) {
+            if (typeof childId !== 'string' || childId === id || !normalized.has(childId)) continue
+            if (normalized.get(childId)?.parent === id) {
+                appendChild(id, childId)
+            }
+        }
+    }
+
+    for (const [id, entity] of normalized) {
+        if (id === rootId) continue
+        const parentId = typeof entity.parent === 'string' ? entity.parent : rootId
+        appendChild(parentId, id)
+    }
+
+    for (const [id, entity] of normalized) {
+        normalized.set(id, {
+            ...entity,
+            parent: id === rootId ? null : entity.parent,
+            children: childrenByParent.get(id) ?? []
+        })
+    }
 
     return Object.fromEntries(normalized)
 }
@@ -282,6 +695,9 @@ const compatibilitySettingsWriteSessionId = (input: {
     userId: string
 }): string => `compatibility:${input.metahubId}:${input.projectId}:settings:${input.kind}:${input.userId}`
 
+const compatibilitySourceFileSessionId = (input: { metahubId: string; projectId: string; sourceFileId: string; userId: string }): string =>
+    `compatibility:${input.metahubId}:${input.projectId}:sourcefile:${input.sourceFileId}:${input.userId}`
+
 const isEditorCompatibilitySceneSaveResult = (
     value: unknown
 ): value is { scene: PlayCanvasScene & { version: number }; payload: PlayCanvasEditorScenePayload | null; checksum: string | null } => {
@@ -299,6 +715,27 @@ const isEditorCompatibilitySceneSaveResult = (
 
 const isEditorCompatibilitySettingsWriteResult = (value: unknown): value is PlayCanvasEditorCompatibilitySettingsDocument =>
     playCanvasEditorCompatibilitySettingsDocumentSchema.safeParse(value).success
+
+const isEditorCompatibilitySourceFileDocument = (value: unknown): value is PlayCanvasEditorCompatibilitySourceFileDocument => {
+    if (!value || typeof value !== 'object') return false
+    const record = value as Record<string, unknown>
+    return (
+        typeof record.id === 'string' &&
+        typeof record.path === 'string' &&
+        typeof record.name === 'string' &&
+        typeof record.content === 'string' &&
+        typeof record.hash === 'string' &&
+        typeof record.size === 'number' &&
+        typeof record.mime === 'string' &&
+        (record.updatedAt === null || typeof record.updatedAt === 'string')
+    )
+}
+
+const isEditorCompatibilitySourceFileDeleteResult = (value: unknown): value is { id: string; deleted: true } => {
+    if (!value || typeof value !== 'object') return false
+    const record = value as Record<string, unknown>
+    return typeof record.id === 'string' && record.deleted === true
+}
 
 const slugifyProjectName = (value: string): string => {
     const normalized = value
@@ -345,6 +782,75 @@ export class PlayCanvasProjectsService {
             projectId,
             sourcePath
         })
+    }
+
+    private async markSourceFileMetadataMissingAfterWriteFailure(
+        schemaName: string,
+        projectId: string,
+        sourcePath: string,
+        sourceFileId: string,
+        userId: string,
+        existing: PlayCanvasSourceFile | null,
+        preparedVersion: number
+    ): Promise<void> {
+        try {
+            if (!existing) {
+                const deleted = await softDeletePlayCanvasSourceFileByStableId(
+                    this.exec,
+                    schemaName,
+                    projectId,
+                    sourceFileId,
+                    userId,
+                    preparedVersion
+                )
+                if (!deleted) {
+                    log.warn('Failed to soft-delete PlayCanvas sourcefile metadata after physical write failure', {
+                        schemaName,
+                        projectId,
+                        sourceFileId,
+                        sourcePath
+                    })
+                }
+                return
+            }
+
+            const restored = await upsertPlayCanvasSourceFile(
+                this.exec,
+                schemaName,
+                projectId,
+                {
+                    id: existing.id,
+                    stableSourceFileId: existing.stableSourceFileId,
+                    name: existing.name,
+                    virtualPath: existing.virtualPath,
+                    file: existing.file,
+                    scriptKind: existing.scriptKind,
+                    checksum: existing.checksum,
+                    parsedAttributes: existing.parsedAttributes,
+                    parseStatus: existing.parseStatus,
+                    parseDiagnostics: existing.parseDiagnostics,
+                    publish: existing.publish,
+                    expectedVersion: preparedVersion
+                },
+                userId
+            )
+            if (!restored) {
+                log.warn('Failed to restore PlayCanvas sourcefile metadata after physical write failure', {
+                    schemaName,
+                    projectId,
+                    sourceFileId,
+                    sourcePath
+                })
+            }
+        } catch (rollbackError) {
+            log.warn('PlayCanvas sourcefile metadata rollback failed after physical write failure', {
+                schemaName,
+                projectId,
+                sourceFileId,
+                sourcePath,
+                error: rollbackError
+            })
+        }
     }
 
     async listProjects(metahubId: string, _userId: string): Promise<PlayCanvasProjectSummary[]> {
@@ -446,7 +952,11 @@ export class PlayCanvasProjectsService {
         }
         const stubbedSurface = {
             status: 'stubbed' as const,
-            reason: 'cloudOnlySurfaceOutsideFirstSlice'
+            reason: CLOUD_ONLY_SURFACE_REASON
+        }
+        const sourcefilesSurface = {
+            status: 'enabled' as const,
+            reason: UNIVERSO_SOURCEFILES_REASON
         }
         const branchId = defaultSceneId ?? project.id
         const numericIds = createPlayCanvasEditorNumericIds({
@@ -495,7 +1005,7 @@ export class PlayCanvasProjectsService {
                 relay: enabledSurface
             },
             shareDb: {
-                requiredCollections: ['scenes', 'assets', 'settings'],
+                requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
                 persisted: true,
                 persistence: 'snapshot-port',
                 sceneStorage: 'metahub-playcanvas-project-storage'
@@ -504,15 +1014,15 @@ export class PlayCanvasProjectsService {
                 store: stubbedSurface,
                 jobs: stubbedSurface,
                 branchesCheckpoints: stubbedSurface,
-                sourcefiles: stubbedSurface,
+                sourcefiles: sourcefilesSurface,
                 publishing: stubbedSurface,
                 usersCollaboration: stubbedSurface,
                 assetPipeline: stubbedSurface
             },
             documents: {
                 codeEditorSourcefiles: {
-                    status: 'unsupported',
-                    reason: 'codeEditorSourcefilesOutsideFirstSlice'
+                    status: 'enabled',
+                    reason: UNIVERSO_SOURCEFILES_REASON
                 }
             },
             settingsDocuments: {
@@ -684,6 +1194,7 @@ export class PlayCanvasProjectsService {
     ): Promise<{ scene: PlayCanvasScene & { version: number }; checksum: string | null }> {
         const schemaName = await this.resolveSchemaName(metahubId)
         await this.requireProject(schemaName, projectId)
+        const payload = normalizeEditorCompatibilityScenePayloadForSave(input.payload)
         const existing = await findPlayCanvasScene(this.exec, schemaName, projectId, sceneId)
         const existingPayloadFile = this.assertScenePayloadFileReference(projectId, existing?.payloadFile)
         const payloadFilePath = existingPayloadFile?.path ?? this.fileService.buildDefaultScenePath(projectId, sceneId)
@@ -711,7 +1222,7 @@ export class PlayCanvasProjectsService {
                     id: sceneId,
                     codename: existing?.codename ?? createCodenameVLC('en', `scene-${sceneId.slice(0, 8)}`),
                     displayName: existing?.displayName ?? createLocalizedContent('en', 'PlayCanvas Scene'),
-                    payloadSchemaVersion: input.payload.schemaVersion,
+                    payloadSchemaVersion: payload.schemaVersion,
                     payload: null,
                     payloadFile: preparedPayloadFile,
                     checksum: existing?.checksum ?? null,
@@ -724,7 +1235,7 @@ export class PlayCanvasProjectsService {
             if (!prepared) {
                 throw this.metadataUpdateError(projectId, safePath)
             }
-            written = await this.fileService.write(scope, safePath, Buffer.from(JSON.stringify(input.payload), 'utf8'), {
+            written = await this.fileService.write(scope, safePath, Buffer.from(JSON.stringify(payload), 'utf8'), {
                 expectedCurrentChecksum: input.expectedCurrentChecksum,
                 mime: 'application/json'
             })
@@ -784,12 +1295,15 @@ export class PlayCanvasProjectsService {
     ): Promise<{ scene: PlayCanvasScene & { version: number }; payload: PlayCanvasEditorScenePayload | null; checksum: string | null }> {
         const schemaName = await this.resolveSchemaName(metahubId)
         const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const payload = normalizeEditorCompatibilityScenePayloadForSave(input.payload)
         const replayInput = {
             sessionId: compatibilitySceneSaveSessionId({ metahubId, projectId, sceneId, userId }),
+            metahubId,
+            projectId,
             requestId: input.requestId,
             commandType: COMPATIBILITY_SCENE_SAVE_COMMAND_TYPE,
             fingerprint: hashEditorCompatibilityReplayFingerprint({
-                payload: input.payload,
+                payload,
                 expectedCurrentChecksum: input.expectedCurrentChecksum
             }),
             expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
@@ -820,7 +1334,7 @@ export class PlayCanvasProjectsService {
                 projectId,
                 sceneId,
                 {
-                    payload: input.payload,
+                    payload,
                     expectedCurrentChecksum: input.expectedCurrentChecksum
                 },
                 userId
@@ -930,6 +1444,8 @@ export class PlayCanvasProjectsService {
         const sessionService = new PlayCanvasEditorBridgeSessionService()
         const replayInput = {
             sessionId: compatibilitySettingsWriteSessionId({ metahubId, projectId, kind, userId }),
+            metahubId,
+            projectId,
             requestId: input.requestId,
             commandType: COMPATIBILITY_SETTINGS_WRITE_COMMAND_TYPE,
             fingerprint: hashEditorCompatibilityReplayFingerprint({
@@ -1044,13 +1560,13 @@ export class PlayCanvasProjectsService {
         projectId: string
         sceneId: string
         userId: string
-        collection: 'scenes' | 'assets' | 'settings'
+        collection: 'scenes' | 'assets' | 'settings' | 'user_data'
         documentId: string
         numericProjectId: number
         numericSceneId: number
         numericUserId: number
     }): Promise<{
-        collection: 'scenes' | 'assets' | 'settings'
+        collection: 'scenes' | 'assets' | 'settings' | 'user_data'
         id: string
         data: Record<string, unknown>
         version?: number
@@ -1067,7 +1583,7 @@ export class PlayCanvasProjectsService {
                 data: {
                     item_id: input.numericSceneId,
                     name: getPrimaryText(read.scene.displayName),
-                    settings: read.payload?.settings ?? { physics: {}, render: {} },
+                    settings: normalizeEditorSceneSettings(read.payload?.settings),
                     entities: normalizeRealtimeSceneEntities(read.payload?.entities ?? []),
                     scene: input.numericSceneId
                 }
@@ -1098,15 +1614,37 @@ export class PlayCanvasProjectsService {
             }
         }
 
+        if (input.collection === 'user_data') {
+            const numericIds = createPlayCanvasEditorNumericIds({
+                metahubId: input.metahubId,
+                projectId: input.projectId,
+                sceneId: input.sceneId,
+                userId: input.userId
+            })
+            assertRealtimeUserDataDocumentId(input.documentId, numericIds.sceneId, numericIds.selfId)
+            const schemaName = await this.resolveSchemaName(input.metahubId)
+            const project = await this.requireProject(schemaName, input.projectId)
+            const realtimeSettings = asRecord(project.settings[REALTIME_SETTINGS_KEY])
+            const documentsByScene = asRecord(realtimeSettings.userDataDocumentsByScene)
+            const existing = asRecord(asRecord(documentsByScene[input.sceneId])[input.userId])
+            const scene = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
+            const data =
+                Object.keys(asRecord(existing.data)).length > 0
+                    ? normalizePlayCanvasEditorUserData(existing.data)
+                    : createPlayCanvasEditorUserData(scene.payload)
+            const version = readRealtimeSettingsDocumentVersion(existing)
+            return {
+                collection: 'user_data',
+                id: input.documentId,
+                data,
+                version,
+                revision: String(version)
+            }
+        }
+
         const schemaName = await this.resolveSchemaName(input.metahubId)
         const assets = await listPlayCanvasAssets(this.exec, schemaName, input.projectId)
-        const asset = assets.find((candidate) => String(createPlayCanvasEditorNumericAssetId(candidate.id)) === input.documentId)
-        if (!asset) {
-            throw new MetahubValidationError('Unsupported PlayCanvas Editor realtime asset document', {
-                messageCode: 'playcanvas.editorRealtime.unsupportedAssetDocument',
-                documentId: input.documentId
-            })
-        }
+        const asset = resolveRealtimeAssetDocument(assets, input.documentId)
         return {
             collection: 'assets',
             id: input.documentId,
@@ -1141,7 +1679,7 @@ export class PlayCanvasProjectsService {
         projectId: string
         sceneId: string
         userId: string
-        collection: 'scenes' | 'assets' | 'settings'
+        collection: 'scenes' | 'assets' | 'settings' | 'user_data'
         documentId: string
         data: Record<string, unknown>
         version: number
@@ -1179,31 +1717,54 @@ export class PlayCanvasProjectsService {
                 }
                 return entityIdByDocumentId.get(value) ?? value
             }
-            const payload = playCanvasEditorCompatibilityScenePayloadSchema.parse({
-                schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
-                settings:
-                    input.data.settings && typeof input.data.settings === 'object' && !Array.isArray(input.data.settings)
-                        ? (input.data.settings as Record<string, never>)
-                        : {},
-                entities: Object.entries(entitiesRecord)
-                    .filter(([id]) => !syntheticRootIds.has(id))
-                    .map(([id, entity]) => ({
-                        id: entityIdByDocumentId.get(id) ?? id,
-                        name: typeof entity.name === 'string' ? entity.name : 'Entity',
+            const currentBeforeSave = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
+            const existingMetadata =
+                currentBeforeSave.payload?.metadata &&
+                typeof currentBeforeSave.payload.metadata === 'object' &&
+                !Array.isArray(currentBeforeSave.payload.metadata)
+                    ? currentBeforeSave.payload.metadata
+                    : undefined
+            const incomingMetadata =
+                input.data.metadata && typeof input.data.metadata === 'object' && !Array.isArray(input.data.metadata)
+                    ? (input.data.metadata as Record<string, never>)
+                    : undefined
+            const effectiveMetadata = incomingMetadata ?? existingMetadata
+            const entities = Object.entries(entitiesRecord)
+                .filter(([id]) => !syntheticRootIds.has(id))
+                .map(([id, entity]) => {
+                    const entityId = entityIdByDocumentId.get(id) ?? id
+                    const previousEntity = findEditorSceneEntityById(currentBeforeSave.payload, entityId)
+                    const position = readPlayCanvasEditorVector3Tuple(entity.position, previousEntity?.position)
+                    const rotation = readPlayCanvasEditorVector3Tuple(entity.rotation, previousEntity?.rotation)
+                    const scale = readPlayCanvasEditorVector3Tuple(entity.scale, previousEntity?.scale)
+                    const hasComponentsRecord =
+                        entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
+                    const normalizedComponents = normalizeEditorEntityComponents(hasComponentsRecord ? entity.components : {}, entity)
+                    return {
+                        id: entityId,
+                        name: typeof entity.name === 'string' ? entity.name : previousEntity?.name ?? 'Entity',
                         parentId: resolveRealtimeEntityId(entity.parent),
-                        enabled: typeof entity.enabled === 'boolean' ? entity.enabled : true,
+                        enabled: typeof entity.enabled === 'boolean' ? entity.enabled : previousEntity?.enabled ?? true,
+                        ...(position ? { position } : {}),
+                        ...(rotation ? { rotation } : {}),
+                        ...(scale ? { scale } : {}),
                         components:
-                            entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
-                                ? (entity.components as Record<string, never>)
-                                : {},
+                            hasComponentsRecord || Object.keys(normalizedComponents).length > 0
+                                ? normalizedComponents
+                                : previousEntity?.components ?? {},
                         children: Array.isArray(entity.children)
                             ? entity.children
                                   .map((child) => resolveRealtimeEntityId(child))
                                   .filter((child): child is string => typeof child === 'string')
-                            : []
-                    }))
+                            : previousEntity?.children ?? []
+                    }
+                })
+            const payload = playCanvasEditorCompatibilityScenePayloadSchema.parse({
+                schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                settings: normalizeEditorSceneSettings(input.data.settings),
+                metadata: syncMmoommMetadataWithEditorEntities(effectiveMetadata, entities),
+                entities
             })
-            const currentBeforeSave = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
             if (areEditorScenePayloadsEqual(currentBeforeSave.payload, payload)) {
                 return { checksum: currentBeforeSave.scene.checksum ?? null }
             }
@@ -1299,6 +1860,122 @@ export class PlayCanvasProjectsService {
                 await waitForRealtimeSettingsRetry(attempt)
             }
         }
+
+        if (input.collection === 'user_data') {
+            const numericIds = createPlayCanvasEditorNumericIds({
+                metahubId: input.metahubId,
+                projectId: input.projectId,
+                sceneId: input.sceneId,
+                userId: input.userId
+            })
+            assertRealtimeUserDataDocumentId(input.documentId, numericIds.sceneId, numericIds.selfId)
+            const schemaName = await this.resolveSchemaName(input.metahubId)
+            let parsed: Record<string, unknown>
+            try {
+                parsed = normalizePlayCanvasEditorUserData(input.data)
+            } catch (error) {
+                throw new MetahubValidationError('Invalid PlayCanvas Editor realtime user data document', {
+                    messageCode: 'playcanvas.editorRealtime.invalidUserDataDocument',
+                    documentId: input.documentId,
+                    reason: error instanceof Error ? error.message : String(error)
+                })
+            }
+            const maxAttempts = 8
+            for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                const project = await this.requireProject(schemaName, input.projectId)
+                const realtimeSettings = asRecord(project.settings[REALTIME_SETTINGS_KEY])
+                const documentsByScene = asRecord(realtimeSettings.userDataDocumentsByScene)
+                const documentsByUser = asRecord(documentsByScene[input.sceneId])
+                const existing = asRecord(documentsByUser[input.userId])
+                const existingVersion = readRealtimeSettingsDocumentVersion(existing)
+                if (input.revision !== undefined && input.revision !== null && input.revision !== String(existingVersion)) {
+                    if (stableStringify(asRecord(existing.data)) === stableStringify(parsed)) {
+                        return { revision: String(existingVersion) }
+                    }
+                    throw new MetahubValidationError('PlayCanvas Editor realtime user data revision mismatch', {
+                        messageCode: 'playcanvas.editorRealtime.userDataRevisionMismatch',
+                        documentId: input.documentId,
+                        expectedRevision: input.revision,
+                        actualRevision: String(existingVersion)
+                    })
+                }
+                const updated = await updatePlayCanvasProject(
+                    this.exec,
+                    schemaName,
+                    input.projectId,
+                    {
+                        settings: {
+                            ...project.settings,
+                            [REALTIME_SETTINGS_KEY]: {
+                                ...realtimeSettings,
+                                userDataDocumentsByScene: {
+                                    ...documentsByScene,
+                                    [input.sceneId]: {
+                                        ...documentsByUser,
+                                        [input.userId]: {
+                                            data: parsed,
+                                            version: input.version,
+                                            updatedAt: new Date().toISOString()
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        expectedVersion: project.version
+                    },
+                    input.userId
+                )
+                if (updated) {
+                    return { revision: String(input.version) }
+                }
+                if (attempt === maxAttempts) {
+                    throw this.optimisticError(input.projectId, project.version)
+                }
+                await waitForRealtimeSettingsRetry(attempt)
+            }
+        }
+
+        if (input.collection === 'assets') {
+            const schemaName = await this.resolveSchemaName(input.metahubId)
+            await this.requireProject(schemaName, input.projectId)
+            const assets = await listPlayCanvasAssets(this.exec, schemaName, input.projectId)
+            const asset = resolveRealtimeAssetDocument(assets, input.documentId)
+            const nextType = isPlayCanvasAssetType(input.data.type) ? input.data.type : asset.type
+            const nextName = typeof input.data.name === 'string' && input.data.name.trim() ? input.data.name.trim() : asset.name
+            const nextPath = asStringArray(input.data.path)
+            const nextMetadata = {
+                ...asset.metadata,
+                editorDocument: {
+                    data: input.data.data ?? null,
+                    meta: input.data.meta ?? null,
+                    tags: asStringArray(input.data.tags),
+                    preload: typeof input.data.preload === 'boolean' ? input.data.preload : true,
+                    source: typeof input.data.source === 'boolean' ? input.data.source : false,
+                    version: input.version
+                }
+            }
+            const updated = await upsertPlayCanvasAsset(
+                this.exec,
+                schemaName,
+                input.projectId,
+                {
+                    id: asset.id,
+                    stableAssetId: asset.stableAssetId,
+                    type: nextType,
+                    name: nextName,
+                    virtualPath: nextPath.length > 0 ? nextPath : asset.virtualPath,
+                    file: asset.file,
+                    metadata: nextMetadata,
+                    publish: asset.publish,
+                    expectedVersion: asset.version
+                },
+                input.userId
+            )
+            if (!updated) {
+                throw this.optimisticError(asset.id, asset.version)
+            }
+            return { revision: String(updated.version) }
+        }
     }
 
     async writeAssetMetadata(
@@ -1363,14 +2040,40 @@ export class PlayCanvasProjectsService {
         return artifact
     }
 
-    async publishProjectState(metahubId: string, projectId: string, _userId: string): Promise<PlayCanvasRuntimeManifest[]> {
+    async publishProjectState(metahubId: string, projectId: string, userId: string): Promise<PlayCanvasRuntimeManifest[]> {
         const schemaName = await this.resolveSchemaName(metahubId)
         await this.requireProject(schemaName, projectId)
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const hasActiveReplayClaims = await sessionService.hasActiveReplayClaims(this.exec, schemaName, { metahubId, projectId })
+        if (hasActiveReplayClaims) {
+            throw new MetahubConflictError('PlayCanvas Editor project has pending compatibility writes', {
+                messageCode: 'playcanvas.publish.pendingEditorWrites',
+                projectId
+            })
+        }
         const snapshot = await new PlayCanvasProjectSnapshotService(this.exec, this.schemaService, this.fileService).exportProjectSnapshot(
             metahubId,
             projectId
         )
-        return snapshot?.runtimeManifests ?? []
+        const runtimeManifests = snapshot?.runtimeManifests ?? []
+        if (runtimeManifests.length === 0) {
+            throw new MetahubValidationError('PlayCanvas project has no publishable runtime manifests', {
+                messageCode: 'playcanvas.publish.noRuntimeManifests',
+                projectId
+            })
+        }
+        await replacePlayCanvasPublicationManifests(this.exec, schemaName, {
+            projectIds: [projectId],
+            manifests: runtimeManifests,
+            userId,
+            replaceScope: 'projects'
+        })
+        return runtimeManifests
+    }
+
+    async listPublishedRuntimeManifests(metahubId: string) {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        return listPlayCanvasPublicationManifests(this.exec, schemaName)
     }
 
     async exportProjectState(metahubId: string, projectId: string, _userId: string) {
@@ -1401,7 +2104,30 @@ export class PlayCanvasProjectsService {
                 })
             }
         }
-        const updated = await updatePlayCanvasProject(this.exec, schemaName, projectId, input, userId)
+        const updateInput = { ...input }
+        if (input.settings !== undefined) {
+            if (input.expectedVersion === undefined) {
+                throw new MetahubValidationError('PlayCanvas project settings updates require an expected version', {
+                    messageCode: 'playcanvas.project.settingsExpectedVersionRequired',
+                    projectId
+                })
+            }
+            if (Object.prototype.hasOwnProperty.call(input.settings, REALTIME_SETTINGS_KEY)) {
+                throw new MetahubValidationError('PlayCanvas Editor realtime settings are reserved for the realtime adapter', {
+                    messageCode: 'playcanvas.project.settingsReservedKey',
+                    projectId,
+                    settingsKey: REALTIME_SETTINGS_KEY
+                })
+            }
+            const project = await this.requireProject(schemaName, projectId)
+            updateInput.settings = {
+                ...input.settings,
+                ...(project.settings[REALTIME_SETTINGS_KEY] === undefined
+                    ? {}
+                    : { [REALTIME_SETTINGS_KEY]: project.settings[REALTIME_SETTINGS_KEY] })
+            }
+        }
+        const updated = await updatePlayCanvasProject(this.exec, schemaName, projectId, updateInput, userId)
         if (!updated) {
             throw new OptimisticLockError({
                 entityId: projectId,
@@ -1510,6 +2236,379 @@ export class PlayCanvasProjectsService {
             checksum: read.checksum,
             size: read.size,
             contentBase64: read.content.toString('base64')
+        }
+    }
+
+    async listEditorCompatibilitySourceFiles(
+        metahubId: string,
+        projectId: string,
+        _userId: string
+    ): Promise<PlayCanvasEditorCompatibilitySourceFileSummary[]> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        await this.requireProject(schemaName, projectId)
+        const sourceFiles = await listPlayCanvasSourceFiles(this.exec, schemaName, projectId)
+        return sourceFiles.map((sourceFile) => ({
+            id: sourceFile.stableSourceFileId,
+            path: sourceFile.file.path,
+            filename: sourceFile.name,
+            name: sourceFile.name,
+            hash: sourceFile.file.hash ?? sourceFile.checksum ?? null,
+            size: sourceFile.file.size ?? null,
+            mime: sourceFile.file.mime ?? 'text/javascript',
+            updatedAt: null
+        }))
+    }
+
+    async readEditorCompatibilitySourceFile(
+        metahubId: string,
+        projectId: string,
+        sourceFileId: string,
+        _userId: string
+    ): Promise<PlayCanvasEditorCompatibilitySourceFileDocument> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        await this.requireProject(schemaName, projectId)
+        const stableSourceFileId = normalizeEditorSourceFileStableId(sourceFileId)
+        const sourceFile = await findPlayCanvasSourceFileByStableId(this.exec, schemaName, projectId, stableSourceFileId)
+        if (!sourceFile) {
+            throw new MetahubValidationError('PlayCanvas sourcefile was not found', {
+                messageCode: 'playcanvas.sourcefiles.notFound',
+                sourceFileId
+            })
+        }
+        const sourcePath = this.assertSourceFileReference(projectId, sourceFile.file)?.path
+        if (!sourcePath) {
+            throw new MetahubValidationError('PlayCanvas sourcefile metadata does not reference a source file', {
+                messageCode: 'playcanvas.files.role.sourcefileMismatch',
+                sourceFileId
+            })
+        }
+        const read = await this.fileService.read({ metahubId, branchSlug: schemaName }, sourcePath)
+        const content = read.content.toString('utf8')
+        return {
+            id: sourceFile.stableSourceFileId,
+            path: sourcePath,
+            name: sourceFile.name,
+            content,
+            hash: read.checksum,
+            size: read.size,
+            mime: sourceFile.file.mime ?? 'text/javascript',
+            updatedAt: null
+        }
+    }
+
+    async writeEditorCompatibilitySourceFile(
+        metahubId: string,
+        projectId: string,
+        sourceFileId: string,
+        input: {
+            requestId: string
+            path: string
+            name?: string
+            content: string
+            expectedCurrentChecksum?: string | null
+        },
+        userId: string
+    ): Promise<PlayCanvasEditorCompatibilitySourceFileDocument> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        await this.requireProject(schemaName, projectId)
+        const stableSourceFileId = normalizeEditorSourceFileStableId(sourceFileId)
+        const sourcePath = normalizeEditorSourceFilePath(projectId, stableSourceFileId, input.path, this.fileService)
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const replayInput = {
+            sessionId: compatibilitySourceFileSessionId({ metahubId, projectId, sourceFileId: stableSourceFileId, userId }),
+            metahubId,
+            projectId,
+            requestId: input.requestId,
+            commandType: COMPATIBILITY_SOURCEFILE_WRITE_COMMAND_TYPE,
+            fingerprint: hashEditorCompatibilityReplayFingerprint({
+                path: sourcePath,
+                name: input.name ?? null,
+                content: input.content,
+                expectedCurrentChecksum: input.expectedCurrentChecksum
+            }),
+            expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
+            userId
+        }
+        const claimed = await sessionService.claimReplay(this.exec, schemaName, replayInput)
+        if (!claimed) {
+            const storedResponse = await sessionService.readReplayResponse(this.exec, schemaName, replayInput)
+            if (storedResponse?.status === 'completed' && isEditorCompatibilitySourceFileDocument(storedResponse.response)) {
+                return storedResponse.response
+            }
+            throw new MetahubConflictError('PlayCanvas Editor compatibility sourcefile write replay is already in progress', {
+                messageCode: 'playcanvas.editorCompatibility.replayRejected',
+                requestId: input.requestId
+            })
+        }
+
+        let mutationCommitted = false
+        let replayClaimReleased = false
+        const releaseReplayClaim = async () => {
+            if (replayClaimReleased) return
+            replayClaimReleased = true
+            await sessionService.releaseReplay(this.exec, schemaName, replayInput).catch(() => undefined)
+        }
+        try {
+            const existing = await findPlayCanvasSourceFileByStableId(this.exec, schemaName, projectId, stableSourceFileId)
+            const existingSourcePath = existing ? this.assertSourceFileReference(projectId, existing.file)?.path ?? null : null
+            if (existing && existingSourcePath !== sourcePath) {
+                throw new MetahubValidationError('PlayCanvas sourcefile path changes are not supported for existing sourcefile ids', {
+                    messageCode: 'playcanvas.files.sourcefile.pathChangeUnsupported',
+                    sourceFileId: stableSourceFileId,
+                    existingSourcePath,
+                    sourcePath
+                })
+            }
+            const sourceFileIdForStorage = existing?.id ?? generateUuidV7()
+            const name = existing?.name ?? getEditorSourceFileName(stableSourceFileId, input.path, input.name)
+            const initialFile = {
+                provider: 'local',
+                root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                path: sourcePath,
+                hash: existing?.file.hash ?? input.expectedCurrentChecksum ?? null,
+                size: existing?.file.size ?? null,
+                mime: existing?.file.mime ?? 'text/javascript',
+                status: existing?.file.status ?? 'missing'
+            } satisfies PlayCanvasSourceFile['file']
+            this.assertSourceFileReference(projectId, initialFile)
+            const metadata = await upsertPlayCanvasSourceFile(
+                this.exec,
+                schemaName,
+                projectId,
+                {
+                    id: sourceFileIdForStorage,
+                    stableSourceFileId,
+                    name,
+                    virtualPath: [name],
+                    file: initialFile,
+                    scriptKind: 'esm',
+                    checksum: initialFile.hash ?? null,
+                    parsedAttributes: existing?.parsedAttributes ?? {},
+                    parseStatus: 'missing',
+                    parseDiagnostics: existing?.parseDiagnostics ?? null,
+                    publish: existing?.publish ?? true,
+                    expectedVersion: existing?.version
+                },
+                userId
+            )
+            if (!metadata) {
+                throw this.metadataUpdateError(projectId, sourcePath)
+            }
+            const scope = { metahubId, branchSlug: schemaName }
+            const previous = await this.readFileForRollback(scope, sourcePath)
+            let written: { sourcePath: string; checksum: string; size: number; mime: string | null }
+            try {
+                written = await this.fileService.write(scope, sourcePath, Buffer.from(input.content, 'utf8'), {
+                    expectedChecksum: null,
+                    expectedCurrentChecksum: input.expectedCurrentChecksum ?? null,
+                    mime: 'text/javascript'
+                })
+            } catch (error) {
+                await this.markSourceFileMetadataMissingAfterWriteFailure(
+                    schemaName,
+                    projectId,
+                    sourcePath,
+                    stableSourceFileId,
+                    userId,
+                    existing ?? null,
+                    metadata.version
+                )
+                throw error
+            }
+            const finalMime = written.mime ?? 'text/javascript'
+            const finalFile = {
+                ...initialFile,
+                hash: written.checksum,
+                size: written.size,
+                mime: finalMime,
+                status: 'ready'
+            } satisfies PlayCanvasSourceFile['file']
+            try {
+                const finalized = await upsertPlayCanvasSourceFile(
+                    this.exec,
+                    schemaName,
+                    projectId,
+                    {
+                        id: metadata.id,
+                        stableSourceFileId,
+                        name,
+                        virtualPath: [name],
+                        file: finalFile,
+                        scriptKind: metadata.scriptKind,
+                        checksum: written.checksum,
+                        parsedAttributes: metadata.parsedAttributes,
+                        parseStatus: 'ready',
+                        parseDiagnostics: metadata.parseDiagnostics,
+                        publish: metadata.publish,
+                        expectedVersion: metadata.version
+                    },
+                    userId
+                )
+                if (finalized) {
+                    mutationCommitted = true
+                }
+            } finally {
+                if (!mutationCommitted) {
+                    await this.markSourceFileMetadataMissingAfterWriteFailure(
+                        schemaName,
+                        projectId,
+                        sourcePath,
+                        stableSourceFileId,
+                        userId,
+                        existing ?? null,
+                        metadata.version
+                    )
+                }
+            }
+            if (!mutationCommitted) {
+                await this.rollbackFileWrite(scope, sourcePath, written.checksum, previous, finalMime)
+                throw this.metadataUpdateError(projectId, sourcePath)
+            }
+            const response = {
+                id: stableSourceFileId,
+                path: written.sourcePath,
+                name,
+                content: input.content,
+                hash: written.checksum,
+                size: written.size,
+                mime: written.mime ?? 'text/javascript',
+                updatedAt: null
+            } satisfies PlayCanvasEditorCompatibilitySourceFileDocument
+            const completed = await sessionService.completeReplay(this.exec, schemaName, {
+                ...replayInput,
+                response,
+                userId
+            })
+            if (!completed) {
+                throw new MetahubDomainError({
+                    message: 'PlayCanvas Editor compatibility sourcefile write replay response could not be recorded',
+                    statusCode: 503,
+                    code: 'SCHEMA_SYNC_FAILED',
+                    details: {
+                        messageCode: 'playcanvas.editorCompatibility.replayCompletionFailed',
+                        requestId: input.requestId
+                    }
+                })
+            }
+            return response
+        } catch (error) {
+            if (!mutationCommitted) {
+                await releaseReplayClaim()
+            }
+            throw error
+        }
+    }
+
+    async deleteEditorCompatibilitySourceFile(
+        metahubId: string,
+        projectId: string,
+        sourceFileId: string,
+        input: { requestId: string; expectedCurrentChecksum?: string | null },
+        userId: string
+    ): Promise<{ id: string; deleted: true }> {
+        if (!input.expectedCurrentChecksum) {
+            throw new MetahubValidationError('Current file checksum is required', {
+                messageCode: 'playcanvas.files.path.currentChecksumRequired',
+                sourceFileId
+            })
+        }
+        const schemaName = await this.resolveSchemaName(metahubId)
+        await this.requireProject(schemaName, projectId)
+        const stableSourceFileId = normalizeEditorSourceFileStableId(sourceFileId)
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const replayInput = {
+            sessionId: compatibilitySourceFileSessionId({ metahubId, projectId, sourceFileId: stableSourceFileId, userId }),
+            metahubId,
+            projectId,
+            requestId: input.requestId,
+            commandType: COMPATIBILITY_SOURCEFILE_DELETE_COMMAND_TYPE,
+            fingerprint: hashEditorCompatibilityReplayFingerprint({
+                expectedCurrentChecksum: input.expectedCurrentChecksum
+            }),
+            expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
+            userId
+        }
+        const claimed = await sessionService.claimReplay(this.exec, schemaName, replayInput)
+        if (!claimed) {
+            const storedResponse = await sessionService.readReplayResponse(this.exec, schemaName, replayInput)
+            if (storedResponse?.status === 'completed' && isEditorCompatibilitySourceFileDeleteResult(storedResponse.response)) {
+                return storedResponse.response
+            }
+            throw new MetahubConflictError('PlayCanvas Editor compatibility sourcefile delete replay is already in progress', {
+                messageCode: 'playcanvas.editorCompatibility.replayRejected',
+                requestId: input.requestId
+            })
+        }
+
+        let mutationCommitted = false
+        let replayClaimReleased = false
+        const releaseReplayClaim = async () => {
+            if (replayClaimReleased) return
+            replayClaimReleased = true
+            await sessionService.releaseReplay(this.exec, schemaName, replayInput).catch(() => undefined)
+        }
+        try {
+            const sourceFile = await findPlayCanvasSourceFileByStableId(this.exec, schemaName, projectId, stableSourceFileId)
+            if (!sourceFile) {
+                throw new MetahubValidationError('PlayCanvas sourcefile was not found', {
+                    messageCode: 'playcanvas.sourcefiles.notFound',
+                    sourceFileId
+                })
+            }
+            const sourcePath = sourceFile.file.path
+            const safePath = this.assertSourceFileReference(projectId, sourceFile.file)?.path ?? null
+            if (!safePath) {
+                throw new MetahubValidationError('PlayCanvas sourcefile metadata does not reference a source file', {
+                    messageCode: 'playcanvas.files.role.sourcefileMismatch',
+                    sourceFileId
+                })
+            }
+            const scope = { metahubId, branchSlug: schemaName }
+            const previous = await this.readFileForRollback(scope, safePath)
+            const physicallyDeleted = await this.fileService.deleteIfCurrentChecksum(scope, safePath, input.expectedCurrentChecksum)
+            if (!physicallyDeleted) {
+                throw new MetahubValidationError('Current file checksum does not match', {
+                    messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                    expectedCurrentChecksum: input.expectedCurrentChecksum,
+                    sourcePath: safePath
+                })
+            }
+            const deleted = await softDeletePlayCanvasSourceFileByStableId(
+                this.exec,
+                schemaName,
+                projectId,
+                stableSourceFileId,
+                userId,
+                sourceFile.version
+            )
+            if (!deleted) {
+                await this.rollbackPhysicalDelete(scope, safePath, previous, sourceFile.file.mime)
+                throw this.metadataUpdateError(projectId, sourcePath)
+            }
+            mutationCommitted = true
+            const response = { id: stableSourceFileId, deleted: true } as const
+            const completed = await sessionService.completeReplay(this.exec, schemaName, {
+                ...replayInput,
+                response,
+                userId
+            })
+            if (!completed) {
+                throw new MetahubDomainError({
+                    message: 'PlayCanvas Editor compatibility sourcefile delete replay response could not be recorded',
+                    statusCode: 503,
+                    code: 'SCHEMA_SYNC_FAILED',
+                    details: {
+                        messageCode: 'playcanvas.editorCompatibility.replayCompletionFailed',
+                        requestId: input.requestId
+                    }
+                })
+            }
+            return response
+        } catch (error) {
+            if (!mutationCommitted) {
+                await releaseReplayClaim()
+            }
+            throw error
         }
     }
 
@@ -1720,7 +2819,11 @@ export class PlayCanvasProjectsService {
         return safePath
     }
 
-    private assertProjectSubdirectoryPath(projectId: string, sourcePath: string, subdirectory: 'assets' | 'generated' | 'scenes'): void {
+    private assertProjectSubdirectoryPath(
+        projectId: string,
+        sourcePath: string,
+        subdirectory: 'assets' | 'generated' | 'scenes' | 'sourcefiles'
+    ): void {
         if (!sourcePath.startsWith(`playcanvas-projects/${projectId}/${subdirectory}/`)) {
             throw new MetahubValidationError('PlayCanvas project file path does not match the required storage role', {
                 messageCode: `playcanvas.files.role.${subdirectory}PathMismatch`
@@ -1823,11 +2926,24 @@ export class PlayCanvasProjectsService {
         }
         if (
             !['scene', 'json', 'script', 'generatedScript'].includes(assetType) &&
-            !isPlayCanvasJsonFileReference({ path: checked.path ?? '', mime: checked.mime })
+            !isPlayCanvasJsonFileReference({ path: checked.path ?? '', mime: checked.mime }) &&
+            !(assetType === 'texture' && isPlayCanvasImageFileReference({ path: checked.path ?? '', mime: checked.mime }))
         ) {
-            throw new MetahubValidationError('PlayCanvas non-script sidecar assets must reference JSON files in this storage slice', {
+            throw new MetahubValidationError('PlayCanvas non-script sidecar assets must reference JSON files or supported texture images', {
                 messageCode: 'playcanvas.files.role.assetSidecarMismatch',
                 assetType
+            })
+        }
+        return checked
+    }
+
+    private assertSourceFileReference(projectId: string, file: PlayCanvasFileReference | null | undefined): PlayCanvasFileReference | null {
+        const checked = this.assertFileReference(projectId, file)
+        if (!checked) return null
+        this.assertProjectSubdirectoryPath(projectId, checked.path ?? '', 'sourcefiles')
+        if (!isPlayCanvasSourceFileReference({ path: checked.path ?? '', mime: checked.mime })) {
+            throw new MetahubValidationError('PlayCanvas sourcefiles must be JavaScript files in the sourcefiles directory', {
+                messageCode: 'playcanvas.files.role.sourcefileMismatch'
             })
         }
         return checked
@@ -1914,6 +3030,20 @@ export class PlayCanvasProjectsService {
             return
         }
         await this.fileService.deleteIfCurrentChecksum(scope, sourcePath, writtenChecksum)
+    }
+
+    private async rollbackPhysicalDelete(
+        scope: PlayCanvasProjectFileScope,
+        sourcePath: string,
+        previous: { exists: true; file: PlayCanvasProjectFileReadResult } | { exists: false },
+        mime?: string | null
+    ): Promise<void> {
+        if (!previous.exists) return
+        await this.fileService.write(scope, sourcePath, previous.file.content, {
+            expectedChecksum: previous.file.checksum,
+            expectedCurrentChecksum: null,
+            mime
+        })
     }
 
     private async rollbackEditorSceneMetadata(

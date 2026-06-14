@@ -2,7 +2,7 @@
   "version": 1,
   "generatedAt": "2026-05-24T16:56:10.485Z",
   "generator": "tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts",
-  "generatorSha256": "ec3331f4755c95d9c8397ddae1ebceb6ab269100915097882dca0e3864ed00c9",
+  "generatorSha256": "9901f1b8ca47a29c15f2e9ccce6a5985ff93d6006e90472ce3160cf5f1e86c8b",
   "manifest": "tools/docs/lms-user-guide-screenshot-manifest.json",
   "manifestSha256": "1f3d54a35f6e42b2682aa9fca90307e09b698b04361317456130055c9e17d6cf",
   "viewport": {

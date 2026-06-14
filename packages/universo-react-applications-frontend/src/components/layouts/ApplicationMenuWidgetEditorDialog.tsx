@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import {
     Alert,
     Box,
@@ -136,6 +136,7 @@ export default function ApplicationMenuWidgetEditorDialog({
 }: Props) {
     const { t, i18n } = useTranslation(['applications', 'common'])
     const uiLocale = normalizeLocale(i18n.language)
+    const workspacePlacementLabelId = useId()
     const [draft, setDraft] = useState<MenuWidgetConfig>(() => normalizeMenuConfig(config, uiLocale))
     const [itemEditorOpen, setItemEditorOpen] = useState(false)
     const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null)
@@ -313,8 +314,11 @@ export default function ApplicationMenuWidgetEditorDialog({
                             )}
                         />
                         <FormControl fullWidth>
-                            <InputLabel>{t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}</InputLabel>
+                            <InputLabel id={workspacePlacementLabelId}>
+                                {t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}
+                            </InputLabel>
                             <Select
+                                labelId={workspacePlacementLabelId}
                                 value={draft.workspacePlacement ?? 'primary'}
                                 label={t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}
                                 onChange={(event) =>

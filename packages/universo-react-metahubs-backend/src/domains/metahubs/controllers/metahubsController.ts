@@ -78,6 +78,7 @@ import { ModuleSourceFileService } from '../../modules/services/ModuleSourceFile
 import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
 import { PlayCanvasProjectFileService } from '../../playcanvas-projects/services/PlayCanvasProjectFileService'
 import { PlayCanvasProjectSnapshotService } from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
+import { replacePlayCanvasPublicationManifests } from '../../playcanvas-projects/services/playCanvasProjectsStore'
 import type { RestoredPlayCanvasProjectFileBackup } from '../../playcanvas-projects/services/PlayCanvasProjectSnapshotService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
@@ -86,7 +87,7 @@ import { EventBindingService } from '../../entities/services/EventBindingService
 import { SnapshotSerializer } from '../../publications/services/SnapshotSerializer'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
-import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
+import { alignPlayCanvasRuntimeManifestBindings, attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 import {
     createPoolSnapshotRestoreService,
     poolKnexTransaction,
@@ -113,6 +114,11 @@ const DEFAULT_CODENAME_STYLE: CodenameStyle = 'pascal-case'
 const DEFAULT_CODENAME_ALPHABET: CodenameAlphabet = 'en-ru'
 const DEFAULT_CODENAME_ALLOW_MIXED = false
 const DEFAULT_CODENAME_AUTO_CONVERT_MIXED = true
+const metahubExportQuerySchema = z
+    .object({
+        playCanvasMode: z.enum(['snapshot', 'snapshot-runtime']).optional()
+    })
+    .strict()
 
 type GlobalMetahubCodenameConfig = {
     style: CodenameStyle
@@ -1363,7 +1369,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 ).exportSnapshotFromSchema(metahubId, planItem.sourceBranch.schemaName)
                 const { moduleIdMap, entityIdMap } = collectPlayCanvasSnapshotIdentityMaps(snapshot)
                 const restoredPlayCanvasFileBackups: RestoredPlayCanvasProjectFileBackup[] = []
-                const branchProjectIdMap = await poolKnexTransaction(async (trx) =>
+                const branchPlayCanvasRestoreResult = await poolKnexTransaction(async (trx) =>
                     new PlayCanvasProjectSnapshotService(
                         createKnexExecutor(trx),
                         { ensureSchema: async () => planItem.schemaName } as never,
@@ -1387,7 +1393,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     throw error
                 })
                 if (planItem.sourceBranch.id === defaultSourceBranch.id) {
-                    for (const [sourceProjectId, targetProjectId] of branchProjectIdMap) {
+                    for (const [sourceProjectId, targetProjectId] of branchPlayCanvasRestoreResult.projectIdMap) {
                         defaultBranchPlayCanvasProjectIdMap.set(sourceProjectId, targetProjectId)
                     }
                 }
@@ -2245,7 +2251,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 templateVersion:
                     typeof importedVersionEnvelope?.templateVersion === 'string' ? importedVersionEnvelope.templateVersion : undefined,
                 ...(importedRuntimePolicy ? { runtimePolicy: importedRuntimePolicy } : {}),
-                playCanvasMode: 'none'
+                playCanvasMode: 'runtime'
             })
             await attachLayoutsToSnapshot({
                 schemaService,
@@ -2253,6 +2259,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 metahubId: metahub.id,
                 userId
             })
+            alignPlayCanvasRuntimeManifestBindings(canonicalPublicationSnapshot)
             const canonicalPublicationSnapshotHash = serializer.calculateHash(canonicalPublicationSnapshot)
 
             // 6. Create publication + first version from the restored live snapshot
@@ -2287,6 +2294,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     branchId: freshMetahub.defaultBranchId,
                     isActive: true,
                     userId
+                })
+                await replacePlayCanvasPublicationManifests(tx, branch.schemaName, {
+                    projectIds: (canonicalPublicationSnapshot.playcanvasRuntimeManifests ?? []).map((manifest) => manifest.projectId),
+                    manifests: canonicalPublicationSnapshot.playcanvasRuntimeManifests ?? [],
+                    userId,
+                    replaceScope: 'branch'
                 })
 
                 await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publication.id])
@@ -2365,6 +2378,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Default branch not found' })
         }
 
+        const parsedQuery = metahubExportQuerySchema.safeParse(req.query)
+        if (!parsedQuery.success) {
+            return res.status(400).json({ error: 'Invalid export query', details: parsedQuery.error.flatten() })
+        }
+        const playCanvasMode = parsedQuery.data.playCanvasMode ?? 'snapshot'
+
         const schemaService = new MetahubSchemaService(exec, activeBranchId)
         const objectsService = new MetahubObjectsService(exec, schemaService)
         const componentsService = new MetahubComponentsService(exec, schemaService)
@@ -2400,7 +2419,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const snapshot = await serializer.serializeMetahub(metahubId, {
             structureVersion: publicStructureVersion,
             packageMode: 'metahub',
-            playCanvasMode: 'snapshot'
+            playCanvasMode
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })

@@ -931,11 +931,15 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const runtimeSnapshot = await serializer.serializeMetahub('metahub-1')
         const metahubSnapshot = await serializer.serializeMetahub('metahub-1', { playCanvasMode: 'snapshot' })
+        const runnableMetahubSnapshot = await serializer.serializeMetahub('metahub-1', { playCanvasMode: 'snapshot-runtime' })
 
         expect(runtimeSnapshot.playcanvasProjects).toBeUndefined()
         expect(runtimeSnapshot.playcanvasRuntimeManifests).toHaveLength(1)
         expect(metahubSnapshot.playcanvasProjects?.projects).toHaveLength(1)
         expect(metahubSnapshot.playcanvasRuntimeManifests).toBeUndefined()
+        expect(runnableMetahubSnapshot.playcanvasProjects?.projects).toHaveLength(1)
+        expect(runnableMetahubSnapshot.playcanvasProjects?.runtimeManifests).toHaveLength(1)
+        expect(runnableMetahubSnapshot.playcanvasRuntimeManifests).toBeUndefined()
         expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(1, 'metahub-1', {
             includeRuntimeManifests: true,
             projectIds: [projectId]
@@ -944,7 +948,11 @@ describe('SnapshotSerializer system field propagation', () => {
             includeRuntimeManifests: false,
             projectIds: undefined
         })
-        expect(packagesService.listPublishedPackages).toHaveBeenCalledTimes(2)
-        expect(packagesService.listMetahubSnapshotPackages).toHaveBeenCalledTimes(1)
+        expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(3, 'metahub-1', {
+            includeRuntimeManifests: true,
+            projectIds: [projectId]
+        })
+        expect(packagesService.listPublishedPackages).toHaveBeenCalledTimes(3)
+        expect(packagesService.listMetahubSnapshotPackages).toHaveBeenCalledTimes(2)
     })
 })

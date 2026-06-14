@@ -187,6 +187,10 @@ vi.mock('@universo-react/playcanvas-engine', () => {
             this.position = new Vec3(x, y, z)
         }
 
+        lookAt() {
+            return undefined
+        }
+
         setLocalPosition(x: number, y: number, z: number) {
             this.position = new Vec3(x, y, z)
         }
@@ -245,6 +249,22 @@ vi.mock('@universo-react/playcanvas-engine', () => {
         createStandardMaterial: vi.fn(() => ({})),
         resizeApplicationCanvas: vi.fn(),
         applyFollowCameraTransform: vi.fn(),
+        resolveFollowCameraPosition: ({
+            target,
+            yaw,
+            pitch,
+            distance
+        }: {
+            target: { x: number; y: number; z: number }
+            yaw: number
+            pitch: number
+            distance: number
+        }) =>
+            new Vec3(
+                target.x + Math.sin(yaw) * Math.cos(pitch) * distance,
+                target.y + Math.sin(pitch) * distance,
+                target.z + Math.cos(yaw) * Math.cos(pitch) * distance
+            ),
         rotateFollowCamera: (yaw: number, pitch: number, deltaYaw: number, deltaPitch: number) => ({
             yaw: yaw + deltaYaw,
             pitch: pitch + deltaPitch
@@ -389,7 +409,8 @@ describe('PlayCanvasCanvasWidget', () => {
     })
 
     it('keeps realtime failure and reconnect states localized in English and Russian resources', () => {
-        const keys = [
+        const runtimeKeys = ['manifestLoading', 'manifestLoadFailed', 'manifestUnavailable', 'manifestSceneUnavailable'] as const
+        const realtimeKeys = [
             'unauthorized',
             'room_full',
             'version_mismatch',
@@ -401,10 +422,21 @@ describe('PlayCanvasCanvasWidget', () => {
             'reconnectingDescription',
             'failedReconnectDescription'
         ] as const
-        const enRealtime = enApps.playcanvasCanvas.realtime as Record<(typeof keys)[number], string>
-        const ruRealtime = ruApps.playcanvasCanvas.realtime as Record<(typeof keys)[number], string>
+        const enRuntime = enApps.playcanvasCanvas as Record<(typeof runtimeKeys)[number], string>
+        const ruRuntime = ruApps.playcanvasCanvas as Record<(typeof runtimeKeys)[number], string>
+        const enRealtime = enApps.playcanvasCanvas.realtime as Record<(typeof realtimeKeys)[number], string>
+        const ruRealtime = ruApps.playcanvasCanvas.realtime as Record<(typeof realtimeKeys)[number], string>
 
-        for (const key of keys) {
+        for (const key of runtimeKeys) {
+            expect(enRuntime[key], `English runtime key ${key}`).toEqual(expect.any(String))
+            expect(ruRuntime[key], `Russian runtime key ${key}`).toEqual(expect.any(String))
+            expect(ruRuntime[key], `Russian runtime key ${key} must be localized`).not.toBe(enRuntime[key])
+            expect(ruRuntime[key], `Russian runtime key ${key} must not expose protocol details`).not.toMatch(
+                /4003|4423|4214|4421|websocket|protocol|room-\d/i
+            )
+        }
+
+        for (const key of realtimeKeys) {
             expect(enRealtime[key], `English realtime key ${key}`).toEqual(expect.any(String))
             expect(ruRealtime[key], `Russian realtime key ${key}`).toEqual(expect.any(String))
             expect(ruRealtime[key], `Russian realtime key ${key} must be localized`).not.toBe(enRealtime[key])
@@ -477,6 +509,471 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(screen.getByTestId('playcanvas-canvas')).toHaveAttribute('data-runtime-module-codename', 'flight-canvas-widget')
     })
 
+    it('uses a published PlayCanvas runtime manifest scene when the widget is bound to a manifest', async () => {
+        const checksum = 'a'.repeat(64)
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333344e1'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            items: [
+                                {
+                                    id: 'module-1',
+                                    codename: 'flight-canvas-widget',
+                                    attachedToKind: 'metahub',
+                                    attachedToId: null,
+                                    moduleRole: 'widget',
+                                    manifest: {
+                                        methods: [{ name: 'mount', target: 'client' }]
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/runtime/modules/module-1/client')) {
+                    return { ok: true, text: async () => 'module.exports = class FlightWidgetRuntime {}' } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [],
+                                    metadata: {
+                                        mmoomm: {
+                                            scene: {
+                                                controlledObjectId: 'editor-ship',
+                                                targetObjectId: 'editor-target',
+                                                objects: [
+                                                    {
+                                                        id: 'editor-ship',
+                                                        position: { x: 11, y: 2, z: 3 },
+                                                        scale: { x: 10, y: 4, z: 4 },
+                                                        selectable: true
+                                                    },
+                                                    {
+                                                        id: 'editor-target',
+                                                        position: { x: 70, y: 5, z: -10 },
+                                                        scale: { x: 20, y: 8, z: 8 },
+                                                        selectable: true,
+                                                        guard: true
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/auth/csrf')) {
+                    return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId,
+                sceneId,
+                checksum,
+                failClosed: true
+            },
+            scene: {
+                controlledObjectId: 'legacy-ship',
+                objects: [{ id: 'legacy-ship', position: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 }, selectable: true }]
+            }
+        })
+
+        expect(await screen.findByTestId('playcanvas-canvas')).toBeInTheDocument()
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+        const entityNames = playcanvasMocks.createBoxEntity.mock.calls.map(([input]) => (input as { name: string }).name)
+        expect(entityNames).toEqual(['editor-ship', 'editor-target'])
+        expect(entityNames).not.toContain('legacy-ship')
+    })
+
+    it('does not reuse stale controlled object ids when the published manifest scene omits them', async () => {
+        const checksum = 'a'.repeat(64)
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333344e1'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            items: [
+                                {
+                                    id: 'module-1',
+                                    codename: 'flight-canvas-widget',
+                                    attachedToKind: 'metahub',
+                                    attachedToId: null,
+                                    moduleRole: 'widget',
+                                    manifest: { methods: [{ name: 'mount', target: 'client' }] }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/runtime/modules/module-1/client')) {
+                    return { ok: true, text: async () => 'module.exports = class FlightWidgetRuntime {}' } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [],
+                                    metadata: {
+                                        mmoomm: {
+                                            scene: {
+                                                objects: [
+                                                    {
+                                                        id: 'editor-ship',
+                                                        position: { x: 11, y: 2, z: 3 },
+                                                        scale: { x: 10, y: 4, z: 4 },
+                                                        selectable: true
+                                                    },
+                                                    {
+                                                        id: 'editor-target',
+                                                        position: { x: 70, y: 5, z: -10 },
+                                                        scale: { x: 20, y: 8, z: 8 },
+                                                        selectable: true
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/auth/csrf')) {
+                    return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId,
+                sceneId,
+                checksum,
+                failClosed: true
+            },
+            scene: {
+                controlledObjectId: 'legacy-ship',
+                targetObjectId: 'legacy-target',
+                objects: [
+                    { id: 'legacy-ship', position: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 }, selectable: true },
+                    { id: 'legacy-target', position: { x: 1, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 }, selectable: true }
+                ]
+            }
+        })
+
+        expect(await screen.findByTestId('playcanvas-canvas')).toBeInTheDocument()
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+        const app = playcanvasMocks.createBasicApplication.mock.results[0]?.value as { start: Mock }
+        await waitFor(() => expect(app.start).toHaveBeenCalledTimes(1))
+        const entityNames = playcanvasMocks.createBoxEntity.mock.calls.map(([input]) => (input as { name: string }).name)
+        expect(entityNames).toEqual(['editor-ship', 'editor-target'])
+        expect(screen.queryByText('Controlled scene object is missing')).not.toBeInTheDocument()
+    })
+
+    it('matches a null published manifest scene binding only to a null scene manifest', async () => {
+        const checksum = 'a'.repeat(64)
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            items: [
+                                {
+                                    id: 'module-1',
+                                    codename: 'flight-canvas-widget',
+                                    attachedToKind: 'metahub',
+                                    attachedToId: null,
+                                    moduleRole: 'widget',
+                                    manifest: { methods: [{ name: 'mount', target: 'client' }] }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/runtime/modules/module-1/client')) {
+                    return { ok: true, text: async () => 'module.exports = class FlightWidgetRuntime {}' } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId: '018f8a78-7b8f-7c1d-8111-2222333344e9',
+                                    checksum,
+                                    assets: [],
+                                    scripts: [],
+                                    metadata: {
+                                        mmoomm: {
+                                            scene: {
+                                                objects: [
+                                                    {
+                                                        id: 'wrong-scene-ship',
+                                                        position: { x: 99, y: 0, z: 0 },
+                                                        scale: { x: 1, y: 1, z: 1 }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId: null,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [],
+                                    metadata: {
+                                        mmoomm: {
+                                            scene: {
+                                                objects: [
+                                                    {
+                                                        id: 'default-scene-ship',
+                                                        position: { x: 11, y: 0, z: 0 },
+                                                        scale: { x: 10, y: 4, z: 4 }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/auth/csrf')) {
+                    return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId,
+                sceneId: null,
+                checksum,
+                failClosed: true
+            }
+        })
+
+        expect(await screen.findByTestId('playcanvas-canvas')).toBeInTheDocument()
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+        const entityNames = playcanvasMocks.createBoxEntity.mock.calls.map(([input]) => (input as { name: string }).name)
+        expect(entityNames).toEqual(['default-scene-ship'])
+        expect(entityNames).not.toContain('wrong-scene-ship')
+    })
+
+    it('fails closed when a published PlayCanvas runtime manifest binding cannot be matched', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            items: [
+                                {
+                                    id: 'module-1',
+                                    codename: 'flight-canvas-widget',
+                                    attachedToKind: 'metahub',
+                                    attachedToId: null,
+                                    moduleRole: 'widget',
+                                    manifest: { methods: [{ name: 'mount', target: 'client' }] }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/runtime/modules/module-1/client')) {
+                    return { ok: true, text: async () => 'module.exports = class FlightWidgetRuntime {}' } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return { ok: true, json: async () => ({ manifests: [] }) } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId: '018f8a78-7b8f-7c1d-8111-2222333344e0',
+                sceneId: null,
+                checksum: 'b'.repeat(64),
+                failClosed: true
+            },
+            scene: {
+                objects: [{ id: 'legacy-ship', position: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 }, selectable: true }]
+            }
+        })
+
+        expect(await screen.findByText('The published 3D scene is unavailable.')).toBeInTheDocument()
+        expect(screen.queryByTestId('playcanvas-canvas')).not.toBeInTheDocument()
+        expect(playcanvasMocks.createBasicApplication).not.toHaveBeenCalled()
+    })
+
+    it('falls back to the configured scene when an optional published manifest binding cannot be matched', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            items: [
+                                {
+                                    id: 'module-1',
+                                    codename: 'flight-canvas-widget',
+                                    attachedToKind: 'metahub',
+                                    attachedToId: null,
+                                    moduleRole: 'widget',
+                                    manifest: { methods: [{ name: 'mount', target: 'client' }] }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/runtime/modules/module-1/client')) {
+                    return { ok: true, text: async () => 'module.exports = class FlightWidgetRuntime {}' } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return { ok: true, json: async () => ({ manifests: [] }) } as Response
+                }
+                if (url.endsWith('/auth/csrf')) {
+                    return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId: '018f8a78-7b8f-7c1d-8111-2222333344e0',
+                sceneId: null,
+                checksum: 'b'.repeat(64),
+                failClosed: false
+            },
+            scene: {
+                controlledObjectId: 'fallback-ship',
+                objects: [
+                    {
+                        id: 'fallback-ship',
+                        position: { x: 0, y: 0, z: 0 },
+                        scale: { x: 12, y: 4, z: 4 },
+                        selectable: true
+                    }
+                ]
+            }
+        })
+
+        expect(await screen.findByTestId('playcanvas-canvas')).toBeInTheDocument()
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+        const entityNames = playcanvasMocks.createBoxEntity.mock.calls.map(([input]) => (input as { name: string }).name)
+        expect(entityNames).toEqual(['fallback-ship'])
+    })
+
+    it('fails closed when a published PlayCanvas runtime manifest does not expose an MMOOMM runtime scene', async () => {
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const checksum = 'c'.repeat(64)
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            items: [
+                                {
+                                    id: 'module-1',
+                                    codename: 'flight-canvas-widget',
+                                    attachedToKind: 'metahub',
+                                    attachedToId: null,
+                                    moduleRole: 'widget',
+                                    manifest: { methods: [{ name: 'mount', target: 'client' }] }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/runtime/modules/module-1/client')) {
+                    return { ok: true, text: async () => 'module.exports = class FlightWidgetRuntime {}' } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [{ schemaVersion: '1', projectId, sceneId: null, checksum, assets: [], scripts: [], metadata: {} }]
+                        })
+                    } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId,
+                sceneId: null,
+                checksum,
+                failClosed: true
+            }
+        })
+
+        expect(await screen.findByText('The published 3D scene does not contain a runtime scene.')).toBeInTheDocument()
+        expect(screen.queryByTestId('playcanvas-canvas')).not.toBeInTheDocument()
+        expect(playcanvasMocks.createBasicApplication).not.toHaveBeenCalled()
+    })
+
     it('keeps mouse wheel input inside the canvas and maps it to follow-camera zoom', async () => {
         stubAvailableRuntimeModuleFetch()
         renderWidget()
@@ -497,6 +994,59 @@ describe('PlayCanvasCanvasWidget', () => {
 
         expect(wheelEvent.defaultPrevented).toBe(true)
         expect(Number(canvas.getAttribute('data-camera-distance'))).toBeLessThan(initialDistance)
+    })
+
+    it('uses fit-viewport height by default for a playable canvas', async () => {
+        stubAvailableRuntimeModuleFetch()
+        renderWidget()
+
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        expect(canvas).toBeInTheDocument()
+        await waitFor(() => expect(playcanvasMocks.updateHandler).toBeTypeOf('function'))
+        expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1)
+    })
+
+    it('drags the camera as if moving the coordinate space in front of the user', async () => {
+        stubAvailableRuntimeModuleFetch()
+        renderWidget()
+
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(playcanvasMocks.updateHandler).toBeTypeOf('function'))
+        act(() => {
+            playcanvasMocks.updateHandler?.(0.016)
+        })
+        const initialYaw = Number(canvas.getAttribute('data-camera-yaw'))
+
+        act(() => {
+            canvas.dispatchEvent(new CustomEvent('playcanvas-camera-drag', { detail: { deltaX: 120, deltaY: 0 } }))
+            playcanvasMocks.updateHandler?.(0.016)
+        })
+
+        expect(Number(canvas.getAttribute('data-camera-yaw'))).toBeGreaterThan(initialYaw)
+    })
+
+    it('keeps the follow camera outside guarded station geometry', async () => {
+        stubAvailableRuntimeModuleFetch()
+        renderWidget({
+            camera: { distance: 72 },
+            scene: {
+                controlledObjectId: 'ship',
+                targetObjectId: 'station',
+                cruiseSpeed: 36,
+                objects: [
+                    { id: 'ship', position: { x: 0, y: 0, z: 0 }, scale: { x: 12, y: 4, z: 4 }, selectable: true },
+                    { id: 'station', position: { x: 0, y: 0, z: 72 }, scale: { x: 48, y: 16, z: 16 }, selectable: true, guard: true }
+                ]
+            }
+        })
+
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(playcanvasMocks.updateHandler).toBeTypeOf('function'))
+        act(() => {
+            playcanvasMocks.updateHandler?.(0.016)
+        })
+
+        expect(Number(canvas.getAttribute('data-camera-guard-clearance'))).toBeGreaterThanOrEqual(0)
     })
 
     it('uses 3D double-click movement and turns the ship smoothly toward vertical targets', async () => {

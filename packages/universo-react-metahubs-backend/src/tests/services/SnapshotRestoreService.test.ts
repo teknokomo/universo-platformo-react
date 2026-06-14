@@ -33,6 +33,7 @@ import {
     PLAYCANVAS_EDITOR_PACKAGE_NAME,
     PLAYCANVAS_PROJECT_SCHEMA_VERSION,
     PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+    PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION,
     type PlayCanvasProjectSnapshotSection
 } from '@universo-react/types'
 
@@ -275,6 +276,123 @@ describe('SnapshotRestoreService', () => {
         expect(restoredProjectId).toBeTruthy()
         expect(restoredProjectId).not.toBe(sourceProjectId)
         expect(restoredPackagesArg?.packages?.[0]?.config?.playcanvasProject?.defaultProjectId).toBe(restoredProjectId)
+    })
+
+    it('remaps PlayCanvas runtime manifest bindings inside restored layout widget configs', async () => {
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        const sourceProjectId = '019e8afa-0000-7000-8000-000000000001'
+        const sourceSceneId = '019e8afa-0000-7000-8000-000000000002'
+        const sourceChecksum = 'a'.repeat(64)
+        const playcanvasProjects: PlayCanvasProjectSnapshotSection = {
+            schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+            projects: [
+                {
+                    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                    id: sourceProjectId,
+                    codename: createLocalizedContent('en', 'playcanvas_project'),
+                    displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                    description: null,
+                    packageRef: {
+                        packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                        version: '0.1.0',
+                        compatibilityStatus: 'compatible'
+                    },
+                    settings: {},
+                    defaultSceneId: sourceSceneId,
+                    publicationConfig: {}
+                }
+            ],
+            scenes: [
+                {
+                    id: sourceSceneId,
+                    projectId: sourceProjectId,
+                    codename: createLocalizedContent('en', 'scene'),
+                    displayName: createLocalizedContent('en', 'Scene'),
+                    payloadSchemaVersion: '1',
+                    payload: {
+                        schemaVersion: '1',
+                        entities: [],
+                        metadata: { mmoomm: { scene: { controlledObjectId: 'ship' } } }
+                    },
+                    payloadFile: null,
+                    checksum: sourceChecksum,
+                    sortOrder: 0,
+                    publish: true
+                }
+            ],
+            assets: [],
+            scriptAssets: [],
+            sceneScriptBindings: [],
+            generatedArtifacts: [],
+            runtimeManifests: [
+                {
+                    schemaVersion: PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION,
+                    projectId: sourceProjectId,
+                    sceneId: sourceSceneId,
+                    checksum: sourceChecksum,
+                    assets: [],
+                    scripts: [],
+                    metadata: { mmoomm: { scene: { controlledObjectId: 'ship' } } }
+                }
+            ]
+        }
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({
+                playcanvasProjects,
+                layouts: [
+                    {
+                        id: 'layout-1',
+                        templateKey: 'dashboard',
+                        name: { en: 'Default' },
+                        description: null,
+                        config: {},
+                        isActive: true,
+                        isDefault: true,
+                        sortOrder: 0
+                    }
+                ],
+                layoutZoneWidgets: [
+                    {
+                        id: 'widget-1',
+                        layoutId: 'layout-1',
+                        zone: 'center',
+                        widgetKey: 'playcanvasCanvas',
+                        sortOrder: 0,
+                        config: {
+                            runtimeManifest: {
+                                projectId: sourceProjectId,
+                                sceneId: sourceSceneId,
+                                checksum: sourceChecksum,
+                                failClosed: true
+                            }
+                        },
+                        isActive: true
+                    }
+                ]
+            } as unknown as Partial<MetahubSnapshot>),
+            'user-1'
+        )
+
+        const restoredProjectId = (insertedRows['_mhb_playcanvas_projects']?.[0] as { id?: string } | undefined)?.id
+        const restoredSceneId = (insertedRows['_mhb_playcanvas_scenes']?.[0] as { id?: string } | undefined)?.id
+        const restoredManifest = insertedRows['_mhb_playcanvas_publication_manifests']?.[0] as { manifest_checksum?: string } | undefined
+        const restoredWidget = insertedRows['_mhb_widgets']?.[0] as { config?: { runtimeManifest?: Record<string, unknown> } } | undefined
+
+        expect(restoredProjectId).toBeTruthy()
+        expect(restoredSceneId).toBeTruthy()
+        expect(restoredProjectId).not.toBe(sourceProjectId)
+        expect(restoredSceneId).not.toBe(sourceSceneId)
+        expect(restoredManifest?.manifest_checksum).toEqual(expect.any(String))
+        expect(restoredManifest?.manifest_checksum).not.toBe(sourceChecksum)
+        expect(restoredWidget?.config?.runtimeManifest).toMatchObject({
+            projectId: restoredProjectId,
+            sceneId: restoredSceneId,
+            checksum: restoredManifest?.manifest_checksum,
+            failClosed: true
+        })
     })
 
     it('replaces existing package dependencies when a snapshot explicitly contains no packages', async () => {

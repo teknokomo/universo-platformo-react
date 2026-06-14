@@ -4,6 +4,7 @@ import {
     objectRecordBehaviorSchema,
     objectCollectionRuntimeViewConfigSchema,
     dashboardLayoutConfigSchema,
+    playCanvasRuntimeManifestSchema,
     runtimePageBlockSchema,
     reportDefinitionSchema,
     workflowActionSchema,
@@ -369,10 +370,15 @@ const runtimeReportRunResponseSchema = z.object({
     definition: reportDefinitionSchema
 })
 
+const runtimePlayCanvasManifestsResponseSchema = z.object({
+    manifests: z.array(playCanvasRuntimeManifestSchema).default([])
+})
+
 export type RuntimeLedgerMetadataResponse = z.infer<typeof runtimeLedgerMetadataSchema>
 export type RuntimeLedgerFactsResponse = z.infer<typeof runtimeLedgerFactsResponseSchema>
 export type RuntimeLedgerProjectionResponse = z.infer<typeof runtimeLedgerProjectionResponseSchema>
 export type RuntimeReportRunResponse = z.infer<typeof runtimeReportRunResponseSchema>
+export type RuntimePlayCanvasManifestResponse = z.infer<typeof runtimePlayCanvasManifestsResponseSchema>
 
 export async function fetchAppData(options: {
     apiBaseUrl: string
@@ -490,6 +496,23 @@ export async function fetchRuntimeRecordsUnion(options: {
     const parsed = appDataResponseSchema.safeParse(await res.json())
     if (!parsed.success) {
         throw new Error('Runtime records union API response validation failed')
+    }
+    return parsed.data
+}
+
+export async function fetchRuntimePlayCanvasManifests(options: {
+    apiBaseUrl: string
+    applicationId: string
+}): Promise<RuntimePlayCanvasManifestResponse> {
+    const { apiBaseUrl, applicationId } = options
+    const res = await fetch(buildAppApiUrl(apiBaseUrl, applicationId, '/playcanvas-manifests'), { credentials: 'include' })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Runtime PlayCanvas manifest API request failed'))
+    }
+
+    const parsed = runtimePlayCanvasManifestsResponseSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Runtime PlayCanvas manifest API response validation failed')
     }
     return parsed.data
 }

@@ -21,17 +21,23 @@ describe('PlayCanvasProjectFileService', () => {
         await fs.rm(root, { recursive: true, force: true })
     })
 
-    it('accepts only playcanvas-projects scoped JSON and JS artifact paths', () => {
+    it('accepts only playcanvas-projects scoped JSON, JS, and small image asset paths', () => {
         expect(assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/scenes/main.json')).toBe(
             'playcanvas-projects/project/scenes/main.json'
         )
         expect(assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/generated/script.mjs')).toBe(
             'playcanvas-projects/project/generated/script.mjs'
         )
+        expect(assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/sourcefiles/script.mjs')).toBe(
+            'playcanvas-projects/project/sourcefiles/script.mjs'
+        )
+        expect(assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/assets/texture.png')).toBe(
+            'playcanvas-projects/project/assets/texture.png'
+        )
         expect(() => assertSafeRelativePlayCanvasProjectPath('modules/project/main.ts')).toThrow('playcanvas-projects/')
         expect(() => assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/../main.json')).toThrow('hidden or parent')
         expect(() => assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/.secret.json')).toThrow('hidden or parent')
-        expect(() => assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/texture.png')).toThrow('not supported')
+        expect(() => assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/assets/texture.svg')).toThrow('not supported')
     })
 
     it('writes and reads files with checksum validation', async () => {
@@ -48,6 +54,24 @@ describe('PlayCanvasProjectFileService', () => {
         const read = await service.read(scope, 'playcanvas-projects/project/scenes/main.json')
         expect(read.content.toString('utf8')).toBe(content)
         expect(read.absolutePath).toContain(path.join('metahubs', 'metahub-1', 'branches', 'main'))
+    })
+
+    it('writes and reads image assets with extension-bound MIME validation', async () => {
+        const image = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+        const written = await service.write(scope, 'playcanvas-projects/project/assets/crosshair.png', image, {
+            mime: 'image/png'
+        })
+
+        expect(written.mime).toBe('image/png')
+        expect(written.size).toBe(image.length)
+
+        await expect(
+            service.write(scope, 'playcanvas-projects/project/assets/crosshair.png', image, {
+                mime: 'image/jpeg'
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.files.mime.extensionMismatch' })
+        })
     })
 
     it('rejects checksum mismatches', async () => {

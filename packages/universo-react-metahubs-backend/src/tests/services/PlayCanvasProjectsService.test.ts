@@ -1,8 +1,9 @@
 import type { DbExecutor } from '@universo-react/utils'
 import { createLocalizedContent } from '@universo-react/utils'
-import { createPlayCanvasEditorNumericAssetId } from '@universo-react/playcanvas-editor-backend'
+import { createPlayCanvasEditorNumericAssetId, createPlayCanvasEditorNumericIds } from '@universo-react/playcanvas-editor-backend'
 import { MetahubValidationError } from '../../domains/shared/domainErrors'
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
+import { PlayCanvasProjectSnapshotService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectSnapshotService'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
 
 const TEST_SCHEMA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
@@ -52,7 +53,51 @@ const createProjectLookupExecutor = () =>
         })
     } as unknown as DbExecutor)
 
+const createPublishExecutor = (options: { activeReplayClaims?: boolean | { metahubId: string; projectId: string } } = {}) =>
+    ({
+        query: jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                return [
+                    {
+                        id: PROJECT_ID,
+                        codename: createLocalizedContent('en', 'playcanvas_project'),
+                        displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                        description: null,
+                        packageName: '@universo-react/playcanvas-editor-frontend',
+                        packageVersion: '0.1.0',
+                        compatibilityStatus: 'compatible',
+                        compatibilityNotes: {},
+                        schemaVersion: '1',
+                        settings: {},
+                        defaultSceneId: SCENE_ID,
+                        publicationConfig: {},
+                        version: 1
+                    }
+                ]
+            }
+            if (sql.includes("key LIKE 'pc.eb.replay.%'") && sql.includes('DELETE')) {
+                return []
+            }
+            if (sql.includes("key LIKE 'pc.eb.replay.%'") && sql.includes('SELECT EXISTS')) {
+                if (typeof options.activeReplayClaims === 'object') {
+                    return [
+                        {
+                            exists:
+                                params?.[1] === options.activeReplayClaims.metahubId && params?.[2] === options.activeReplayClaims.projectId
+                        }
+                    ]
+                }
+                return [{ exists: options.activeReplayClaims === true }]
+            }
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+    } as unknown as DbExecutor)
+
 describe('PlayCanvasProjectsService', () => {
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
     it('describes PlayCanvas Editor authoring as the explicit full upstream UI contract', async () => {
         const exec = createProjectLookupExecutor()
         const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
@@ -66,15 +111,66 @@ describe('PlayCanvasProjectsService', () => {
                 relay: { status: 'enabled' }
             },
             shareDb: {
-                requiredCollections: ['scenes', 'assets', 'settings'],
+                requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
                 persisted: true,
                 persistence: 'snapshot-port'
+            },
+            cloudOnly: {
+                sourcefiles: { status: 'enabled', reason: 'universoDurableJavaScriptSourcefilesEnabled' },
+                assetPipeline: { status: 'stubbed', reason: 'playcanvasCloudOnlySurfaceOutsideUniversoScope' },
+                branchesCheckpoints: { status: 'stubbed', reason: 'playcanvasCloudOnlySurfaceOutsideUniversoScope' },
+                usersCollaboration: { status: 'stubbed', reason: 'playcanvasCloudOnlySurfaceOutsideUniversoScope' }
+            },
+            documents: {
+                codeEditorSourcefiles: { status: 'enabled', reason: 'universoDurableJavaScriptSourcefilesEnabled' }
             },
             numericIds: {
                 projectId: expect.any(Number),
                 sceneId: expect.any(Number),
                 selfId: expect.any(Number)
             }
+        })
+    })
+
+    it('blocks publishing while PlayCanvas Editor compatibility writes are still claimed', async () => {
+        const exec = createPublishExecutor({ activeReplayClaims: true })
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const exportProjectSnapshot = jest.spyOn(PlayCanvasProjectSnapshotService.prototype, 'exportProjectSnapshot')
+
+        await expect(service.publishProjectState('metahub-1', PROJECT_ID, 'user-1')).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.publish.pendingEditorWrites', projectId: PROJECT_ID })
+        })
+        expect(exportProjectSnapshot).not.toHaveBeenCalled()
+    })
+
+    it('does not block publishing for active PlayCanvas Editor writes from another project', async () => {
+        const exec = createPublishExecutor({
+            activeReplayClaims: { metahubId: 'metahub-1', projectId: '019e8afa-0000-7000-8000-000000000099' }
+        })
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const exportProjectSnapshot = jest.spyOn(PlayCanvasProjectSnapshotService.prototype, 'exportProjectSnapshot').mockResolvedValue({
+            runtimeManifests: []
+        } as never)
+
+        await expect(service.publishProjectState('metahub-1', PROJECT_ID, 'user-1')).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.publish.noRuntimeManifests', projectId: PROJECT_ID })
+        })
+        expect(exportProjectSnapshot).toHaveBeenCalledTimes(1)
+        expect(exec.query).toHaveBeenCalledWith(
+            expect.stringContaining("value->>'metahubId' = $2"),
+            expect.arrayContaining([expect.any(Number), 'metahub-1', PROJECT_ID])
+        )
+    })
+
+    it('blocks publishing when the snapshot has no runtime manifests', async () => {
+        const exec = createPublishExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(PlayCanvasProjectSnapshotService.prototype, 'exportProjectSnapshot').mockResolvedValue({
+            runtimeManifests: []
+        } as never)
+
+        await expect(service.publishProjectState('metahub-1', PROJECT_ID, 'user-1')).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.publish.noRuntimeManifests', projectId: PROJECT_ID })
         })
     })
 
@@ -188,7 +284,7 @@ describe('PlayCanvasProjectsService', () => {
 
     it('fails closed when an inline editor scene payload is not bridge-compatible', async () => {
         const exec = {
-            query: jest.fn(async (sql: string) => {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
                     return [
                         {
@@ -218,7 +314,7 @@ describe('PlayCanvasProjectsService', () => {
 
     it('fails closed when a file-backed editor scene payload contains malformed JSON', async () => {
         const exec = {
-            query: jest.fn(async (sql: string) => {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
                     return [
                         {
@@ -340,7 +436,7 @@ describe('PlayCanvasProjectsService', () => {
 
     it('loads new realtime settings documents with document-level revision zero', async () => {
         const exec = {
-            query: jest.fn(async (sql: string) => {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
                     return [
                         {
@@ -414,9 +510,241 @@ describe('PlayCanvasProjectsService', () => {
         })
     })
 
-    it('normalizes realtime scene documents with a root entity that can accept children operations', async () => {
+    it('frames renderable scene entities in a new realtime user data camera document', async () => {
+        const numericIds = createPlayCanvasEditorNumericIds({
+            metahubId: 'metahub-1',
+            projectId: PROJECT_ID,
+            sceneId: SCENE_ID,
+            userId: 'user-2'
+        })
         const exec = {
             query: jest.fn(async (sql: string) => {
+                if (sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('_mhb_playcanvas_scenes')) {
+                    return [
+                        {
+                            id: SCENE_ID,
+                            projectId: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'main_scene'),
+                            displayName: createLocalizedContent('en', 'Main Scene'),
+                            payloadSchemaVersion: '1',
+                            payload: {
+                                schemaVersion: '1',
+                                settings: {},
+                                entities: [
+                                    {
+                                        id: 'ship',
+                                        name: 'MMOOMM Ship',
+                                        parentId: null,
+                                        enabled: true,
+                                        position: [18, 3, -9],
+                                        scale: [12, 4, 4],
+                                        components: { render: { type: 'box' } },
+                                        children: []
+                                    },
+                                    {
+                                        id: 'station',
+                                        name: 'MMOOMM Station',
+                                        parentId: null,
+                                        enabled: true,
+                                        position: [72, 0, -48],
+                                        scale: [48, 16, 16],
+                                        components: { render: { type: 'box' } },
+                                        children: []
+                                    }
+                                ]
+                            },
+                            payloadFile: null,
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'user_data',
+                documentId: `${numericIds.sceneId}_${numericIds.selfId}`,
+                numericProjectId: numericIds.projectId,
+                numericSceneId: numericIds.sceneId,
+                numericUserId: numericIds.selfId
+            })
+        ).resolves.toMatchObject({
+            collection: 'user_data',
+            id: `${numericIds.sceneId}_${numericIds.selfId}`,
+            data: {
+                cameras: {
+                    perspective: {
+                        focus: [54, 0, -31.5],
+                        rotation: [-25, 45, 0],
+                        position: expect.not.arrayContaining([9.2, 6, 9])
+                    }
+                }
+            },
+            version: 0,
+            revision: '0'
+        })
+    })
+
+    it('rejects realtime user data documents for another scene or user', async () => {
+        const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'user_data',
+                documentId: '456_790',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorRealtime.unsupportedUserDataDocument' })
+        })
+    })
+
+    it('persists realtime user data separately from settings documents', async () => {
+        const numericIds = createPlayCanvasEditorNumericIds({
+            metahubId: 'metahub-1',
+            projectId: PROJECT_ID,
+            sceneId: SCENE_ID,
+            userId: 'user-2'
+        })
+        const documentId = `${numericIds.sceneId}_${numericIds.selfId}`
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: { playCanvasEditorRealtime: { documents: { project_123: { data: {}, version: 1 } } } },
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [{ id: PROJECT_ID, settings: params?.[2], version: 8 }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const cameraData = {
+            cameras: {
+                perspective: {
+                    position: [120, 80, 120],
+                    rotation: [-25, 45, 0],
+                    focus: [54, 0, -31.5]
+                }
+            }
+        }
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'user_data',
+                documentId,
+                data: cameraData,
+                version: 2,
+                revision: '0'
+            })
+        ).resolves.toEqual({ revision: '2' })
+
+        const updateCall = jest.mocked(exec.query).mock.calls.find((call) => String(call[0]).includes('UPDATE'))
+        const nextSettings = updateCall?.[1]?.[2] as {
+            playCanvasEditorRealtime?: {
+                documents?: Record<string, unknown>
+                userDataDocumentsByScene?: Record<string, Record<string, { data?: unknown; version?: number }>>
+            }
+        }
+        expect(nextSettings.playCanvasEditorRealtime?.documents).toHaveProperty('project_123')
+        expect(nextSettings.playCanvasEditorRealtime?.userDataDocumentsByScene?.[SCENE_ID]?.['user-2']).toEqual(
+            expect.objectContaining({ data: cameraData, version: 2 })
+        )
+    })
+
+    it('rejects malformed or oversized realtime user data camera payloads', async () => {
+        const numericIds = createPlayCanvasEditorNumericIds({
+            metahubId: 'metahub-1',
+            projectId: PROJECT_ID,
+            sceneId: SCENE_ID,
+            userId: 'user-2'
+        })
+        const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never)
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'user_data',
+                documentId: `${numericIds.sceneId}_${numericIds.selfId}`,
+                data: {
+                    cameras: {
+                        perspective: {
+                            position: [Number.MAX_VALUE, 0, 0],
+                            rotation: [-25, 45, 0],
+                            focus: [0, 0, 0]
+                        }
+                    },
+                    credentials: 'must-not-persist'
+                },
+                version: 1,
+                revision: '0'
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorRealtime.invalidUserDataDocument' })
+        })
+    })
+
+    it('normalizes realtime scene documents with a root entity that can accept children operations', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
                     return [
                         {
@@ -465,6 +793,14 @@ describe('PlayCanvasProjectsService', () => {
         ).resolves.toMatchObject({
             collection: 'scenes',
             data: {
+                settings: {
+                    physics: {
+                        gravity: [0, -9.81, 0]
+                    },
+                    render: expect.objectContaining({
+                        global_ambient: [0.2, 0.2, 0.2]
+                    })
+                },
                 entities: {
                     root: {
                         parent: null,
@@ -479,9 +815,172 @@ describe('PlayCanvasProjectsService', () => {
         })
     })
 
+    it('loads realtime scene documents with persisted entity transforms for editor reload hydration', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return [
+                        {
+                            id: SCENE_ID,
+                            projectId: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'main_scene'),
+                            displayName: createLocalizedContent('en', 'Main Scene'),
+                            payloadSchemaVersion: '1',
+                            payload: {
+                                schemaVersion: '1',
+                                entities: [
+                                    {
+                                        id: 'stable-ship',
+                                        name: 'MMOOMM Ship',
+                                        parentId: null,
+                                        enabled: true,
+                                        position: [18, 3, -9],
+                                        rotation: [0, 45, 0],
+                                        scale: [12, 4, 4],
+                                        components: { render: { type: 'box' } },
+                                        children: []
+                                    }
+                                ]
+                            },
+                            payloadFile: null,
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'scenes',
+            data: {
+                entities: {
+                    'stable-ship': {
+                        name: 'MMOOMM Ship',
+                        parent: 'root',
+                        position: [18, 3, -9],
+                        rotation: [0, 45, 0],
+                        scale: [12, 4, 4],
+                        components: { render: { type: 'box' } }
+                    }
+                }
+            }
+        })
+    })
+
+    it('rebuilds realtime scene children from parent references so upstream viewport renders root boxes', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return [
+                        {
+                            id: SCENE_ID,
+                            projectId: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'main_scene'),
+                            displayName: createLocalizedContent('en', 'Main Scene'),
+                            payloadSchemaVersion: '1',
+                            payload: {
+                                schemaVersion: '1',
+                                entities: [
+                                    {
+                                        id: 'root',
+                                        name: 'Root',
+                                        parentId: null,
+                                        enabled: true,
+                                        components: {},
+                                        children: []
+                                    },
+                                    {
+                                        id: 'stable-ship',
+                                        name: 'MMOOMM Ship',
+                                        parentId: 'root',
+                                        enabled: true,
+                                        position: [18, 3, -9],
+                                        rotation: [0, 45, 0],
+                                        scale: [12, 4, 4],
+                                        components: { render: { enabled: true, type: 'box' } },
+                                        children: []
+                                    },
+                                    {
+                                        id: 'stable-station',
+                                        name: 'MMOOMM Station',
+                                        parentId: 'root',
+                                        enabled: true,
+                                        position: [72, 0, -48],
+                                        rotation: [0, 0, 0],
+                                        scale: [48, 16, 16],
+                                        components: { render: { enabled: true, type: 'box' } },
+                                        children: []
+                                    }
+                                ]
+                            },
+                            payloadFile: null,
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'scenes',
+            data: {
+                entities: {
+                    root: {
+                        parent: null,
+                        children: ['stable-ship', 'stable-station']
+                    },
+                    'stable-ship': {
+                        parent: 'root',
+                        children: [],
+                        components: { render: { enabled: true, type: 'box' } }
+                    },
+                    'stable-station': {
+                        parent: 'root',
+                        children: [],
+                        components: { render: { enabled: true, type: 'box' } }
+                    }
+                }
+            }
+        })
+    })
+
     it('removes stale root child references when a realtime entity belongs to another parent', async () => {
         const exec = {
-            query: jest.fn(async (sql: string) => {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
                     return [
                         {
@@ -568,7 +1067,7 @@ describe('PlayCanvasProjectsService', () => {
     it('loads realtime asset documents from metahub PlayCanvas assets by editor document id', async () => {
         const editorDocumentId = createPlayCanvasEditorNumericAssetId(ASSET_ID)
         const exec = {
-            query: jest.fn(async (sql: string) => {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
                     return [
                         {
@@ -645,6 +1144,123 @@ describe('PlayCanvasProjectsService', () => {
         })
     })
 
+    it('persists realtime asset documents back to metahub PlayCanvas asset metadata', async () => {
+        const editorDocumentId = createPlayCanvasEditorNumericAssetId(ASSET_ID)
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_assets')) {
+                    return [
+                        {
+                            id: ASSET_ID,
+                            projectId: PROJECT_ID,
+                            stableAssetId: 'asset-root',
+                            type: 'json',
+                            name: 'Root Asset',
+                            virtualPath: ['root.json'],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: `playcanvas-projects/${PROJECT_ID}/assets/root.json`,
+                                mime: 'application/json',
+                                hash: 'a'.repeat(64),
+                                size: 42,
+                                status: 'ready'
+                            },
+                            metadata: { source: 'initial' },
+                            publish: true,
+                            version: 3
+                        }
+                    ]
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_assets')) {
+                    expect(params?.[4]).toBe('Renamed Asset')
+                    expect(params?.[5]).toBe(JSON.stringify(['renamed', 'asset.json']))
+                    expect(params?.[11]).toBe(
+                        JSON.stringify({
+                            source: 'initial',
+                            editorDocument: {
+                                data: { width: 32 },
+                                meta: { imported: true },
+                                tags: ['mmoomm'],
+                                preload: false,
+                                source: false,
+                                version: 4
+                            }
+                        })
+                    )
+                    expect(params?.[15]).toBe(3)
+                    return [
+                        {
+                            id: ASSET_ID,
+                            projectId: PROJECT_ID,
+                            stableAssetId: 'asset-root',
+                            type: 'json',
+                            name: 'Renamed Asset',
+                            virtualPath: ['renamed', 'asset.json'],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: `playcanvas-projects/${PROJECT_ID}/assets/root.json`,
+                                mime: 'application/json',
+                                hash: 'a'.repeat(64),
+                                size: 42,
+                                status: 'ready'
+                            },
+                            metadata: JSON.parse(String(params?.[11])),
+                            publish: true,
+                            version: 4
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: String(editorDocumentId),
+                data: {
+                    item_id: editorDocumentId,
+                    name: 'Renamed Asset',
+                    type: 'json',
+                    path: ['renamed', 'asset.json'],
+                    tags: ['mmoomm'],
+                    data: { width: 32 },
+                    meta: { imported: true },
+                    preload: false,
+                    source: false
+                },
+                version: 4,
+                revision: '3'
+            })
+        ).resolves.toEqual({ revision: '4' })
+    })
+
     it('persists realtime scene documents without the synthetic ShareDB root entity', async () => {
         const exec = createProjectLookupExecutor()
         const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
@@ -706,7 +1322,15 @@ describe('PlayCanvasProjectsService', () => {
                 collection: 'scenes',
                 documentId: '456',
                 data: {
-                    settings: {},
+                    settings: {
+                        id: 'project_123',
+                        width: 1280,
+                        height: 720,
+                        engineV2: true,
+                        priority_scripts: ['boot.mjs'],
+                        physics: { gravity: [0, -9.81, 0] },
+                        render: { global_ambient: [0.2, 0.2, 0.2] }
+                    },
                     entities: {
                         root: {
                             resource_id: 'root',
@@ -764,6 +1388,421 @@ describe('PlayCanvasProjectsService', () => {
         expect(payload.entities).toHaveLength(2)
         expect(payload.entities.some((entity) => entity.id === 'root')).toBe(false)
         expect(payload.entities.some((entity) => entity.id === 'entity-1')).toBe(false)
+    })
+
+    it('derives MMOOMM scene metadata from native renderable PlayCanvas Editor entities', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const saveEditorCompatibilityScene = jest.spyOn(service, 'saveEditorCompatibilityScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'e'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 3
+            },
+            payload: { schemaVersion: '1', settings: {}, entities: [] },
+            checksum: 'e'.repeat(64)
+        })
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'c'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: { schemaVersion: '1', settings: {}, entities: [] }
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {
+                        id: 'project_123',
+                        width: 1280,
+                        height: 720,
+                        engineV2: true,
+                        priority_scripts: ['boot.mjs'],
+                        physics: { gravity: [0, -9.81, 0] },
+                        render: { global_ambient: [0.2, 0.2, 0.2] }
+                    },
+                    entities: {
+                        shipDoc: {
+                            resource_id: 'stable-ship',
+                            name: 'MMOOMM Ship',
+                            parent: null,
+                            enabled: true,
+                            position: [0, 0, 0],
+                            rotation: [0, 0, 0],
+                            scale: [12, 4, 4],
+                            components: { render: { enabled: true, type: 'box' } },
+                            children: []
+                        },
+                        stationDoc: {
+                            resource_id: 'stable-station',
+                            name: 'MMOOMM Station',
+                            parent: null,
+                            enabled: true,
+                            position: [72, 0, -48],
+                            rotation: [0, 0, 0],
+                            scale: [48, 16, 16],
+                            components: { render: { enabled: true, type: 'box' } },
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'c'.repeat(64),
+                revision: '1'
+            })
+        ).resolves.toEqual({ checksum: 'e'.repeat(64) })
+
+        const payload = saveEditorCompatibilityScene.mock.calls[0]?.[3].payload
+        expect(payload.settings).toEqual(
+            expect.objectContaining({
+                physics: expect.objectContaining({ gravity: [0, -9.81, 0] }),
+                render: expect.objectContaining({ global_ambient: [0.2, 0.2, 0.2] })
+            })
+        )
+        expect(payload.settings).toEqual(expect.objectContaining({ priority_scripts: ['boot.mjs'] }))
+        expect(payload.settings).not.toHaveProperty('id')
+        expect(payload.settings).not.toHaveProperty('width')
+        expect(payload.settings).not.toHaveProperty('height')
+        expect(payload.settings).not.toHaveProperty('engineV2')
+        expect(payload.metadata?.mmoomm?.scene).toEqual(
+            expect.objectContaining({
+                controlledObjectId: 'stable-ship',
+                targetObjectId: 'stable-station',
+                cruiseSpeed: 36,
+                intentDistance: 720,
+                objects: expect.arrayContaining([
+                    expect.objectContaining({
+                        id: 'stable-ship',
+                        position: { x: 0, y: 0, z: 0 },
+                        scale: { x: 12, y: 4, z: 4 },
+                        selectable: true
+                    }),
+                    expect.objectContaining({
+                        id: 'stable-station',
+                        position: { x: 72, y: 0, z: -48 },
+                        scale: { x: 48, y: 16, z: 16 },
+                        selectable: true,
+                        guard: true
+                    })
+                ])
+            })
+        )
+        expect(payload.metadata?.mmoomm?.provenance).toEqual(expect.objectContaining({ authoringFlow: 'playcanvas-editor-native-scene' }))
+    })
+
+    it('preserves MMOOMM projection transforms when persisting full realtime scene documents', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const saveEditorCompatibilityScene = jest.spyOn(service, 'saveEditorCompatibilityScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'd'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 3
+            },
+            payload: { schemaVersion: '1', settings: {}, entities: [] },
+            checksum: 'd'.repeat(64)
+        })
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'c'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                metadata: {
+                    mmoomm: {
+                        scene: {
+                            controlledObjectId: 'stable-ship',
+                            targetObjectId: 'stable-station',
+                            objects: [
+                                { id: 'stable-ship', position: { x: 0, y: 0, z: 0 }, scale: { x: 12, y: 4, z: 4 } },
+                                { id: 'stable-station', position: { x: 72, y: 0, z: -48 }, scale: { x: 48, y: 16, z: 16 } }
+                            ]
+                        }
+                    }
+                },
+                entities: [
+                    {
+                        id: 'stable-ship',
+                        name: 'MMOOMM Ship',
+                        parentId: null,
+                        enabled: true,
+                        position: [0, 0, 0],
+                        rotation: [0, 0, 0],
+                        scale: [12, 4, 4],
+                        components: { render: { type: 'box' } },
+                        children: []
+                    },
+                    {
+                        id: 'stable-station',
+                        name: 'MMOOMM Station',
+                        parentId: null,
+                        enabled: true,
+                        position: [72, 0, -48],
+                        rotation: [0, 0, 0],
+                        scale: [48, 16, 16],
+                        components: { render: { type: 'box' } },
+                        children: []
+                    }
+                ]
+            }
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {},
+                    entities: {
+                        shipDoc: {
+                            resource_id: 'stable-ship',
+                            name: 'MMOOMM Ship',
+                            parent: null,
+                            enabled: true,
+                            position: [1, 0, 0],
+                            rotation: [0, 0, 0],
+                            scale: [12, 4, 4],
+                            components: { render: { type: 'box' } },
+                            children: []
+                        },
+                        stationDoc: {
+                            resource_id: 'stable-station',
+                            name: 'MMOOMM Station',
+                            parent: null,
+                            enabled: true,
+                            components: { render: { type: 'box' } },
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'c'.repeat(64),
+                revision: '1'
+            })
+        ).resolves.toEqual({ checksum: 'd'.repeat(64) })
+
+        const payload = saveEditorCompatibilityScene.mock.calls[0]?.[3].payload
+        expect(payload.entities).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'stable-ship',
+                    name: 'MMOOMM Ship',
+                    position: [1, 0, 0],
+                    rotation: [0, 0, 0],
+                    scale: [12, 4, 4]
+                }),
+                expect.objectContaining({
+                    id: 'stable-station',
+                    position: [72, 0, -48],
+                    rotation: [0, 0, 0],
+                    scale: [48, 16, 16]
+                })
+            ])
+        )
+        expect(payload.metadata?.mmoomm?.scene?.objects).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'stable-ship',
+                    position: { x: 1, y: 0, z: 0 },
+                    scale: { x: 12, y: 4, z: 4 }
+                })
+            ])
+        )
+        expect(payload.metadata?.mmoomm?.provenance).toEqual(expect.objectContaining({ authoringFlow: 'playcanvas-editor-native-scene' }))
+    })
+
+    it('derives MMOOMM runtime metadata from realtime entities with dotted render component paths', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'c'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                entities: []
+            }
+        })
+        const saveEditorCompatibilityScene = jest.spyOn(service, 'saveEditorCompatibilityScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'd'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 3
+            },
+            payload: { schemaVersion: '1', settings: {}, entities: [] },
+            checksum: 'd'.repeat(64)
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {},
+                    entities: {
+                        shipDoc: {
+                            resource_id: 'stable-ship',
+                            name: 'MMOOMM Ship',
+                            parent: null,
+                            enabled: true,
+                            position: [0, 0, 0],
+                            scale: [12, 4, 4],
+                            components: {},
+                            'components.render.enabled': true,
+                            'components.render.type': 'box',
+                            children: []
+                        },
+                        stationDoc: {
+                            resource_id: 'stable-station',
+                            name: 'MMOOMM Station',
+                            parent: null,
+                            enabled: true,
+                            position: [72, 0, -48],
+                            scale: [48, 16, 16],
+                            'components.render.enabled': true,
+                            'components.render.type': 'box',
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'c'.repeat(64),
+                revision: '1'
+            })
+        ).resolves.toEqual({ checksum: 'd'.repeat(64) })
+
+        const payload = saveEditorCompatibilityScene.mock.calls[0]?.[3].payload
+        expect(payload.entities).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'stable-ship', components: { render: { enabled: true, type: 'box' } } }),
+                expect.objectContaining({ id: 'stable-station', components: { render: { enabled: true, type: 'box' } } })
+            ])
+        )
+        expect(payload.metadata?.mmoomm?.scene).toEqual(
+            expect.objectContaining({ controlledObjectId: 'stable-ship', targetObjectId: 'stable-station' })
+        )
+    })
+
+    it('rejects unsafe realtime dotted component paths before they can mutate object prototypes', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'main_scene'),
+                displayName: createLocalizedContent('en', 'Main Scene'),
+                payloadSchemaVersion: '1',
+                payloadFile: null,
+                checksum: 'c'.repeat(64),
+                sortOrder: 0,
+                publish: true,
+                version: 2
+            },
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                entities: []
+            }
+        })
+        const saveEditorCompatibilityScene = jest.spyOn(service, 'saveEditorCompatibilityScene')
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {},
+                    entities: {
+                        shipDoc: {
+                            resource_id: 'stable-ship',
+                            name: 'MMOOMM Ship',
+                            parent: null,
+                            enabled: true,
+                            components: {},
+                            'components.__proto__.polluted': true,
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'c'.repeat(64),
+                revision: '1'
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editor.scenePayloadUnsafeComponentPath' })
+        })
+
+        expect(saveEditorCompatibilityScene).not.toHaveBeenCalled()
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined()
     })
 
     it('fails realtime scene persistence closed on divergent compatibility checksum conflicts', async () => {
@@ -1370,6 +2409,311 @@ describe('PlayCanvasProjectsService', () => {
         )
     })
 
+    it('synthesizes MMOOMM runtime metadata when saving direct compatibility scene payloads', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const scene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'main_scene'),
+            displayName: createLocalizedContent('en', 'Main Scene'),
+            payloadSchemaVersion: '1',
+            payloadFile: null,
+            checksum: 'b'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 2
+        }
+        let persistedPayload: unknown
+        const saveEditorScene = jest
+            .spyOn(service, 'saveEditorScene')
+            .mockImplementation(async (_metahubId, _projectId, _sceneId, input) => {
+                persistedPayload = input.payload
+                return {
+                    scene,
+                    checksum: 'b'.repeat(64)
+                }
+            })
+        jest.spyOn(service, 'readEditorScene').mockImplementation(async () => ({
+            scene,
+            payload: persistedPayload as never
+        }))
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+
+        await expect(
+            service.saveEditorCompatibilityScene(
+                'metahub-1',
+                PROJECT_ID,
+                SCENE_ID,
+                {
+                    requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+                    expectedCurrentChecksum: 'a'.repeat(64),
+                    payload: {
+                        schemaVersion: '1',
+                        settings: {},
+                        metadata: { customMarker: true },
+                        entities: [
+                            {
+                                id: 'root',
+                                name: 'Root',
+                                parentId: null,
+                                enabled: true,
+                                components: {},
+                                children: ['stable-ship', 'stable-station']
+                            },
+                            {
+                                id: 'stable-ship',
+                                name: 'MMOOMM Ship',
+                                parentId: 'root',
+                                enabled: true,
+                                position: [0, 0, 0],
+                                rotation: [0, 0, 0],
+                                scale: [12, 4, 4],
+                                components: { render: { enabled: true, type: 'box' } },
+                                children: []
+                            },
+                            {
+                                id: 'stable-station',
+                                name: 'MMOOMM Station',
+                                parentId: 'root',
+                                enabled: true,
+                                position: [72, 0, -48],
+                                rotation: [0, 0, 0],
+                                scale: [48, 16, 16],
+                                components: { render: { enabled: true, type: 'box' } },
+                                children: []
+                            }
+                        ]
+                    }
+                },
+                'user-1'
+            )
+        ).resolves.toMatchObject({ checksum: 'b'.repeat(64) })
+
+        const payload = saveEditorScene.mock.calls[0]?.[3].payload
+        expect(payload.metadata).toEqual(expect.objectContaining({ customMarker: true }))
+        expect(payload.metadata?.mmoomm?.scene).toEqual(
+            expect.objectContaining({
+                controlledObjectId: 'stable-ship',
+                targetObjectId: 'stable-station',
+                cruiseSpeed: 36,
+                intentDistance: 720,
+                objects: expect.arrayContaining([
+                    expect.objectContaining({
+                        id: 'stable-ship',
+                        position: { x: 0, y: 0, z: 0 },
+                        scale: { x: 12, y: 4, z: 4 },
+                        selectable: true
+                    }),
+                    expect.objectContaining({
+                        id: 'stable-station',
+                        position: { x: 72, y: 0, z: -48 },
+                        scale: { x: 48, y: 16, z: 16 },
+                        selectable: true,
+                        guard: true
+                    })
+                ])
+            })
+        )
+        expect(payload.metadata?.mmoomm?.provenance).toEqual(expect.objectContaining({ authoringFlow: 'playcanvas-editor-native-scene' }))
+    })
+
+    it('removes stale MMOOMM runtime metadata when a required renderable entity is disabled', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const scene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'main_scene'),
+            displayName: createLocalizedContent('en', 'Main Scene'),
+            payloadSchemaVersion: '1',
+            payloadFile: null,
+            checksum: 'b'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 2
+        }
+        let persistedPayload: PlayCanvasEditorScenePayload | null = null
+        jest.spyOn(service, 'saveEditorScene').mockImplementation(async (_metahubId, _projectId, _sceneId, input) => {
+            persistedPayload = input.payload
+            return { scene, checksum: 'b'.repeat(64) }
+        })
+        jest.spyOn(service, 'readEditorScene').mockImplementation(async () => ({ scene, payload: persistedPayload }))
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+
+        await service.saveEditorCompatibilityScene(
+            'metahub-1',
+            PROJECT_ID,
+            SCENE_ID,
+            {
+                requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfad',
+                expectedCurrentChecksum: 'a'.repeat(64),
+                payload: {
+                    schemaVersion: '1',
+                    settings: {},
+                    metadata: {
+                        customMarker: true,
+                        mmoomm: {
+                            scene: {
+                                controlledObjectId: 'stable-ship',
+                                targetObjectId: 'stable-station',
+                                objects: [{ id: 'stable-ship' }, { id: 'stable-station' }]
+                            },
+                            provenance: { authoringFlow: 'playcanvas-editor-native-scene' }
+                        }
+                    },
+                    entities: [
+                        {
+                            id: 'stable-ship',
+                            name: 'MMOOMM Ship',
+                            enabled: false,
+                            components: { render: { enabled: true, type: 'box' } }
+                        },
+                        {
+                            id: 'stable-station',
+                            name: 'MMOOMM Station',
+                            enabled: true,
+                            components: { render: { enabled: true, type: 'box' } }
+                        }
+                    ]
+                }
+            },
+            'user-1'
+        )
+
+        expect(persistedPayload?.metadata).toEqual({ customMarker: true })
+    })
+
+    it('synthesizes MMOOMM runtime metadata when saving through the bridge scene path', async () => {
+        const payloadPath = `playcanvas-projects/${PROJECT_ID}/scenes/${SCENE_ID}.json`
+        let sceneSelectCount = 0
+        const fileService = {
+            buildDefaultScenePath: jest.fn(() => payloadPath),
+            stat: jest.fn(async () => ({ exists: false })),
+            write: jest.fn(async () => ({
+                sourcePath: payloadPath,
+                checksum: 'b'.repeat(64),
+                size: 42,
+                mime: 'application/json'
+            })),
+            read: jest.fn(),
+            deleteIfCurrentChecksum: jest.fn()
+        }
+        const scene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'main_scene'),
+            displayName: createLocalizedContent('en', 'Main Scene'),
+            payloadSchemaVersion: '1',
+            payload: null,
+            payloadFile: {
+                provider: 'local',
+                root: 'playcanvas-projects',
+                path: payloadPath,
+                mime: 'application/json',
+                hash: 'b'.repeat(64),
+                size: 42,
+                status: 'ready'
+            },
+            checksum: 'b'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 2
+        }
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    sceneSelectCount += 1
+                    return sceneSelectCount === 1 ? [] : [scene]
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return [{ ...scene, payloadFile: { ...scene.payloadFile, status: 'missing' }, checksum: null, version: 1 }]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_scenes') && sql.includes("status = 'ready'")) {
+                    return [{ id: SCENE_ID }]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_generated_artifacts')) {
+                    return []
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return []
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+        await expect(
+            service.saveEditorScene(
+                'metahub-1',
+                PROJECT_ID,
+                SCENE_ID,
+                {
+                    expectedCurrentChecksum: null,
+                    payload: {
+                        schemaVersion: '1',
+                        settings: {},
+                        metadata: { savedBy: 'universo-playcanvas-editor-bridge' },
+                        entities: [
+                            {
+                                id: 'stable-ship',
+                                name: 'MMOOMM Ship',
+                                enabled: true,
+                                position: [18, 3, -9],
+                                scale: [12, 4, 4],
+                                components: { render: { enabled: true, type: 'box' } }
+                            },
+                            {
+                                id: 'stable-station',
+                                name: 'MMOOMM Station',
+                                enabled: true,
+                                position: [72, 0, -48],
+                                scale: [48, 16, 16],
+                                components: { render: { enabled: true, type: 'box' } }
+                            }
+                        ]
+                    }
+                },
+                'user-1'
+            )
+        ).resolves.toEqual({ scene, checksum: 'b'.repeat(64) })
+
+        const writtenPayload = JSON.parse(String(fileService.write.mock.calls[0]?.[2])) as {
+            metadata?: { mmoomm?: { scene?: Record<string, unknown> } }
+        }
+        expect(writtenPayload.metadata?.mmoomm?.scene).toEqual(
+            expect.objectContaining({
+                controlledObjectId: 'stable-ship',
+                targetObjectId: 'stable-station',
+                objects: expect.arrayContaining([
+                    expect.objectContaining({ id: 'stable-ship', position: { x: 18, y: 3, z: -9 } }),
+                    expect.objectContaining({ id: 'stable-station', position: { x: 72, y: 0, z: -48 } })
+                ])
+            })
+        )
+    })
+
     it('rejects compatibility scene save replay when the same request id has a different fingerprint', async () => {
         const exec = createProjectLookupExecutor()
         const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
@@ -1605,6 +2949,142 @@ describe('PlayCanvasProjectsService', () => {
         expect(jest.mocked(exec.query).mock.calls[0]?.[0]).toContain('_mhb_playcanvas_scenes')
     })
 
+    it('requires optimistic versioning for public project settings updates', async () => {
+        const exec = {
+            query: jest.fn(async () => {
+                throw new Error('Project settings update should fail before SQL execution')
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.updateProjectSettings(
+                'metahub-1',
+                PROJECT_ID,
+                {
+                    settings: { cameraClearColor: [0.1, 0.1, 0.1, 1] }
+                },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.project.settingsExpectedVersionRequired' })
+        })
+        expect(exec.query).not.toHaveBeenCalled()
+    })
+
+    it('rejects public updates to reserved realtime project settings', async () => {
+        const exec = {
+            query: jest.fn(async () => {
+                throw new Error('Reserved settings update should fail before SQL execution')
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.updateProjectSettings(
+                'metahub-1',
+                PROJECT_ID,
+                {
+                    expectedVersion: 7,
+                    settings: {
+                        playCanvasEditorRealtime: {
+                            userDataDocumentsByScene: {
+                                [SCENE_ID]: {
+                                    'user-2': { data: { cameras: {} }, version: 1 }
+                                }
+                            }
+                        }
+                    }
+                },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({
+                messageCode: 'playcanvas.project.settingsReservedKey',
+                settingsKey: 'playCanvasEditorRealtime'
+            })
+        })
+        expect(exec.query).not.toHaveBeenCalled()
+    })
+
+    it('preserves reserved realtime project settings during normal public settings updates', async () => {
+        const realtimeSettings = {
+            documents: {
+                project_123: { data: { useLegacyScripts: false }, version: 2 }
+            },
+            userDataDocumentsByScene: {
+                [SCENE_ID]: {
+                    'user-2': { data: { cameras: { perspective: { position: [1, 2, 3] } } }, version: 4 }
+                }
+            }
+        }
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: { playCanvasEditorRealtime: realtimeSettings },
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: params?.[2],
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 8
+                        }
+                    ]
+                }
+                if (sql.includes('COUNT(*)::text')) {
+                    return [{ sceneCount: '0', assetCount: '0', scriptCount: '0', generatedArtifactCount: '0', blockingCount: '0' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.updateProjectSettings(
+                'metahub-1',
+                PROJECT_ID,
+                {
+                    expectedVersion: 7,
+                    settings: { cameraClearColor: [0.1, 0.1, 0.1, 1] }
+                },
+                'user-1'
+            )
+        ).resolves.toMatchObject({ id: PROJECT_ID, version: 8 })
+
+        const updateCall = jest.mocked(exec.query).mock.calls.find((call) => String(call[0]).includes('UPDATE'))
+        expect(updateCall?.[1]?.[2]).toEqual({
+            cameraClearColor: [0.1, 0.1, 0.1, 1],
+            playCanvasEditorRealtime: realtimeSettings
+        })
+    })
+
     it('rejects unsafe scene metadata file references before persisting metadata', async () => {
         const exec = {
             query: jest.fn(async (sql: string) => {
@@ -1819,6 +3299,9 @@ describe('PlayCanvasProjectsService', () => {
                     return []
                 }
                 if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_generated_artifacts')) {
+                    return []
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles')) {
                     return []
                 }
                 if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_scenes') && sql.includes('_upl_deleted = true')) {
@@ -2596,6 +4079,91 @@ describe('PlayCanvasProjectsService', () => {
         expect(events).toEqual(['clear-pointer', 'delete-files'])
     })
 
+    it('accepts texture assets backed by supported image files', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_assets')) {
+                    expect(params?.[6]).toBe(
+                        JSON.stringify({
+                            provider: 'local',
+                            root: 'playcanvas-projects',
+                            path: `playcanvas-projects/${PROJECT_ID}/assets/crosshair.png`,
+                            hash: 'a'.repeat(64),
+                            mime: 'image/png',
+                            size: 4,
+                            status: 'ready'
+                        })
+                    )
+                    return [
+                        {
+                            id: ASSET_ID,
+                            projectId: PROJECT_ID,
+                            stableAssetId: 'crosshair',
+                            type: 'texture',
+                            name: 'Crosshair',
+                            virtualPath: ['assets', 'crosshair.png'],
+                            file: JSON.parse(String(params?.[6])),
+                            metadata: {},
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.writeAssetMetadata(
+                'metahub-1',
+                PROJECT_ID,
+                {
+                    id: ASSET_ID,
+                    stableAssetId: 'crosshair',
+                    type: 'texture',
+                    name: 'Crosshair',
+                    virtualPath: ['assets', 'crosshair.png'],
+                    file: {
+                        provider: 'local',
+                        root: 'playcanvas-projects',
+                        path: `playcanvas-projects/${PROJECT_ID}/assets/crosshair.png`,
+                        hash: 'a'.repeat(64),
+                        mime: 'image/png',
+                        size: 4,
+                        status: 'ready'
+                    },
+                    metadata: {},
+                    publish: true
+                },
+                'user-1'
+            )
+        ).resolves.toMatchObject({
+            id: ASSET_ID,
+            type: 'texture',
+            file: { mime: 'image/png' }
+        })
+    })
+
     it('uses PlayCanvas-specific optimistic-lock diagnostics when deleting a stale project', async () => {
         const exec = {
             query: jest.fn(async (sql: string) => {
@@ -2761,6 +4329,9 @@ describe('PlayCanvasProjectsService', () => {
                     expect(sql).toContain('output_file = CASE')
                     return []
                 }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return []
+                }
                 throw new Error(`Unexpected SQL: ${sql}`)
             })
         } as unknown as DbExecutor
@@ -2899,6 +4470,9 @@ describe('PlayCanvasProjectsService', () => {
                     events.push('mark-artifact-missing')
                     return []
                 }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'missing'")) {
+                    return []
+                }
                 if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_scenes') && sql.includes("status = 'ready'")) {
                     events.push('restore-scene-ready')
                     return [{ id: SCENE_ID }]
@@ -2909,6 +4483,9 @@ describe('PlayCanvasProjectsService', () => {
                     sql.includes("parse_status = 'ready'")
                 ) {
                     events.push('restore-artifact-ready')
+                    return []
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'ready'")) {
                     return []
                 }
                 throw new Error(`Unexpected SQL: ${sql}`)
@@ -2982,6 +4559,9 @@ describe('PlayCanvasProjectsService', () => {
                     events.push('mark-artifact-missing')
                     return []
                 }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'missing'")) {
+                    return []
+                }
                 if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_scenes') && sql.includes("status = 'ready'")) {
                     events.push('restore-scene-ready')
                     return [{ id: SCENE_ID }]
@@ -2992,6 +4572,9 @@ describe('PlayCanvasProjectsService', () => {
                     sql.includes("parse_status = 'ready'")
                 ) {
                     events.push('restore-artifact-ready')
+                    return []
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'ready'")) {
                     return []
                 }
                 throw new Error(`Unexpected SQL: ${sql}`)
@@ -3065,6 +4648,9 @@ describe('PlayCanvasProjectsService', () => {
                     expect(sql).toContain('output_checksum = $3')
                     return []
                 }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return []
+                }
                 throw new Error(`Unexpected SQL: ${sql}`)
             })
         } as unknown as DbExecutor
@@ -3097,6 +4683,995 @@ describe('PlayCanvasProjectsService', () => {
         ).resolves.toMatchObject({ checksum: 'a'.repeat(64), size: 2 })
 
         expect(events).toEqual(['write-file', 'mark-scene-ready', 'mark-artifact-ready'])
+    })
+
+    it('creates, lists, reads, and deletes editor sourcefiles through durable sourcefile metadata', async () => {
+        const events: string[] = []
+        const sourceFileId = 'main-script'
+        const requestedSourceFileId = `${sourceFileId}.mjs`
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.mjs`
+        const checksum = 'f'.repeat(64)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    expect(params?.[1]).toBe(sourceFileId)
+                    return events.includes('sourcefile-created')
+                        ? [
+                              {
+                                  id: '019e8afa-0000-7000-8000-000000000105',
+                                  projectId: PROJECT_ID,
+                                  stableSourceFileId: sourceFileId,
+                                  name: `${sourceFileId}.mjs`,
+                                  virtualPath: [`${sourceFileId}.mjs`],
+                                  file: {
+                                      provider: 'local',
+                                      root: 'playcanvas-projects',
+                                      path: sourcePath,
+                                      hash: checksum,
+                                      mime: 'text/javascript',
+                                      size: 39,
+                                      status: 'ready'
+                                  },
+                                  scriptKind: 'esm',
+                                  checksum,
+                                  parsedAttributes: {},
+                                  parseStatus: 'ready',
+                                  parseDiagnostics: null,
+                                  publish: true,
+                                  version: 2
+                              }
+                          ]
+                        : []
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    const file = JSON.parse(params?.[5] as string)
+                    if (params?.[17] === 1) {
+                        events.push('sourcefile-ready')
+                        expect(file.hash).toBe(checksum)
+                        return [
+                            {
+                                id: params?.[0],
+                                projectId: PROJECT_ID,
+                                stableSourceFileId: params?.[2],
+                                name: params?.[3],
+                                virtualPath: JSON.parse(params?.[4] as string),
+                                file,
+                                scriptKind: params?.[10],
+                                checksum: params?.[7],
+                                parsedAttributes: JSON.parse(params?.[11] as string),
+                                parseStatus: params?.[12],
+                                parseDiagnostics: JSON.parse(params?.[13] as string),
+                                publish: params?.[14],
+                                version: 2
+                            }
+                        ]
+                    }
+                    events.push('sourcefile-created')
+                    expect(params?.[2]).toBe(sourceFileId)
+                    expect(file.path).toBe(sourcePath)
+                    return [
+                        {
+                            id: params?.[0],
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: params?.[2],
+                            name: params?.[3],
+                            virtualPath: JSON.parse(params?.[4] as string),
+                            file,
+                            scriptKind: params?.[10],
+                            checksum: file.hash,
+                            parsedAttributes: JSON.parse(params?.[11] as string),
+                            parseStatus: params?.[12],
+                            parseDiagnostics: JSON.parse(params?.[13] as string),
+                            publish: params?.[14],
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && !sql.includes('stable_sourcefile_id = $2')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000105',
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: sourceFileId,
+                            name: `${sourceFileId}.mjs`,
+                            virtualPath: [`${sourceFileId}.mjs`],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: sourcePath,
+                                hash: checksum,
+                                mime: 'text/javascript',
+                                size: 39,
+                                status: 'ready'
+                            },
+                            scriptKind: 'esm',
+                            checksum,
+                            parsedAttributes: {},
+                            parseStatus: 'ready',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 2
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'missing'")) {
+                    events.push('sourcefile-missing')
+                    return [{ id: '019e8afa-0000-7000-8000-000000000105' }]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    events.push('sourcefile-soft-deleted')
+                    return [{ id: '019e8afa-0000-7000-8000-000000000105' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            buildDefaultSourceFilePath: jest.fn(() => sourcePath),
+            stat: jest.fn(async () => ({ exists: false, checksum: null, size: null })),
+            write: jest.fn(async () => {
+                events.push('write-file')
+                return {
+                    sourcePath,
+                    checksum,
+                    size: 39,
+                    mime: 'text/javascript'
+                }
+            }),
+            read: jest.fn(async () => ({
+                content: Buffer.from('export default class MainScript {}'),
+                checksum,
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`,
+                size: 34
+            })),
+            deleteIfCurrentChecksum: jest.fn(async () => {
+                events.push('delete-file')
+                return true
+            })
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+        await expect(
+            service.writeEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                requestedSourceFileId,
+                {
+                    requestId: '019e8afa-0000-7000-8000-000000000201',
+                    path: 'scripts/main-script.mjs',
+                    content: 'export default class MainScript {}',
+                    expectedCurrentChecksum: null
+                },
+                'user-1'
+            )
+        ).resolves.toMatchObject({ id: sourceFileId, path: sourcePath, hash: checksum })
+        await expect(service.listEditorCompatibilitySourceFiles('metahub-1', PROJECT_ID, 'user-1')).resolves.toMatchObject([
+            { id: sourceFileId, path: sourcePath, hash: checksum }
+        ])
+        await expect(
+            service.readEditorCompatibilitySourceFile('metahub-1', PROJECT_ID, requestedSourceFileId, 'user-1')
+        ).resolves.toMatchObject({
+            id: sourceFileId,
+            content: 'export default class MainScript {}'
+        })
+        await expect(
+            service.deleteEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                requestedSourceFileId,
+                { requestId: '019e8afa-0000-7000-8000-000000000202', expectedCurrentChecksum: checksum },
+                'user-1'
+            )
+        ).resolves.toEqual({ id: sourceFileId, deleted: true })
+
+        expect(events).toEqual(['sourcefile-created', 'write-file', 'sourcefile-ready', 'delete-file', 'sourcefile-soft-deleted'])
+        expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+            sourcePath,
+            checksum
+        )
+    })
+
+    it('replays compatibility sourcefile writes by request id without writing the file twice', async () => {
+        const sourceFileId = 'main-script'
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        const checksum = 'f'.repeat(64)
+        const response = {
+            id: sourceFileId,
+            path: sourcePath,
+            name: `${sourceFileId}.js`,
+            content: 'export default class MainScript {}',
+            hash: checksum,
+            size: 39,
+            mime: 'text/javascript',
+            updatedAt: null
+        }
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        const readReplayResponse = jest
+            .spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse')
+            .mockResolvedValue({ status: 'completed', response })
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return []
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return [
+                        {
+                            id: params?.[0],
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: params?.[2],
+                            name: params?.[3],
+                            virtualPath: JSON.parse(params?.[4] as string),
+                            file: JSON.parse(params?.[5] as string),
+                            scriptKind: params?.[10],
+                            checksum: null,
+                            parsedAttributes: {},
+                            parseStatus: 'missing',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'ready'")) {
+                    return [{ id: '019e8afa-0000-7000-8000-000000000105' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            buildDefaultSourceFilePath: jest.fn(() => sourcePath),
+            stat: jest.fn(async () => ({ exists: false, checksum: null, size: null })),
+            write: jest.fn(async () => ({ sourcePath, checksum, size: 39, mime: 'text/javascript' })),
+            deleteIfCurrentChecksum: jest.fn(async () => true)
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+        const input = {
+            requestId: '019e8afa-0000-7000-8000-000000000205',
+            path: 'scripts/main-script.js',
+            content: response.content,
+            expectedCurrentChecksum: null
+        }
+
+        await expect(service.writeEditorCompatibilitySourceFile('metahub-1', PROJECT_ID, sourceFileId, input, 'user-1')).resolves.toEqual(
+            response
+        )
+        await expect(service.writeEditorCompatibilitySourceFile('metahub-1', PROJECT_ID, sourceFileId, input, 'user-1')).resolves.toEqual(
+            response
+        )
+
+        expect(readReplayResponse).toHaveBeenCalledTimes(1)
+        expect(fileService.write).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects compatibility sourcefile writes that try to move an existing sourcefile path', async () => {
+        const sourceFileId = 'main-script'
+        const existingSourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.mjs`
+        const nextSourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        const checksum = 'f'.repeat(64)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        const releaseReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(true)
+        const completeReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000105',
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: sourceFileId,
+                            name: `${sourceFileId}.mjs`,
+                            virtualPath: [`${sourceFileId}.mjs`],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: existingSourcePath,
+                                hash: checksum,
+                                mime: 'text/javascript',
+                                size: 39,
+                                status: 'ready'
+                            },
+                            scriptKind: 'esm',
+                            checksum,
+                            parsedAttributes: {},
+                            parseStatus: 'ready',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 2
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            buildDefaultSourceFilePath: jest.fn((_projectId: string, _sourceFileId: string, extension: '.js' | '.mjs') =>
+                extension === '.js' ? nextSourcePath : existingSourcePath
+            ),
+            stat: jest.fn(async () => ({ exists: false, checksum: null, size: null })),
+            write: jest.fn(async () => ({ sourcePath: nextSourcePath, checksum, size: 39, mime: 'text/javascript' })),
+            deleteIfCurrentChecksum: jest.fn(async () => true)
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+        await expect(
+            service.writeEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                sourceFileId,
+                {
+                    requestId: '019e8afa-0000-7000-8000-000000000215',
+                    path: 'scripts/main-script.js',
+                    content: 'export default class MainScript {}',
+                    expectedCurrentChecksum: checksum
+                },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({
+                messageCode: 'playcanvas.files.sourcefile.pathChangeUnsupported',
+                existingSourcePath,
+                sourcePath: nextSourcePath
+            })
+        })
+
+        expect(fileService.write).not.toHaveBeenCalled()
+        expect(completeReplay).not.toHaveBeenCalled()
+        expect(releaseReplay).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects compatibility sourcefile write replay when the same request id has a different fingerprint', async () => {
+        const sourceFileId = 'main-script'
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse').mockResolvedValue(null)
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return []
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return [
+                        {
+                            id: params?.[0],
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: params?.[2],
+                            name: params?.[3],
+                            virtualPath: JSON.parse(params?.[4] as string),
+                            file: JSON.parse(params?.[5] as string),
+                            scriptKind: params?.[10],
+                            checksum: null,
+                            parsedAttributes: {},
+                            parseStatus: 'missing',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'ready'")) {
+                    return [{ id: '019e8afa-0000-7000-8000-000000000105' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            buildDefaultSourceFilePath: jest.fn(() => sourcePath),
+            stat: jest.fn(async () => ({ exists: false, checksum: null, size: null })),
+            write: jest.fn(async () => ({ sourcePath, checksum: 'f'.repeat(64), size: 39, mime: 'text/javascript' })),
+            deleteIfCurrentChecksum: jest.fn(async () => true)
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+        const input = {
+            requestId: '019e8afa-0000-7000-8000-000000000206',
+            path: 'scripts/main-script.js',
+            content: 'export default class MainScript {}',
+            expectedCurrentChecksum: null
+        }
+
+        await expect(
+            service.writeEditorCompatibilitySourceFile('metahub-1', PROJECT_ID, sourceFileId, input, 'user-1')
+        ).resolves.toMatchObject({
+            id: sourceFileId
+        })
+        await expect(
+            service.writeEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                sourceFileId,
+                { ...input, content: 'export default class OtherScript {}' },
+                'user-1'
+            )
+        ).rejects.toMatchObject({ details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.replayRejected' }) })
+        expect(fileService.write).toHaveBeenCalledTimes(1)
+    })
+
+    it('replays compatibility sourcefile deletes by request id without deleting the file twice', async () => {
+        const sourceFileId = 'main-script'
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        const checksum = 'f'.repeat(64)
+        const response = { id: sourceFileId, deleted: true } as const
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        const readReplayResponse = jest
+            .spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse')
+            .mockResolvedValue({ status: 'completed', response })
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000105',
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: sourceFileId,
+                            name: `${sourceFileId}.js`,
+                            virtualPath: [`${sourceFileId}.js`],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: sourcePath,
+                                hash: checksum,
+                                mime: 'text/javascript',
+                                size: 39,
+                                status: 'ready'
+                            },
+                            scriptKind: 'esm',
+                            checksum,
+                            parsedAttributes: {},
+                            parseStatus: 'ready',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 2
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'missing'")) {
+                    throw new Error('Sourcefile delete must not mark metadata missing before soft-delete')
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    expect(sql).toContain('_upl_version = $4')
+                    expect(params).toEqual([PROJECT_ID, sourceFileId, 'user-1', 2])
+                    return [{ id: '019e8afa-0000-7000-8000-000000000105' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            stat: jest.fn(async () => ({ exists: true, checksum, sourcePath, absolutePath: `/tmp/${sourcePath}`, size: 39 })),
+            read: jest.fn(async () => ({
+                content: Buffer.from('export default class MainScript {}'),
+                checksum,
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`,
+                size: 39
+            })),
+            deleteIfCurrentChecksum: jest.fn(async () => true)
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+        const input = { requestId: '019e8afa-0000-7000-8000-000000000207', expectedCurrentChecksum: checksum }
+
+        await expect(service.deleteEditorCompatibilitySourceFile('metahub-1', PROJECT_ID, sourceFileId, input, 'user-1')).resolves.toEqual(
+            response
+        )
+        await expect(service.deleteEditorCompatibilitySourceFile('metahub-1', PROJECT_ID, sourceFileId, input, 'user-1')).resolves.toEqual(
+            response
+        )
+        expect(readReplayResponse).toHaveBeenCalledTimes(1)
+        expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects compatibility sourcefile delete replay when the same request id has a different fingerprint', async () => {
+        const sourceFileId = 'main-script'
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        const checksum = 'f'.repeat(64)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse').mockResolvedValue(null)
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000105',
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: sourceFileId,
+                            name: `${sourceFileId}.js`,
+                            virtualPath: [`${sourceFileId}.js`],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: sourcePath,
+                                hash: checksum,
+                                mime: 'text/javascript',
+                                size: 39,
+                                status: 'ready'
+                            },
+                            scriptKind: 'esm',
+                            checksum,
+                            parsedAttributes: {},
+                            parseStatus: 'ready',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 2
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'missing'")) {
+                    throw new Error('Sourcefile delete must not mark metadata missing before soft-delete')
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    expect(sql).toContain('_upl_version = $4')
+                    expect(params).toEqual([PROJECT_ID, sourceFileId, 'user-1', 2])
+                    return [{ id: '019e8afa-0000-7000-8000-000000000105' }]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            stat: jest.fn(async () => ({ exists: true, checksum, sourcePath, absolutePath: `/tmp/${sourcePath}`, size: 39 })),
+            read: jest.fn(async () => ({
+                content: Buffer.from('export default class MainScript {}'),
+                checksum,
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`,
+                size: 39
+            })),
+            deleteIfCurrentChecksum: jest.fn(async () => true)
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+        const input = { requestId: '019e8afa-0000-7000-8000-000000000208', expectedCurrentChecksum: checksum }
+
+        await expect(service.deleteEditorCompatibilitySourceFile('metahub-1', PROJECT_ID, sourceFileId, input, 'user-1')).resolves.toEqual({
+            id: sourceFileId,
+            deleted: true
+        })
+        await expect(
+            service.deleteEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                sourceFileId,
+                { ...input, expectedCurrentChecksum: 'e'.repeat(64) },
+                'user-1'
+            )
+        ).rejects.toMatchObject({ details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.replayRejected' }) })
+        expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledTimes(1)
+    })
+
+    it('soft-deletes newly created sourcefile metadata when the physical sourcefile write fails', async () => {
+        const events: string[] = []
+        const sourceFileId = 'main-script'
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return []
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    events.push('sourcefile-created')
+                    return [
+                        {
+                            id: params?.[0],
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: params?.[2],
+                            name: params?.[3],
+                            virtualPath: JSON.parse(params?.[4] as string),
+                            file: JSON.parse(params?.[5] as string),
+                            scriptKind: params?.[10],
+                            checksum: null,
+                            parsedAttributes: {},
+                            parseStatus: 'missing',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT EXISTS') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return [{ exists: true }]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    expect(sql).toContain('_upl_version = $4')
+                    expect(params).toEqual([PROJECT_ID, sourceFileId, 'user-1', 1])
+                    events.push('sourcefile-soft-deleted')
+                    return [{ id: '019e8afa-0000-7000-8000-000000000105' }]
+                }
+                if (
+                    sql.includes('UPDATE') &&
+                    (sql.includes('_mhb_playcanvas_scenes') || sql.includes('_mhb_playcanvas_generated_artifacts'))
+                ) {
+                    return []
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            buildDefaultSourceFilePath: jest.fn(() => sourcePath),
+            stat: jest.fn(async () => ({ exists: false, checksum: null, size: null })),
+            write: jest.fn(async () => {
+                events.push('write-file')
+                throw new MetahubValidationError('Current file checksum does not match', {
+                    messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                    sourcePath
+                })
+            })
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+        await expect(
+            service.writeEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                sourceFileId,
+                {
+                    requestId: '019e8afa-0000-7000-8000-000000000203',
+                    path: 'scripts/main-script.js',
+                    content: 'export default class MainScript {}',
+                    expectedCurrentChecksum: 'stale'
+                },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.files.path.currentChecksumMismatch' })
+        })
+        expect(events).toEqual(['sourcefile-created', 'write-file', 'sourcefile-soft-deleted'])
+    })
+
+    it('does not resurrect existing sourcefile metadata when write rollback sees a stale version', async () => {
+        const events: string[] = []
+        const sourceFileId = 'main-script'
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        const existingChecksum = 'a'.repeat(64)
+        const existingSourceFile = {
+            id: '019e8afa-0000-7000-8000-000000000111',
+            projectId: PROJECT_ID,
+            stableSourceFileId: sourceFileId,
+            name: 'main-script.js',
+            virtualPath: ['main-script.js'],
+            file: {
+                provider: 'local',
+                root: 'playcanvas-projects',
+                path: sourcePath,
+                hash: existingChecksum,
+                size: 42,
+                mime: 'text/javascript',
+                status: 'ready'
+            },
+            scriptKind: 'esm',
+            checksum: existingChecksum,
+            parsedAttributes: {},
+            parseStatus: 'ready',
+            parseDiagnostics: null,
+            publish: true,
+            version: 7
+        }
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return [existingSourceFile]
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    events.push(params?.[12] === 'missing' ? 'sourcefile-marked-missing' : 'sourcefile-rollback-restore')
+                    expect(params?.[17]).toBe(events.length === 1 ? 7 : 8)
+                    if (events.length === 1) {
+                        return [{ ...existingSourceFile, file: JSON.parse(params?.[5] as string), parseStatus: 'missing', version: 8 }]
+                    }
+                    return []
+                }
+                if (sql.includes('SELECT EXISTS') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return [{ exists: true }]
+                }
+                if (
+                    sql.includes('UPDATE') &&
+                    (sql.includes('_mhb_playcanvas_scenes') || sql.includes('_mhb_playcanvas_generated_artifacts'))
+                ) {
+                    return []
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            buildDefaultSourceFilePath: jest.fn(() => sourcePath),
+            stat: jest.fn(async () => ({ exists: true, checksum: existingChecksum, size: 42 })),
+            read: jest.fn(async () => ({
+                sourcePath,
+                contentBase64: Buffer.from('export default class ExistingScript {}', 'utf8').toString('base64'),
+                checksum: existingChecksum,
+                size: 42,
+                mime: 'text/javascript'
+            })),
+            write: jest.fn(async () => {
+                events.push('write-file')
+                throw new MetahubValidationError('Current file checksum does not match', {
+                    messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                    sourcePath
+                })
+            })
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+        await expect(
+            service.writeEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                sourceFileId,
+                {
+                    requestId: '019e8afa-0000-7000-8000-000000000204',
+                    path: 'scripts/main-script.js',
+                    content: 'export default class MainScript {}',
+                    expectedCurrentChecksum: existingChecksum
+                },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.files.path.currentChecksumMismatch' })
+        })
+        expect(events).toEqual(['sourcefile-marked-missing', 'write-file', 'sourcefile-rollback-restore'])
+    })
+
+    it('fails closed when sourcefile metadata cannot be soft-deleted after the physical delete', async () => {
+        const sourceFileId = 'main-script'
+        const sourcePath = `playcanvas-projects/${PROJECT_ID}/sourcefiles/${sourceFileId}.js`
+        const checksum = 'f'.repeat(64)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(true)
+        jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+        const exec = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000105',
+                            projectId: PROJECT_ID,
+                            stableSourceFileId: sourceFileId,
+                            name: `${sourceFileId}.js`,
+                            virtualPath: [`${sourceFileId}.js`],
+                            file: {
+                                provider: 'local',
+                                root: 'playcanvas-projects',
+                                path: sourcePath,
+                                hash: checksum,
+                                mime: 'text/javascript',
+                                size: 39,
+                                status: 'ready'
+                            },
+                            scriptKind: 'esm',
+                            checksum,
+                            parsedAttributes: {},
+                            parseStatus: 'ready',
+                            parseDiagnostics: null,
+                            publish: true,
+                            version: 2
+                        }
+                    ]
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes("status = 'missing'")) {
+                    throw new Error('Sourcefile delete must not mark metadata missing before soft-delete')
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles') && sql.includes('stable_sourcefile_id = $2')) {
+                    expect(sql).toContain('_upl_version = $4')
+                    expect(params).toEqual([PROJECT_ID, sourceFileId, 'user-1', 2])
+                    return []
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const fileService = {
+            stat: jest.fn(async () => ({
+                exists: true,
+                checksum,
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`,
+                size: 39
+            })),
+            read: jest.fn(async () => ({
+                content: Buffer.from('export default class MainScript {}'),
+                checksum,
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`,
+                size: 39
+            })),
+            deleteIfCurrentChecksum: jest.fn(async () => true),
+            write: jest.fn(async () => ({
+                content: Buffer.from('export default class MainScript {}'),
+                checksum,
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`,
+                size: 39,
+                mime: 'text/javascript'
+            }))
+        }
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+        await expect(
+            service.deleteEditorCompatibilitySourceFile(
+                'metahub-1',
+                PROJECT_ID,
+                sourceFileId,
+                { requestId: '019e8afa-0000-7000-8000-000000000204', expectedCurrentChecksum: checksum },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.files.metadataUpdateFailed' })
+        })
     })
 
     it('marks asset metadata ready after writing an owned asset file', async () => {
@@ -3284,6 +5859,9 @@ describe('PlayCanvasProjectsService', () => {
                 if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_generated_artifacts')) {
                     return []
                 }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles')) {
+                    return []
+                }
                 throw new Error(`Unexpected SQL: ${sql}`)
             })
         } as unknown as DbExecutor
@@ -3352,6 +5930,9 @@ describe('PlayCanvasProjectsService', () => {
                     return []
                 }
                 if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_generated_artifacts')) {
+                    return []
+                }
+                if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_sourcefiles')) {
                     return []
                 }
                 throw new Error(`Unexpected SQL: ${sql}`)

@@ -826,6 +826,7 @@ export const EntityModulesTab = ({
     const [layoutWidth, setLayoutWidth] = useState(0)
     const [isModuleListOpen, setIsModuleListOpen] = useState(true)
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+    const [isCreatingNewModule, setIsCreatingNewModule] = useState(false)
 
     const hasEditableAttachment =
         Boolean(metahubId) && (attachedToKind === 'metahub' || attachedToKind === 'general' || Boolean(attachedToId))
@@ -910,7 +911,7 @@ export const EntityModulesTab = ({
     }, [])
 
     useEffect(() => {
-        if (!selectedModuleId && modules.length > 0) {
+        if (!selectedModuleId && !isCreatingNewModule && modules.length > 0) {
             setSelectedModuleId(modules[0].id)
             return
         }
@@ -918,7 +919,7 @@ export const EntityModulesTab = ({
         if (selectedModuleId && !selectedModule) {
             setSelectedModuleId(modules[0]?.id ?? null)
         }
-    }, [modules, selectedModuleId, selectedModule])
+    }, [isCreatingNewModule, modules, selectedModuleId, selectedModule])
 
     useEffect(() => {
         if (selectedModule) {
@@ -946,6 +947,7 @@ export const EntityModulesTab = ({
         mutationFn: (payload: ModuleUpsertPayload) => modulesApi.create(metahubId!, payload),
         onSuccess: async (module) => {
             await invalidate()
+            setIsCreatingNewModule(false)
             setSelectedModuleId(module.id)
             setDraft(createDraft(attachedToKind, module))
             setError(null)
@@ -959,6 +961,7 @@ export const EntityModulesTab = ({
         mutationFn: (payload: Partial<ModuleUpsertPayload>) => modulesApi.update(metahubId!, draft.id!, payload),
         onSuccess: async (module) => {
             await invalidate()
+            setIsCreatingNewModule(false)
             setSelectedModuleId(module.id)
             setDraft(createDraft(attachedToKind, module))
             setError(null)
@@ -972,6 +975,7 @@ export const EntityModulesTab = ({
         mutationFn: () => modulesApi.remove(metahubId!, draft.id!, selectedModule?.version, resolveModuleSourceChecksum(selectedModule)),
         onSuccess: async () => {
             await invalidate()
+            setIsCreatingNewModule(true)
             setSelectedModuleId(null)
             setDraft(createDraft(attachedToKind))
             setError(null)
@@ -985,6 +989,7 @@ export const EntityModulesTab = ({
     const isSaving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending
 
     const handleNew = () => {
+        setIsCreatingNewModule(true)
         setSelectedModuleId(null)
         setDraft(createDraft(attachedToKind))
         setError(null)
@@ -995,6 +1000,7 @@ export const EntityModulesTab = ({
     }
 
     const handleSelectModule = (moduleId: string) => {
+        setIsCreatingNewModule(false)
         setSelectedModuleId(moduleId)
         setIsDeleteConfirmOpen(false)
         if (isCompactLayout) {

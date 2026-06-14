@@ -55,15 +55,141 @@
 
 ---
 
+## 2026-06-14 - MMOOMM Imported PlayCanvas Editor Viewport Closure
+
+-   Closed the user-reported imported `metahubs-mmoomm-app-snapshot.json`
+    viewport regression where MMOOMM entities appeared in hierarchy and
+    inspector panels but the central upstream PlayCanvas Editor viewport did not
+    visibly render the Box meshes.
+-   Kept `packages/universo-react-playcanvas-editor-frontend/vendor` untouched.
+    The fix remains at the Universo artifact/bridge/backend compatibility
+    boundary: full-boot saves now refresh save status/checksum before bridge
+    save, and the generated artifact removes remote font/image/GitHub
+    maintenance dependencies without weakening iframe sandbox permissions.
+-   Strengthened the imported MMOOMM Editor E2E oracle so it verifies hierarchy,
+    inspector state, PlayCanvas engine entities, `render.meshInstances`,
+    directional key-light evidence, camera projection/framing, pixel evidence
+    inside the projected mesh bounds, save, reload, and browser regression
+    output.
+-   Verification passed: PlayCanvas Editor frontend Vitest, artifact build,
+    artifact smoke, generated artifact remote-reference grep checks,
+    `git diff --check`, and the local minimal Supabase MMOOMM app
+    import/runtime Playwright gate (`2 passed`). The final autoreview helper was
+    stopped after a long dirty-worktree bundle timeout; a scoped manual Thermos
+    pass found no new accepted correctness, security, maintainability, or
+    test-oracle findings.
+
+## 2026-06-14 - PlayCanvas Editor ShareDB Compatibility Closure
+
+-   Closed the resumed MMOOMM PlayCanvas Editor QA finding where the full
+    upstream Editor frontend could select imported entities but still produced
+    `Referenced element not a list` ShareDB errors during settings/document
+    synchronization.
+-   Added a backend ShareDB `apply` middleware for the allowed full-boot
+    document set. It repairs missing nested arrays on the in-memory snapshot
+    only when the incoming operation is an upstream JSON0 list operation, while
+    preserving existing origin, token/session, and document allowlist checks.
+-   Kept the vendored PlayCanvas Editor source tree untouched. The frontend
+    change remains in the Universo bridge bootstrap adapter and normalizes
+    persisted/realtime `render` and `light` component defaults before handing
+    scene data to upstream Editor APIs, so MMOOMM ship/station boxes hydrate
+    with default material slots and the key light has a valid directional type.
+-   Verification passed: PlayCanvas Editor frontend Vitest, PlayCanvas Editor
+    backend Vitest, backend build, frontend artifact build, generated bootstrap
+    `node --check`, artifact smoke, full root E2E build through the local
+    minimal Supabase wrapper, MMOOMM imported app runtime Playwright flow with
+    strict browser regression watcher, fixture contract, and fixture drift
+    checks.
+
+## 2026-06-13 - MMOOMM PlayCanvas Editor Hydration Hardening
+
+-   Fixed persisted PlayCanvas Editor scene hydration for imported MMOOMM
+    snapshots. The bridge now normalizes saved and realtime entity records into
+    a stable `{ resource_id, parent, children }` shape, reads persisted scene
+    payloads through one response-shape helper, creates upstream Editor entities
+    without passing id-only `children` arrays into the recursive create API, and
+    only counts real observer materialization as hydration success.
+-   Expanded the Editor render component schema defaults so saved MMOOMM ship
+    and station entities hydrate with standard render component fields and real
+    viewport mesh instances.
+-   Strengthened browser evidence for the generator: reload checks now require
+    hierarchy entries, painted canvas, and actual PlayCanvas engine entities
+    with render mesh instances for `MMOOMM Ship` and `MMOOMM Station`.
+-   Verification passed: Editor frontend Vitest, Editor backend Vitest,
+    metahubs backend `PlayCanvasProjectsService` Jest, scoped ESLint, fixture
+    contract, two local minimal Supabase generator E2E runs including the
+    generated fixture path, and fixture drift comparison after refreshing the
+    canonical MMOOMM app fixture.
+
+## 2026-06-12 - MMOOMM PlayCanvas Editor Product Flow Finalization
+
+-   Closed the remaining product-generator shortcuts for the main
+    `metahubs-mmoomm-app-snapshot.json` flow. The generator now captures the
+    UI-created metahub id from the POST response, creates publications and
+    linked applications through the browser UI, drives application schema
+    creation through `ConnectorDiffDialog`, opens the real fullscreen Editor
+    through the package action popup, and exports the snapshot through the
+    MetahubList browser download action.
+-   Split MMOOMM-specific PlayCanvas Editor authoring/export helpers out of the
+    generic Editor E2E helper so the generator and support files stay below the
+    Thermos 1,000-line limit.
+-   Tightened the MMOOMM fixture contract and drift checks: native PlayCanvas
+    scene entity ids are documented as non-Universo identities, file-size drift
+    normalization is path-aware, and the fixture contract continues to reject
+    metadata-only MMOOMM scenes or missing EN/RU menu/widget labels.
+-   Verification passed: core route Vitest, MMOOMM fixture contract, TypeScript
+    import/static check for the generator support files, `git diff --check`,
+    scoped Thermos subagent review with no blockers, local minimal Supabase
+    generator E2E with a temporary generated fixture, fixture drift comparison,
+    and local minimal Supabase runtime import E2E. Local E2E Supabase was
+    stopped and the temporary generated fixture was removed.
+
+## 2026-06-12 - MMOOMM Fixture Browser Proof Closure
+
+-   Closed the user-reported MMOOMM fixture proof gap by making the canonical
+    generator open the fullscreen PlayCanvas Editor through the visible
+    Resources action popup flow and by wiring the PlayCanvas Editor artifact
+    build into both MMOOMM local-Supabase E2E commands.
+-   Added a route-order regression guard so the chrome-free fullscreen Editor
+    route is matched before the generic metahub routes and before the generic
+    Resources page.
+-   Regenerated `tools/fixtures/metahubs-mmoomm-app-snapshot.json` through the
+    UI-first Playwright generator, validated the strict fixture contract, and
+    checked drift against the browser-generated fixture artifact.
+-   Verification passed local minimal Supabase Playwright generator evidence
+    (`test:e2e:mmoomm-app-fixture-generator:local-supabase`) and imported
+    runtime evidence (`test:e2e:mmoomm-app-runtime:local-supabase`).
+
+## 2026-06-10 - MMOOMM PlayCanvas Editor UI-First Runtime Projection
+
+-   Implemented the browser-first MMOOMM PlayCanvas Editor fixture path for
+    `tools/fixtures/metahubs-mmoomm-app-snapshot.json`: the Playwright generator
+    now creates the metahub, connects Colyseus and PlayCanvas packages, authors
+    the domain model/modules/layout through product UI surfaces, opens the
+    hosted PlayCanvas Editor, applies the MMOOMM scene through an iframe-local
+    authoring control, publishes the PlayCanvas project, configures the runtime
+    PlayCanvas canvas widget, and exports the canonical snapshot.
+-   Fixed restored publication runtime consistency by aligning PlayCanvas canvas
+    widget `runtimeManifest` bindings with the final generated publication
+    runtime manifest checksum before snapshot hashing and publication-version
+    persistence.
+-   Added regression coverage for nested PlayCanvas runtime manifest binding
+    alignment and kept the import/copy route tests compatible with the new
+    publication snapshot helper.
+-   Verification passed focused metahubs backend Jest tests, root `build:e2e`,
+    local minimal Supabase Playwright generator evidence, and local minimal
+    Supabase Playwright import/runtime evidence for the Editor-authored MMOOMM
+    snapshot.
+
 ## 2026-06-08 - PlayCanvas Editor Skills and Thermos Review Integration
 
-- Implemented 9 PlayCanvas Editor Skills (`.agents/skills/playcanvas-editor-*`) and 3 Thermos Review Skills (`thermo-nuclear-review`, `thermo-nuclear-code-quality-review`, `thermos`).
-- Formulated 4 shared agent profiles under `.agents/agent-profiles/` and distributed 24 native copies across all 6 runtimes (`.codex`, `.gemini`, `.claude`, `.github`, `.qoder`, `.kiro`).
-- Created the `pnpm check:agent-profiles` (mapped to `tools/agents/check-agent-profiles.mjs`) to act as drift-control for agent profiles.
-- Integrated Thermos correctness/maintainability rubrics with the `autoreview` tool via `--prompt-file`.
-- Decomposed the 1908-line backend monolith `packages/universo-react-playcanvas-editor-backend/src/index.ts` into a modular design (`src/config/`, `src/middleware/`, `src/tokens/`, `src/routes/`, `src/realtime/`) while preserving full API backward compatibility.
-- Implemented a Vitest structure validation suite for AI Skills in `src/skills.test.ts`.
-- Verification passed: package tests, compiler types checks, and drift checking scripts run successfully.
+-   Implemented 9 PlayCanvas Editor Skills (`.agents/skills/playcanvas-editor-*`) and 3 Thermos Review Skills (`thermo-nuclear-review`, `thermo-nuclear-code-quality-review`, `thermos`).
+-   Formulated 4 shared agent profiles under `.agents/agent-profiles/` and distributed 24 native copies across all 6 runtimes (`.codex`, `.gemini`, `.claude`, `.github`, `.qoder`, `.kiro`).
+-   Created the `pnpm check:agent-profiles` (mapped to `tools/agents/check-agent-profiles.mjs`) to act as drift-control for agent profiles.
+-   Integrated Thermos correctness/maintainability rubrics with the `autoreview` tool via `--prompt-file`.
+-   Decomposed the 1908-line backend monolith `packages/universo-react-playcanvas-editor-backend/src/index.ts` into a modular design (`src/config/`, `src/middleware/`, `src/tokens/`, `src/routes/`, `src/realtime/`) while preserving full API backward compatibility.
+-   Implemented a Vitest structure validation suite for AI Skills in `src/skills.test.ts`.
+-   Verification passed: package tests, compiler types checks, and drift checking scripts run successfully.
 
 ## 2026-06-07 - PlayCanvas Editor Full Boot UX And Reliability Closure
 
@@ -3480,6 +3606,23 @@ tools/lint-db-access.mjs`; `git diff --check`; local minimal Supabase
     browser smoke across desktop/tablet/mobile, local minimal Supabase
     `build:e2e:local-supabase`, targeted Chromium packages/resources E2E, and
     local E2E Supabase shutdown.
+
+### 2026-06-14: PlayCanvas Editor Backend Compatibility Thermos Closure
+
+-   Hardened the ShareDB JSON0 compatibility repair so nested list operations
+    traverse existing arrays without replacing valid data, create only absent
+    paths, and leave incompatible snapshots unchanged for ShareDB to reject.
+-   Kept full metahub PlayCanvas authoring snapshots restorable by generating
+    runtime manifests only for runtime publication exports.
+-   Restricted PlayCanvas canvas widget manifest choices to active display
+    package projects that runtime publication actually serializes, and added a
+    localized fail-closed validation for stale bindings.
+-   Deferred production realtime room signing-secret resolution from module
+    import to runtime attachment after startup configuration is available.
+-   Verification passed: focused backend regressions, full metahubs-frontend
+    Vitest (340 tests), affected package builds and lints, root E2E build,
+    local minimal Supabase MMOOMM runtime Playwright (2 tests), fixture contract
+    and drift checks, and `git diff --check`.
 
 ### 2026-06-03: PlayCanvas Project Storage Model Final Autoreview Closure
 

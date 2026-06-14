@@ -1,6 +1,8 @@
 import type {
     CreatePlayCanvasProjectRequest,
+    PlayCanvasPublishedRuntimeManifestSummary,
     PlayCanvasProjectSummary,
+    PlayCanvasRuntimeManifest,
     UpdatePlayCanvasProjectSettingsRequest
 } from '@universo-react/types'
 import { apiClient } from '../../shared'
@@ -34,5 +36,20 @@ export const playcanvasProjectsApi = {
             { params: { expectedVersion } }
         )
         return data.item
+    },
+
+    publish: async (metahubId: string, projectId: string) => {
+        const { data } = await apiClient.post<{ items: PlayCanvasRuntimeManifest[] }>(
+            `/metahub/${metahubId}/playcanvas/projects/${projectId}/publish`,
+            {}
+        )
+        return data.items
+    },
+
+    listPublishedRuntimeManifests: async (metahubId: string) => {
+        const { data } = await apiClient.get<{ items: PlayCanvasPublishedRuntimeManifestSummary[] }>(
+            `/metahub/${metahubId}/playcanvas/published-runtime-manifests`
+        )
+        return data.items
     }
 }

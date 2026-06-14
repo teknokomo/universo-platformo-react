@@ -86,11 +86,46 @@ const buildSchemaScopedQueryBuilder = (_schemaName: string) => ({
     }
 })
 
+const createColumnBuilder = () => ({
+    primary: jest.fn(() => createColumnBuilder()),
+    defaultTo: jest.fn(() => createColumnBuilder()),
+    nullable: jest.fn(() => createColumnBuilder()),
+    notNullable: jest.fn(() => createColumnBuilder())
+})
+
+const createTableBuilder = () => ({
+    uuid: jest.fn(() => createColumnBuilder()),
+    string: jest.fn(() => createColumnBuilder()),
+    text: jest.fn(() => createColumnBuilder()),
+    integer: jest.fn(() => createColumnBuilder()),
+    boolean: jest.fn(() => createColumnBuilder()),
+    jsonb: jest.fn(() => createColumnBuilder()),
+    timestamp: jest.fn(() => createColumnBuilder()),
+    index: jest.fn(),
+    unique: jest.fn(),
+    foreign: jest.fn(() => ({
+        references: jest.fn(() => ({
+            inTable: jest.fn(() => ({
+                onDelete: jest.fn()
+            }))
+        }))
+    }))
+})
+
+const mockCreateTable = jest.fn(async (tableName: string, callback?: (builder: unknown) => void) => {
+    tablePresence.set(tableName, true)
+    callback?.(createTableBuilder())
+})
+
 const mockKnex = {
     schema: {
         withSchema: jest.fn((_schemaName: string) => ({
-            hasTable: jest.fn(async (tableName: string) => tablePresence.get(tableName) === true)
+            hasTable: jest.fn(async (tableName: string) => tablePresence.get(tableName) === true),
+            createTable: mockCreateTable
         }))
+    },
+    fn: {
+        now: jest.fn(() => 'NOW()')
     },
     withSchema: jest.fn((schemaName: string) => buildSchemaScopedQueryBuilder(schemaName)),
     raw: jest.fn(async () => ({ rows: [] })),
@@ -225,6 +260,18 @@ describe('MetahubSchemaService (read_only mode)', () => {
         expect(mockAcquireAdvisoryLock).not.toHaveBeenCalled()
         expect(mockCreateSchema).not.toHaveBeenCalled()
     })
+
+    it('repairs the current additive PlayCanvas sourcefiles table in read_only mode', async () => {
+        seedExpectedTables(SYSTEM_TABLES.map((table) => table.name).filter((table) => table !== '_mhb_playcanvas_sourcefiles'))
+
+        const exec = setupExec(CURRENT_STRUCTURE_VERSION)
+        const service = new MetahubSchemaService(exec)
+
+        await expect(service.ensureSchema(metahubId, userId)).resolves.toBe(schemaName)
+        expect(mockAcquireAdvisoryLock).toHaveBeenCalled()
+        expect(mockCreateTable).toHaveBeenCalledWith('_mhb_playcanvas_sourcefiles', expect.any(Function))
+        expect(mockCreateSchema).not.toHaveBeenCalled()
+    })
 })
 
 describe('MetahubSchemaService migration sequencing', () => {
@@ -255,6 +302,56 @@ describe('MetahubSchemaService migration sequencing', () => {
 
         migrateSpy.mockRestore()
         syncSpy.mockRestore()
+    })
+})
+
+describe('MetahubSchemaService additive baseline repairs', () => {
+    const metahubId = '019c5a80-94a8-7ea4-a2eb-cf1522e0d123'
+    const branchId = '019c5a80-bb7a-7df8-9ab3-e0e8ac2f11aa'
+    const userId = '3a5c369e-43ba-44a8-a818-1924d685e970'
+    const schemaName = 'mhb_019c5a8094a87ea4a2ebcf1522e0d123_b1'
+
+    beforeEach(() => {
+        jest.clearAllMocks()
+        tablePresence.clear()
+        migrationRows.splice(0, migrationRows.length)
+        mockHasRuntimeHistoryTable.mockResolvedValue(false)
+        MetahubSchemaService.clearAllCaches()
+        mockFindMetahubById.mockResolvedValue({
+            id: metahubId,
+            defaultBranchId: branchId,
+            templateVersionId: null
+        })
+        mockFindMetahubMembership.mockResolvedValue({
+            metahubId,
+            userId,
+            activeBranchId: branchId
+        })
+        mockFindBranchByIdAndMetahub.mockResolvedValue({
+            id: branchId,
+            metahubId,
+            schemaName,
+            structureVersion: CURRENT_STRUCTURE_VERSION,
+            lastTemplateVersionId: null,
+            lastTemplateVersionLabel: null
+        })
+    })
+
+    it('creates the current additive PlayCanvas sourcefiles table without bumping structure version', async () => {
+        for (const table of SYSTEM_TABLES.map((item) => item.name)) {
+            if (table !== '_mhb_playcanvas_sourcefiles') {
+                tablePresence.set(table, true)
+            }
+        }
+
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+        const syncTemplateSeedSpy = jest.spyOn(service as any, 'syncTemplateSeed').mockResolvedValue(false)
+
+        await expect(service.ensureSchema(metahubId, userId, { mode: 'apply_migrations' })).resolves.toBe(schemaName)
+        expect(mockCreateTable).toHaveBeenCalledWith('_mhb_playcanvas_sourcefiles', expect.any(Function))
+        expect(mockUpdateBranch).not.toHaveBeenCalled()
+        syncTemplateSeedSpy.mockRestore()
     })
 })
 

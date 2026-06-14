@@ -16,6 +16,7 @@ import {
     type PlayCanvasScene,
     type PlayCanvasSceneScriptBinding,
     type PlayCanvasScriptAsset,
+    type PlayCanvasSourceFile,
     playCanvasProjectSnapshotSectionSchema
 } from '@universo-react/types'
 import type { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
@@ -45,6 +46,12 @@ export interface RestoredPlayCanvasProjectFileBackup {
 export interface StalePlayCanvasProjectFileCandidate {
     sourcePath: string
     checksum: string | null
+}
+
+export interface PlayCanvasProjectSnapshotRestoreResult {
+    projectIdMap: Map<string, string>
+    sceneIdMap: Map<string, string>
+    runtimeManifestChecksumMap: Map<string, string>
 }
 
 const asRecord = (value: unknown): JsonRecord => (value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonRecord) : {})
@@ -125,6 +132,25 @@ const isRuntimeReadyLocalFile = (file: PlayCanvasFileReference | null | undefine
 
 const isReadyStatus = (value: unknown): boolean => value === undefined || value === null || value === 'ready'
 const COMPATIBILITY_SETTINGS_KEY = 'playCanvasEditorCompatibility'
+const REALTIME_SETTINGS_KEY = 'playCanvasEditorRealtime'
+
+const stripPlayCanvasEditorPrivateUserData = (settings: JsonRecord): JsonRecord => {
+    const realtimeSettings = asRecord(settings[REALTIME_SETTINGS_KEY])
+    if (Object.keys(realtimeSettings).length === 0) return settings
+    const { userDataDocuments: _legacyUserData, userDataDocumentsByScene: _userDataByScene, ...portableRealtimeSettings } = realtimeSettings
+    return {
+        ...settings,
+        [REALTIME_SETTINGS_KEY]: portableRealtimeSettings
+    }
+}
+
+const readMmoommRuntimeSceneMetadata = (scene: Record<string, unknown>): Record<string, unknown> | null => {
+    const payload = asNullableRecord(scene.payload)
+    const metadata = asNullableRecord(payload?.metadata)
+    const mmoomm = asNullableRecord(metadata?.mmoomm)
+    const runtimeScene = asNullableRecord(mmoomm?.scene)
+    return runtimeScene ? { scene: runtimeScene } : null
+}
 
 const remapCompatibilitySettingsDocumentIds = (settings: JsonRecord, oldProjectId: string, newProjectId: string): JsonRecord => {
     const compatibilitySettings = asRecord(settings[COMPATIBILITY_SETTINGS_KEY])
@@ -206,7 +232,8 @@ const validateExportedProjectOwnership = (
     assets: PlayCanvasAsset[],
     scripts: PlayCanvasScriptAsset[],
     bindings: PlayCanvasSceneScriptBinding[],
-    artifacts: PlayCanvasGeneratedArtifact[]
+    artifacts: PlayCanvasGeneratedArtifact[],
+    sourceFiles: PlayCanvasSourceFile[] = []
 ): void => {
     const projectIds = new Set(projects.map((project) => project.id))
     const sceneProjectById = new Map(scenes.map((scene) => [scene.id, scene.projectId]))
@@ -218,6 +245,9 @@ const validateExportedProjectOwnership = (
     }
     for (const asset of assets) {
         assertSetHas(projectIds, asset.projectId, 'playcanvas.snapshot.missingProjectReference')
+    }
+    for (const sourceFile of sourceFiles) {
+        assertSetHas(projectIds, sourceFile.projectId, 'playcanvas.snapshot.missingProjectReference')
     }
     for (const script of scripts) {
         const projectId = assetProjectById.get(script.assetId)
@@ -267,6 +297,19 @@ const assertSnapshotLocalFileIsBundled = (file: PlayCanvasFileReference | null |
     }
 }
 
+const readBundledScenePayload = (file: PlayCanvasFileReference | null | undefined): JsonRecord | null => {
+    if (!file?.snapshotContentBase64) return null
+    try {
+        const parsed = JSON.parse(Buffer.from(file.snapshotContentBase64, 'base64').toString('utf8'))
+        return asNullableRecord(parsed)
+    } catch {
+        throw new MetahubValidationError('PlayCanvas project scene payload file must contain valid JSON object content', {
+            messageCode: 'playcanvas.snapshot.scenePayloadFileInvalidJson',
+            sourcePath: file.path
+        })
+    }
+}
+
 const validateSnapshotReferencesBeforeRestore = (
     section: PlayCanvasProjectSnapshotSection,
     moduleIdMap: Map<string, string>,
@@ -278,6 +321,7 @@ const validateSnapshotReferencesBeforeRestore = (
     assertUniqueIds(section.scriptAssets, 'scriptAssets')
     assertUniqueIds(section.sceneScriptBindings, 'sceneScriptBindings')
     assertUniqueIds(section.generatedArtifacts, 'generatedArtifacts')
+    assertUniqueIds(section.sourceFiles ?? [], 'sourceFiles')
 
     const projectIds = new Set(section.projects.map((project) => project.id))
     const sceneIds = new Set(section.scenes.map((scene) => scene.id))
@@ -308,6 +352,11 @@ const validateSnapshotReferencesBeforeRestore = (
     for (const asset of section.assets) {
         assertSetHas(projectIds, asset.projectId, 'playcanvas.snapshot.missingProjectReference')
         assertSnapshotLocalFileIsBundled(asset.file)
+    }
+
+    for (const sourceFile of section.sourceFiles ?? []) {
+        assertSetHas(projectIds, sourceFile.projectId, 'playcanvas.snapshot.missingProjectReference')
+        assertSnapshotLocalFileIsBundled(sourceFile.file)
     }
 
     for (const script of section.scriptAssets) {
@@ -531,6 +580,7 @@ const buildGeneratedRuntimeManifests = (
                 }
             })
         )
+        const mmoommMetadata = readMmoommRuntimeSceneMetadata(selectedScene)
         const manifestWithoutChecksum: Omit<PlayCanvasRuntimeManifest, 'checksum'> = {
             schemaVersion: PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION,
             projectId,
@@ -541,7 +591,8 @@ const buildGeneratedRuntimeManifests = (
                 generatedFrom: 'playcanvasProjectStorageModel',
                 sourceProjectChecksum: createHash('sha256')
                     .update(stableStringify({ project, selectedScene, runtimeAssets, runtimeScripts }))
-                    .digest('hex')
+                    .digest('hex'),
+                ...(mmoommMetadata ? { mmoomm: mmoommMetadata } : {})
             }
         }
 
@@ -686,6 +737,21 @@ export class PlayCanvasProjectSnapshotService {
               ORDER BY ga.script_asset_id ASC, ga.id ASC`,
             projectParams
         )
+        const sourceFiles = (await this.hasPlayCanvasTable(schemaName, '_mhb_playcanvas_sourcefiles'))
+            ? await this.exec.query<Record<string, unknown>>(
+                  `SELECT sf.id, sf.project_id AS "projectId", sf.stable_sourcefile_id AS "stableSourceFileId",
+                    sf.name, sf.virtual_path AS "virtualPath", sf.file_ref AS file,
+                    sf.script_kind AS "scriptKind", sf.file_hash AS checksum,
+                    sf.parsed_attributes AS "parsedAttributes", sf.parse_status AS "parseStatus",
+                    sf.parse_diagnostics AS "parseDiagnostics", sf.publish, sf.status
+               FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')} sf
+               JOIN ${qSchemaTable(schemaName, '_mhb_playcanvas_projects')} p ON p.id = sf.project_id
+              WHERE sf._upl_deleted = false AND sf._mhb_deleted = false
+                AND p._upl_deleted = false AND p._mhb_deleted = false${projectFilter}
+              ORDER BY sf.project_id ASC, sf.virtual_path::text ASC, sf.name ASC, sf.id ASC`,
+                  projectParams
+              )
+            : []
         const withFilePayload = async (file: unknown): Promise<PlayCanvasFileReference | null> => {
             const fileRef = asNullableRecord(file) as PlayCanvasFileReference | null
             if (!fileRef || fileRef.provider !== 'local' || typeof fileRef.path !== 'string') {
@@ -739,29 +805,32 @@ export class PlayCanvasProjectSnapshotService {
                             : (row.compatibilityStatus as PlayCanvasProject['packageRef']['compatibilityStatus']),
                     compatibilityNotes: asRecord(row.compatibilityNotes)
                 },
-                settings: asRecord(row.settings),
+                settings: stripPlayCanvasEditorPrivateUserData(asRecord(row.settings)),
                 defaultSceneId: typeof row.defaultSceneId === 'string' ? row.defaultSceneId : null,
                 publicationConfig: asRecord(row.publicationConfig)
             })
         )
         const snapshotScenes = await Promise.all(
-            scenes.map(
-                async (row): Promise<PlayCanvasScene> => ({
+            scenes.map(async (row): Promise<PlayCanvasScene> => {
+                const payloadFile =
+                    options.includeRuntimeManifests && row.publish === false
+                        ? mergeFileStatus(asNullableRecord(row.payloadFile) as PlayCanvasFileReference | null, row.status) ?? null
+                        : mergeFileStatus(await withFilePayload(row.payloadFile), row.status) ?? null
+                const inlinePayload = asNullableRecord(row.payload)
+
+                return {
                     id: String(row.id),
                     projectId: String(row.projectId),
                     codename: row.codename as PlayCanvasScene['codename'],
                     displayName: row.displayName as PlayCanvasScene['displayName'],
                     payloadSchemaVersion: String(row.payloadSchemaVersion ?? '1'),
-                    payload: asNullableRecord(row.payload),
-                    payloadFile:
-                        options.includeRuntimeManifests && row.publish === false
-                            ? mergeFileStatus(asNullableRecord(row.payloadFile) as PlayCanvasFileReference | null, row.status) ?? null
-                            : mergeFileStatus(await withFilePayload(row.payloadFile), row.status) ?? null,
+                    payload: inlinePayload ?? readBundledScenePayload(payloadFile),
+                    payloadFile,
                     checksum: typeof row.checksum === 'string' ? row.checksum : null,
                     sortOrder: Number(row.sortOrder ?? 0),
                     publish: row.publish !== false
-                })
-            )
+                }
+            })
         )
         const snapshotAssets = await Promise.all(
             assets.map(
@@ -840,13 +909,32 @@ export class PlayCanvasProjectSnapshotService {
                 })
             )
         )
+        const snapshotSourceFiles = await Promise.all(
+            sourceFiles.map(
+                async (row): Promise<PlayCanvasSourceFile> => ({
+                    id: String(row.id),
+                    projectId: String(row.projectId),
+                    stableSourceFileId: String(row.stableSourceFileId),
+                    name: String(row.name),
+                    virtualPath: asStringArray(row.virtualPath),
+                    file: mergeFileStatus(await withFilePayload(row.file), row.status) as PlayCanvasFileReference,
+                    scriptKind: row.scriptKind === 'classic' ? 'classic' : 'esm',
+                    checksum: typeof row.checksum === 'string' ? row.checksum : null,
+                    parsedAttributes: asRecord(row.parsedAttributes),
+                    parseStatus: (row.parseStatus as PlayCanvasSourceFile['parseStatus']) ?? 'ready',
+                    parseDiagnostics: asNullableRecord(row.parseDiagnostics),
+                    publish: row.publish !== false
+                })
+            )
+        )
         validateExportedProjectOwnership(
             snapshotProjects,
             snapshotScenes,
             snapshotAssets,
             snapshotScriptAssets,
             snapshotSceneScriptBindings,
-            snapshotGeneratedArtifacts
+            snapshotGeneratedArtifacts,
+            snapshotSourceFiles
         )
 
         const snapshot: PlayCanvasProjectSnapshotSection = {
@@ -857,6 +945,9 @@ export class PlayCanvasProjectSnapshotService {
             scriptAssets: snapshotScriptAssets,
             sceneScriptBindings: snapshotSceneScriptBindings,
             generatedArtifacts: snapshotGeneratedArtifacts
+        }
+        if (snapshotSourceFiles.length > 0) {
+            snapshot.sourceFiles = snapshotSourceFiles
         }
         if (options.includeRuntimeManifests) {
             snapshot.runtimeManifests = buildGeneratedRuntimeManifests(
@@ -871,7 +962,7 @@ export class PlayCanvasProjectSnapshotService {
         return snapshot
     }
 
-    private async hasPlayCanvasProjectStorage(schemaName: string): Promise<boolean> {
+    private async hasPlayCanvasTable(schemaName: string, tableName: string): Promise<boolean> {
         const rows = await this.exec.query<{ exists: boolean | string | number }>(
             `SELECT EXISTS (
                  SELECT 1
@@ -879,10 +970,14 @@ export class PlayCanvasProjectSnapshotService {
                   WHERE table_schema = $1
                     AND table_name = $2
              ) AS "exists"`,
-            [schemaName, '_mhb_playcanvas_projects']
+            [schemaName, tableName]
         )
         const exists = rows[0]?.exists
         return exists === true || exists === 't' || exists === 'true' || exists === 1
+    }
+
+    private async hasPlayCanvasProjectStorage(schemaName: string): Promise<boolean> {
+        return this.hasPlayCanvasTable(schemaName, '_mhb_playcanvas_projects')
     }
 
     async collectStoredLocalFileCandidates(
@@ -910,13 +1005,25 @@ export class PlayCanvasProjectSnapshotService {
                JOIN ${qSchemaTable(resolvedSchemaName, '_mhb_playcanvas_script_assets')} sa ON sa.id = ga.script_asset_id
                JOIN ${qSchemaTable(resolvedSchemaName, '_mhb_playcanvas_assets')} a ON a.id = sa.asset_id
                JOIN ${qSchemaTable(resolvedSchemaName, '_mhb_playcanvas_projects')} p ON p.id = a.project_id
-              WHERE ga._upl_deleted = false AND ga._mhb_deleted = false
+             WHERE ga._upl_deleted = false AND ga._mhb_deleted = false
                 AND sa._upl_deleted = false AND sa._mhb_deleted = false
                 AND a._upl_deleted = false AND a._mhb_deleted = false
                 AND p._upl_deleted = false AND p._mhb_deleted = false
                 AND ga.output_file IS NOT NULL`,
             []
         )
+        if (await this.hasPlayCanvasTable(resolvedSchemaName, '_mhb_playcanvas_sourcefiles')) {
+            const sourceFileRows = await this.exec.query<{ fileRef: unknown }>(
+                `SELECT sf.file_ref AS "fileRef"
+               FROM ${qSchemaTable(resolvedSchemaName, '_mhb_playcanvas_sourcefiles')} sf
+               JOIN ${qSchemaTable(resolvedSchemaName, '_mhb_playcanvas_projects')} p ON p.id = sf.project_id
+              WHERE sf._upl_deleted = false AND sf._mhb_deleted = false
+                AND p._upl_deleted = false AND p._mhb_deleted = false
+                AND sf.file_ref IS NOT NULL`,
+                []
+            )
+            rows.push(...sourceFileRows)
+        }
         const scope = { metahubId, branchSlug: resolvedSchemaName }
         const candidates = new Map<string, StalePlayCanvasProjectFileCandidate>()
         for (const row of rows) {
@@ -942,10 +1049,10 @@ export class PlayCanvasProjectSnapshotService {
         entityIdMap: Map<string, string>
         userId: string
         restoredFileBackups?: RestoredPlayCanvasProjectFileBackup[]
-    }): Promise<Map<string, string>> {
+    }): Promise<PlayCanvasProjectSnapshotRestoreResult> {
         let section = params.snapshot
         if (!section) {
-            return new Map()
+            return { projectIdMap: new Map(), sceneIdMap: new Map(), runtimeManifestChecksumMap: new Map() }
         }
 
         const parsed = playCanvasProjectSnapshotSectionSchema.safeParse(section)
@@ -962,10 +1069,12 @@ export class PlayCanvasProjectSnapshotService {
         const now = new Date()
         const projectIdMap = new Map(section.projects.map((project) => [project.id, generateUuidV7()]))
         const sceneIdMap = new Map(section.scenes.map((scene) => [scene.id, generateUuidV7()]))
+        const runtimeManifestChecksumMap = new Map<string, string>()
         const assetIdMap = new Map(section.assets.map((asset) => [asset.id, generateUuidV7()]))
         const scriptAssetIdMap = new Map(section.scriptAssets.map((script) => [script.id, generateUuidV7()]))
         const bindingIdMap = new Map(section.sceneScriptBindings.map((binding) => [binding.id, generateUuidV7()]))
         const artifactIdMap = new Map(section.generatedArtifacts.map((artifact) => [artifact.id, generateUuidV7()]))
+        const sourceFileIdMap = new Map((section.sourceFiles ?? []).map((sourceFile) => [sourceFile.id, generateUuidV7()]))
 
         const requireMapped = (map: Map<string, string>, value: string, messageCode: string): string => {
             const mapped = map.get(value)
@@ -1008,6 +1117,20 @@ export class PlayCanvasProjectSnapshotService {
             return {
                 ...file,
                 path: file.provider === 'local' ? remapLocalProjectFilePath(file.path, oldProjectId, newProjectId) : file.path
+            }
+        }
+        const remapScenePayloadFile = (
+            file: PlayCanvasFileReference | null | undefined,
+            oldProjectId: string,
+            newProjectId: string,
+            newSceneId: string
+        ): PlayCanvasFileReference | null => {
+            if (!file) return null
+            if (file.provider !== 'local') return { ...file }
+            remapLocalProjectFilePath(file.path, oldProjectId, newProjectId)
+            return {
+                ...file,
+                path: this.fileService.buildDefaultScenePath(newProjectId, newSceneId)
             }
         }
 
@@ -1058,7 +1181,11 @@ export class PlayCanvasProjectSnapshotService {
 
         for (const project of section.projects) {
             const projectId = requireMapped(projectIdMap, project.id, 'playcanvas.snapshot.missingProjectReference')
-            const settings = remapCompatibilitySettingsDocumentIds(project.settings, project.id, projectId)
+            const settings = remapCompatibilitySettingsDocumentIds(
+                stripPlayCanvasEditorPrivateUserData(project.settings),
+                project.id,
+                projectId
+            )
             await params.trx
                 .withSchema(params.schemaName)
                 .into('_mhb_playcanvas_projects')
@@ -1095,7 +1222,7 @@ export class PlayCanvasProjectSnapshotService {
             const oldProjectId = scene.projectId
             const projectId = requireMapped(projectIdMap, oldProjectId, 'playcanvas.snapshot.missingProjectReference')
             const sceneId = requireMapped(sceneIdMap, scene.id, 'playcanvas.snapshot.missingSceneReference')
-            const payloadFile = remapFile(scene.payloadFile, oldProjectId, projectId)
+            const payloadFile = remapScenePayloadFile(scene.payloadFile, oldProjectId, projectId, sceneId)
             await params.trx
                 .withSchema(params.schemaName)
                 .into('_mhb_playcanvas_scenes')
@@ -1275,6 +1402,48 @@ export class PlayCanvasProjectSnapshotService {
                 })
         }
 
+        for (const sourceFile of section.sourceFiles ?? []) {
+            const file = await writeFile(
+                remapFile(
+                    sourceFile.file,
+                    sourceFile.projectId,
+                    requireMapped(projectIdMap, sourceFile.projectId, 'playcanvas.snapshot.missingProjectReference')
+                )
+            )
+            await params.trx
+                .withSchema(params.schemaName)
+                .into('_mhb_playcanvas_sourcefiles')
+                .insert({
+                    id: requireMapped(sourceFileIdMap, sourceFile.id, 'playcanvas.snapshot.missingSourceFileReference'),
+                    project_id: requireMapped(projectIdMap, sourceFile.projectId, 'playcanvas.snapshot.missingProjectReference'),
+                    stable_sourcefile_id: sourceFile.stableSourceFileId,
+                    name: sourceFile.name,
+                    virtual_path: sourceFile.virtualPath,
+                    file_ref: file ?? {},
+                    file_path: file?.path ?? '',
+                    file_hash: file?.hash ?? sourceFile.checksum ?? null,
+                    file_mime: file?.mime ?? null,
+                    file_size: file?.size ?? null,
+                    script_kind: sourceFile.scriptKind,
+                    parsed_attributes: sourceFile.parsedAttributes,
+                    parse_status: sourceFile.parseStatus,
+                    parse_diagnostics: sourceFile.parseDiagnostics ?? null,
+                    publish: sourceFile.publish,
+                    status: file?.status ?? sourceFile.parseStatus,
+                    _upl_created_at: now,
+                    _upl_created_by: params.userId,
+                    _upl_updated_at: now,
+                    _upl_updated_by: params.userId,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+        }
+
         for (const manifest of section.runtimeManifests ?? []) {
             const { checksum: _originalChecksum, ...manifestWithoutChecksum } = manifest
             const remappedProjectId = requireMapped(projectIdMap, manifest.projectId, 'playcanvas.snapshot.missingProjectReference')
@@ -1297,6 +1466,7 @@ export class PlayCanvasProjectSnapshotService {
                 ...remappedManifestWithoutChecksum,
                 checksum: createRuntimeManifestChecksum(remappedManifestWithoutChecksum)
             }
+            runtimeManifestChecksumMap.set(manifest.checksum, remappedManifest.checksum)
             await params.trx
                 .withSchema(params.schemaName)
                 .into('_mhb_playcanvas_publication_manifests')
@@ -1322,6 +1492,6 @@ export class PlayCanvasProjectSnapshotService {
                 })
         }
 
-        return projectIdMap
+        return { projectIdMap, sceneIdMap, runtimeManifestChecksumMap }
     }
 }
