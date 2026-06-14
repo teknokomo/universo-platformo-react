@@ -117,11 +117,15 @@ const assertRenderableMmoommEntity = (entity: {
     }
     if (render) {
         if (render.enabled === false || render.type !== 'box') {
-            throw new Error(`MMOOMM app fixture PlayCanvas entity ${String(entity.name ?? '')} must persist an enabled box render component`)
+            throw new Error(
+                `MMOOMM app fixture PlayCanvas entity ${String(entity.name ?? '')} must persist an enabled box render component`
+            )
         }
         const layers = Array.isArray(render.layers) ? render.layers : []
         if (!layers.includes(0)) {
-            throw new Error(`MMOOMM app fixture PlayCanvas entity ${String(entity.name ?? '')} render component must stay on the world layer`)
+            throw new Error(
+                `MMOOMM app fixture PlayCanvas entity ${String(entity.name ?? '')} render component must stay on the world layer`
+            )
         }
         const materialAssets = Array.isArray(render.materialAssets) ? render.materialAssets : []
         const usesDefaultMaterial =
@@ -129,7 +133,9 @@ const assertRenderableMmoommEntity = (entity: {
         const usesAssetMaterial = materialAssets.length > 0 && materialAssets.every((item) => Number.isInteger(item) && Number(item) > 0)
         if (!usesDefaultMaterial && !usesAssetMaterial) {
             throw new Error(
-                `MMOOMM app fixture PlayCanvas entity ${String(entity.name ?? '')} must use the Editor default material or valid material assets`
+                `MMOOMM app fixture PlayCanvas entity ${String(
+                    entity.name ?? ''
+                )} must use the Editor default material or valid material assets`
             )
         }
     }
