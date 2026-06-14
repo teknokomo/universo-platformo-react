@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
-import { createKnexExecutor, qSchemaTable } from '@universo-react/database'
+import { createKnexExecutor, qSchemaTable, qTable } from '@universo-react/database'
 import { playCanvasRuntimeManifestSchema, type PlayCanvasRuntimeManifest } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
@@ -34,6 +34,10 @@ interface NormalizedPlayCanvasManifestRow {
 
 const createSyncExecutor = (trx?: ApplicationSyncTransaction): DbExecutor => createKnexExecutor(trx ?? getApplicationSyncKnex())
 const getPlayCanvasManifestsTable = (schemaName: string): string => qSchemaTable(schemaName, '_app_playcanvas_manifests')
+const NULL_SCENE_ID_KEY = '00000000-0000-0000-0000-000000000000'
+const APP_PLAYCANVAS_MANIFESTS_PROJECT_SCENE_INDEX_NAME = 'idx_app_playcanvas_manifests_project_scene_active'
+const LEGACY_APP_PLAYCANVAS_MANIFESTS_PROJECT_INDEX_NAME = 'idx_app_playcanvas_manifests_project_active'
+const createManifestIdentityKey = (projectId: string, sceneId?: string | null): string => `${projectId}:${sceneId ?? NULL_SCENE_ID_KEY}`
 const createRuntimeManifestChecksum = (manifest: Omit<PlayCanvasRuntimeManifest, 'checksum'>): string => {
     return createHash('sha256')
         .update(stableStringify(manifest) ?? '')
@@ -45,7 +49,7 @@ const normalizeSnapshotManifests = (
     options: { publicationId?: string | null; sourceMetahubId?: string | null } = {}
 ): NormalizedPlayCanvasManifestRow[] => {
     const raw = Array.isArray(snapshot.playcanvasRuntimeManifests) ? snapshot.playcanvasRuntimeManifests : []
-    const seenProjectIds = new Set<string>()
+    const seenManifestKeys = new Set<string>()
 
     return raw
         .map((item) => {
@@ -62,10 +66,15 @@ const normalizeSnapshotManifests = (
             if (checksum !== actualChecksum) {
                 throw new Error(`[SchemaSync] PlayCanvas runtime manifest ${manifest.projectId} checksum mismatch`)
             }
-            if (seenProjectIds.has(manifest.projectId)) {
-                throw new Error(`[SchemaSync] Duplicate PlayCanvas runtime manifest for project ${manifest.projectId}`)
+            const identityKey = createManifestIdentityKey(manifest.projectId, manifest.sceneId ?? null)
+            if (seenManifestKeys.has(identityKey)) {
+                throw new Error(
+                    `[SchemaSync] Duplicate PlayCanvas runtime manifest for project ${manifest.projectId} scene ${
+                        manifest.sceneId ?? 'default'
+                    }`
+                )
             }
-            seenProjectIds.add(manifest.projectId)
+            seenManifestKeys.add(identityKey)
 
             return {
                 publicationId: options.publicationId ?? null,
@@ -82,7 +91,11 @@ const normalizeSnapshotManifests = (
                     : 0
             }
         })
-        .sort((left, right) => left.sourceProjectId.localeCompare(right.sourceProjectId))
+        .sort((left, right) =>
+            createManifestIdentityKey(left.sourceProjectId, left.sourceSceneId).localeCompare(
+                createManifestIdentityKey(right.sourceProjectId, right.sourceSceneId)
+            )
+        )
 }
 
 const normalizePersistedManifests = (rows: PersistedPlayCanvasManifestRowDb[]): NormalizedPlayCanvasManifestRow[] =>
@@ -99,7 +112,11 @@ const normalizePersistedManifests = (rows: PersistedPlayCanvasManifestRowDb[]): 
             scriptCount: Number(row.script_count ?? 0),
             artifactCount: Number(row.artifact_count ?? 0)
         }))
-        .sort((left, right) => left.sourceProjectId.localeCompare(right.sourceProjectId))
+        .sort((left, right) =>
+            createManifestIdentityKey(left.sourceProjectId, left.sourceSceneId).localeCompare(
+                createManifestIdentityKey(right.sourceProjectId, right.sourceSceneId)
+            )
+        )
 
 const normalizeManifestRowsForChangeDetection = (rows: NormalizedPlayCanvasManifestRow[]): NormalizedPlayCanvasManifestRow[] =>
     rows.map((row) => ({
@@ -107,6 +124,52 @@ const normalizeManifestRowsForChangeDetection = (rows: NormalizedPlayCanvasManif
         publicationId: null,
         sourceMetahubId: null
     }))
+
+const normalizeIndexDefinition = (indexDef: string): string => indexDef.toLowerCase().replace(/"/g, '').replace(/\s+/g, ' ').trim()
+
+const hasRequiredPlayCanvasManifestIndexShape = (indexDef: string): boolean => {
+    const normalized = normalizeIndexDefinition(indexDef)
+
+    return (
+        normalized.includes('source_project_id') &&
+        normalized.includes(`coalesce(source_scene_id, '${NULL_SCENE_ID_KEY}'::uuid)`) &&
+        normalized.includes('_upl_deleted = false') &&
+        normalized.includes('_app_deleted = false')
+    )
+}
+
+const buildPlayCanvasManifestProjectSceneIndexSql = (schemaName: string): string => `
+    CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(APP_PLAYCANVAS_MANIFESTS_PROJECT_SCENE_INDEX_NAME)}
+    ON ${getPlayCanvasManifestsTable(schemaName)} (
+        source_project_id,
+        COALESCE(source_scene_id, '${NULL_SCENE_ID_KEY}'::uuid)
+    )
+    WHERE _upl_deleted = false AND _app_deleted = false
+`
+
+const ensurePlayCanvasManifestProjectSceneIndex = async (trx: ApplicationSyncTransaction, schemaName: string): Promise<void> => {
+    const indexLookup = await trx.raw<{ rows?: Array<{ indexdef?: string }> }>(
+        `
+          SELECT indexdef
+          FROM pg_indexes
+          WHERE schemaname = ?
+            AND tablename = '_app_playcanvas_manifests'
+            AND indexname = ?
+          LIMIT 1
+        `,
+        [schemaName, APP_PLAYCANVAS_MANIFESTS_PROJECT_SCENE_INDEX_NAME]
+    )
+
+    const indexDef = indexLookup.rows?.[0]?.indexdef ?? ''
+    if (hasRequiredPlayCanvasManifestIndexShape(indexDef)) {
+        await trx.raw(`DROP INDEX IF EXISTS ${qSchemaTable(schemaName, LEGACY_APP_PLAYCANVAS_MANIFESTS_PROJECT_INDEX_NAME)}`)
+        return
+    }
+
+    await trx.raw(`DROP INDEX IF EXISTS ${qSchemaTable(schemaName, APP_PLAYCANVAS_MANIFESTS_PROJECT_SCENE_INDEX_NAME)}`)
+    await trx.raw(`DROP INDEX IF EXISTS ${qSchemaTable(schemaName, LEGACY_APP_PLAYCANVAS_MANIFESTS_PROJECT_INDEX_NAME)}`)
+    await trx.raw(buildPlayCanvasManifestProjectSceneIndexSql(schemaName))
+}
 
 const ensurePlayCanvasManifestsTable = async (exec: DbExecutor, schemaName: string): Promise<void> => {
     const rows = await exec.query<{ exists: boolean }>(
@@ -145,6 +208,7 @@ export async function persistPublishedPlayCanvasManifests(options: {
         const exec = createSyncExecutor(activeTrx)
         const table = getPlayCanvasManifestsTable(schemaName)
         await ensurePlayCanvasManifestsTable(exec, schemaName)
+        await ensurePlayCanvasManifestProjectSceneIndex(activeTrx, schemaName)
 
         if (nextRows.length === 0) {
             await exec.query(
@@ -176,8 +240,15 @@ export async function persistPublishedPlayCanvasManifests(options: {
                      _upl_version = _upl_version + 1
                  WHERE _upl_deleted = false
                    AND _app_deleted = false
-                   AND NOT (source_project_id = ANY($3::uuid[]))`,
-                [now, userId ?? null, nextRows.map((row) => row.sourceProjectId)]
+                   AND NOT (
+                       (source_project_id::text || ':' || COALESCE(source_scene_id::text, $4)) = ANY($3::text[])
+                   )`,
+                [
+                    now,
+                    userId ?? null,
+                    nextRows.map((row) => createManifestIdentityKey(row.sourceProjectId, row.sourceSceneId)),
+                    NULL_SCENE_ID_KEY
+                ]
             )
         }
 
@@ -194,7 +265,10 @@ export async function persistPublishedPlayCanvasManifests(options: {
                      $11, $12, $11, $12,
                      1, false, false, false,
                      true, false, false)
-                 ON CONFLICT (source_project_id) WHERE _upl_deleted = false AND _app_deleted = false
+                 ON CONFLICT (
+                    source_project_id,
+                    (COALESCE(source_scene_id, '00000000-0000-0000-0000-000000000000'::uuid))
+                 ) WHERE _upl_deleted = false AND _app_deleted = false
                  DO UPDATE SET
                     publication_id = EXCLUDED.publication_id,
                     source_metahub_id = EXCLUDED.source_metahub_id,

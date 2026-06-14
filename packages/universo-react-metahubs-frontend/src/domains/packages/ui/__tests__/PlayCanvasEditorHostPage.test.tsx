@@ -289,7 +289,7 @@ describe('PlayCanvasEditorHostPage', () => {
         expect(await screen.findByTestId('playcanvas-editor-fullscreen-host')).toBeInTheDocument()
         expect(screen.queryByTestId('playcanvas-editor-fullscreen-chrome')).not.toBeInTheDocument()
         const iframe = await screen.findByTestId('playcanvas-editor-frame')
-        expect(iframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin')
+        expect(iframe).toHaveAttribute('sandbox', 'allow-scripts')
         fireEvent.load(iframe)
         expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
         expect(screen.queryByRole('dialog', { name: 'Unsaved changes' })).not.toBeInTheDocument()
@@ -299,6 +299,28 @@ describe('PlayCanvasEditorHostPage', () => {
         expect(screen.queryByTestId('playcanvas-editor-host-status-alert')).not.toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'Back to packages' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    })
+
+    it('preserves a loopback sibling artifact origin for iframe isolation and full-boot token binding', async () => {
+        vi.mocked(packagesApi.getAuthoringHost).mockResolvedValue({
+            ...hostDescriptor(),
+            artifactUrl: 'http://127.0.0.1:3000/editor-artifact/index.html'
+        })
+
+        renderHostPage()
+
+        const iframe = await screen.findByTestId('playcanvas-editor-frame')
+        expect(new URL(iframe.getAttribute('data-src') ?? '').origin).toBe('http://127.0.0.1:3000')
+        expect(iframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin')
+        await waitFor(() =>
+            expect(packagesApi.getPlayCanvasEditorCompatibilityConfig).toHaveBeenCalledWith(
+                'metahub-1',
+                '019e9146-fd1b-7d1d-a858-d1e96485d901',
+                'http://127.0.0.1:3000',
+                'http://127.0.0.1:3000/editor-artifact/',
+                PLAYCANVAS_EDITOR_FULL_BOOT_MODE
+            )
+        )
     })
 
     it('shows a saved state after the sandboxed artifact clears a dirty scene through compatibility REST', async () => {
@@ -392,6 +414,63 @@ describe('PlayCanvasEditorHostPage', () => {
 
         expect(await screen.findByText('Failed to prepare PlayCanvas Editor.')).toBeInTheDocument()
         expect(screen.queryByTestId('playcanvas-editor-frame')).not.toBeInTheDocument()
+    })
+
+    it('does not pass removed MMOOMM authoring capability through the iframe bootstrap descriptor', async () => {
+        renderHostPage()
+        const iframe = (await screen.findByTestId('playcanvas-editor-frame')) as HTMLIFrameElement
+        const postMessage = vi.fn()
+        Object.defineProperty(iframe, 'contentWindow', {
+            configurable: true,
+            value: {
+                postMessage,
+                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__: {
+                    ready: false,
+                    bootstrapRequestId: 'bootstrap-mmoomm-authoring'
+                }
+            }
+        })
+
+        fireEvent.load(iframe)
+
+        await waitFor(() =>
+            expect(postMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'editor.bootstrap.init',
+                    descriptor: expect.not.objectContaining({
+                        mmoommAuthoring: expect.anything()
+                    })
+                }),
+                window.location.origin
+            )
+        )
+    })
+
+    it('posts bridge responses only to the resolved editor origin', async () => {
+        renderHostPage()
+        const iframe = (await screen.findByTestId('playcanvas-editor-frame')) as HTMLIFrameElement
+        const postMessage = vi.fn()
+        Object.defineProperty(iframe, 'contentWindow', {
+            configurable: true,
+            value: { postMessage }
+        })
+
+        dispatchArtifactMessage(iframe, {
+            type: 'protocol.describe',
+            requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfae'
+        })
+
+        await waitFor(() =>
+            expect(postMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'bridge.response',
+                    commandType: 'protocol.describe',
+                    requestId: '019e9147-27e7-7ad4-b4e4-02174d3bcfae'
+                }),
+                window.location.origin
+            )
+        )
+        expect(postMessage).not.toHaveBeenCalledWith(expect.anything(), '*')
     })
 
     it('fails closed when full-boot compatibility config loading fails', async () => {

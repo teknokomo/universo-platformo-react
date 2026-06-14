@@ -948,7 +948,7 @@ export default function MainGrid({
         standaloneCenterWidgets.length > 0
 
     return (
-        <Box sx={{ minWidth: 0, width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
+        <Box sx={{ minWidth: 0, width: '100%', maxWidth: { xs: '100%', sm: '100%', md: '1700px' }, overflowX: 'hidden' }}>
             {/* Overview section — boolean-driven */}
             {(showOverviewTitle || showOverviewCards || showSessionsChart || showPageViewsChart) && (
                 <>
@@ -1006,15 +1006,13 @@ export default function MainGrid({
                                         <Box
                                             key={widget.id}
                                             data-testid={`center-zone-widget-${widget.widgetKey}`}
-                                            sx={
-                                                widget.widgetKey === 'quizWidget'
-                                                    ? {
-                                                          width: '100%',
-                                                          maxWidth: 960,
-                                                          mx: 'auto'
-                                                      }
-                                                    : undefined
-                                            }
+                                            sx={{
+                                                minWidth: 0,
+                                                width: '100%',
+                                                maxWidth: widget.widgetKey === 'quizWidget' ? 960 : '100%',
+                                                mx: widget.widgetKey === 'quizWidget' ? 'auto' : 0,
+                                                overflow: 'hidden'
+                                            }}
                                         >
                                             {renderWidget(widget)}
                                         </Box>

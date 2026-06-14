@@ -179,7 +179,13 @@ jest.mock('@universo-react/utils', () => {
     }
 })
 
-import { App, buildPlayCanvasEditorHostCsp, isPlayCanvasEditorHostRoute, resolvePlayCanvasEditorRequestOrigin } from '../index'
+import {
+    App,
+    buildPlayCanvasEditorHostCsp,
+    isApplicationRealtimeUpgradeOriginAllowed,
+    isPlayCanvasEditorHostRoute,
+    resolvePlayCanvasEditorRequestOrigin
+} from '../index'
 
 describe('App.initDatabase', () => {
     beforeEach(() => {
@@ -187,6 +193,8 @@ describe('App.initDatabase', () => {
         delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
         delete process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS
         delete process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS
+        delete process.env.APPLICATION_REALTIME_WS_ORIGINS
+        delete process.env.CORS_ORIGINS
         mockAssertIsolatedVmRuntimeAvailable.mockResolvedValue(undefined)
         mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
         mockValidateRegisteredPlatformMigrations.mockReturnValue({
@@ -329,6 +337,55 @@ describe('App.initDatabase', () => {
         process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
         expect(() => resolvePlayCanvasEditorRequestOrigin(req)).not.toThrow()
         expect(resolvePlayCanvasEditorRequestOrigin(req)).toBeNull()
+    })
+
+    it('rejects realtime WebSocket upgrades when only HTTP CORS wildcard fallback is configured', () => {
+        process.env.CORS_ORIGINS = '*'
+
+        expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://runtime.example.test' } } as never)).toBe(false)
+        expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: {} } as never)).toBe(false)
+    })
+
+    it('allows same-origin realtime WebSocket upgrades without relying on HTTP CORS wildcard fallback', () => {
+        process.env.CORS_ORIGINS = '*'
+
+        expect(
+            isApplicationRealtimeUpgradeOriginAllowed({
+                headers: { host: '127.0.0.1:3100', origin: 'http://127.0.0.1:3100' },
+                socket: {}
+            } as never)
+        ).toBe(true)
+    })
+
+    it('allows proxied HTTPS same-origin realtime WebSocket upgrades when trusted proxy headers are enabled', () => {
+        process.env.CORS_ORIGINS = '*'
+        process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS = 'true'
+
+        expect(
+            isApplicationRealtimeUpgradeOriginAllowed({
+                headers: {
+                    host: 'internal:3100',
+                    'x-forwarded-host': 'runtime.example.test',
+                    'x-forwarded-proto': 'https',
+                    origin: 'https://runtime.example.test'
+                },
+                socket: {}
+            } as never)
+        ).toBe(true)
+    })
+
+    it('uses strict explicit realtime WebSocket origins instead of a wildcard HTTP CORS fallback when configured', () => {
+        process.env.CORS_ORIGINS = '*'
+        process.env.APPLICATION_REALTIME_WS_ORIGINS = 'https://runtime.example.test'
+
+        expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://runtime.example.test' } } as never)).toBe(true)
+        expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://attacker.example.test' } } as never)).toBe(false)
+    })
+
+    it('rejects wildcard realtime WebSocket origins because WebSocket upgrades require a strict whitelist', () => {
+        process.env.APPLICATION_REALTIME_WS_ORIGINS = '*'
+
+        expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://runtime.example.test' } } as never)).toBe(false)
     })
 
     it('initializes database and runs unified platform migrations', async () => {

@@ -293,10 +293,21 @@ const playcanvasObjectSchema = z
     })
     .strict()
 
+const playcanvasRuntimeManifestBindingSchema = z
+    .object({
+        source: z.literal('publishedManifest'),
+        projectId: z.string().uuid(),
+        sceneId: z.string().uuid().nullable().optional(),
+        checksum: z.string().regex(/^[a-f0-9]{64}$/i),
+        failClosed: z.boolean().default(true)
+    })
+    .strict()
+
 export const playcanvasCanvasWidgetConfigSchema = moduleBackedWidgetConfigSchema
     .extend({
         title: localizedWidgetTextSchema.optional(),
         serverModuleCodename: z.string().trim().min(1).max(128).nullable().optional(),
+        runtimeManifest: playcanvasRuntimeManifestBindingSchema.optional(),
         minHeight: z.number().int().min(320).max(1200).optional(),
         heightMode: z.enum(['fixed', 'fitViewport']).optional(),
         camera: z

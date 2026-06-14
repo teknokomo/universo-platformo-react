@@ -2297,6 +2297,138 @@ describe('Applications Routes', () => {
         })
     })
 
+    describe('GET /applications/:applicationId/runtime/playcanvas-manifests', () => {
+        it('returns active published PlayCanvas runtime manifests from the runtime schema', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344e8'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
+            const projectId = '018f8a78-7b8f-7c1d-a111-2222333344e9'
+            const sceneId = '018f8a78-7b8f-7c1d-a111-2222333344ea'
+            const checksum = 'd'.repeat(64)
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: runtimeSchemaName,
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+
+            const originalQueryImpl = (dataSource.query as jest.Mock).getMockImplementation()
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM information_schema.tables') && sql.includes("_app_playcanvas_manifests'")) {
+                    expect(params).toEqual([runtimeSchemaName])
+                    return [{ exists: true }]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"."_app_playcanvas_manifests"`)) {
+                    return [
+                        {
+                            source_project_id: projectId,
+                            source_scene_id: sceneId,
+                            manifest_checksum: checksum,
+                            runtime_manifest: {
+                                schemaVersion: '1',
+                                projectId,
+                                sceneId,
+                                checksum,
+                                assets: [],
+                                scripts: [],
+                                metadata: {
+                                    mmoomm: {
+                                        scene: {
+                                            objects: [
+                                                {
+                                                    id: 'ship',
+                                                    position: { x: 0, y: 0, z: 0 },
+                                                    scale: { x: 12, y: 4, z: 4 },
+                                                    selectable: true
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+                return originalQueryImpl ? originalQueryImpl(sql, params) : []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime/playcanvas-manifests`).expect(200)
+
+            expect(response.body.manifests).toEqual([
+                expect.objectContaining({
+                    schemaVersion: '1',
+                    projectId,
+                    sceneId,
+                    checksum,
+                    assets: [],
+                    scripts: [],
+                    metadata: expect.objectContaining({
+                        mmoomm: expect.objectContaining({
+                            scene: expect.objectContaining({
+                                objects: [
+                                    {
+                                        id: 'ship',
+                                        position: { x: 0, y: 0, z: 0 },
+                                        scale: { x: 12, y: 4, z: 4 },
+                                        selectable: true
+                                    }
+                                ]
+                            })
+                        })
+                    })
+                })
+            ])
+            expect(dataSource.query).toHaveBeenCalledWith(
+                expect.stringContaining(`FROM "${runtimeSchemaName}"."_app_playcanvas_manifests"`),
+                []
+            )
+        })
+
+        it('returns an empty manifest list when the runtime schema has no PlayCanvas manifest table', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344eb'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: runtimeSchemaName,
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+
+            const originalQueryImpl = (dataSource.query as jest.Mock).getMockImplementation()
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM information_schema.tables') && sql.includes("_app_playcanvas_manifests'")) {
+                    expect(params).toEqual([runtimeSchemaName])
+                    return [{ exists: false }]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"."_app_playcanvas_manifests"`)) {
+                    throw new Error('PlayCanvas manifests table must not be queried when it is missing')
+                }
+                return originalQueryImpl ? originalQueryImpl(sql, params) : []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime/playcanvas-manifests`).expect(200)
+
+            expect(response.body).toEqual({ manifests: [] })
+        })
+    })
+
     describe('GET /applications/:applicationId/runtime/modules/:moduleId/client', () => {
         it('returns the client bundle body with cache validators', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334480'

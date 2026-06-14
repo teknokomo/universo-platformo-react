@@ -288,8 +288,9 @@ const MainRoutes = {
                 { path: 'publication/:publicationId/applications', element: <PublicationApplicationList /> },
                 { path: 'migrations', element: <MetahubMigrations /> },
                 { path: 'branches', element: <BranchList /> },
-                { path: 'resources', element: <MetahubResources /> },
+                { path: 'resources/packages/:packageSlug/editor/fullscreen', element: <PlayCanvasEditorFullscreenPage /> },
                 { path: 'resources/packages/:packageSlug/editor', element: <PlayCanvasEditorHostPage /> },
+                { path: 'resources', element: <MetahubResources /> },
                 { path: 'entities', element: <EntitiesWorkspace /> },
                 { path: 'entities/:kindKey/instances', element: <EntityInstanceList /> },
                 { path: 'entities/:kindKey/instance/:entityId/content', element: <EntityBlockContentPage /> },
@@ -359,4 +360,4 @@ const MainRoutes = {
     ]
 }
 
-export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, PublicRuntimeRoutes, MainRoutes, MinimalRoutes]
+export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, PublicRuntimeRoutes, MinimalRoutes, MainRoutes]

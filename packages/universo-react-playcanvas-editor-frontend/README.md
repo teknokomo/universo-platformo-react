@@ -22,7 +22,7 @@ pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
 pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 ```
 
-The package does not define a normal `build` script in this foundation slice. Root `pnpm build` should not pick up the Editor artifact until Node, pnpm, dependency, Turbo, CI, and guardrail compatibility are intentionally approved.
+The package `build` script runs `editor:build`, so root `pnpm build` refreshes the artifact that the metahub backend serves from `dist/editor`. Package-local and CI checks should still run `editor:smoke` and `editor:browser-smoke` after building.
 
 ## Artifact Modes
 
@@ -32,7 +32,7 @@ The default artifact mode is `universo-full-upstream-ui`.
 
 `universo-full-upstream-ui` is the default acceptance mode for the full upstream Editor shell. In this mode the artifact still keeps the upstream Editor isolated inside the iframe, but it must receive a full-boot config from the metahub host with enabled realtime, messenger, and relay URLs. The full-boot shell does not install the hosted entity fallback adapter and does not include the `/disabled` WebSocket shim. Browser acceptance must prove the upstream DOM shell is present: `#layout-toolbar`, `#layout-hierarchy`, `#layout-viewport`, `#canvas-3d`, `#layout-assets`, and `#layout-attributes`.
 
-The hosted bridge slice supports the first manager-only metahub authoring path: a `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads, and minimal JSON asset metadata. The backend also exposes a same-origin compatibility namespace under `/playcanvas/editor-compatible/...` for `config`, `scenes`, `assets`, `settings`, single-user ShareDB-compatible snapshot persistence, and explicit cloud-only no-op descriptors. It does not implement PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, broad binary assets, Colyseus authoring, implicit runtime publication, or MCP/AI tooling.
+The hosted bridge slice supports the first manager-only metahub authoring path: a `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads, and minimal JSON asset metadata. The backend also exposes a same-origin compatibility namespace under `/playcanvas/editor-compatible/...` for `config`, `scenes`, `assets`, `settings`, per-scene/per-user `user_data`, single-user ShareDB-compatible snapshot persistence, and explicit cloud-only no-op descriptors. It does not implement PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, broad binary assets, Colyseus authoring, implicit runtime publication, or MCP/AI tooling.
 
 ## Hosted Artifact Security
 

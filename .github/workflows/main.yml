@@ -13,7 +13,7 @@ jobs:
         strategy:
             matrix:
                 platform: [ubuntu-latest]
-                node-version: [22.x]
+                node-version: [22.22.0]
         runs-on: ${{ matrix.platform }}
         env:
             PUPPETEER_SKIP_DOWNLOAD: true
@@ -58,11 +58,15 @@ jobs:
                   pnpm run check:lms-fixture-contract
             - name: Check MMOOMM flight runtime release gates
               run: pnpm run check:mmoomm-flight-fixture-contract
+            - name: Check MMOOMM app runtime release gates
+              run: pnpm run check:mmoomm-app-fixture-contract
             - run: pnpm build
             - name: Install Playwright browser for MMOOMM flight runtime gate
               run: pnpm run playwright:install
             - name: Check MMOOMM flight browser runtime gate
               run: pnpm run test:e2e:mmoomm-flight-runtime:local-supabase
+            - name: Check MMOOMM app UI-first fixture generator gate
+              run: pnpm run test:e2e:mmoomm-app-gate:local-supabase
             - name: Stop local E2E Supabase
               if: always()
               run: pnpm supabase:e2e:stop

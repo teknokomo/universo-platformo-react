@@ -3620,6 +3620,41 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /applications/{applicationId}/runtime/playcanvas-manifests:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/playcanvas-manifests
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_playcanvas_manifests
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /applications/{applicationId}/runtime/progress/content:
     post:
       tags:
@@ -12330,6 +12365,41 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/playcanvas/published-runtime-manifests:
+    get:
+      tags:
+        - PlayCanvas Projects
+      summary: GET /metahub/{metahubId}/playcanvas/published-runtime-manifests
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/playcanvas-projects/routes/playCanvasProjectsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: PlayCanvas_Projects_get_metahub_metahubId_playcanvas_published_runtime_manifests
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
       security: *a1
   /metahub/{metahubId}/publication/{publicationId}:
     get:

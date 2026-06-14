@@ -37,7 +37,9 @@ vi.mock('../../api', () => ({
         list: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
-        remove: vi.fn()
+        remove: vi.fn(),
+        publish: vi.fn(),
+        listPublishedRuntimeManifests: vi.fn()
     }
 }))
 
@@ -186,6 +188,8 @@ describe('MetahubPackagesTab', () => {
         })
         vi.mocked(packagesApi.detach).mockResolvedValue(undefined)
         vi.mocked(playcanvasProjectsApi.list).mockResolvedValue([])
+        vi.mocked(playcanvasProjectsApi.publish).mockResolvedValue([])
+        vi.mocked(playcanvasProjectsApi.listPublishedRuntimeManifests).mockResolvedValue([])
         vi.mocked(playcanvasProjectsApi.create).mockResolvedValue({
             id: '018f0000-0000-7000-8000-000000000010',
             displayName: createLocalizedContent('ru', 'Полетная сцена'),
@@ -212,6 +216,50 @@ describe('MetahubPackagesTab', () => {
             generatedArtifactCount: 0,
             publishable: true
         })
+    })
+
+    it('publishes a PlayCanvas project through a user-facing runtime action without exposing the project id', async () => {
+        const user = userEvent.setup()
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([playCanvasEditorCatalogItem()])
+        vi.mocked(playcanvasProjectsApi.list).mockResolvedValue([
+            {
+                id: '018f0000-0000-7000-8000-000000000010',
+                displayName: createLocalizedContent('ru', 'Полетная сцена'),
+                codename: createLocalizedContent('ru', 'poletnaya_scena'),
+                version: 7,
+                compatibilityStatus: 'compatible',
+                status: 'ready',
+                sceneCount: 1,
+                assetCount: 0,
+                scriptCount: 0,
+                generatedArtifactCount: 0,
+                publishable: true
+            }
+        ])
+        vi.mocked(playcanvasProjectsApi.publish).mockResolvedValue([
+            {
+                projectId: '018f0000-0000-7000-8000-000000000010',
+                sceneId: '018f0000-0000-7000-8000-000000000020',
+                checksum: '0'.repeat(64),
+                runtimeManifest: {
+                    schemaVersion: '1',
+                    engine: { name: 'playcanvas', version: '2.18.1' },
+                    scene: { entities: [], settings: {} },
+                    metadata: {}
+                }
+            }
+        ])
+
+        renderTab()
+
+        expect(await screen.findByText('Полетная сцена')).toBeInTheDocument()
+        expect(screen.queryByText('018f0000-0000-7000-8000-000000000010')).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Опубликовать runtime' }))
+
+        await waitFor(() => {
+            expect(playcanvasProjectsApi.publish).toHaveBeenCalledWith('metahub-1', '018f0000-0000-7000-8000-000000000010')
+        })
+        expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Проект PlayCanvas опубликован: runtime-сцен — 1', { variant: 'success' })
     })
 
     it('renders registry packages without raw ids and connects a selected package', async () => {

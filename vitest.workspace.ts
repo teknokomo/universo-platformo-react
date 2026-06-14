@@ -6,6 +6,7 @@ export default defineWorkspace([
     'packages/universo-react-applications-frontend/vitest.config.ts',
     'packages/universo-react-apps-template-mui/vitest.config.ts',
     'packages/universo-react-block-editor/vitest.config.ts',
+    'packages/universo-react-core-frontend/vitest.config.ts',
     'packages/universo-react-metapanel-frontend/vitest.config.ts',
     'packages/universo-react-metahubs-frontend/vitest.config.ts',
     'packages/universo-react-profile-frontend/vitest.config.ts',

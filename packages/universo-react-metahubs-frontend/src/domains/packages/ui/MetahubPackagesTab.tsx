@@ -7,6 +7,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import PublishRoundedIcon from '@mui/icons-material/PublishRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import {
     Alert,
@@ -244,6 +245,27 @@ function PlayCanvasProjectsPanel({
         }
     })
 
+    const publishMutation = useMutation({
+        mutationFn: (project: PlayCanvasProjectSummary) => playcanvasProjectsApi.publish(metahubId, project.id),
+        onSuccess: async (items) => {
+            enqueueSnackbar(
+                t('packages.projects.notifications.published', 'PlayCanvas project published with {{count}} runtime scene(s)', {
+                    count: items.length
+                }),
+                { variant: 'success' }
+            )
+            await Promise.all([
+                invalidateProjects(),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.playcanvasPublishedRuntimeManifests(metahubId) })
+            ])
+        },
+        onError: () => {
+            enqueueSnackbar(t('packages.projects.notifications.publishFailed', 'Failed to publish PlayCanvas project'), {
+                variant: 'error'
+            })
+        }
+    })
+
     const projects = projectsQuery.data ?? []
     const defaultProjectId = displayConfig?.playcanvasProject?.defaultProjectId ?? ''
     const selectedDefaultExists = defaultProjectId ? projects.some((project) => project.id === defaultProjectId) : true
@@ -390,24 +412,48 @@ function PlayCanvasProjectsPanel({
                                             )}
                                         </Typography>
                                     </Stack>
-                                    <Tooltip title={t('packages.projects.actions.delete', 'Delete project')}>
-                                        <span>
-                                            <IconButton
-                                                size='small'
-                                                disabled={!canManage || deleteMutation.isPending}
-                                                aria-label={t('packages.projects.actions.deleteNamed', 'Delete {{projectName}}', {
-                                                    projectName: resolveText(
-                                                        project.displayName,
-                                                        locale,
-                                                        t('packages.projects.unnamed', 'Unnamed project')
-                                                    )
-                                                })}
-                                                onClick={() => setPendingDelete(project)}
-                                            >
-                                                <DeleteOutlineRoundedIcon fontSize='small' />
-                                            </IconButton>
-                                        </span>
-                                    </Tooltip>
+                                    <Stack direction='row' spacing={0.5} alignItems='center' justifyContent='flex-end'>
+                                        <Tooltip
+                                            title={
+                                                project.publishable
+                                                    ? t('packages.projects.actions.publish', 'Publish runtime')
+                                                    : t(
+                                                          'packages.projects.actions.publishUnavailable',
+                                                          'Resolve project status before publishing.'
+                                                      )
+                                            }
+                                        >
+                                            <span>
+                                                <Button
+                                                    size='small'
+                                                    variant='outlined'
+                                                    startIcon={<PublishRoundedIcon fontSize='small' />}
+                                                    disabled={!canManage || !project.publishable || publishMutation.isPending}
+                                                    onClick={() => publishMutation.mutate(project)}
+                                                >
+                                                    {t('packages.projects.actions.publish', 'Publish runtime')}
+                                                </Button>
+                                            </span>
+                                        </Tooltip>
+                                        <Tooltip title={t('packages.projects.actions.delete', 'Delete project')}>
+                                            <span>
+                                                <IconButton
+                                                    size='small'
+                                                    disabled={!canManage || deleteMutation.isPending}
+                                                    aria-label={t('packages.projects.actions.deleteNamed', 'Delete {{projectName}}', {
+                                                        projectName: resolveText(
+                                                            project.displayName,
+                                                            locale,
+                                                            t('packages.projects.unnamed', 'Unnamed project')
+                                                        )
+                                                    })}
+                                                    onClick={() => setPendingDelete(project)}
+                                                >
+                                                    <DeleteOutlineRoundedIcon fontSize='small' />
+                                                </IconButton>
+                                            </span>
+                                        </Tooltip>
+                                    </Stack>
                                 </Stack>
                             </Box>
                         ))}

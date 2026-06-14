@@ -5,6 +5,107 @@ import { createLogger } from '../../utils/logger'
 
 const log = createLogger('snapshotLayouts')
 
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const manifestKey = (projectId: string, sceneId: string | null | undefined): string => `${projectId}\u0000${sceneId ?? ''}`
+
+type RuntimeManifestSummary = { checksum: string; sceneId: string | null }
+
+const alignRuntimeManifestBinding = (
+    binding: Record<string, unknown>,
+    manifestsByProjectScene: Map<string, RuntimeManifestSummary>,
+    manifestsByProject: Map<string, RuntimeManifestSummary | null>
+): Record<string, unknown> => {
+    const projectId = typeof binding.projectId === 'string' ? binding.projectId : null
+    if (!projectId) return binding
+
+    const sceneId = typeof binding.sceneId === 'string' ? binding.sceneId : null
+    const manifest =
+        manifestsByProjectScene.get(manifestKey(projectId, sceneId)) ??
+        (sceneId === null ? manifestsByProject.get(projectId) ?? null : null)
+    if (!manifest || (binding.checksum === manifest.checksum && (binding.sceneId ?? null) === manifest.sceneId)) return binding
+
+    return {
+        ...binding,
+        sceneId: manifest.sceneId,
+        checksum: manifest.checksum
+    }
+}
+
+const alignRuntimeManifestReferences = (
+    value: unknown,
+    manifestsByProjectScene: Map<string, RuntimeManifestSummary>,
+    manifestsByProject: Map<string, RuntimeManifestSummary | null>
+): unknown => {
+    if (Array.isArray(value)) {
+        let changed = false
+        const next = value.map((item) => {
+            const aligned = alignRuntimeManifestReferences(item, manifestsByProjectScene, manifestsByProject)
+            changed ||= aligned !== item
+            return aligned
+        })
+        return changed ? next : value
+    }
+    if (!isRecord(value)) return value
+
+    let changed = false
+    const next: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value)) {
+        if (key === 'runtimeManifest' && isRecord(item)) {
+            const aligned = alignRuntimeManifestBinding(item, manifestsByProjectScene, manifestsByProject)
+            next[key] = aligned
+            changed ||= aligned !== item
+            continue
+        }
+        const aligned = alignRuntimeManifestReferences(item, manifestsByProjectScene, manifestsByProject)
+        next[key] = aligned
+        changed ||= aligned !== item
+    }
+
+    return changed ? next : value
+}
+
+/**
+ * Keep layout widget bindings consistent with the final runtime manifests
+ * serialized into the publication snapshot. PlayCanvas project restore may
+ * remap and later re-generate manifest checksums after files are restored.
+ */
+export function alignPlayCanvasRuntimeManifestBindings(snapshot: MetahubSnapshot): void {
+    const manifests = snapshot.playcanvasRuntimeManifests ?? []
+    if (manifests.length === 0) return
+
+    const manifestsByProjectScene = new Map<string, RuntimeManifestSummary>()
+    const manifestsByProject = new Map<string, RuntimeManifestSummary | null>()
+    for (const manifest of manifests) {
+        const summary = { checksum: manifest.checksum, sceneId: manifest.sceneId ?? null }
+        manifestsByProjectScene.set(manifestKey(manifest.projectId, manifest.sceneId ?? null), summary)
+        manifestsByProject.set(manifest.projectId, manifestsByProject.has(manifest.projectId) ? null : summary)
+    }
+
+    snapshot.layoutConfig = alignRuntimeManifestReferences(snapshot.layoutConfig, manifestsByProjectScene, manifestsByProject) as
+        | Record<string, unknown>
+        | undefined
+    snapshot.layouts = snapshot.layouts?.map((layout) => ({
+        ...layout,
+        config: alignRuntimeManifestReferences(layout.config, manifestsByProjectScene, manifestsByProject) as Record<string, unknown>
+    }))
+    snapshot.scopedLayouts = snapshot.scopedLayouts?.map((layout) => ({
+        ...layout,
+        config: alignRuntimeManifestReferences(layout.config, manifestsByProjectScene, manifestsByProject) as Record<string, unknown>
+    }))
+    snapshot.layoutZoneWidgets = snapshot.layoutZoneWidgets?.map((widget) => ({
+        ...widget,
+        config: alignRuntimeManifestReferences(widget.config, manifestsByProjectScene, manifestsByProject) as Record<string, unknown>
+    }))
+    snapshot.layoutWidgetOverrides = snapshot.layoutWidgetOverrides?.map((override) => ({
+        ...override,
+        config:
+            override.config == null
+                ? override.config
+                : (alignRuntimeManifestReferences(override.config, manifestsByProjectScene, manifestsByProject) as Record<string, unknown>)
+    }))
+}
+
 /**
  * Attach layout + zone-widget data from the metahub's branch schema to a snapshot.
  * Reads _mhb_layouts and _mhb_widgets tables, injecting the full design-time

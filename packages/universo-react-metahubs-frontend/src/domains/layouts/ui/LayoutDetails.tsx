@@ -22,11 +22,12 @@ import type {
     ObjectCollectionRuntimeViewConfig,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
+    ResolvedDashboardLayoutConfig,
     MenuWidgetConfig,
     ColumnsContainerConfig,
     QuizWidgetConfig
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES } from '@universo-react/types'
+import { DASHBOARD_LAYOUT_ZONES, defaultDashboardLayoutConfig } from '@universo-react/types'
 import {
     LayoutAuthoringDetails,
     TemplateMainCard as MainCard,
@@ -47,6 +48,7 @@ import { getVLCString, normalizeLocale } from '../../../types'
 import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
 import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
 import QuizWidgetEditorDialog from './QuizWidgetEditorDialog'
+import PlayCanvasCanvasWidgetEditorDialog from './PlayCanvasCanvasWidgetEditorDialog'
 import WidgetBehaviorEditorDialog from './WidgetBehaviorEditorDialog'
 import { getSharedBehaviorFromWidgetConfig } from './LayoutWidgetSharedBehaviorFields'
 
@@ -73,6 +75,13 @@ type QuizEditorState = {
     config: QuizWidgetConfig | null
 }
 
+type PlayCanvasCanvasEditorState = {
+    open: boolean
+    zone: DashboardLayoutZone | null
+    widgetId: string | null
+    config: Record<string, unknown> | null
+}
+
 type WidgetBehaviorEditorState = {
     open: boolean
     widgetId: string | null
@@ -82,6 +91,16 @@ type WidgetBehaviorEditorState = {
 
 const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
 const EMPTY_WIDGET_OBJECTS: DashboardLayoutWidgetItem[] = []
+const DASHBOARD_CHROME_SETTING_KEYS = [
+    'showBreadcrumbs',
+    'showSearch',
+    'showOverviewCards',
+    'showDetailsTitle',
+    'showDetailsTable',
+    'showFooter'
+] as const
+
+type DashboardChromeSettingKey = (typeof DASHBOARD_CHROME_SETTING_KEYS)[number]
 
 export default function LayoutDetails() {
     const { metahubId, layoutId } = useParams<{ metahubId: string; layoutId: string }>()
@@ -92,6 +111,12 @@ export default function LayoutDetails() {
     const [menuEditor, setMenuEditor] = useState<MenuEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [columnsEditor, setColumnsEditor] = useState<ColumnsEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [quizEditor, setQuizEditor] = useState<QuizEditorState>({ open: false, zone: null, widgetId: null, config: null })
+    const [playCanvasCanvasEditor, setPlayCanvasCanvasEditor] = useState<PlayCanvasCanvasEditorState>({
+        open: false,
+        zone: null,
+        widgetId: null,
+        config: null
+    })
     const [widgetBehaviorEditor, setWidgetBehaviorEditor] = useState<WidgetBehaviorEditorState>({
         open: false,
         widgetId: null,
@@ -129,6 +154,7 @@ export default function LayoutDetails() {
     const isGlobalLayout = layout?.scopeEntityId == null
     const uiLocale = normalizeLocale(i18n.language)
     const layoutName = layout ? getVLCString(layout.name, uiLocale) || getVLCString(layout.name, 'en') || layout.templateKey : ''
+    const layoutConfig = (layout?.config ?? {}) as Partial<ResolvedDashboardLayoutConfig>
     const objectBehaviorConfig = useMemo(
         () => normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout?.config)),
         [layout?.config]
@@ -205,6 +231,18 @@ export default function LayoutDetails() {
                     zone,
                     widgetId: item.id,
                     config: (item.config as QuizWidgetConfig) ?? null
+                })
+                return
+            }
+            if (item.widgetKey === 'playcanvasCanvas') {
+                setPlayCanvasCanvasEditor({
+                    open: true,
+                    zone,
+                    widgetId: item.id,
+                    config:
+                        item.config && typeof item.config === 'object' && !Array.isArray(item.config)
+                            ? { ...(item.config as Record<string, unknown>) }
+                            : {}
                 })
                 return
             }
@@ -485,6 +523,10 @@ export default function LayoutDetails() {
                 setQuizEditor({ open: true, zone, widgetId: null, config: null })
                 return
             }
+            if (widgetKey === 'playcanvasCanvas') {
+                setPlayCanvasCanvasEditor({ open: true, zone, widgetId: null, config: null })
+                return
+            }
             void handleAddWidget(zone, widgetKey)
         },
         [canManageLayouts, handleAddWidget]
@@ -543,6 +585,7 @@ export default function LayoutDetails() {
                         (item.widgetKey === 'menuWidget' ||
                             item.widgetKey === 'columnsContainer' ||
                             item.widgetKey === 'quizWidget' ||
+                            item.widgetKey === 'playcanvasCanvas' ||
                             isGlobalLayout)
 
                     return {
@@ -788,6 +831,22 @@ export default function LayoutDetails() {
                                                 {t('layouts.details.viewSettings', 'Application View Settings')}
                                             </Typography>
                                             <Stack spacing={1.5}>
+                                                {DASHBOARD_CHROME_SETTING_KEYS.map((key: DashboardChromeSettingKey) => (
+                                                    <FormControlLabel
+                                                        key={key}
+                                                        control={
+                                                            <Switch
+                                                                checked={layoutConfig[key] ?? defaultDashboardLayoutConfig[key]}
+                                                                disabled={viewSettingsSaving || !canManageLayouts}
+                                                                onChange={(_, checked) => void handleViewSettingChange(key, checked)}
+                                                            />
+                                                        }
+                                                        label={t(
+                                                            `layouts.dashboard.sections.${key}`,
+                                                            String(key).replace(/([A-Z])/g, ' $1')
+                                                        )}
+                                                    />
+                                                ))}
                                                 <FormControlLabel
                                                     control={
                                                         <Switch
@@ -994,6 +1053,46 @@ export default function LayoutDetails() {
                     }
                 }}
                 onCancel={() => setQuizEditor({ open: false, zone: null, widgetId: null, config: null })}
+            />
+
+            <PlayCanvasCanvasWidgetEditorDialog
+                open={playCanvasCanvasEditor.open}
+                metahubId={metahubId}
+                config={playCanvasCanvasEditor.config ?? undefined}
+                layoutId={layoutId}
+                widgetId={playCanvasCanvasEditor.widgetId}
+                showSharedBehavior={isGlobalLayout}
+                showScopeVisibility={isGlobalLayout && Boolean(playCanvasCanvasEditor.widgetId)}
+                onSave={async (config) => {
+                    const zone = playCanvasCanvasEditor.zone
+                    const widgetId = playCanvasCanvasEditor.widgetId
+                    if (!zone || !metahubId || !layoutId) return
+                    try {
+                        let savedWidget: MetahubLayoutZoneWidget
+                        if (widgetId) {
+                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
+                                metahubId,
+                                layoutId,
+                                widgetId,
+                                config as Record<string, unknown>
+                            )
+                            savedWidget = response.data.item
+                        } else {
+                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
+                                zone,
+                                widgetKey: 'playcanvasCanvas',
+                                config: config as Record<string, unknown>
+                            })
+                            savedWidget = response.data
+                        }
+                        upsertZoneWidgetInCache(savedWidget)
+                        await persistAndRefresh()
+                        setPlayCanvasCanvasEditor({ open: false, zone: null, widgetId: null, config: null })
+                    } catch (e: unknown) {
+                        notifyError(t, enqueueSnackbar, e)
+                    }
+                }}
+                onCancel={() => setPlayCanvasCanvasEditor({ open: false, zone: null, widgetId: null, config: null })}
             />
 
             <WidgetBehaviorEditorDialog

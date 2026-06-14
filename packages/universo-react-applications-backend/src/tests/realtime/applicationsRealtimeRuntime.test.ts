@@ -68,7 +68,20 @@ jest.mock('@universo-react/colyseus-server', () => ({
     stepFixedTickMovement: jest.fn((state) => ({ state, arrived: false, blocked: false }))
 }))
 
+const mockWsTransportUpgradeHandler = jest.fn()
+
+jest.mock('@colyseus/ws-transport', () => ({
+    __esModule: true,
+    WebSocketTransport: class {
+        constructor({ server }: { server: { on: (event: string, listener: (...args: unknown[]) => void) => void } }) {
+            server.on('upgrade', mockWsTransportUpgradeHandler)
+        }
+    }
+}))
+
 import { randomUUID } from 'crypto'
+import { EventEmitter } from 'events'
+import type { IncomingMessage, Server as HttpServer } from 'http'
 import {
     applyMoveToPointIntent,
     applyStopIntent,
@@ -80,7 +93,7 @@ import {
     resolveSweptOrientedBodyContact,
     stepFixedTickMovement
 } from '@universo-react/colyseus-server'
-import { __applicationsRealtimeRuntimeTestUtils } from '../../realtime/applicationsRealtimeRuntime'
+import { __applicationsRealtimeRuntimeTestUtils, attachApplicationsRealtimeRuntime } from '../../realtime/applicationsRealtimeRuntime'
 import {
     isRealtimeMatchmakeMethodAllowed,
     resolveRealtimeClientCanControl,
@@ -105,6 +118,10 @@ const createRuntimeModule = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe('applications realtime runtime authorization', () => {
+    beforeEach(() => {
+        mockWsTransportUpgradeHandler.mockClear()
+    })
+
     it('allows realtime control only for roles with edit content permission', () => {
         expect(resolveRealtimeClientCanControl('member', 'member')).toBe(false)
         expect(resolveRealtimeClientCanControl('member', 'editor')).toBe(true)
@@ -180,6 +197,73 @@ describe('applications realtime runtime authorization', () => {
         expect(__applicationsRealtimeRuntimeTestUtils.selectRealtimeDbExecutor('public', request as never, fallbackExecutor as never)).toBe(
             fallbackExecutor
         )
+    })
+
+    it('rejects realtime WebSocket upgrades from disallowed origins before Colyseus handles the socket', async () => {
+        const server = new EventEmitter() as HttpServer
+        const socket = { destroyed: false, destroy: jest.fn() }
+
+        await attachApplicationsRealtimeRuntime(server, {
+            isOriginAllowed: (request) => request.headers.origin === 'https://allowed.example'
+        })
+
+        server.emit('upgrade', { headers: { origin: 'https://attacker.example' } } as IncomingMessage, socket, Buffer.alloc(0))
+
+        expect(socket.destroy).toHaveBeenCalledTimes(1)
+        expect(mockWsTransportUpgradeHandler).not.toHaveBeenCalled()
+    })
+
+    it('rejects realtime WebSocket upgrades without an Origin header', async () => {
+        const server = new EventEmitter() as HttpServer
+        const socket = { destroyed: false, destroy: jest.fn() }
+
+        await attachApplicationsRealtimeRuntime(server, {
+            isOriginAllowed: (request) => Boolean(request.headers.origin)
+        })
+
+        server.emit('upgrade', { headers: {} } as IncomingMessage, socket, Buffer.alloc(0))
+
+        expect(socket.destroy).toHaveBeenCalledTimes(1)
+        expect(mockWsTransportUpgradeHandler).not.toHaveBeenCalled()
+    })
+
+    it('passes allowed realtime WebSocket upgrades to Colyseus', async () => {
+        const server = new EventEmitter() as HttpServer
+        const socket = { destroyed: false, destroy: jest.fn() }
+
+        await attachApplicationsRealtimeRuntime(server, {
+            isOriginAllowed: (request) => request.headers.origin === 'https://allowed.example'
+        })
+
+        server.emit('upgrade', { headers: { origin: 'https://allowed.example' } } as IncomingMessage, socket, Buffer.alloc(0))
+
+        expect(socket.destroy).not.toHaveBeenCalled()
+        expect(mockWsTransportUpgradeHandler).toHaveBeenCalledTimes(1)
+    })
+
+    it('fails closed at realtime attach time when production room auth secrets are not configured', async () => {
+        const originalNodeEnv = process.env.NODE_ENV
+        const originalRoomSecret = process.env.UNIVERSO_REALTIME_ROOM_AUTH_SECRET
+        const originalSessionSecret = process.env.SESSION_SECRET
+        try {
+            process.env.NODE_ENV = 'production'
+            delete process.env.UNIVERSO_REALTIME_ROOM_AUTH_SECRET
+            delete process.env.SESSION_SECRET
+
+            expect(() => __applicationsRealtimeRuntimeTestUtils.resolveRoomAuthSignatureSecret()).toThrow(
+                /UNIVERSO_REALTIME_ROOM_AUTH_SECRET/
+            )
+            await expect(attachApplicationsRealtimeRuntime(new EventEmitter() as HttpServer)).rejects.toThrow(
+                /UNIVERSO_REALTIME_ROOM_AUTH_SECRET/
+            )
+        } finally {
+            if (originalNodeEnv === undefined) delete process.env.NODE_ENV
+            else process.env.NODE_ENV = originalNodeEnv
+            if (originalRoomSecret === undefined) delete process.env.UNIVERSO_REALTIME_ROOM_AUTH_SECRET
+            else process.env.UNIVERSO_REALTIME_ROOM_AUTH_SECRET = originalRoomSecret
+            if (originalSessionSecret === undefined) delete process.env.SESSION_SECRET
+            else process.env.SESSION_SECRET = originalSessionSecret
+        }
     })
 })
 
@@ -309,6 +393,173 @@ describe('applications realtime runtime module-backed room options', () => {
                     readReports: true
                 })
             })
+        )
+    })
+
+    it('uses published PlayCanvas runtime manifest scene data for authoritative room options', async () => {
+        const { executor } = createMockDbExecutor()
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333347a0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333347a1'
+        const checksum = 'e'.repeat(64)
+        executor.query
+            .mockResolvedValueOnce([{ id: applicationId, schemaName: 'app_018f8a787b8f7c1da1112222333346aa' }])
+            .mockResolvedValueOnce([
+                {
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ab',
+                    config: {
+                        moduleCodename: 'flight-canvas-widget',
+                        serverModuleCodename: 'fixed-tick-flight-runtime',
+                        attachedToKind: 'metahub',
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId,
+                            sceneId,
+                            checksum
+                        },
+                        scene: {
+                            controlledObjectId: 'legacy-ship',
+                            objects: [{ id: 'legacy-ship', position: { x: 999, y: 0, z: 0 }, scale: { x: 2, y: 2, z: 2 } }]
+                        }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([
+                {
+                    runtime_manifest: {
+                        schemaVersion: '1',
+                        projectId,
+                        sceneId,
+                        checksum,
+                        assets: [],
+                        scripts: [],
+                        metadata: {
+                            mmoomm: {
+                                scene: {
+                                    controlledObjectId: 'editor-ship',
+                                    targetObjectId: 'editor-station',
+                                    cruiseSpeed: 72,
+                                    objects: [
+                                        {
+                                            id: 'editor-ship',
+                                            position: { x: 10, y: 2, z: 3 },
+                                            scale: { x: 14, y: 6, z: 4 }
+                                        },
+                                        {
+                                            id: 'editor-station',
+                                            position: { x: 80, y: 0, z: -40 },
+                                            scale: { x: 40, y: 12, z: 16 },
+                                            guard: true
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            ])
+        jest.spyOn(RuntimeModulesService.prototype, 'getActiveModuleByCodename')
+            .mockResolvedValueOnce(createRuntimeModule() as never)
+            .mockResolvedValueOnce(
+                createRuntimeModule({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333347a2',
+                    codename: 'fixed-tick-flight-runtime',
+                    moduleRole: 'module',
+                    serverBundle: 'module.exports = class FixedTickFlightRuntime {}',
+                    manifest: { methods: [{ name: 'createRealtimeRoomOptions', target: 'server', eventName: null }] }
+                }) as never
+            )
+        jest.spyOn(RuntimeModulesService.prototype, 'callInternalServerMethod').mockResolvedValue({})
+
+        const options = await __applicationsRealtimeRuntimeTestUtils.loadRoomOptionsFromApplicationSchema(executor as never, {
+            applicationId,
+            accessMode: 'member',
+            moduleCodename: 'flight-canvas-widget'
+        })
+
+        expect(options.initialPosition).toEqual({ x: 10, y: 2, z: 3 })
+        expect(options.targetObjects).toEqual({ 'editor-station': { x: 80, y: 0, z: -40 } })
+        expect(options.guardBoxes).toEqual([{ center: { x: 80, y: 0, z: -40 }, halfExtents: { x: 20, y: 6, z: 8 } }])
+        expect(options.controlledHalfExtents).toEqual({ x: 7, y: 3, z: 2 })
+        expect(options.cruiseSpeed).toBe(72)
+        expect(JSON.stringify(options)).not.toContain('legacy-ship')
+        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('"_app_playcanvas_manifests"'), [projectId, sceneId, checksum])
+        expect(executor.query).toHaveBeenCalledWith(
+            expect.stringContaining('(($2::uuid IS NULL AND source_scene_id IS NULL) OR source_scene_id = $2::uuid)'),
+            [projectId, sceneId, checksum]
+        )
+    })
+
+    it('matches null PlayCanvas runtime manifest scene bindings only to null scene manifests', async () => {
+        const { executor } = createMockDbExecutor()
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333347b0'
+        const checksum = 'f'.repeat(64)
+        executor.query
+            .mockResolvedValueOnce([{ id: applicationId, schemaName: 'app_018f8a787b8f7c1da1112222333346aa' }])
+            .mockResolvedValueOnce([
+                {
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ab',
+                    config: {
+                        moduleCodename: 'flight-canvas-widget',
+                        serverModuleCodename: 'fixed-tick-flight-runtime',
+                        attachedToKind: 'metahub',
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId,
+                            sceneId: null,
+                            checksum
+                        }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([
+                {
+                    runtime_manifest: {
+                        schemaVersion: '1',
+                        projectId,
+                        sceneId: null,
+                        checksum,
+                        assets: [],
+                        scripts: [],
+                        metadata: {
+                            mmoomm: {
+                                scene: {
+                                    controlledObjectId: 'default-ship',
+                                    objects: [
+                                        {
+                                            id: 'default-ship',
+                                            position: { x: 5, y: 0, z: 0 },
+                                            scale: { x: 10, y: 4, z: 4 }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            ])
+        jest.spyOn(RuntimeModulesService.prototype, 'getActiveModuleByCodename')
+            .mockResolvedValueOnce(createRuntimeModule() as never)
+            .mockResolvedValueOnce(
+                createRuntimeModule({
+                    id: '018f8a78-7b8f-7c1d-a111-2222333347b2',
+                    codename: 'fixed-tick-flight-runtime',
+                    moduleRole: 'module',
+                    serverBundle: 'module.exports = class FixedTickFlightRuntime {}',
+                    manifest: { methods: [{ name: 'createRealtimeRoomOptions', target: 'server', eventName: null }] }
+                }) as never
+            )
+        jest.spyOn(RuntimeModulesService.prototype, 'callInternalServerMethod').mockResolvedValue({})
+
+        const options = await __applicationsRealtimeRuntimeTestUtils.loadRoomOptionsFromApplicationSchema(executor as never, {
+            applicationId,
+            accessMode: 'member',
+            moduleCodename: 'flight-canvas-widget'
+        })
+
+        expect(options.initialPosition).toEqual({ x: 5, y: 0, z: 0 })
+        expect(executor.query).toHaveBeenCalledWith(
+            expect.stringContaining('(($2::uuid IS NULL AND source_scene_id IS NULL) OR source_scene_id = $2::uuid)'),
+            [projectId, null, checksum]
         )
     })
 })

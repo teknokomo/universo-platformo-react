@@ -7,7 +7,7 @@ import {
     PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
     playCanvasEditorCompatibilityTokenClaimsSchema
 } from '@universo-react/types'
-import { resolveRequestOrigin } from '../middleware/index.js'
+import { resolvePlatformApiOrigin, resolveRequestOrigin } from '../middleware/index.js'
 
 export interface PlayCanvasEditorCompatibilityTokenService {
     create(input: {
@@ -119,8 +119,12 @@ export const validateCompatibilityToken = (
         return null
     }
     const requestOrigin = resolveRequestOrigin(req)
-    if (claims.origin && (!requestOrigin || claims.origin !== requestOrigin)) {
-        return null
+    if (claims.origin) {
+        if (requestOrigin) {
+            if (claims.origin !== requestOrigin) return null
+        } else if (claims.origin !== resolvePlatformApiOrigin(req)) {
+            return null
+        }
     }
     return claims
 }

@@ -111,6 +111,7 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
     const existingModuleSourceRoot = existingEnv.UPL_MODULE_SOURCE_ROOT
     const moduleSourceRoot =
         existingModuleSourceRoot && path.isAbsolute(existingModuleSourceRoot) ? existingModuleSourceRoot : defaultModuleSourceRoot
+    const appOrigins = `http://127.0.0.1:${port},http://localhost:${port}`
 
     return {
         ...existingEnv,
@@ -145,6 +146,10 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
         AUTH_EMAIL_CONFIRMATION_REQUIRED: target === 'e2e' ? 'false' : existingEnv.AUTH_EMAIL_CONFIRMATION_REQUIRED || 'false',
         AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: existingEnv.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || '60000',
         AUTH_LOGIN_RATE_LIMIT_MAX: target === 'e2e' ? '300' : existingEnv.AUTH_LOGIN_RATE_LIMIT_MAX || '100',
+        CORS_ORIGINS: target === 'e2e' ? existingEnv.CORS_ORIGINS || appOrigins : existingEnv.CORS_ORIGINS,
+        APPLICATION_REALTIME_WS_ORIGINS:
+            target === 'e2e' ? existingEnv.APPLICATION_REALTIME_WS_ORIGINS || appOrigins : existingEnv.APPLICATION_REALTIME_WS_ORIGINS,
+        PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS: existingEnv.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS || appOrigins,
         API_RATE_LIMIT_READ_MAX: target === 'e2e' ? existingEnv.API_RATE_LIMIT_READ_MAX || '5000' : existingEnv.API_RATE_LIMIT_READ_MAX,
         API_RATE_LIMIT_WRITE_MAX: target === 'e2e' ? existingEnv.API_RATE_LIMIT_WRITE_MAX || '2500' : existingEnv.API_RATE_LIMIT_WRITE_MAX,
         SMARTCAPTCHA_REGISTRATION_ENABLED: target === 'e2e' ? 'false' : existingEnv.SMARTCAPTCHA_REGISTRATION_ENABLED || 'false',

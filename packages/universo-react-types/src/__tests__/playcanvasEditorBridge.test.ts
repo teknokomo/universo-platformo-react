@@ -38,6 +38,9 @@ describe('PlayCanvas Editor bridge contracts', () => {
                     {
                         id: 'root',
                         name: 'Root',
+                        position: [0, 1, 2],
+                        rotation: [0, 90, 0],
+                        scale: [1, 2, 3],
                         components: {
                             camera: {
                                 clearColor: [0, 0, 0]
@@ -63,6 +66,22 @@ describe('PlayCanvas Editor bridge contracts', () => {
             schemaVersion: '1',
             entities: [],
             rawEditorEnvelope: {}
+        })
+
+        expect(parsed.success).toBe(false)
+    })
+
+    it('rejects malformed scene entity transforms', () => {
+        const parsed = playCanvasEditorScenePayloadSchema.safeParse({
+            schemaVersion: '1',
+            entities: [
+                {
+                    id: 'ship',
+                    position: [0, 0],
+                    rotation: [0, Number.NaN, 0],
+                    scale: [1, 1, 1]
+                }
+            ]
         })
 
         expect(parsed.success).toBe(false)
@@ -193,7 +212,7 @@ describe('PlayCanvas Editor bridge contracts', () => {
                 messenger: { status: 'disabled', reason: 'notRequiredForUniversoBridgeMinimal' }
             },
             shareDb: {
-                requiredCollections: ['scenes', 'assets', 'settings'],
+                requiredCollections: ['scenes', 'assets', 'settings', 'user_data'],
                 persisted: false,
                 persistence: 'not-implemented',
                 sceneStorage: 'metahub-playcanvas-project-storage'

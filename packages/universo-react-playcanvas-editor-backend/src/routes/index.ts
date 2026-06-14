@@ -6,7 +6,9 @@ import type {
     PlayCanvasProjectSummary,
     PlayCanvasScene,
     PlayCanvasEditorScenePayload,
-    PlayCanvasEditorCompatibilitySettingsDocument
+    PlayCanvasEditorCompatibilitySettingsDocument,
+    PlayCanvasEditorCompatibilitySourceFileDocument,
+    PlayCanvasEditorCompatibilitySourceFileSummary
 } from '@universo-react/types'
 import { PlayCanvasEditorCompatibilityTokenService } from '../tokens/index.js'
 import {
@@ -17,6 +19,11 @@ import {
     playCanvasEditorCompatibilitySceneSaveRequestSchema,
     playCanvasEditorCompatibilitySceneSummarySchema,
     playCanvasEditorCompatibilityAssetSummarySchema,
+    playCanvasEditorCompatibilitySourceFileDeleteRequestSchema,
+    playCanvasEditorCompatibilitySourceFileDocumentSchema,
+    playCanvasEditorCompatibilitySourceFileParamsSchema,
+    playCanvasEditorCompatibilitySourceFileSummarySchema,
+    playCanvasEditorCompatibilitySourceFileWriteRequestSchema,
     playCanvasEditorCompatibilitySettingsParamsSchema,
     playCanvasEditorCompatibilitySettingsWriteRequestSchema,
     playCanvasEditorCompatibilityCloudSurfaceSchema,
@@ -59,6 +66,20 @@ export const sendUnauthorized = (res: Response, requestId?: string) =>
         code: 'playcanvasEditor.compatibility.invalidToken'
     })
 
+export const sendUnsupported = (res: Response, requestId?: string) =>
+    res.status(501).json({
+        ok: false,
+        requestId,
+        code: 'playcanvasEditor.compatibility.unsupported'
+    })
+
+export const sendNotFound = (res: Response, requestId?: string) =>
+    res.status(404).json({
+        ok: false,
+        requestId,
+        code: 'playcanvasEditor.compatibility.notFound'
+    })
+
 export const createCloudOnlyNoOp = (surface: unknown): PlayCanvasEditorCompatibilityNoOpResponse | null => {
     const parsed = playCanvasEditorCompatibilityCloudSurfaceSchema.safeParse(surface)
     if (!parsed.success) return null
@@ -68,6 +89,38 @@ export const createCloudOnlyNoOp = (surface: unknown): PlayCanvasEditorCompatibi
         status: 'stubbed',
         reason: 'cloudOnlySurfaceOutsideFirstSlice'
     })
+}
+
+const normalizeSourceFilePath = (value: string): string => value.replace(/\\/g, '/').split('/').filter(Boolean).join('/')
+
+const sourceFileBasename = (value: string): string => normalizeSourceFilePath(value).split('/').filter(Boolean).pop() ?? value
+
+const findMatchingSourceFile = (
+    sourceFiles: PlayCanvasEditorCompatibilitySourceFileSummary[],
+    filename: string
+): PlayCanvasEditorCompatibilitySourceFileSummary | undefined => {
+    const normalizedFilename = normalizeSourceFilePath(filename)
+    const exactMatch = sourceFiles.find(
+        (sourceFile) => sourceFile.id === filename || normalizeSourceFilePath(sourceFile.path) === normalizedFilename
+    )
+    if (exactMatch) return exactMatch
+    if (normalizedFilename.includes('/')) return undefined
+
+    const expected = sourceFileBasename(filename)
+    const basenameMatches = sourceFiles.filter(
+        (sourceFile) =>
+            sourceFileBasename(sourceFile.path) === expected || sourceFileBasename(sourceFile.filename ?? sourceFile.name) === expected
+    )
+    return basenameMatches.length === 1 ? basenameMatches[0] : undefined
+}
+
+const sourceFileDeleteRequestId = (req: Request): string => {
+    const bodyRequestId = typeof req.body?.requestId === 'string' ? req.body.requestId.trim() : ''
+    if (bodyRequestId) return bodyRequestId
+    const queryRequestId = typeof req.query.requestId === 'string' ? req.query.requestId.trim() : ''
+    if (queryRequestId) return queryRequestId
+    const headerRequestId = typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'].trim() : ''
+    return headerRequestId || randomUUID()
 }
 
 const wrapAsync =
@@ -119,6 +172,36 @@ export interface PlayCanvasEditorCompatibilityProjectPort {
         expectedCurrentChecksum?: string | null
     }): Promise<{ scene: PlayCanvasScene; payload: PlayCanvasEditorScenePayload | null; checksum: string | null }>
     listAssets(input: { metahubId: string; projectId: string; userId: string }): Promise<unknown[]>
+    listSourceFiles?(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+    }): Promise<PlayCanvasEditorCompatibilitySourceFileSummary[]>
+    readSourceFile?(input: {
+        metahubId: string
+        projectId: string
+        sourceFileId: string
+        userId: string
+    }): Promise<PlayCanvasEditorCompatibilitySourceFileDocument>
+    writeSourceFile?(input: {
+        metahubId: string
+        projectId: string
+        sourceFileId: string
+        userId: string
+        requestId: string
+        path: string
+        name?: string
+        content: string
+        expectedCurrentChecksum?: string | null
+    }): Promise<PlayCanvasEditorCompatibilitySourceFileDocument>
+    deleteSourceFile?(input: {
+        metahubId: string
+        projectId: string
+        sourceFileId: string
+        userId: string
+        requestId: string
+        expectedCurrentChecksum?: string | null
+    }): Promise<{ id: string; deleted: true }>
     readSettings(input: {
         metahubId: string
         projectId: string
@@ -147,6 +230,163 @@ export interface PlayCanvasEditorCompatibilityRouteDeps {
 
 export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditorCompatibilityRouteDeps): Router => {
     const router = Router({ mergeParams: true })
+
+    router.get(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories',
+        deps.readLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
+                        metahubId,
+                        projectId: req.params.projectId
+                    })
+                    if (!params || req.params.cloudProjectId !== params.projectId) return sendInvalid(res)
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res)
+                    }
+                    await projectPort.resolveProject({ metahubId, projectId: params.projectId, userId })
+                    res.setHeader('Cache-Control', 'no-store')
+                    return res.json({ current: 'directory', directory: 'directory' })
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
+
+    router.get(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories/:repoService/sourcefiles',
+        deps.readLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
+                        metahubId,
+                        projectId: req.params.projectId
+                    })
+                    if (!params || req.params.cloudProjectId !== params.projectId || req.params.repoService !== 'directory') {
+                        return sendInvalid(res)
+                    }
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res)
+                    }
+                    if (!projectPort.listSourceFiles) {
+                        return sendUnsupported(res)
+                    }
+                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
+                    res.setHeader('Cache-Control', 'no-store')
+                    return res.json({
+                        result: sourceFiles.map((sourceFile) => ({
+                            filename: sourceFile.filename ?? sourceFile.name ?? sourceFile.path.split('/').pop()
+                        }))
+                    })
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
+
+    router.get(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories/:repoService/sourcefiles/*',
+        deps.readLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
+                        metahubId,
+                        projectId: req.params.projectId
+                    })
+                    if (!params || req.params.cloudProjectId !== params.projectId || req.params.repoService !== 'directory') {
+                        return sendInvalid(res)
+                    }
+                    const filename = String(req.params[0] ?? '').trim()
+                    if (!filename) return sendInvalid(res)
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res)
+                    }
+                    if (!projectPort.listSourceFiles || !projectPort.readSourceFile) {
+                        return sendUnsupported(res)
+                    }
+                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
+                    const matched = findMatchingSourceFile(sourceFiles, filename)
+                    if (!matched) {
+                        return sendNotFound(res)
+                    }
+                    const item = await projectPort.readSourceFile({
+                        metahubId,
+                        projectId: params.projectId,
+                        sourceFileId: matched.id,
+                        userId
+                    })
+                    res.setHeader('Cache-Control', 'no-store')
+                    res.type(item.mime ?? 'text/javascript')
+                    return res.send(item.content)
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
+
+    router.delete(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories/:repoService/sourcefiles/*',
+        deps.csrfProtection,
+        deps.writeLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
+                        metahubId,
+                        projectId: req.params.projectId
+                    })
+                    if (!params || req.params.cloudProjectId !== params.projectId || req.params.repoService !== 'directory') {
+                        return sendInvalid(res)
+                    }
+                    const filename = String(req.params[0] ?? '').trim()
+                    if (!filename) return sendInvalid(res)
+                    const requestId = sourceFileDeleteRequestId(req)
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res, requestId)
+                    }
+                    if (!projectPort.listSourceFiles || !projectPort.deleteSourceFile) {
+                        return sendUnsupported(res, requestId)
+                    }
+                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
+                    const matched = findMatchingSourceFile(sourceFiles, filename)
+                    if (!matched) {
+                        return sendNotFound(res, requestId)
+                    }
+                    const expectedCurrentChecksum =
+                        typeof req.body?.expectedCurrentChecksum === 'string'
+                            ? req.body.expectedCurrentChecksum.trim()
+                            : typeof req.query.expectedCurrentChecksum === 'string'
+                            ? req.query.expectedCurrentChecksum.trim()
+                            : ''
+                    if (!expectedCurrentChecksum) {
+                        return sendInvalid(res, requestId)
+                    }
+                    const item = await projectPort.deleteSourceFile({
+                        metahubId,
+                        projectId: params.projectId,
+                        sourceFileId: matched.id,
+                        userId,
+                        requestId,
+                        expectedCurrentChecksum
+                    })
+                    res.setHeader('Cache-Control', 'no-store')
+                    return res.json({ ok: true, requestId, item })
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
 
     router.get(
         '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/config',
@@ -209,6 +449,9 @@ export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditor
                                     : null
                             )
                             .filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0)
+                        if (new Set(assetDocumentIds).size !== assetDocumentIds.length) {
+                            return sendInvalid(res)
+                        }
                         const token = deps.tokenService.create({
                             metahubId,
                             projectId: params.projectId,
@@ -367,6 +610,140 @@ export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditor
                     const assets = await projectPort.listAssets({ metahubId, projectId: params.projectId, userId })
                     res.setHeader('Cache-Control', 'no-store')
                     return res.json({ items: assets.map((asset) => playCanvasEditorCompatibilityAssetSummarySchema.parse(asset)) })
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
+
+    router.get(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles',
+        deps.readLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, { ...req.params, metahubId })
+                    if (!params) return sendInvalid(res)
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res)
+                    }
+                    if (!projectPort.listSourceFiles) {
+                        return sendUnsupported(res)
+                    }
+                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
+                    res.setHeader('Cache-Control', 'no-store')
+                    return res.json({
+                        items: sourceFiles.map((sourceFile) => playCanvasEditorCompatibilitySourceFileSummarySchema.parse(sourceFile))
+                    })
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
+
+    router.get(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles/:sourceFileId',
+        deps.readLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilitySourceFileParamsSchema, { ...req.params, metahubId })
+                    if (!params) return sendInvalid(res)
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res)
+                    }
+                    if (!projectPort.readSourceFile) {
+                        return sendUnsupported(res)
+                    }
+                    const item = await projectPort.readSourceFile({
+                        metahubId,
+                        projectId: params.projectId,
+                        sourceFileId: params.sourceFileId,
+                        userId
+                    })
+                    res.setHeader('Cache-Control', 'no-store')
+                    return res.json({ item: playCanvasEditorCompatibilitySourceFileDocumentSchema.parse(item) })
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
+
+    router.put(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles/:sourceFileId',
+        deps.csrfProtection,
+        deps.writeLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilitySourceFileParamsSchema, { ...req.params, metahubId })
+                    const body = playCanvasEditorCompatibilitySourceFileWriteRequestSchema.safeParse(req.body)
+                    if (!params || !body.success)
+                        return sendInvalid(res, body.success ? undefined : (req.body as { requestId?: string })?.requestId)
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res, body.data.requestId)
+                    }
+                    if (!projectPort.writeSourceFile) {
+                        return sendUnsupported(res, body.data.requestId)
+                    }
+                    const item = await projectPort.writeSourceFile({
+                        metahubId,
+                        projectId: params.projectId,
+                        sourceFileId: params.sourceFileId,
+                        userId,
+                        requestId: body.data.requestId,
+                        path: body.data.path,
+                        name: body.data.name,
+                        content: body.data.content,
+                        expectedCurrentChecksum: body.data.expectedCurrentChecksum
+                    })
+                    res.setHeader('Cache-Control', 'no-store')
+                    return res.json({
+                        ok: true,
+                        requestId: body.data.requestId,
+                        item: playCanvasEditorCompatibilitySourceFileDocumentSchema.parse(item)
+                    })
+                },
+                { permission: 'manageMetahub' }
+            )
+        )
+    )
+
+    router.delete(
+        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles/:sourceFileId',
+        deps.csrfProtection,
+        deps.writeLimiter,
+        wrapAsync(
+            deps.createHandler(
+                async (context) => {
+                    const { req, res, metahubId, userId } = context
+                    const projectPort = deps.createProjectPort(context)
+                    const params = validateParams(playCanvasEditorCompatibilitySourceFileParamsSchema, { ...req.params, metahubId })
+                    const body = playCanvasEditorCompatibilitySourceFileDeleteRequestSchema.safeParse(req.body)
+                    if (!params || !body.success)
+                        return sendInvalid(res, body.success ? undefined : (req.body as { requestId?: string })?.requestId)
+                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                        return sendUnauthorized(res, body.data.requestId)
+                    }
+                    if (!projectPort.deleteSourceFile) {
+                        return sendUnsupported(res, body.data.requestId)
+                    }
+                    const item = await projectPort.deleteSourceFile({
+                        metahubId,
+                        projectId: params.projectId,
+                        sourceFileId: params.sourceFileId,
+                        userId,
+                        requestId: body.data.requestId,
+                        expectedCurrentChecksum: body.data.expectedCurrentChecksum
+                    })
+                    res.setHeader('Cache-Control', 'no-store')
+                    return res.json({ ok: true, requestId: body.data.requestId, item })
                 },
                 { permission: 'manageMetahub' }
             )

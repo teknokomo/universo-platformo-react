@@ -14,12 +14,17 @@ import {
     upsertPlayCanvasGeneratedArtifact,
     upsertPlayCanvasScene,
     upsertPlayCanvasSceneScriptBinding,
-    upsertPlayCanvasScriptAsset
+    upsertPlayCanvasScriptAsset,
+    upsertPlayCanvasSourceFile
 } from '../../domains/playcanvas-projects/services/playCanvasProjectsStore'
 
 const makeExec = (responses: unknown[][] = []): DbExecutor => {
     const query = jest.fn(async () => responses.shift() ?? [])
-    return { query } as unknown as DbExecutor
+    const exec = {
+        query,
+        transaction: jest.fn(async (callback: (tx: DbExecutor) => Promise<unknown>) => callback(exec as unknown as DbExecutor))
+    }
+    return exec as unknown as DbExecutor
 }
 
 describe('playCanvasProjectsStore', () => {
@@ -116,6 +121,7 @@ describe('playCanvasProjectsStore', () => {
 
         const calls = jest.mocked(exec.query).mock.calls
         expect(calls).toHaveLength(2)
+        expect(jest.mocked(exec.transaction)).toHaveBeenCalledTimes(1)
         expect(String(calls[0]?.[0])).toContain('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_playcanvas_publication_manifests"')
         expect(String(calls[0]?.[0])).toContain('published = false')
         expect(String(calls[0]?.[0])).not.toContain('project_id::text = ANY')
@@ -142,6 +148,40 @@ describe('playCanvasProjectsStore', () => {
         ])
     })
 
+    it('keeps previous publication manifests when inserting a replacement fails', async () => {
+        const tx = { query: jest.fn(async () => []) } as unknown as DbExecutor
+        jest.mocked(tx.query)
+            .mockImplementationOnce(async () => [])
+            .mockRejectedValueOnce(new Error('insert failed'))
+        const exec = {
+            query: jest.fn(),
+            transaction: jest.fn(async (callback: (transactionExec: DbExecutor) => Promise<unknown>) => callback(tx))
+        } as unknown as DbExecutor
+
+        await expect(
+            replacePlayCanvasPublicationManifests(exec, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', {
+                projectIds: ['019e8afa-0000-7000-8000-000000000001'],
+                manifests: [
+                    {
+                        schemaVersion: '1',
+                        projectId: '019e8afa-0000-7000-8000-000000000001',
+                        sceneId: '019e8afa-0000-7000-8000-000000000002',
+                        checksum: 'manifest-checksum',
+                        assets: [],
+                        scripts: [],
+                        metadata: {}
+                    }
+                ],
+                userId: 'user-1',
+                replaceScope: 'projects'
+            })
+        ).rejects.toThrow('insert failed')
+
+        expect(jest.mocked(exec.transaction)).toHaveBeenCalledTimes(1)
+        expect(jest.mocked(exec.query)).not.toHaveBeenCalled()
+        expect(jest.mocked(tx.query)).toHaveBeenCalledTimes(2)
+    })
+
     it('clears package config default project pointers when the referenced project is deleted', async () => {
         const exec = makeExec()
 
@@ -159,9 +199,10 @@ describe('playCanvasProjectsStore', () => {
         await restoreSoftDeletedPlayCanvasProject(exec, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', 'project-1', 'user-1', deletionToken)
 
         const sqlCalls = jest.mocked(exec.query).mock.calls.map(([sql]) => String(sql))
-        expect(sqlCalls).toHaveLength(8)
+        expect(sqlCalls).toHaveLength(9)
         expect(sqlCalls[0]).toContain('_mhb_playcanvas_projects')
         expect(sqlCalls[0]).toContain('_upl_deleted = false')
+        expect(sqlCalls.some((sql) => sql.includes('_mhb_playcanvas_publication_manifests'))).toBe(true)
         expect(sqlCalls.every((sql) => sql.includes('_upl_deleted_by = $2'))).toBe(true)
         expect(sqlCalls.every((sql) => sql.includes('_upl_deleted_at = $3'))).toBe(true)
         expect(jest.mocked(exec.query).mock.calls.every((call) => call[1]?.[2] === deletionToken)).toBe(true)
@@ -266,6 +307,49 @@ describe('playCanvasProjectsStore', () => {
         )
 
         expect(jest.mocked(exec.query).mock.calls[0]?.[1]?.[9]).toBeNull()
+    })
+
+    it('does not insert a new sourcefile row when a guarded upsert misses the expected version', async () => {
+        const exec = makeExec([[]])
+
+        await expect(
+            upsertPlayCanvasSourceFile(
+                exec,
+                'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                '019e8afa-0000-7000-8000-000000000001',
+                {
+                    id: '019e8afa-0000-7000-8000-000000000105',
+                    stableSourceFileId: 'main-script',
+                    name: 'main-script.js',
+                    virtualPath: ['main-script.js'],
+                    file: {
+                        provider: 'local',
+                        root: 'playcanvas-projects',
+                        path: 'playcanvas-projects/019e8afa-0000-7000-8000-000000000001/sourcefiles/main-script.js',
+                        hash: null,
+                        size: null,
+                        mime: 'text/javascript',
+                        status: 'missing'
+                    },
+                    scriptKind: 'esm',
+                    checksum: null,
+                    parsedAttributes: {},
+                    parseStatus: 'missing',
+                    parseDiagnostics: null,
+                    publish: true,
+                    expectedVersion: 7
+                },
+                'user-1'
+            )
+        ).resolves.toBeNull()
+
+        const sql = String(jest.mocked(exec.query).mock.calls[0]?.[0])
+        expect(sql).toContain('SELECT $1, $2, $3')
+        expect(sql).toContain('WHERE $18::integer IS NULL')
+        expect(sql).toContain('OR EXISTS')
+        expect(sql).toContain('current_sourcefile.id = $1')
+        expect(sql).toContain('current_sourcefile._upl_version = $18')
+        expect(jest.mocked(exec.query).mock.calls[0]?.[1]?.[17]).toBe(7)
     })
 
     it('reports whether project file metadata ready markers touched any rows', async () => {

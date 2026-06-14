@@ -15,6 +15,7 @@ import {
     injectBridgeBootstrap,
     makeExternalTempDir,
     packageRoot,
+    patchUniversoHostedArtifact,
     readRootLockfileHash,
     resolveArtifactMode,
     upstreamManifestPath,
@@ -72,6 +73,7 @@ try {
         writeUniversoHostedShell(artifactRoot, { mode: artifactMode })
         injectBridgeBootstrap(artifactRoot)
     }
+    patchUniversoHostedArtifact(artifactRoot)
     fs.writeFileSync(artifactManifestPath, `${JSON.stringify(createArtifactManifest(undefined, artifactMode), null, 4)}\n`)
 } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true })

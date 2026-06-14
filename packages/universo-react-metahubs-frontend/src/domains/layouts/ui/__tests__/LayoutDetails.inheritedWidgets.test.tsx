@@ -94,6 +94,7 @@ vi.mock('../../../metahubs/hooks', () => ({
 vi.mock('../MenuWidgetEditorDialog', () => ({ default: () => null }))
 vi.mock('../ColumnsContainerEditorDialog', () => ({ default: () => null }))
 vi.mock('../QuizWidgetEditorDialog', () => ({ default: () => null }))
+vi.mock('../PlayCanvasCanvasWidgetEditorDialog', () => ({ default: () => null }))
 vi.mock('../WidgetBehaviorEditorDialog', () => ({ default: () => null }))
 
 import LayoutDetails from '../LayoutDetails'

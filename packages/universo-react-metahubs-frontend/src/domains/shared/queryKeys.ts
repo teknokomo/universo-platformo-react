@@ -79,6 +79,8 @@ export const metahubsQueryKeys = {
     playcanvasProjects: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'playcanvasProjects'] as const,
     playcanvasProject: (metahubId: string, projectId: string) =>
         [...metahubsQueryKeys.playcanvasProjects(metahubId), 'detail', projectId] as const,
+    playcanvasPublishedRuntimeManifests: (metahubId: string) =>
+        [...metahubsQueryKeys.detail(metahubId), 'playcanvasPublishedRuntimeManifests'] as const,
 
     // ============ NEW ARCHITECTURE QUERY KEYS ============
 

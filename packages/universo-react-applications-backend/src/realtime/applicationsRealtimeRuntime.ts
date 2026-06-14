@@ -1,11 +1,12 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'crypto'
 import type { IncomingMessage, Server as HttpServer } from 'http'
+import type { Socket } from 'net'
 import { createRequire } from 'module'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import stableStringify from 'json-stable-stringify'
 import { verifySupabaseJwt } from '@universo-react/auth-backend'
 import { getPoolExecutor, qSchemaTable } from '@universo-react/database'
-import { playcanvasCanvasWidgetConfigSchema } from '@universo-react/types'
+import { playCanvasRuntimeManifestSchema, playcanvasCanvasWidgetConfigSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { z } from 'zod'
 import {
@@ -131,7 +132,24 @@ const USED_ROOM_AUTH_NONCES_MAX = 10_000
 const ACCESS_REVALIDATION_INTERVAL_MS = 5000
 const ACCESS_DENIED_CLOSE_CODE = 4423
 const ROOM_UNAVAILABLE_CLOSE_CODE = 4421
-const ROOM_AUTH_SIGNATURE_SECRET = process.env.UNIVERSO_REALTIME_ROOM_AUTH_SECRET || process.env.SESSION_SECRET || randomUUID()
+
+const resolveRoomAuthSignatureSecret = (): string => {
+    const secret = process.env.UNIVERSO_REALTIME_ROOM_AUTH_SECRET || process.env.SESSION_SECRET
+    if (secret) {
+        return secret
+    }
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('UNIVERSO_REALTIME_ROOM_AUTH_SECRET or SESSION_SECRET must be configured in production')
+    }
+    return randomUUID()
+}
+
+let roomAuthSignatureSecret: string | null = null
+
+const requireRoomAuthSignatureSecret = (): string => {
+    roomAuthSignatureSecret ??= resolveRoomAuthSignatureSecret()
+    return roomAuthSignatureSecret
+}
 
 const boundedVector3Schema = z
     .object({
@@ -314,6 +332,106 @@ const toGuardBoxes = (value: unknown): Array<{ center: RealtimeVector3; halfExte
     return boxes.length ? boxes : null
 }
 
+interface RuntimeSceneObjectConfig {
+    id: string
+    position: RealtimeVector3
+    scale: RealtimeVector3
+    guard?: boolean
+}
+
+interface RuntimeSceneConfig {
+    objects?: RuntimeSceneObjectConfig[]
+    controlledObjectId?: string
+    targetObjectId?: string
+    cruiseSpeed?: number
+    intentDistance?: number
+}
+
+type PlayCanvasManifestRow = {
+    runtime_manifest: unknown
+}
+
+const normalizeRuntimeSceneObject = (value: unknown): RuntimeSceneObjectConfig | null => {
+    const record = toRoomOptionRecord(value)
+    const id = typeof record.id === 'string' && record.id.trim() ? record.id.trim().slice(0, 128) : null
+    const position = toBoundedVector(record.position)
+    const scale = toBoundedVector(record.scale)
+    if (!id || !position || !scale) {
+        return null
+    }
+    return {
+        id,
+        position,
+        scale,
+        guard: record.guard === true
+    }
+}
+
+const normalizeRuntimeSceneConfig = (value: unknown): RuntimeSceneConfig | null => {
+    const record = toRoomOptionRecord(value)
+    const objects = Array.isArray(record.objects)
+        ? record.objects
+              .map(normalizeRuntimeSceneObject)
+              .filter((object): object is RuntimeSceneObjectConfig => Boolean(object))
+              .slice(0, 64)
+        : []
+    if (!objects.length) {
+        return null
+    }
+    const objectIds = new Set(objects.map((object) => object.id))
+    const controlledObjectId =
+        typeof record.controlledObjectId === 'string' && objectIds.has(record.controlledObjectId) ? record.controlledObjectId : undefined
+    const targetObjectId =
+        typeof record.targetObjectId === 'string' && objectIds.has(record.targetObjectId) ? record.targetObjectId : undefined
+    return {
+        objects,
+        controlledObjectId,
+        targetObjectId,
+        cruiseSpeed: Number.isFinite(record.cruiseSpeed) ? Number(record.cruiseSpeed) : undefined,
+        intentDistance: Number.isFinite(record.intentDistance) ? Number(record.intentDistance) : undefined
+    }
+}
+
+const readRuntimeSceneFromManifest = (manifest: unknown): RuntimeSceneConfig | null => {
+    const parsed = playCanvasRuntimeManifestSchema.safeParse(manifest)
+    if (!parsed.success) {
+        return null
+    }
+    const metadata = toRoomOptionRecord(parsed.data.metadata)
+    const mmoomm = toRoomOptionRecord(metadata.mmoomm)
+    return normalizeRuntimeSceneConfig(mmoomm.scene)
+}
+
+const loadPublishedRuntimeSceneConfig = async (
+    executor: DbExecutor,
+    schemaName: string,
+    binding: {
+        projectId: string
+        sceneId?: string | null
+        checksum: string
+    }
+): Promise<RuntimeSceneConfig> => {
+    const rows = await executor.query<PlayCanvasManifestRow>(
+        `
+        SELECT runtime_manifest
+        FROM ${qSchemaTable(schemaName, '_app_playcanvas_manifests')}
+        WHERE _upl_deleted = false
+          AND _app_deleted = false
+          AND source_project_id = $1
+          AND (($2::uuid IS NULL AND source_scene_id IS NULL) OR source_scene_id = $2::uuid)
+          AND manifest_checksum = $3
+        ORDER BY source_scene_id ASC NULLS FIRST
+        LIMIT 1
+        `,
+        [binding.projectId, binding.sceneId ?? null, binding.checksum]
+    )
+    const scene = readRuntimeSceneFromManifest(rows[0]?.runtime_manifest)
+    if (!scene?.objects?.length) {
+        throw Object.assign(new Error('Realtime published scene is not available'), { statusCode: 404 })
+    }
+    return scene
+}
+
 const loadRoomOptionsFromApplicationSchema = async (
     executor: DbExecutor,
     params: {
@@ -392,8 +510,11 @@ const loadRoomOptionsFromApplicationSchema = async (
             ? parsed.data.serverModuleCodename.trim()
             : null
 
-    const sceneObjects = parsed.data.scene?.objects?.length
-        ? parsed.data.scene.objects.map((object) => ({
+    const resolvedScene = parsed.data.runtimeManifest
+        ? await loadPublishedRuntimeSceneConfig(executor, application.schemaName, parsed.data.runtimeManifest)
+        : parsed.data.scene ?? null
+    const sceneObjects = resolvedScene?.objects?.length
+        ? resolvedScene.objects.map((object) => ({
               id: object.id,
               position: object.position,
               scale: object.scale,
@@ -403,7 +524,7 @@ const loadRoomOptionsFromApplicationSchema = async (
               { id: 'controlled', position: DEFAULT_POSITION, scale: { x: 12, y: 4, z: 4 }, guard: false },
               { id: 'target', position: DEFAULT_TARGET_OBJECT, scale: { x: 48, y: 16, z: 16 }, guard: true }
           ]
-    const controlledObjectId = parsed.data.scene?.controlledObjectId ?? sceneObjects[0]?.id ?? 'controlled'
+    const controlledObjectId = resolvedScene?.controlledObjectId ?? sceneObjects[0]?.id ?? 'controlled'
     const targetObjects: Record<string, RealtimeVector3> = {}
     const guardBoxes: Array<{ center: RealtimeVector3; halfExtents: RealtimeVector3 }> = []
 
@@ -471,7 +592,7 @@ const loadRoomOptionsFromApplicationSchema = async (
                         accessMode: params.accessMode,
                         widgetId: rows[0].widgetId,
                         workspaceId: params.workspaceId ?? null,
-                        scene: parsed.data.scene ?? null
+                        scene: resolvedScene
                     }
                 ]
             })
@@ -519,12 +640,7 @@ const loadRoomOptionsFromApplicationSchema = async (
         spawnSafetyMargin: clampNumber(moduleRoomOptions.spawnSafetyMargin, DEFAULT_ROOM_OPTIONS.spawnSafetyMargin, 0, 1000),
         spawnMaxAttempts: Math.floor(clampNumber(moduleRoomOptions.spawnMaxAttempts, DEFAULT_ROOM_OPTIONS.spawnMaxAttempts, 1, 10000)),
         spawnRingSpacing: clampNumber(moduleRoomOptions.spawnRingSpacing, DEFAULT_ROOM_OPTIONS.spawnRingSpacing, 1, 10000),
-        cruiseSpeed: clampNumber(
-            moduleRoomOptions.cruiseSpeed,
-            parsed.data.scene?.cruiseSpeed ?? DEFAULT_ROOM_OPTIONS.cruiseSpeed,
-            1,
-            1000
-        ),
+        cruiseSpeed: clampNumber(moduleRoomOptions.cruiseSpeed, resolvedScene?.cruiseSpeed ?? DEFAULT_ROOM_OPTIONS.cruiseSpeed, 1, 1000),
         acceleration: clampNumber(moduleRoomOptions.acceleration, DEFAULT_ROOM_OPTIONS.acceleration, 1, 1000),
         deceleration: clampNumber(moduleRoomOptions.deceleration, DEFAULT_ROOM_OPTIONS.deceleration, 1, 1000),
         arrivalRadius: clampNumber(moduleRoomOptions.arrivalRadius, DEFAULT_ROOM_OPTIONS.arrivalRadius, 0.1, 100),
@@ -851,7 +967,7 @@ const readRoomAuthSignaturePayload = (options: FixedTickSceneRoomOptions): Recor
 }
 
 const signRoomAuthOptions = (options: FixedTickSceneRoomOptions): string =>
-    createHmac('sha256', ROOM_AUTH_SIGNATURE_SECRET)
+    createHmac('sha256', requireRoomAuthSignatureSecret())
         .update(stableStringify(readRoomAuthSignaturePayload(options)) ?? '{}')
         .digest('hex')
 
@@ -1645,12 +1761,18 @@ export interface ApplicationsRealtimeRuntimeHandle {
     matchmakeMiddleware: RequestHandler
 }
 
+export interface ApplicationsRealtimeRuntimeUpgradeOptions {
+    shouldHandleUpgrade?: (request: IncomingMessage) => boolean
+    isOriginAllowed?: (request: IncomingMessage) => boolean
+}
+
 export const __applicationsRealtimeRuntimeTestUtils = {
     MAX_MESSAGES_PER_SECOND_PER_CLIENT,
     createFixedTickSceneRoom,
     loadRoomOptionsFromApplicationSchema,
     parseMovementIntent,
     parseRoomOptions,
+    resolveRoomAuthSignatureSecret,
     selectRealtimeDbExecutor,
     signRoomAuthOptions,
     setRuntimeAccessValidatorForTests: (validator: RuntimeAccessValidator | null) => {
@@ -1660,8 +1782,9 @@ export const __applicationsRealtimeRuntimeTestUtils = {
 
 export const attachApplicationsRealtimeRuntime = async (
     server: HttpServer,
-    options: { shouldHandleUpgrade?: (request: IncomingMessage) => boolean } = {}
+    options: ApplicationsRealtimeRuntimeUpgradeOptions = {}
 ): Promise<ApplicationsRealtimeRuntimeHandle> => {
+    roomAuthSignatureSecret = resolveRoomAuthSignatureSecret()
     const { WebSocketTransport } = requireModule('@colyseus/ws-transport') as {
         WebSocketTransport: new (options: { server: HttpServer }) => Transport
     }
@@ -1672,44 +1795,55 @@ export const attachApplicationsRealtimeRuntime = async (
     }
     const roomName = 'fixed_tick_scene'
     const upgradeListeners = new Map<(...args: unknown[]) => void, (...args: unknown[]) => void>()
-    const filteredServer = options.shouldHandleUpgrade
-        ? new Proxy(server, {
-              get(target, prop, receiver) {
-                  if (prop === 'on' || prop === 'addListener') {
-                      return (event: string, listener: (...args: unknown[]) => void) => {
-                          if (event !== 'upgrade') {
-                              target.on(event, listener)
+    const rejectUpgrade = (socket: Socket | undefined) => {
+        if (!socket || socket.destroyed) return
+        socket.destroy()
+    }
+
+    const filteredServer =
+        options.shouldHandleUpgrade || options.isOriginAllowed
+            ? new Proxy(server, {
+                  get(target, prop, receiver) {
+                      if (prop === 'on' || prop === 'addListener') {
+                          return (event: string, listener: (...args: unknown[]) => void) => {
+                              if (event !== 'upgrade') {
+                                  target.on(event, listener)
+                                  return receiver
+                              }
+                              const wrapped = (...args: unknown[]) => {
+                                  const [request, socket, head] = args
+                                  const incomingRequest = request as IncomingMessage
+                                  if (options.shouldHandleUpgrade?.(incomingRequest) === false) return
+                                  if (options.isOriginAllowed?.(incomingRequest) === false) {
+                                      rejectUpgrade(socket as Socket | undefined)
+                                      return
+                                  }
+                                  listener(request, socket, head)
+                              }
+                              upgradeListeners.set(listener, wrapped)
+                              target.on('upgrade', wrapped)
                               return receiver
                           }
-                          const wrapped = (...args: unknown[]) => {
-                              const [request, socket, head] = args
-                              if (options.shouldHandleUpgrade?.(request as IncomingMessage) === false) return
-                              listener(request, socket, head)
-                          }
-                          upgradeListeners.set(listener, wrapped)
-                          target.on('upgrade', wrapped)
-                          return receiver
                       }
-                  }
-                  if (prop === 'off' || prop === 'removeListener') {
-                      return (event: string, listener: (...args: unknown[]) => void) => {
-                          if (event !== 'upgrade') {
-                              target.removeListener(event, listener)
+                      if (prop === 'off' || prop === 'removeListener') {
+                          return (event: string, listener: (...args: unknown[]) => void) => {
+                              if (event !== 'upgrade') {
+                                  target.removeListener(event, listener)
+                                  return receiver
+                              }
+                              const wrapped = upgradeListeners.get(listener)
+                              if (wrapped) {
+                                  target.removeListener('upgrade', wrapped)
+                                  upgradeListeners.delete(listener)
+                              }
                               return receiver
                           }
-                          const wrapped = upgradeListeners.get(listener)
-                          if (wrapped) {
-                              target.removeListener('upgrade', wrapped)
-                              upgradeListeners.delete(listener)
-                          }
-                          return receiver
                       }
+                      const value = Reflect.get(target, prop, receiver)
+                      return typeof value === 'function' ? value.bind(target) : value
                   }
-                  const value = Reflect.get(target, prop, receiver)
-                  return typeof value === 'function' ? value.bind(target) : value
-              }
-          })
-        : server
+              })
+            : server
 
     const gameServer = new Server({
         transport: new WebSocketTransport({ server: filteredServer }),

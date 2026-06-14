@@ -57,7 +57,7 @@ import { EventBindingService } from '../../entities/services/EventBindingService
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { enrichDefinitionsWithValueGroupFixedValues } from '../../shared/valueGroupFixedValueRefs'
-import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
+import { alignPlayCanvasRuntimeManifestBindings, attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('Publications')
@@ -541,6 +541,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
+        alignPlayCanvasRuntimeManifestBindings(snapshot)
         const snapshotHash = serializer.calculateHash(snapshot)
 
         const result = await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
@@ -1294,6 +1295,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId: metahubId ?? publication.metahubId, userId })
+        alignPlayCanvasRuntimeManifestBindings(snapshot)
         const snapshotHash = serializer.calculateHash(snapshot)
 
         const lastVersion = existingVersions[0] ?? null

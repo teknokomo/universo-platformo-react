@@ -55,12 +55,17 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.union([jsonPrimitiveSchema, z.array(jsonValueSchema).max(5000), z.record(z.string().max(160), jsonValueSchema)])
 )
 
+const sceneEntityVector3Schema = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()])
+
 const sceneEntitySchema = z
     .object({
         id: z.string().min(1).max(160),
         name: z.string().max(255).optional(),
         parentId: z.string().min(1).max(160).nullable().optional(),
         enabled: z.boolean().optional(),
+        position: sceneEntityVector3Schema.optional(),
+        rotation: sceneEntityVector3Schema.optional(),
+        scale: sceneEntityVector3Schema.optional(),
         components: z.record(z.string().max(80), jsonValueSchema).optional(),
         children: z.array(z.string().min(1).max(160)).max(512).optional()
     })
@@ -223,7 +228,7 @@ const playCanvasEditorProtocolBaseSchema = z
             .strict(),
         shareDb: z
             .object({
-                requiredCollections: z.tuple([z.literal('scenes'), z.literal('assets'), z.literal('settings')]),
+                requiredCollections: z.tuple([z.literal('scenes'), z.literal('assets'), z.literal('settings'), z.literal('user_data')]),
                 persisted: z.literal(false),
                 persistence: z.literal('not-implemented'),
                 sceneStorage: z.literal('metahub-playcanvas-project-storage')
@@ -272,7 +277,7 @@ export const playCanvasEditorFullBootProtocolDescriptorSchema = playCanvasEditor
         .strict(),
     shareDb: z
         .object({
-            requiredCollections: z.tuple([z.literal('scenes'), z.literal('assets'), z.literal('settings')]),
+            requiredCollections: z.tuple([z.literal('scenes'), z.literal('assets'), z.literal('settings'), z.literal('user_data')]),
             persisted: z.literal(true),
             persistence: z.enum(['snapshot-port', 'document-op-store']),
             sceneStorage: z.literal('metahub-playcanvas-project-storage')
@@ -322,6 +327,58 @@ export const playCanvasEditorCompatibilityAssetSummarySchema = z
     })
     .strict()
 
+export const playCanvasEditorCompatibilitySourceFileSummarySchema = z
+    .object({
+        id: z.string().min(1).max(160),
+        path: z.string().min(1).max(512),
+        filename: z.string().min(1).max(512).optional(),
+        name: z.string().min(1).max(255),
+        hash: sha256Schema.nullable().optional(),
+        size: z.number().int().nonnegative().max(PLAYCANVAS_PROJECT_FILE_MAX_BYTES).nullable().optional(),
+        mime: z.string().min(1).max(120).nullable().optional(),
+        updatedAt: z.string().datetime().nullable().optional()
+    })
+    .strict()
+
+export type PlayCanvasEditorCompatibilitySourceFileSummary = z.infer<typeof playCanvasEditorCompatibilitySourceFileSummarySchema>
+
+export const playCanvasEditorCompatibilitySourceFileParamsSchema = playCanvasEditorCompatibilityParamsSchema
+    .extend({
+        sourceFileId: z.string().min(1).max(160)
+    })
+    .strict()
+
+export const playCanvasEditorCompatibilitySourceFileDocumentSchema = playCanvasEditorCompatibilitySourceFileSummarySchema
+    .extend({
+        content: z.string().max(PLAYCANVAS_PROJECT_FILE_MAX_BYTES)
+    })
+    .strict()
+
+export type PlayCanvasEditorCompatibilitySourceFileDocument = z.infer<typeof playCanvasEditorCompatibilitySourceFileDocumentSchema>
+
+export const playCanvasEditorCompatibilitySourceFileWriteRequestSchema = z
+    .object({
+        requestId: requestIdSchema,
+        path: z.string().min(1).max(512),
+        name: z.string().min(1).max(255).optional(),
+        content: z.string().max(PLAYCANVAS_PROJECT_FILE_MAX_BYTES),
+        expectedCurrentChecksum: sha256Schema.nullable().optional()
+    })
+    .strict()
+
+export type PlayCanvasEditorCompatibilitySourceFileWriteRequest = z.infer<typeof playCanvasEditorCompatibilitySourceFileWriteRequestSchema>
+
+export const playCanvasEditorCompatibilitySourceFileDeleteRequestSchema = z
+    .object({
+        requestId: requestIdSchema,
+        expectedCurrentChecksum: sha256Schema.nullable().optional()
+    })
+    .strict()
+
+export type PlayCanvasEditorCompatibilitySourceFileDeleteRequest = z.infer<
+    typeof playCanvasEditorCompatibilitySourceFileDeleteRequestSchema
+>
+
 export const playCanvasEditorCompatibilitySceneSummarySchema = z
     .object({
         id: uuidSchema,
@@ -353,6 +410,7 @@ export const playCanvasEditorCompatibilityConfigSchema = z
             .object({
                 scenes: z.string().min(1),
                 assets: z.string().min(1),
+                sourcefiles: z.string().min(1),
                 settings: z.string().min(1),
                 cloudOnly: z.string().min(1)
             })

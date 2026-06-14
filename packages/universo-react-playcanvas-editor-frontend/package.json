@@ -11,6 +11,7 @@
     "sideEffects": false,
     "private": true,
     "scripts": {
+        "build": "pnpm editor:build",
         "clean": "rimraf dist build .tmp coverage",
         "editor:build": "node scripts/build-editor.mjs",
         "editor:serve": "node scripts/serve-editor.mjs",

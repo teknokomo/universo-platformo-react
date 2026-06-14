@@ -92,6 +92,8 @@ pnpm start:local-supabase
 
 Заменяются только локальные Supabase/PostgreSQL значения, `NODE_ENV`, `UNIVERSO_ENV_TARGET` и безопасные отсутствующие значения по умолчанию. Остальные настройки приложения, включая `BOOTSTRAP_SUPERUSER_ENABLED`, ограничения частоты запросов, флаги сброса, административные переключатели, настройки хранилища и функциональные флаги, сохраняются из базового env-файла. Переопределения Postgres/Auth только для удалённого Supabase, например `DATABASE_SSL_KEY_BASE64`, `SUPABASE_JWKS_URL` и `SUPABASE_JWT_ISSUER` очищаются для локального Supabase.
 
+Application realtime WebSocket upgrades строже, чем HTTP CORS. Настройте `APPLICATION_REALTIME_WS_ORIGINS` явным comma-separated списком origins, например `http://127.0.0.1:3100,http://localhost:3100`. Wildcard origins для WebSocket upgrades отклоняются.
+
 Для полной пересборки и сброса базы на локальном Supabase используйте `pnpm start:allclean:local-supabase`. Скрипт поднимает локальный стек Supabase, запускает `doctor:local-supabase` и явно передаёт `UNIVERSO_ENV_FILE`, поэтому `.env` файлы удалённого Supabase не меняются.
 
 Когда приложению нужны только локальная база данных, Auth, REST API, service-role Admin API и Studio, используйте минимальные команды запуска. Они пропускают контейнеры realtime, storage, imgproxy, edge runtime, logflare и vector, но сохраняют тот же сгенерированный профиль окружения и те же doctor-проверки:

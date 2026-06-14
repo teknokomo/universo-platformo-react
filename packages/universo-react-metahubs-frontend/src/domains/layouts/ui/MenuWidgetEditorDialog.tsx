@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -518,6 +518,7 @@ export default function MenuWidgetEditorDialog({
     const uiLocale = normalizeLocale(i18n.language)
     const isEdit = Boolean(config)
     const dialogTitle = isEdit ? t('layouts.menuEditor.editTitle') : t('layouts.menuEditor.createTitle')
+    const workspacePlacementLabelId = useId()
 
     const defaultTitle = useMemo(
         () => buildVLC(t('layouts.menuEditor.defaultTitle', 'Main'), t('layouts.menuEditor.defaultTitleRu', 'Основное')),
@@ -770,10 +771,11 @@ export default function MenuWidgetEditorDialog({
                                             )}
                                         />
                                         <FormControl fullWidth size='small'>
-                                            <InputLabel>
+                                            <InputLabel id={workspacePlacementLabelId}>
                                                 {t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}
                                             </InputLabel>
                                             <Select
+                                                labelId={workspacePlacementLabelId}
                                                 value={draft.workspacePlacement ?? 'primary'}
                                                 label={t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}
                                                 onChange={(event) =>

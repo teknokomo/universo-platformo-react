@@ -1,0 +1,5476 @@
+{
+  "kind": "metahub_snapshot_bundle",
+  "bundleVersion": 1,
+  "exportedAt": "2026-06-13T12:13:31.933Z",
+  "metahub": {
+    "id": "019ec0e4-a3ce-757f-a657-d543613d1596",
+    "name": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "Universo MMOOMM",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "1970-01-01T00:00:00.000Z",
+          "updatedAt": "1970-01-01T00:00:00.000Z"
+        },
+        "ru": {
+          "content": "Universo MMOOMM",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "1970-01-01T00:00:00.000Z",
+          "updatedAt": "1970-01-01T00:00:00.000Z"
+        }
+      },
+      "_primary": "en"
+    },
+    "description": {
+      "_schema": "1",
+      "locales": {
+        "en": {
+          "content": "Browser-authored MMOOMM metahub with PlayCanvas Editor authoring data and Colyseus runtime.",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "1970-01-01T00:00:00.000Z",
+          "updatedAt": "1970-01-01T00:00:00.000Z"
+        },
+        "ru": {
+          "content": "Созданный через браузер метахаб MMOOMM с данными PlayCanvas Editor и runtime Colyseus.",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "1970-01-01T00:00:00.000Z",
+          "updatedAt": "1970-01-01T00:00:00.000Z"
+        }
+      },
+      "_primary": "en"
+    },
+    "codename": {
+      "_schema": "1",
+      "_primary": "en",
+      "locales": {
+        "en": {
+          "content": "UniversoMmoomm",
+          "version": 1,
+          "isActive": true,
+          "createdAt": "2026-06-13T12:13:31.928Z",
+          "updatedAt": "2026-06-13T12:13:31.928Z"
+        }
+      }
+    }
+  },
+  "snapshot": {
+    "version": 1,
+    "metahubId": "019ec0e4-a3ce-757f-a657-d543613d1596",
+    "entities": {
+      "019ec0e4-a60f-7012-99a1-0ab743dfbb4c": {
+        "id": "019ec0e4-a60f-7012-99a1-0ab743dfbb4c",
+        "kind": "hub",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.733Z",
+              "updatedAt": "2026-06-13T12:11:10.733Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.733Z",
+              "updatedAt": "2026-06-13T12:11:10.733Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main hub for organizing metahub content",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной хаб для организации контента метахаба",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "hub"
+          },
+          "sortOrder": 1,
+          "parentTreeEntityId": null,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "dataSchema": false,
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": false,
+            "ledgerSchema": false,
+            "optionValues": false,
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": false,
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e4-a62b-7de7-bb0d-48ce73c55635": {
+        "id": "019ec0e4-a62b-7de7-bb0d-48ce73c55635",
+        "kind": "enumeration",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.762Z",
+              "updatedAt": "2026-06-13T12:11:10.762Z"
+            },
+            "ru": {
+              "content": "Основное",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.762Z",
+              "updatedAt": "2026-06-13T12:11:10.762Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "enum_019ec0e4a62b7de7bb0d48ce73c55635",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основное",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main enumeration for fixed values",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основное перечисление для фиксированных значений",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "enumeration"
+          },
+          "sortOrder": 1,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "dataSchema": false,
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": false,
+            "ledgerSchema": false,
+            "optionValues": {
+              "enabled": true
+            },
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e5-b7ce-7116-8a24-99b22b1823f5": {
+        "id": "019ec0e5-b7ce-7116-8a24-99b22b1823f5",
+        "kind": "enumeration",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "MovementCommands",
+              "version": 3,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:12:20.436Z",
+              "updatedAt": "2026-06-13T12:12:20.810Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "enum_019ec0e5b7ce71168a2499b22b1823f5",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Movement Commands",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:20.814Z",
+                "updatedAt": "2026-06-13T12:12:20.814Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {}
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "enumeration"
+          },
+          "hubs": [],
+          "sortOrder": 2,
+          "isSingleHub": false,
+          "isRequiredHub": false,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "dataSchema": false,
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": false,
+            "ledgerSchema": false,
+            "optionValues": {
+              "enabled": true
+            },
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e4-a614-7f88-8c77-27a7589a8f19": {
+        "id": "019ec0e4-a614-7f88-8c77-27a7589a8f19",
+        "kind": "object",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.739Z",
+              "updatedAt": "2026-06-13T12:11:10.739Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.739Z",
+              "updatedAt": "2026-06-13T12:11:10.739Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "obj_019ec0e4a6147f888c7727a7589a8f19",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main object for storing records",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной объект для хранения записей",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "recordBehavior": {
+            "mode": "reference",
+            "posting": {
+              "mode": "disabled",
+              "targetLedgers": []
+            },
+            "lifecycle": {
+              "states": [],
+              "enabled": false
+            },
+            "numbering": {
+              "scope": "workspace",
+              "enabled": false,
+              "minLength": 6,
+              "periodicity": "none"
+            },
+            "immutability": "none",
+            "effectiveDate": {
+              "enabled": false,
+              "defaultToNow": true
+            }
+          },
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "object"
+          },
+          "sortOrder": 1,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": {
+              "enabled": true,
+              "allowManualPosting": true,
+              "allowAutomaticPosting": true
+            },
+            "records": {
+              "enabled": true
+            },
+            "hierarchy": {
+              "enabled": true,
+              "supportsFolders": true
+            },
+            "relations": {
+              "enabled": true,
+              "allowedRelationTypes": [
+                "manyToOne"
+              ]
+            },
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": {
+              "enabled": true,
+              "allowManualFacts": true,
+              "allowProjections": true,
+              "allowRegistrarPolicy": true
+            },
+            "optionValues": false,
+            "physicalTable": {
+              "prefix": "obj",
+              "enabled": true
+            },
+            "identityFields": {
+              "enabled": true,
+              "allowNumber": true,
+              "allowEffectiveDate": true
+            },
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": {
+              "enabled": true,
+              "allowCustomStates": true
+            },
+            "runtimeBehavior": {
+              "enabled": true
+            },
+            "nestedCollections": false
+          }
+        },
+        "fields": [
+          {
+            "id": "019ec0e4-a62f-790a-9272-5104d00cd03f",
+            "codename": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Title",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:11:10.766Z",
+                  "updatedAt": "2026-06-13T12:11:10.766Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayComponent": true,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Title",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {
+              "maxLength": 255
+            },
+            "uiConfig": {
+              "isDisplay": true
+            },
+            "sortOrder": 1
+          },
+          {
+            "id": "019ec0e4-a631-7ad5-9099-9a4e1b982147",
+            "codename": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Description",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:11:10.769Z",
+                  "updatedAt": "2026-06-13T12:11:10.769Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayComponent": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Description",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Описание",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          }
+        ],
+        "hubs": []
+      },
+      "019ec0e5-9e43-7004-92ce-c768aaac2108": {
+        "id": "019ec0e5-9e43-7004-92ce-c768aaac2108",
+        "kind": "object",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "FlightWorld",
+              "version": 4,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:12:13.550Z",
+              "updatedAt": "2026-06-13T12:12:14.267Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "obj_019ec0e59e43700492cec768aaac2108",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Space",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:14.275Z",
+                "updatedAt": "2026-06-13T12:12:14.275Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {}
+        },
+        "config": {
+          "recordBehavior": {
+            "mode": "reference",
+            "posting": {
+              "mode": "disabled",
+              "targetLedgers": []
+            },
+            "lifecycle": {
+              "states": [],
+              "enabled": false
+            },
+            "numbering": {
+              "scope": "workspace",
+              "enabled": false,
+              "minLength": 6,
+              "periodicity": "none"
+            },
+            "immutability": "none",
+            "effectiveDate": {
+              "enabled": false,
+              "defaultToNow": true
+            }
+          },
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "object"
+          },
+          "hubs": [],
+          "sortOrder": 2,
+          "isSingleHub": false,
+          "isRequiredHub": false,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": {
+              "enabled": true,
+              "allowManualPosting": true,
+              "allowAutomaticPosting": true
+            },
+            "records": {
+              "enabled": true
+            },
+            "hierarchy": {
+              "enabled": true,
+              "supportsFolders": true
+            },
+            "relations": {
+              "enabled": true,
+              "allowedRelationTypes": [
+                "manyToOne"
+              ]
+            },
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": {
+              "enabled": true,
+              "allowManualFacts": true,
+              "allowProjections": true,
+              "allowRegistrarPolicy": true
+            },
+            "optionValues": false,
+            "physicalTable": {
+              "prefix": "obj",
+              "enabled": true
+            },
+            "identityFields": {
+              "enabled": true,
+              "allowNumber": true,
+              "allowEffectiveDate": true
+            },
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": {
+              "enabled": true,
+              "allowCustomStates": true
+            },
+            "runtimeBehavior": {
+              "enabled": true
+            },
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e5-a865-709b-97a8-85db73770430": {
+        "id": "019ec0e5-a865-709b-97a8-85db73770430",
+        "kind": "object",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "FlightShip",
+              "version": 3,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:12:16.303Z",
+              "updatedAt": "2026-06-13T12:12:16.864Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "obj_019ec0e5a865709b97a885db73770430",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Flight Ship",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:16.869Z",
+                "updatedAt": "2026-06-13T12:12:16.869Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {}
+        },
+        "config": {
+          "recordBehavior": {
+            "mode": "reference",
+            "posting": {
+              "mode": "disabled",
+              "targetLedgers": []
+            },
+            "lifecycle": {
+              "states": [],
+              "enabled": false
+            },
+            "numbering": {
+              "scope": "workspace",
+              "enabled": false,
+              "minLength": 6,
+              "periodicity": "none"
+            },
+            "immutability": "none",
+            "effectiveDate": {
+              "enabled": false,
+              "defaultToNow": true
+            }
+          },
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "object"
+          },
+          "hubs": [],
+          "sortOrder": 3,
+          "isSingleHub": false,
+          "isRequiredHub": false,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": {
+              "enabled": true,
+              "allowManualPosting": true,
+              "allowAutomaticPosting": true
+            },
+            "records": {
+              "enabled": true
+            },
+            "hierarchy": {
+              "enabled": true,
+              "supportsFolders": true
+            },
+            "relations": {
+              "enabled": true,
+              "allowedRelationTypes": [
+                "manyToOne"
+              ]
+            },
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": {
+              "enabled": true,
+              "allowManualFacts": true,
+              "allowProjections": true,
+              "allowRegistrarPolicy": true
+            },
+            "optionValues": false,
+            "physicalTable": {
+              "prefix": "obj",
+              "enabled": true
+            },
+            "identityFields": {
+              "enabled": true,
+              "allowNumber": true,
+              "allowEffectiveDate": true
+            },
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": {
+              "enabled": true,
+              "allowCustomStates": true
+            },
+            "runtimeBehavior": {
+              "enabled": true
+            },
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e5-b054-76bb-a474-e5ac2604a82d": {
+        "id": "019ec0e5-b054-76bb-a474-e5ac2604a82d",
+        "kind": "object",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "FlightStation",
+              "version": 3,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:12:18.401Z",
+              "updatedAt": "2026-06-13T12:12:18.895Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "obj_019ec0e5b05476bba474e5ac2604a82d",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Flight Station",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:18.900Z",
+                "updatedAt": "2026-06-13T12:12:18.900Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {}
+        },
+        "config": {
+          "recordBehavior": {
+            "mode": "reference",
+            "posting": {
+              "mode": "disabled",
+              "targetLedgers": []
+            },
+            "lifecycle": {
+              "states": [],
+              "enabled": false
+            },
+            "numbering": {
+              "scope": "workspace",
+              "enabled": false,
+              "minLength": 6,
+              "periodicity": "none"
+            },
+            "immutability": "none",
+            "effectiveDate": {
+              "enabled": false,
+              "defaultToNow": true
+            }
+          },
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "object"
+          },
+          "hubs": [],
+          "sortOrder": 4,
+          "isSingleHub": false,
+          "isRequiredHub": false,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": {
+              "enabled": true,
+              "allowManualPosting": true,
+              "allowAutomaticPosting": true
+            },
+            "records": {
+              "enabled": true
+            },
+            "hierarchy": {
+              "enabled": true,
+              "supportsFolders": true
+            },
+            "relations": {
+              "enabled": true,
+              "allowedRelationTypes": [
+                "manyToOne"
+              ]
+            },
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": {
+              "enabled": true,
+              "allowManualFacts": true,
+              "allowProjections": true,
+              "allowRegistrarPolicy": true
+            },
+            "optionValues": false,
+            "physicalTable": {
+              "prefix": "obj",
+              "enabled": true
+            },
+            "identityFields": {
+              "enabled": true,
+              "allowNumber": true,
+              "allowEffectiveDate": true
+            },
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": {
+              "enabled": true,
+              "allowCustomStates": true
+            },
+            "runtimeBehavior": {
+              "enabled": true
+            },
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e4-a611-7d72-a564-85449c8ece06": {
+        "id": "019ec0e4-a611-7d72-a564-85449c8ece06",
+        "kind": "page",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "WelcomePage",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.736Z",
+              "updatedAt": "2026-06-13T12:11:10.736Z"
+            },
+            "ru": {
+              "content": "ДоброПожаловать",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.736Z",
+              "updatedAt": "2026-06-13T12:11:10.736Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Welcome",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Добро пожаловать",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Starter page with structured block content.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стартовая страница со структурированным блочным контентом.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "page"
+          },
+          "runtime": {
+            "routeSegment": "welcome",
+            "menuVisibility": "visible"
+          },
+          "sortOrder": 1,
+          "blockContent": {
+            "data": {
+              "time": 1781352764445,
+              "blocks": [
+                {
+                  "id": "welcome-title",
+                  "data": {
+                    "text": {
+                      "_schema": "1",
+                      "locales": {
+                        "en": {
+                          "content": "Welcome to Universo MMOOMM",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        },
+                        "ru": {
+                          "content": "Добро пожаловать",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        }
+                      },
+                      "_primary": "en"
+                    },
+                    "level": 2
+                  },
+                  "type": "header"
+                },
+                {
+                  "id": "welcome-body",
+                  "data": {
+                    "text": {
+                      "_schema": "1",
+                      "locales": {
+                        "en": {
+                          "content": "Use this page to publish structured application content.",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        },
+                        "ru": {
+                          "content": "Используйте эту страницу для публикации структурированного контента приложения.",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        }
+                      },
+                      "_primary": "en"
+                    }
+                  },
+                  "type": "paragraph"
+                }
+              ],
+              "version": "2.31.6"
+            },
+            "format": "editorjs"
+          },
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "dataSchema": false,
+            "fixedValues": false,
+            "blockContent": {
+              "enabled": true,
+              "storage": "objectConfig",
+              "maxBlocks": 500,
+              "defaultFormat": "editorjs",
+              "supportedFormats": [
+                "editorjs"
+              ],
+              "allowedBlockTypes": [
+                "paragraph",
+                "header",
+                "list",
+                "quote",
+                "table",
+                "image",
+                "embed",
+                "delimiter"
+              ]
+            },
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": false,
+            "optionValues": false,
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true,
+              "isSingleHub": false,
+              "isRequiredHub": false
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": {
+              "enabled": true
+            },
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e4-a629-7c88-964b-81741e0495b1": {
+        "id": "019ec0e4-a629-7c88-964b-81741e0495b1",
+        "kind": "set",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.760Z",
+              "updatedAt": "2026-06-13T12:11:10.760Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:11:10.760Z",
+              "updatedAt": "2026-06-13T12:11:10.760Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "set_019ec0e4a6297c88964b81741e0495b1",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main set for storing constants and typed values",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной набор для хранения констант и типизированных значений",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "set"
+          },
+          "sortOrder": 1,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": {
+              "enabled": true
+            },
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": false,
+            "optionValues": false,
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019ec0e5-d909-71e1-9697-62ed01725751": {
+        "id": "019ec0e5-d909-71e1-9697-62ed01725751",
+        "kind": "set",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "FlightSimulationConstants",
+              "version": 3,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:12:28.896Z",
+              "updatedAt": "2026-06-13T12:12:29.318Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "set_019ec0e5d90971e1969762ed01725751",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Flight Simulation Constants",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:29.321Z",
+                "updatedAt": "2026-06-13T12:12:29.321Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {}
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "set"
+          },
+          "hubs": [],
+          "sortOrder": 2,
+          "isSingleHub": false,
+          "isRequiredHub": false,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "modules": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": {
+              "enabled": true
+            },
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": false,
+            "optionValues": false,
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      }
+    },
+    "entityTypeDefinitions": {
+      "enumeration": {
+        "id": "019ec0e4-a5ef-7429-a7b6-114be575b46f",
+        "kindKey": "enumeration",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Enumeration",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Enumeration",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Enumerations",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Перечисления",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard enumeration entity type for enumerated values and design-time automation.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип перечисления для перечислимых значений и design-time автоматизации.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование перечисления",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать перечисление",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать перечисление",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить перечисление",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "capabilities": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "modules": {
+            "enabled": true
+          },
+          "posting": false,
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "dataSchema": false,
+          "fixedValues": false,
+          "blockContent": false,
+          "layoutConfig": false,
+          "ledgerSchema": false,
+          "optionValues": {
+            "enabled": true
+          },
+          "physicalTable": false,
+          "identityFields": false,
+          "treeAssignment": {
+            "enabled": true
+          },
+          "recordLifecycle": false,
+          "runtimeBehavior": false,
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconFiles",
+          "tabs": [
+            "general",
+            "hubs",
+            "modules"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 50,
+          "nameKey": "metahubs:enumerations.title",
+          "resourceSurfaces": [
+            {
+              "key": "optionValues",
+              "capability": "optionValues",
+              "routeSegment": "values",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Values",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Значения",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "titleKey": "metahubs:optionValues.resourceTabTitle",
+              "fallbackTitle": "Values"
+            }
+          ],
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "enumeration"
+          }
+        },
+        "published": true
+      },
+      "hub": {
+        "id": "019ec0e4-a5dd-7a36-a561-d54520b2c5a4",
+        "kindKey": "hub",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Hub",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Hub",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Hubs",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Хабы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard hub entity type for organizing metahub content with design-time automation hooks.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип хаба для организации контента метахаба и design-time автоматизации.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование хаба",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "capabilities": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "modules": {
+            "enabled": true
+          },
+          "posting": false,
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "dataSchema": false,
+          "fixedValues": false,
+          "blockContent": false,
+          "layoutConfig": false,
+          "ledgerSchema": false,
+          "optionValues": false,
+          "physicalTable": false,
+          "identityFields": false,
+          "treeAssignment": false,
+          "recordLifecycle": false,
+          "runtimeBehavior": false,
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconHierarchy",
+          "tabs": [
+            "general"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 10,
+          "nameKey": "metahubs:hubs.title"
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "hub"
+          }
+        },
+        "published": true
+      },
+      "object": {
+        "id": "019ec0e4-a5e6-77c5-ad85-4e76197f4b6b",
+        "kindKey": "object",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Object",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Object",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Objects",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Объекты",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard object entity type with schema, hierarchy, references, modules, and runtime layout support.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип объекта со схемой, иерархией, связями, модулями и поддержкой runtime layout.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование объекта",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать объект",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать объект",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить объект",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "capabilities": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "modules": {
+            "enabled": true
+          },
+          "posting": {
+            "enabled": true,
+            "allowManualPosting": true,
+            "allowAutomaticPosting": true
+          },
+          "records": {
+            "enabled": true
+          },
+          "hierarchy": {
+            "enabled": true,
+            "supportsFolders": true
+          },
+          "relations": {
+            "enabled": true,
+            "allowedRelationTypes": [
+              "manyToOne"
+            ]
+          },
+          "dataSchema": {
+            "enabled": true
+          },
+          "fixedValues": false,
+          "blockContent": false,
+          "layoutConfig": {
+            "enabled": true
+          },
+          "ledgerSchema": {
+            "enabled": true,
+            "allowManualFacts": true,
+            "allowProjections": true,
+            "allowRegistrarPolicy": true
+          },
+          "optionValues": false,
+          "physicalTable": {
+            "prefix": "obj",
+            "enabled": true
+          },
+          "identityFields": {
+            "enabled": true,
+            "allowNumber": true,
+            "allowEffectiveDate": true
+          },
+          "treeAssignment": {
+            "enabled": true
+          },
+          "recordLifecycle": {
+            "enabled": true,
+            "allowCustomStates": true
+          },
+          "runtimeBehavior": {
+            "enabled": true
+          },
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconDatabase",
+          "tabs": [
+            "behavior",
+            "general",
+            "hubs",
+            "layout",
+            "ledgerSchema",
+            "modules"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 30,
+          "nameKey": "metahubs:objects.title",
+          "resourceSurfaces": [
+            {
+              "key": "components",
+              "capability": "dataSchema",
+              "routeSegment": "components",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Components",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Компоненты",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "titleKey": "metahubs:components.resourceTabTitle",
+              "fallbackTitle": "Components"
+            }
+          ],
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "config": {
+          "recordBehavior": {
+            "mode": "reference",
+            "posting": {
+              "mode": "disabled",
+              "targetLedgers": []
+            },
+            "lifecycle": {
+              "states": [],
+              "enabled": false
+            },
+            "numbering": {
+              "scope": "workspace",
+              "enabled": false,
+              "minLength": 6,
+              "periodicity": "none"
+            },
+            "immutability": "none",
+            "effectiveDate": {
+              "enabled": false,
+              "defaultToNow": true
+            }
+          },
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "object"
+          }
+        },
+        "published": true
+      },
+      "page": {
+        "id": "019ec0e4-a5e2-7060-9cce-79780498d91d",
+        "kindKey": "page",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Page",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Page",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Pages",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Страницы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard page entity type for structured block content stored on metadata objects.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип страницы для структурированного блочного контента, хранящегося в объектах метаданных.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование страницы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать страницу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать страницу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить страницу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "capabilities": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "modules": {
+            "enabled": true
+          },
+          "posting": false,
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "dataSchema": false,
+          "fixedValues": false,
+          "blockContent": {
+            "enabled": true,
+            "storage": "objectConfig",
+            "maxBlocks": 500,
+            "defaultFormat": "editorjs",
+            "supportedFormats": [
+              "editorjs"
+            ],
+            "allowedBlockTypes": [
+              "paragraph",
+              "header",
+              "list",
+              "quote",
+              "table",
+              "image",
+              "embed",
+              "delimiter"
+            ]
+          },
+          "layoutConfig": {
+            "enabled": true
+          },
+          "ledgerSchema": false,
+          "optionValues": false,
+          "physicalTable": false,
+          "identityFields": false,
+          "treeAssignment": {
+            "enabled": true,
+            "isSingleHub": false,
+            "isRequiredHub": false
+          },
+          "recordLifecycle": false,
+          "runtimeBehavior": {
+            "enabled": true
+          },
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconFileText",
+          "tabs": [
+            "content",
+            "general",
+            "hubs",
+            "layout",
+            "modules"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 20,
+          "nameKey": "metahubs:pages.title",
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "page"
+          }
+        },
+        "published": true
+      },
+      "set": {
+        "id": "019ec0e4-a5eb-7df3-be61-70c95c2bedfe",
+        "kindKey": "set",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Set",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Set",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Sets",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Наборы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard set entity type for typed fixed values and design-time automation.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип набора для типизированных фиксированных значений и design-time автоматизации.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование набора",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать набор",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать набор",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить набор",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "capabilities": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "modules": {
+            "enabled": true
+          },
+          "posting": false,
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "dataSchema": {
+            "enabled": true
+          },
+          "fixedValues": {
+            "enabled": true
+          },
+          "blockContent": false,
+          "layoutConfig": {
+            "enabled": true
+          },
+          "ledgerSchema": false,
+          "optionValues": false,
+          "physicalTable": false,
+          "identityFields": false,
+          "treeAssignment": {
+            "enabled": true
+          },
+          "recordLifecycle": false,
+          "runtimeBehavior": false,
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconStack2",
+          "tabs": [
+            "general",
+            "hubs",
+            "modules"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 40,
+          "nameKey": "metahubs:sets.title",
+          "resourceSurfaces": [
+            {
+              "key": "fixedValues",
+              "capability": "fixedValues",
+              "routeSegment": "fixed-values",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Constants",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Константы",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "titleKey": "metahubs:fixedValues.resourceTabTitle",
+              "fallbackTitle": "Constants"
+            }
+          ],
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "config": {
+          "systemTemplatePreset": {
+            "source": "entity_type_preset",
+            "managed": true,
+            "presetCodename": "set"
+          }
+        },
+        "published": true
+      }
+    },
+    "fixedValues": {
+      "019ec0e4-a629-7c88-964b-81741e0495b1": [
+        {
+          "id": "019ec0e4-a62d-71c9-bcbb-4525b3ea13d2",
+          "objectId": "019ec0e4-a629-7c88-964b-81741e0495b1",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "AppName",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:11:10.764Z",
+                "updatedAt": "2026-06-13T12:11:10.764Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dataType": "STRING",
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Application Name",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Название приложения",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "validationRules": {},
+          "uiConfig": {},
+          "value": "My Application",
+          "sortOrder": 1
+        }
+      ],
+      "019ec0e5-d909-71e1-9697-62ed01725751": [
+        {
+          "id": "019ec0e5-e493-7e4c-abc9-1790f6840dc9",
+          "objectId": "019ec0e5-d909-71e1-9697-62ed01725751",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "CruiseSpeedMetersPerSecond",
+                "version": 4,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:31.042Z",
+                "updatedAt": "2026-06-13T12:12:32.269Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dataType": "NUMBER",
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cruise speed, m/s",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:12:32.269Z",
+                  "updatedAt": "2026-06-13T12:12:32.269Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "validationRules": {
+            "scale": 0,
+            "precision": 10,
+            "nonNegative": false
+          },
+          "uiConfig": {},
+          "value": 36,
+          "sortOrder": 1
+        },
+        {
+          "id": "019ec0e5-f0b6-7809-b285-99967fc56bf8",
+          "objectId": "019ec0e5-d909-71e1-9697-62ed01725751",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "AccelerationMetersPerSecond2",
+                "version": 4,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:34.132Z",
+                "updatedAt": "2026-06-13T12:12:35.377Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dataType": "NUMBER",
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Acceleration, m/s2",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:12:35.377Z",
+                  "updatedAt": "2026-06-13T12:12:35.377Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "validationRules": {
+            "scale": 0,
+            "precision": 10,
+            "nonNegative": false
+          },
+          "uiConfig": {},
+          "value": 48,
+          "sortOrder": 2
+        },
+        {
+          "id": "019ec0e5-fcd9-73cc-b8b9-45cd32f055fc",
+          "objectId": "019ec0e5-d909-71e1-9697-62ed01725751",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "DecelerationMetersPerSecond2",
+                "version": 4,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:37.281Z",
+                "updatedAt": "2026-06-13T12:12:38.484Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dataType": "NUMBER",
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Deceleration, m/s2",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:12:38.485Z",
+                  "updatedAt": "2026-06-13T12:12:38.485Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "validationRules": {
+            "scale": 0,
+            "precision": 10,
+            "nonNegative": false
+          },
+          "uiConfig": {},
+          "value": 48,
+          "sortOrder": 3
+        },
+        {
+          "id": "019ec0e6-0a04-76b5-8bce-e2e846fc4e99",
+          "objectId": "019ec0e5-d909-71e1-9697-62ed01725751",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "ArrivalRadiusMeters",
+                "version": 4,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:40.477Z",
+                "updatedAt": "2026-06-13T12:12:41.852Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dataType": "NUMBER",
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Arrival radius, m",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:12:41.852Z",
+                  "updatedAt": "2026-06-13T12:12:41.852Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "validationRules": {
+            "scale": 0,
+            "precision": 10,
+            "nonNegative": false
+          },
+          "uiConfig": {},
+          "value": null,
+          "sortOrder": 4
+        }
+      ]
+    },
+    "optionValues": {
+      "019ec0e4-a62b-7de7-bb0d-48ce73c55635": [
+        {
+          "id": "019ec0e4-a634-798f-95b9-cd97342e5080",
+          "objectId": "019ec0e4-a62b-7de7-bb0d-48ce73c55635",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Active",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:11:10.772Z",
+                "updatedAt": "2026-06-13T12:11:10.772Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Active",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Активный",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "sortOrder": 1,
+          "isDefault": true
+        },
+        {
+          "id": "019ec0e4-a636-7c75-88cc-3cb3f23955a3",
+          "objectId": "019ec0e4-a62b-7de7-bb0d-48ce73c55635",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Inactive",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:11:10.774Z",
+                "updatedAt": "2026-06-13T12:11:10.774Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Inactive",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Неактивный",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "sortOrder": 2,
+          "isDefault": false
+        }
+      ],
+      "019ec0e5-b7ce-7116-8a24-99b22b1823f5": [
+        {
+          "id": "019ec0e5-bfc6-7f0f-a22e-4a97dc2cbc06",
+          "objectId": "019ec0e5-b7ce-7116-8a24-99b22b1823f5",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "MoveToPoint",
+                "version": 3,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:22.317Z",
+                "updatedAt": "2026-06-13T12:12:22.841Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Move to point",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:12:22.841Z",
+                  "updatedAt": "2026-06-13T12:12:22.841Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "sortOrder": 1,
+          "isDefault": true
+        },
+        {
+          "id": "019ec0e5-c7de-7414-a248-f1fdc2b9055d",
+          "objectId": "019ec0e5-b7ce-7116-8a24-99b22b1823f5",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "MoveToObject",
+                "version": 3,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:24.570Z",
+                "updatedAt": "2026-06-13T12:12:24.921Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Move to object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:12:24.921Z",
+                  "updatedAt": "2026-06-13T12:12:24.921Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "sortOrder": 2,
+          "isDefault": false
+        },
+        {
+          "id": "019ec0e5-d00c-7236-8abf-9c0e000fb2a9",
+          "objectId": "019ec0e5-b7ce-7116-8a24-99b22b1823f5",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Stop",
+                "version": 3,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:26.577Z",
+                "updatedAt": "2026-06-13T12:12:27.014Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Stop",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-06-13T12:12:27.014Z",
+                  "updatedAt": "2026-06-13T12:12:27.014Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "sortOrder": 3,
+          "isDefault": false
+        }
+      ]
+    },
+    "systemFields": {
+      "019ec0e4-a614-7f88-8c77-27a7589a8f19": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019ec0e5-9e43-7004-92ce-c768aaac2108": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019ec0e5-a865-709b-97a8-85db73770430": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      },
+      "019ec0e5-b054-76bb-a474-e5ac2604a82d": {
+        "fields": [
+          {
+            "key": "app.published",
+            "enabled": true
+          },
+          {
+            "key": "app.published_at",
+            "enabled": true
+          },
+          {
+            "key": "app.published_by",
+            "enabled": true
+          },
+          {
+            "key": "app.archived",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "app.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "app.deleted_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.archived_by",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_at",
+            "enabled": true
+          },
+          {
+            "key": "upl.deleted_by",
+            "enabled": true
+          }
+        ],
+        "lifecycleContract": {
+          "publish": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "archive": {
+            "enabled": true,
+            "trackAt": true,
+            "trackBy": true
+          },
+          "delete": {
+            "mode": "soft",
+            "trackAt": true,
+            "trackBy": true
+          }
+        }
+      }
+    },
+    "modules": [
+      {
+        "id": "019ec0e6-3677-75fd-8952-040c0af0a95b",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "fixed-tick-flight-runtime",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:12:53.238Z",
+              "updatedAt": "2026-06-13T12:12:53.238Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Fixed Tick Flight Runtime",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:53.125Z",
+                "updatedAt": "2026-06-13T12:12:53.125Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "attachedToKind": "metahub",
+        "attachedToId": null,
+        "moduleRole": "module",
+        "sourceKind": "embedded",
+        "sdkApiVersion": "1.0.0",
+        "sourceCode": "import { ExtensionModule, AtServer } from '@universo-react/extension-sdk'\n\nexport default class MmoommAuthoritativeFlightRuntime extends ExtensionModule {\n    @AtServer()\n    async createRealtimeRoomOptions(params) {\n        const scene = params && typeof params === 'object' && params.scene ? params.scene : null\n        const ship = Array.isArray(scene?.objects) ? scene.objects.find((item) => item?.id === scene.controlledObjectId) : null\n        const station = Array.isArray(scene?.objects) ? scene.objects.find((item) => item?.id === scene.targetObjectId) : null\n        const initialPosition = ship?.position ?? { x: 0, y: 0, z: 0 }\n        const targetPosition = station?.position ?? { x: 72, y: 0, z: -48 }\n        const shipScale = ship?.scale ?? { x: 12, y: 4, z: 4 }\n        const stationScale = station?.scale ?? { x: 48, y: 16, z: 16 }\n        return {\n            initialPosition,\n            targetObjects: { [scene?.targetObjectId ?? 'station']: targetPosition },\n            controlledHalfExtents: { x: Math.abs(shipScale.x) / 2, y: Math.abs(shipScale.y) / 2, z: Math.abs(shipScale.z) / 2 },\n            guardBoxes: [\n                {\n                    center: targetPosition,\n                    halfExtents: { x: Math.abs(stationScale.x) / 2, y: Math.abs(stationScale.y) / 2, z: Math.abs(stationScale.z) / 2 }\n                }\n            ],\n            cruiseSpeed: scene?.cruiseSpeed ?? 36,\n            acceleration: 48,\n            deceleration: 48,\n            arrivalRadius: 0.5,\n            spawnSafetyMargin: 8,\n            spawnMaxAttempts: 64,\n            spawnRingSpacing: 24\n        }\n    }\n}",
+        "sourceStorage": {
+          "mode": "inline",
+          "path": null,
+          "checksum": "e4672aa019da882ba65c2cbe8ae9f4924cf609152f843b86f8f4ace75af4e045",
+          "status": "inline",
+          "lastReadAt": null,
+          "lastCompileAt": "2026-06-13T12:12:53.238Z",
+          "lastCompileStatus": "success",
+          "lastCompileMessageCode": null
+        },
+        "manifest": {
+          "className": "MmoommAuthoritativeFlightRuntime",
+          "sdkApiVersion": "1.0.0",
+          "moduleRole": "module",
+          "sourceKind": "embedded",
+          "capabilities": [
+            "metadata.read"
+          ],
+          "methods": [
+            {
+              "name": "createRealtimeRoomOptions",
+              "target": "server",
+              "eventName": null
+            }
+          ],
+          "checksum": "219c9d3724d76cdeb6595ee8b1eb0f79b0b2caccc43df2d4030c7f454737299a"
+        },
+        "serverBundle": "const __universoFragment = 'Fragment'; const __universoJsx = (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } });\nvar __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-module.ts\nvar extension_module_exports = {};\n__export(extension_module_exports, {\n  default: () => MmoommAuthoritativeFlightRuntime\n});\nmodule.exports = __toCommonJS(extension_module_exports);\n\n// ../../universo-react-extension-sdk/src/decorators.ts\nvar createNoopDecorator = () => () => void 0;\nvar AtServer = () => createNoopDecorator();\n\n// ../../universo-react-extension-sdk/src/ExtensionModule.ts\nvar ExtensionModule = class {\n};\n\n// extension-module.ts\nvar MmoommAuthoritativeFlightRuntime = class extends ExtensionModule {\n  async createRealtimeRoomOptions(params) {\n    const scene = params && typeof params === \"object\" && params.scene ? params.scene : null;\n    const ship = Array.isArray(scene?.objects) ? scene.objects.find((item) => item?.id === scene.controlledObjectId) : null;\n    const station = Array.isArray(scene?.objects) ? scene.objects.find((item) => item?.id === scene.targetObjectId) : null;\n    const initialPosition = ship?.position ?? { x: 0, y: 0, z: 0 };\n    const targetPosition = station?.position ?? { x: 72, y: 0, z: -48 };\n    const shipScale = ship?.scale ?? { x: 12, y: 4, z: 4 };\n    const stationScale = station?.scale ?? { x: 48, y: 16, z: 16 };\n    return {\n      initialPosition,\n      targetObjects: { [scene?.targetObjectId ?? \"station\"]: targetPosition },\n      controlledHalfExtents: { x: Math.abs(shipScale.x) / 2, y: Math.abs(shipScale.y) / 2, z: Math.abs(shipScale.z) / 2 },\n      guardBoxes: [\n        {\n          center: targetPosition,\n          halfExtents: { x: Math.abs(stationScale.x) / 2, y: Math.abs(stationScale.y) / 2, z: Math.abs(stationScale.z) / 2 }\n        }\n      ],\n      cruiseSpeed: scene?.cruiseSpeed ?? 36,\n      acceleration: 48,\n      deceleration: 48,\n      arrivalRadius: 0.5,\n      spawnSafetyMargin: 8,\n      spawnMaxAttempts: 64,\n      spawnRingSpacing: 24\n    };\n  }\n};\n__decorateClass([\n  AtServer()\n], MmoommAuthoritativeFlightRuntime.prototype, \"createRealtimeRoomOptions\", 1);\n",
+        "clientBundle": "const __universoFragment = 'Fragment'; const __universoJsx = (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } });\nvar __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-module.ts\nvar extension_module_exports = {};\n__export(extension_module_exports, {\n  default: () => MmoommAuthoritativeFlightRuntime\n});\nmodule.exports = __toCommonJS(extension_module_exports);\n\n// ../../universo-react-extension-sdk/src/decorators.ts\nvar createNoopDecorator = () => () => void 0;\nvar AtServer = () => createNoopDecorator();\n\n// ../../universo-react-extension-sdk/src/ExtensionModule.ts\nvar ExtensionModule = class {\n};\n\n// extension-module.ts\nvar MmoommAuthoritativeFlightRuntime = class extends ExtensionModule {\n  async createRealtimeRoomOptions(params) {\n    return this.ctx.callServerMethod(\"createRealtimeRoomOptions\", Array.from(arguments));\n  }\n};\n__decorateClass([\n  AtServer()\n], MmoommAuthoritativeFlightRuntime.prototype, \"createRealtimeRoomOptions\", 1);\n",
+        "checksum": "219c9d3724d76cdeb6595ee8b1eb0f79b0b2caccc43df2d4030c7f454737299a",
+        "isActive": true,
+        "config": {}
+      },
+      {
+        "id": "019ec0e6-2579-7e85-95e2-79e6bff562d6",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "flight-canvas-widget",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-06-13T12:12:48.878Z",
+              "updatedAt": "2026-06-13T12:12:48.878Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Flight Canvas Widget",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:12:48.715Z",
+                "updatedAt": "2026-06-13T12:12:48.715Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "attachedToKind": "metahub",
+        "attachedToId": null,
+        "moduleRole": "widget",
+        "sourceKind": "embedded",
+        "sdkApiVersion": "1.0.0",
+        "sourceCode": "import { ExtensionModule, AtClient } from '@universo-react/extension-sdk'\nimport { createMoveToPointIntent, createStopIntent } from '@universo-react/colyseus-client'\nimport { createAabbFromCenterAndSize } from '@universo-react/playcanvas-engine'\n\nexport default class MmoommPlayCanvasRuntimeWidget extends ExtensionModule {\n    @AtClient()\n    async mount(params) {\n        const scene = params && typeof params === 'object' && params.scene ? params.scene : null\n        return {\n            scene,\n            moveToPoint: createMoveToPointIntent({ x: 72, y: 0, z: -48 }, 1),\n            stop: createStopIntent(2),\n            stationBounds: createAabbFromCenterAndSize({ x: 72, y: 0, z: -48 }, { x: 48, y: 16, z: 16 })\n        }\n    }\n}",
+        "sourceStorage": {
+          "mode": "inline",
+          "path": null,
+          "checksum": "37787c54ac22efacedcd03c65d74576373c976b2e3ce02a4a41181efaad364f4",
+          "status": "inline",
+          "lastReadAt": null,
+          "lastCompileAt": "2026-06-13T12:12:48.878Z",
+          "lastCompileStatus": "success",
+          "lastCompileMessageCode": null
+        },
+        "manifest": {
+          "className": "MmoommPlayCanvasRuntimeWidget",
+          "sdkApiVersion": "1.0.0",
+          "moduleRole": "widget",
+          "sourceKind": "embedded",
+          "capabilities": [
+            "metadata.read",
+            "rpc.client"
+          ],
+          "methods": [
+            {
+              "name": "mount",
+              "target": "client",
+              "eventName": null
+            }
+          ],
+          "packageImports": [
+            {
+              "packageName": "@universo-react/colyseus-client",
+              "version": "0.1.0",
+              "targets": [
+                "client"
+              ]
+            },
+            {
+              "packageName": "@universo-react/playcanvas-engine",
+              "version": "0.1.0",
+              "targets": [
+                "client"
+              ]
+            }
+          ],
+          "checksum": "3dc9a6e05fcfafbf76b8d069ebf0fc0a41a665ff0526fd11812bf822eb34b9bf"
+        },
+        "serverBundle": "const __universoFragment = 'Fragment'; const __universoJsx = (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } });\nvar __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-module.ts\nvar extension_module_exports = {};\n__export(extension_module_exports, {\n  default: () => MmoommPlayCanvasRuntimeWidget\n});\nmodule.exports = __toCommonJS(extension_module_exports);\n\n// ../../universo-react-extension-sdk/src/decorators.ts\nvar createNoopDecorator = () => () => void 0;\nvar AtClient = () => createNoopDecorator();\n\n// ../../universo-react-extension-sdk/src/ExtensionModule.ts\nvar ExtensionModule = class {\n};\n\n// extension-module.ts\nvar MmoommPlayCanvasRuntimeWidget = class extends ExtensionModule {\n  async mount(params) {\n    throw new Error('Client-only method \"mount\" is unavailable in the server bundle');\n  }\n};\n__decorateClass([\n  AtClient()\n], MmoommPlayCanvasRuntimeWidget.prototype, \"mount\", 1);\n",
+        "clientBundle": "const __universoFragment = 'Fragment'; const __universoJsx = (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } });\nvar __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-module.ts\nvar extension_module_exports = {};\n__export(extension_module_exports, {\n  default: () => MmoommPlayCanvasRuntimeWidget\n});\nmodule.exports = __toCommonJS(extension_module_exports);\n\n// ../../universo-react-extension-sdk/src/decorators.ts\nvar createNoopDecorator = () => () => void 0;\nvar AtClient = () => createNoopDecorator();\n\n// ../../universo-react-extension-sdk/src/ExtensionModule.ts\nvar ExtensionModule = class {\n};\n\n// extension-module.ts\nvar import_colyseus_client = require(\"@universo-react/colyseus-client\");\nvar import_playcanvas_engine = require(\"@universo-react/playcanvas-engine\");\nvar MmoommPlayCanvasRuntimeWidget = class extends ExtensionModule {\n  async mount(params) {\n    const scene = params && typeof params === \"object\" && params.scene ? params.scene : null;\n    return {\n      scene,\n      moveToPoint: (0, import_colyseus_client.createMoveToPointIntent)({ x: 72, y: 0, z: -48 }, 1),\n      stop: (0, import_colyseus_client.createStopIntent)(2),\n      stationBounds: (0, import_playcanvas_engine.createAabbFromCenterAndSize)({ x: 72, y: 0, z: -48 }, { x: 48, y: 16, z: 16 })\n    };\n  }\n};\n__decorateClass([\n  AtClient()\n], MmoommPlayCanvasRuntimeWidget.prototype, \"mount\", 1);\n",
+        "checksum": "3dc9a6e05fcfafbf76b8d069ebf0fc0a41a665ff0526fd11812bf822eb34b9bf",
+        "isActive": true,
+        "config": {}
+      }
+    ],
+    "layouts": [
+      {
+        "id": "019ec0e4-a5f4-7a9a-b687-de5bc01549cf",
+        "templateKey": "dashboard",
+        "name": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "description": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main layout for published applications",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Основной макет для опубликованных приложений",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "config": {
+          "showFooter": false,
+          "showHeader": true,
+          "showSearch": false,
+          "showSideMenu": true,
+          "showAppNavbar": true,
+          "showDatePicker": false,
+          "showBreadcrumbs": false,
+          "showOptionsMenu": false,
+          "showProductTree": false,
+          "showDetailsTable": false,
+          "showDetailsTitle": false,
+          "showOverviewCards": false,
+          "showOverviewTitle": false,
+          "showRightSideMenu": false,
+          "showSessionsChart": false,
+          "showPageViewsChart": false,
+          "showColumnsContainer": false,
+          "showLanguageSwitcher": false,
+          "showUsersByCountryChart": false
+        },
+        "isActive": true,
+        "isDefault": true,
+        "sortOrder": 0
+      }
+    ],
+    "layoutZoneWidgets": [
+      {
+        "id": "019ec0e6-7ac2-7311-a2ee-1e9e989ef007",
+        "layoutId": "019ec0e4-a5f4-7a9a-b687-de5bc01549cf",
+        "zone": "center",
+        "widgetKey": "playcanvasCanvas",
+        "sortOrder": 1,
+        "config": {
+          "title": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Universo MMOOMM",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:13:06.688Z",
+                "updatedAt": "2026-06-13T12:13:06.688Z"
+              },
+              "ru": {
+                "content": "Universo MMOOMM",
+                "version": 2,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:13:07.648Z",
+                "updatedAt": "2026-06-13T12:13:07.731Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "minHeight": 560,
+          "heightMode": "fitViewport",
+          "visibleFor": {
+            "sectionIds": [
+              "019ec0e5-9e43-7004-92ce-c768aaac2108"
+            ],
+            "sectionCodenames": [
+              "FlightWorld"
+            ]
+          },
+          "moduleCodename": "flight-canvas-widget",
+          "runtimeManifest": {
+            "source": "publishedManifest",
+            "sceneId": "019ec0e4-bba2-7b58-83e2-cc3c4eefe167",
+            "checksum": "aac90a77009b29ef680be762510799b11fe7ef1f4dc0065b0372a9cff62b651e",
+            "projectId": "019ec0e4-bba1-74ae-ad8d-3b64ae25f6f0",
+            "failClosed": true
+          },
+          "serverModuleCodename": "fixed-tick-flight-runtime"
+        },
+        "isActive": true
+      },
+      {
+        "id": "019ec0e6-6767-7425-9d16-3b8b16f2f3dd",
+        "layoutId": "019ec0e4-a5f4-7a9a-b687-de5bc01549cf",
+        "zone": "left",
+        "widgetKey": "menuWidget",
+        "sortOrder": 1,
+        "config": {
+          "items": [
+            {
+              "id": "019ec0e6-5e53-7fbc-9e65-31754cdb56b4",
+              "href": null,
+              "icon": "home",
+              "kind": "section",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Welcome",
+                    "version": 2,
+                    "isActive": true,
+                    "createdAt": "2026-06-13T12:12:57.102Z",
+                    "updatedAt": "2026-06-13T12:13:01.964Z"
+                  },
+                  "ru": {
+                    "content": "Добро пожаловать",
+                    "version": 2,
+                    "isActive": true,
+                    "createdAt": "2026-06-13T12:13:02.471Z",
+                    "updatedAt": "2026-06-13T12:13:02.554Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "isActive": true,
+              "sectionId": "WelcomePage",
+              "sortOrder": 1,
+              "treeEntityId": null,
+              "objectCollectionId": "WelcomePage"
+            },
+            {
+              "id": "019ec0e6-63e9-7753-94c4-9e3e7c87e102",
+              "href": null,
+              "icon": "rocket",
+              "kind": "section",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Space",
+                    "version": 3,
+                    "isActive": true,
+                    "createdAt": "2026-06-13T12:12:57.102Z",
+                    "updatedAt": "2026-06-13T12:13:04.065Z"
+                  },
+                  "ru": {
+                    "content": "Космос",
+                    "version": 3,
+                    "isActive": true,
+                    "createdAt": "2026-06-13T12:13:02.471Z",
+                    "updatedAt": "2026-06-13T12:13:04.182Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "isActive": true,
+              "sectionId": "FlightWorld",
+              "sortOrder": 2,
+              "treeEntityId": null,
+              "objectCollectionId": "FlightWorld"
+            }
+          ],
+          "title": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Navigation",
+                "version": 2,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:13:00.033Z",
+                "updatedAt": "2026-06-13T12:13:00.251Z"
+              },
+              "ru": {
+                "content": "Навигация",
+                "version": 2,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:13:00.737Z",
+                "updatedAt": "2026-06-13T12:13:00.822Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "bindToHub": false,
+          "showTitle": true,
+          "startPage": "WelcomePage",
+          "maxPrimaryItems": 6,
+          "overflowLabelKey": "runtime.menu.more",
+          "boundTreeEntityId": null,
+          "workspacePlacement": "hidden",
+          "autoShowAllSections": false
+        },
+        "isActive": true
+      },
+      {
+        "id": "019ec0e4-a63c-7a9c-86da-bf25bd2dcf5f",
+        "layoutId": "019ec0e4-a5f4-7a9a-b687-de5bc01549cf",
+        "zone": "top",
+        "widgetKey": "appNavbar",
+        "sortOrder": 1,
+        "config": {},
+        "isActive": true
+      },
+      {
+        "id": "019ec0e4-a63d-7342-ba35-454e5fdb782e",
+        "layoutId": "019ec0e4-a5f4-7a9a-b687-de5bc01549cf",
+        "zone": "top",
+        "widgetKey": "header",
+        "sortOrder": 2,
+        "config": {},
+        "isActive": true
+      }
+    ],
+    "defaultLayoutId": "019ec0e4-a5f4-7a9a-b687-de5bc01549cf",
+    "layoutConfig": {
+      "showFooter": false,
+      "showHeader": true,
+      "showSearch": false,
+      "showSideMenu": true,
+      "showAppNavbar": true,
+      "showDatePicker": false,
+      "showBreadcrumbs": false,
+      "showOptionsMenu": false,
+      "showProductTree": false,
+      "showDetailsTable": false,
+      "showDetailsTitle": false,
+      "showOverviewCards": false,
+      "showOverviewTitle": false,
+      "showRightSideMenu": false,
+      "showSessionsChart": false,
+      "showPageViewsChart": false,
+      "showColumnsContainer": false,
+      "showLanguageSwitcher": false,
+      "showUsersByCountryChart": false
+    },
+    "settings": [
+      {
+        "key": "entity.object.allowComponentCopy",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "entity.object.allowComponentDelete",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "entity.object.allowDeleteLastDisplayComponent",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameAllowMixedAlphabets",
+        "value": {
+          "_value": false
+        }
+      },
+      {
+        "key": "general.codenameAlphabet",
+        "value": {
+          "_value": "en-ru"
+        }
+      },
+      {
+        "key": "general.codenameAutoConvertMixedAlphabets",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameAutoReformat",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameRequireReformat",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameStyle",
+        "value": {
+          "_value": "pascal-case"
+        }
+      },
+      {
+        "key": "general.language",
+        "value": {
+          "_value": "system"
+        }
+      },
+      {
+        "key": "general.timezone",
+        "value": {
+          "_value": "UTC"
+        }
+      },
+      {
+        "key": "system.templatePresetToggles",
+        "value": {
+          "_value": {
+            "hub": true,
+            "set": true,
+            "page": true,
+            "object": true,
+            "enumeration": true
+          }
+        }
+      }
+    ],
+    "generatedAt": "2026-06-13T12:13:31.885Z",
+    "versionEnvelope": {
+      "structureVersion": "0.1.0",
+      "templateVersion": null,
+      "snapshotFormatVersion": 3
+    },
+    "packages": [
+      {
+        "packageName": "@universo-react/colyseus-client",
+        "version": "0.1.0",
+        "source": {
+          "kind": "workspace",
+          "importName": "@universo-react/colyseus-client",
+          "packageName": "@universo-react/colyseus-client",
+          "runtimeTargets": [
+            "client"
+          ],
+          "upstreamVersion": "0.17.42",
+          "upstreamPackageName": "@colyseus/sdk"
+        },
+        "config": {
+          "kind": "none",
+          "schemaVersion": "1"
+        }
+      },
+      {
+        "packageName": "@universo-react/colyseus-server",
+        "version": "0.1.0",
+        "source": {
+          "kind": "workspace",
+          "importName": "@universo-react/colyseus-server",
+          "packageName": "@universo-react/colyseus-server",
+          "runtimeTargets": [
+            "server"
+          ],
+          "upstreamVersion": "0.17.43",
+          "upstreamPackageName": "@colyseus/core"
+        },
+        "config": {
+          "kind": "none",
+          "schemaVersion": "1"
+        }
+      },
+      {
+        "packageName": "@universo-react/playcanvas-editor-frontend",
+        "version": "0.1.0",
+        "source": {
+          "kind": "workspace",
+          "importName": "@universo-react/playcanvas-editor-frontend",
+          "packageName": "@universo-react/playcanvas-editor-frontend",
+          "runtimeTargets": [],
+          "upstreamVersion": "2026-06-05-vendor",
+          "upstreamPackageName": "playcanvas-editor"
+        },
+        "config": {
+          "kind": "display",
+          "display": {
+            "mode": "openSeparately",
+            "developmentUrl": null,
+            "showArtifactOnlyNotice": true
+          },
+          "schemaVersion": "1",
+          "playcanvasProject": {
+            "defaultProjectId": "019ec0e4-bba1-74ae-ad8d-3b64ae25f6f0"
+          }
+        }
+      },
+      {
+        "packageName": "@universo-react/playcanvas-engine",
+        "version": "0.1.0",
+        "source": {
+          "kind": "workspace",
+          "importName": "@universo-react/playcanvas-engine",
+          "packageName": "@universo-react/playcanvas-engine",
+          "runtimeTargets": [
+            "client"
+          ],
+          "upstreamVersion": "2.18.1",
+          "upstreamPackageName": "playcanvas"
+        },
+        "config": {
+          "kind": "none",
+          "schemaVersion": "1"
+        }
+      }
+    ],
+    "playcanvasProjects": {
+      "schemaVersion": 1,
+      "projects": [
+        {
+          "schemaVersion": "1",
+          "id": "019ec0e4-bba1-74ae-ad8d-3b64ae25f6f0",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "mmoomm_authoring",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:11:16.256Z",
+                "updatedAt": "2026-06-13T12:11:16.256Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "displayName": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "MMOOMM Authoring",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:11:16.238Z",
+                "updatedAt": "2026-06-13T12:11:16.238Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": null,
+          "packageRef": {
+            "packageName": "@universo-react/playcanvas-editor-frontend",
+            "version": "0.1.0",
+            "compatibilityStatus": "compatible",
+            "compatibilityNotes": {}
+          },
+          "settings": {},
+          "defaultSceneId": "019ec0e4-bba2-7b58-83e2-cc3c4eefe167",
+          "publicationConfig": {}
+        }
+      ],
+      "scenes": [
+        {
+          "id": "019ec0e4-bba2-7b58-83e2-cc3c4eefe167",
+          "projectId": "019ec0e4-bba1-74ae-ad8d-3b64ae25f6f0",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "main-scene",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:11:16.258Z",
+                "updatedAt": "2026-06-13T12:11:16.258Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "displayName": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main Scene",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-06-13T12:11:16.258Z",
+                "updatedAt": "2026-06-13T12:11:16.258Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "payloadSchemaVersion": "1",
+          "payload": {
+            "schemaVersion": "1",
+            "settings": {
+              "width": 1280,
+              "height": 720,
+              "useLegacyScripts": false,
+              "id": "project_531450318",
+              "engineV2": true,
+              "scripts": [],
+              "batchGroups": {},
+              "layers": {
+                "0": {
+                  "name": "World",
+                  "opaqueSortMode": 2,
+                  "transparentSortMode": 3
+                },
+                "1": {
+                  "name": "Depth",
+                  "opaqueSortMode": 2,
+                  "transparentSortMode": 3
+                },
+                "2": {
+                  "name": "Skybox",
+                  "opaqueSortMode": 0,
+                  "transparentSortMode": 3
+                },
+                "3": {
+                  "name": "Immediate",
+                  "opaqueSortMode": 0,
+                  "transparentSortMode": 3
+                },
+                "4": {
+                  "name": "UI",
+                  "opaqueSortMode": 1,
+                  "transparentSortMode": 1
+                }
+              },
+              "layerOrder": [
+                {
+                  "layer": 0,
+                  "transparent": false,
+                  "enabled": true
+                },
+                {
+                  "layer": 1,
+                  "transparent": false,
+                  "enabled": true
+                },
+                {
+                  "layer": 2,
+                  "transparent": false,
+                  "enabled": true
+                },
+                {
+                  "layer": 0,
+                  "transparent": true,
+                  "enabled": true
+                },
+                {
+                  "layer": 3,
+                  "transparent": false,
+                  "enabled": true
+                },
+                {
+                  "layer": 3,
+                  "transparent": true,
+                  "enabled": true
+                },
+                {
+                  "layer": 4,
+                  "transparent": true,
+                  "enabled": true
+                }
+              ],
+              "useKeyboard": true,
+              "useMouse": true,
+              "useTouch": true,
+              "useGamepads": false,
+              "i18nAssets": [],
+              "externalScripts": [],
+              "powerPreference": "high-performance",
+              "maxAssetRetries": 0,
+              "enableSharedArrayBuffer": false
+            },
+            "entities": [
+              {
+                "id": "3f5e88ba-2085-4b10-949d-648c69841e0d",
+                "name": "New Entity",
+                "parentId": null,
+                "enabled": true,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ],
+                "components": {},
+                "children": []
+              },
+              {
+                "id": "eac3d8ae-e9e3-4e29-bb72-d68c557ffd38",
+                "name": "MMOOMM Ship",
+                "parentId": null,
+                "enabled": true,
+                "position": [
+                  18,
+                  3,
+                  -9
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  12,
+                  4,
+                  4
+                ],
+                "components": {
+                  "render": {
+                    "enabled": true,
+                    "type": "box",
+                    "asset": null,
+                    "materialAssets": [
+                      null
+                    ],
+                    "layers": [
+                      0
+                    ],
+                    "castShadows": true,
+                    "receiveShadows": true,
+                    "castShadowsLightmap": true,
+                    "lightmapped": false,
+                    "isStatic": false,
+                    "batchGroupId": null,
+                    "rootBone": null
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "191f8d9c-472d-4688-8e94-77c7ea4afd6b",
+                "name": "MMOOMM Station",
+                "parentId": null,
+                "enabled": true,
+                "position": [
+                  72,
+                  0,
+                  -48
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  48,
+                  16,
+                  16
+                ],
+                "components": {
+                  "render": {
+                    "enabled": true,
+                    "type": "box",
+                    "asset": null,
+                    "materialAssets": [
+                      null
+                    ],
+                    "layers": [
+                      0
+                    ],
+                    "castShadows": true,
+                    "receiveShadows": true,
+                    "castShadowsLightmap": true,
+                    "lightmapped": false,
+                    "isStatic": false,
+                    "batchGroupId": null,
+                    "rootBone": null
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "06998fb3-e5e2-4ba5-8658-73bf2f082856",
+                "name": "MMOOMM Key Light",
+                "parentId": null,
+                "enabled": true,
+                "position": [
+                  0,
+                  32,
+                  0
+                ],
+                "rotation": [
+                  45,
+                  45,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ],
+                "components": {
+                  "light": {
+                    "enabled": true,
+                    "type": "directional",
+                    "color": [
+                      1,
+                      1,
+                      1
+                    ],
+                    "intensity": 2,
+                    "castShadows": false,
+                    "isStatic": false,
+                    "bake": false,
+                    "bakeDir": true,
+                    "affectDynamic": true,
+                    "affectLightmapped": false,
+                    "affectSpecularity": true,
+                    "shadowUpdateMode": 2,
+                    "shape": 0,
+                    "shadowType": 0,
+                    "numCascades": 1,
+                    "cascadeDistribution": 0.5,
+                    "vsmBlurMode": 0,
+                    "vsmBlurSize": 5,
+                    "vsmBias": 0.0025,
+                    "penumbraSize": 1,
+                    "penumbraFalloff": 1,
+                    "cookieAsset": null,
+                    "cookieIntensity": 1,
+                    "cookieFalloff": true,
+                    "cookieChannel": "rgb",
+                    "cookieAngle": 0,
+                    "cookieScale": [
+                      1,
+                      1
+                    ],
+                    "cookieOffset": [
+                      0,
+                      0
+                    ],
+                    "layers": [
+                      0
+                    ],
+                    "shadowIntensity": 1
+                  }
+                },
+                "children": []
+              }
+            ],
+            "metadata": {
+              "savedBy": "universo-playcanvas-editor-bridge",
+              "mmoomm": {
+                "scene": {
+                  "controlledObjectId": "eac3d8ae-e9e3-4e29-bb72-d68c557ffd38",
+                  "targetObjectId": "191f8d9c-472d-4688-8e94-77c7ea4afd6b",
+                  "cruiseSpeed": 36,
+                  "intentDistance": 720,
+                  "objects": [
+                    {
+                      "id": "eac3d8ae-e9e3-4e29-bb72-d68c557ffd38",
+                      "position": {
+                        "x": 18,
+                        "y": 3,
+                        "z": -9
+                      },
+                      "scale": {
+                        "x": 12,
+                        "y": 4,
+                        "z": 4
+                      },
+                      "selectable": true
+                    },
+                    {
+                      "id": "191f8d9c-472d-4688-8e94-77c7ea4afd6b",
+                      "position": {
+                        "x": 72,
+                        "y": 0,
+                        "z": -48
+                      },
+                      "scale": {
+                        "x": 48,
+                        "y": 16,
+                        "z": 16
+                      },
+                      "selectable": true,
+                      "guard": true
+                    }
+                  ]
+                },
+                "provenance": {
+                  "authoringFlow": "playcanvas-editor-native-scene"
+                }
+              }
+            }
+          },
+          "payloadFile": {
+            "hash": "58ce3a31714b9081f3279b523e9e34f422cd6c66a8a4e43d00d22e66112a6052",
+            "mime": "application/json",
+            "path": "playcanvas-projects/019ec0e4-bba1-74ae-ad8d-3b64ae25f6f0/scenes/019ec0e4-bba2-7b58-83e2-cc3c4eefe167.json",
+            "root": "playcanvas-projects",
+            "size": 3381,
+            "status": "ready",
+            "provider": "local",
+            "snapshotContentBase64": "eyJzY2hlbWFWZXJzaW9uIjoiMSIsInNldHRpbmdzIjp7IndpZHRoIjoxMjgwLCJoZWlnaHQiOjcyMCwidXNlTGVnYWN5U2NyaXB0cyI6ZmFsc2UsImlkIjoicHJvamVjdF81MzE0NTAzMTgiLCJlbmdpbmVWMiI6dHJ1ZSwic2NyaXB0cyI6W10sImJhdGNoR3JvdXBzIjp7fSwibGF5ZXJzIjp7IjAiOnsibmFtZSI6IldvcmxkIiwib3BhcXVlU29ydE1vZGUiOjIsInRyYW5zcGFyZW50U29ydE1vZGUiOjN9LCIxIjp7Im5hbWUiOiJEZXB0aCIsIm9wYXF1ZVNvcnRNb2RlIjoyLCJ0cmFuc3BhcmVudFNvcnRNb2RlIjozfSwiMiI6eyJuYW1lIjoiU2t5Ym94Iiwib3BhcXVlU29ydE1vZGUiOjAsInRyYW5zcGFyZW50U29ydE1vZGUiOjN9LCIzIjp7Im5hbWUiOiJJbW1lZGlhdGUiLCJvcGFxdWVTb3J0TW9kZSI6MCwidHJhbnNwYXJlbnRTb3J0TW9kZSI6M30sIjQiOnsibmFtZSI6IlVJIiwib3BhcXVlU29ydE1vZGUiOjEsInRyYW5zcGFyZW50U29ydE1vZGUiOjF9fSwibGF5ZXJPcmRlciI6W3sibGF5ZXIiOjAsInRyYW5zcGFyZW50IjpmYWxzZSwiZW5hYmxlZCI6dHJ1ZX0seyJsYXllciI6MSwidHJhbnNwYXJlbnQiOmZhbHNlLCJlbmFibGVkIjp0cnVlfSx7ImxheWVyIjoyLCJ0cmFuc3BhcmVudCI6ZmFsc2UsImVuYWJsZWQiOnRydWV9LHsibGF5ZXIiOjAsInRyYW5zcGFyZW50Ijp0cnVlLCJlbmFibGVkIjp0cnVlfSx7ImxheWVyIjozLCJ0cmFuc3BhcmVudCI6ZmFsc2UsImVuYWJsZWQiOnRydWV9LHsibGF5ZXIiOjMsInRyYW5zcGFyZW50Ijp0cnVlLCJlbmFibGVkIjp0cnVlfSx7ImxheWVyIjo0LCJ0cmFuc3BhcmVudCI6dHJ1ZSwiZW5hYmxlZCI6dHJ1ZX1dLCJ1c2VLZXlib2FyZCI6dHJ1ZSwidXNlTW91c2UiOnRydWUsInVzZVRvdWNoIjp0cnVlLCJ1c2VHYW1lcGFkcyI6ZmFsc2UsImkxOG5Bc3NldHMiOltdLCJleHRlcm5hbFNjcmlwdHMiOltdLCJwb3dlclByZWZlcmVuY2UiOiJoaWdoLXBlcmZvcm1hbmNlIiwibWF4QXNzZXRSZXRyaWVzIjowLCJlbmFibGVTaGFyZWRBcnJheUJ1ZmZlciI6ZmFsc2V9LCJlbnRpdGllcyI6W3siaWQiOiIzZjVlODhiYS0yMDg1LTRiMTAtOTQ5ZC02NDhjNjk4NDFlMGQiLCJuYW1lIjoiTmV3IEVudGl0eSIsInBhcmVudElkIjpudWxsLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMCwwXSwicm90YXRpb24iOlswLDAsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiZWFjM2Q4YWUtZTllMy00ZTI5LWJiNzItZDY4YzU1N2ZmZDM4IiwibmFtZSI6Ik1NT09NTSBTaGlwIiwicGFyZW50SWQiOm51bGwsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbMTgsMywtOV0sInJvdGF0aW9uIjpbMCwwLDBdLCJzY2FsZSI6WzEyLDQsNF0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiMTkxZjhkOWMtNDcyZC00Njg4LThlOTQtNzdjN2VhNGFmZDZiIiwibmFtZSI6Ik1NT09NTSBTdGF0aW9uIiwicGFyZW50SWQiOm51bGwsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbNzIsMCwtNDhdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOls0OCwxNiwxNl0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiMDY5OThmYjMtZTVlMi00YmE1LTg2NTgtNzNiZjJmMDgyODU2IiwibmFtZSI6Ik1NT09NTSBLZXkgTGlnaHQiLCJwYXJlbnRJZCI6bnVsbCwiZW5hYmxlZCI6dHJ1ZSwicG9zaXRpb24iOlswLDMyLDBdLCJyb3RhdGlvbiI6WzQ1LDQ1LDBdLCJzY2FsZSI6WzEsMSwxXSwiY29tcG9uZW50cyI6eyJsaWdodCI6eyJlbmFibGVkIjp0cnVlLCJ0eXBlIjoiZGlyZWN0aW9uYWwiLCJjb2xvciI6WzEsMSwxXSwiaW50ZW5zaXR5IjoyLCJjYXN0U2hhZG93cyI6ZmFsc2UsImlzU3RhdGljIjpmYWxzZSwiYmFrZSI6ZmFsc2UsImJha2VEaXIiOnRydWUsImFmZmVjdER5bmFtaWMiOnRydWUsImFmZmVjdExpZ2h0bWFwcGVkIjpmYWxzZSwiYWZmZWN0U3BlY3VsYXJpdHkiOnRydWUsInNoYWRvd1VwZGF0ZU1vZGUiOjIsInNoYXBlIjowLCJzaGFkb3dUeXBlIjowLCJudW1DYXNjYWRlcyI6MSwiY2FzY2FkZURpc3RyaWJ1dGlvbiI6MC41LCJ2c21CbHVyTW9kZSI6MCwidnNtQmx1clNpemUiOjUsInZzbUJpYXMiOjAuMDAyNSwicGVudW1icmFTaXplIjoxLCJwZW51bWJyYUZhbGxvZmYiOjEsImNvb2tpZUFzc2V0IjpudWxsLCJjb29raWVJbnRlbnNpdHkiOjEsImNvb2tpZUZhbGxvZmYiOnRydWUsImNvb2tpZUNoYW5uZWwiOiJyZ2IiLCJjb29raWVBbmdsZSI6MCwiY29va2llU2NhbGUiOlsxLDFdLCJjb29raWVPZmZzZXQiOlswLDBdLCJsYXllcnMiOlswXSwic2hhZG93SW50ZW5zaXR5IjoxfX0sImNoaWxkcmVuIjpbXX1dLCJtZXRhZGF0YSI6eyJzYXZlZEJ5IjoidW5pdmVyc28tcGxheWNhbnZhcy1lZGl0b3ItYnJpZGdlIiwibW1vb21tIjp7InNjZW5lIjp7ImNvbnRyb2xsZWRPYmplY3RJZCI6ImVhYzNkOGFlLWU5ZTMtNGUyOS1iYjcyLWQ2OGM1NTdmZmQzOCIsInRhcmdldE9iamVjdElkIjoiMTkxZjhkOWMtNDcyZC00Njg4LThlOTQtNzdjN2VhNGFmZDZiIiwiY3J1aXNlU3BlZWQiOjM2LCJpbnRlbnREaXN0YW5jZSI6NzIwLCJvYmplY3RzIjpbeyJpZCI6ImVhYzNkOGFlLWU5ZTMtNGUyOS1iYjcyLWQ2OGM1NTdmZmQzOCIsInBvc2l0aW9uIjp7IngiOjE4LCJ5IjozLCJ6IjotOX0sInNjYWxlIjp7IngiOjEyLCJ5Ijo0LCJ6Ijo0fSwic2VsZWN0YWJsZSI6dHJ1ZX0seyJpZCI6IjE5MWY4ZDljLTQ3MmQtNDY4OC04ZTk0LTc3YzdlYTRhZmQ2YiIsInBvc2l0aW9uIjp7IngiOjcyLCJ5IjowLCJ6IjotNDh9LCJzY2FsZSI6eyJ4Ijo0OCwieSI6MTYsInoiOjE2fSwic2VsZWN0YWJsZSI6dHJ1ZSwiZ3VhcmQiOnRydWV9XX0sInByb3ZlbmFuY2UiOnsiYXV0aG9yaW5nRmxvdyI6InBsYXljYW52YXMtZWRpdG9yLW5hdGl2ZS1zY2VuZSJ9fX19"
+          },
+          "checksum": "58ce3a31714b9081f3279b523e9e34f422cd6c66a8a4e43d00d22e66112a6052",
+          "sortOrder": 0,
+          "publish": true
+        }
+      ],
+      "assets": [],
+      "scriptAssets": [],
+      "sceneScriptBindings": [],
+      "generatedArtifacts": [],
+      "runtimeManifests": [
+        {
+          "schemaVersion": "1",
+          "projectId": "019ec0e4-bba1-74ae-ad8d-3b64ae25f6f0",
+          "sceneId": "019ec0e4-bba2-7b58-83e2-cc3c4eefe167",
+          "assets": [
+            {
+              "id": "scene:019ec0e4-bba2-7b58-83e2-cc3c4eefe167",
+              "type": "scene",
+              "name": "scene:019ec0e4-bba2-7b58-83e2-cc3c4eefe167",
+              "url": "data:application/json;base64,eyJzY2hlbWFWZXJzaW9uIjoiMSIsInNldHRpbmdzIjp7IndpZHRoIjoxMjgwLCJoZWlnaHQiOjcyMCwidXNlTGVnYWN5U2NyaXB0cyI6ZmFsc2UsImlkIjoicHJvamVjdF81MzE0NTAzMTgiLCJlbmdpbmVWMiI6dHJ1ZSwic2NyaXB0cyI6W10sImJhdGNoR3JvdXBzIjp7fSwibGF5ZXJzIjp7IjAiOnsibmFtZSI6IldvcmxkIiwib3BhcXVlU29ydE1vZGUiOjIsInRyYW5zcGFyZW50U29ydE1vZGUiOjN9LCIxIjp7Im5hbWUiOiJEZXB0aCIsIm9wYXF1ZVNvcnRNb2RlIjoyLCJ0cmFuc3BhcmVudFNvcnRNb2RlIjozfSwiMiI6eyJuYW1lIjoiU2t5Ym94Iiwib3BhcXVlU29ydE1vZGUiOjAsInRyYW5zcGFyZW50U29ydE1vZGUiOjN9LCIzIjp7Im5hbWUiOiJJbW1lZGlhdGUiLCJvcGFxdWVTb3J0TW9kZSI6MCwidHJhbnNwYXJlbnRTb3J0TW9kZSI6M30sIjQiOnsibmFtZSI6IlVJIiwib3BhcXVlU29ydE1vZGUiOjEsInRyYW5zcGFyZW50U29ydE1vZGUiOjF9fSwibGF5ZXJPcmRlciI6W3sibGF5ZXIiOjAsInRyYW5zcGFyZW50IjpmYWxzZSwiZW5hYmxlZCI6dHJ1ZX0seyJsYXllciI6MSwidHJhbnNwYXJlbnQiOmZhbHNlLCJlbmFibGVkIjp0cnVlfSx7ImxheWVyIjoyLCJ0cmFuc3BhcmVudCI6ZmFsc2UsImVuYWJsZWQiOnRydWV9LHsibGF5ZXIiOjAsInRyYW5zcGFyZW50Ijp0cnVlLCJlbmFibGVkIjp0cnVlfSx7ImxheWVyIjozLCJ0cmFuc3BhcmVudCI6ZmFsc2UsImVuYWJsZWQiOnRydWV9LHsibGF5ZXIiOjMsInRyYW5zcGFyZW50Ijp0cnVlLCJlbmFibGVkIjp0cnVlfSx7ImxheWVyIjo0LCJ0cmFuc3BhcmVudCI6dHJ1ZSwiZW5hYmxlZCI6dHJ1ZX1dLCJ1c2VLZXlib2FyZCI6dHJ1ZSwidXNlTW91c2UiOnRydWUsInVzZVRvdWNoIjp0cnVlLCJ1c2VHYW1lcGFkcyI6ZmFsc2UsImkxOG5Bc3NldHMiOltdLCJleHRlcm5hbFNjcmlwdHMiOltdLCJwb3dlclByZWZlcmVuY2UiOiJoaWdoLXBlcmZvcm1hbmNlIiwibWF4QXNzZXRSZXRyaWVzIjowLCJlbmFibGVTaGFyZWRBcnJheUJ1ZmZlciI6ZmFsc2V9LCJlbnRpdGllcyI6W3siaWQiOiIzZjVlODhiYS0yMDg1LTRiMTAtOTQ5ZC02NDhjNjk4NDFlMGQiLCJuYW1lIjoiTmV3IEVudGl0eSIsInBhcmVudElkIjpudWxsLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMCwwXSwicm90YXRpb24iOlswLDAsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiZWFjM2Q4YWUtZTllMy00ZTI5LWJiNzItZDY4YzU1N2ZmZDM4IiwibmFtZSI6Ik1NT09NTSBTaGlwIiwicGFyZW50SWQiOm51bGwsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbMTgsMywtOV0sInJvdGF0aW9uIjpbMCwwLDBdLCJzY2FsZSI6WzEyLDQsNF0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiMTkxZjhkOWMtNDcyZC00Njg4LThlOTQtNzdjN2VhNGFmZDZiIiwibmFtZSI6Ik1NT09NTSBTdGF0aW9uIiwicGFyZW50SWQiOm51bGwsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbNzIsMCwtNDhdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOls0OCwxNiwxNl0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiMDY5OThmYjMtZTVlMi00YmE1LTg2NTgtNzNiZjJmMDgyODU2IiwibmFtZSI6Ik1NT09NTSBLZXkgTGlnaHQiLCJwYXJlbnRJZCI6bnVsbCwiZW5hYmxlZCI6dHJ1ZSwicG9zaXRpb24iOlswLDMyLDBdLCJyb3RhdGlvbiI6WzQ1LDQ1LDBdLCJzY2FsZSI6WzEsMSwxXSwiY29tcG9uZW50cyI6eyJsaWdodCI6eyJlbmFibGVkIjp0cnVlLCJ0eXBlIjoiZGlyZWN0aW9uYWwiLCJjb2xvciI6WzEsMSwxXSwiaW50ZW5zaXR5IjoyLCJjYXN0U2hhZG93cyI6ZmFsc2UsImlzU3RhdGljIjpmYWxzZSwiYmFrZSI6ZmFsc2UsImJha2VEaXIiOnRydWUsImFmZmVjdER5bmFtaWMiOnRydWUsImFmZmVjdExpZ2h0bWFwcGVkIjpmYWxzZSwiYWZmZWN0U3BlY3VsYXJpdHkiOnRydWUsInNoYWRvd1VwZGF0ZU1vZGUiOjIsInNoYXBlIjowLCJzaGFkb3dUeXBlIjowLCJudW1DYXNjYWRlcyI6MSwiY2FzY2FkZURpc3RyaWJ1dGlvbiI6MC41LCJ2c21CbHVyTW9kZSI6MCwidnNtQmx1clNpemUiOjUsInZzbUJpYXMiOjAuMDAyNSwicGVudW1icmFTaXplIjoxLCJwZW51bWJyYUZhbGxvZmYiOjEsImNvb2tpZUFzc2V0IjpudWxsLCJjb29raWVJbnRlbnNpdHkiOjEsImNvb2tpZUZhbGxvZmYiOnRydWUsImNvb2tpZUNoYW5uZWwiOiJyZ2IiLCJjb29raWVBbmdsZSI6MCwiY29va2llU2NhbGUiOlsxLDFdLCJjb29raWVPZmZzZXQiOlswLDBdLCJsYXllcnMiOlswXSwic2hhZG93SW50ZW5zaXR5IjoxfX0sImNoaWxkcmVuIjpbXX1dLCJtZXRhZGF0YSI6eyJzYXZlZEJ5IjoidW5pdmVyc28tcGxheWNhbnZhcy1lZGl0b3ItYnJpZGdlIiwibW1vb21tIjp7InNjZW5lIjp7ImNvbnRyb2xsZWRPYmplY3RJZCI6ImVhYzNkOGFlLWU5ZTMtNGUyOS1iYjcyLWQ2OGM1NTdmZmQzOCIsInRhcmdldE9iamVjdElkIjoiMTkxZjhkOWMtNDcyZC00Njg4LThlOTQtNzdjN2VhNGFmZDZiIiwiY3J1aXNlU3BlZWQiOjM2LCJpbnRlbnREaXN0YW5jZSI6NzIwLCJvYmplY3RzIjpbeyJpZCI6ImVhYzNkOGFlLWU5ZTMtNGUyOS1iYjcyLWQ2OGM1NTdmZmQzOCIsInBvc2l0aW9uIjp7IngiOjE4LCJ5IjozLCJ6IjotOX0sInNjYWxlIjp7IngiOjEyLCJ5Ijo0LCJ6Ijo0fSwic2VsZWN0YWJsZSI6dHJ1ZX0seyJpZCI6IjE5MWY4ZDljLTQ3MmQtNDY4OC04ZTk0LTc3YzdlYTRhZmQ2YiIsInBvc2l0aW9uIjp7IngiOjcyLCJ5IjowLCJ6IjotNDh9LCJzY2FsZSI6eyJ4Ijo0OCwieSI6MTYsInoiOjE2fSwic2VsZWN0YWJsZSI6dHJ1ZSwiZ3VhcmQiOnRydWV9XX0sInByb3ZlbmFuY2UiOnsiYXV0aG9yaW5nRmxvdyI6InBsYXljYW52YXMtZWRpdG9yLW5hdGl2ZS1zY2VuZSJ9fX19",
+              "hash": "58ce3a31714b9081f3279b523e9e34f422cd6c66a8a4e43d00d22e66112a6052",
+              "mime": "application/json",
+              "size": 3381
+            }
+          ],
+          "scripts": [],
+          "metadata": {
+            "generatedFrom": "playcanvasProjectStorageModel",
+            "sourceProjectChecksum": "b6d856255facef9699e36ef974d33ada6c206691db5384c962754ceb68bac189",
+            "mmoomm": {
+              "scene": {
+                "controlledObjectId": "eac3d8ae-e9e3-4e29-bb72-d68c557ffd38",
+                "targetObjectId": "191f8d9c-472d-4688-8e94-77c7ea4afd6b",
+                "cruiseSpeed": 36,
+                "intentDistance": 720,
+                "objects": [
+                  {
+                    "id": "eac3d8ae-e9e3-4e29-bb72-d68c557ffd38",
+                    "position": {
+                      "x": 18,
+                      "y": 3,
+                      "z": -9
+                    },
+                    "scale": {
+                      "x": 12,
+                      "y": 4,
+                      "z": 4
+                    },
+                    "selectable": true
+                  },
+                  {
+                    "id": "191f8d9c-472d-4688-8e94-77c7ea4afd6b",
+                    "position": {
+                      "x": 72,
+                      "y": 0,
+                      "z": -48
+                    },
+                    "scale": {
+                      "x": 48,
+                      "y": 16,
+                      "z": 16
+                    },
+                    "selectable": true,
+                    "guard": true
+                  }
+                ]
+              }
+            }
+          },
+          "checksum": "aac90a77009b29ef680be762510799b11fe7ef1f4dc0065b0372a9cff62b651e"
+        }
+      ]
+    },
+    "scopedLayouts": [],
+    "layoutWidgetOverrides": []
+  },
+  "snapshotHash": "20627ebd0420755dea0d8a8ad6a409bb27b38be460a293c7e4d655eaca644a3d"
+}

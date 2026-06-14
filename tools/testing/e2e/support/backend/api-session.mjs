@@ -638,6 +638,24 @@ export async function listMetahubModules(api, metahubId, params = {}) {
     return response.json()
 }
 
+export async function listPlayCanvasProjects(api, metahubId) {
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/playcanvas/projects`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Listing PlayCanvas projects for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function publishPlayCanvasProject(api, metahubId, projectId) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/playcanvas/projects/${projectId}/publish`, {})
+    if (!response.ok) {
+        throw await buildError(response, `Publishing PlayCanvas project ${projectId} in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function listTreeEntities(api, metahubId, params = {}) {
     const { kindKey, ...queryParams } = params
     const query = new URLSearchParams()

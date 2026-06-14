@@ -9,7 +9,7 @@ jest.mock('@universo-react/database', () => {
     }
 })
 
-import { attachLayoutsToSnapshot } from '../../domains/shared/snapshotLayouts'
+import { alignPlayCanvasRuntimeManifestBindings, attachLayoutsToSnapshot } from '../../domains/shared/snapshotLayouts'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
 type MockPoolExecutor = {
@@ -223,5 +223,247 @@ describe('attachLayoutsToSnapshot', () => {
                 isActive: false
             })
         ])
+    })
+})
+
+describe('alignPlayCanvasRuntimeManifestBindings', () => {
+    it('updates layout widget runtime manifest checksums to the final publication manifest checksum', () => {
+        const snapshot = {
+            version: 1,
+            generatedAt: '2026-06-10T00:00:00.000Z',
+            metahubId: 'metahub-1',
+            entities: {},
+            playcanvasRuntimeManifests: [
+                {
+                    schemaVersion: '1',
+                    projectId: 'project-1',
+                    sceneId: 'scene-1',
+                    checksum: 'final-checksum',
+                    assets: [],
+                    scripts: [],
+                    metadata: {}
+                }
+            ],
+            layoutConfig: {
+                nested: {
+                    runtimeManifest: {
+                        projectId: 'project-1',
+                        sceneId: 'scene-1',
+                        checksum: 'stale-checksum'
+                    }
+                }
+            },
+            layoutZoneWidgets: [
+                {
+                    id: 'widget-1',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 1,
+                    config: {
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId: 'project-1',
+                            sceneId: 'scene-1',
+                            checksum: 'stale-checksum',
+                            failClosed: true
+                        }
+                    },
+                    isActive: true
+                },
+                {
+                    id: 'widget-2',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 2,
+                    config: {
+                        runtimeManifest: {
+                            projectId: 'project-missing',
+                            sceneId: 'scene-missing',
+                            checksum: 'keep-this-checksum'
+                        }
+                    },
+                    isActive: true
+                }
+            ],
+            layoutWidgetOverrides: [
+                {
+                    id: 'override-1',
+                    layoutId: 'layout-entity',
+                    baseWidgetId: 'widget-1',
+                    config: {
+                        nested: [
+                            {
+                                runtimeManifest: {
+                                    projectId: 'project-1',
+                                    sceneId: 'scene-1',
+                                    checksum: 'stale-checksum'
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        } as unknown as MetahubSnapshot
+
+        alignPlayCanvasRuntimeManifestBindings(snapshot)
+
+        expect(snapshot.layoutConfig?.nested).toEqual({
+            runtimeManifest: {
+                projectId: 'project-1',
+                sceneId: 'scene-1',
+                checksum: 'final-checksum'
+            }
+        })
+        expect(snapshot.layoutZoneWidgets?.[0]?.config.runtimeManifest).toMatchObject({
+            projectId: 'project-1',
+            sceneId: 'scene-1',
+            checksum: 'final-checksum',
+            failClosed: true
+        })
+        expect(snapshot.layoutZoneWidgets?.[1]?.config.runtimeManifest).toMatchObject({
+            projectId: 'project-missing',
+            sceneId: 'scene-missing',
+            checksum: 'keep-this-checksum'
+        })
+        expect(snapshot.layoutWidgetOverrides?.[0]?.config).toEqual({
+            nested: [
+                {
+                    runtimeManifest: {
+                        projectId: 'project-1',
+                        sceneId: 'scene-1',
+                        checksum: 'final-checksum'
+                    }
+                }
+            ]
+        })
+    })
+
+    it('aligns stale null-scene widget bindings to the selected scene id from the final manifest', () => {
+        const snapshot = {
+            version: 1,
+            generatedAt: '2026-06-10T00:00:00.000Z',
+            metahubId: 'metahub-1',
+            entities: {},
+            playcanvasRuntimeManifests: [
+                {
+                    schemaVersion: '1',
+                    projectId: 'project-1',
+                    sceneId: 'scene-final',
+                    checksum: 'final-checksum',
+                    assets: [],
+                    scripts: [],
+                    metadata: {}
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'widget-1',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 1,
+                    config: {
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId: 'project-1',
+                            sceneId: null,
+                            checksum: 'stale-checksum',
+                            failClosed: true
+                        }
+                    },
+                    isActive: true
+                }
+            ]
+        } as unknown as MetahubSnapshot
+
+        alignPlayCanvasRuntimeManifestBindings(snapshot)
+
+        expect(snapshot.layoutZoneWidgets?.[0]?.config.runtimeManifest).toMatchObject({
+            source: 'publishedManifest',
+            projectId: 'project-1',
+            sceneId: 'scene-final',
+            checksum: 'final-checksum',
+            failClosed: true
+        })
+    })
+
+    it('does not rebind a missing explicit scene binding to another scene from the same project', () => {
+        const snapshot = {
+            version: 1,
+            generatedAt: '2026-06-10T00:00:00.000Z',
+            metahubId: 'metahub-1',
+            entities: {},
+            playcanvasRuntimeManifests: [
+                {
+                    schemaVersion: '1',
+                    projectId: 'project-1',
+                    sceneId: 'scene-a',
+                    checksum: 'scene-a-checksum',
+                    assets: [],
+                    scripts: [],
+                    metadata: {}
+                },
+                {
+                    schemaVersion: '1',
+                    projectId: 'project-1',
+                    sceneId: 'scene-b',
+                    checksum: 'scene-b-checksum',
+                    assets: [],
+                    scripts: [],
+                    metadata: {}
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'widget-1',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 1,
+                    config: {
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId: 'project-1',
+                            sceneId: 'scene-deleted',
+                            checksum: 'deleted-scene-checksum',
+                            failClosed: true
+                        }
+                    },
+                    isActive: true
+                },
+                {
+                    id: 'widget-2',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 2,
+                    config: {
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId: 'project-1',
+                            sceneId: null,
+                            checksum: 'ambiguous-null-scene-checksum',
+                            failClosed: true
+                        }
+                    },
+                    isActive: true
+                }
+            ]
+        } as unknown as MetahubSnapshot
+
+        alignPlayCanvasRuntimeManifestBindings(snapshot)
+
+        expect(snapshot.layoutZoneWidgets?.[0]?.config.runtimeManifest).toMatchObject({
+            projectId: 'project-1',
+            sceneId: 'scene-deleted',
+            checksum: 'deleted-scene-checksum'
+        })
+        expect(snapshot.layoutZoneWidgets?.[1]?.config.runtimeManifest).toMatchObject({
+            projectId: 'project-1',
+            sceneId: null,
+            checksum: 'ambiguous-null-scene-checksum'
+        })
     })
 })

@@ -1,12 +1,15 @@
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 
+const TEST_METAHUB_ID = 'metahub-1'
+const TEST_PROJECT_ID = '018f8a78-7b8f-7c1d-a111-222233334444'
+
 describe('PlayCanvasEditorBridgeSessionService', () => {
     it('creates readable scoped sessions and rejects tampered tokens', () => {
         const service = new PlayCanvasEditorBridgeSessionService()
         const created = service.create({
-            metahubId: 'metahub-1',
+            metahubId: TEST_METAHUB_ID,
             packageSlug: 'playcanvas-editor',
-            projectId: '018f8a78-7b8f-7c1d-a111-222233334444',
+            projectId: TEST_PROJECT_ID,
             userId: 'user-1',
             capabilities: ['scene.save']
         })
@@ -25,6 +28,8 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
         })
         const input = {
             sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+            metahubId: TEST_METAHUB_ID,
+            projectId: TEST_PROJECT_ID,
             requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
             commandType: 'scene.save',
             fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
@@ -58,6 +63,8 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
         await expect(
             service.claimReplay({ query }, 'mhb_019e8afa000070008000000000000001_b1', {
                 sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                metahubId: TEST_METAHUB_ID,
+                projectId: TEST_PROJECT_ID,
                 requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
                 commandType: 'scene.save',
                 fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
@@ -85,6 +92,8 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
         await expect(
             service.claimReplay({ query }, 'mhb_019e8afa000070008000000000000001_b1', {
                 sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                metahubId: TEST_METAHUB_ID,
+                projectId: TEST_PROJECT_ID,
                 requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
                 commandType: 'scene.save',
                 fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
@@ -114,16 +123,19 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
         })
         const input = {
             sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+            metahubId: TEST_METAHUB_ID,
+            projectId: TEST_PROJECT_ID,
             requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
             commandType: 'scene.save',
-            fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+            fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            userId: '018f8a78-7b8f-7c1d-a111-222233334447'
         }
 
         await expect(
             service.completeReplay({ query }, 'mhb_019e8afa000070008000000000000001_b1', {
                 ...input,
                 response,
-                userId: '018f8a78-7b8f-7c1d-a111-222233334447'
+                userId: input.userId
             })
         ).resolves.toBe(true)
         await expect(service.readReplayResponse({ query }, 'mhb_019e8afa000070008000000000000001_b1', input)).resolves.toEqual({
@@ -138,6 +150,14 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
             expect.stringContaining('jsonb_set("metahubs"."_app_settings".value, \'{response}\''),
             expect.arrayContaining([expect.stringContaining('"status":"completed"')])
         )
+        expect(query).toHaveBeenCalledWith(
+            expect.stringContaining("value->>'userIdHash' = $8"),
+            expect.arrayContaining([expect.stringMatching(/^[a-f0-9]{64}$/)])
+        )
+        expect(query).toHaveBeenCalledWith(
+            expect.stringContaining("value->>'userIdHash' = $6"),
+            expect.arrayContaining([expect.stringMatching(/^[a-f0-9]{64}$/)])
+        )
     })
 
     it('distinguishes claimed replay rows from completed replay responses', async () => {
@@ -147,9 +167,12 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
         await expect(
             service.readReplayResponse({ query }, 'mhb_019e8afa000070008000000000000001_b1', {
                 sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                metahubId: TEST_METAHUB_ID,
+                projectId: TEST_PROJECT_ID,
                 requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
                 commandType: 'scene.save',
-                fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+                fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                userId: '018f8a78-7b8f-7c1d-a111-222233334447'
             })
         ).resolves.toEqual({ status: 'claimed' })
     })
@@ -159,9 +182,12 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
         const query = jest.fn(async () => [])
         const input = {
             sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+            metahubId: TEST_METAHUB_ID,
+            projectId: TEST_PROJECT_ID,
             requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
             commandType: 'scene.save',
-            fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+            fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            userId: '018f8a78-7b8f-7c1d-a111-222233334447'
         }
 
         await expect(service.releaseReplay({ query }, 'mhb_019e8afa000070008000000000000001_b1', input)).resolves.toBeUndefined()
@@ -172,8 +198,46 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
                 input.sessionId,
                 input.requestId,
                 input.commandType,
-                input.fingerprint
+                input.fingerprint,
+                expect.stringMatching(/^[a-f0-9]{64}$/),
+                input.metahubId,
+                input.projectId
             ])
+        )
+        expect(String(query.mock.calls[0]?.[0])).toContain("value->>'userIdHash' = $6")
+    })
+
+    it('reports active claimed replay rows for publish guards after pruning expired claims', async () => {
+        const service = new PlayCanvasEditorBridgeSessionService()
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('DELETE FROM')) {
+                return []
+            }
+            if (sql.includes('SELECT EXISTS')) {
+                return [{ exists: true }]
+            }
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            service.hasActiveReplayClaims({ query }, 'mhb_019e8afa000070008000000000000001_b1', {
+                metahubId: TEST_METAHUB_ID,
+                projectId: TEST_PROJECT_ID
+            })
+        ).resolves.toBe(true)
+        expect(query).toHaveBeenCalledWith(
+            expect.stringContaining('DELETE FROM "metahubs"."_app_settings"'),
+            expect.arrayContaining([expect.any(Number)])
+        )
+        expect(query).toHaveBeenCalledWith(
+            expect.stringContaining("value->>'status' = 'claimed'"),
+            expect.arrayContaining([expect.any(Number), TEST_METAHUB_ID, TEST_PROJECT_ID])
+        )
+        expect(String(query.mock.calls.find((call) => String(call[0]).includes('SELECT EXISTS'))?.[0])).toContain(
+            "value->>'metahubId' = $2"
+        )
+        expect(String(query.mock.calls.find((call) => String(call[0]).includes('SELECT EXISTS'))?.[0])).toContain(
+            "OR NOT jsonb_exists(value, 'metahubId')"
         )
     })
 
@@ -192,7 +256,7 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
                 new PlayCanvasEditorBridgeSessionService().create({
                     metahubId: 'metahub-1',
                     packageSlug: 'playcanvas-editor',
-                    projectId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    projectId: TEST_PROJECT_ID,
                     userId: 'user-1',
                     capabilities: ['scene.save']
                 })

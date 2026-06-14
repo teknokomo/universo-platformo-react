@@ -3,11 +3,13 @@ import { qSchemaTable } from '@universo-react/database'
 import type {
     PlayCanvasAsset,
     PlayCanvasGeneratedArtifact,
+    PlayCanvasPublishedRuntimeManifestSummary,
     PlayCanvasProjectSummary,
     PlayCanvasRuntimeManifest,
     PlayCanvasScene,
     PlayCanvasSceneScriptBinding,
     PlayCanvasScriptAsset,
+    PlayCanvasSourceFile,
     VersionedLocalizedContent
 } from '@universo-react/types'
 import { codenamePrimaryTextSql } from '../../shared/codename'
@@ -50,6 +52,7 @@ export type UpsertPlayCanvasAssetInput = Omit<PlayCanvasAsset, 'projectId'> & { 
 export type UpsertPlayCanvasScriptAssetInput = PlayCanvasScriptAsset & { expectedVersion?: number }
 export type UpsertPlayCanvasSceneScriptBindingInput = PlayCanvasSceneScriptBinding & { expectedVersion?: number }
 export type UpsertPlayCanvasGeneratedArtifactInput = PlayCanvasGeneratedArtifact & { expectedVersion?: number }
+export type UpsertPlayCanvasSourceFileInput = Omit<PlayCanvasSourceFile, 'projectId'> & { expectedVersion?: number }
 
 export interface ReplacePlayCanvasPublicationManifestsInput {
     projectIds: readonly string[]
@@ -146,6 +149,31 @@ const generatedArtifactSelect = `
     parse_status AS "parseStatus",
     generated_at AS "generatedAt",
     parsed_at AS "parsedAt",
+    _upl_version AS "version"
+`
+
+const sourceFileSelect = `
+    id,
+    project_id AS "projectId",
+    stable_sourcefile_id AS "stableSourceFileId",
+    name,
+    virtual_path AS "virtualPath",
+    (
+        COALESCE(file_ref, '{}'::jsonb)
+        || jsonb_strip_nulls(jsonb_build_object(
+            'path', file_path,
+            'hash', file_hash,
+            'mime', file_mime,
+            'size', file_size,
+            'status', status
+        ))
+    ) AS file,
+    script_kind AS "scriptKind",
+    file_hash AS checksum,
+    parsed_attributes AS "parsedAttributes",
+    parse_status AS "parseStatus",
+    parse_diagnostics AS "parseDiagnostics",
+    publish,
     _upl_version AS "version"
 `
 
@@ -343,6 +371,13 @@ export async function playCanvasProjectFileReferenceExists(
                AND a._mhb_deleted = false
             UNION ALL
             SELECT 1
+              FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')} sf
+             WHERE sf.project_id = $1
+               AND sf.file_ref #>> '{path}' = $2
+               AND sf._upl_deleted = false
+               AND sf._mhb_deleted = false
+            UNION ALL
+            SELECT 1
               FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_generated_artifacts')} ga
               JOIN ${qSchemaTable(schemaName, '_mhb_playcanvas_script_assets')} sa ON sa.id = ga.script_asset_id
               JOIN ${qSchemaTable(schemaName, '_mhb_playcanvas_assets')} a ON a.id = sa.asset_id
@@ -375,6 +410,13 @@ export async function playCanvasProjectMetadataFileReferenceExists(
                AND s.payload_file #>> '{path}' = $2
                AND s._upl_deleted = false
                AND s._mhb_deleted = false
+            UNION ALL
+            SELECT 1
+              FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')} sf
+             WHERE sf.project_id = $1
+               AND sf.file_ref #>> '{path}' = $2
+               AND sf._upl_deleted = false
+               AND sf._mhb_deleted = false
             UNION ALL
             SELECT 1
               FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_generated_artifacts')} ga
@@ -443,7 +485,25 @@ export async function markPlayCanvasProjectFileReferenceMissing(
         RETURNING ga.id`,
         [projectId, sourcePath, userId]
     )
-    return sceneRows.length + artifactRows.length > 0
+    const sourceFileRows = await exec.query<{ id: string }>(
+        `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}
+            SET status = 'missing',
+                parse_status = 'missing',
+                file_ref = CASE
+                    WHEN file_ref IS NULL THEN file_ref
+                    ELSE jsonb_set(file_ref, '{status}', '"missing"', true)
+                END,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $3,
+                _upl_version = _upl_version + 1
+          WHERE project_id = $1
+            AND file_ref #>> '{path}' = $2
+            AND _upl_deleted = false
+            AND _mhb_deleted = false
+        RETURNING id`,
+        [projectId, sourcePath, userId]
+    )
+    return sceneRows.length + artifactRows.length + sourceFileRows.length > 0
 }
 
 export async function markPlayCanvasProjectFileReferenceReady(
@@ -508,7 +568,33 @@ export async function markPlayCanvasProjectFileReferenceReady(
         RETURNING ga.id`,
         [projectId, sourcePath, file.checksum, file.size, file.mime, userId]
     )
-    return sceneRows.length + artifactRows.length > 0
+    const sourceFileRows = await exec.query<{ id: string }>(
+        `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}
+            SET status = 'ready',
+                parse_status = 'ready',
+                file_ref = CASE
+                    WHEN file_ref IS NULL THEN file_ref
+                    ELSE file_ref || jsonb_strip_nulls(jsonb_build_object(
+                        'status', 'ready',
+                        'hash', $3::text,
+                        'size', $4::integer,
+                        'mime', $5::text
+                    ))
+                END,
+                file_hash = $3::text,
+                file_size = $4::integer,
+                file_mime = $5::text,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $6::uuid,
+                _upl_version = _upl_version + 1
+          WHERE project_id = $1
+            AND file_ref #>> '{path}' = $2
+            AND _upl_deleted = false
+            AND _mhb_deleted = false
+        RETURNING id`,
+        [projectId, sourcePath, file.checksum, file.size, file.mime, userId]
+    )
+    return sceneRows.length + artifactRows.length + sourceFileRows.length > 0
 }
 
 export async function markPlayCanvasAssetFileReferenceMissing(
@@ -866,6 +952,144 @@ export async function upsertPlayCanvasGeneratedArtifact(
     return rows[0] ?? null
 }
 
+export async function listPlayCanvasSourceFiles(
+    exec: DbExecutor,
+    schemaName: string,
+    projectId: string
+): Promise<(PlayCanvasSourceFile & { version: number })[]> {
+    return exec.query<PlayCanvasSourceFile & { version: number }>(
+        `SELECT ${sourceFileSelect}
+           FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}
+          WHERE project_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+          ORDER BY virtual_path::text ASC, name ASC, id ASC`,
+        [projectId]
+    )
+}
+
+export async function findPlayCanvasSourceFileByStableId(
+    exec: DbExecutor,
+    schemaName: string,
+    projectId: string,
+    stableSourceFileId: string
+): Promise<(PlayCanvasSourceFile & { version: number }) | null> {
+    const rows = await exec.query<PlayCanvasSourceFile & { version: number }>(
+        `SELECT ${sourceFileSelect}
+           FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}
+          WHERE project_id = $1
+            AND stable_sourcefile_id = $2
+            AND _upl_deleted = false
+            AND _mhb_deleted = false
+          LIMIT 1`,
+        [projectId, stableSourceFileId]
+    )
+    return rows[0] ?? null
+}
+
+export async function upsertPlayCanvasSourceFile(
+    exec: DbExecutor,
+    schemaName: string,
+    projectId: string,
+    input: UpsertPlayCanvasSourceFileInput,
+    userId: string
+): Promise<(PlayCanvasSourceFile & { version: number }) | null> {
+    const rows = await exec.query<PlayCanvasSourceFile & { version: number }>(
+        `INSERT INTO ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}
+            (id, project_id, stable_sourcefile_id, name, virtual_path, file_ref, file_path, file_hash, file_mime,
+             file_size, script_kind, parsed_attributes, parse_status, parse_diagnostics, publish, status,
+             _upl_created_by, _upl_updated_by)
+         SELECT $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12::jsonb, $13, $14::jsonb, $15, $16, $17, $17
+          WHERE $18::integer IS NULL
+             OR EXISTS (
+                    SELECT 1
+                      FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')} current_sourcefile
+                     WHERE current_sourcefile.id = $1
+                       AND current_sourcefile.project_id = $2
+                       AND current_sourcefile._upl_version = $18
+                       AND current_sourcefile._upl_deleted = false
+                       AND current_sourcefile._mhb_deleted = false
+                )
+         ON CONFLICT (id)
+         DO UPDATE SET
+            stable_sourcefile_id = EXCLUDED.stable_sourcefile_id,
+            name = EXCLUDED.name,
+            virtual_path = EXCLUDED.virtual_path,
+            file_ref = EXCLUDED.file_ref,
+            file_path = EXCLUDED.file_path,
+            file_hash = EXCLUDED.file_hash,
+            file_mime = EXCLUDED.file_mime,
+            file_size = EXCLUDED.file_size,
+            script_kind = EXCLUDED.script_kind,
+            parsed_attributes = EXCLUDED.parsed_attributes,
+            parse_status = EXCLUDED.parse_status,
+            parse_diagnostics = EXCLUDED.parse_diagnostics,
+            publish = EXCLUDED.publish,
+            status = EXCLUDED.status,
+            _upl_updated_at = NOW(),
+            _upl_updated_by = EXCLUDED._upl_updated_by,
+            _upl_version = ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}._upl_version + 1,
+            _upl_deleted = false,
+            _mhb_deleted = false
+          WHERE ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}.project_id = $2
+            AND (
+                $18::integer IS NULL
+                OR ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}._upl_version = $18
+            )
+         RETURNING ${sourceFileSelect}`,
+        [
+            input.id,
+            projectId,
+            input.stableSourceFileId,
+            input.name,
+            JSON.stringify(input.virtualPath),
+            JSON.stringify(input.file),
+            input.file.path,
+            input.file.hash ?? input.checksum ?? null,
+            input.file.mime ?? null,
+            input.file.size ?? null,
+            input.scriptKind,
+            JSON.stringify(input.parsedAttributes),
+            input.parseStatus,
+            JSON.stringify(input.parseDiagnostics ?? null),
+            input.publish,
+            input.file.status ?? input.parseStatus,
+            userId,
+            input.expectedVersion ?? null
+        ]
+    )
+    return rows[0] ?? null
+}
+
+export async function softDeletePlayCanvasSourceFileByStableId(
+    exec: DbExecutor,
+    schemaName: string,
+    projectId: string,
+    stableSourceFileId: string,
+    userId: string,
+    expectedVersion?: number
+): Promise<boolean> {
+    const params: unknown[] = [projectId, stableSourceFileId, userId]
+    let versionGuard = ''
+    if (expectedVersion !== undefined) {
+        params.push(expectedVersion)
+        versionGuard = ` AND _upl_version = $${params.length}`
+    }
+    const rows = await exec.query<{ id: string }>(
+        `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}
+            SET _upl_deleted = true,
+                _mhb_deleted = true,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $3,
+                _upl_version = _upl_version + 1
+          WHERE project_id = $1
+            AND stable_sourcefile_id = $2
+            AND _upl_deleted = false
+            AND _mhb_deleted = false${versionGuard}
+        RETURNING id`,
+        params
+    )
+    return rows.length > 0
+}
+
 export async function createPlayCanvasProject(
     exec: DbExecutor,
     schemaName: string,
@@ -1034,8 +1258,9 @@ export async function replacePlayCanvasPublicationManifests(
 
     const scopeFilter = input.replaceScope === 'branch' ? '' : `project_id::text = ANY($1::text[]) AND `
 
-    await exec.query(
-        `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_publication_manifests')}
+    await exec.transaction(async (tx) => {
+        await tx.query(
+            `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_publication_manifests')}
             SET _upl_deleted = true,
                 _upl_deleted_at = NOW(),
                 _upl_deleted_by = $2,
@@ -1048,32 +1273,66 @@ export async function replacePlayCanvasPublicationManifests(
                 published = false
           WHERE ${scopeFilter}_upl_deleted = false
             AND _mhb_deleted = false`,
-        [projectIds, input.userId]
-    )
+            [projectIds, input.userId]
+        )
 
-    for (const manifest of input.manifests) {
-        if (!projectIds.includes(manifest.projectId)) {
-            continue
-        }
-        const sourceProjectChecksum =
-            typeof manifest.metadata?.sourceProjectChecksum === 'string' ? manifest.metadata.sourceProjectChecksum : null
+        for (const manifest of input.manifests) {
+            if (!projectIds.includes(manifest.projectId)) {
+                continue
+            }
+            const sourceProjectChecksum =
+                typeof manifest.metadata?.sourceProjectChecksum === 'string' ? manifest.metadata.sourceProjectChecksum : null
 
-        await exec.query(
-            `INSERT INTO ${qSchemaTable(schemaName, '_mhb_playcanvas_publication_manifests')}
+            await tx.query(
+                `INSERT INTO ${qSchemaTable(schemaName, '_mhb_playcanvas_publication_manifests')}
                 (project_id, selected_scene_id, manifest_schema_version, runtime_manifest, manifest_checksum,
                  source_project_checksum, published, _upl_created_by, _upl_updated_by)
              VALUES ($1, $2, $3, $4::jsonb, $5, $6, true, $7, $7)`,
-            [
-                manifest.projectId,
-                manifest.sceneId ?? null,
-                manifest.schemaVersion,
-                JSON.stringify(manifest),
-                manifest.checksum,
-                sourceProjectChecksum,
-                input.userId
-            ]
-        )
-    }
+                [
+                    manifest.projectId,
+                    manifest.sceneId ?? null,
+                    manifest.schemaVersion,
+                    JSON.stringify(manifest),
+                    manifest.checksum,
+                    sourceProjectChecksum,
+                    input.userId
+                ]
+            )
+        }
+    })
+}
+
+export async function listPlayCanvasPublicationManifests(
+    exec: DbExecutor,
+    schemaName: string
+): Promise<PlayCanvasPublishedRuntimeManifestSummary[]> {
+    const rows = await exec.query<{
+        projectId: string
+        sceneId: string | null
+        checksum: string
+        runtimeManifest: PlayCanvasRuntimeManifest
+        publishedAt: string | null
+    }>(
+        `SELECT project_id AS "projectId",
+                selected_scene_id AS "sceneId",
+                manifest_checksum AS checksum,
+                runtime_manifest AS "runtimeManifest",
+                _upl_created_at AS "publishedAt"
+           FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_publication_manifests')}
+          WHERE _upl_deleted = false
+            AND _mhb_deleted = false
+            AND published = true
+          ORDER BY _upl_created_at DESC, project_id ASC`,
+        []
+    )
+
+    return rows.map((row) => ({
+        projectId: row.projectId,
+        sceneId: row.sceneId,
+        checksum: row.checksum,
+        runtimeManifest: row.runtimeManifest,
+        publishedAt: row.publishedAt
+    }))
 }
 
 export async function restoreSoftDeletedPlayCanvasProject(
@@ -1109,6 +1368,15 @@ export async function restoreSoftDeletedPlayCanvasProject(
         schemaName,
         '_mhb_playcanvas_generated_artifacts',
         'artifact',
+        projectId,
+        userId,
+        deletionToken
+    )
+    await restoreSoftDeletedPlayCanvasProjectRows(
+        exec,
+        schemaName,
+        '_mhb_playcanvas_sourcefiles',
+        'project',
         projectId,
         userId,
         deletionToken
@@ -1195,6 +1463,14 @@ async function softDeletePlayCanvasProjectChildren(
                   FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_assets')} a
                  WHERE a.project_id = $1
             )`,
+        [projectId, userId, deletionToken]
+    )
+    await exec.query(
+        `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_sourcefiles')}
+            SET ${deletedColumns}
+          WHERE project_id = $1
+            AND _upl_deleted = false
+            AND _mhb_deleted = false`,
         [projectId, userId, deletionToken]
     )
     await exec.query(

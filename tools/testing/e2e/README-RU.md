@@ -255,6 +255,7 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 | `metahubs-quiz-app-export`          | `tools/fixtures/metahubs-quiz-app-snapshot.json`          | Создаёт локализованный fixture quiz-приложения и экспортирует snapshot для quiz runtime import flows.                                                          |
 | `metahubs-lms-app-export`           | `tools/fixtures/metahubs-lms-app-snapshot.json`           | Создаёт локализованный fixture LMS-приложения и экспортирует snapshot для LMS runtime import flows.                                                            |
 | `metahubs-mmoomm-flight-app-export` | `tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json` | Создаёт fixture MMOOMM flight simulator с wrapper-пакетами, Object-сущностями, runtime-модулями и generic PlayCanvas canvas widget.                            |
+| `metahubs-mmoomm-app-export`        | `tools/fixtures/metahubs-mmoomm-app-snapshot.json`        | Создаёт основной browser-authored fixture MMOOMM через UI-first путь: метахаб, пакеты, PlayCanvas Editor authoring, публикация, привязка layout и export.      |
 
 ### Создание новых генераторов
 

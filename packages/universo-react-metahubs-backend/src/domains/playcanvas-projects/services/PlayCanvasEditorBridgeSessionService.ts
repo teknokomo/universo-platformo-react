@@ -13,6 +13,8 @@ type BridgeSessionPayload = PlayCanvasEditorBridgeSessionClaims
 
 interface BridgeReplayValue {
     sessionId: string
+    metahubId: string
+    projectId: string | null
     requestId: string
     commandType: string
     fingerprint: string
@@ -122,12 +124,23 @@ export class PlayCanvasEditorBridgeSessionService {
     async claimReplay(
         exec: DbExecutor,
         _schemaName: string,
-        input: { sessionId: string; requestId: string; commandType: string; fingerprint: string; expiresAt: number; userId: string }
+        input: {
+            sessionId: string
+            metahubId: string
+            projectId: string | null
+            requestId: string
+            commandType: string
+            fingerprint: string
+            expiresAt: number
+            userId: string
+        }
     ): Promise<boolean> {
         const table = qSchemaTable('metahubs', '_app_settings')
         const key = buildReplayKey(input)
         const value = {
             sessionId: input.sessionId,
+            metahubId: input.metahubId,
+            projectId: input.projectId,
             requestId: input.requestId,
             commandType: input.commandType,
             fingerprint: input.fingerprint,
@@ -155,7 +168,15 @@ export class PlayCanvasEditorBridgeSessionService {
     async readReplayResponse(
         exec: DbExecutor,
         _schemaName: string,
-        input: { sessionId: string; requestId: string; commandType: string; fingerprint: string }
+        input: {
+            sessionId: string
+            metahubId: string
+            projectId: string | null
+            requestId: string
+            commandType: string
+            fingerprint: string
+            userId: string
+        }
     ): Promise<{ status: 'claimed' | 'completed'; response?: unknown } | null> {
         const table = qSchemaTable('metahubs', '_app_settings')
         const rows = await exec.query<{ value: BridgeReplayValue }>(
@@ -166,8 +187,21 @@ export class PlayCanvasEditorBridgeSessionService {
                 AND value->>'requestId' = $3
                 AND value->>'commandType' = $4
                 AND value->>'fingerprint' = $5
+                AND value->>'userIdHash' = $6
+                AND value->>'metahubId' = $7
+                AND jsonb_exists(value, 'projectId')
+                AND value->>'projectId' IS NOT DISTINCT FROM $8
               LIMIT 1`,
-            [buildReplayKey(input), input.sessionId, input.requestId, input.commandType, input.fingerprint]
+            [
+                buildReplayKey(input),
+                input.sessionId,
+                input.requestId,
+                input.commandType,
+                input.fingerprint,
+                hashAuditUserId(input.userId),
+                input.metahubId,
+                input.projectId
+            ]
         )
         const value = rows[0]?.value
         if (!value || (value.status !== 'claimed' && value.status !== 'completed')) {
@@ -179,7 +213,16 @@ export class PlayCanvasEditorBridgeSessionService {
     async completeReplay(
         exec: DbExecutor,
         _schemaName: string,
-        input: { sessionId: string; requestId: string; commandType: string; fingerprint: string; response: unknown; userId: string }
+        input: {
+            sessionId: string
+            metahubId: string
+            projectId: string | null
+            requestId: string
+            commandType: string
+            fingerprint: string
+            response: unknown
+            userId: string
+        }
     ): Promise<boolean> {
         const table = qSchemaTable('metahubs', '_app_settings')
         const rows = await exec.query<{ id: string }>(
@@ -193,7 +236,7 @@ export class PlayCanvasEditorBridgeSessionService {
                 NULL
              )
              ON CONFLICT (key) DO UPDATE
-                SET value = jsonb_set(jsonb_set(${table}.value, '{response}', $8::jsonb, true), '{status}', '"completed"'::jsonb, true),
+                SET value = jsonb_set(jsonb_set(${table}.value, '{response}', $11::jsonb, true), '{status}', '"completed"'::jsonb, true),
                     _upl_updated_by = NULL,
                     _upl_updated_at = NOW(),
                     _upl_version = ${table}._upl_version + 1
@@ -201,12 +244,18 @@ export class PlayCanvasEditorBridgeSessionService {
                 AND ${table}.value->>'requestId' = $5
                 AND ${table}.value->>'commandType' = $6
                 AND ${table}.value->>'fingerprint' = $7
+                AND ${table}.value->>'userIdHash' = $8
+                AND ${table}.value->>'metahubId' = $9
+                AND jsonb_exists(${table}.value, 'projectId')
+                AND ${table}.value->>'projectId' IS NOT DISTINCT FROM $10
               RETURNING id`,
             [
                 generateUuidV7(),
                 buildReplayKey(input),
                 JSON.stringify({
                     sessionId: input.sessionId,
+                    metahubId: input.metahubId,
+                    projectId: input.projectId,
                     requestId: input.requestId,
                     commandType: input.commandType,
                     fingerprint: input.fingerprint,
@@ -219,6 +268,9 @@ export class PlayCanvasEditorBridgeSessionService {
                 input.requestId,
                 input.commandType,
                 input.fingerprint,
+                hashAuditUserId(input.userId),
+                input.metahubId,
+                input.projectId,
                 JSON.stringify(input.response)
             ]
         )
@@ -228,7 +280,15 @@ export class PlayCanvasEditorBridgeSessionService {
     async releaseReplay(
         exec: DbExecutor,
         _schemaName: string,
-        input: { sessionId: string; requestId: string; commandType: string; fingerprint: string }
+        input: {
+            sessionId: string
+            metahubId: string
+            projectId: string | null
+            requestId: string
+            commandType: string
+            fingerprint: string
+            userId: string
+        }
     ): Promise<void> {
         const table = qSchemaTable('metahubs', '_app_settings')
         await exec.query(
@@ -237,8 +297,48 @@ export class PlayCanvasEditorBridgeSessionService {
                 AND value->>'sessionId' = $2
                 AND value->>'requestId' = $3
                 AND value->>'commandType' = $4
-                AND value->>'fingerprint' = $5`,
-            [buildReplayKey(input), input.sessionId, input.requestId, input.commandType, input.fingerprint]
+                AND value->>'fingerprint' = $5
+                AND value->>'userIdHash' = $6
+                AND value->>'metahubId' = $7
+                AND jsonb_exists(value, 'projectId')
+                AND value->>'projectId' IS NOT DISTINCT FROM $8`,
+            [
+                buildReplayKey(input),
+                input.sessionId,
+                input.requestId,
+                input.commandType,
+                input.fingerprint,
+                hashAuditUserId(input.userId),
+                input.metahubId,
+                input.projectId
+            ]
         )
+    }
+
+    async hasActiveReplayClaims(exec: DbExecutor, _schemaName: string, input: { metahubId: string; projectId: string }): Promise<boolean> {
+        const table = qSchemaTable('metahubs', '_app_settings')
+        await exec.query(
+            `DELETE FROM ${table}
+              WHERE key LIKE 'pc.eb.replay.%'
+                AND COALESCE((value->>'expiresAt')::bigint, 0) <= $1`,
+            [Date.now()]
+        )
+        const rows = await exec.query<{ exists: boolean }>(
+            `SELECT EXISTS (
+                SELECT 1
+                  FROM ${table}
+                 WHERE key LIKE 'pc.eb.replay.%'
+                   AND value->>'status' = 'claimed'
+                   AND COALESCE((value->>'expiresAt')::bigint, 0) > $1
+                   AND (
+                        (value->>'metahubId' = $2 AND value->>'projectId' = $3)
+                        OR NOT jsonb_exists(value, 'metahubId')
+                        OR NOT jsonb_exists(value, 'projectId')
+                   )
+                 LIMIT 1
+             ) AS "exists"`,
+            [Date.now(), input.metahubId, input.projectId]
+        )
+        return rows[0]?.exists === true
     }
 }

@@ -497,7 +497,18 @@ const MetahubList = () => {
     const handleExportMetahub = useCallback(
         async (metahubId: string) => {
             try {
-                await exportMetahubSnapshot(metahubId)
+                await exportMetahubSnapshot(metahubId, 'snapshot')
+            } catch {
+                enqueueSnackbar(t('export.exportError'), { variant: 'error' })
+            }
+        },
+        [enqueueSnackbar, t]
+    )
+
+    const handleExportRunnableMetahub = useCallback(
+        async (metahubId: string) => {
+            try {
+                await exportMetahubSnapshot(metahubId, 'snapshot-runtime')
             } catch {
                 enqueueSnackbar(t('export.exportError'), { variant: 'error' })
             }
@@ -729,7 +740,8 @@ const MetahubList = () => {
                 }
             },
             runtime: {
-                exportMetahub: handleExportMetahub
+                exportMetahub: handleExportMetahub,
+                exportRunnableMetahub: handleExportRunnableMetahub
             }
         }),
         [
@@ -738,6 +750,7 @@ const MetahubList = () => {
             deleteMetahubMutation,
             enqueueSnackbar,
             handleExportMetahub,
+            handleExportRunnableMetahub,
             i18n.language,
             metahubMap,
             openConflict,

@@ -220,6 +220,9 @@ const withRuntimeWorkspaceSwitcher = (zoneWidgets: ZoneWidgets | undefined, work
     }
 }
 
+const hasFitViewportPlayCanvasWidget = (widgets: readonly ZoneWidgetItem[]) =>
+    widgets.some((widget) => widget.widgetKey === 'playcanvasCanvas' && widget.config?.heightMode === 'fitViewport')
+
 export default function Dashboard(props: DashboardProps) {
     const layout = { ...DEFAULT_LAYOUT, ...(props.layoutConfig ?? {}) }
     const zoneWidgets = useMemo(
@@ -229,10 +232,11 @@ export default function Dashboard(props: DashboardProps) {
     const rightWidgets = zoneWidgets?.right ?? EMPTY_RIGHT_WIDGETS
     const centerWidgets = zoneWidgets?.center ?? EMPTY_CENTER_WIDGETS
     const showRightSideMenu = (layout.showRightSideMenu ?? true) && rightWidgets.length > 0
+    const hasViewportBoundedCanvas = hasFitViewportPlayCanvasWidget(centerWidgets)
 
     return (
         <DashboardDetailsProvider value={props.details}>
-            <Box sx={{ display: 'flex' }}>
+            <Box sx={{ display: 'flex', minWidth: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
                 {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={zoneWidgets} />}
                 {layout.showAppNavbar && (
                     <AppNavbar menu={props.menu} menus={props.menus} rightWidgets={rightWidgets} zoneWidgets={zoneWidgets} />
@@ -241,13 +245,15 @@ export default function Dashboard(props: DashboardProps) {
                 <Box
                     component='main'
                     sx={(theme) => ({
-                        flexGrow: 1,
+                        flex: '1 1 0%',
                         minWidth: 0,
-                        maxWidth: '100vw',
+                        width: '100%',
+                        maxWidth: '100%',
                         backgroundColor: theme.vars
                             ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
                             : alpha(theme.palette.background.default, 1),
-                        overflow: 'auto'
+                        overflowX: 'hidden',
+                        overflowY: 'auto'
                     })}
                 >
                     <Stack
@@ -255,9 +261,11 @@ export default function Dashboard(props: DashboardProps) {
                         sx={{
                             alignItems: 'center',
                             minWidth: 0,
+                            width: '100%',
+                            maxWidth: '100%',
                             boxSizing: 'border-box',
-                            mx: 3,
-                            pb: 5,
+                            px: { xs: 2, sm: 3 },
+                            pb: hasViewportBoundedCanvas ? { xs: 2, sm: 3 } : 5,
                             mt: { xs: 8, md: 0 }
                         }}
                     >

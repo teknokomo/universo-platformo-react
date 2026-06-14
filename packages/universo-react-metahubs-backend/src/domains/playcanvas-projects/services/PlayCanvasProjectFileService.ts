@@ -28,11 +28,15 @@ export interface PlayCanvasProjectFileWriteResult extends PlayCanvasProjectFileR
 
 const DEFAULT_PLAYCANVAS_PROJECT_FILE_ROOT = path.resolve(process.cwd(), 'storage')
 const PLAYCANVAS_PROJECT_SCOPE_SEGMENT_PATTERN = /^[A-Za-z0-9_-]+$/
-const PLAYCANVAS_PROJECT_FILE_EXTENSIONS = new Set(['.json', '.js', '.mjs'])
+const PLAYCANVAS_PROJECT_FILE_EXTENSIONS = new Set(['.json', '.js', '.mjs', '.png', '.jpg', '.jpeg', '.webp'])
 const PLAYCANVAS_PROJECT_EXTENSION_MIME_TYPES: Record<string, ReadonlySet<string>> = {
     '.json': new Set(['application/json']),
     '.js': new Set(['text/javascript', 'application/javascript']),
-    '.mjs': new Set(['text/javascript', 'application/javascript'])
+    '.mjs': new Set(['text/javascript', 'application/javascript']),
+    '.png': new Set(['image/png']),
+    '.jpg': new Set(['image/jpeg']),
+    '.jpeg': new Set(['image/jpeg']),
+    '.webp': new Set(['image/webp'])
 }
 
 const normalizeStorageRoot = (root?: string | null): string => {
@@ -148,6 +152,13 @@ export class PlayCanvasProjectFileService {
             projectId,
             'projectId'
         )}/generated/${assertSafePlayCanvasProjectScopeSegment(artifactId, 'artifactId')}${extension}`
+    }
+
+    buildDefaultSourceFilePath(projectId: string, sourceFileId: string, extension: '.js' | '.mjs' = '.mjs'): string {
+        return `${PLAYCANVAS_PROJECT_FILE_ROOT}/${assertSafePlayCanvasProjectScopeSegment(
+            projectId,
+            'projectId'
+        )}/sourcefiles/${assertSafePlayCanvasProjectScopeSegment(sourceFileId, 'sourceFileId')}${extension}`
     }
 
     async read(scope: PlayCanvasProjectFileScope, sourcePath: string): Promise<PlayCanvasProjectFileReadResult> {

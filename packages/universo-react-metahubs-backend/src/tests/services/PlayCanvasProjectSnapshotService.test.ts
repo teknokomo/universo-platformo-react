@@ -25,6 +25,7 @@ const makeExec = (responses: Record<string, unknown[]>): DbExecutor =>
             if (sql.includes('_mhb_playcanvas_assets')) return responses.assets ?? []
             if (sql.includes('_mhb_playcanvas_scenes')) return responses.scenes ?? []
             if (sql.includes('_mhb_playcanvas_publication_manifests')) return responses.manifests ?? []
+            if (sql.includes('_mhb_playcanvas_sourcefiles')) return responses.sourceFiles ?? []
             if (sql.includes('_mhb_playcanvas_projects')) return responses.projects ?? []
             return []
         })
@@ -141,6 +142,7 @@ describe('PlayCanvasProjectSnapshotService', () => {
 
         expect(snapshot?.schemaVersion).toBe(PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION)
         expect(snapshot?.projects).toHaveLength(1)
+        expect(snapshot?.scenes[0].payload).toEqual({ entities: [] })
         expect(snapshot?.scenes[0].payloadFile?.hash).toBe(writtenScene.checksum)
         expect(snapshot?.scenes[0].payloadFile?.snapshotContentBase64).toBe(Buffer.from('{"entities":[]}').toString('base64'))
         expect(snapshot?.generatedArtifacts[0].outputFile.snapshotContentBase64).toBe(
@@ -171,6 +173,39 @@ describe('PlayCanvasProjectSnapshotService', () => {
         )
 
         await fs.rm(root, { recursive: true, force: true })
+    })
+
+    it('strips private PlayCanvas Editor user data from exported project settings', async () => {
+        const service = new PlayCanvasProjectSnapshotService(
+            makeExec({
+                projects: [
+                    {
+                        id: 'project-1',
+                        codename: createLocalizedContent('en', 'project_one'),
+                        displayName: createLocalizedContent('en', 'Project One'),
+                        packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                        compatibilityStatus: 'compatible',
+                        schemaVersion: '1',
+                        settings: {
+                            playCanvasEditorRealtime: {
+                                documents: { project_123: { data: { width: 1280 }, version: 1 } },
+                                userDataDocuments: { legacy: { data: { cameras: {} }, version: 1 } },
+                                userDataDocumentsByScene: { 'scene-1': { 'user-1': { data: { cameras: {} }, version: 2 } } }
+                            }
+                        },
+                        publicationConfig: {}
+                    }
+                ]
+            }),
+            makeSchemaService() as never
+        )
+
+        const snapshot = await service.exportSnapshotFromSchema('metahub-1', TEST_SCHEMA)
+        expect(snapshot?.projects[0]?.settings).toEqual({
+            playCanvasEditorRealtime: {
+                documents: { project_123: { data: { width: 1280 }, version: 1 } }
+            }
+        })
     })
 
     it('exports a single project snapshot before runtime manifest generation so broken sibling projects do not block it', async () => {
@@ -259,6 +294,7 @@ describe('PlayCanvasProjectSnapshotService', () => {
                 if (sql.includes('_mhb_playcanvas_script_assets')) return rows.scriptAssets
                 if (sql.includes('_mhb_playcanvas_assets')) return byProject(rows.assets)
                 if (sql.includes('_mhb_playcanvas_scenes')) return byProject(rows.scenes)
+                if (sql.includes('_mhb_playcanvas_sourcefiles')) return []
                 if (sql.includes('_mhb_playcanvas_projects')) return byProject(rows.projects)
                 return []
             })
@@ -369,7 +405,26 @@ describe('PlayCanvasProjectSnapshotService', () => {
         const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pc-snapshot-published-manifest-'))
         const fileService = new PlayCanvasProjectFileService(root)
         const scenePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/scenes/scene.json`
-        const writtenScene = await fileService.write({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, scenePath, '{"scene":true}')
+        const scenePayload = {
+            metadata: {
+                mmoomm: {
+                    scene: {
+                        controlledObjectId: 'stable-ship',
+                        targetObjectId: 'stable-station',
+                        objects: [
+                            { id: 'stable-ship', position: { x: 0, y: 0, z: 0 }, scale: { x: 12, y: 4, z: 4 } },
+                            { id: 'stable-station', position: { x: 72, y: 0, z: -48 }, scale: { x: 48, y: 16, z: 16 } }
+                        ]
+                    }
+                }
+            },
+            entities: []
+        }
+        const writtenScene = await fileService.write(
+            { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+            scenePath,
+            JSON.stringify(scenePayload)
+        )
         const exec = makeExec({
             projects: [
                 {
@@ -411,6 +466,7 @@ describe('PlayCanvasProjectSnapshotService', () => {
         })
 
         expect(snapshot?.runtimeManifests).toHaveLength(1)
+        expect(snapshot?.runtimeManifests?.[0].metadata?.mmoomm?.scene).toEqual(scenePayload.metadata.mmoomm.scene)
         const manifestCalls = jest
             .mocked(exec.query)
             .mock.calls.filter(([sql]) => String(sql).includes('_mhb_playcanvas_publication_manifests'))
@@ -1250,7 +1306,7 @@ describe('PlayCanvasProjectSnapshotService', () => {
                 entityIdMap: new Map(),
                 userId: 'user-1'
             })
-        ).resolves.toEqual(new Map())
+        ).resolves.toEqual({ projectIdMap: new Map(), sceneIdMap: new Map(), runtimeManifestChecksumMap: new Map() })
         expect(trx.withSchema).not.toHaveBeenCalled()
         expect(del).not.toHaveBeenCalled()
     })
@@ -1262,10 +1318,11 @@ describe('PlayCanvasProjectSnapshotService', () => {
         const sceneId = '019e8afa-0000-7000-8000-000000000002'
         const scenePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/scenes/${sceneId}.json`
         await fileService.write({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, scenePath, '{"previous":true}')
+        const insert = jest.fn(async () => undefined)
         const trx = {
             withSchema: jest.fn(() => ({
                 from: jest.fn(() => ({ del: jest.fn(async () => undefined) })),
-                into: jest.fn(() => ({ insert: jest.fn(async () => undefined) }))
+                into: jest.fn(() => ({ insert }))
             }))
         }
         const backups: Array<{
@@ -1336,6 +1393,13 @@ describe('PlayCanvasProjectSnapshotService', () => {
         expect(backups).toHaveLength(1)
         expect(backups[0].sourcePath).not.toBe(scenePath)
         expect(backups[0].sourcePath).toMatch(/^playcanvas-projects\/[0-9a-f-]+\/scenes\//)
+        const restoredSceneRow = insert.mock.calls
+            .map((call) => call[0] as { id?: string; project_id?: string; payload_file?: { path?: string } })
+            .find((row) => row.payload_file?.path)
+        expect(restoredSceneRow?.payload_file?.path).toBe(
+            `${PLAYCANVAS_PROJECT_FILE_ROOT}/${restoredSceneRow?.project_id}/scenes/${restoredSceneRow?.id}.json`
+        )
+        expect(backups[0].sourcePath).toBe(restoredSceneRow?.payload_file?.path)
         expect(backups[0].previousContent).toBeNull()
         expect(
             (await fileService.read({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, backups[0].sourcePath)).content.toString('utf8')
@@ -1410,7 +1474,11 @@ describe('PlayCanvasProjectSnapshotService', () => {
                 entityIdMap: new Map(),
                 userId: 'user-1'
             })
-        ).resolves.toEqual(expect.any(Map))
+        ).resolves.toEqual({
+            projectIdMap: expect.any(Map),
+            sceneIdMap: expect.any(Map),
+            runtimeManifestChecksumMap: expect.any(Map)
+        })
 
         expect(insert).toHaveBeenCalled()
     })

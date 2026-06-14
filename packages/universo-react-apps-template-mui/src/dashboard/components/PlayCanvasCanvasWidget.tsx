@@ -24,11 +24,11 @@ import ZoomInRoundedIcon from '@mui/icons-material/ZoomInRounded'
 import ZoomOutRoundedIcon from '@mui/icons-material/ZoomOutRounded'
 import * as pc from '@universo-react/playcanvas-engine'
 import {
-    applyFollowCameraTransform,
     createBasicApplication,
     createBoxEntity,
     createStandardMaterial,
     resizeApplicationCanvas,
+    resolveFollowCameraPosition,
     rotateFollowCamera,
     zoomFollowCamera,
     type Vector3Like
@@ -43,6 +43,7 @@ import {
     type Room
 } from '@universo-react/colyseus-client'
 import { playcanvasCanvasWidgetConfigSchema, readLocalizedTextValue } from '@universo-react/types'
+import { fetchRuntimePlayCanvasManifests } from '../../api/api'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { executeClientModuleMethod } from '../runtime/browserModuleRuntime'
 import { createClientModuleContext, isClientModuleMethodTarget, useRuntimeWidgetClientModule } from './runtimeWidgetHelpers'
@@ -147,6 +148,8 @@ const DEFAULT_CAMERA = {
 const DEFAULT_INTENT_DISTANCE = 720
 const CONTACT_EPSILON = 0.02
 const DEFAULT_GUARD_CLEARANCE = CONTACT_EPSILON
+const CAMERA_GUARD_CLEARANCE = 1
+const CAMERA_COLLISION_HALF_EXTENTS = { x: 1, y: 1, z: 1 }
 const REMOTE_SHIP_RENDER_CLEARANCE = 0.35
 const DEFAULT_PREDICTION_ACCELERATION = 48
 const DEFAULT_PREDICTION_DECELERATION = 48
@@ -205,6 +208,16 @@ const normalizeRuntimeModuleMountModel = (value: unknown): RuntimeModuleMountMod
             targetObjectId: typeof sceneRecord.targetObjectId === 'string' ? sceneRecord.targetObjectId.slice(0, 128) : undefined
         }
     }
+}
+
+const normalizePublishedManifestSceneModel = (value: unknown): RuntimeModuleMountModel => {
+    if (!value || typeof value !== 'object') {
+        return {}
+    }
+    const metadata = (value as { metadata?: unknown }).metadata
+    const mmoomm = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? (metadata as { mmoomm?: unknown }).mmoomm : null
+    const scene = mmoomm && typeof mmoomm === 'object' && !Array.isArray(mmoomm) ? (mmoomm as { scene?: unknown }).scene : null
+    return normalizeRuntimeModuleMountModel({ scene })
 }
 
 const readShipEntries = (state: FixedTickSceneState | undefined): Array<[string, FixedTickShipState]> => {
@@ -539,6 +552,33 @@ const resolveSafeTargetOutsideGuardBoxes = (
     return resolved
 }
 
+const resolveCameraPositionOutsideGuardBoxes = (
+    cameraPosition: Vector3Like,
+    target: Vector3Like,
+    guards: readonly AabbLike[]
+): Vector3Like => {
+    if (!guards.length) {
+        return cameraPosition
+    }
+
+    const heading = normalizeVector({
+        x: target.x - cameraPosition.x,
+        y: target.y - cameraPosition.y,
+        z: target.z - cameraPosition.z
+    })
+    return guards.reduce(
+        (position, guard) =>
+            resolvePositionOutsideObstacle(
+                position,
+                CAMERA_COLLISION_HALF_EXTENTS,
+                heading,
+                createAabbObstacleBox(guard),
+                CAMERA_GUARD_CLEARANCE
+            ),
+        cameraPosition
+    )
+}
+
 const distanceToAabbSurface = (point: Vector3Like, box: AabbLike): number => {
     const dx = Math.max(Math.abs(point.x - box.center.x) - box.halfExtents.x, 0)
     const dy = Math.max(Math.abs(point.y - box.center.y) - box.halfExtents.y, 0)
@@ -745,25 +785,88 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         }
     })
     const runtimeModuleMount = useMemo(() => normalizeRuntimeModuleMountModel(runtimeModuleMountQuery.data), [runtimeModuleMountQuery.data])
+    const runtimeManifestBinding = widgetConfig?.runtimeManifest
+    const runtimeManifestQuery = useQuery({
+        queryKey: [
+            queryKeyPrefix,
+            'playcanvas-runtime-manifests',
+            applicationId,
+            runtimeManifestBinding?.projectId,
+            runtimeManifestBinding?.sceneId ?? null,
+            runtimeManifestBinding?.checksum
+        ],
+        enabled: Boolean(applicationId && runtimeManifestBinding),
+        queryFn: async () => {
+            if (!applicationId) {
+                return null
+            }
+            const response = await fetchRuntimePlayCanvasManifests({ apiBaseUrl, applicationId })
+            return (
+                response.manifests.find(
+                    (manifest) =>
+                        manifest.projectId === runtimeManifestBinding?.projectId &&
+                        (manifest.sceneId ?? null) === (runtimeManifestBinding.sceneId ?? null) &&
+                        manifest.checksum === runtimeManifestBinding.checksum
+                ) ?? null
+            )
+        }
+    })
+    const publishedManifestScene = useMemo(
+        () => normalizePublishedManifestSceneModel(runtimeManifestQuery.data),
+        [runtimeManifestQuery.data]
+    )
+    const runtimeManifestFailClosed = runtimeManifestBinding?.failClosed !== false
     const title = readLocalizedTextValue(widgetConfig?.title, details?.locale ?? 'en') ?? t('playcanvasCanvas.title', '3D scene')
     const sceneObjects = useMemo(
         () =>
-            runtimeModuleMount.scene?.objects?.length
+            publishedManifestScene.scene?.objects?.length
+                ? publishedManifestScene.scene.objects
+                : runtimeManifestBinding && runtimeManifestFailClosed
+                ? []
+                : runtimeModuleMount.scene?.objects?.length
                 ? runtimeModuleMount.scene.objects
                 : widgetConfig?.scene?.objects?.length
                 ? widgetConfig.scene.objects
                 : DEFAULT_SCENE_OBJECTS,
-        [runtimeModuleMount.scene?.objects, widgetConfig?.scene?.objects]
+        [
+            publishedManifestScene.scene?.objects,
+            runtimeManifestBinding,
+            runtimeManifestFailClosed,
+            runtimeModuleMount.scene?.objects,
+            widgetConfig?.scene?.objects
+        ]
     )
+    const publishedSceneHasObjects = Boolean(publishedManifestScene.scene?.objects?.length)
+    const configuredControlledObjectId = publishedSceneHasObjects
+        ? publishedManifestScene.scene?.controlledObjectId
+        : runtimeModuleMount.scene?.controlledObjectId ?? widgetConfig?.scene?.controlledObjectId
     const controlledObjectId =
-        runtimeModuleMount.scene?.controlledObjectId ?? widgetConfig?.scene?.controlledObjectId ?? sceneObjects[0]?.id ?? 'controlled'
+        configuredControlledObjectId && sceneObjects.some((item) => item.id === configuredControlledObjectId)
+            ? configuredControlledObjectId
+            : sceneObjects[0]?.id ?? 'controlled'
+    const configuredTargetObjectId = publishedSceneHasObjects
+        ? publishedManifestScene.scene?.targetObjectId
+        : runtimeModuleMount.scene?.targetObjectId ?? widgetConfig?.scene?.targetObjectId
     const targetObjectId =
-        runtimeModuleMount.scene?.targetObjectId ??
-        widgetConfig?.scene?.targetObjectId ??
-        sceneObjects.find((item) => item.id !== controlledObjectId)?.id
-    const minHeight = widgetConfig?.minHeight ?? 520
+        configuredTargetObjectId && sceneObjects.some((item) => item.id === configuredTargetObjectId && item.id !== controlledObjectId)
+            ? configuredTargetObjectId
+            : sceneObjects.find((item) => item.id !== controlledObjectId)?.id
+    const manifestBindingLoading = Boolean(runtimeManifestBinding && runtimeManifestQuery.isLoading)
+    const manifestBindingError = Boolean(runtimeManifestBinding && runtimeManifestQuery.isError)
+    const manifestBindingMissing = Boolean(
+        runtimeManifestBinding && !manifestBindingLoading && !manifestBindingError && !runtimeManifestQuery.data
+    )
+    const manifestBindingSceneMissing = Boolean(
+        runtimeManifestBinding && runtimeManifestQuery.data && !publishedManifestScene.scene?.objects?.length
+    )
+    const manifestBindingReady =
+        !runtimeManifestBinding ||
+        !runtimeManifestFailClosed ||
+        (!manifestBindingLoading && !manifestBindingError && !manifestBindingMissing && !manifestBindingSceneMissing)
+    const minHeight = widgetConfig?.minHeight ?? 560
+    const heightMode = widgetConfig?.heightMode ?? 'fitViewport'
     const canvasHeight =
-        widgetConfig?.heightMode === 'fitViewport'
+        heightMode === 'fitViewport'
             ? measuredCanvasHeight ?? {
                   xs: `clamp(320px, calc(100dvh - 220px), 1200px)`,
                   md: `clamp(${minHeight}px, calc(100dvh - 180px), 1200px)`
@@ -787,9 +890,10 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const runtimeModuleReady =
         !requiresRuntimeModule ||
         (!runtimeModuleLoading && !runtimeModuleError && !runtimeModuleMissing && runtimeModuleMountQuery.isSuccess)
+    const sceneReady = runtimeModuleReady && manifestBindingReady
 
     useEffect(() => {
-        if (widgetConfig?.heightMode !== 'fitViewport' || !runtimeModuleReady) {
+        if (widgetConfig?.heightMode !== 'fitViewport' || !sceneReady) {
             setMeasuredCanvasHeight(null)
             return undefined
         }
@@ -800,11 +904,17 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 return
             }
             const rect = container.getBoundingClientRect()
-            const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-            const viewportWidth = window.visualViewport?.width ?? window.innerWidth
-            const minimumHeight = viewportWidth < 600 ? 320 : minHeight
-            const bottomGap = viewportWidth < 600 ? 20 : 24
-            const nextHeight = Math.floor(Math.min(1200, Math.max(minimumHeight, viewportHeight - rect.top - bottomGap)))
+            const viewportHeight = Math.min(
+                window.visualViewport?.height ?? window.innerHeight,
+                document.documentElement.clientHeight || window.innerHeight
+            )
+            const viewportWidth = Math.min(
+                window.visualViewport?.width ?? window.innerWidth,
+                document.documentElement.clientWidth || window.innerWidth
+            )
+            const bottomGap = viewportWidth < 600 ? 19 : 23
+            const availableHeight = Math.max(1, viewportHeight - rect.top - bottomGap)
+            const nextHeight = Math.floor(Math.min(1200, availableHeight))
             setMeasuredCanvasHeight((current) => (current === nextHeight ? current : nextHeight))
         }
 
@@ -821,10 +931,20 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
             window.visualViewport?.removeEventListener('resize', updateMeasuredHeight)
             observer.disconnect()
         }
-    }, [minHeight, runtimeModuleReady, widgetConfig?.heightMode])
+    }, [
+        canControlScene,
+        error,
+        localShipAssigned,
+        minHeight,
+        participantSummary.total,
+        ready,
+        realtimeStatus,
+        sceneReady,
+        widgetConfig?.heightMode
+    ])
 
     useEffect(() => {
-        if (!runtimeModuleReady) {
+        if (!sceneReady) {
             setError(null)
             setReady(false)
             setRealtimeStatus('connecting')
@@ -963,7 +1083,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                     cameraState.yaw,
                     cameraState.pitch,
                     (detail.deltaX ?? 0) * 0.005,
-                    (detail.deltaY ?? 0) * 0.005
+                    -(detail.deltaY ?? 0) * 0.005
                 )
                 cameraState.yaw = next.yaw
                 cameraState.pitch = next.pitch
@@ -1357,7 +1477,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                     ? Math.min(...clearanceGuardBoxes.map((guard) => distanceToAabbSurface(nextPositionValue, guard)))
                     : Infinity
                 canvas.dataset.shipGuardClearance = Number.isFinite(nearestGuardClearance) ? nearestGuardClearance.toFixed(2) : 'Infinity'
-                applyFollowCameraTransform(camera, {
+                const rawCameraPosition = resolveFollowCameraPosition({
                     target: { x: nextPosition.x, y: nextPosition.y, z: nextPosition.z },
                     yaw: cameraState.yaw,
                     pitch: cameraState.pitch,
@@ -1365,9 +1485,22 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                     minDistance: cameraState.minDistance,
                     maxDistance: cameraState.maxDistance
                 })
+                const cameraPosition = resolveCameraPositionOutsideGuardBoxes(rawCameraPosition, nextPositionValue, guardBoxes)
+                camera.setPosition(cameraPosition.x, cameraPosition.y, cameraPosition.z)
+                camera.lookAt(nextPosition.x, nextPosition.y, nextPosition.z)
                 canvas.dataset.cameraDistance = cameraState.distance.toFixed(2)
                 canvas.dataset.cameraYaw = cameraState.yaw.toFixed(4)
                 canvas.dataset.cameraPitch = cameraState.pitch.toFixed(4)
+                const nearestCameraGuardClearance = guardBoxes.length
+                    ? Math.min(
+                          ...guardBoxes.map((guard) =>
+                              distanceToAabbSurface(cameraPosition, expandAabb(guard, CAMERA_COLLISION_HALF_EXTENTS))
+                          )
+                      )
+                    : Infinity
+                canvas.dataset.cameraGuardClearance = Number.isFinite(nearestCameraGuardClearance)
+                    ? nearestCameraGuardClearance.toFixed(2)
+                    : 'Infinity'
 
                 const cameraComponent = camera.camera
                 const stationEntity = targetObjectId ? entities.get(targetObjectId) : null
@@ -1727,7 +1860,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         objectCollectionId,
         requiresRuntimeModule,
         runtimeAccessMode,
-        runtimeModuleReady,
+        sceneReady,
         sceneObjects,
         selectedModule?.codename,
         targetObjectId,
@@ -1870,6 +2003,24 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
               message: t('playcanvasCanvas.moduleUnavailable', 'The 3D runtime module is unavailable.')
           }
         : null
+    const manifestBindingAlert = manifestBindingLoading
+        ? { severity: 'info' as const, message: t('playcanvasCanvas.manifestLoading', 'Loading published 3D scene...') }
+        : manifestBindingError
+        ? {
+              severity: 'error' as const,
+              message: t('playcanvasCanvas.manifestLoadFailed', 'The published 3D scene could not be loaded.')
+          }
+        : manifestBindingMissing
+        ? {
+              severity: 'warning' as const,
+              message: t('playcanvasCanvas.manifestUnavailable', 'The published 3D scene is unavailable.')
+          }
+        : manifestBindingSceneMissing
+        ? {
+              severity: 'warning' as const,
+              message: t('playcanvasCanvas.manifestSceneUnavailable', 'The published 3D scene does not contain a runtime scene.')
+          }
+        : null
     const realtimeAlert =
         realtimeStatus === 'unauthorized'
             ? {
@@ -1915,10 +2066,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const showViewOnlyState = (realtimeStatus === 'connected' || realtimeStatus === 'restored') && (!canControlScene || !localShipAssigned)
 
     return (
-        <Box
-            data-testid='playcanvas-canvas-widget'
-            sx={{ width: '100%', minWidth: 0, mb: widgetConfig?.heightMode === 'fitViewport' ? -3 : 0 }}
-        >
+        <Box data-testid='playcanvas-canvas-widget' sx={{ width: '100%', minWidth: 0 }}>
             <Stack direction='row' spacing={1} alignItems='center' sx={{ mb: 1, minWidth: 0, flexWrap: 'wrap', rowGap: 1 }}>
                 <Typography variant='h6' sx={{ flex: 1, minWidth: 0 }}>
                     {title}
@@ -2008,12 +2156,13 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 </Tooltip>
             </Stack>
             {runtimeModuleAlert ? <Alert severity={runtimeModuleAlert.severity}>{runtimeModuleAlert.message}</Alert> : null}
+            {manifestBindingAlert ? <Alert severity={manifestBindingAlert.severity}>{manifestBindingAlert.message}</Alert> : null}
             {error ? <Alert severity='error'>{error}</Alert> : null}
-            {!ready && !error && !runtimeModuleAlert ? (
+            {!ready && !error && !runtimeModuleAlert && !manifestBindingAlert ? (
                 <Alert severity='info'>{t('playcanvasCanvas.loading', 'Loading 3D scene...')}</Alert>
             ) : null}
             {ready && realtimeAlert && !error ? <Alert severity={realtimeAlert.severity}>{realtimeAlert.message}</Alert> : null}
-            {runtimeModuleReady ? (
+            {sceneReady ? (
                 <Box ref={containerRef} sx={{ width: '100%', minWidth: 0, height: canvasHeight, bgcolor: 'grey.950', overflow: 'hidden' }}>
                     <canvas
                         ref={canvasRef}

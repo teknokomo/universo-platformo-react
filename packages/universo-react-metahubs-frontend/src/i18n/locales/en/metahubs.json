@@ -451,6 +451,7 @@
             "detailsTitle": "Details title",
             "detailsTable": "Details table",
             "quizWidget": "Quiz widget",
+            "playcanvasCanvas": "PlayCanvas canvas",
             "detailsSidePanel": "Details side panel",
             "productTree": "Product tree",
             "usersByCountryChart": "Users by country chart",
@@ -507,6 +508,41 @@
             "submitMethodHelp": "Optional. Leave empty to use the default answer checker.",
             "emptyStateTitle": "Empty state title",
             "emptyStateDescription": "Empty state description"
+        },
+        "playcanvasCanvasEditor": {
+            "title": "PlayCanvas canvas widget",
+            "description": "Bind the runtime canvas to a published PlayCanvas scene and MMOOMM runtime modules.",
+            "manifestOption": "{{scene}}{{date}}",
+            "manifestOptionWithProject": "{{scene}} · {{project}}{{date}}",
+            "manifestLoadError": "Failed to load published PlayCanvas scenes.",
+            "modulesLoadError": "Failed to load available runtime modules.",
+            "sectionsLoadError": "Failed to load available sections.",
+            "publishedSceneFallback": "Published scene {{number}}",
+            "sectionTypeFallback": "Section",
+            "unnamedSection": "Unnamed section",
+            "moduleFallback": {
+                "client": "Client module",
+                "server": "Server module"
+            },
+            "validation": {
+                "invalidConfig": "Check the PlayCanvas canvas widget settings and try again.",
+                "invalidRuntimeManifest": "Choose a published scene from an active display package or clear the selection."
+            },
+            "fields": {
+                "title": "Widget title",
+                "clientModule": "Client module",
+                "clientModuleHelp": "Choose the browser-side canvas behavior.",
+                "serverModule": "Realtime server module",
+                "serverModuleHelp": "Optional server-authoritative behavior for the scene.",
+                "useFirstClientModule": "Use the first available client module",
+                "noServerModule": "No realtime server module",
+                "runtimeManifest": "Published scene",
+                "noRuntimeManifest": "No published scene",
+                "minHeight": "Minimum height",
+                "fitViewport": "Fit available viewport height",
+                "sections": "Visible in sections",
+                "sectionsHelp": "Leave empty to show the canvas in every section where this layout is active."
+            }
         },
         "moveWidget": "Move widget",
         "zoneErrors": {
@@ -1366,7 +1402,8 @@
             "values": "Values",
             "components": "Components",
             "optionValues": "Values",
-            "modules": "Modules"
+            "runtimeModules": "Runtime modules",
+            "modules": "Shared modules"
         },
         "shared": {
             "loading": "Loading shared entities...",
@@ -1502,6 +1539,8 @@
             },
             "actions": {
                 "create": "Create project",
+                "publish": "Publish runtime",
+                "publishUnavailable": "Resolve project status before publishing.",
                 "delete": "Delete project",
                 "deleteNamed": "Delete {{projectName}}"
             },
@@ -1520,6 +1559,8 @@
                 "createFailed": "Failed to create PlayCanvas project",
                 "defaultSaved": "Default PlayCanvas project saved",
                 "defaultFailed": "Failed to save default PlayCanvas project",
+                "published": "PlayCanvas project published with {{count}} runtime scene(s)",
+                "publishFailed": "Failed to publish PlayCanvas project",
                 "deleted": "PlayCanvas project deleted",
                 "deleteFailed": "Failed to delete PlayCanvas project"
             }
@@ -2712,6 +2753,7 @@
         "importVersion": "Import Version from Configuration",
         "exportVersion": "Export Snapshot",
         "exportMetahub": "Export Metahub",
+        "exportRunnableMetahub": "Export Runnable Configuration",
         "chooseFile": "Choose File",
         "noFileSelected": "No file selected",
         "fileSelectLabel": "Select a .json configuration file exported from Universo Platformo.",

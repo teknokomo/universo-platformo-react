@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import vm from 'node:vm'
 import { z } from 'zod'
 
 export const upstreamRepository = 'https://github.com/playcanvas/editor'
@@ -23,6 +24,7 @@ const hostedEditorUrlSchema = z
         home: z.string().min(1),
         frontend: z.string().url(),
         engine: z.string().url(),
+        static: z.string().min(1),
         images: z.string().min(1),
         messenger: z.object({ ws: z.string().min(1) }).strict(),
         realtime: z.object({ http: z.string().min(1) }).strict(),
@@ -120,6 +122,7 @@ export const createHostedEditorConfig = (descriptor, artifactBaseUrl = 'http://1
             home: '/',
             frontend: base.href,
             engine: new URL('js/playcanvas-engine.js', base).href,
+            static: base.href.replace(/\/$/, ''),
             images: '/',
             messenger: { ws: 'ws://127.0.0.1/disabled' },
             realtime: { http: 'http://127.0.0.1/disabled' },
@@ -136,7 +139,20 @@ export const createHostedEditorConfig = (descriptor, artifactBaseUrl = 'http://1
                         components: {
                             camera: { enabled: { $type: 'boolean', $default: true } },
                             light: { enabled: { $type: 'boolean', $default: true } },
-                            render: { enabled: { $type: 'boolean', $default: true } },
+                            render: {
+                                enabled: { $type: 'boolean', $default: true },
+                                type: { $type: 'string', $default: 'box' },
+                                asset: { $default: null },
+                                materialAssets: { $type: 'array', $default: [null] },
+                                layers: { $type: 'array', $default: [0] },
+                                castShadows: { $type: 'boolean', $default: true },
+                                receiveShadows: { $type: 'boolean', $default: true },
+                                castShadowsLightmap: { $type: 'boolean', $default: true },
+                                lightmapped: { $type: 'boolean', $default: false },
+                                isStatic: { $type: 'boolean', $default: false },
+                                batchGroupId: { $default: null },
+                                rootBone: { $default: null }
+                            },
                             script: {
                                 enabled: { $type: 'boolean', $default: true },
                                 scripts: { $type: 'array', $default: [] },
@@ -176,6 +192,123 @@ export const upstreamLicensePath = path.join(vendorRoot, 'LICENSE.playcanvas-edi
 export const noticePath = path.join(packageRoot, 'NOTICE.md')
 export const artifactRoot = path.join(packageRoot, artifactOutputRoot)
 export const artifactManifestPath = path.join(artifactRoot, manifestFileName)
+
+const svgDataUri = (svg) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+
+export const inlineAjaxLoaderImage = svgDataUri(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="#8fa6ad" stroke-width="3" opacity=".3"/><path fill="none" stroke="#d7e3e7" stroke-linecap="round" stroke-width="3" d="M16 3a13 13 0 0 1 13 13"><animateTransform attributeName="transform" dur="0.8s" from="0 16 16" repeatCount="indefinite" to="360 16 16" type="rotate"/></path></svg>'
+)
+export const inlineBlankProjectImage = svgDataUri(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="420" height="260" viewBox="0 0 420 260"><rect width="420" height="260" rx="12" fill="#222b2f"/><rect x="44" y="42" width="332" height="176" rx="8" fill="#2d393e" stroke="#4e626a"/><path d="M126 162h168M126 130h168M126 98h168" stroke="#7f969e" stroke-width="10" stroke-linecap="round"/><text x="210" y="235" fill="#d8e2e5" font-family="Arial, sans-serif" font-size="22" text-anchor="middle">New project</text></svg>'
+)
+export const inlinePlayCanvasTextImage = svgDataUri(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="252" height="52" viewBox="0 0 252 52"><rect width="252" height="52" fill="none"/><text x="126" y="34" fill="#fff" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">PlayCanvas</text></svg>'
+)
+export const inlineRemoveIconImage = svgDataUri(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#4f5f66"/><path d="M5 5l6 6M11 5l-6 6" stroke="#fff" stroke-linecap="round" stroke-width="2"/></svg>'
+)
+export const inlineEditorLogoImage = svgDataUri(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="18" viewBox="0 0 36 18"><rect width="36" height="18" fill="none"/><circle cx="9" cy="9" r="7" fill="#fff" opacity=".82"/><path d="M6 6h7l-4 7H5l3-4H6z" fill="#283238"/><circle cx="27" cy="9" r="7" fill="#e56f32"/><path d="M24 6h7l-4 7h-4l3-4h-2z" fill="#fff"/></svg>'
+)
+export const inlineHelpInstructionImage = svgDataUri(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270"><rect width="480" height="270" rx="10" fill="#20282c"/><rect x="36" y="34" width="408" height="202" rx="8" fill="#2c383d" stroke="#536870"/><path d="M96 101h288M96 135h224M96 169h264" stroke="#7f969e" stroke-width="12" stroke-linecap="round"/><text x="240" y="246" fill="#d8e2e5" font-family="Arial, sans-serif" font-size="18" text-anchor="middle">PlayCanvas help media unavailable offline</text></svg>'
+)
+export const inlineEntityIconImage =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mP8z8AARwMHggJ/PchI7wAAAABJRU5ErkJggg=='
+
+export const hostedArtifactImageReplacements = [
+    [/(?:https:)?\/\/playcanvas\.com\/static-assets\/images\/play_text_252_white\.png/g, inlinePlayCanvasTextImage],
+    [/(?:https:)?\/\/playcanvas\.com\/static-assets\/images\/editor_logo\.png/g, inlineEditorLogoImage],
+    [/(?:https:)?\/\/playcanvas\.com\/static-assets\/images\/icons\/fa\/16x16\/remove\.png/g, inlineRemoveIconImage],
+    [
+        /(?:https:)?\/\/playcanvas\.com\/static-assets\/images\/(?:bcg_primary|help-controls|store-default-thumbnail(?:-480x320)?)\.(?:jpg|png)/g,
+        inlineHelpInstructionImage
+    ],
+    [/(?:https:)?\/\/playcanvas\.com\/static-assets\/platform\/images\/loader(?:_transparent)?\.gif/g, inlineAjaxLoaderImage],
+    [/(?:https:)?\/\/playcanvas\.com\/static-assets\/platform\/images\/logo\/playcanvas-logo-360\.jpg/g, inlinePlayCanvasTextImage],
+    [/(?:\.\.\/)*static\/platform\/images\/ajax-loader\.gif/g, inlineAjaxLoaderImage],
+    [/(?:\.\.\/)*static\/platform\/images\/loader_transparent\.gif/g, inlineAjaxLoaderImage],
+    [/(?:\.\.\/)*static\/platform\/images\/home\/blank_project\.png/g, inlineBlankProjectImage],
+    [/(?:https:)?\/\/playcanvas\.com\/static-assets\/instructions\/[^"'\\ )<]+/g, inlineHelpInstructionImage],
+    [/`\$\{[^}]+\.url\.static\}\/platform\/images\/common\/ajax-loader\.gif`/g, `'${inlineAjaxLoaderImage}'`],
+    [/`url\("\$\{[^}]+\.url\.static\}\/platform\/images\/common\/ajax-loader\.gif"\)`/g, `'url("${inlineAjaxLoaderImage}")'`],
+    [/`\$\{[^}]+\.url\.static\}\/platform\/images\/common\/blank_project\.png`/g, `'${inlineBlankProjectImage}'`],
+    [/`\/editor\/scene\/img\/entity-icons\/\$\{[^}]+\}\.png`/g, `'${inlineEntityIconImage}'`],
+    [/`\/api\/users\/\$\{[^}]+\}\/thumbnail\?size=\$\{[^}]+\}`/g, `'${inlineEntityIconImage}'`],
+    [/`\/api\/users\/\$\{[^}]+\}\/thumbnail\?size=[^`]+`/g, `'${inlineEntityIconImage}'`],
+    [/`url\(\/api\/users\/\$\{[^}]+\}\/thumbnail\?size=[^`]+`/g, `'url(${inlineEntityIconImage})'`],
+    [/`\$\{[^}]+\.url\.api\}\/users\/\$\{[^}]+\}\/thumbnail\?size=\$\{[^}]+\}`/g, `'${inlineEntityIconImage}'`],
+    [/`\$\{[^}]+\.url\.api\}\/users\/\$\{[^}]+\}\/thumbnail\?size=[^`]+`/g, `'${inlineEntityIconImage}'`],
+    [/`url\(\$\{[^}]+\.url\.api\}\/users\/\$\{[^}]+\}\/thumbnail\?size=[^`]+`/g, `'url(${inlineEntityIconImage})'`]
+]
+
+const patchableArtifactExtensions = new Set(['.html', '.js', '.css', '.json', '.map'])
+const jsonPatchableArtifactExtensions = new Set(['.json', '.map'])
+
+const replaceHostedArtifactImageReferences = (value) => {
+    if (typeof value === 'string') {
+        let updated = value
+        for (const [pattern, replacement] of hostedArtifactImageReplacements) {
+            updated = updated.replace(pattern, replacement)
+        }
+        return updated
+    }
+    if (Array.isArray(value)) {
+        let changed = false
+        const updated = value.map((entry) => {
+            const next = replaceHostedArtifactImageReferences(entry)
+            changed ||= next !== entry
+            return next
+        })
+        return changed ? updated : value
+    }
+    if (value && typeof value === 'object') {
+        let changed = false
+        const updated = {}
+        for (const [key, entry] of Object.entries(value)) {
+            const next = replaceHostedArtifactImageReferences(entry)
+            changed ||= next !== entry
+            updated[key] = next
+        }
+        return changed ? updated : value
+    }
+    return value
+}
+
+const patchArtifactSource = (source, extension) => {
+    if (jsonPatchableArtifactExtensions.has(extension)) {
+        const parsed = JSON.parse(source)
+        const updated = replaceHostedArtifactImageReferences(parsed)
+        return updated === parsed ? source : `${JSON.stringify(updated, null, 2)}\n`
+    }
+
+    const withoutRemoteFonts =
+        extension === '.css' ? source.replace(/@font-face\{[^{}]*playcanvas\.com\/static-assets\/fonts[^{}]*\}/g, '') : source
+    return replaceHostedArtifactImageReferences(withoutRemoteFonts)
+}
+
+export const patchUniversoHostedArtifact = (targetRoot = artifactRoot) => {
+    const patchedFiles = []
+    const walk = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const absolute = path.join(dir, entry.name)
+            if (entry.isDirectory()) {
+                walk(absolute)
+                continue
+            }
+            const extension = path.extname(entry.name)
+            if (!patchableArtifactExtensions.has(extension)) continue
+            const source = fs.readFileSync(absolute, 'utf8')
+            const updated = patchArtifactSource(source, extension)
+            if (updated === source) continue
+            fs.writeFileSync(absolute, updated)
+            patchedFiles.push(path.relative(targetRoot, absolute))
+        }
+    }
+
+    walk(targetRoot)
+    return patchedFiles
+}
 
 export const resolveArtifactMode = (value = process.env.UNIVERSO_PLAYCANVAS_EDITOR_ARTIFACT_MODE) => {
     const mode = value?.trim() || defaultArtifactMode
@@ -283,11 +416,18 @@ export const writeBridgeBootstrap = (targetRoot) => {
 		  let bridgeSessionId = null;
 		  let bridgeNonce = null;
 			  const pendingBridgeRequests = new Map();
-			  const hostedEntityObservers = [];
+		  const hostedEntityObservers = [];
 			  const observedEntityObservers = [];
 			  let hostedEntityEditor = null;
 			  let wrappedEditorCall = null;
-			  let hydratingPersistedScene = false;
+        let wrappedEditorCallSource = null;
+        let wrappedEditorEmit = null;
+        let wrappedEditorEmitSource = null;
+        let wrappedApiEntitiesCreate = null;
+        let wrappedApiEntitiesCreateSource = null;
+        let wrappedShareDbConnection = null;
+        const repairedShareDbDocuments = new WeakSet();
+				  let hydratingPersistedScene = false;
 
 	  window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__ = marker;
 	  window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__ = (message) => {
@@ -356,6 +496,23 @@ export const writeBridgeBootstrap = (targetRoot) => {
       window.config.scene.uniqueId = defaultSceneId;
     }
     return marker.selectedProject;
+  };
+
+  const readLoadedScenePayload = (response = marker.lastLoadedScene) => {
+    const candidates = [
+      response?.data?.payload,
+      response?.payload,
+      response?.data?.item?.payload,
+      response?.item?.payload,
+      response?.data?.scene?.payload,
+      response?.scene?.payload
+    ];
+    for (const candidate of candidates) {
+      if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
   };
 
   const requestBootstrapInit = () => {
@@ -448,7 +605,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    return [];
 	  };
 
-	  const rememberEntityObserver = (observer, fallbackData = null) => {
+  const rememberEntityObserver = (observer, fallbackData = null) => {
 	    const normalized = normalizeEntityObserver(observer);
 	    if (!normalized && (!fallbackData || typeof fallbackData !== 'object')) return;
 	    const observerCandidate = normalized || createHostedEntityObserver(fallbackData);
@@ -474,41 +631,170 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    observedEntityObservers.push(entityObserver);
 	  };
 
-  const scenePayloadEntitiesToObservers = (payload) => {
-    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.entities)) return [];
-    return payload.entities
-      .filter((entity) => entity && typeof entity === 'object' && typeof entity.id === 'string' && entity.id)
-      .map((entity) =>
-        createHostedEntityObserver({
-          id: entity.id,
-          resource_id: entity.id,
-          name: entity.name,
-          parent: entity.parentId,
-          enabled: entity.enabled,
-          components: entity.components
-        })
-      );
+  const normalizePlayCanvasEntityComponents = (componentsInput) => {
+    const components =
+      componentsInput && typeof componentsInput === 'object' && !Array.isArray(componentsInput)
+        ? { ...componentsInput }
+        : {};
+    if (components.render && typeof components.render === 'object' && !Array.isArray(components.render)) {
+      const render = { ...components.render };
+      render.enabled = render.enabled !== false;
+      render.type = typeof render.type === 'string' && render.type ? render.type : 'box';
+      render.asset = render.asset ?? null;
+      render.materialAssets = Array.isArray(render.materialAssets) ? render.materialAssets : [null];
+      render.layers = Array.isArray(render.layers) ? render.layers : [0];
+      render.castShadows = render.castShadows !== false;
+      render.receiveShadows = render.receiveShadows !== false;
+      render.castShadowsLightmap = render.castShadowsLightmap !== false;
+      render.lightmapped = render.lightmapped === true;
+      render.isStatic = render.isStatic === true;
+      render.batchGroupId = render.batchGroupId ?? null;
+      render.rootBone = render.rootBone ?? null;
+      components.render = render;
+    }
+    if (components.light && typeof components.light === 'object' && !Array.isArray(components.light)) {
+      const light = { ...components.light };
+      light.enabled = light.enabled !== false;
+      light.type = typeof light.type === 'string' && light.type ? light.type : 'directional';
+      light.color = Array.isArray(light.color) ? light.color : [1, 1, 1];
+      light.intensity = Number.isFinite(light.intensity) ? light.intensity : 1;
+      light.layers = Array.isArray(light.layers) ? light.layers : [0];
+      components.light = light;
+    }
+    return components;
   };
 
+  const normalizePersistedSceneEntities = (entitiesInput) => {
+    const sourceEntities = Array.isArray(entitiesInput)
+      ? entitiesInput
+      : entitiesInput && typeof entitiesInput === 'object'
+        ? Object.entries(entitiesInput).map(([id, entity]) => ({ id, entity }))
+        : [];
+    const normalized = [];
+    const byId = new Map();
+
+    for (const source of sourceEntities) {
+      const raw = source && typeof source === 'object' && 'entity' in source ? source.entity : source;
+      if (!raw || typeof raw !== 'object') continue;
+      const fallbackId = source && typeof source === 'object' && typeof source.id === 'string' ? source.id : null;
+      const resourceId =
+        typeof raw.resource_id === 'string' && raw.resource_id
+          ? raw.resource_id
+          : typeof raw.id === 'string' && raw.id
+            ? raw.id
+            : fallbackId;
+      if (typeof resourceId !== 'string' || !resourceId || byId.has(resourceId)) continue;
+      const parent =
+        typeof raw.parent === 'string' && raw.parent
+          ? raw.parent
+          : typeof raw.parentId === 'string' && raw.parentId
+            ? raw.parentId
+            : null;
+      const entity = {
+        id: resourceId,
+        resource_id: resourceId,
+        name: typeof raw.name === 'string' && raw.name ? raw.name : resourceId === 'root' ? 'Root' : 'Entity',
+        parent,
+        enabled: raw.enabled !== false,
+        position: Array.isArray(raw.position) ? raw.position : [0, 0, 0],
+        rotation: Array.isArray(raw.rotation) ? raw.rotation : [0, 0, 0],
+        scale: Array.isArray(raw.scale) ? raw.scale : [1, 1, 1],
+        components: normalizePlayCanvasEntityComponents(raw.components),
+        children: []
+      };
+      byId.set(resourceId, entity);
+      normalized.push(entity);
+    }
+
+    if (!byId.has('root')) {
+      const root = {
+        id: 'root',
+        resource_id: 'root',
+        name: 'Root',
+        parent: null,
+        enabled: true,
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+        components: {},
+        children: []
+      };
+      byId.set('root', root);
+      normalized.unshift(root);
+    }
+
+    for (const entity of normalized) {
+      if (entity.resource_id === 'root') {
+        entity.parent = null;
+        continue;
+      }
+      if (!entity.parent || entity.parent === entity.resource_id || !byId.has(entity.parent)) {
+        entity.parent = 'root';
+      }
+    }
+
+    for (const entity of normalized) {
+      if (!entity.parent) continue;
+      const parent = byId.get(entity.parent);
+      if (parent && !parent.children.includes(entity.resource_id)) {
+        parent.children.push(entity.resource_id);
+      }
+    }
+
+    for (const entity of normalized) {
+      const rawChildren = sourceEntities
+        .map((source) => (source && typeof source === 'object' && 'entity' in source ? source.entity : source))
+        .find((raw) => raw && typeof raw === 'object' && (raw.resource_id === entity.resource_id || raw.id === entity.resource_id))?.children;
+      if (!Array.isArray(rawChildren)) continue;
+      for (const childId of rawChildren) {
+        if (typeof childId === 'string' && byId.has(childId) && !entity.children.includes(childId)) {
+          entity.children.push(childId);
+        }
+      }
+    }
+
+    const root = normalized.find((entity) => entity.resource_id === 'root') || null;
+    return [...(root ? [root] : []), ...normalized.filter((entity) => entity !== root)];
+  };
+
+  const normalizeRealtimeSceneEntitiesForUpstream = (entitiesInput) =>
+    Object.fromEntries(
+      normalizePersistedSceneEntities(entitiesInput).map((entity) => [
+        entity.resource_id,
+        {
+          resource_id: entity.resource_id,
+          name: entity.name,
+          parent: entity.resource_id === 'root' ? null : entity.parent,
+          enabled: entity.enabled,
+          position: entity.position,
+          rotation: entity.rotation,
+          scale: entity.scale,
+          components: entity.components,
+          children: Array.isArray(entity.children) ? entity.children.filter((child) => typeof child === 'string') : []
+        }
+      ])
+    );
+
+  const normalizeSceneRawDataForUpstream = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const normalizedEntities = normalizeRealtimeSceneEntitiesForUpstream(data.entities);
+    marker.lastNormalizedSceneRawEntityIds = Object.keys(normalizedEntities);
+    return {
+      ...data,
+      entities: normalizedEntities
+    };
+  };
+
+  const scenePayloadEntitiesToObservers = (payload) => {
+    if (!payload || typeof payload !== 'object' || (!Array.isArray(payload.entities) && typeof payload.entities !== 'object')) return [];
+    return normalizePersistedSceneEntities(payload.entities).map((entity) => createHostedEntityObserver(entity));
+	  };
+
   const rememberScenePayloadEntities = (payload) => {
-    if (!payload || typeof payload !== 'object' || !Array.isArray(payload.entities)) return;
+    if (!payload || typeof payload !== 'object' || (!Array.isArray(payload.entities) && typeof payload.entities !== 'object')) return;
     for (const observer of scenePayloadEntitiesToObservers(payload)) {
       rememberEntityObserver(observer, observerToJson(observer));
     }
-  };
-
-  const realtimeEntityRecordToCreateData = (entity, id) => {
-    if (!entity || typeof entity !== 'object') return null;
-    const resourceId = typeof entity.resource_id === 'string' && entity.resource_id ? entity.resource_id : id;
-    if (typeof resourceId !== 'string' || !resourceId) return null;
-    return {
-      resource_id: resourceId,
-      name: typeof entity.name === 'string' && entity.name ? entity.name : resourceId === 'root' ? 'Root' : 'Entity',
-      parent: typeof entity.parent === 'string' ? entity.parent : null,
-      enabled: entity.enabled !== false,
-      components: entity.components && typeof entity.components === 'object' ? entity.components : {},
-      children: []
-    };
   };
 
   const rebindUpstreamHierarchy = () => {
@@ -538,43 +824,731 @@ export const writeBridgeBootstrap = (targetRoot) => {
     }
   };
 
+  const markEntitiesLoadedForPersistedScene = (editorInstance) => {
+    if (!editorInstance || typeof editorInstance.call !== 'function') return;
+    let upstreamLoaded = false;
+    try {
+      upstreamLoaded = editorInstance.call('entities:loaded') === true;
+    } catch {
+      upstreamLoaded = false;
+    }
+    if (!upstreamLoaded && typeof editorInstance.method === 'function') {
+      try {
+        if (typeof editorInstance.methodRemove === 'function') {
+          editorInstance.methodRemove('entities:loaded');
+        }
+        editorInstance.method('entities:loaded', () => true);
+      } catch (error) {
+        marker.lastPersistedEntitiesLoadedMethodError =
+          error && typeof error.message === 'string' ? error.message : String(error);
+      }
+    }
+    if (marker.persistedEntitiesLoadEmitted === true || typeof editorInstance.emit !== 'function') return;
+    marker.persistedEntitiesLoadEmitted = true;
+    editorInstance.emit('entities:load');
+  };
+
+  const valueReferencesAsset = (value) => {
+    if (typeof value === 'number') return Number.isFinite(value) && value > 0;
+    if (typeof value === 'string') return value.length > 0 && value !== '0';
+    return value !== null && value !== undefined;
+  };
+
+  const sceneComponentReferencesAssets = (components) => {
+    if (!components || typeof components !== 'object' || Array.isArray(components)) return false;
+    const render = components.render && typeof components.render === 'object' && !Array.isArray(components.render) ? components.render : null;
+    if (render) {
+      if (valueReferencesAsset(render.asset)) return true;
+      if (valueReferencesAsset(render.materialAsset)) return true;
+      if (Array.isArray(render.materialAssets) && render.materialAssets.some(valueReferencesAsset)) return true;
+    }
+    const model = components.model && typeof components.model === 'object' && !Array.isArray(components.model) ? components.model : null;
+    if (model) {
+      if (valueReferencesAsset(model.asset)) return true;
+      if (valueReferencesAsset(model.materialAsset)) return true;
+      const mapping = model.mapping && typeof model.mapping === 'object' ? Object.values(model.mapping) : [];
+      if (mapping.some(valueReferencesAsset)) return true;
+    }
+    const collision = components.collision && typeof components.collision === 'object' && !Array.isArray(components.collision) ? components.collision : null;
+    if (collision && (valueReferencesAsset(collision.asset) || valueReferencesAsset(collision.renderAsset))) return true;
+    const sprite = components.sprite && typeof components.sprite === 'object' && !Array.isArray(components.sprite) ? components.sprite : null;
+    if (sprite) {
+      if (valueReferencesAsset(sprite.spriteAsset) || valueReferencesAsset(sprite.atlasAsset)) return true;
+      const clips = sprite.clips && typeof sprite.clips === 'object' ? Object.values(sprite.clips) : [];
+      if (clips.some((clip) => clip && typeof clip === 'object' && valueReferencesAsset(clip.spriteAsset))) return true;
+    }
+    const element = components.element && typeof components.element === 'object' && !Array.isArray(components.element) ? components.element : null;
+    if (element && (valueReferencesAsset(element.textureAsset) || valueReferencesAsset(element.fontAsset))) return true;
+    const sound = components.sound && typeof components.sound === 'object' && !Array.isArray(components.sound) ? components.sound : null;
+    if (sound) {
+      const slots = sound.slots && typeof sound.slots === 'object' ? Object.values(sound.slots) : [];
+      if (slots.some((slot) => slot && typeof slot === 'object' && valueReferencesAsset(slot.asset))) return true;
+    }
+    const script = components.script && typeof components.script === 'object' && !Array.isArray(components.script) ? components.script : null;
+    if (script) {
+      const scripts = script.scripts && typeof script.scripts === 'object' ? Object.values(script.scripts) : [];
+      if (scripts.some((item) => item && typeof item === 'object' && valueReferencesAsset(item.asset))) return true;
+    }
+    return false;
+  };
+
+  const loadedScenePayloadReferencesAssets = () => {
+    const payload = readLoadedScenePayload();
+    const payloadAssets = payload?.assets;
+    if (Array.isArray(payloadAssets) && payloadAssets.length > 0) return true;
+    const entries = normalizePersistedSceneEntities(payload?.entities);
+    return entries.some((entity) => sceneComponentReferencesAssets(entity.components));
+  };
+
+  const markAssetsLoadedForAssetlessPersistedScene = (editorInstance) => {
+    if (!editorInstance || typeof editorInstance.call !== 'function') return;
+    if (loadedScenePayloadReferencesAssets()) return;
+    let upstreamLoaded = false;
+    try {
+      upstreamLoaded = editorInstance.call('assets:loaded') === true;
+    } catch {
+      upstreamLoaded = false;
+    }
+    if (!upstreamLoaded && typeof editorInstance.method === 'function') {
+      try {
+        if (typeof editorInstance.methodRemove === 'function') {
+          editorInstance.methodRemove('assets:loaded');
+        }
+        editorInstance.method('assets:loaded', () => true);
+      } catch (error) {
+        marker.lastPersistedAssetsLoadedMethodError =
+          error && typeof error.message === 'string' ? error.message : String(error);
+      }
+    }
+    if (marker.persistedAssetsLoadEmitted === true || typeof editorInstance.emit !== 'function') return;
+    marker.persistedAssetsLoadEmitted = true;
+    editorInstance.emit('assets:load');
+  };
+
+  const toPersistedHydrationCreateData = (entity) => ({
+    resource_id: entity.resource_id,
+    name: entity.name,
+    parent: entity.parent,
+    enabled: entity.enabled,
+    position: entity.position,
+    rotation: entity.rotation,
+    scale: entity.scale,
+    components: entity.components,
+    noHistory: true,
+      noSelect: true
+  });
+
+  const withEntityObserverLocalMutation = (observer, callback) => {
+    const sync = observer?.sync && typeof observer.sync === 'object' ? observer.sync : null;
+    const history = observer?.history && typeof observer.history === 'object' ? observer.history : null;
+    const previousSyncEnabled = sync && 'enabled' in sync ? sync.enabled : undefined;
+    const previousHistoryEnabled = history && 'enabled' in history ? history.enabled : undefined;
+    try {
+      if (sync && 'enabled' in sync) sync.enabled = false;
+      if (history && 'enabled' in history) history.enabled = false;
+      return callback();
+    } finally {
+      if (sync && previousSyncEnabled !== undefined) sync.enabled = previousSyncEnabled;
+      if (history && previousHistoryEnabled !== undefined) history.enabled = previousHistoryEnabled;
+    }
+  };
+
+  const writeEntityObserverPath = (observer, path, value) => {
+    if (!observer || value === undefined || typeof observer.set !== 'function') return false;
+    try {
+      withEntityObserverLocalMutation(observer, () => observer.set(path, value));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const readEntityObserverPath = (observer, path) => {
+    if (!observer || typeof observer.get !== 'function') return undefined;
+    try {
+      return observer.get(path);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const readEntityObserverArrayPath = (observer, path) => {
+    const value = readEntityObserverPath(observer, path);
+    return Array.isArray(value) ? value : [];
+  };
+
+  const ensureEntityObserverArrayPath = (observer, path) => {
+    if (!observer || typeof observer.set !== 'function') return false;
+    const value = readEntityObserverPath(observer, path);
+    if (Array.isArray(value)) return true;
+    try {
+      observer.set(path, []);
+      return true;
+    } catch {
+      marker.lastPersistedEntityArrayRepairPath = path;
+      return false;
+    }
+  };
+
+  const materializePersistedSceneEntity = (editorInstance, entity) => {
+    const apiEntities = editorInstance?.api?.globals?.entities;
+    if (apiEntities && typeof apiEntities.serverAdd === 'function' && typeof apiEntities.get === 'function') {
+      try {
+        apiEntities.serverAdd({
+          resource_id: entity.resource_id,
+          name: entity.name,
+          parent: entity.parent,
+          enabled: entity.enabled,
+          position: entity.position,
+          rotation: entity.rotation,
+          scale: entity.scale,
+          components: entity.components,
+          children: Array.isArray(entity.children) ? entity.children.filter((child) => typeof child === 'string') : []
+        });
+        const added = apiEntities.get(entity.resource_id);
+        return getApiEntityObserver(added);
+      } catch (error) {
+        marker.lastPersistedEntityServerAddError = error && typeof error.message === 'string' ? error.message : String(error);
+      }
+    }
+    return editorInstance.call('entities:new', toPersistedHydrationCreateData(entity));
+  };
+
+  const linkPersistedSceneEntityParent = (existing, entity) => {
+    if (!existing || !entity || entity.resource_id === 'root' || typeof entity.parent !== 'string') return false;
+    const childObserver = getApiEntityObserver(existing(entity.resource_id));
+    const parentObserver = getApiEntityObserver(existing(entity.parent));
+    if (!childObserver || !parentObserver) return false;
+
+    writeEntityObserverPath(childObserver, 'parent', entity.parent);
+    const childEngineEntity = childObserver.entity;
+    const parentEngineEntity = parentObserver.entity;
+    if (!childEngineEntity || !parentEngineEntity || childEngineEntity.parent === parentEngineEntity) return true;
+    try {
+      if (childEngineEntity.parent && typeof childEngineEntity.parent.removeChild === 'function') {
+        childEngineEntity.parent.removeChild(childEngineEntity);
+      }
+      if (typeof parentEngineEntity.addChild === 'function') {
+        parentEngineEntity.addChild(childEngineEntity);
+      }
+    } catch (error) {
+      marker.lastPersistedEntityParentLinkError = error && typeof error.message === 'string' ? error.message : String(error);
+      return false;
+    }
+    return true;
+  };
+
+  const applyPersistedEntityToObserver = (observer, entity) => {
+    if (!observer || !entity) return false;
+    let updated = false;
+    updated = writeEntityObserverPath(observer, 'name', entity.name) || updated;
+    updated = writeEntityObserverPath(observer, 'enabled', entity.enabled) || updated;
+    updated = writeEntityObserverPath(observer, 'position', entity.position) || updated;
+    updated = writeEntityObserverPath(observer, 'rotation', entity.rotation) || updated;
+    updated = writeEntityObserverPath(observer, 'scale', entity.scale) || updated;
+
+    const components = entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components) ? entity.components : null;
+    if (components) {
+      for (const [componentName, componentData] of Object.entries(components)) {
+        updated = writeEntityObserverPath(observer, 'components.' + componentName, componentData) || updated;
+      }
+    }
+
+    if (typeof entity.parent === 'string') {
+      updated = writeEntityObserverPath(observer, 'parent', entity.parent) || updated;
+    }
+    if (Array.isArray(entity.children)) {
+      updated = writeEntityObserverPath(observer, 'children', entity.children.filter((child) => typeof child === 'string')) || updated;
+    }
+    return updated;
+  };
+
+  const readEngineRenderableEntity = (editorInstance, id) => {
+    if (!editorInstance || typeof editorInstance.call !== 'function' || !id) return null;
+    let app = null;
+    try {
+      app = editorInstance.call('viewport:app');
+    } catch {
+      app = null;
+    }
+    if (!app?.root || typeof app.root.findByGuid !== 'function') return null;
+    try {
+      return app.root.findByGuid(String(id)) || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const entityHasExpectedEngineComponents = (editorInstance, entity) => {
+    if (!entity || entity.resource_id === 'root') return true;
+    const components = entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components) ? entity.components : null;
+    if (!components) return true;
+    const engineEntity = readEngineRenderableEntity(editorInstance, entity.resource_id);
+    if (!engineEntity) return false;
+    if (components.render) {
+      const meshInstances = engineEntity.render?.meshInstances;
+      return Boolean(engineEntity.render) && Array.isArray(meshInstances) && meshInstances.length > 0;
+    }
+    return Object.keys(components).every((componentName) => Boolean(engineEntity[componentName]));
+  };
+
+  const getApiEntityObserver = (entity) => {
+    if (!entity || typeof entity !== 'object') return null;
+    return entity.observer || entity._observer || (typeof entity.set === 'function' && typeof entity.get === 'function' ? entity : null);
+  };
+
+  const readApiEntitiesArray = (apiEntities) => {
+    const raw = apiEntities?.raw;
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw.array === 'function') {
+      try {
+        return raw.array();
+      } catch {
+        return [];
+      }
+    }
+    if (raw && typeof raw === 'object') return Object.values(raw);
+    if (typeof apiEntities?.array === 'function') {
+      try {
+        return apiEntities.array();
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const deleteStalePersistedSceneEntities = (editorInstance, apiEntities, expectedIds) => {
+    const existingEntities = readApiEntitiesArray(apiEntities);
+    if (!existingEntities.length) return 0;
+    const staleEntities = existingEntities.filter((entity) => {
+      const id = getEntityReferenceId(entity);
+      return id && id !== 'root' && !expectedIds.has(id);
+    });
+    if (!staleEntities.length) return 0;
+    try {
+      const deletedByApiEntity = staleEntities.reduce((count, entity) => {
+        const apiEntity = entity?.apiEntity || entity;
+        if (!apiEntity || typeof apiEntity.delete !== 'function') return count;
+        try {
+          apiEntity.delete({ history: false, preserveEntityReferences: true });
+          return count + 1;
+        } catch (error) {
+          marker.lastPersistedEntityCleanupError = error && typeof error.message === 'string' ? error.message : String(error);
+          return count;
+        }
+      }, 0);
+      if (deletedByApiEntity > 0) {
+        return deletedByApiEntity;
+      }
+      if (typeof editorInstance.call === 'function') {
+        const observers = staleEntities.map(getApiEntityObserver).filter(Boolean);
+        if (!observers.length) return 0;
+        editorInstance.call('entities:delete', observers);
+      } else {
+        return 0;
+      }
+      return staleEntities.length;
+    } catch (error) {
+      marker.lastPersistedEntityCleanupError = error && typeof error.message === 'string' ? error.message : String(error);
+      return 0;
+    }
+  };
+
+  const isEntityRealtimeOp = (op) => op && typeof op === 'object' && Array.isArray(op.p) && op.p[0] === 'entities';
+
+  const recordSuppressedHydrationRealtimeOp = (op) => {
+    marker.suppressedHydrationRealtimeOps = [
+      ...(Array.isArray(marker.suppressedHydrationRealtimeOps) ? marker.suppressedHydrationRealtimeOps : []),
+      op
+    ].slice(-20);
+  };
+
+  const shouldSuppressHydrationRealtimeEntityOp = (op) =>
+    isEntityRealtimeOp(op) && (hydratingPersistedScene || Date.now() < Number(marker.suppressHydrationRealtimeOpsUntil || 0));
+
+  const getRealtimeDocumentData = (realtimeScene) => {
+    const data = realtimeScene?._document?.data || realtimeScene?._document?._data || realtimeScene?.data || realtimeScene?._data;
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+  };
+
+  const ensureObjectAtPath = (root, path) => {
+    let current = root;
+    for (const key of path) {
+      if (!current || typeof current !== 'object' || Array.isArray(current)) return null;
+      if (!current[key] || typeof current[key] !== 'object' || Array.isArray(current[key])) {
+        current[key] = {};
+      }
+      current = current[key];
+    }
+    return current;
+  };
+
+  const ensureArrayAtPath = (root, path) => {
+    if (!root || !Array.isArray(path) || path.length === 0) return false;
+    const parent = ensureObjectAtPath(root, path.slice(0, -1));
+    const key = path[path.length - 1];
+    if (!parent || typeof parent !== 'object') return false;
+    if (!Array.isArray(parent[key])) {
+      parent[key] = [];
+      marker.lastRealtimeEntityListRepairPath = path.join('.');
+      marker.realtimeEntityListRepairCount = Number(marker.realtimeEntityListRepairCount || 0) + 1;
+    }
+    return true;
+  };
+
+  const ensureEntityDocumentShape = (documentData, entityId, entityValue = {}) => {
+    if (!documentData || typeof entityId !== 'string' || !entityId) return null;
+    if (!documentData.entities || typeof documentData.entities !== 'object' || Array.isArray(documentData.entities)) {
+      documentData.entities = {};
+    }
+    const entities = documentData.entities;
+    if (!entities[entityId] || typeof entities[entityId] !== 'object' || Array.isArray(entities[entityId])) {
+      entities[entityId] = {
+        resource_id: entityId,
+        name: entityId === 'root' ? 'Root' : 'Entity',
+        parent: entityId === 'root' ? null : 'root',
+        enabled: true,
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+        components: {},
+        children: [],
+        ...(entityValue && typeof entityValue === 'object' && !Array.isArray(entityValue) ? entityValue : {})
+      };
+    }
+    const entity = entities[entityId];
+    if (!Array.isArray(entity.children)) entity.children = [];
+    if (!Array.isArray(entity.tags)) entity.tags = [];
+    entity.components = normalizePlayCanvasEntityComponents(entity.components);
+    return entity;
+  };
+
+  const getRealtimeEntityChildId = (value) => {
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+    const id =
+      typeof value.resource_id === 'string' || typeof value.resource_id === 'number'
+        ? value.resource_id
+        : typeof value.id === 'string' || typeof value.id === 'number'
+          ? value.id
+          : null;
+    return id === null ? '' : String(id);
+  };
+
+  const ensureRealtimeSceneDocumentShape = (realtimeScene) => {
+    const documentData = getRealtimeDocumentData(realtimeScene);
+    if (!documentData) return false;
+    if (!documentData.entities || typeof documentData.entities !== 'object' || Array.isArray(documentData.entities)) {
+      documentData.entities = {};
+    }
+    const entities = documentData.entities;
+    if (!entities.root || typeof entities.root !== 'object' || Array.isArray(entities.root)) {
+      entities.root = {
+        resource_id: 'root',
+        name: 'Root',
+        parent: null,
+        enabled: true,
+        components: {},
+        children: []
+      };
+    }
+
+    const entityIds = Object.keys(entities);
+    for (const entityId of entityIds) {
+      const rawEntity = entities[entityId];
+      const entity = ensureEntityDocumentShape(documentData, entityId, rawEntity);
+      if (!entity) continue;
+      entity.resource_id = typeof entity.resource_id === 'string' && entity.resource_id ? entity.resource_id : entityId;
+      if (entity.resource_id === 'root') {
+        entity.parent = null;
+      } else if (typeof entity.parent !== 'string' || !entity.parent || entity.parent === entity.resource_id || !entities[entity.parent]) {
+        entity.parent = 'root';
+      }
+      entity.children = Array.isArray(entity.children) ? entity.children.map(getRealtimeEntityChildId).filter(Boolean) : [];
+    }
+
+    for (const entityId of Object.keys(entities)) {
+      const entity = ensureEntityDocumentShape(documentData, entityId, entities[entityId]);
+      if (!entity || entity.resource_id === 'root' || typeof entity.parent !== 'string') continue;
+      const parent = ensureEntityDocumentShape(documentData, entity.parent, entities[entity.parent]);
+      if (parent && Array.isArray(parent.children) && !parent.children.includes(entity.resource_id)) {
+        parent.children.push(entity.resource_id);
+      }
+    }
+    marker.realtimeSceneDocumentShapeRepairCount = Number(marker.realtimeSceneDocumentShapeRepairCount || 0) + 1;
+    marker.lastRealtimeSceneDocumentEntityIds = Object.keys(documentData.entities);
+    return true;
+  };
+
+  const repairRealtimeDocumentForEntityListOp = (realtimeScene, op) => {
+    if (!isEntityRealtimeOp(op)) return;
+    marker.lastRealtimeEntityOpPath = Array.isArray(op.p) ? op.p.join('.') : null;
+    marker.recentRealtimeEntityOps = [
+      ...(Array.isArray(marker.recentRealtimeEntityOps) ? marker.recentRealtimeEntityOps : []),
+      { p: Array.isArray(op.p) ? op.p : null, keys: Object.keys(op).sort() }
+    ].slice(-20);
+    const documentData = getRealtimeDocumentData(realtimeScene);
+    if (!documentData) return;
+    ensureRealtimeSceneDocumentShape(realtimeScene);
+    if (op.p.length === 2 && Object.prototype.hasOwnProperty.call(op, 'oi')) {
+      ensureEntityDocumentShape(documentData, String(op.p[1]), op.oi);
+      return;
+    }
+    const isListOp =
+      op.p.length >= 4 &&
+      Number.isInteger(op.p[op.p.length - 1]) &&
+      (Object.prototype.hasOwnProperty.call(op, 'li') ||
+        Object.prototype.hasOwnProperty.call(op, 'ld') ||
+        Object.prototype.hasOwnProperty.call(op, 'lm'));
+    if (!isListOp) return;
+    const entityId = String(op.p[1]);
+    ensureEntityDocumentShape(documentData, entityId);
+    const path = op.p.slice(0, -1);
+    const listPath = path.slice(1);
+    ensureArrayAtPath(documentData.entities, listPath);
+  };
+
+  const repairRealtimeDocumentForSubmitArgs = (realtimeScene, args) => {
+    const first = args?.[0];
+    const ops = Array.isArray(first) ? first : [first];
+    for (const op of ops) {
+      repairRealtimeDocumentForEntityListOp(realtimeScene, op);
+    }
+  };
+
+  const repairShareDbDocumentForSubmitArgs = (document, args) => {
+    const documentData = document?.data;
+    if (!documentData || typeof documentData !== 'object' || Array.isArray(documentData)) return;
+    const first = args?.[0];
+    const ops = Array.isArray(first) ? first : [first];
+    for (const op of ops) {
+      const isListOp =
+        op &&
+        typeof op === 'object' &&
+        Array.isArray(op.p) &&
+        op.p.length >= 2 &&
+        Number.isInteger(op.p[op.p.length - 1]) &&
+        (Object.prototype.hasOwnProperty.call(op, 'li') ||
+          Object.prototype.hasOwnProperty.call(op, 'ld') ||
+          Object.prototype.hasOwnProperty.call(op, 'lm'));
+      if (!isListOp) continue;
+      const listPath = op.p.slice(0, -1);
+      ensureArrayAtPath(documentData, listPath);
+      marker.lastShareDbDocumentListRepair = {
+        collection: document.collection,
+        id: document.id,
+        path: listPath.join('.')
+      };
+      marker.shareDbDocumentListRepairCount = Number(marker.shareDbDocumentListRepairCount || 0) + 1;
+    }
+  };
+
+  const wrapShareDbDocumentSubmitOp = (document) => {
+    if (!document || typeof document !== 'object' || typeof document.submitOp !== 'function' || repairedShareDbDocuments.has(document)) {
+      return document;
+    }
+    const upstreamSubmitOp = document.submitOp.bind(document);
+    document.submitOp = (...args) => {
+      repairShareDbDocumentForSubmitArgs(document, args);
+      return upstreamSubmitOp(...args);
+    };
+    repairedShareDbDocuments.add(document);
+    return document;
+  };
+
+  const installShareDbConnectionRepairAdapter = (connection) => {
+    if (!connection || typeof connection.get !== 'function') return false;
+    if (connection !== wrappedShareDbConnection) {
+      const upstreamGet = connection.get.bind(connection);
+      connection.get = (collection, id) => wrapShareDbDocumentSubmitOp(upstreamGet(collection, id));
+      wrappedShareDbConnection = connection;
+      marker.shareDbDocumentRepairAdapterInstalled = true;
+    }
+    const collections = connection.collections && typeof connection.collections === 'object' ? connection.collections : {};
+    for (const documents of Object.values(collections)) {
+      if (!documents || typeof documents !== 'object') continue;
+      for (const document of Object.values(documents)) {
+        wrapShareDbDocumentSubmitOp(document);
+      }
+    }
+    return true;
+  };
+
+  const installShareDbDocumentRepairAdapter = (editorInstance) => {
+    if (!editorInstance || typeof editorInstance.call !== 'function') return false;
+    let connection = null;
+    try {
+      connection = editorInstance.call('realtime:connection');
+    } catch {
+      connection = null;
+    }
+    return installShareDbConnectionRepairAdapter(connection);
+  };
+
+  const withSuppressedHydrationRealtimeOps = (editorInstance, callback) => {
+    const realtimeScene = editorInstance?.api?.globals?.realtime?.scenes?.current;
+    const previousEditorCall = typeof editorInstance?.call === 'function' ? editorInstance.call : null;
+    marker.suppressHydrationRealtimeOpsUntil = Math.max(Number(marker.suppressHydrationRealtimeOpsUntil || 0), Date.now() + 1500);
+    if (previousEditorCall) {
+      editorInstance.call = (methodName, ...args) => {
+        if (methodName === 'realtime:scene:op' && shouldSuppressHydrationRealtimeEntityOp(args[0])) {
+          recordSuppressedHydrationRealtimeOp(args[0]);
+          return undefined;
+        }
+        if (methodName === 'realtime:scene:op') {
+          repairRealtimeDocumentForSubmitArgs(realtimeScene, args);
+        }
+        return previousEditorCall.apply(editorInstance, [methodName, ...args]);
+      };
+    }
+    if (!realtimeScene || typeof realtimeScene.submitOp !== 'function') {
+      try {
+        return callback();
+      } finally {
+        marker.suppressHydrationRealtimeOpsUntil = Math.max(Number(marker.suppressHydrationRealtimeOpsUntil || 0), Date.now() + 1500);
+        if (previousEditorCall && editorInstance.call !== previousEditorCall) {
+          editorInstance.call = previousEditorCall;
+        }
+      }
+    }
+    const previousSubmitOp = realtimeScene.submitOp;
+    realtimeScene.submitOp = (...args) => {
+      if (!shouldSuppressHydrationRealtimeEntityOp(args[0])) {
+        repairRealtimeDocumentForSubmitArgs(realtimeScene, args);
+        return previousSubmitOp.apply(realtimeScene, args);
+      }
+      recordSuppressedHydrationRealtimeOp(args[0]);
+      const maybeCallback = args.find((arg) => typeof arg === 'function');
+      if (typeof maybeCallback === 'function') {
+        window.setTimeout(() => maybeCallback(null), 0);
+      }
+      return undefined;
+    };
+    try {
+      return callback();
+    } finally {
+      marker.suppressHydrationRealtimeOpsUntil = Math.max(Number(marker.suppressHydrationRealtimeOpsUntil || 0), Date.now() + 1500);
+      if (previousEditorCall && editorInstance.call !== previousEditorCall) {
+        editorInstance.call = previousEditorCall;
+      }
+      if (realtimeScene.submitOp !== previousSubmitOp) {
+        realtimeScene.submitOp = previousSubmitOp;
+      }
+    }
+  };
+
+  const selectUsablePersistedSceneEntries = (entitiesInput) => {
+    if (!entitiesInput || typeof entitiesInput !== 'object' || Array.isArray(entitiesInput)) return [];
+    const entries = normalizePersistedSceneEntities(entitiesInput);
+    return entries.some((entity) => entity.resource_id && entity.resource_id !== 'root') ? entries : [];
+  };
+
   const hydratePersistedSceneEntities = () => {
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     const apiEntities = editorInstance?.api?.globals?.entities;
     const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
-    if (!editorInstance || !apiEntities || !realtimeEntities || typeof realtimeEntities !== 'object' || Array.isArray(realtimeEntities)) {
+    if (!editorInstance || !apiEntities) {
       return false;
     }
-    const entries = Object.entries(realtimeEntities)
-      .map(([id, entity]) => realtimeEntityRecordToCreateData(entity, id))
-      .filter(Boolean);
+    const realtimeEntries = selectUsablePersistedSceneEntries(realtimeEntities);
+    const payloadEntries = normalizePersistedSceneEntities(readLoadedScenePayload()?.entities);
+    const entries = realtimeEntries.length > 0 ? realtimeEntries : payloadEntries;
     if (!entries.length) return false;
     const existing = typeof apiEntities.get === 'function' ? (id) => apiEntities.get(id) : () => null;
     const root = entries.find((entity) => entity.resource_id === 'root' || entity.parent === null) || null;
     const ordered = [...(root ? [root] : []), ...entries.filter((entity) => entity !== root && entity.resource_id !== 'root')];
+    const expectedIds = new Set(ordered.map((entity) => entity.resource_id).filter(Boolean));
     let hydrated = 0;
+    let materialized = 0;
+    let parentLinks = 0;
+    let deleted = 0;
     hydratingPersistedScene = true;
     try {
-      for (const entity of ordered) {
-        if (existing(entity.resource_id)) continue;
-        const created = editorInstance.call('entities:new', {
-          ...entity,
-          noHistory: true,
-          noSelect: true
-        });
-        rememberEntityObserver(created, entity);
-        hydrated += 1;
-      }
+      withSuppressedHydrationRealtimeOps(editorInstance, () => {
+        deleted = deleteStalePersistedSceneEntities(editorInstance, apiEntities, expectedIds);
+        for (const entity of ordered) {
+          const existingEntity = existing(entity.resource_id);
+          const existingObserver = getApiEntityObserver(existingEntity);
+          if (existingObserver) {
+            applyPersistedEntityToObserver(existingObserver, entity);
+            rememberEntityObserver(existingObserver, entity);
+            materialized += 1;
+            continue;
+          }
+          let created = null;
+          try {
+            created = materializePersistedSceneEntity(editorInstance, entity);
+          } catch (error) {
+            marker.lastPersistedEntityHydrationCreateError =
+              error && typeof error.message === 'string' ? error.message : String(error);
+            continue;
+          }
+          if (!created || !getEntityObserverId(created)) continue;
+          applyPersistedEntityToObserver(created, entity);
+          rememberEntityObserver(created, entity);
+          hydrated += 1;
+          materialized += 1;
+        }
+        for (const entity of ordered) {
+          if (linkPersistedSceneEntityParent(existing, entity)) {
+            parentLinks += 1;
+          }
+        }
+      });
     } finally {
       hydratingPersistedScene = false;
     }
     marker.lastHydratedPersistedEntityCount = hydrated;
+    marker.lastMaterializedPersistedEntityCount = materialized;
+    marker.lastDeletedStalePersistedEntityCount = deleted;
+    marker.lastPersistedEntityParentLinkCount = parentLinks;
     marker.lastHydratedPersistedEntityIds = ordered.map((entity) => entity.resource_id);
-    if (hydrated > 0) {
+    if (materialized > 0) {
       markHydratedClean();
     }
     rebindUpstreamHierarchy();
-    return hydrated > 0;
+    markAssetsLoadedForAssetlessPersistedScene(editorInstance);
+    markEntitiesLoadedForPersistedScene(editorInstance);
+    return materialized > 0;
+  };
+
+  const readExpectedPersistedSceneEntityIds = () => {
+    const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
+    const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
+    const realtimeEntries = selectUsablePersistedSceneEntries(realtimeEntities);
+    const payloadEntries = normalizePersistedSceneEntities(readLoadedScenePayload()?.entities);
+    const entries = realtimeEntries.length > 0 ? realtimeEntries : payloadEntries;
+    return entries.map((entity) => entity.resource_id).filter((id) => id && id !== 'root');
+  };
+
+  const persistedSceneEntitiesAreAvailable = (editorInstance) => {
+    const apiEntities = editorInstance?.api?.globals?.entities;
+    if (!apiEntities || typeof apiEntities.get !== 'function') return false;
+    const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
+    const realtimeEntries = selectUsablePersistedSceneEntries(realtimeEntities);
+    const payloadEntries = normalizePersistedSceneEntities(readLoadedScenePayload()?.entities);
+    const entries = realtimeEntries.length > 0 ? realtimeEntries : payloadEntries;
+    const expectedEntries = entries.filter((entity) => entity.resource_id && entity.resource_id !== 'root');
+    return (
+      expectedEntries.length > 0 &&
+      expectedEntries.every((entity) => Boolean(apiEntities.get(entity.resource_id)) && entityHasExpectedEngineComponents(editorInstance, entity))
+    );
+  };
+
+  const schedulePersistedSceneHydration = (attempts = 8, delay = 150) => {
+    window.setTimeout(() => {
+      const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
+      if (!editorInstance) {
+        if (attempts > 1) schedulePersistedSceneHydration(attempts - 1, delay);
+        return;
+      }
+      hydratePersistedSceneEntities();
+      rebindUpstreamHierarchy();
+      if (attempts > 1 && !persistedSceneEntitiesAreAvailable(editorInstance)) {
+        schedulePersistedSceneHydration(attempts - 1, delay);
+      }
+    }, delay);
   };
 
 	  const forgetEntityObserver = (observer) => {
@@ -628,7 +1602,14 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), raw);
 	  };
 
-	  const serializeEntity = (observer) => {
+	  const readVector3 = (observer, raw, path, fallback) => {
+	    const value = getObserverValue(observer, path) || raw?.[path];
+	    return Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(Number(item)))
+	      ? value.map((item) => Number(item))
+	      : fallback;
+	  };
+
+  const serializeEntity = (observer) => {
 	    const normalized = normalizeEntityObserver(observer);
 	    const raw =
 	      normalized && typeof normalized === 'object'
@@ -648,14 +1629,92 @@ export const writeBridgeBootstrap = (targetRoot) => {
       : undefined;
 	    const name = getObserverValue(normalized, 'name') || raw.name;
 	    const enabled = getObserverValue(normalized, 'enabled');
-    return {
-      id: String(id),
-      name: typeof name === 'string' ? name : undefined,
-      parentId: typeof parentId === 'string' || typeof parentId === 'number' ? String(parentId) : null,
-      enabled: typeof enabled === 'boolean' ? enabled : typeof raw.enabled === 'boolean' ? raw.enabled : undefined,
-      components: rawComponents && typeof rawComponents === 'object' ? rawComponents : undefined,
+	    return {
+	      id: String(id),
+	      name: typeof name === 'string' ? name : undefined,
+	      parentId: typeof parentId === 'string' || typeof parentId === 'number' ? String(parentId) : null,
+	      enabled: typeof enabled === 'boolean' ? enabled : typeof raw.enabled === 'boolean' ? raw.enabled : undefined,
+	      position: readVector3(normalized, raw, 'position', [0, 0, 0]),
+	      rotation: readVector3(normalized, raw, 'rotation', [0, 0, 0]),
+	      scale: readVector3(normalized, raw, 'scale', [1, 1, 1]),
+	      components: rawComponents && typeof rawComponents === 'object' ? rawComponents : undefined,
       children
     };
+  };
+
+  const readSerializedVector3 = (value, fallback) =>
+    Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(Number(item)))
+      ? value.map((item) => Number(item))
+      : fallback;
+
+  const syncMmoommMetadataWithEntities = (metadata, entities) => {
+    const currentMetadata = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {};
+    const mmoomm = currentMetadata.mmoomm && typeof currentMetadata.mmoomm === 'object' ? currentMetadata.mmoomm : null;
+    const scene = mmoomm?.scene && typeof mmoomm.scene === 'object' ? mmoomm.scene : null;
+    if (!scene) return currentMetadata;
+
+    const entityById = new Map(
+      (Array.isArray(entities) ? entities : [])
+        .filter((entity) => entity && typeof entity === 'object' && (typeof entity.id === 'string' || typeof entity.id === 'number'))
+        .map((entity) => [String(entity.id), entity])
+    );
+    const objects = Array.isArray(scene.objects)
+      ? scene.objects
+          .filter((item) => item && typeof item === 'object')
+          .map((item) => {
+            const id = typeof item.id === 'string' || typeof item.id === 'number' ? String(item.id) : '';
+            const entity = id ? entityById.get(id) : null;
+            if (!entity) return item;
+            const position = readSerializedVector3(entity.position, null);
+            const scale = readSerializedVector3(entity.scale, null);
+            return {
+              ...item,
+              ...(position ? { position: { x: position[0], y: position[1], z: position[2] } } : {}),
+              ...(scale ? { scale: { x: scale[0], y: scale[1], z: scale[2] } } : {})
+            };
+          })
+      : [];
+
+    return {
+      ...currentMetadata,
+      mmoomm: {
+        ...mmoomm,
+        scene: {
+          ...scene,
+          objects
+        },
+        provenance: {
+          ...(mmoomm.provenance && typeof mmoomm.provenance === 'object' ? mmoomm.provenance : {}),
+          authoringFlow: 'playcanvas-editor-native-scene'
+        }
+      }
+    };
+  };
+
+  const readCurrentSceneMetadata = (editorInstance) => {
+    const candidates = [
+      safeEditorCall(editorInstance, 'realtime:scene'),
+      editorInstance?.api?.globals?.realtime?.scenes?.current,
+      editorInstance?.api?.globals?.realtime?.scenes?.current?._document
+    ];
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== 'object') continue;
+      if (typeof candidate.get === 'function') {
+        try {
+          const value = candidate.get('metadata');
+          if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+        } catch {
+          // Continue through other scene document shapes.
+        }
+      }
+      if (candidate.metadata && typeof candidate.metadata === 'object' && !Array.isArray(candidate.metadata)) {
+        return candidate.metadata;
+      }
+      if (candidate.data?.metadata && typeof candidate.data.metadata === 'object' && !Array.isArray(candidate.data.metadata)) {
+        return candidate.data.metadata;
+      }
+    }
+    return null;
   };
 
 	  const renderHostedEntities = () => {
@@ -719,12 +1778,31 @@ export const writeBridgeBootstrap = (targetRoot) => {
       name: typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Entity',
       parent: typeof input.parent === 'string' ? input.parent : null,
       enabled: input.enabled !== false,
-      components: input.components && typeof input.components === 'object' ? input.components : {}
+      position: Array.isArray(input.position) ? input.position : [0, 0, 0],
+      rotation: Array.isArray(input.rotation) ? input.rotation : [0, 0, 0],
+      scale: Array.isArray(input.scale) ? input.scale : [1, 1, 1],
+      components: input.components && typeof input.components === 'object' ? input.components : {},
+      children: Array.isArray(input.children) ? input.children : []
+    };
+    const setPath = (path, value) => {
+      const parts = String(path || '').split('.').filter(Boolean);
+      if (!parts.length) return;
+      let current = entity;
+      for (const part of parts.slice(0, -1)) {
+        if (!current[part] || typeof current[part] !== 'object') {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+      current[parts[parts.length - 1]] = value;
+      markDirty({ force: true });
+      renderHostedEntities();
     };
     return {
       apiEntity: { observer: null },
       data: entity,
       get: (path) => path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), entity),
+      set: setPath,
       json: () => ({ ...entity }),
       toJSON: () => ({ ...entity })
     };
@@ -793,21 +1871,70 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    }
 	  };
 
+  const createDefaultSceneSettings = () => ({
+    priority_scripts: [],
+    physics: {
+      gravity: [0, -9.81, 0]
+    },
+    render: {
+      global_ambient: [0.2, 0.2, 0.2],
+      skybox: null,
+      fog: 'none',
+      fog_start: 1,
+      fog_end: 1000,
+      fog_density: 0,
+      fog_color: [0, 0, 0],
+      exposure: 1,
+      gamma_correction: 1,
+      tonemapping: 0
+    }
+  });
+
+  const normalizeSceneSettings = (...candidates) => {
+    const defaults = createDefaultSceneSettings();
+    const merged = candidates.reduce((current, candidate) => {
+      const next = candidate && typeof candidate === 'object' && !Array.isArray(candidate) ? candidate : {};
+      const nextPriorityScripts = Array.isArray(next.priority_scripts) ? next.priority_scripts : current.priority_scripts;
+      return {
+        priority_scripts: nextPriorityScripts,
+        physics: {
+          ...(current.physics && typeof current.physics === 'object' ? current.physics : {}),
+          ...(next.physics && typeof next.physics === 'object' ? next.physics : {})
+        },
+        render: {
+          ...(current.render && typeof current.render === 'object' ? current.render : {}),
+          ...(next.render && typeof next.render === 'object' ? next.render : {})
+        }
+      };
+    }, defaults);
+    return merged;
+  };
+
   const serializeCurrentScene = () => {
-    const fallbackPayload = marker.lastLoadedScene?.data?.payload || null;
+    const fallbackPayload = readLoadedScenePayload();
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     if (!editorInstance) {
       return fallbackPayload || { schemaVersion: bridgeVersion, entities: [] };
 	    }
     try {
-      const projectSettings = safeEditorCall(editorInstance, 'settings:project');
+      const sceneSettings = safeEditorCall(editorInstance, 'sceneSettings');
       const cleanLoadedPayloadObservers = marker.dirty === true ? [] : scenePayloadEntitiesToObservers(fallbackPayload);
+      const realtimeSceneEntities =
+        editorInstance.api?.globals?.realtime?.scenes?.current?.data?.entities ||
+        editorInstance.api?.globals?.realtime?.scenes?.current?._document?._data?.entities ||
+        null;
+      const realtimeSceneEntityObservers = scenePayloadEntitiesToObservers({
+        schemaVersion: bridgeVersion,
+        entities: realtimeSceneEntities
+      });
       const rawEntityObservers = mergeEntityObserverLists(
         safeEditorCall(editorInstance, 'entities:list'),
         safeEditorCall(editorInstance, 'entities:raw'),
         editorInstance.api?.globals?.entities?.raw,
+        readApiEntitiesArray(editorInstance.api?.globals?.entities),
         editorInstance.api?.globals?.entities?.root?.observer,
         observedEntityObservers,
+        realtimeSceneEntityObservers,
         cleanLoadedPayloadObservers
       );
       const entitySerializationErrors = [];
@@ -828,19 +1955,29 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.lastSerializedEntityCount = entities.length;
       marker.lastRawEntityObserverCount = rawEntityObservers.length;
       marker.lastObservedEntityObserverCount = observedEntityObservers.length;
+      marker.lastObservedEntityObserverIds = observedEntityObservers.map((observer) => getEntityObserverId(observer)).filter(Boolean);
       marker.lastEntitySerializationErrors = entitySerializationErrors.slice(-20);
       const assets = observerListToArray(safeEditorCall(editorInstance, 'assets:list') || safeEditorCall(editorInstance, 'assets:raw'))
         .map(serializeAsset)
         .filter(Boolean);
+      const sceneMetadata = readCurrentSceneMetadata(editorInstance);
+      const metadata = syncMmoommMetadataWithEntities(
+        {
+          ...(fallbackPayload?.metadata && typeof fallbackPayload.metadata === 'object' ? fallbackPayload.metadata : {}),
+          ...(sceneMetadata && typeof sceneMetadata === 'object' ? sceneMetadata : {}),
+          savedBy: 'universo-playcanvas-editor-bridge'
+        },
+        entities
+      );
       return {
         schemaVersion: fallbackPayload?.schemaVersion || bridgeVersion,
-        settings: projectSettings && typeof projectSettings.json === 'function' ? projectSettings.json() : fallbackPayload?.settings,
+        settings: normalizeSceneSettings(
+          fallbackPayload?.settings,
+          sceneSettings && typeof sceneSettings.json === 'function' ? sceneSettings.json() : null
+        ),
         entities,
         assets,
-        metadata: {
-          ...(fallbackPayload?.metadata && typeof fallbackPayload.metadata === 'object' ? fallbackPayload.metadata : {}),
-          savedBy: 'universo-playcanvas-editor-bridge'
-        }
+        metadata
       };
     } catch (error) {
       marker.serializeError = error;
@@ -875,9 +2012,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	          ? compatibilityConfig
 	          : null;
       if (!restConfig && marker.fullBootMode === true && typeof window.config?.universoBridge?.compatibilityRestBaseUrl === 'string') {
-        const restConfigUrl =
+        const restConfigUrl = appendArtifactOriginParams(
           window.config.universoBridge.compatibilityRestBaseUrl.replace(/\\/$/, '') +
-          '/config?mode=universo-compatibility-rest-minimal';
+            '/config?mode=universo-compatibility-rest-minimal'
+        );
 	        marker.restCompatibilityConfigPromise = fetch(restConfigUrl, {
 	          credentials: 'include',
 	          cache: 'no-store'
@@ -907,7 +2045,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         typeof restConfig.auth.headerName === 'string' &&
         typeof restConfig.endpoints?.scenes === 'string'
       ) {
-        if (!marker.currentSceneChecksum) {
+        const refreshCurrentSceneChecksum = async () => {
           const sceneReadResponse = await fetch(restConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId), {
             method: 'GET',
             credentials: 'include',
@@ -925,6 +2063,9 @@ export const writeBridgeBootstrap = (targetRoot) => {
             sceneReadResponse?.checksum ||
             marker.currentSceneChecksum ||
             null;
+        };
+        if (marker.fullBootMode === true || !marker.currentSceneChecksum) {
+          await refreshCurrentSceneChecksum();
         }
         let csrfToken =
           typeof marker.compatibilityCsrfToken?.token === 'string' && marker.compatibilityCsrfToken.token
@@ -1007,6 +2148,15 @@ export const writeBridgeBootstrap = (targetRoot) => {
         response = { ok: true, data: body.item, requestId: body.requestId };
         marker.lastCompatibilityRestSave = body;
       } else {
+        if (marker.fullBootMode === true) {
+          const saveStatus = await sendBridgeCommand('scene.saveStatus', {
+            projectId,
+            sceneId
+          });
+          marker.currentSceneChecksum =
+            saveStatus?.data?.checksum || saveStatus?.data?.scene?.checksum || marker.currentSceneChecksum || null;
+          marker.lastBridgeSaveStatus = saveStatus;
+        }
         response = await sendBridgeCommand('scene.save', {
           projectId,
           sceneId,
@@ -1067,40 +2217,123 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    });
   };
 
+  const installEditorCallBridgeWrapper = (editorInstance) => {
+    if (!editorInstance || typeof editorInstance.call !== 'function') return false;
+    if (editorInstance.call === wrappedEditorCall && wrappedEditorCallSource) return true;
+    const sourceCall = editorInstance.call;
+    const upstreamCall = sourceCall.bind(editorInstance);
+    wrappedEditorCall = (methodName, ...args) => {
+      if (methodName === 'realtime:scene:op' && shouldSuppressHydrationRealtimeEntityOp(args[0])) {
+        recordSuppressedHydrationRealtimeOp(args[0]);
+        return undefined;
+      }
+      if (methodName === 'realtime:scene:op') {
+        const realtimeScene = editorInstance.api?.globals?.realtime?.scenes?.current;
+        repairRealtimeDocumentForSubmitArgs(realtimeScene, args);
+      }
+      const result = upstreamCall(methodName, ...args);
+      if (methodName === 'realtime:connection') {
+        installShareDbConnectionRepairAdapter(result);
+      }
+      if (methodName === 'entities:new') {
+        const inputData = args[0] && typeof args[0] === 'object' ? args[0] : { name: 'Entity' };
+        rememberEntityObserver(result, inputData);
+        rememberCreatedEntityInputFallback(inputData);
+        if (!hydratingPersistedScene) {
+          markDirty({ force: true });
+        }
+      }
+      return result;
+    };
+    wrappedEditorCallSource = sourceCall;
+    editorInstance.call = wrappedEditorCall;
+    editorInstance.universoBridgeCallWrapped = true;
+    marker.editorCallWrapped = true;
+    marker.editorCallWrappedAt = Date.now();
+    return true;
+  };
+
+  const rememberCreatedEntityInputFallback = (inputData) => {
+    if (!inputData || typeof inputData !== 'object') return;
+    const fallbackCreatedEntityId =
+      typeof inputData.resource_id === 'string' && inputData.resource_id
+        ? inputData.resource_id
+        : typeof inputData.id === 'string' && inputData.id
+          ? inputData.id
+          : null;
+    if (!fallbackCreatedEntityId || fallbackCreatedEntityId === 'root') return;
+    const fallbackCreatedEntity = {
+      ...inputData,
+      resource_id: fallbackCreatedEntityId,
+      id: fallbackCreatedEntityId,
+      parent: typeof inputData.parent === 'string' ? inputData.parent : 'root',
+      name: typeof inputData.name === 'string' && inputData.name ? inputData.name : 'Entity'
+    };
+    rememberEntityObserver(createHostedEntityObserver(fallbackCreatedEntity), fallbackCreatedEntity);
+    marker.lastCreatedEntityFallbackId = fallbackCreatedEntityId;
+  };
+
+  const installApiEntitiesCreateBridgeWrapper = (editorInstance) => {
+    const apiEntities = editorInstance?.api?.globals?.entities;
+    if (!apiEntities || typeof apiEntities.create !== 'function') return false;
+    if (apiEntities.create === wrappedApiEntitiesCreate && wrappedApiEntitiesCreateSource) return true;
+    const sourceCreate = apiEntities.create;
+    wrappedApiEntitiesCreate = function universoBridgeEntitiesCreate(data, options) {
+      const result = sourceCreate.call(this, data, options);
+      if (!hydratingPersistedScene) {
+        rememberCreatedEntityInputFallback(data);
+        markDirty({ force: true });
+      }
+      return result;
+    };
+    wrappedApiEntitiesCreateSource = sourceCreate;
+    apiEntities.create = wrappedApiEntitiesCreate;
+    marker.apiEntitiesCreateWrapped = true;
+    marker.apiEntitiesCreateWrappedAt = Date.now();
+    return true;
+  };
+
 	  const installEditorSaveAdapter = () => {
 	    const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
 	    if (!editorInstance) {
 	      window.setTimeout(installEditorSaveAdapter, 250);
 	      return;
 	    }
-	    if (marker.editorSaveAdapterInstalled && marker.editorInstance === editorInstance) return;
+	    if (marker.editorSaveAdapterInstalled && marker.editorInstance === editorInstance) {
+        installEditorCallBridgeWrapper(editorInstance);
+        installShareDbDocumentRepairAdapter(editorInstance);
+    installApiEntitiesCreateBridgeWrapper(editorInstance);
+        const currentRealtimeScene = editorInstance.api?.globals?.realtime?.scenes?.current;
+        ensureRealtimeSceneDocumentShape(currentRealtimeScene);
+        wrapShareDbDocumentSubmitOp(currentRealtimeScene?._document);
+        return;
+      }
 	    if (marker.fullBootMode !== true) {
 	      installHostedEntityAdapter(editorInstance);
 	    }
 	    marker.editorSaveAdapterInstalled = true;
 	    marker.editorInstance = editorInstance;
-	    editorInstance.universoBridge = marker;
-	    if (typeof editorInstance.call === 'function' && editorInstance.call !== wrappedEditorCall) {
-	      const upstreamCall = editorInstance.call.bind(editorInstance);
-	      wrappedEditorCall = (methodName, ...args) => {
-	        const result = upstreamCall(methodName, ...args);
-	        if (methodName === 'entities:new') {
-	          rememberEntityObserver(result, args[0] && typeof args[0] === 'object' ? args[0] : { name: 'Entity' });
-          if (!hydratingPersistedScene) {
-            markDirty({ force: true });
-          }
-	        }
-	        return result;
-	      };
-	      editorInstance.call = wrappedEditorCall;
-	      editorInstance.universoBridgeCallWrapped = true;
-	      marker.editorCallWrapped = true;
-	    }
+    editorInstance.universoBridge = marker;
+    installShareDbDocumentRepairAdapter(editorInstance);
+    if (typeof editorInstance.emit === 'function' && editorInstance.emit !== wrappedEditorEmit) {
+      const sourceEmit = editorInstance.emit;
+      const upstreamEmit = sourceEmit.bind(editorInstance);
+      wrappedEditorEmit = (eventName, ...args) => {
+        if (eventName === 'scene:raw') {
+          args[0] = normalizeSceneRawDataForUpstream(args[0]);
+        }
+        return upstreamEmit(eventName, ...args);
+      };
+      wrappedEditorEmitSource = sourceEmit;
+      editorInstance.emit = wrappedEditorEmit;
+      marker.editorEmitWrapped = true;
+    }
+    installEditorCallBridgeWrapper(editorInstance);
 	    if (typeof editorInstance.method === 'function') {
 	      editorInstance.method('universo:bridge:serializeScene', serializeCurrentScene);
 	      editorInstance.method('universo:bridge:saveScene', saveCurrentScene);
     }
-	    if (typeof editorInstance.on === 'function') {
+		    if (typeof editorInstance.on === 'function') {
 	      editorInstance.on('entities:add', (entity) => {
 	        rememberEntityObserver(entity, { name: getObserverValue(entity, 'name') || 'Entity' });
         if (!hydratingPersistedScene) {
@@ -1125,15 +2358,30 @@ export const writeBridgeBootstrap = (targetRoot) => {
       });
       editorInstance.on('scene:raw', () => {
         marker.realtimeSceneRawReceived = true;
+        ensureRealtimeSceneDocumentShape(editorInstance.api?.globals?.realtime?.scenes?.current);
         rebindUpstreamHierarchy();
-        markHydratedClean();
+        if (!marker.initialHydrationComplete) {
+          markHydratedClean();
+        }
       });
       editorInstance.on('realtime:load:scene', () => {
+        ensureRealtimeSceneDocumentShape(editorInstance.api?.globals?.realtime?.scenes?.current);
         hydratePersistedSceneEntities();
         markHydratedClean();
       });
-      editorInstance.on('realtime:scene:op', markDirty);
-	    }
+	      editorInstance.on('realtime:scene:op', markDirty);
+		    }
+    const realtimeApi = editorInstance.api?.globals?.realtime;
+    if (realtimeApi && typeof realtimeApi.on === 'function' && !marker.realtimeSceneErrorAdapterInstalled) {
+      marker.realtimeSceneErrorAdapterInstalled = true;
+      realtimeApi.on('error:scene', (error, sceneId) => {
+        marker.lastRealtimeSceneError = error && typeof error.message === 'string' ? error.message : String(error);
+        marker.lastRealtimeSceneErrorSceneId = sceneId;
+        marker.lastRealtimeSceneErrorEntityOps = Array.isArray(marker.recentRealtimeEntityOps) ? marker.recentRealtimeEntityOps : [];
+        marker.lastRealtimeSceneErrorEntityOpPath = marker.lastRealtimeEntityOpPath;
+      });
+    }
+	    schedulePersistedSceneHydration();
     const history = editorInstance.api?.globals?.history;
     if (history && typeof history.on === 'function' && !marker.historyDirtyAdapterInstalled) {
       history.on('add', markDirty);
@@ -1142,6 +2390,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.historyDirtyAdapterInstalled = true;
     }
     const realtimeScene = editorInstance.api?.globals?.realtime?.scenes?.current;
+    ensureRealtimeSceneDocumentShape(realtimeScene);
     if (
       realtimeScene &&
       typeof realtimeScene.submitOp === 'function' &&
@@ -1149,11 +2398,29 @@ export const writeBridgeBootstrap = (targetRoot) => {
     ) {
       const upstreamSubmitOp = realtimeScene.submitOp.bind(realtimeScene);
       marker.wrappedRealtimeSceneSubmitOp = (op) => {
+        if (shouldSuppressHydrationRealtimeEntityOp(op)) {
+          recordSuppressedHydrationRealtimeOp(op);
+          return undefined;
+        }
+        repairRealtimeDocumentForSubmitArgs(realtimeScene, [op]);
         const result = upstreamSubmitOp(op);
         markDirty();
         return result;
       };
       realtimeScene.submitOp = marker.wrappedRealtimeSceneSubmitOp;
+      const realtimeDocument = realtimeScene._document;
+      if (
+        realtimeDocument &&
+        typeof realtimeDocument.submitOp === 'function' &&
+        realtimeDocument.submitOp !== marker.wrappedRealtimeSceneDocumentSubmitOp
+      ) {
+        const upstreamDocumentSubmitOp = realtimeDocument.submitOp.bind(realtimeDocument);
+        marker.wrappedRealtimeSceneDocumentSubmitOp = (...args) => {
+          repairRealtimeDocumentForSubmitArgs(realtimeScene, args);
+          return upstreamDocumentSubmitOp(...args);
+        };
+        realtimeDocument.submitOp = marker.wrappedRealtimeSceneDocumentSubmitOp;
+      }
     }
 	  };
 
@@ -1259,6 +2526,9 @@ export const writeBridgeBootstrap = (targetRoot) => {
 
   const assertFullBootConfig = (config) => {
     if (!config || typeof config !== 'object') throw new Error('Full upstream Editor config is missing');
+    if (config.url && typeof config.url === 'object' && !config.url.static && typeof config.url.frontend === 'string') {
+      config.url.static = config.url.frontend.replace(/\\/$/, '');
+    }
     if (config.mode !== 'universo-full-upstream-ui') throw new Error('Full upstream Editor config has an unsupported mode');
     if (!config.project?.id || !config.project?.name) throw new Error('Full upstream Editor project config is incomplete');
     if (!config.scene?.id || !config.scene?.uniqueId) throw new Error('Full upstream Editor scene config is incomplete');
@@ -1302,6 +2572,18 @@ export const writeBridgeBootstrap = (targetRoot) => {
       return window.config.universoBridge.compatibilityRestBaseUrl.replace(/\\/$/, '') + '/config?mode=universo-full-upstream-ui';
     }
     return null;
+  };
+
+  const appendArtifactOriginParams = (urlText) => {
+    try {
+      const url = new URL(urlText, window.location.href);
+      const artifactBaseUrl = new URL('./', window.location.href).href;
+      url.searchParams.set('artifactBaseUrl', artifactBaseUrl);
+      url.searchParams.set('artifactOrigin', window.location.origin);
+      return url.href;
+    } catch {
+      return urlText;
+    }
   };
 
   const refreshFullBootAccessToken = async () => {
@@ -1348,9 +2630,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
       typeof compatibilityConfig.endpoints?.assets === 'string';
     if (hasRestConfig) return compatibilityConfig;
     if (typeof window.config?.universoBridge?.compatibilityRestBaseUrl !== 'string') return null;
-    const restConfigUrl =
+    const restConfigUrl = appendArtifactOriginParams(
       window.config.universoBridge.compatibilityRestBaseUrl.replace(/\\/$/, '') +
-      '/config?mode=universo-compatibility-rest-minimal';
+        '/config?mode=universo-compatibility-rest-minimal'
+    );
     marker.restCompatibilityConfigPromise = fetch(restConfigUrl, {
       credentials: 'include',
       cache: 'no-store'
@@ -1422,6 +2705,362 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return assets;
   };
 
+  const createFullBootBranchPayload = () => {
+    const configBranch = window.config?.self?.branch && typeof window.config.self.branch === 'object' ? window.config.self.branch : {};
+    const projectBranch = window.config?.branch && typeof window.config.branch === 'object' ? window.config.branch : {};
+    const id =
+      typeof configBranch.id === 'string' && configBranch.id
+        ? configBranch.id
+        : typeof projectBranch.id === 'string' && projectBranch.id
+          ? projectBranch.id
+          : 'universo-local-branch';
+    const name =
+      typeof configBranch.name === 'string' && configBranch.name
+        ? configBranch.name
+        : typeof projectBranch.name === 'string' && projectBranch.name
+          ? projectBranch.name
+          : 'Main';
+    return {
+      ...projectBranch,
+      ...configBranch,
+      id,
+      name,
+      closed: configBranch.closed === true || projectBranch.closed === true,
+      merge: configBranch.merge || projectBranch.merge || null,
+      latestCheckpointId:
+        typeof configBranch.latestCheckpointId === 'string' && configBranch.latestCheckpointId
+          ? configBranch.latestCheckpointId
+          : typeof projectBranch.latestCheckpointId === 'string' && projectBranch.latestCheckpointId
+            ? projectBranch.latestCheckpointId
+            : id
+    };
+  };
+
+  const createFullBootProjectPayload = () => {
+    const project = window.config?.project && typeof window.config.project === 'object' ? window.config.project : {};
+    const branch = createFullBootBranchPayload();
+    return {
+      ...project,
+      id: project.id,
+      name: typeof project.name === 'string' && project.name ? project.name : 'Universo Project',
+      description: typeof project.description === 'string' ? project.description : '',
+      private: project.private !== false,
+      private_assets: project.privateAssets === true || project.private_assets === true,
+      privateAssets: project.privateAssets === true || project.private_assets === true,
+      access_level: typeof project.access_level === 'string' ? project.access_level : 'write',
+      owner: window.config?.owner?.id || project.owner || null,
+      owner_id: window.config?.owner?.id || project.owner_id || null,
+      thumbnails: project.thumbnails && typeof project.thumbnails === 'object' ? project.thumbnails : {},
+      settings: project.settings && typeof project.settings === 'object' ? project.settings : {},
+      masterBranch: typeof project.masterBranch === 'string' && project.masterBranch ? project.masterBranch : branch.id,
+      primaryApp: project.primaryApp || null,
+      playUrl: typeof project.playUrl === 'string' && project.playUrl ? project.playUrl : '/'
+    };
+  };
+
+  const createFullBootUserPayload = (requestedUserId) => {
+    const self = window.config?.self && typeof window.config.self === 'object' ? window.config.self : {};
+    const owner = window.config?.owner && typeof window.config.owner === 'object' ? window.config.owner : {};
+    const id = requestedUserId || self.id || owner.id || 'universo-editor-user';
+    const username =
+      typeof self.username === 'string' && self.username
+        ? self.username
+        : typeof owner.username === 'string' && owner.username
+          ? owner.username
+          : 'universo';
+    return {
+      id,
+      username,
+      email: typeof self.email === 'string' ? self.email : '',
+      full_name: username,
+      name: username,
+      size: Number.isFinite(owner.size) ? owner.size : 0,
+      thumbnails: {}
+    };
+  };
+
+  const createFullBootCloudApiResponse = (method, requestUrl) => {
+    if (String(method || 'GET').toUpperCase() !== 'GET' || !window.config?.project?.id) return null;
+    try {
+      const url = new URL(requestUrl, window.location.href);
+      const numericProjectId = String(window.config.project.id);
+      const numericSceneId = String(window.config.scene?.uniqueId || window.config.scene?.id || '');
+      if (url.pathname === '/api/projects/' + numericProjectId) {
+        return { status: 200, body: createFullBootProjectPayload() };
+      }
+      if (url.pathname === '/api/projects/' + numericProjectId + '/branches') {
+        const branch = createFullBootBranchPayload();
+        const favoriteOnly = url.searchParams.get('favorite') === 'true';
+        const closedOnly = url.searchParams.get('closed') === 'true';
+        const result = closedOnly || (favoriteOnly && branch.id !== createFullBootProjectPayload().masterBranch) ? [] : [branch];
+        return {
+          status: 200,
+          body: {
+            result,
+            pagination: { hasMore: false }
+          }
+        };
+      }
+      if (url.pathname === '/api/projects/' + numericProjectId + '/scenes') {
+        return {
+          status: 200,
+          body: {
+            result: [
+              {
+                id: window.config.scene.id,
+                uniqueId: window.config.scene.uniqueId,
+                name: window.config.project?.name || 'Main Scene',
+                project_id: window.config.project.id,
+                branch_id: window.config.self?.branch?.id || window.config.scene.id
+              }
+            ]
+          }
+        };
+      }
+      if (numericSceneId && url.pathname === '/api/scenes/' + numericSceneId) {
+        return {
+          status: 200,
+          body: {
+            id: window.config.scene.id,
+            uniqueId: window.config.scene.uniqueId,
+            name: window.config.project?.name || 'Main Scene',
+            project_id: window.config.project.id,
+            branch_id: window.config.self?.branch?.id || window.config.scene.id
+          }
+        };
+      }
+      const userMatch = /^\\/api\\/users\\/([^/?]+)$/.exec(url.pathname);
+      if (userMatch) {
+        return { status: 200, body: createFullBootUserPayload(decodeURIComponent(userMatch[1])) };
+      }
+    } catch {}
+    return null;
+  };
+
+  const isRestCompatibilityEndpointUrl = (requestUrl, restConfig) => {
+    if (!restConfig || typeof requestUrl !== 'string') return false;
+    try {
+      const url = new URL(requestUrl, window.location.href);
+      const endpointUrls = [
+        restConfig.endpoints?.assets,
+        restConfig.endpoints?.scenes,
+        restConfig.endpoints?.sourcefiles,
+        restConfig.endpoints?.settings,
+        restConfig.endpoints?.cloudOnly
+      ].filter((value) => typeof value === 'string' && value);
+      return endpointUrls.some((endpoint) => {
+        try {
+          const endpointUrl = new URL(endpoint, window.location.href);
+          return url.origin === endpointUrl.origin && (url.pathname === endpointUrl.pathname || url.pathname.startsWith(endpointUrl.pathname + '/'));
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      return false;
+    }
+  };
+
+  const withRestCompatibilityAuthHeaders = (init, restConfig) => {
+    if (
+      !restConfig?.auth ||
+      restConfig.auth.scheme !== 'signed-header' ||
+      typeof restConfig.auth.headerName !== 'string' ||
+      typeof restConfig.auth.accessToken !== 'string'
+    ) {
+      return init || {};
+    }
+    const nextInit = { ...(init || {}) };
+    const headers = new Headers(nextInit.headers || {});
+    headers.set(restConfig.auth.headerName, restConfig.auth.accessToken);
+    nextInit.headers = headers;
+    return nextInit;
+  };
+
+  const installFullBootXmlHttpRequestAuthAdapter = () => {
+    if (
+      marker.fullBootXmlHttpRequestAuthAdapterInstalled ||
+      marker.fullBootMode !== true ||
+      typeof window.XMLHttpRequest !== 'function'
+    ) {
+      return;
+    }
+    const NativeXMLHttpRequest = window.XMLHttpRequest;
+    const SyntheticXMLHttpRequest = function UniversoFullBootXmlHttpRequest() {
+      const native = new NativeXMLHttpRequest();
+      const listeners = new Map();
+      let synthetic = null;
+      let requestMethod = 'GET';
+      let requestUrl = '';
+      let readyState = 0;
+      let status = 0;
+      let responseText = '';
+      let response = '';
+      const eventHandlerTypes = ['readystatechange', 'loadstart', 'progress', 'abort', 'error', 'load', 'timeout', 'loadend'];
+      const eventHandlers = new Map();
+
+      const createXmlHttpRequestEvent = (type, nativeEvent) => ({
+        type,
+        target: this,
+        currentTarget: this,
+        lengthComputable: Boolean(nativeEvent?.lengthComputable),
+        loaded: typeof nativeEvent?.loaded === 'number' ? nativeEvent.loaded : 0,
+        total: typeof nativeEvent?.total === 'number' ? nativeEvent.total : 0,
+        nativeEvent: nativeEvent || null
+      });
+
+      const invokeEventHandler = (handler, event) => {
+        if (typeof handler === 'function') {
+          try {
+            handler.call(this, event);
+          } catch (error) {
+            setTimeout(() => {
+              throw error;
+            }, 0);
+          }
+        }
+      };
+
+      const dispatchSyntheticEvent = (type) => {
+        const event = createXmlHttpRequestEvent(type);
+        invokeEventHandler(eventHandlers.get(type), event);
+        const items = listeners.get(type);
+        if (items) {
+          for (const listener of Array.from(items)) {
+            invokeEventHandler(listener, event);
+          }
+        }
+      };
+
+      const eventHandlerProperties = {};
+      for (const type of eventHandlerTypes) {
+        eventHandlerProperties['on' + type] = {
+          get: () => eventHandlers.get(type) || null,
+          set: (handler) => {
+            if (typeof handler === 'function') {
+              eventHandlers.set(type, handler);
+              native['on' + type] = (event) => invokeEventHandler(handler, createXmlHttpRequestEvent(type, event));
+            } else {
+              eventHandlers.delete(type);
+              native['on' + type] = null;
+            }
+          }
+        };
+      }
+
+      Object.defineProperties(this, {
+        ...eventHandlerProperties,
+        readyState: { get: () => (synthetic ? readyState : native.readyState) },
+        status: { get: () => (synthetic ? status : native.status) },
+        responseText: { get: () => (synthetic ? responseText : native.responseText) },
+        response: { get: () => (synthetic ? response : native.response) },
+        responseURL: { get: () => (synthetic ? new URL(requestUrl, window.location.href).href : native.responseURL) },
+        upload: { get: () => native.upload },
+        withCredentials: {
+          get: () => native.withCredentials,
+          set: (value) => {
+            native.withCredentials = value;
+          }
+        },
+        timeout: {
+          get: () => native.timeout,
+          set: (value) => {
+            native.timeout = value;
+          }
+        },
+        responseType: {
+          get: () => native.responseType,
+          set: (value) => {
+            native.responseType = value;
+          }
+        }
+      });
+
+      this.open = (method, url, ...args) => {
+        requestMethod = method || 'GET';
+        requestUrl = typeof url === 'string' ? url : String(url?.url || url || '');
+        this.__universoRestCompatibilityRequestUrl = requestUrl;
+        synthetic = createFullBootCloudApiResponse(requestMethod, requestUrl);
+        if (synthetic) {
+          readyState = 1;
+          return undefined;
+        }
+        return native.open(method, url, ...args);
+      };
+
+      this.send = (...args) => {
+        const restConfig = marker.restCompatibilityConfig;
+        if (
+          !synthetic &&
+          isRestCompatibilityEndpointUrl(this.__universoRestCompatibilityRequestUrl, restConfig) &&
+          restConfig?.auth?.scheme === 'signed-header' &&
+          typeof restConfig.auth.headerName === 'string' &&
+          typeof restConfig.auth.accessToken === 'string'
+        ) {
+          try {
+            native.setRequestHeader(restConfig.auth.headerName, restConfig.auth.accessToken);
+          } catch (error) {
+            marker.lastXmlHttpRequestAuthHeaderError = error && typeof error.message === 'string' ? error.message : String(error);
+          }
+        }
+        if (synthetic) {
+          setTimeout(() => {
+            status = synthetic.status;
+            responseText = JSON.stringify(synthetic.body);
+            response = responseText;
+            readyState = 4;
+            dispatchSyntheticEvent('readystatechange');
+            dispatchSyntheticEvent('load');
+            dispatchSyntheticEvent('loadend');
+          }, 0);
+          return undefined;
+        }
+        return native.send(...args);
+      };
+
+      this.setRequestHeader = (name, value) => {
+        if (synthetic) return undefined;
+        return native.setRequestHeader(name, value);
+      };
+      this.getResponseHeader = (name) => (synthetic && String(name).toLowerCase() === 'content-type' ? 'application/json' : native.getResponseHeader(name));
+      this.getAllResponseHeaders = () => (synthetic ? 'content-type: application/json\\r\\n' : native.getAllResponseHeaders());
+      this.overrideMimeType = (mimeType) => native.overrideMimeType(mimeType);
+      this.abort = () => {
+        if (synthetic) {
+          status = 0;
+          readyState = 4;
+          dispatchSyntheticEvent('abort');
+          dispatchSyntheticEvent('loadend');
+          return undefined;
+        }
+        return native.abort();
+      };
+      this.addEventListener = (type, listener, options) => {
+        if (!listeners.has(type)) listeners.set(type, new Set());
+        listeners.get(type).add(listener);
+        native.addEventListener(type, listener, options);
+      };
+      this.removeEventListener = (type, listener, options) => {
+        listeners.get(type)?.delete(listener);
+        native.removeEventListener(type, listener, options);
+      };
+      this.dispatchEvent = (event) => {
+        if (synthetic) {
+          dispatchSyntheticEvent(event?.type);
+          return true;
+        }
+        return native.dispatchEvent(event);
+      };
+    };
+    SyntheticXMLHttpRequest.UNSENT = NativeXMLHttpRequest.UNSENT;
+    SyntheticXMLHttpRequest.OPENED = NativeXMLHttpRequest.OPENED;
+    SyntheticXMLHttpRequest.HEADERS_RECEIVED = NativeXMLHttpRequest.HEADERS_RECEIVED;
+    SyntheticXMLHttpRequest.LOADING = NativeXMLHttpRequest.LOADING;
+    SyntheticXMLHttpRequest.DONE = NativeXMLHttpRequest.DONE;
+    window.XMLHttpRequest = SyntheticXMLHttpRequest;
+    marker.fullBootXmlHttpRequestAuthAdapterInstalled = true;
+  };
+
   const rewriteFullBootAuthFrame = (value, token) => {
     if (!token || typeof value !== 'string') return value;
     if (value.startsWith('auth')) {
@@ -1452,11 +3091,30 @@ export const writeBridgeBootstrap = (targetRoot) => {
     const nativeFetch = window.fetch.bind(window);
     const numericProjectId = String(window.config.project.id);
     const numericSceneId = String(window.config.scene?.uniqueId || window.config.scene?.id || '');
+    const createFullBootSyntheticFetchResponse = (url) => {
+      if (url.hostname !== 'api.github.com') return null;
+      if (url.pathname === '/rate_limit') {
+        return { status: 200, body: { rate: { remaining: 0 } } };
+      }
+      if (url.pathname === '/repos/playcanvas/editor/issues') {
+        return { status: 200, body: [] };
+      }
+      return null;
+    };
     window.fetch = (input, init) => {
       const requestUrl = typeof input === 'string' ? input : input?.url;
       if (typeof requestUrl === 'string') {
         try {
           const url = new URL(requestUrl, window.location.href);
+          const syntheticFetchResponse = createFullBootSyntheticFetchResponse(url);
+          if (syntheticFetchResponse) {
+            return Promise.resolve(createJsonResponse(syntheticFetchResponse.body, syntheticFetchResponse.status));
+          }
+          if (/\\/config$/.test(url.pathname)) {
+            return nativeFetch(input, init);
+          }
+          const cloudApiResponse = createFullBootCloudApiResponse('GET', requestUrl);
+          if (cloudApiResponse) return Promise.resolve(createJsonResponse(cloudApiResponse.body, cloudApiResponse.status));
           if (url.pathname === '/api/projects/' + numericProjectId + '/assets') {
             return loadFullBootAssets().then((assets) => createJsonResponse(assets));
           }
@@ -1470,35 +3128,14 @@ export const writeBridgeBootstrap = (targetRoot) => {
               return createJsonResponse(loaded || { error: 'notFound' }, loaded ? 200 : 404);
             });
           }
-          if (url.pathname === '/api/projects/' + numericProjectId + '/scenes') {
-            return Promise.resolve(
-              createJsonResponse({
-                result: [
-                  {
-                    id: window.config.scene.id,
-                    uniqueId: window.config.scene.uniqueId,
-                    name: window.config.project?.name || 'Main Scene',
-                    project_id: window.config.project.id,
-                    branch_id: window.config.self?.branch?.id || window.config.scene.id
-                  }
-                ]
-              })
-            );
-          }
-          if (numericSceneId && url.pathname === '/api/scenes/' + numericSceneId) {
-            return Promise.resolve(
-              createJsonResponse({
-                id: window.config.scene.id,
-                uniqueId: window.config.scene.uniqueId,
-                name: window.config.project?.name || 'Main Scene',
-                project_id: window.config.project.id,
-                branch_id: window.config.self?.branch?.id || window.config.scene.id
-              })
-            );
-          }
         } catch {}
       }
-      return nativeFetch(input, init);
+      return resolveRestCompatibilityConfig().then((restConfig) => {
+        if (isRestCompatibilityEndpointUrl(requestUrl, restConfig)) {
+          return nativeFetch(input, withRestCompatibilityAuthHeaders(init, restConfig));
+        }
+        return nativeFetch(input, init);
+      });
     };
     marker.fullBootFetchAdapterInstalled = true;
   };
@@ -1612,6 +3249,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         home: '/',
         frontend: artifactBaseUrl,
         engine: new URL('js/playcanvas-engine.js', artifactBaseUrl).href,
+        static: artifactBaseUrl.replace(/\\/$/, ''),
         images: '/',
         messenger: { ws: 'ws://127.0.0.1/disabled' },
         realtime: { http: 'http://127.0.0.1/disabled' },
@@ -1628,7 +3266,20 @@ export const writeBridgeBootstrap = (targetRoot) => {
               components: {
                 camera: { enabled: { $type: 'boolean', $default: true } },
                 light: { enabled: { $type: 'boolean', $default: true } },
-                render: { enabled: { $type: 'boolean', $default: true } },
+                render: {
+                  enabled: { $type: 'boolean', $default: true },
+                  type: { $type: 'string', $default: 'box' },
+                  asset: { $default: null },
+                  materialAssets: { $type: 'array', $default: [null] },
+                  layers: { $type: 'array', $default: [0] },
+                  castShadows: { $type: 'boolean', $default: true },
+                  receiveShadows: { $type: 'boolean', $default: true },
+                  castShadowsLightmap: { $type: 'boolean', $default: true },
+                  lightmapped: { $type: 'boolean', $default: false },
+                  isStatic: { $type: 'boolean', $default: false },
+                  batchGroupId: { $default: null },
+                  rootBone: { $default: null }
+                },
                 script: {
                   enabled: { $type: 'boolean', $default: true },
                   scripts: { $type: 'array', $default: [] },
@@ -1744,11 +3395,19 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    bridgeNonce = descriptor?.bridge?.nonce || null;
     window.config = resolveInitialConfig(descriptor);
     installFullBootFetchAdapter();
+    installFullBootXmlHttpRequestAuthAdapter();
     installFullBootWebSocketDiagnostics();
     window.editor = window.editor || {};
 	    window.editor.universoBridge = marker;
-	    loadEditorBundle();
-	        refreshEditorSaveAdapter();
+    const startEditorBundle = () => {
+	      loadEditorBundle();
+	          refreshEditorSaveAdapter();
+    };
+    if (marker.fullBootMode === true) {
+      void resolveRestCompatibilityConfig().finally(startEditorBundle);
+    } else {
+      startEditorBundle();
+    }
     if (marker.fullBootMode !== true) {
       postEditorReady();
 	      bootstrapProjectStorage(descriptor);
@@ -1804,9 +3463,8 @@ export const writeBridgeBootstrap = (targetRoot) => {
         marker.lastSceneList = await sendBridgeCommand('scene.list', { projectId: activeProjectId });
         if (typeof activeSceneId === 'string' && activeSceneId) {
 	        marker.lastLoadedScene = await sendBridgeCommand('scene.read', { projectId: activeProjectId, sceneId: activeSceneId });
-          rememberScenePayloadEntities(marker.lastLoadedScene?.data?.payload);
-          hydratePersistedSceneEntities();
-          rebindUpstreamHierarchy();
+          rememberScenePayloadEntities(readLoadedScenePayload(marker.lastLoadedScene));
+          schedulePersistedSceneHydration();
           marker.currentSceneChecksum =
             marker.lastLoadedScene?.data?.scene?.checksum || marker.lastLoadedScene?.data?.checksum || marker.currentSceneChecksum || null;
 	        }
@@ -1938,6 +3596,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     fallbackTimer = setTimeout(() => initialize(null), 750);
   }
 })();`
+    new vm.Script(source, { filename: bridgeBootstrapFileName })
     fs.writeFileSync(path.join(targetRoot, bridgeBootstrapFileName), `${source}\n`)
 }
 

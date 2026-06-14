@@ -942,6 +942,7 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
         await expect
             .poll(() => getNumberAttr(canvas, 'data-ship-guard-clearance'), { timeout: 30_000 })
             .toBeLessThanOrEqual(CONTACT_TOLERANCE)
+        await expect.poll(() => getNumberAttr(canvas, 'data-camera-guard-clearance'), { timeout: 30_000 }).toBeGreaterThanOrEqual(0)
         expect(stationVisualClearance(await readShipPosition(canvas), await readShipForward(canvas))).toBeLessThanOrEqual(CONTACT_TOLERANCE)
         await expect
             .poll(async () => Number((await canvas.getAttribute('data-authoritative-updates')) ?? '0'), { timeout: 30_000 })
@@ -1023,8 +1024,9 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
         await page.mouse.up()
         await expect(canvas).toHaveAttribute('data-pointer-captured', 'false')
         await expect
-            .poll(async () => Math.abs((await getNumberAttr(canvas, 'data-camera-pitch')) - initialCameraPitch), { timeout: 10_000 })
-            .toBeGreaterThan(0.5)
+            .poll(async () => await getNumberAttr(canvas, 'data-camera-pitch'), { timeout: 10_000 })
+            .toBeLessThan(initialCameraPitch - 0.5)
+        await expect.poll(() => getNumberAttr(canvas, 'data-camera-guard-clearance'), { timeout: 30_000 }).toBeGreaterThanOrEqual(0)
         await canvas.focus()
         await page.mouse.move(canvasBox.x + canvasBox.width * 0.5, canvasBox.y + canvasBox.height * 0.5)
         await page.mouse.down()
@@ -1270,6 +1272,7 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
         const beforeZoomVisual = await readCanvasColorEvidence(canvas)
         await widget.getByRole('button', { name: /zoom in/i }).click()
         await expect.poll(() => getNumberAttr(canvas, 'data-camera-distance'), { timeout: 10_000 }).toBeLessThan(cameraDistance)
+        await expect.poll(() => getNumberAttr(canvas, 'data-camera-guard-clearance'), { timeout: 30_000 }).toBeGreaterThanOrEqual(0)
         const afterZoomVisual = await readCanvasColorEvidence(canvas)
         expect(afterZoomVisual.coloredSamples).toBeGreaterThan(0)
         expect(afterZoomVisual.whitePixels).toBeGreaterThan(80)
@@ -1279,15 +1282,18 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
         await canvas.hover()
         await page.mouse.wheel(0, -400)
         await expect.poll(() => getNumberAttr(canvas, 'data-camera-distance'), { timeout: 10_000 }).toBeLessThan(beforeWheelZoomDistance)
+        await expect.poll(() => getNumberAttr(canvas, 'data-camera-guard-clearance'), { timeout: 30_000 }).toBeGreaterThanOrEqual(0)
         expect(await page.evaluate(() => window.scrollY)).toBe(0)
         const beforeWheelOutDistance = await getNumberAttr(canvas, 'data-camera-distance')
         await page.mouse.wheel(0, 400)
         await expect.poll(() => getNumberAttr(canvas, 'data-camera-distance'), { timeout: 10_000 }).toBeGreaterThan(beforeWheelOutDistance)
+        await expect.poll(() => getNumberAttr(canvas, 'data-camera-guard-clearance'), { timeout: 30_000 }).toBeGreaterThanOrEqual(0)
         expect(await page.evaluate(() => window.scrollY)).toBe(0)
         await expectNoPageVerticalOverflow(page, 'MMOOMM flight runtime after wheel zoom')
         const cameraYaw = await getNumberAttr(canvas, 'data-camera-yaw')
         await widget.getByRole('button', { name: /rotate right/i }).click()
         await expect.poll(() => getNumberAttr(canvas, 'data-camera-yaw'), { timeout: 10_000 }).toBeGreaterThan(cameraYaw)
+        await expect.poll(() => getNumberAttr(canvas, 'data-camera-guard-clearance'), { timeout: 30_000 }).toBeGreaterThanOrEqual(0)
 
         const beforeFinalMove = await readShipPosition(canvas)
         const finalTarget = await resolveFreeSpaceDoubleClickTarget(canvas, beforeFinalMove, {
@@ -1307,6 +1313,7 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
                 await expectCanvasFillsRuntimeViewport(page, canvas, 'MMOOMM flight runtime viewport matrix')
                 const evidence = await readCanvasColorEvidence(canvas)
                 expect(evidence.whitePixels).toBeGreaterThan(300)
+                await expect.poll(() => getNumberAttr(canvas, 'data-camera-guard-clearance'), { timeout: 30_000 }).toBeGreaterThanOrEqual(0)
             }
         })
 

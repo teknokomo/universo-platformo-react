@@ -30,16 +30,18 @@ Following Phase 1 decomposition, the monolithic `index.ts` has been split into d
 
 The WebSocket runtime authenticates with the same short-lived signed compatibility token. Realtime and messenger authenticate with the first protocol message; relay also authenticates with a first `authenticate` message and does not put bearer tokens in the WebSocket URL. The metahub adapter mounts this runtime as a trusted Tier 2 service after signed-token validation and `manageMetahub` access checks, then persists through the metahub PlayCanvas project service.
 
-The current ShareDB boundary is snapshot-port persistence for the first full-boot slice. It seeds upstream-shaped `scenes`, `assets`, and `settings` documents, validates scene/settings snapshots before storage, and carries checksum/revision guards into storage writes. It is not yet a durable ShareDB op-store or a multi-user collaboration service.
+The current ShareDB boundary is snapshot-port persistence for the first full-boot slice. It seeds upstream-shaped `scenes`, `assets`, `settings`, and per-scene/per-user `user_data` documents, validates snapshots before storage, and carries checksum/revision guards into storage writes. It is not yet a durable ShareDB op-store or a multi-user collaboration service.
 
 ## Development and Testing
 
 To run unit tests:
+
 ```bash
 pnpm --filter @universo-react/playcanvas-editor-backend test
 ```
 
 To build the package:
+
 ```bash
 pnpm --filter @universo-react/playcanvas-editor-backend build
 ```

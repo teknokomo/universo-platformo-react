@@ -8,7 +8,9 @@ import {
     playCanvasRuntimeManifestSchema,
     isPlayCanvasAssetFileReference,
     isPlayCanvasGeneratedArtifactFileReference,
+    isPlayCanvasImageFileReference,
     isPlayCanvasScenePayloadFileReference,
+    isPlayCanvasSourceFileReference,
     isPlayCanvasScriptFileReference
 } from '../common/playcanvasProjects'
 
@@ -171,6 +173,33 @@ describe('PlayCanvas project contracts', () => {
         ).toBe(false)
     })
 
+    it('classifies PlayCanvas image asset file references by extension and MIME class', () => {
+        expect(
+            isPlayCanvasImageFileReference({
+                path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/assets/crosshair.png',
+                mime: 'image/png'
+            })
+        ).toBe(true)
+        expect(
+            isPlayCanvasImageFileReference({
+                path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/assets/crosshair.jpg',
+                mime: 'image/jpeg'
+            })
+        ).toBe(true)
+        expect(
+            isPlayCanvasImageFileReference({
+                path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/assets/crosshair.webp',
+                mime: 'image/webp'
+            })
+        ).toBe(true)
+        expect(
+            isPlayCanvasImageFileReference({
+                path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/assets/crosshair.png',
+                mime: 'image/jpeg'
+            })
+        ).toBe(false)
+    })
+
     it('classifies generated artifact references as JavaScript files under the generated namespace', () => {
         expect(
             isPlayCanvasGeneratedArtifactFileReference({
@@ -194,6 +223,27 @@ describe('PlayCanvas project contracts', () => {
             isPlayCanvasGeneratedArtifactFileReference({
                 path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/generated/flight-controller.mjs',
                 mime: null
+            })
+        ).toBe(false)
+    })
+
+    it('classifies sourcefile references as JavaScript files under the sourcefiles namespace', () => {
+        expect(
+            isPlayCanvasSourceFileReference({
+                path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/sourcefiles/flight-controller.mjs',
+                mime: 'text/javascript'
+            })
+        ).toBe(true)
+        expect(
+            isPlayCanvasSourceFileReference({
+                path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/generated/flight-controller.mjs',
+                mime: 'text/javascript'
+            })
+        ).toBe(false)
+        expect(
+            isPlayCanvasSourceFileReference({
+                path: 'playcanvas-projects/018f3f98-7a63-7b4a-9a5a-20c9a5b2d104/sourcefiles/flight-controller.json',
+                mime: 'application/json'
             })
         ).toBe(false)
     })
