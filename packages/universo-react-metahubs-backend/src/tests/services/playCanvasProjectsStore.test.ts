@@ -125,7 +125,9 @@ describe('playCanvasProjectsStore', () => {
         expect(String(calls[0]?.[0])).toContain('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_playcanvas_publication_manifests"')
         expect(String(calls[0]?.[0])).toContain('published = false')
         expect(String(calls[0]?.[0])).not.toContain('project_id::text = ANY')
-        expect(calls[0]?.[1]).toEqual([['019e8afa-0000-7000-8000-000000000001'], 'user-1'])
+        expect(String(calls[0]?.[0])).toContain('_upl_deleted_by = $1')
+        expect(String(calls[0]?.[0])).not.toContain('$2')
+        expect(calls[0]?.[1]).toEqual(['user-1'])
         expect(String(calls[1]?.[0])).toContain(
             'INSERT INTO "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_playcanvas_publication_manifests"'
         )

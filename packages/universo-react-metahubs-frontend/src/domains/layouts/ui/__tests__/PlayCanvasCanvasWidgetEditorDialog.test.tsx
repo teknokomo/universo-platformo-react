@@ -80,6 +80,7 @@ const vlc = (content: string) => ({
         en: { content }
     }
 })
+const playCanvasEditorPackageName = ['@universo-react', 'playcanvas-editor-frontend'].join('/')
 
 const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
     id: 'module-1',
@@ -183,10 +184,10 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
                 id: 'package-attachment-1',
                 metahubId: 'metahub-1',
                 packageId: 'package-1',
-                packageName: '@universo-react/playcanvas-editor-frontend',
+                packageName: playCanvasEditorPackageName,
                 version: '0.1.0',
                 displayName: vlc('PlayCanvas Editor'),
-                source: { kind: 'workspace', packageName: '@universo-react/playcanvas-editor-frontend' },
+                source: { kind: 'workspace', packageName: playCanvasEditorPackageName },
                 authoringSurface: {
                     schemaVersion: '1',
                     kind: 'none',

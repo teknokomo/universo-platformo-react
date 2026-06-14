@@ -1256,24 +1256,27 @@ export async function replacePlayCanvasPublicationManifests(
         return
     }
 
-    const scopeFilter = input.replaceScope === 'branch' ? '' : `project_id::text = ANY($1::text[]) AND `
+    const replaceWholeBranch = input.replaceScope === 'branch'
+    const scopeFilter = replaceWholeBranch ? '' : `project_id::text = ANY($1::text[]) AND `
+    const userIdParam = replaceWholeBranch ? '$1' : '$2'
+    const deleteParams = replaceWholeBranch ? [input.userId] : [projectIds, input.userId]
 
     await exec.transaction(async (tx) => {
         await tx.query(
             `UPDATE ${qSchemaTable(schemaName, '_mhb_playcanvas_publication_manifests')}
             SET _upl_deleted = true,
                 _upl_deleted_at = NOW(),
-                _upl_deleted_by = $2,
+                _upl_deleted_by = ${userIdParam},
                 _mhb_deleted = true,
                 _mhb_deleted_at = NOW(),
-                _mhb_deleted_by = $2,
+                _mhb_deleted_by = ${userIdParam},
                 _upl_updated_at = NOW(),
-                _upl_updated_by = $2,
+                _upl_updated_by = ${userIdParam},
                 _upl_version = _upl_version + 1,
                 published = false
           WHERE ${scopeFilter}_upl_deleted = false
             AND _mhb_deleted = false`,
-            [projectIds, input.userId]
+            deleteParams
         )
 
         for (const manifest of input.manifests) {
