@@ -415,9 +415,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
 		  let bootstrapRequestId = null;
 		  let bridgeSessionId = null;
 		  let bridgeNonce = null;
-			  const pendingBridgeRequests = new Map();
+		  const pendingBridgeRequests = new Map();
 		  const hostedEntityObservers = [];
 			  const observedEntityObservers = [];
+        let loadedScenePayloadEntityObservers = [];
 			  let hostedEntityEditor = null;
 			  let wrappedEditorCall = null;
         let wrappedEditorCallSource = null;
@@ -428,6 +429,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         let wrappedShareDbConnection = null;
         const repairedShareDbDocuments = new WeakSet();
 				  let hydratingPersistedScene = false;
+        let persistedSceneHydrationGeneration = 0;
 
 	  window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__ = marker;
 	  window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__ = (message) => {
@@ -791,10 +793,31 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	  };
 
   const rememberScenePayloadEntities = (payload) => {
-    if (!payload || typeof payload !== 'object' || (!Array.isArray(payload.entities) && typeof payload.entities !== 'object')) return;
-    for (const observer of scenePayloadEntitiesToObservers(payload)) {
-      rememberEntityObserver(observer, observerToJson(observer));
+    if (!payload || typeof payload !== 'object' || (!Array.isArray(payload.entities) && typeof payload.entities !== 'object')) {
+      loadedScenePayloadEntityObservers = [];
+      marker.lastCleanLoadedScenePayload = null;
+      marker.lastLoadedScenePayloadEntityIds = [];
+      return;
     }
+    loadedScenePayloadEntityObservers = scenePayloadEntitiesToObservers(payload);
+    marker.lastCleanLoadedScenePayload = payload;
+    marker.lastLoadedScenePayloadEntityIds = loadedScenePayloadEntityObservers
+      .map((observer) => getEntityObserverId(observer))
+      .filter(Boolean);
+  };
+
+  const clearLoadedScenePayloadObservers = (reason) => {
+    loadedScenePayloadEntityObservers = [];
+    marker.lastLoadedScenePayloadEntityIds = [];
+    marker.lastLoadedScenePayloadClearedReason = reason;
+    marker.lastLoadedScenePayloadClearedAt = Date.now();
+  };
+
+  const advancePersistedSceneHydrationGeneration = (reason) => {
+    persistedSceneHydrationGeneration += 1;
+    marker.persistedSceneHydrationGeneration = persistedSceneHydrationGeneration;
+    marker.persistedSceneHydrationGenerationReason = reason;
+    return persistedSceneHydrationGeneration;
   };
 
   const rebindUpstreamHierarchy = () => {
@@ -1448,6 +1471,8 @@ export const writeBridgeBootstrap = (targetRoot) => {
     if (marker.dirty === true) {
       marker.skippedDirtyPersistedSceneHydration = true;
       marker.skippedDirtyPersistedSceneHydrationAt = Date.now();
+      clearLoadedScenePayloadObservers('dirty-hydration-skip');
+      advancePersistedSceneHydrationGeneration('dirty-hydration-skip');
       return false;
     }
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
@@ -1541,17 +1566,31 @@ export const writeBridgeBootstrap = (targetRoot) => {
     );
   };
 
-  const schedulePersistedSceneHydration = (attempts = 8, delay = 150) => {
+  const schedulePersistedSceneHydration = (attempts = 8, delay = 150, generation = persistedSceneHydrationGeneration) => {
     window.setTimeout(() => {
+      if (generation !== persistedSceneHydrationGeneration || marker.dirty === true) {
+        if (marker.dirty === true) {
+          marker.skippedDirtyPersistedSceneHydration = true;
+          marker.skippedDirtyPersistedSceneHydrationAt = Date.now();
+          clearLoadedScenePayloadObservers('dirty-scheduled-hydration-skip');
+          advancePersistedSceneHydrationGeneration('dirty-scheduled-hydration-skip');
+        }
+        return;
+      }
       const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
       if (!editorInstance) {
-        if (attempts > 1) schedulePersistedSceneHydration(attempts - 1, delay);
+        if (attempts > 1) schedulePersistedSceneHydration(attempts - 1, delay, generation);
         return;
       }
       hydratePersistedSceneEntities();
       rebindUpstreamHierarchy();
-      if (attempts > 1 && !persistedSceneEntitiesAreAvailable(editorInstance)) {
-        schedulePersistedSceneHydration(attempts - 1, delay);
+      if (
+        attempts > 1 &&
+        generation === persistedSceneHydrationGeneration &&
+        marker.dirty !== true &&
+        !persistedSceneEntitiesAreAvailable(editorInstance)
+      ) {
+        schedulePersistedSceneHydration(attempts - 1, delay, generation);
       }
     }, delay);
   };
@@ -1916,14 +1955,14 @@ export const writeBridgeBootstrap = (targetRoot) => {
   };
 
   const serializeCurrentScene = () => {
-    const fallbackPayload = readLoadedScenePayload();
+    const fallbackPayload = marker.dirty === true ? marker.lastCleanLoadedScenePayload || null : readLoadedScenePayload();
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     if (!editorInstance) {
       return fallbackPayload || { schemaVersion: bridgeVersion, entities: [] };
 	    }
     try {
       const sceneSettings = safeEditorCall(editorInstance, 'sceneSettings');
-      const cleanLoadedPayloadObservers = marker.dirty === true ? [] : scenePayloadEntitiesToObservers(fallbackPayload);
+      const cleanLoadedPayloadObservers = marker.dirty === true ? [] : loadedScenePayloadEntityObservers;
       const realtimeSceneEntities =
         editorInstance.api?.globals?.realtime?.scenes?.current?.data?.entities ||
         editorInstance.api?.globals?.realtime?.scenes?.current?._document?._data?.entities ||
@@ -3471,8 +3510,15 @@ export const writeBridgeBootstrap = (targetRoot) => {
         marker.lastSceneList = await sendBridgeCommand('scene.list', { projectId: activeProjectId });
         if (typeof activeSceneId === 'string' && activeSceneId) {
 	        marker.lastLoadedScene = await sendBridgeCommand('scene.read', { projectId: activeProjectId, sceneId: activeSceneId });
-          rememberScenePayloadEntities(readLoadedScenePayload(marker.lastLoadedScene));
-          schedulePersistedSceneHydration();
+          if (marker.dirty === true) {
+            marker.skippedDirtySceneReadPayload = true;
+            marker.skippedDirtySceneReadPayloadAt = Date.now();
+            clearLoadedScenePayloadObservers('dirty-scene-read-skip');
+            advancePersistedSceneHydrationGeneration('dirty-scene-read-skip');
+          } else {
+            rememberScenePayloadEntities(readLoadedScenePayload(marker.lastLoadedScene));
+            schedulePersistedSceneHydration();
+          }
           marker.currentSceneChecksum =
             marker.lastLoadedScene?.data?.scene?.checksum || marker.lastLoadedScene?.data?.checksum || marker.currentSceneChecksum || null;
 	        }

@@ -674,20 +674,35 @@ export const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metah
     const sceneId = String(compatibilityConfig.defaultSceneId)
     const createdEntity = await createSerializablePlayCanvasEditorEntity(page)
     await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })
-    const saveResponsePromise = waitForPlayCanvasCompatibilitySceneSave(page, metahubId)
-    await page.keyboard.press(playCanvasEditorSaveShortcut)
+    const saveResponsePromise = waitForPlayCanvasEditorSceneSave(page, metahubId)
+    await editorFrame.locator('body').evaluate(async () => {
+        const bridge = (
+            window as unknown as {
+                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: { saveCurrentScene?: () => Promise<unknown> }
+            }
+        ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        if (typeof bridge?.saveCurrentScene !== 'function') {
+            throw new Error('PlayCanvas Editor bridge saveCurrentScene is not available')
+        }
+        await bridge.saveCurrentScene()
+    })
     const saveResponse = await saveResponsePromise
     const saveResponseBody = await saveResponse.json()
     expect(saveResponse.status(), JSON.stringify(saveResponseBody)).toBe(200)
-    const savePayload = saveResponse.request().postDataJSON() as {
+    const saveRequestBody = saveResponse.request().postDataJSON() as {
         requestId?: unknown
         expectedCurrentChecksum?: unknown
         payload?: { entities?: Array<{ id?: unknown; name?: unknown }> }
+        command?: {
+            requestId?: unknown
+            expectedCurrentChecksum?: unknown
+            payload?: { entities?: Array<{ id?: unknown; name?: unknown }> }
+        }
     }
-    expect(savePayload).toMatchObject({
-        requestId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
-    })
-    expect(savePayload.payload?.entities).toEqual(
+    const savePayload = saveRequestBody.payload ?? saveRequestBody.command?.payload
+    const saveRequestId = saveRequestBody.requestId ?? saveRequestBody.command?.requestId
+    expect(saveRequestId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i))
+    expect(savePayload?.entities).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: createdEntity.id, name: createdEntity.name })])
     )
 

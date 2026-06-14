@@ -1035,6 +1035,7 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
             names: expect.arrayContaining(['MMOOMM Ship', 'MMOOMM Station'])
         })
     )
+    expect(lateLoadState.names).not.toContain('Stale Persisted Entity')
     await expect
         .poll(
             () =>
@@ -1056,6 +1057,12 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
                 mmoomm: undefined
             })
         )
+
+    const currentNamesAfterLateLoad = await frame.locator('body').evaluate(() => {
+        const scene = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.serializeCurrentScene?.()
+        return (scene?.entities ?? []).map((entity) => entity.name)
+    })
+    expect(currentNamesAfterLateLoad).not.toContain('Stale Persisted Entity')
 
     await frame.locator('body').evaluate(async () => {
         await window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__.saveCurrentScene()
@@ -1086,6 +1093,7 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
             })
         ])
     )
+    expect((savePayload?.payload?.entities ?? []).map((entity) => entity.name)).not.toContain('Stale Persisted Entity')
     expect(savePayload?.payload?.metadata).not.toEqual(expect.objectContaining({ mmoomm: expect.anything() }))
 })
 

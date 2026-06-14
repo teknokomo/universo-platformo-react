@@ -14,7 +14,6 @@ import {
     playCanvasEditorSaveShortcut,
     playCanvasEditorVisibleMenuItemXPath,
     readPlayCanvasEditorSceneSavePayload,
-    waitForPlayCanvasCompatibilitySceneSave,
     waitForPlayCanvasEditorSceneSave,
     type PlayCanvasEditorAuthoredEntity
 } from './playcanvasEditorAuthoring'
@@ -976,17 +975,19 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
     expect(authoredScene).toEqual({ shipId: shipEntity.id, stationId: stationEntity.id })
     await expectMmoommEditorEntitiesVisible(page, 'MMOOMM scene after native editor authoring')
 
-    const saveResponsePromise = waitForPlayCanvasCompatibilitySceneSave(page, metahubId)
+    const saveResponsePromise = waitForPlayCanvasEditorSceneSave(page, metahubId)
     await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })
     await page.keyboard.press(playCanvasEditorSaveShortcut)
     const saveResponse = await saveResponsePromise
     expect(saveResponse.status()).toBe(200)
-    const savePayload = saveResponse.request().postDataJSON() as {
+    const saveRequestBody = saveResponse.request().postDataJSON() as {
         requestId?: unknown
-        payload?: { entities?: Array<{ id?: unknown; name?: unknown }> }
+        command?: { requestId?: unknown }
     }
-    expect(savePayload.requestId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i))
-    expect(savePayload.payload?.entities).toEqual(
+    const savePayload = readPlayCanvasEditorSceneSavePayload(saveResponse) as { entities?: Array<{ id?: unknown; name?: unknown }> } | null
+    const saveRequestId = saveRequestBody.requestId ?? saveRequestBody.command?.requestId
+    expect(saveRequestId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i))
+    expect(savePayload?.entities).toEqual(
         expect.arrayContaining([expect.objectContaining({ name: 'MMOOMM Ship' }), expect.objectContaining({ name: 'MMOOMM Station' })])
     )
 
@@ -1060,7 +1061,7 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
         observer.set('position', [18, 3, -9])
     }, shipId)
 
-    const transformSaveResponsePromise = waitForPlayCanvasCompatibilitySceneSave(page, metahubId)
+    const transformSaveResponsePromise = waitForPlayCanvasEditorSceneSave(page, metahubId)
     await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })
     await page.keyboard.press(playCanvasEditorSaveShortcut)
     const transformSaveResponse = await transformSaveResponsePromise

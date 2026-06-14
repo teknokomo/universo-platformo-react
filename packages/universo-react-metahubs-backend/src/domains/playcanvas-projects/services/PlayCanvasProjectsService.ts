@@ -132,6 +132,95 @@ const readPlayCanvasEditorVector3Tuple = (
 const findEditorSceneEntityById = (payload: PlayCanvasEditorScenePayload | null | undefined, entityId: string) =>
     payload?.entities?.find((entity) => entity.id === entityId)
 
+type PlayCanvasEditorEntityComponents = NonNullable<PlayCanvasEditorScenePayload['entities'][number]['components']>
+
+const UNSAFE_EDITOR_COMPONENT_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor'])
+
+const createEditorComponentRecord = (): Record<string, unknown> => Object.create(null) as Record<string, unknown>
+
+const assertSafeEditorComponentPath = (path: string[]): void => {
+    if (path.length === 0 || path.some((segment) => !segment || UNSAFE_EDITOR_COMPONENT_PATH_SEGMENTS.has(segment))) {
+        throw new MetahubValidationError('Unsafe PlayCanvas Editor component path', {
+            messageCode: 'playcanvas.editor.scenePayloadUnsafeComponentPath',
+            path: path.join('.')
+        })
+    }
+}
+
+const cloneEditorComponentRecord = (value: unknown): Record<string, unknown> => {
+    const target = createEditorComponentRecord()
+    for (const [key, item] of Object.entries(asRecord(value))) {
+        assertSafeEditorComponentPath([key])
+        target[key] = item
+    }
+    return target
+}
+
+const assignNestedRecordPath = (target: Record<string, unknown>, path: string[], value: unknown): void => {
+    assertSafeEditorComponentPath(path)
+    let current = target
+    for (const segment of path.slice(0, -1)) {
+        const next = Object.prototype.hasOwnProperty.call(current, segment) ? current[segment] : undefined
+        if (!next || typeof next !== 'object' || Array.isArray(next)) {
+            current[segment] = createEditorComponentRecord()
+        }
+        current = current[segment] as Record<string, unknown>
+    }
+    current[path[path.length - 1]] = value
+}
+
+const mergeComponentRecord = (target: Record<string, unknown>, componentName: string, value: unknown): void => {
+    assertSafeEditorComponentPath([componentName])
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const merged = cloneEditorComponentRecord(target[componentName])
+        for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+            assertSafeEditorComponentPath([key])
+            merged[key] = item
+        }
+        target[componentName] = merged
+        return
+    }
+    target[componentName] = value
+}
+
+const normalizeEditorEntityComponents = (componentsInput: unknown, entityInput?: unknown): PlayCanvasEditorEntityComponents => {
+    const source = asRecord(componentsInput)
+    const entitySource = asRecord(entityInput)
+    const components = createEditorComponentRecord()
+
+    for (const [key, value] of Object.entries(source)) {
+        if (key.includes('.')) continue
+        assertSafeEditorComponentPath([key])
+        components[key] = value
+    }
+
+    for (const [key, value] of Object.entries(source)) {
+        const path = key.split('.').filter(Boolean)
+        if (path.length < 2) continue
+        assignNestedRecordPath(components, path, value)
+    }
+
+    for (const [key, value] of Object.entries(entitySource)) {
+        if (!key.startsWith('components.')) continue
+        const path = key.slice('components.'.length).split('.').filter(Boolean)
+        if (path.length === 0) continue
+        if (path.length === 1) {
+            mergeComponentRecord(components, path[0], value)
+        } else {
+            assignNestedRecordPath(components, path, value)
+        }
+    }
+
+    return components as PlayCanvasEditorEntityComponents
+}
+
+const normalizeEditorSceneEntityForSave = (
+    entity: PlayCanvasEditorScenePayload['entities'][number]
+): PlayCanvasEditorScenePayload['entities'][number] => ({
+    ...entity,
+    components: normalizeEditorEntityComponents(entity.components, entity)
+})
+
 const isRenderableEditorEntity = (entity: PlayCanvasEditorScenePayload['entities'][number]): boolean => {
     const components = asRecord(entity.components)
     const render = asRecord(components.render)
@@ -447,10 +536,12 @@ const normalizeEditorCompatibilityScenePayloadForSave = (payload: PlayCanvasEdit
         payload.metadata && typeof payload.metadata === 'object' && !Array.isArray(payload.metadata)
             ? (payload.metadata as Record<string, unknown>)
             : undefined
+    const entities = (payload.entities ?? []).map(normalizeEditorSceneEntityForSave)
     return playCanvasEditorCompatibilityScenePayloadSchema.parse({
         ...payload,
         settings: normalizeEditorSceneSettings(payload.settings),
-        metadata: syncMmoommMetadataWithEditorEntities(metadata, payload.entities ?? [])
+        entities,
+        metadata: syncMmoommMetadataWithEditorEntities(metadata, entities)
     })
 }
 
@@ -485,7 +576,7 @@ const normalizeRealtimeSceneEntities = (
             ...(position ? { position } : {}),
             ...(rotation ? { rotation } : {}),
             ...(scale ? { scale } : {}),
-            components: entity.components ?? {},
+            components: normalizeEditorEntityComponents(entity.components, entity),
             children: Array.isArray(entity.children) ? entity.children : []
         })
     }
@@ -1103,6 +1194,7 @@ export class PlayCanvasProjectsService {
     ): Promise<{ scene: PlayCanvasScene & { version: number }; checksum: string | null }> {
         const schemaName = await this.resolveSchemaName(metahubId)
         await this.requireProject(schemaName, projectId)
+        const payload = normalizeEditorCompatibilityScenePayloadForSave(input.payload)
         const existing = await findPlayCanvasScene(this.exec, schemaName, projectId, sceneId)
         const existingPayloadFile = this.assertScenePayloadFileReference(projectId, existing?.payloadFile)
         const payloadFilePath = existingPayloadFile?.path ?? this.fileService.buildDefaultScenePath(projectId, sceneId)
@@ -1130,7 +1222,7 @@ export class PlayCanvasProjectsService {
                     id: sceneId,
                     codename: existing?.codename ?? createCodenameVLC('en', `scene-${sceneId.slice(0, 8)}`),
                     displayName: existing?.displayName ?? createLocalizedContent('en', 'PlayCanvas Scene'),
-                    payloadSchemaVersion: input.payload.schemaVersion,
+                    payloadSchemaVersion: payload.schemaVersion,
                     payload: null,
                     payloadFile: preparedPayloadFile,
                     checksum: existing?.checksum ?? null,
@@ -1143,7 +1235,7 @@ export class PlayCanvasProjectsService {
             if (!prepared) {
                 throw this.metadataUpdateError(projectId, safePath)
             }
-            written = await this.fileService.write(scope, safePath, Buffer.from(JSON.stringify(input.payload), 'utf8'), {
+            written = await this.fileService.write(scope, safePath, Buffer.from(JSON.stringify(payload), 'utf8'), {
                 expectedCurrentChecksum: input.expectedCurrentChecksum,
                 mime: 'application/json'
             })
@@ -1645,6 +1737,9 @@ export class PlayCanvasProjectsService {
                     const position = readPlayCanvasEditorVector3Tuple(entity.position, previousEntity?.position)
                     const rotation = readPlayCanvasEditorVector3Tuple(entity.rotation, previousEntity?.rotation)
                     const scale = readPlayCanvasEditorVector3Tuple(entity.scale, previousEntity?.scale)
+                    const hasComponentsRecord =
+                        entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
+                    const normalizedComponents = normalizeEditorEntityComponents(hasComponentsRecord ? entity.components : {}, entity)
                     return {
                         id: entityId,
                         name: typeof entity.name === 'string' ? entity.name : previousEntity?.name ?? 'Entity',
@@ -1654,8 +1749,8 @@ export class PlayCanvasProjectsService {
                         ...(rotation ? { rotation } : {}),
                         ...(scale ? { scale } : {}),
                         components:
-                            entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
-                                ? (entity.components as Record<string, never>)
+                            hasComponentsRecord || Object.keys(normalizedComponents).length > 0
+                                ? normalizedComponents
                                 : previousEntity?.components ?? {},
                         children: Array.isArray(entity.children)
                             ? entity.children
