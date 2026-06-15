@@ -21,6 +21,9 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
     if (isVolatileFileSizePath(pathSegments) && typeof value === 'number') {
         return '<file-size>'
     }
+    if (isVolatilePlayCanvasProjectNumericIdPath(pathSegments) && typeof value === 'number') {
+        return '<playcanvas-project-number>'
+    }
     if (typeof value === 'number' && Number.isInteger(value) && value >= 1_700_000_000_000) {
         return '<numeric-timestamp>'
     }
@@ -49,6 +52,13 @@ const isVolatileFileSizePath = (pathSegments: string[]): boolean => {
         )
     )
 }
+
+const isVolatilePlayCanvasProjectNumericIdPath = (pathSegments: string[]): boolean =>
+    pathSegments.at(-1) === 'project' &&
+    pathSegments.at(-2) === 'data' &&
+    pathSegments.at(-3)?.startsWith('project_') === true &&
+    pathSegments.includes('playCanvasEditorRealtime') &&
+    pathSegments.includes('documents')
 
 const createNormalizerMaps = () => ({
     uuid: new Map<string, string>(),
@@ -120,4 +130,5 @@ if (normalizedTracked !== normalizedGenerated) {
     )
 }
 
+// eslint-disable-next-line no-console
 console.log(`MMOOMM app fixture drift check passed: ${path.relative(repoRoot, generatedPath)}`)
