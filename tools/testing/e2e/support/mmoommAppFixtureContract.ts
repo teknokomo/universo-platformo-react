@@ -60,6 +60,12 @@ type PlayCanvasProjectSnapshot = {
     runtimeManifests?: Array<{ projectId?: unknown; sceneId?: unknown; checksum?: unknown; metadata?: Record<string, unknown> }>
 }
 
+type PlayCanvasSceneEntitySnapshot = NonNullable<
+    NonNullable<PlayCanvasProjectSnapshot['scenes']>[number]['payload']
+>['entities'] extends Array<infer Entity>
+    ? Entity
+    : never
+
 const readCodenameText = (value: unknown): string => {
     if (typeof value === 'string') return value
     if (!value || typeof value !== 'object') return ''
@@ -165,6 +171,28 @@ const assertMmoommLightingEntity = (entity: {
     }
 }
 
+const isEmptyDefaultPlayCanvasEntity = (entity: PlayCanvasSceneEntitySnapshot): boolean => {
+    const components =
+        entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
+            ? (entity.components as Record<string, unknown>)
+            : {}
+    const children = Array.isArray((entity as { children?: unknown }).children) ? (entity as { children: unknown[] }).children : []
+    return entity.id !== 'root' && entity.name === 'New Entity' && Object.keys(components).length === 0 && children.length === 0
+}
+
+const assertNoEmptyDefaultPlayCanvasEntities = (playcanvasProjects: PlayCanvasProjectSnapshot): void => {
+    const offenders = (playcanvasProjects.scenes ?? []).flatMap((scene) =>
+        (scene.payload?.entities ?? [])
+            .filter(isEmptyDefaultPlayCanvasEntity)
+            .map((entity) => `${String(scene.id ?? 'unknown-scene')}:${String(entity.id ?? 'unknown-entity')}`)
+    )
+    if (offenders.length > 0) {
+        throw new Error(
+            `MMOOMM app fixture PlayCanvas scenes must not export empty default New Entity authoring artifacts: ${offenders.join(', ')}`
+        )
+    }
+}
+
 const assertMmoommSceneObjectMatchesEntity = (
     scene: Record<string, unknown> | undefined,
     entity: { id?: unknown; name?: unknown; position?: unknown; scale?: unknown },
@@ -239,6 +267,7 @@ const assertPlayCanvasProjectSnapshot = (snapshot: NonNullable<SnapshotEnvelope[
     if (!Array.isArray(playcanvasProjects.scenes) || playcanvasProjects.scenes.length < 1) {
         throw new Error('MMOOMM app fixture must include at least one PlayCanvas scene')
     }
+    assertNoEmptyDefaultPlayCanvasEntities(playcanvasProjects)
     const authoredScene = playcanvasProjects.scenes.find((scene) => {
         const metadata = scene.payload?.metadata
         const mmoomm = metadata && typeof metadata === 'object' ? (metadata.mmoomm as Record<string, unknown> | undefined) : undefined

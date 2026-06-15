@@ -38,6 +38,10 @@ for the MMOOMM configuration.
 
 ## Checklist
 
+-   [x] 2026-06-15: Remove empty upstream `New Entity` authoring artifacts from the canonical MMOOMM app fixture generator output.
+-   [x] 2026-06-15: Add a product fixture oracle that fails if empty default PlayCanvas entities are exported.
+-   [x] 2026-06-15: Regenerate `tools/fixtures/metahubs-mmoomm-app-snapshot.json` through the UI-first Playwright generator and verify fixture drift.
+-   [x] 2026-06-15: Run focused formatting/lint/tests plus local minimal Supabase Playwright evidence for the regenerated fixture.
 -   [x] 2026-06-14: Normalize PlayCanvas Editor compatibility scene saves so browser-authored MMOOMM entities publish with `metadata.mmoomm.scene`.
 -   [x] 2026-06-14: Add focused backend regression coverage for direct compatibility scene saves and published runtime manifest metadata.
 -   [ ] 2026-06-14: Re-run focused backend checks plus local minimal Supabase Playwright generator/runtime proof.

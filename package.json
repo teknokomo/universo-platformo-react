@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "0.68.0-alpha",
+    "version": "0.69.0-alpha",
     "private": true,
     "packageManager": "pnpm@10.33.2",
     "homepage": "https://universo.pro",

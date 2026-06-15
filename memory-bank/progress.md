@@ -55,6 +55,27 @@
 
 ---
 
+## 2026-06-15 - MMOOMM PlayCanvas Fixture Cleanup Closure
+
+-   Removed the upstream Editor's empty default `New Entity` authoring artifact
+    from the canonical MMOOMM app fixture path without changing the vendored
+    PlayCanvas Editor frontend or filtering valid empty/group entities in the
+    backend.
+-   Scoped the cleanup to the MMOOMM product generator helper: tests can still
+    create a native `New Entity` to prove upstream Editor authoring behavior,
+    but the MMOOMM fixture cleanup deletes empty default artifacts before save,
+    export, and publication verification.
+-   Added a fixture contract oracle that fails if any PlayCanvas scene exports a
+    non-root entity named `New Entity` with no components and no children.
+-   Regenerated `tools/fixtures/metahubs-mmoomm-app-snapshot.json` through the
+    UI-first Playwright generator. The tracked fixture now contains only
+    `Root`, `MMOOMM Ship`, `MMOOMM Station`, and `MMOOMM Key Light` in the
+    authored PlayCanvas scene.
+-   Verification passed: Prettier, scoped ESLint, fixture contract, fixture
+    drift check against the generated browser output, local minimal Supabase
+    MMOOMM fixture generator Playwright, local minimal Supabase MMOOMM imported
+    app runtime Playwright, and `git diff --check`.
+
 ## 2026-06-14 - MMOOMM Imported PlayCanvas Editor Viewport Closure
 
 -   Closed the user-reported imported `metahubs-mmoomm-app-snapshot.json`

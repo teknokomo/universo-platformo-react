@@ -13,6 +13,7 @@ import {
     fetchPlayCanvasEditorCompatibilityConfig,
     playCanvasEditorSaveShortcut,
     playCanvasEditorVisibleMenuItemXPath,
+    readSerializedPlayCanvasEditorScene,
     readPlayCanvasEditorSceneSavePayload,
     waitForPlayCanvasEditorSceneSave,
     type PlayCanvasEditorAuthoredEntity
@@ -61,6 +62,22 @@ type MmoommEditorMeshPixelEvidence = {
 
 const MMOOMM_EDITOR_ENTITY_NAMES = ['MMOOMM Ship', 'MMOOMM Station'] as const
 const MMOOMM_EDITOR_LIGHT_NAME = 'MMOOMM Key Light'
+
+type PlayCanvasEditorSerializedEntity = {
+    id?: unknown
+    name?: unknown
+    components?: unknown
+    children?: unknown
+}
+
+const isEmptyDefaultPlayCanvasEditorEntity = (entity: PlayCanvasEditorSerializedEntity): boolean => {
+    const components =
+        entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
+            ? (entity.components as Record<string, unknown>)
+            : {}
+    const children = Array.isArray(entity.children) ? entity.children : []
+    return entity.id !== 'root' && entity.name === 'New Entity' && Object.keys(components).length === 0 && children.length === 0
+}
 
 const toPngCoordinate = (value: number, sourceSize: number, targetSize: number) => {
     if (sourceSize <= 0 || targetSize <= 0) return 0
@@ -810,6 +827,89 @@ const expectPlayCanvasEditorHierarchyContextMenuResponsive = async (page: Page, 
     await page.keyboard.press('Escape')
 }
 
+const readEmptyDefaultPlayCanvasEditorEntityIds = async (page: Page): Promise<string[]> => {
+    const scene = (await readSerializedPlayCanvasEditorScene(page)) as { entities?: PlayCanvasEditorSerializedEntity[] }
+    return (scene.entities ?? [])
+        .filter(isEmptyDefaultPlayCanvasEditorEntity)
+        .map((entity) => (typeof entity.id === 'string' || typeof entity.id === 'number' ? String(entity.id) : ''))
+        .filter(Boolean)
+}
+
+const removeEmptyDefaultPlayCanvasEditorEntities = async (page: Page, label: string): Promise<string[]> => {
+    const ids = await readEmptyDefaultPlayCanvasEditorEntityIds(page)
+    if (ids.length === 0) {
+        return []
+    }
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    const deletedIds = await editorFrame.locator('body').evaluate((_element, targetIds) => {
+        type EditorEntityObserver = {
+            apiEntity?: { delete?: (options?: unknown) => void }
+            get?: (path: string) => unknown
+            json?: () => Record<string, unknown>
+        }
+        const editor = (
+            window as unknown as {
+                editor?: {
+                    call?: (method: string, ...args: unknown[]) => unknown
+                    api?: { globals?: { entities?: { get?: (id: string) => unknown; raw?: { array?: () => unknown[] } } } }
+                }
+            }
+        ).editor
+        const toObserverArray = (value: unknown): EditorEntityObserver[] => {
+            if (Array.isArray(value)) {
+                return value as EditorEntityObserver[]
+            }
+            const list = value as { array?: () => unknown[] } | null | undefined
+            if (typeof list?.array !== 'function') return []
+            const items = list.array()
+            return Array.isArray(items) ? (items as EditorEntityObserver[]) : []
+        }
+        const readObserverId = (observer: EditorEntityObserver): string => {
+            const json = typeof observer.json === 'function' ? observer.json() : null
+            const id = observer.get?.('resource_id') ?? json?.resource_id ?? json?.id
+            return typeof id === 'string' || typeof id === 'number' ? String(id) : ''
+        }
+        const observers = [
+            ...toObserverArray(editor?.call?.('entities:list')),
+            ...toObserverArray(editor?.call?.('entities:raw')),
+            ...toObserverArray(editor?.api?.globals?.entities?.raw)
+        ]
+        const targetSet = new Set(targetIds)
+        const targets = observers.filter((observer) => targetSet.has(readObserverId(observer)))
+        const deleted: string[] = []
+        for (const observer of targets) {
+            const id = readObserverId(observer)
+            const apiEntity =
+                (editor?.api?.globals?.entities?.get?.(id) as { apiEntity?: { delete?: (options?: unknown) => void } } | null | undefined)
+                    ?.apiEntity ?? observer.apiEntity
+            if (typeof apiEntity?.delete === 'function') {
+                apiEntity.delete({ history: true, preserveEntityReferences: true })
+                deleted.push(id)
+            }
+        }
+        const remaining = targets.filter((observer) => !deleted.includes(readObserverId(observer)))
+        if (remaining.length > 0 && typeof editor?.call === 'function') {
+            editor.call('entities:delete', remaining)
+            deleted.push(...remaining.map(readObserverId).filter(Boolean))
+        }
+        return Array.from(new Set(deleted))
+    }, ids)
+    await expect
+        .poll(() => readEmptyDefaultPlayCanvasEditorEntityIds(page), { timeout: 20_000 })
+        .toEqual([])
+        .catch(async (error) => {
+            const scene = await readSerializedPlayCanvasEditorScene(page).catch((sceneError) => ({
+                sceneError: sceneError instanceof Error ? sceneError.message : String(sceneError)
+            }))
+            throw new Error(
+                `${label} must not leave empty default PlayCanvas New Entity artifacts in the exportable scene. Deleted: ${JSON.stringify(
+                    deletedIds
+                )}. Scene: ${JSON.stringify(scene)}. ${error instanceof Error ? error.message : String(error)}`
+            )
+        })
+    return deletedIds
+}
+
 const configureMmoommSceneFromUserCreatedEntities = async (
     page: Page,
     input: { shipEntity: PlayCanvasEditorAuthoredEntity; stationEntity: PlayCanvasEditorAuthoredEntity }
@@ -974,6 +1074,7 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
         )
     expect(authoredScene).toEqual({ shipId: shipEntity.id, stationId: stationEntity.id })
     await expectMmoommEditorEntitiesVisible(page, 'MMOOMM scene after native editor authoring')
+    await removeEmptyDefaultPlayCanvasEditorEntities(page, 'MMOOMM scene after native editor authoring cleanup')
 
     const saveResponsePromise = waitForPlayCanvasEditorSceneSave(page, metahubId)
     await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })

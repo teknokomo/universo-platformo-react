@@ -1,9 +1,9 @@
 {
     "kind": "metahub_snapshot_bundle",
     "bundleVersion": 1,
-    "exportedAt": "2026-06-14T22:03:33.626Z",
+    "exportedAt": "2026-06-15T02:10:18.903Z",
     "metahub": {
-        "id": "019ec827-1bc2-72b4-b015-7d02a209bc65",
+        "id": "019ec909-03fe-72bc-a457-0f4c6789af6d",
         "name": {
             "_schema": "1",
             "locales": {
@@ -52,18 +52,18 @@
                     "content": "UniversoMmoomm",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-06-14T22:03:33.620Z",
-                    "updatedAt": "2026-06-14T22:03:33.620Z"
+                    "createdAt": "2026-06-15T02:10:18.899Z",
+                    "updatedAt": "2026-06-15T02:10:18.899Z"
                 }
             }
         }
     },
     "snapshot": {
         "version": 1,
-        "metahubId": "019ec827-1bc2-72b4-b015-7d02a209bc65",
+        "metahubId": "019ec909-03fe-72bc-a457-0f4c6789af6d",
         "entities": {
-            "019ec827-1d88-7b87-b32a-1313181ac712": {
-                "id": "019ec827-1d88-7b87-b32a-1313181ac712",
+            "019ec909-06c9-7c61-935f-2315613acfcc": {
+                "id": "019ec909-06c9-7c61-935f-2315613acfcc",
                 "kind": "hub",
                 "codename": {
                     "_schema": "1",
@@ -72,15 +72,15 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.207Z",
-                            "updatedAt": "2026-06-14T22:01:07.207Z"
+                            "createdAt": "2026-06-15T02:07:52.520Z",
+                            "updatedAt": "2026-06-15T02:07:52.520Z"
                         },
                         "ru": {
                             "content": "Основной",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.207Z",
-                            "updatedAt": "2026-06-14T22:01:07.207Z"
+                            "createdAt": "2026-06-15T02:07:52.520Z",
+                            "updatedAt": "2026-06-15T02:07:52.520Z"
                         }
                     },
                     "_primary": "en"
@@ -166,8 +166,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec827-1d9e-7bd3-9c04-5a3ec970095b": {
-                "id": "019ec827-1d9e-7bd3-9c04-5a3ec970095b",
+            "019ec909-06e2-7f41-8038-35a52bb9f76d": {
+                "id": "019ec909-06e2-7f41-8038-35a52bb9f76d",
                 "kind": "enumeration",
                 "codename": {
                     "_schema": "1",
@@ -176,20 +176,20 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.230Z",
-                            "updatedAt": "2026-06-14T22:01:07.230Z"
+                            "createdAt": "2026-06-15T02:07:52.546Z",
+                            "updatedAt": "2026-06-15T02:07:52.546Z"
                         },
                         "ru": {
                             "content": "Основное",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.230Z",
-                            "updatedAt": "2026-06-14T22:01:07.230Z"
+                            "createdAt": "2026-06-15T02:07:52.546Z",
+                            "updatedAt": "2026-06-15T02:07:52.546Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "enum_019ec8271d9e7bd39c045a3ec970095b",
+                "tableName": "enum_019ec90906e27f41803835a52bb9f76d",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -274,8 +274,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec828-3a03-72f5-8d44-f85c959d1648": {
-                "id": "019ec828-3a03-72f5-8d44-f85c959d1648",
+            "019ec90a-137c-7c00-8836-5b856deb2d56": {
+                "id": "019ec90a-137c-7c00-8836-5b856deb2d56",
                 "kind": "enumeration",
                 "codename": {
                     "_schema": "1",
@@ -284,13 +284,13 @@
                             "content": "MovementCommands",
                             "version": 3,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:02:19.228Z",
-                            "updatedAt": "2026-06-14T22:02:20.026Z"
+                            "createdAt": "2026-06-15T02:09:00.692Z",
+                            "updatedAt": "2026-06-15T02:09:01.303Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "enum_019ec8283a0372f58d44f85c959d1648",
+                "tableName": "enum_019ec90a137c7c0088365b856deb2d56",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -299,8 +299,8 @@
                                 "content": "Movement Commands",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:20.035Z",
-                                "updatedAt": "2026-06-14T22:02:20.035Z"
+                                "createdAt": "2026-06-15T02:09:01.308Z",
+                                "updatedAt": "2026-06-15T02:09:01.308Z"
                             }
                         },
                         "_primary": "en"
@@ -352,8 +352,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec827-1d8c-7479-818c-9f977b72293b": {
-                "id": "019ec827-1d8c-7479-818c-9f977b72293b",
+            "019ec909-06cd-757b-8fc0-af182f64c56d": {
+                "id": "019ec909-06cd-757b-8fc0-af182f64c56d",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -362,20 +362,20 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.211Z",
-                            "updatedAt": "2026-06-14T22:01:07.211Z"
+                            "createdAt": "2026-06-15T02:07:52.525Z",
+                            "updatedAt": "2026-06-15T02:07:52.525Z"
                         },
                         "ru": {
                             "content": "Основной",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.211Z",
-                            "updatedAt": "2026-06-14T22:01:07.211Z"
+                            "createdAt": "2026-06-15T02:07:52.525Z",
+                            "updatedAt": "2026-06-15T02:07:52.525Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_019ec8271d8c7479818c9f977b72293b",
+                "tableName": "obj_019ec90906cd757b8fc0af182f64c56d",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -512,7 +512,7 @@
                 },
                 "fields": [
                     {
-                        "id": "019ec827-1da2-7788-adf7-0bc2236bf559",
+                        "id": "019ec909-06e7-7c4c-88b4-a05197973075",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -520,8 +520,8 @@
                                     "content": "Title",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:01:07.233Z",
-                                    "updatedAt": "2026-06-14T22:01:07.233Z"
+                                    "createdAt": "2026-06-15T02:07:52.550Z",
+                                    "updatedAt": "2026-06-15T02:07:52.550Z"
                                 }
                             },
                             "_primary": "en"
@@ -562,7 +562,7 @@
                         "sortOrder": 1
                     },
                     {
-                        "id": "019ec827-1da4-7057-9361-5c10ce0e9f06",
+                        "id": "019ec909-06ea-7cf7-aa37-4a004df92f1f",
                         "codename": {
                             "_schema": "1",
                             "locales": {
@@ -570,8 +570,8 @@
                                     "content": "Description",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:01:07.235Z",
-                                    "updatedAt": "2026-06-14T22:01:07.235Z"
+                                    "createdAt": "2026-06-15T02:07:52.553Z",
+                                    "updatedAt": "2026-06-15T02:07:52.553Z"
                                 }
                             },
                             "_primary": "en"
@@ -610,8 +610,8 @@
                 ],
                 "hubs": []
             },
-            "019ec828-14fb-7641-b0b0-4a4337ebe6df": {
-                "id": "019ec828-14fb-7641-b0b0-4a4337ebe6df",
+            "019ec909-f50d-7e58-9143-15c36f3e5718": {
+                "id": "019ec909-f50d-7e58-9143-15c36f3e5718",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -620,13 +620,13 @@
                             "content": "FlightWorld",
                             "version": 4,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:02:09.508Z",
-                            "updatedAt": "2026-06-14T22:02:10.547Z"
+                            "createdAt": "2026-06-15T02:08:52.652Z",
+                            "updatedAt": "2026-06-15T02:08:53.509Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_019ec82814fb7641b0b04a4337ebe6df",
+                "tableName": "obj_019ec909f50d7e58914315c36f3e5718",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -635,8 +635,8 @@
                                 "content": "Space",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:10.555Z",
-                                "updatedAt": "2026-06-14T22:02:10.555Z"
+                                "createdAt": "2026-06-15T02:08:53.516Z",
+                                "updatedAt": "2026-06-15T02:08:53.516Z"
                             }
                         },
                         "_primary": "en"
@@ -741,8 +741,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec828-2139-7be7-b3e9-a190c7e71e69": {
-                "id": "019ec828-2139-7be7-b3e9-a190c7e71e69",
+            "019ec90a-0046-7ccc-bd02-040aafb236a9": {
+                "id": "019ec90a-0046-7ccc-bd02-040aafb236a9",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -751,13 +751,13 @@
                             "content": "FlightShip",
                             "version": 3,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:02:13.052Z",
-                            "updatedAt": "2026-06-14T22:02:13.678Z"
+                            "createdAt": "2026-06-15T02:08:55.624Z",
+                            "updatedAt": "2026-06-15T02:08:56.382Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_019ec82821397be7b3e9a190c7e71e69",
+                "tableName": "obj_019ec90a00467cccbd02040aafb236a9",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -766,8 +766,8 @@
                                 "content": "Flight Ship",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:13.689Z",
-                                "updatedAt": "2026-06-14T22:02:13.689Z"
+                                "createdAt": "2026-06-15T02:08:56.390Z",
+                                "updatedAt": "2026-06-15T02:08:56.390Z"
                             }
                         },
                         "_primary": "en"
@@ -872,8 +872,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec828-2d13-79ff-a0de-6ce5caf9c633": {
-                "id": "019ec828-2d13-79ff-a0de-6ce5caf9c633",
+            "019ec90a-09c2-739b-8f26-2a0610a07547": {
+                "id": "019ec90a-09c2-739b-8f26-2a0610a07547",
                 "kind": "object",
                 "codename": {
                     "_schema": "1",
@@ -882,13 +882,13 @@
                             "content": "FlightStation",
                             "version": 3,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:02:15.841Z",
-                            "updatedAt": "2026-06-14T22:02:16.713Z"
+                            "createdAt": "2026-06-15T02:08:58.180Z",
+                            "updatedAt": "2026-06-15T02:08:58.811Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "obj_019ec8282d1379ffa0de6ce5caf9c633",
+                "tableName": "obj_019ec90a09c2739b8f262a0610a07547",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -897,8 +897,8 @@
                                 "content": "Flight Station",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:16.723Z",
-                                "updatedAt": "2026-06-14T22:02:16.723Z"
+                                "createdAt": "2026-06-15T02:08:58.818Z",
+                                "updatedAt": "2026-06-15T02:08:58.818Z"
                             }
                         },
                         "_primary": "en"
@@ -1003,8 +1003,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec827-1d8a-79ed-ac52-3e125661e176": {
-                "id": "019ec827-1d8a-79ed-ac52-3e125661e176",
+            "019ec909-06cb-7c7e-a796-f77c5996dab6": {
+                "id": "019ec909-06cb-7c7e-a796-f77c5996dab6",
                 "kind": "page",
                 "codename": {
                     "_schema": "1",
@@ -1013,15 +1013,15 @@
                             "content": "WelcomePage",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.209Z",
-                            "updatedAt": "2026-06-14T22:01:07.209Z"
+                            "createdAt": "2026-06-15T02:07:52.523Z",
+                            "updatedAt": "2026-06-15T02:07:52.523Z"
                         },
                         "ru": {
                             "content": "ДоброПожаловать",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.209Z",
-                            "updatedAt": "2026-06-14T22:01:07.209Z"
+                            "createdAt": "2026-06-15T02:07:52.523Z",
+                            "updatedAt": "2026-06-15T02:07:52.523Z"
                         }
                     },
                     "_primary": "en"
@@ -1081,7 +1081,7 @@
                     "sortOrder": 1,
                     "blockContent": {
                         "data": {
-                            "time": 1781474565914,
+                            "time": 1781489366916,
                             "blocks": [
                                 {
                                     "id": "welcome-title",
@@ -1187,8 +1187,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec827-1d9d-79c6-b8dd-84f150b2a330": {
-                "id": "019ec827-1d9d-79c6-b8dd-84f150b2a330",
+            "019ec909-06e1-7e6d-9eb0-747c85814a30": {
+                "id": "019ec909-06e1-7e6d-9eb0-747c85814a30",
                 "kind": "set",
                 "codename": {
                     "_schema": "1",
@@ -1197,20 +1197,20 @@
                             "content": "Main",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.228Z",
-                            "updatedAt": "2026-06-14T22:01:07.228Z"
+                            "createdAt": "2026-06-15T02:07:52.544Z",
+                            "updatedAt": "2026-06-15T02:07:52.544Z"
                         },
                         "ru": {
                             "content": "Основной",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:01:07.228Z",
-                            "updatedAt": "2026-06-14T22:01:07.228Z"
+                            "createdAt": "2026-06-15T02:07:52.544Z",
+                            "updatedAt": "2026-06-15T02:07:52.544Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "set_019ec8271d9d79c6b8dd84f150b2a330",
+                "tableName": "set_019ec90906e17e6d9eb0747c85814a30",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -1299,8 +1299,8 @@
                 "fields": [],
                 "hubs": []
             },
-            "019ec828-6436-7ffe-a50e-c08d8b3fa932": {
-                "id": "019ec828-6436-7ffe-a50e-c08d8b3fa932",
+            "019ec90a-391f-7a58-a69d-0d6ff89e3fda": {
+                "id": "019ec90a-391f-7a58-a69d-0d6ff89e3fda",
                 "kind": "set",
                 "codename": {
                     "_schema": "1",
@@ -1309,13 +1309,13 @@
                             "content": "FlightSimulationConstants",
                             "version": 3,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:02:30.320Z",
-                            "updatedAt": "2026-06-14T22:02:30.834Z"
+                            "createdAt": "2026-06-15T02:09:10.381Z",
+                            "updatedAt": "2026-06-15T02:09:10.936Z"
                         }
                     },
                     "_primary": "en"
                 },
-                "tableName": "set_019ec82864367ffea50ec08d8b3fa932",
+                "tableName": "set_019ec90a391f7a58a69d0d6ff89e3fda",
                 "presentation": {
                     "name": {
                         "_schema": "1",
@@ -1324,8 +1324,8 @@
                                 "content": "Flight Simulation Constants",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:30.838Z",
-                                "updatedAt": "2026-06-14T22:02:30.838Z"
+                                "createdAt": "2026-06-15T02:09:10.943Z",
+                                "updatedAt": "2026-06-15T02:09:10.943Z"
                             }
                         },
                         "_primary": "en"
@@ -1384,7 +1384,7 @@
         },
         "entityTypeDefinitions": {
             "enumeration": {
-                "id": "019ec827-1d71-7e76-b010-9edf3667172d",
+                "id": "019ec909-06ae-7658-8640-57bc4586c87c",
                 "kindKey": "enumeration",
                 "codename": {
                     "_schema": "1",
@@ -1889,7 +1889,7 @@
                 "published": true
             },
             "hub": {
-                "id": "019ec827-1d66-725f-a53e-4566805c119d",
+                "id": "019ec909-069f-725f-a72f-d33568302f15",
                 "kindKey": "hub",
                 "codename": {
                     "_schema": "1",
@@ -2079,7 +2079,7 @@
                 "published": true
             },
             "object": {
-                "id": "019ec827-1d6c-7d45-bd6e-7a7fe5f27ab5",
+                "id": "019ec909-06a7-75c7-8a3f-9740651d716e",
                 "kindKey": "object",
                 "codename": {
                     "_schema": "1",
@@ -2637,7 +2637,7 @@
                 "published": true
             },
             "page": {
-                "id": "019ec827-1d69-765a-91dc-daf521c817ee",
+                "id": "019ec909-06a3-76b3-a9ed-9b60d0d17ca3",
                 "kindKey": "page",
                 "codename": {
                     "_schema": "1",
@@ -3124,7 +3124,7 @@
                 "published": true
             },
             "set": {
-                "id": "019ec827-1d6f-7bd2-b252-0240e231f2e6",
+                "id": "019ec909-06aa-77c5-acf4-e63d2240b30c",
                 "kindKey": "set",
                 "codename": {
                     "_schema": "1",
@@ -3634,10 +3634,10 @@
             }
         },
         "fixedValues": {
-            "019ec827-1d9d-79c6-b8dd-84f150b2a330": [
+            "019ec909-06e1-7e6d-9eb0-747c85814a30": [
                 {
-                    "id": "019ec827-1da0-747f-91b0-b40a03b4cc8a",
-                    "objectId": "019ec827-1d9d-79c6-b8dd-84f150b2a330",
+                    "id": "019ec909-06e4-752d-af77-bf29512ac3dd",
+                    "objectId": "019ec909-06e1-7e6d-9eb0-747c85814a30",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3645,8 +3645,8 @@
                                 "content": "AppName",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:01:07.231Z",
-                                "updatedAt": "2026-06-14T22:01:07.231Z"
+                                "createdAt": "2026-06-15T02:07:52.547Z",
+                                "updatedAt": "2026-06-15T02:07:52.547Z"
                             }
                         },
                         "_primary": "en"
@@ -3680,10 +3680,10 @@
                     "sortOrder": 1
                 }
             ],
-            "019ec828-6436-7ffe-a50e-c08d8b3fa932": [
+            "019ec90a-391f-7a58-a69d-0d6ff89e3fda": [
                 {
-                    "id": "019ec828-700c-7bd9-a0be-24657407949a",
-                    "objectId": "019ec828-6436-7ffe-a50e-c08d8b3fa932",
+                    "id": "019ec90a-458c-7014-a9d0-94260a8c7a51",
+                    "objectId": "019ec90a-391f-7a58-a69d-0d6ff89e3fda",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3691,8 +3691,8 @@
                                 "content": "CruiseSpeedMetersPerSecond",
                                 "version": 4,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:32.608Z",
-                                "updatedAt": "2026-06-14T22:02:33.862Z"
+                                "createdAt": "2026-06-15T02:09:12.796Z",
+                                "updatedAt": "2026-06-15T02:09:14.118Z"
                             }
                         },
                         "_primary": "en"
@@ -3706,8 +3706,8 @@
                                     "content": "Cruise speed, m/s",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:02:33.862Z",
-                                    "updatedAt": "2026-06-14T22:02:33.862Z"
+                                    "createdAt": "2026-06-15T02:09:14.118Z",
+                                    "updatedAt": "2026-06-15T02:09:14.118Z"
                                 }
                             },
                             "_primary": "en"
@@ -3723,8 +3723,8 @@
                     "sortOrder": 1
                 },
                 {
-                    "id": "019ec828-7d0c-7e1e-a099-d9d67100b6b1",
-                    "objectId": "019ec828-6436-7ffe-a50e-c08d8b3fa932",
+                    "id": "019ec90a-5365-7961-8393-7cc70fc38f84",
+                    "objectId": "019ec90a-391f-7a58-a69d-0d6ff89e3fda",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3732,8 +3732,8 @@
                                 "content": "AccelerationMetersPerSecond2",
                                 "version": 4,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:35.953Z",
-                                "updatedAt": "2026-06-14T22:02:37.191Z"
+                                "createdAt": "2026-06-15T02:09:16.248Z",
+                                "updatedAt": "2026-06-15T02:09:17.661Z"
                             }
                         },
                         "_primary": "en"
@@ -3747,8 +3747,8 @@
                                     "content": "Acceleration, m/s2",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:02:37.191Z",
-                                    "updatedAt": "2026-06-14T22:02:37.191Z"
+                                    "createdAt": "2026-06-15T02:09:17.661Z",
+                                    "updatedAt": "2026-06-15T02:09:17.661Z"
                                 }
                             },
                             "_primary": "en"
@@ -3764,8 +3764,8 @@
                     "sortOrder": 2
                 },
                 {
-                    "id": "019ec828-8903-7a27-8566-75d82380473b",
-                    "objectId": "019ec828-6436-7ffe-a50e-c08d8b3fa932",
+                    "id": "019ec90a-6051-7689-97cd-d42c92455871",
+                    "objectId": "019ec90a-391f-7a58-a69d-0d6ff89e3fda",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3773,8 +3773,8 @@
                                 "content": "DecelerationMetersPerSecond2",
                                 "version": 4,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:39.018Z",
-                                "updatedAt": "2026-06-14T22:02:40.254Z"
+                                "createdAt": "2026-06-15T02:09:19.636Z",
+                                "updatedAt": "2026-06-15T02:09:20.970Z"
                             }
                         },
                         "_primary": "en"
@@ -3788,8 +3788,8 @@
                                     "content": "Deceleration, m/s2",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:02:40.254Z",
-                                    "updatedAt": "2026-06-14T22:02:40.254Z"
+                                    "createdAt": "2026-06-15T02:09:20.971Z",
+                                    "updatedAt": "2026-06-15T02:09:20.971Z"
                                 }
                             },
                             "_primary": "en"
@@ -3805,8 +3805,8 @@
                     "sortOrder": 3
                 },
                 {
-                    "id": "019ec828-94c3-746e-a3ce-197d4e45bb0d",
-                    "objectId": "019ec828-6436-7ffe-a50e-c08d8b3fa932",
+                    "id": "019ec90a-6cc8-73ba-acd3-331d23bab107",
+                    "objectId": "019ec90a-391f-7a58-a69d-0d6ff89e3fda",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3814,8 +3814,8 @@
                                 "content": "ArrivalRadiusMeters",
                                 "version": 4,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:42.029Z",
-                                "updatedAt": "2026-06-14T22:02:43.263Z"
+                                "createdAt": "2026-06-15T02:09:22.922Z",
+                                "updatedAt": "2026-06-15T02:09:24.162Z"
                             }
                         },
                         "_primary": "en"
@@ -3829,8 +3829,8 @@
                                     "content": "Arrival radius, m",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:02:43.263Z",
-                                    "updatedAt": "2026-06-14T22:02:43.263Z"
+                                    "createdAt": "2026-06-15T02:09:24.162Z",
+                                    "updatedAt": "2026-06-15T02:09:24.162Z"
                                 }
                             },
                             "_primary": "en"
@@ -3848,10 +3848,10 @@
             ]
         },
         "optionValues": {
-            "019ec827-1d9e-7bd3-9c04-5a3ec970095b": [
+            "019ec909-06e2-7f41-8038-35a52bb9f76d": [
                 {
-                    "id": "019ec827-1da7-7a64-b98c-a6e7b434658e",
-                    "objectId": "019ec827-1d9e-7bd3-9c04-5a3ec970095b",
+                    "id": "019ec909-06ed-7661-97de-84c4572f325d",
+                    "objectId": "019ec909-06e2-7f41-8038-35a52bb9f76d",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3859,8 +3859,8 @@
                                 "content": "Active",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:01:07.238Z",
-                                "updatedAt": "2026-06-14T22:01:07.238Z"
+                                "createdAt": "2026-06-15T02:07:52.556Z",
+                                "updatedAt": "2026-06-15T02:07:52.556Z"
                             }
                         },
                         "_primary": "en"
@@ -3891,8 +3891,8 @@
                     "isDefault": true
                 },
                 {
-                    "id": "019ec827-1da9-7287-be01-aeb7cb6c8ff5",
-                    "objectId": "019ec827-1d9e-7bd3-9c04-5a3ec970095b",
+                    "id": "019ec909-06ef-7827-a26c-fc454bc0d1bf",
+                    "objectId": "019ec909-06e2-7f41-8038-35a52bb9f76d",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3900,8 +3900,8 @@
                                 "content": "Inactive",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:01:07.240Z",
-                                "updatedAt": "2026-06-14T22:01:07.240Z"
+                                "createdAt": "2026-06-15T02:07:52.559Z",
+                                "updatedAt": "2026-06-15T02:07:52.559Z"
                             }
                         },
                         "_primary": "en"
@@ -3932,10 +3932,10 @@
                     "isDefault": false
                 }
             ],
-            "019ec828-3a03-72f5-8d44-f85c959d1648": [
+            "019ec90a-137c-7c00-8836-5b856deb2d56": [
                 {
-                    "id": "019ec828-468b-74de-966c-4f63d4cc0005",
-                    "objectId": "019ec828-3a03-72f5-8d44-f85c959d1648",
+                    "id": "019ec90a-1c65-7a30-af82-1353ab833d08",
+                    "objectId": "019ec90a-137c-7c00-8836-5b856deb2d56",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3943,8 +3943,8 @@
                                 "content": "MoveToPoint",
                                 "version": 3,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:22.368Z",
-                                "updatedAt": "2026-06-14T22:02:23.220Z"
+                                "createdAt": "2026-06-15T02:09:02.989Z",
+                                "updatedAt": "2026-06-15T02:09:03.579Z"
                             }
                         },
                         "_primary": "en"
@@ -3957,8 +3957,8 @@
                                     "content": "Move to point",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:02:23.220Z",
-                                    "updatedAt": "2026-06-14T22:02:23.220Z"
+                                    "createdAt": "2026-06-15T02:09:03.579Z",
+                                    "updatedAt": "2026-06-15T02:09:03.579Z"
                                 }
                             },
                             "_primary": "en"
@@ -3968,8 +3968,8 @@
                     "isDefault": true
                 },
                 {
-                    "id": "019ec828-50d0-7525-b6a1-f4f6f510cea9",
-                    "objectId": "019ec828-3a03-72f5-8d44-f85c959d1648",
+                    "id": "019ec90a-2699-77ff-85c6-e44c15af4c80",
+                    "objectId": "019ec90a-137c-7c00-8836-5b856deb2d56",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -3977,8 +3977,8 @@
                                 "content": "MoveToObject",
                                 "version": 3,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:25.439Z",
-                                "updatedAt": "2026-06-14T22:02:25.866Z"
+                                "createdAt": "2026-06-15T02:09:05.775Z",
+                                "updatedAt": "2026-06-15T02:09:06.192Z"
                             }
                         },
                         "_primary": "en"
@@ -3991,8 +3991,8 @@
                                     "content": "Move to object",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:02:25.866Z",
-                                    "updatedAt": "2026-06-14T22:02:25.866Z"
+                                    "createdAt": "2026-06-15T02:09:06.192Z",
+                                    "updatedAt": "2026-06-15T02:09:06.192Z"
                                 }
                             },
                             "_primary": "en"
@@ -4002,8 +4002,8 @@
                     "isDefault": false
                 },
                 {
-                    "id": "019ec828-5adf-735b-b084-e99e7a2aead8",
-                    "objectId": "019ec828-3a03-72f5-8d44-f85c959d1648",
+                    "id": "019ec90a-2fae-758b-9615-6717639f389c",
+                    "objectId": "019ec90a-137c-7c00-8836-5b856deb2d56",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -4011,8 +4011,8 @@
                                 "content": "Stop",
                                 "version": 3,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:27.999Z",
-                                "updatedAt": "2026-06-14T22:02:28.440Z"
+                                "createdAt": "2026-06-15T02:09:08.094Z",
+                                "updatedAt": "2026-06-15T02:09:08.519Z"
                             }
                         },
                         "_primary": "en"
@@ -4025,8 +4025,8 @@
                                     "content": "Stop",
                                     "version": 1,
                                     "isActive": true,
-                                    "createdAt": "2026-06-14T22:02:28.440Z",
-                                    "updatedAt": "2026-06-14T22:02:28.440Z"
+                                    "createdAt": "2026-06-15T02:09:08.518Z",
+                                    "updatedAt": "2026-06-15T02:09:08.518Z"
                                 }
                             },
                             "_primary": "en"
@@ -4038,7 +4038,7 @@
             ]
         },
         "systemFields": {
-            "019ec827-1d8c-7479-818c-9f977b72293b": {
+            "019ec909-06cd-757b-8fc0-af182f64c56d": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -4119,7 +4119,7 @@
                     }
                 }
             },
-            "019ec828-14fb-7641-b0b0-4a4337ebe6df": {
+            "019ec909-f50d-7e58-9143-15c36f3e5718": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -4200,7 +4200,7 @@
                     }
                 }
             },
-            "019ec828-2139-7be7-b3e9-a190c7e71e69": {
+            "019ec90a-0046-7ccc-bd02-040aafb236a9": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -4281,7 +4281,7 @@
                     }
                 }
             },
-            "019ec828-2d13-79ff-a0de-6ce5caf9c633": {
+            "019ec90a-09c2-739b-8f26-2a0610a07547": {
                 "fields": [
                     {
                         "key": "app.published",
@@ -4365,7 +4365,7 @@
         },
         "modules": [
             {
-                "id": "019ec828-c075-7883-9e82-07dbf3589c3a",
+                "id": "019ec90a-9b09-7106-b611-34e1f99cf0da",
                 "codename": {
                     "_schema": "1",
                     "locales": {
@@ -4373,8 +4373,8 @@
                             "content": "fixed-tick-flight-runtime",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:02:54.452Z",
-                            "updatedAt": "2026-06-14T22:02:54.452Z"
+                            "createdAt": "2026-06-15T02:09:36.008Z",
+                            "updatedAt": "2026-06-15T02:09:36.008Z"
                         }
                     },
                     "_primary": "en"
@@ -4387,8 +4387,8 @@
                                 "content": "Fixed Tick Flight Runtime",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:54.366Z",
-                                "updatedAt": "2026-06-14T22:02:54.366Z"
+                                "createdAt": "2026-06-15T02:09:35.848Z",
+                                "updatedAt": "2026-06-15T02:09:35.848Z"
                             }
                         },
                         "_primary": "en"
@@ -4406,7 +4406,7 @@
                     "checksum": "e4672aa019da882ba65c2cbe8ae9f4924cf609152f843b86f8f4ace75af4e045",
                     "status": "inline",
                     "lastReadAt": null,
-                    "lastCompileAt": "2026-06-14T22:02:54.452Z",
+                    "lastCompileAt": "2026-06-15T02:09:36.008Z",
                     "lastCompileStatus": "success",
                     "lastCompileMessageCode": null
                 },
@@ -4432,7 +4432,7 @@
                 "config": {}
             },
             {
-                "id": "019ec828-b039-7a4e-9ac1-232456c84c5d",
+                "id": "019ec90a-89ef-7f1b-b652-09766b479bed",
                 "codename": {
                     "_schema": "1",
                     "locales": {
@@ -4440,8 +4440,8 @@
                             "content": "flight-canvas-widget",
                             "version": 1,
                             "isActive": true,
-                            "createdAt": "2026-06-14T22:02:50.284Z",
-                            "updatedAt": "2026-06-14T22:02:50.284Z"
+                            "createdAt": "2026-06-15T02:09:31.620Z",
+                            "updatedAt": "2026-06-15T02:09:31.620Z"
                         }
                     },
                     "_primary": "en"
@@ -4454,8 +4454,8 @@
                                 "content": "Flight Canvas Widget",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:02:50.093Z",
-                                "updatedAt": "2026-06-14T22:02:50.093Z"
+                                "createdAt": "2026-06-15T02:09:31.454Z",
+                                "updatedAt": "2026-06-15T02:09:31.454Z"
                             }
                         },
                         "_primary": "en"
@@ -4473,7 +4473,7 @@
                     "checksum": "37787c54ac22efacedcd03c65d74576373c976b2e3ce02a4a41181efaad364f4",
                     "status": "inline",
                     "lastReadAt": null,
-                    "lastCompileAt": "2026-06-14T22:02:50.284Z",
+                    "lastCompileAt": "2026-06-15T02:09:31.620Z",
                     "lastCompileStatus": "success",
                     "lastCompileMessageCode": null
                 },
@@ -4513,7 +4513,7 @@
         ],
         "layouts": [
             {
-                "id": "019ec827-1d75-7d31-ad09-3d457bfa9cc3",
+                "id": "019ec909-06b2-748c-bd58-af4bd834d20b",
                 "templateKey": "dashboard",
                 "name": {
                     "_schema": "1",
@@ -4583,8 +4583,8 @@
         ],
         "layoutZoneWidgets": [
             {
-                "id": "019ec829-02b3-7e71-8b20-9f2c80e363aa",
-                "layoutId": "019ec827-1d75-7d31-ad09-3d457bfa9cc3",
+                "id": "019ec90a-de3d-73da-8a79-de277f82bc62",
+                "layoutId": "019ec909-06b2-748c-bd58-af4bd834d20b",
                 "zone": "center",
                 "widgetKey": "playcanvasCanvas",
                 "sortOrder": 1,
@@ -4596,15 +4596,15 @@
                                 "content": "Universo MMOOMM",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:03:07.303Z",
-                                "updatedAt": "2026-06-14T22:03:07.303Z"
+                                "createdAt": "2026-06-15T02:09:49.022Z",
+                                "updatedAt": "2026-06-15T02:09:49.022Z"
                             },
                             "ru": {
                                 "content": "Universo MMOOMM",
                                 "version": 2,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:03:08.215Z",
-                                "updatedAt": "2026-06-14T22:03:08.305Z"
+                                "createdAt": "2026-06-15T02:09:50.023Z",
+                                "updatedAt": "2026-06-15T02:09:50.128Z"
                             }
                         },
                         "_primary": "en"
@@ -4612,15 +4612,15 @@
                     "minHeight": 560,
                     "heightMode": "fitViewport",
                     "visibleFor": {
-                        "sectionIds": ["019ec828-14fb-7641-b0b0-4a4337ebe6df"],
+                        "sectionIds": ["019ec909-f50d-7e58-9143-15c36f3e5718"],
                         "sectionCodenames": ["FlightWorld"]
                     },
                     "moduleCodename": "flight-canvas-widget",
                     "runtimeManifest": {
                         "source": "publishedManifest",
-                        "sceneId": "019ec827-3087-739c-be90-6ee0233c1d68",
-                        "checksum": "ff30e66b3c97ce525896c2096f3cd3192c3e4efe58e6dafb293d5079f9f2e1e8",
-                        "projectId": "019ec827-3086-7873-80d7-ab859d0158f6",
+                        "sceneId": "019ec909-1af0-7c86-b1bd-311c08c47b27",
+                        "checksum": "a821ad32e311d1de79eb3c612ecafa8d4d16a1d2fb803479a541689801fdd518",
+                        "projectId": "019ec909-1aef-7558-a968-d6280a5e30aa",
                         "failClosed": true
                     },
                     "serverModuleCodename": "fixed-tick-flight-runtime"
@@ -4628,15 +4628,15 @@
                 "isActive": true
             },
             {
-                "id": "019ec828-ef5d-7bdb-9c2d-4f988dfe9486",
-                "layoutId": "019ec827-1d75-7d31-ad09-3d457bfa9cc3",
+                "id": "019ec90a-ca75-7d53-b0e8-f03b7e8b839a",
+                "layoutId": "019ec909-06b2-748c-bd58-af4bd834d20b",
                 "zone": "left",
                 "widgetKey": "menuWidget",
                 "sortOrder": 1,
                 "config": {
                     "items": [
                         {
-                            "id": "019ec828-e80e-74e0-a0e7-9b04a4c49682",
+                            "id": "019ec90a-c2d0-7929-a1a9-0325efbf5751",
                             "href": null,
                             "icon": "home",
                             "kind": "section",
@@ -4647,15 +4647,15 @@
                                         "content": "Welcome",
                                         "version": 2,
                                         "isActive": true,
-                                        "createdAt": "2026-06-14T22:02:57.748Z",
-                                        "updatedAt": "2026-06-14T22:03:03.096Z"
+                                        "createdAt": "2026-06-15T02:09:39.368Z",
+                                        "updatedAt": "2026-06-15T02:09:44.594Z"
                                     },
                                     "ru": {
                                         "content": "Добро пожаловать",
                                         "version": 2,
                                         "isActive": true,
-                                        "createdAt": "2026-06-14T22:03:03.580Z",
-                                        "updatedAt": "2026-06-14T22:03:03.653Z"
+                                        "createdAt": "2026-06-15T02:09:45.105Z",
+                                        "updatedAt": "2026-06-15T02:09:45.196Z"
                                     }
                                 },
                                 "_primary": "en"
@@ -4667,7 +4667,7 @@
                             "objectCollectionId": "WelcomePage"
                         },
                         {
-                            "id": "019ec828-ed7a-7ba8-bccf-0e9cd95bc6bd",
+                            "id": "019ec90a-c867-722c-8af9-297da54b4744",
                             "href": null,
                             "icon": "rocket",
                             "kind": "section",
@@ -4678,15 +4678,15 @@
                                         "content": "Space",
                                         "version": 3,
                                         "isActive": true,
-                                        "createdAt": "2026-06-14T22:02:57.748Z",
-                                        "updatedAt": "2026-06-14T22:03:05.178Z"
+                                        "createdAt": "2026-06-15T02:09:39.368Z",
+                                        "updatedAt": "2026-06-15T02:09:46.801Z"
                                     },
                                     "ru": {
                                         "content": "Космос",
                                         "version": 3,
                                         "isActive": true,
-                                        "createdAt": "2026-06-14T22:03:03.580Z",
-                                        "updatedAt": "2026-06-14T22:03:05.257Z"
+                                        "createdAt": "2026-06-15T02:09:45.105Z",
+                                        "updatedAt": "2026-06-15T02:09:46.896Z"
                                     }
                                 },
                                 "_primary": "en"
@@ -4705,15 +4705,15 @@
                                 "content": "Navigation",
                                 "version": 2,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:03:01.190Z",
-                                "updatedAt": "2026-06-14T22:03:01.378Z"
+                                "createdAt": "2026-06-15T02:09:42.519Z",
+                                "updatedAt": "2026-06-15T02:09:42.734Z"
                             },
                             "ru": {
                                 "content": "Навигация",
                                 "version": 2,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:03:01.885Z",
-                                "updatedAt": "2026-06-14T22:03:01.976Z"
+                                "createdAt": "2026-06-15T02:09:43.265Z",
+                                "updatedAt": "2026-06-15T02:09:43.363Z"
                             }
                         },
                         "_primary": "en"
@@ -4730,8 +4730,8 @@
                 "isActive": true
             },
             {
-                "id": "019ec827-1dad-725d-adf8-7256bc86d488",
-                "layoutId": "019ec827-1d75-7d31-ad09-3d457bfa9cc3",
+                "id": "019ec909-06f5-7185-b158-e7eed23fa9a6",
+                "layoutId": "019ec909-06b2-748c-bd58-af4bd834d20b",
                 "zone": "top",
                 "widgetKey": "appNavbar",
                 "sortOrder": 1,
@@ -4739,8 +4739,8 @@
                 "isActive": true
             },
             {
-                "id": "019ec827-1dae-7353-81f2-7cfcaa734485",
-                "layoutId": "019ec827-1d75-7d31-ad09-3d457bfa9cc3",
+                "id": "019ec909-06f6-7af4-a6c4-4069730ff846",
+                "layoutId": "019ec909-06b2-748c-bd58-af4bd834d20b",
                 "zone": "top",
                 "widgetKey": "header",
                 "sortOrder": 2,
@@ -4748,7 +4748,7 @@
                 "isActive": true
             }
         ],
-        "defaultLayoutId": "019ec827-1d75-7d31-ad09-3d457bfa9cc3",
+        "defaultLayoutId": "019ec909-06b2-748c-bd58-af4bd834d20b",
         "layoutConfig": {
             "showFooter": false,
             "showHeader": true,
@@ -4850,7 +4850,7 @@
                 }
             }
         ],
-        "generatedAt": "2026-06-14T22:03:33.561Z",
+        "generatedAt": "2026-06-15T02:10:18.854Z",
         "versionEnvelope": {
             "structureVersion": "0.1.0",
             "templateVersion": null,
@@ -4909,7 +4909,7 @@
                     },
                     "schemaVersion": "1",
                     "playcanvasProject": {
-                        "defaultProjectId": "019ec827-3086-7873-80d7-ab859d0158f6"
+                        "defaultProjectId": "019ec909-1aef-7558-a968-d6280a5e30aa"
                     }
                 }
             },
@@ -4935,7 +4935,7 @@
             "projects": [
                 {
                     "schemaVersion": "1",
-                    "id": "019ec827-3086-7873-80d7-ab859d0158f6",
+                    "id": "019ec909-1aef-7558-a968-d6280a5e30aa",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -4943,8 +4943,8 @@
                                 "content": "mmoomm_authoring",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:01:12.069Z",
-                                "updatedAt": "2026-06-14T22:01:12.069Z"
+                                "createdAt": "2026-06-15T02:07:57.678Z",
+                                "updatedAt": "2026-06-15T02:07:57.678Z"
                             }
                         },
                         "_primary": "en"
@@ -4956,8 +4956,8 @@
                                 "content": "MMOOMM Authoring",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:01:12.055Z",
-                                "updatedAt": "2026-06-14T22:01:12.055Z"
+                                "createdAt": "2026-06-15T02:07:57.658Z",
+                                "updatedAt": "2026-06-15T02:07:57.658Z"
                             }
                         },
                         "_primary": "en"
@@ -4972,12 +4972,12 @@
                     "settings": {
                         "playCanvasEditorRealtime": {
                             "documents": {
-                                "project_1882162316": {
+                                "project_115727792": {
                                     "data": {
-                                        "id": "project_1882162316",
+                                        "id": "project_115727792",
                                         "width": 1280,
                                         "height": 720,
-                                        "project": 1882162316,
+                                        "project": 115727792,
                                         "scripts": [],
                                         "engineV2": true,
                                         "layerOrder": [
@@ -5125,19 +5125,19 @@
                                         "useLegacyScripts": false
                                     },
                                     "version": 5,
-                                    "updatedAt": "2026-06-14T22:02:06.070Z"
+                                    "updatedAt": "2026-06-15T02:08:49.579Z"
                                 }
                             }
                         }
                     },
-                    "defaultSceneId": "019ec827-3087-739c-be90-6ee0233c1d68",
+                    "defaultSceneId": "019ec909-1af0-7c86-b1bd-311c08c47b27",
                     "publicationConfig": {}
                 }
             ],
             "scenes": [
                 {
-                    "id": "019ec827-3087-739c-be90-6ee0233c1d68",
-                    "projectId": "019ec827-3086-7873-80d7-ab859d0158f6",
+                    "id": "019ec909-1af0-7c86-b1bd-311c08c47b27",
+                    "projectId": "019ec909-1aef-7558-a968-d6280a5e30aa",
                     "codename": {
                         "_schema": "1",
                         "locales": {
@@ -5145,8 +5145,8 @@
                                 "content": "main-scene",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:01:12.071Z",
-                                "updatedAt": "2026-06-14T22:01:12.071Z"
+                                "createdAt": "2026-06-15T02:07:57.680Z",
+                                "updatedAt": "2026-06-15T02:07:57.680Z"
                             }
                         },
                         "_primary": "en"
@@ -5158,8 +5158,8 @@
                                 "content": "Main Scene",
                                 "version": 1,
                                 "isActive": true,
-                                "createdAt": "2026-06-14T22:01:12.071Z",
-                                "updatedAt": "2026-06-14T22:01:12.071Z"
+                                "createdAt": "2026-06-15T02:07:57.680Z",
+                                "updatedAt": "2026-06-15T02:07:57.680Z"
                             }
                         },
                         "_primary": "en"
@@ -5214,25 +5214,13 @@
                                 "scale": [1, 1, 1],
                                 "components": {},
                                 "children": [
-                                    "25ab35da-8c7e-48b3-8289-10bbb20f47ad",
-                                    "cffc03d6-6447-4651-8f10-c1bf720382a0",
-                                    "f20df5a6-9534-49b6-9a24-ff13806ac360",
-                                    "ce0254ce-2c25-4753-9bb1-165729a7cd19"
+                                    "eebe9c92-4416-424d-b5e1-edb14d2f75ee",
+                                    "7871891e-54f5-4927-977c-42100a75ca0d",
+                                    "b29ce05b-d18c-4650-a415-de1a2c67a60a"
                                 ]
                             },
                             {
-                                "id": "25ab35da-8c7e-48b3-8289-10bbb20f47ad",
-                                "name": "New Entity",
-                                "parentId": "root",
-                                "enabled": true,
-                                "position": [0, 0, 0],
-                                "rotation": [0, 0, 0],
-                                "scale": [1, 1, 1],
-                                "components": {},
-                                "children": []
-                            },
-                            {
-                                "id": "cffc03d6-6447-4651-8f10-c1bf720382a0",
+                                "id": "eebe9c92-4416-424d-b5e1-edb14d2f75ee",
                                 "name": "MMOOMM Ship",
                                 "parentId": "root",
                                 "enabled": true,
@@ -5258,7 +5246,7 @@
                                 "children": []
                             },
                             {
-                                "id": "f20df5a6-9534-49b6-9a24-ff13806ac360",
+                                "id": "7871891e-54f5-4927-977c-42100a75ca0d",
                                 "name": "MMOOMM Station",
                                 "parentId": "root",
                                 "enabled": true,
@@ -5284,7 +5272,7 @@
                                 "children": []
                             },
                             {
-                                "id": "ce0254ce-2c25-4753-9bb1-165729a7cd19",
+                                "id": "b29ce05b-d18c-4650-a415-de1a2c67a60a",
                                 "name": "MMOOMM Key Light",
                                 "parentId": "root",
                                 "enabled": true,
@@ -5333,13 +5321,13 @@
                             "savedBy": "universo-playcanvas-editor-bridge",
                             "mmoomm": {
                                 "scene": {
-                                    "controlledObjectId": "cffc03d6-6447-4651-8f10-c1bf720382a0",
-                                    "targetObjectId": "f20df5a6-9534-49b6-9a24-ff13806ac360",
+                                    "controlledObjectId": "eebe9c92-4416-424d-b5e1-edb14d2f75ee",
+                                    "targetObjectId": "7871891e-54f5-4927-977c-42100a75ca0d",
                                     "cruiseSpeed": 36,
                                     "intentDistance": 720,
                                     "objects": [
                                         {
-                                            "id": "cffc03d6-6447-4651-8f10-c1bf720382a0",
+                                            "id": "eebe9c92-4416-424d-b5e1-edb14d2f75ee",
                                             "position": {
                                                 "x": 18,
                                                 "y": 3,
@@ -5353,7 +5341,7 @@
                                             "selectable": true
                                         },
                                         {
-                                            "id": "f20df5a6-9534-49b6-9a24-ff13806ac360",
+                                            "id": "7871891e-54f5-4927-977c-42100a75ca0d",
                                             "position": {
                                                 "x": 72,
                                                 "y": 0,
@@ -5376,16 +5364,16 @@
                         }
                     },
                     "payloadFile": {
-                        "hash": "55e4b7bb6372e734cb7800a313d47f11e0df1bfc18a7e7c3bcfdbf8d88ccf733",
+                        "hash": "f7e7b906d5add5a39ffc001f50c97d7d522d06a8553c6bd97a237700bb823f09",
                         "mime": "application/json",
-                        "path": "playcanvas-projects/019ec827-3086-7873-80d7-ab859d0158f6/scenes/019ec827-3087-739c-be90-6ee0233c1d68.json",
+                        "path": "playcanvas-projects/019ec909-1aef-7558-a968-d6280a5e30aa/scenes/019ec909-1af0-7c86-b1bd-311c08c47b27.json",
                         "root": "playcanvas-projects",
-                        "size": 3422,
+                        "size": 3200,
                         "status": "ready",
                         "provider": "local",
-                        "snapshotContentBase64": "eyJzY2hlbWFWZXJzaW9uIjoiMSIsInNldHRpbmdzIjp7InByaW9yaXR5X3NjcmlwdHMiOltdLCJwaHlzaWNzIjp7ImdyYXZpdHkiOlswLC05LjgxLDBdfSwicmVuZGVyIjp7Imdsb2JhbF9hbWJpZW50IjpbMC4yLDAuMiwwLjJdLCJza3lib3giOm51bGwsInNreVR5cGUiOiJpbmZpbml0ZSIsInNreU1lc2hQb3NpdGlvbiI6WzAsMCwwXSwic2t5TWVzaFJvdGF0aW9uIjpbMCwwLDBdLCJza3lNZXNoU2NhbGUiOlsxLDEsMV0sInNreUNlbnRlciI6WzAsMCwwXSwic2t5Ym94SW50ZW5zaXR5IjoxLCJza3lib3hSb3RhdGlvbiI6WzAsMCwwXSwic2t5Ym94TWlwIjowLCJza3lEZXB0aFdyaXRlIjpmYWxzZSwiY2x1c3RlcmVkTGlnaHRpbmdFbmFibGVkIjp0cnVlLCJsaWdodGluZ0NlbGxzIjpbMTAsMywxMF0sImxpZ2h0aW5nTWF4TGlnaHRzUGVyQ2VsbCI6MjU1LCJsaWdodGluZ0Nvb2tpZXNFbmFibGVkIjp0cnVlLCJsaWdodGluZ0Nvb2tpZUF0bGFzUmVzb2x1dGlvbiI6MjA0OCwibGlnaHRpbmdTaGFkb3dzRW5hYmxlZCI6dHJ1ZSwibGlnaHRpbmdTaGFkb3dBdGxhc1Jlc29sdXRpb24iOjIwNDgsImxpZ2h0aW5nU2hhZG93VHlwZSI6MCwibGlnaHRpbmdBcmVhTGlnaHRzRW5hYmxlZCI6dHJ1ZSwidG9uZW1hcHBpbmciOjAsImV4cG9zdXJlIjoxLCJnYW1tYV9jb3JyZWN0aW9uIjoxLCJmb2ciOiJub25lIiwiZm9nX3N0YXJ0IjoxLCJmb2dfZW5kIjoxMDAwLCJmb2dfZGVuc2l0eSI6MCwiZm9nX2NvbG9yIjpbMCwwLDBdfX0sImVudGl0aWVzIjpbeyJpZCI6InJvb3QiLCJuYW1lIjoiUm9vdCIsInBhcmVudElkIjpudWxsLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMCwwXSwicm90YXRpb24iOlswLDAsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7fSwiY2hpbGRyZW4iOlsiMjVhYjM1ZGEtOGM3ZS00OGIzLTgyODktMTBiYmIyMGY0N2FkIiwiY2ZmYzAzZDYtNjQ0Ny00NjUxLThmMTAtYzFiZjcyMDM4MmEwIiwiZjIwZGY1YTYtOTUzNC00OWI2LTlhMjQtZmYxMzgwNmFjMzYwIiwiY2UwMjU0Y2UtMmMyNS00NzUzLTliYjEtMTY1NzI5YTdjZDE5Il19LHsiaWQiOiIyNWFiMzVkYS04YzdlLTQ4YjMtODI4OS0xMGJiYjIwZjQ3YWQiLCJuYW1lIjoiTmV3IEVudGl0eSIsInBhcmVudElkIjoicm9vdCIsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbMCwwLDBdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOlsxLDEsMV0sImNvbXBvbmVudHMiOnt9LCJjaGlsZHJlbiI6W119LHsiaWQiOiJjZmZjMDNkNi02NDQ3LTQ2NTEtOGYxMC1jMWJmNzIwMzgyYTAiLCJuYW1lIjoiTU1PT01NIFNoaXAiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzE4LDMsLTldLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOlsxMiw0LDRdLCJjb21wb25lbnRzIjp7InJlbmRlciI6eyJlbmFibGVkIjp0cnVlLCJ0eXBlIjoiYm94IiwiYXNzZXQiOm51bGwsIm1hdGVyaWFsQXNzZXRzIjpbbnVsbF0sImxheWVycyI6WzBdLCJjYXN0U2hhZG93cyI6dHJ1ZSwicmVjZWl2ZVNoYWRvd3MiOnRydWUsImNhc3RTaGFkb3dzTGlnaHRtYXAiOnRydWUsImxpZ2h0bWFwcGVkIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYXRjaEdyb3VwSWQiOm51bGwsInJvb3RCb25lIjpudWxsfX0sImNoaWxkcmVuIjpbXX0seyJpZCI6ImYyMGRmNWE2LTk1MzQtNDliNi05YTI0LWZmMTM4MDZhYzM2MCIsIm5hbWUiOiJNTU9PTU0gU3RhdGlvbiIsInBhcmVudElkIjoicm9vdCIsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbNzIsMCwtNDhdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOls0OCwxNiwxNl0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiY2UwMjU0Y2UtMmMyNS00NzUzLTliYjEtMTY1NzI5YTdjZDE5IiwibmFtZSI6Ik1NT09NTSBLZXkgTGlnaHQiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMzIsMF0sInJvdGF0aW9uIjpbNDUsNDUsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7ImxpZ2h0Ijp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJkaXJlY3Rpb25hbCIsImNvbG9yIjpbMSwxLDFdLCJpbnRlbnNpdHkiOjIsImNhc3RTaGFkb3dzIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYWtlIjpmYWxzZSwiYmFrZURpciI6dHJ1ZSwiYWZmZWN0RHluYW1pYyI6dHJ1ZSwiYWZmZWN0TGlnaHRtYXBwZWQiOmZhbHNlLCJhZmZlY3RTcGVjdWxhcml0eSI6dHJ1ZSwic2hhZG93VXBkYXRlTW9kZSI6Miwic2hhcGUiOjAsInNoYWRvd1R5cGUiOjAsIm51bUNhc2NhZGVzIjoxLCJjYXNjYWRlRGlzdHJpYnV0aW9uIjowLjUsInZzbUJsdXJNb2RlIjowLCJ2c21CbHVyU2l6ZSI6NSwidnNtQmlhcyI6MC4wMDI1LCJwZW51bWJyYVNpemUiOjEsInBlbnVtYnJhRmFsbG9mZiI6MSwiY29va2llQXNzZXQiOm51bGwsImNvb2tpZUludGVuc2l0eSI6MSwiY29va2llRmFsbG9mZiI6dHJ1ZSwiY29va2llQ2hhbm5lbCI6InJnYiIsImNvb2tpZUFuZ2xlIjowLCJjb29raWVTY2FsZSI6WzEsMV0sImNvb2tpZU9mZnNldCI6WzAsMF0sImxheWVycyI6WzBdLCJzaGFkb3dJbnRlbnNpdHkiOjF9fSwiY2hpbGRyZW4iOltdfV0sImFzc2V0cyI6W10sIm1ldGFkYXRhIjp7InNhdmVkQnkiOiJ1bml2ZXJzby1wbGF5Y2FudmFzLWVkaXRvci1icmlkZ2UiLCJtbW9vbW0iOnsic2NlbmUiOnsiY29udHJvbGxlZE9iamVjdElkIjoiY2ZmYzAzZDYtNjQ0Ny00NjUxLThmMTAtYzFiZjcyMDM4MmEwIiwidGFyZ2V0T2JqZWN0SWQiOiJmMjBkZjVhNi05NTM0LTQ5YjYtOWEyNC1mZjEzODA2YWMzNjAiLCJjcnVpc2VTcGVlZCI6MzYsImludGVudERpc3RhbmNlIjo3MjAsIm9iamVjdHMiOlt7ImlkIjoiY2ZmYzAzZDYtNjQ0Ny00NjUxLThmMTAtYzFiZjcyMDM4MmEwIiwicG9zaXRpb24iOnsieCI6MTgsInkiOjMsInoiOi05fSwic2NhbGUiOnsieCI6MTIsInkiOjQsInoiOjR9LCJzZWxlY3RhYmxlIjp0cnVlfSx7ImlkIjoiZjIwZGY1YTYtOTUzNC00OWI2LTlhMjQtZmYxMzgwNmFjMzYwIiwicG9zaXRpb24iOnsieCI6NzIsInkiOjAsInoiOi00OH0sInNjYWxlIjp7IngiOjQ4LCJ5IjoxNiwieiI6MTZ9LCJzZWxlY3RhYmxlIjp0cnVlLCJndWFyZCI6dHJ1ZX1dfSwicHJvdmVuYW5jZSI6eyJhdXRob3JpbmdGbG93IjoicGxheWNhbnZhcy1lZGl0b3ItbmF0aXZlLXNjZW5lIn19fX0="
+                        "snapshotContentBase64": "eyJzY2hlbWFWZXJzaW9uIjoiMSIsInNldHRpbmdzIjp7InByaW9yaXR5X3NjcmlwdHMiOltdLCJwaHlzaWNzIjp7ImdyYXZpdHkiOlswLC05LjgxLDBdfSwicmVuZGVyIjp7Imdsb2JhbF9hbWJpZW50IjpbMC4yLDAuMiwwLjJdLCJza3lib3giOm51bGwsInNreVR5cGUiOiJpbmZpbml0ZSIsInNreU1lc2hQb3NpdGlvbiI6WzAsMCwwXSwic2t5TWVzaFJvdGF0aW9uIjpbMCwwLDBdLCJza3lNZXNoU2NhbGUiOlsxLDEsMV0sInNreUNlbnRlciI6WzAsMCwwXSwic2t5Ym94SW50ZW5zaXR5IjoxLCJza3lib3hSb3RhdGlvbiI6WzAsMCwwXSwic2t5Ym94TWlwIjowLCJza3lEZXB0aFdyaXRlIjpmYWxzZSwiY2x1c3RlcmVkTGlnaHRpbmdFbmFibGVkIjp0cnVlLCJsaWdodGluZ0NlbGxzIjpbMTAsMywxMF0sImxpZ2h0aW5nTWF4TGlnaHRzUGVyQ2VsbCI6MjU1LCJsaWdodGluZ0Nvb2tpZXNFbmFibGVkIjp0cnVlLCJsaWdodGluZ0Nvb2tpZUF0bGFzUmVzb2x1dGlvbiI6MjA0OCwibGlnaHRpbmdTaGFkb3dzRW5hYmxlZCI6dHJ1ZSwibGlnaHRpbmdTaGFkb3dBdGxhc1Jlc29sdXRpb24iOjIwNDgsImxpZ2h0aW5nU2hhZG93VHlwZSI6MCwibGlnaHRpbmdBcmVhTGlnaHRzRW5hYmxlZCI6dHJ1ZSwidG9uZW1hcHBpbmciOjAsImV4cG9zdXJlIjoxLCJnYW1tYV9jb3JyZWN0aW9uIjoxLCJmb2ciOiJub25lIiwiZm9nX3N0YXJ0IjoxLCJmb2dfZW5kIjoxMDAwLCJmb2dfZGVuc2l0eSI6MCwiZm9nX2NvbG9yIjpbMCwwLDBdfX0sImVudGl0aWVzIjpbeyJpZCI6InJvb3QiLCJuYW1lIjoiUm9vdCIsInBhcmVudElkIjpudWxsLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMCwwXSwicm90YXRpb24iOlswLDAsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7fSwiY2hpbGRyZW4iOlsiZWViZTljOTItNDQxNi00MjRkLWI1ZTEtZWRiMTRkMmY3NWVlIiwiNzg3MTg5MWUtNTRmNS00OTI3LTk3N2MtNDIxMDBhNzVjYTBkIiwiYjI5Y2UwNWItZDE4Yy00NjUwLWE0MTUtZGUxYTJjNjdhNjBhIl19LHsiaWQiOiJlZWJlOWM5Mi00NDE2LTQyNGQtYjVlMS1lZGIxNGQyZjc1ZWUiLCJuYW1lIjoiTU1PT01NIFNoaXAiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzE4LDMsLTldLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOlsxMiw0LDRdLCJjb21wb25lbnRzIjp7InJlbmRlciI6eyJlbmFibGVkIjp0cnVlLCJ0eXBlIjoiYm94IiwiYXNzZXQiOm51bGwsIm1hdGVyaWFsQXNzZXRzIjpbbnVsbF0sImxheWVycyI6WzBdLCJjYXN0U2hhZG93cyI6dHJ1ZSwicmVjZWl2ZVNoYWRvd3MiOnRydWUsImNhc3RTaGFkb3dzTGlnaHRtYXAiOnRydWUsImxpZ2h0bWFwcGVkIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYXRjaEdyb3VwSWQiOm51bGwsInJvb3RCb25lIjpudWxsfX0sImNoaWxkcmVuIjpbXX0seyJpZCI6Ijc4NzE4OTFlLTU0ZjUtNDkyNy05NzdjLTQyMTAwYTc1Y2EwZCIsIm5hbWUiOiJNTU9PTU0gU3RhdGlvbiIsInBhcmVudElkIjoicm9vdCIsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbNzIsMCwtNDhdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOls0OCwxNiwxNl0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiYjI5Y2UwNWItZDE4Yy00NjUwLWE0MTUtZGUxYTJjNjdhNjBhIiwibmFtZSI6Ik1NT09NTSBLZXkgTGlnaHQiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMzIsMF0sInJvdGF0aW9uIjpbNDUsNDUsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7ImxpZ2h0Ijp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJkaXJlY3Rpb25hbCIsImNvbG9yIjpbMSwxLDFdLCJpbnRlbnNpdHkiOjIsImNhc3RTaGFkb3dzIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYWtlIjpmYWxzZSwiYmFrZURpciI6dHJ1ZSwiYWZmZWN0RHluYW1pYyI6dHJ1ZSwiYWZmZWN0TGlnaHRtYXBwZWQiOmZhbHNlLCJhZmZlY3RTcGVjdWxhcml0eSI6dHJ1ZSwic2hhZG93VXBkYXRlTW9kZSI6Miwic2hhcGUiOjAsInNoYWRvd1R5cGUiOjAsIm51bUNhc2NhZGVzIjoxLCJjYXNjYWRlRGlzdHJpYnV0aW9uIjowLjUsInZzbUJsdXJNb2RlIjowLCJ2c21CbHVyU2l6ZSI6NSwidnNtQmlhcyI6MC4wMDI1LCJwZW51bWJyYVNpemUiOjEsInBlbnVtYnJhRmFsbG9mZiI6MSwiY29va2llQXNzZXQiOm51bGwsImNvb2tpZUludGVuc2l0eSI6MSwiY29va2llRmFsbG9mZiI6dHJ1ZSwiY29va2llQ2hhbm5lbCI6InJnYiIsImNvb2tpZUFuZ2xlIjowLCJjb29raWVTY2FsZSI6WzEsMV0sImNvb2tpZU9mZnNldCI6WzAsMF0sImxheWVycyI6WzBdLCJzaGFkb3dJbnRlbnNpdHkiOjF9fSwiY2hpbGRyZW4iOltdfV0sImFzc2V0cyI6W10sIm1ldGFkYXRhIjp7InNhdmVkQnkiOiJ1bml2ZXJzby1wbGF5Y2FudmFzLWVkaXRvci1icmlkZ2UiLCJtbW9vbW0iOnsic2NlbmUiOnsiY29udHJvbGxlZE9iamVjdElkIjoiZWViZTljOTItNDQxNi00MjRkLWI1ZTEtZWRiMTRkMmY3NWVlIiwidGFyZ2V0T2JqZWN0SWQiOiI3ODcxODkxZS01NGY1LTQ5MjctOTc3Yy00MjEwMGE3NWNhMGQiLCJjcnVpc2VTcGVlZCI6MzYsImludGVudERpc3RhbmNlIjo3MjAsIm9iamVjdHMiOlt7ImlkIjoiZWViZTljOTItNDQxNi00MjRkLWI1ZTEtZWRiMTRkMmY3NWVlIiwicG9zaXRpb24iOnsieCI6MTgsInkiOjMsInoiOi05fSwic2NhbGUiOnsieCI6MTIsInkiOjQsInoiOjR9LCJzZWxlY3RhYmxlIjp0cnVlfSx7ImlkIjoiNzg3MTg5MWUtNTRmNS00OTI3LTk3N2MtNDIxMDBhNzVjYTBkIiwicG9zaXRpb24iOnsieCI6NzIsInkiOjAsInoiOi00OH0sInNjYWxlIjp7IngiOjQ4LCJ5IjoxNiwieiI6MTZ9LCJzZWxlY3RhYmxlIjp0cnVlLCJndWFyZCI6dHJ1ZX1dfSwicHJvdmVuYW5jZSI6eyJhdXRob3JpbmdGbG93IjoicGxheWNhbnZhcy1lZGl0b3ItbmF0aXZlLXNjZW5lIn19fX0="
                     },
-                    "checksum": "55e4b7bb6372e734cb7800a313d47f11e0df1bfc18a7e7c3bcfdbf8d88ccf733",
+                    "checksum": "f7e7b906d5add5a39ffc001f50c97d7d522d06a8553c6bd97a237700bb823f09",
                     "sortOrder": 0,
                     "publish": true
                 }
@@ -5397,32 +5385,32 @@
             "runtimeManifests": [
                 {
                     "schemaVersion": "1",
-                    "projectId": "019ec827-3086-7873-80d7-ab859d0158f6",
-                    "sceneId": "019ec827-3087-739c-be90-6ee0233c1d68",
+                    "projectId": "019ec909-1aef-7558-a968-d6280a5e30aa",
+                    "sceneId": "019ec909-1af0-7c86-b1bd-311c08c47b27",
                     "assets": [
                         {
-                            "id": "scene:019ec827-3087-739c-be90-6ee0233c1d68",
+                            "id": "scene:019ec909-1af0-7c86-b1bd-311c08c47b27",
                             "type": "scene",
-                            "name": "scene:019ec827-3087-739c-be90-6ee0233c1d68",
-                            "url": "data:application/json;base64,eyJzY2hlbWFWZXJzaW9uIjoiMSIsInNldHRpbmdzIjp7InByaW9yaXR5X3NjcmlwdHMiOltdLCJwaHlzaWNzIjp7ImdyYXZpdHkiOlswLC05LjgxLDBdfSwicmVuZGVyIjp7Imdsb2JhbF9hbWJpZW50IjpbMC4yLDAuMiwwLjJdLCJza3lib3giOm51bGwsInNreVR5cGUiOiJpbmZpbml0ZSIsInNreU1lc2hQb3NpdGlvbiI6WzAsMCwwXSwic2t5TWVzaFJvdGF0aW9uIjpbMCwwLDBdLCJza3lNZXNoU2NhbGUiOlsxLDEsMV0sInNreUNlbnRlciI6WzAsMCwwXSwic2t5Ym94SW50ZW5zaXR5IjoxLCJza3lib3hSb3RhdGlvbiI6WzAsMCwwXSwic2t5Ym94TWlwIjowLCJza3lEZXB0aFdyaXRlIjpmYWxzZSwiY2x1c3RlcmVkTGlnaHRpbmdFbmFibGVkIjp0cnVlLCJsaWdodGluZ0NlbGxzIjpbMTAsMywxMF0sImxpZ2h0aW5nTWF4TGlnaHRzUGVyQ2VsbCI6MjU1LCJsaWdodGluZ0Nvb2tpZXNFbmFibGVkIjp0cnVlLCJsaWdodGluZ0Nvb2tpZUF0bGFzUmVzb2x1dGlvbiI6MjA0OCwibGlnaHRpbmdTaGFkb3dzRW5hYmxlZCI6dHJ1ZSwibGlnaHRpbmdTaGFkb3dBdGxhc1Jlc29sdXRpb24iOjIwNDgsImxpZ2h0aW5nU2hhZG93VHlwZSI6MCwibGlnaHRpbmdBcmVhTGlnaHRzRW5hYmxlZCI6dHJ1ZSwidG9uZW1hcHBpbmciOjAsImV4cG9zdXJlIjoxLCJnYW1tYV9jb3JyZWN0aW9uIjoxLCJmb2ciOiJub25lIiwiZm9nX3N0YXJ0IjoxLCJmb2dfZW5kIjoxMDAwLCJmb2dfZGVuc2l0eSI6MCwiZm9nX2NvbG9yIjpbMCwwLDBdfX0sImVudGl0aWVzIjpbeyJpZCI6InJvb3QiLCJuYW1lIjoiUm9vdCIsInBhcmVudElkIjpudWxsLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMCwwXSwicm90YXRpb24iOlswLDAsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7fSwiY2hpbGRyZW4iOlsiMjVhYjM1ZGEtOGM3ZS00OGIzLTgyODktMTBiYmIyMGY0N2FkIiwiY2ZmYzAzZDYtNjQ0Ny00NjUxLThmMTAtYzFiZjcyMDM4MmEwIiwiZjIwZGY1YTYtOTUzNC00OWI2LTlhMjQtZmYxMzgwNmFjMzYwIiwiY2UwMjU0Y2UtMmMyNS00NzUzLTliYjEtMTY1NzI5YTdjZDE5Il19LHsiaWQiOiIyNWFiMzVkYS04YzdlLTQ4YjMtODI4OS0xMGJiYjIwZjQ3YWQiLCJuYW1lIjoiTmV3IEVudGl0eSIsInBhcmVudElkIjoicm9vdCIsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbMCwwLDBdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOlsxLDEsMV0sImNvbXBvbmVudHMiOnt9LCJjaGlsZHJlbiI6W119LHsiaWQiOiJjZmZjMDNkNi02NDQ3LTQ2NTEtOGYxMC1jMWJmNzIwMzgyYTAiLCJuYW1lIjoiTU1PT01NIFNoaXAiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzE4LDMsLTldLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOlsxMiw0LDRdLCJjb21wb25lbnRzIjp7InJlbmRlciI6eyJlbmFibGVkIjp0cnVlLCJ0eXBlIjoiYm94IiwiYXNzZXQiOm51bGwsIm1hdGVyaWFsQXNzZXRzIjpbbnVsbF0sImxheWVycyI6WzBdLCJjYXN0U2hhZG93cyI6dHJ1ZSwicmVjZWl2ZVNoYWRvd3MiOnRydWUsImNhc3RTaGFkb3dzTGlnaHRtYXAiOnRydWUsImxpZ2h0bWFwcGVkIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYXRjaEdyb3VwSWQiOm51bGwsInJvb3RCb25lIjpudWxsfX0sImNoaWxkcmVuIjpbXX0seyJpZCI6ImYyMGRmNWE2LTk1MzQtNDliNi05YTI0LWZmMTM4MDZhYzM2MCIsIm5hbWUiOiJNTU9PTU0gU3RhdGlvbiIsInBhcmVudElkIjoicm9vdCIsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbNzIsMCwtNDhdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOls0OCwxNiwxNl0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiY2UwMjU0Y2UtMmMyNS00NzUzLTliYjEtMTY1NzI5YTdjZDE5IiwibmFtZSI6Ik1NT09NTSBLZXkgTGlnaHQiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMzIsMF0sInJvdGF0aW9uIjpbNDUsNDUsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7ImxpZ2h0Ijp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJkaXJlY3Rpb25hbCIsImNvbG9yIjpbMSwxLDFdLCJpbnRlbnNpdHkiOjIsImNhc3RTaGFkb3dzIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYWtlIjpmYWxzZSwiYmFrZURpciI6dHJ1ZSwiYWZmZWN0RHluYW1pYyI6dHJ1ZSwiYWZmZWN0TGlnaHRtYXBwZWQiOmZhbHNlLCJhZmZlY3RTcGVjdWxhcml0eSI6dHJ1ZSwic2hhZG93VXBkYXRlTW9kZSI6Miwic2hhcGUiOjAsInNoYWRvd1R5cGUiOjAsIm51bUNhc2NhZGVzIjoxLCJjYXNjYWRlRGlzdHJpYnV0aW9uIjowLjUsInZzbUJsdXJNb2RlIjowLCJ2c21CbHVyU2l6ZSI6NSwidnNtQmlhcyI6MC4wMDI1LCJwZW51bWJyYVNpemUiOjEsInBlbnVtYnJhRmFsbG9mZiI6MSwiY29va2llQXNzZXQiOm51bGwsImNvb2tpZUludGVuc2l0eSI6MSwiY29va2llRmFsbG9mZiI6dHJ1ZSwiY29va2llQ2hhbm5lbCI6InJnYiIsImNvb2tpZUFuZ2xlIjowLCJjb29raWVTY2FsZSI6WzEsMV0sImNvb2tpZU9mZnNldCI6WzAsMF0sImxheWVycyI6WzBdLCJzaGFkb3dJbnRlbnNpdHkiOjF9fSwiY2hpbGRyZW4iOltdfV0sImFzc2V0cyI6W10sIm1ldGFkYXRhIjp7InNhdmVkQnkiOiJ1bml2ZXJzby1wbGF5Y2FudmFzLWVkaXRvci1icmlkZ2UiLCJtbW9vbW0iOnsic2NlbmUiOnsiY29udHJvbGxlZE9iamVjdElkIjoiY2ZmYzAzZDYtNjQ0Ny00NjUxLThmMTAtYzFiZjcyMDM4MmEwIiwidGFyZ2V0T2JqZWN0SWQiOiJmMjBkZjVhNi05NTM0LTQ5YjYtOWEyNC1mZjEzODA2YWMzNjAiLCJjcnVpc2VTcGVlZCI6MzYsImludGVudERpc3RhbmNlIjo3MjAsIm9iamVjdHMiOlt7ImlkIjoiY2ZmYzAzZDYtNjQ0Ny00NjUxLThmMTAtYzFiZjcyMDM4MmEwIiwicG9zaXRpb24iOnsieCI6MTgsInkiOjMsInoiOi05fSwic2NhbGUiOnsieCI6MTIsInkiOjQsInoiOjR9LCJzZWxlY3RhYmxlIjp0cnVlfSx7ImlkIjoiZjIwZGY1YTYtOTUzNC00OWI2LTlhMjQtZmYxMzgwNmFjMzYwIiwicG9zaXRpb24iOnsieCI6NzIsInkiOjAsInoiOi00OH0sInNjYWxlIjp7IngiOjQ4LCJ5IjoxNiwieiI6MTZ9LCJzZWxlY3RhYmxlIjp0cnVlLCJndWFyZCI6dHJ1ZX1dfSwicHJvdmVuYW5jZSI6eyJhdXRob3JpbmdGbG93IjoicGxheWNhbnZhcy1lZGl0b3ItbmF0aXZlLXNjZW5lIn19fX0=",
-                            "hash": "55e4b7bb6372e734cb7800a313d47f11e0df1bfc18a7e7c3bcfdbf8d88ccf733",
+                            "name": "scene:019ec909-1af0-7c86-b1bd-311c08c47b27",
+                            "url": "data:application/json;base64,eyJzY2hlbWFWZXJzaW9uIjoiMSIsInNldHRpbmdzIjp7InByaW9yaXR5X3NjcmlwdHMiOltdLCJwaHlzaWNzIjp7ImdyYXZpdHkiOlswLC05LjgxLDBdfSwicmVuZGVyIjp7Imdsb2JhbF9hbWJpZW50IjpbMC4yLDAuMiwwLjJdLCJza3lib3giOm51bGwsInNreVR5cGUiOiJpbmZpbml0ZSIsInNreU1lc2hQb3NpdGlvbiI6WzAsMCwwXSwic2t5TWVzaFJvdGF0aW9uIjpbMCwwLDBdLCJza3lNZXNoU2NhbGUiOlsxLDEsMV0sInNreUNlbnRlciI6WzAsMCwwXSwic2t5Ym94SW50ZW5zaXR5IjoxLCJza3lib3hSb3RhdGlvbiI6WzAsMCwwXSwic2t5Ym94TWlwIjowLCJza3lEZXB0aFdyaXRlIjpmYWxzZSwiY2x1c3RlcmVkTGlnaHRpbmdFbmFibGVkIjp0cnVlLCJsaWdodGluZ0NlbGxzIjpbMTAsMywxMF0sImxpZ2h0aW5nTWF4TGlnaHRzUGVyQ2VsbCI6MjU1LCJsaWdodGluZ0Nvb2tpZXNFbmFibGVkIjp0cnVlLCJsaWdodGluZ0Nvb2tpZUF0bGFzUmVzb2x1dGlvbiI6MjA0OCwibGlnaHRpbmdTaGFkb3dzRW5hYmxlZCI6dHJ1ZSwibGlnaHRpbmdTaGFkb3dBdGxhc1Jlc29sdXRpb24iOjIwNDgsImxpZ2h0aW5nU2hhZG93VHlwZSI6MCwibGlnaHRpbmdBcmVhTGlnaHRzRW5hYmxlZCI6dHJ1ZSwidG9uZW1hcHBpbmciOjAsImV4cG9zdXJlIjoxLCJnYW1tYV9jb3JyZWN0aW9uIjoxLCJmb2ciOiJub25lIiwiZm9nX3N0YXJ0IjoxLCJmb2dfZW5kIjoxMDAwLCJmb2dfZGVuc2l0eSI6MCwiZm9nX2NvbG9yIjpbMCwwLDBdfX0sImVudGl0aWVzIjpbeyJpZCI6InJvb3QiLCJuYW1lIjoiUm9vdCIsInBhcmVudElkIjpudWxsLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMCwwXSwicm90YXRpb24iOlswLDAsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7fSwiY2hpbGRyZW4iOlsiZWViZTljOTItNDQxNi00MjRkLWI1ZTEtZWRiMTRkMmY3NWVlIiwiNzg3MTg5MWUtNTRmNS00OTI3LTk3N2MtNDIxMDBhNzVjYTBkIiwiYjI5Y2UwNWItZDE4Yy00NjUwLWE0MTUtZGUxYTJjNjdhNjBhIl19LHsiaWQiOiJlZWJlOWM5Mi00NDE2LTQyNGQtYjVlMS1lZGIxNGQyZjc1ZWUiLCJuYW1lIjoiTU1PT01NIFNoaXAiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzE4LDMsLTldLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOlsxMiw0LDRdLCJjb21wb25lbnRzIjp7InJlbmRlciI6eyJlbmFibGVkIjp0cnVlLCJ0eXBlIjoiYm94IiwiYXNzZXQiOm51bGwsIm1hdGVyaWFsQXNzZXRzIjpbbnVsbF0sImxheWVycyI6WzBdLCJjYXN0U2hhZG93cyI6dHJ1ZSwicmVjZWl2ZVNoYWRvd3MiOnRydWUsImNhc3RTaGFkb3dzTGlnaHRtYXAiOnRydWUsImxpZ2h0bWFwcGVkIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYXRjaEdyb3VwSWQiOm51bGwsInJvb3RCb25lIjpudWxsfX0sImNoaWxkcmVuIjpbXX0seyJpZCI6Ijc4NzE4OTFlLTU0ZjUtNDkyNy05NzdjLTQyMTAwYTc1Y2EwZCIsIm5hbWUiOiJNTU9PTU0gU3RhdGlvbiIsInBhcmVudElkIjoicm9vdCIsImVuYWJsZWQiOnRydWUsInBvc2l0aW9uIjpbNzIsMCwtNDhdLCJyb3RhdGlvbiI6WzAsMCwwXSwic2NhbGUiOls0OCwxNiwxNl0sImNvbXBvbmVudHMiOnsicmVuZGVyIjp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJib3giLCJhc3NldCI6bnVsbCwibWF0ZXJpYWxBc3NldHMiOltudWxsXSwibGF5ZXJzIjpbMF0sImNhc3RTaGFkb3dzIjp0cnVlLCJyZWNlaXZlU2hhZG93cyI6dHJ1ZSwiY2FzdFNoYWRvd3NMaWdodG1hcCI6dHJ1ZSwibGlnaHRtYXBwZWQiOmZhbHNlLCJpc1N0YXRpYyI6ZmFsc2UsImJhdGNoR3JvdXBJZCI6bnVsbCwicm9vdEJvbmUiOm51bGx9fSwiY2hpbGRyZW4iOltdfSx7ImlkIjoiYjI5Y2UwNWItZDE4Yy00NjUwLWE0MTUtZGUxYTJjNjdhNjBhIiwibmFtZSI6Ik1NT09NTSBLZXkgTGlnaHQiLCJwYXJlbnRJZCI6InJvb3QiLCJlbmFibGVkIjp0cnVlLCJwb3NpdGlvbiI6WzAsMzIsMF0sInJvdGF0aW9uIjpbNDUsNDUsMF0sInNjYWxlIjpbMSwxLDFdLCJjb21wb25lbnRzIjp7ImxpZ2h0Ijp7ImVuYWJsZWQiOnRydWUsInR5cGUiOiJkaXJlY3Rpb25hbCIsImNvbG9yIjpbMSwxLDFdLCJpbnRlbnNpdHkiOjIsImNhc3RTaGFkb3dzIjpmYWxzZSwiaXNTdGF0aWMiOmZhbHNlLCJiYWtlIjpmYWxzZSwiYmFrZURpciI6dHJ1ZSwiYWZmZWN0RHluYW1pYyI6dHJ1ZSwiYWZmZWN0TGlnaHRtYXBwZWQiOmZhbHNlLCJhZmZlY3RTcGVjdWxhcml0eSI6dHJ1ZSwic2hhZG93VXBkYXRlTW9kZSI6Miwic2hhcGUiOjAsInNoYWRvd1R5cGUiOjAsIm51bUNhc2NhZGVzIjoxLCJjYXNjYWRlRGlzdHJpYnV0aW9uIjowLjUsInZzbUJsdXJNb2RlIjowLCJ2c21CbHVyU2l6ZSI6NSwidnNtQmlhcyI6MC4wMDI1LCJwZW51bWJyYVNpemUiOjEsInBlbnVtYnJhRmFsbG9mZiI6MSwiY29va2llQXNzZXQiOm51bGwsImNvb2tpZUludGVuc2l0eSI6MSwiY29va2llRmFsbG9mZiI6dHJ1ZSwiY29va2llQ2hhbm5lbCI6InJnYiIsImNvb2tpZUFuZ2xlIjowLCJjb29raWVTY2FsZSI6WzEsMV0sImNvb2tpZU9mZnNldCI6WzAsMF0sImxheWVycyI6WzBdLCJzaGFkb3dJbnRlbnNpdHkiOjF9fSwiY2hpbGRyZW4iOltdfV0sImFzc2V0cyI6W10sIm1ldGFkYXRhIjp7InNhdmVkQnkiOiJ1bml2ZXJzby1wbGF5Y2FudmFzLWVkaXRvci1icmlkZ2UiLCJtbW9vbW0iOnsic2NlbmUiOnsiY29udHJvbGxlZE9iamVjdElkIjoiZWViZTljOTItNDQxNi00MjRkLWI1ZTEtZWRiMTRkMmY3NWVlIiwidGFyZ2V0T2JqZWN0SWQiOiI3ODcxODkxZS01NGY1LTQ5MjctOTc3Yy00MjEwMGE3NWNhMGQiLCJjcnVpc2VTcGVlZCI6MzYsImludGVudERpc3RhbmNlIjo3MjAsIm9iamVjdHMiOlt7ImlkIjoiZWViZTljOTItNDQxNi00MjRkLWI1ZTEtZWRiMTRkMmY3NWVlIiwicG9zaXRpb24iOnsieCI6MTgsInkiOjMsInoiOi05fSwic2NhbGUiOnsieCI6MTIsInkiOjQsInoiOjR9LCJzZWxlY3RhYmxlIjp0cnVlfSx7ImlkIjoiNzg3MTg5MWUtNTRmNS00OTI3LTk3N2MtNDIxMDBhNzVjYTBkIiwicG9zaXRpb24iOnsieCI6NzIsInkiOjAsInoiOi00OH0sInNjYWxlIjp7IngiOjQ4LCJ5IjoxNiwieiI6MTZ9LCJzZWxlY3RhYmxlIjp0cnVlLCJndWFyZCI6dHJ1ZX1dfSwicHJvdmVuYW5jZSI6eyJhdXRob3JpbmdGbG93IjoicGxheWNhbnZhcy1lZGl0b3ItbmF0aXZlLXNjZW5lIn19fX0=",
+                            "hash": "f7e7b906d5add5a39ffc001f50c97d7d522d06a8553c6bd97a237700bb823f09",
                             "mime": "application/json",
-                            "size": 3422
+                            "size": 3200
                         }
                     ],
                     "scripts": [],
                     "metadata": {
                         "generatedFrom": "playcanvasProjectStorageModel",
-                        "sourceProjectChecksum": "63e9668fecb48dcf17115d7b1cc97637e84ffc513e1802fffcc7ca0d06810c48",
+                        "sourceProjectChecksum": "4b583fb2060fa95879cbce231be6aae3d6e69389f51eba0f90893de3d10dc4d0",
                         "mmoomm": {
                             "scene": {
-                                "controlledObjectId": "cffc03d6-6447-4651-8f10-c1bf720382a0",
-                                "targetObjectId": "f20df5a6-9534-49b6-9a24-ff13806ac360",
+                                "controlledObjectId": "eebe9c92-4416-424d-b5e1-edb14d2f75ee",
+                                "targetObjectId": "7871891e-54f5-4927-977c-42100a75ca0d",
                                 "cruiseSpeed": 36,
                                 "intentDistance": 720,
                                 "objects": [
                                     {
-                                        "id": "cffc03d6-6447-4651-8f10-c1bf720382a0",
+                                        "id": "eebe9c92-4416-424d-b5e1-edb14d2f75ee",
                                         "position": {
                                             "x": 18,
                                             "y": 3,
@@ -5436,7 +5424,7 @@
                                         "selectable": true
                                     },
                                     {
-                                        "id": "f20df5a6-9534-49b6-9a24-ff13806ac360",
+                                        "id": "7871891e-54f5-4927-977c-42100a75ca0d",
                                         "position": {
                                             "x": 72,
                                             "y": 0,
@@ -5454,12 +5442,12 @@
                             }
                         }
                     },
-                    "checksum": "ff30e66b3c97ce525896c2096f3cd3192c3e4efe58e6dafb293d5079f9f2e1e8"
+                    "checksum": "a821ad32e311d1de79eb3c612ecafa8d4d16a1d2fb803479a541689801fdd518"
                 }
             ]
         },
         "scopedLayouts": [],
         "layoutWidgetOverrides": []
     },
-    "snapshotHash": "cae02c72f5b5cbe8290ebb44267543d0b1150c692c7180c8b97b5a428ceac31b"
+    "snapshotHash": "eabb4915d6ca1946dc6e9eedae33590d26dc39af90863b1ef79ef696e574ea66"
 }
