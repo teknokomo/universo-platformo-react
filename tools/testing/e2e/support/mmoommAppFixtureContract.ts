@@ -60,9 +60,9 @@ type PlayCanvasProjectSnapshot = {
     runtimeManifests?: Array<{ projectId?: unknown; sceneId?: unknown; checksum?: unknown; metadata?: Record<string, unknown> }>
 }
 
-type PlayCanvasSceneEntitySnapshot = NonNullable<
-    NonNullable<PlayCanvasProjectSnapshot['scenes']>[number]['payload']
->['entities'] extends Array<infer Entity>
+type PlayCanvasSceneEntitySnapshot = NonNullable<NonNullable<PlayCanvasProjectSnapshot['scenes']>[number]['payload']> extends {
+    entities?: Array<infer Entity>
+}
     ? Entity
     : never
 
@@ -171,13 +171,15 @@ const assertMmoommLightingEntity = (entity: {
     }
 }
 
-const isEmptyDefaultPlayCanvasEntity = (entity: PlayCanvasSceneEntitySnapshot): boolean => {
+const isEmptyDefaultPlayCanvasEntity = (entity: PlayCanvasSceneEntitySnapshot | null | undefined): boolean => {
+    if (!entity || typeof entity !== 'object') return false
+    const entityRecord = entity as { id?: unknown; name?: unknown; components?: unknown; children?: unknown }
     const components =
-        entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
-            ? (entity.components as Record<string, unknown>)
+        entityRecord.components && typeof entityRecord.components === 'object' && !Array.isArray(entityRecord.components)
+            ? (entityRecord.components as Record<string, unknown>)
             : {}
-    const children = Array.isArray((entity as { children?: unknown }).children) ? (entity as { children: unknown[] }).children : []
-    return entity.id !== 'root' && entity.name === 'New Entity' && Object.keys(components).length === 0 && children.length === 0
+    const children = Array.isArray(entityRecord.children) ? entityRecord.children : []
+    return entityRecord.id !== 'root' && entityRecord.name === 'New Entity' && Object.keys(components).length === 0 && children.length === 0
 }
 
 const assertNoEmptyDefaultPlayCanvasEntities = (playcanvasProjects: PlayCanvasProjectSnapshot): void => {

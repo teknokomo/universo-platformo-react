@@ -70,7 +70,8 @@ type PlayCanvasEditorSerializedEntity = {
     children?: unknown
 }
 
-const isEmptyDefaultPlayCanvasEditorEntity = (entity: PlayCanvasEditorSerializedEntity): boolean => {
+const isEmptyDefaultPlayCanvasEditorEntity = (entity: PlayCanvasEditorSerializedEntity | null | undefined): boolean => {
+    if (!entity) return false
     const components =
         entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
             ? (entity.components as Record<string, unknown>)
@@ -873,7 +874,7 @@ const removeEmptyDefaultPlayCanvasEditorEntities = async (page: Page, label: str
             ...toObserverArray(editor?.call?.('entities:list')),
             ...toObserverArray(editor?.call?.('entities:raw')),
             ...toObserverArray(editor?.api?.globals?.entities?.raw)
-        ]
+        ].filter((observer): observer is EditorEntityObserver => Boolean(observer && typeof observer === 'object'))
         const targetSet = new Set(targetIds)
         const targets = observers.filter((observer) => targetSet.has(readObserverId(observer)))
         const deleted: string[] = []

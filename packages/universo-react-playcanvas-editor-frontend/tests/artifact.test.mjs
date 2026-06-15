@@ -217,9 +217,7 @@ describe('PlayCanvas Editor artifact metadata', () => {
             expect(source).toContain('const loadedScenePayloadReferencesAssets = () => {')
             expect(source).toContain('if (loadedScenePayloadReferencesAssets()) return;')
             expect(source).toContain('if (!hydratingPersistedScene) {')
-            expect(source).toContain(
-                'const cleanLoadedPayloadObservers = marker.dirty === true ? [] : scenePayloadEntitiesToObservers(fallbackPayload);'
-            )
+            expect(source).toContain('const cleanLoadedPayloadObservers = marker.dirty === true ? [] : loadedScenePayloadEntityObservers;')
             expect(source).toContain('rememberScenePayloadEntities(readLoadedScenePayload(marker.lastLoadedScene));')
             expect(source).not.toContain('rememberScenePayloadEntities(marker.lastLoadedScene?.data?.payload);')
             expect(source).toContain('hydratePersistedSceneEntities();')
