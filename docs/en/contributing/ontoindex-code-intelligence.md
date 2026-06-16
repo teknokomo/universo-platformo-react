@@ -32,7 +32,7 @@ Install the pinned release per developer. It is an external tool, so it is not
 added to the repository dependencies.
 
 ```bash
-npm install -g https://github.com/ontograph/ontoindex/releases/download/v1.9.10/ontoindex-1.9.10.tgz
+pnpm add -g https://github.com/ontograph/ontoindex/releases/download/v1.9.10/ontoindex-1.9.10.tgz
 ontoindex --version
 ```
 

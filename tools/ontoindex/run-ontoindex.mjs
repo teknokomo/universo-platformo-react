@@ -5,10 +5,13 @@
 // Phase A: developer/agent code-intelligence only. No network, no secrets.
 //
 // Uses only Node built-ins (no added dependency), consistent with sibling
-// tools/*.mjs. spawnSync is always called with shell:false and an argv array,
-// so an argument can never be interpreted by a shell (no injection surface).
-// On Windows the global npm bin is a `.cmd` shim, so the binary name is resolved
-// per platform; non-Windows uses the bare name.
+// tools/*.mjs. Arguments are always passed as an argv array (never concatenated),
+// so this script never builds a shell command string from user input.
+// On Windows the global bin is a `.cmd` shim, which cannot be launched via
+// CreateProcess directly; spawnSync therefore enables `shell` only on Windows so
+// the shim runs through cmd.exe. On non-Windows `shell` stays false (no shell
+// involvement at all). Arguments come from the fixed `ontoindex:*` npm-script
+// verbs or a trusted local developer.
 import { spawnSync as nodeSpawnSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
@@ -18,6 +21,8 @@ import { pathToFileURL } from 'node:url'
 export const PINNED_VERSION = '1.9.10'
 
 export const BINARY = process.platform === 'win32' ? 'ontoindex.cmd' : 'ontoindex'
+// `.cmd` shims on Windows require a shell; elsewhere keep shell disabled.
+const SHELL = process.platform === 'win32'
 const INSTALL_URL = `https://github.com/ontograph/ontoindex/releases/download/v${PINNED_VERSION}/ontoindex-${PINNED_VERSION}.tgz`
 
 // Exported for unit testing; returns the process exit code instead of calling
@@ -32,7 +37,7 @@ export function run(argv, deps = {}) {
 
     // Probe the binary first so a missing tool produces a friendly hint instead
     // of an opaque spawn error.
-    const probe = spawnSync(BINARY, ['--version'], { encoding: 'utf8' })
+    const probe = spawnSync(BINARY, ['--version'], { encoding: 'utf8', shell: SHELL })
     if (probe.error || probe.status !== 0) {
         log(
             [
@@ -40,7 +45,7 @@ export function run(argv, deps = {}) {
                 `Install the pinned version (${PINNED_VERSION}) per the contributor docs:`,
                 '  docs/en/contributing/ontoindex-code-intelligence.md',
                 'Quick install:',
-                `  npm install -g ${INSTALL_URL}`
+                `  pnpm add -g ${INSTALL_URL}`
             ].join('\n')
         )
         return 127
@@ -52,9 +57,11 @@ export function run(argv, deps = {}) {
         warn(`Warning: OntoIndex ${installed} differs from pinned ${PINNED_VERSION}.`)
     }
 
-    // Forward verbatim. shell is never enabled, so an arg like "; rm -rf /" is a
-    // single argv element and can never be interpreted by a shell.
-    const result = spawnSync(BINARY, forwarded, { stdio: 'inherit' })
+    // Forward verbatim as an argv array. On non-Windows shell is disabled, so an
+    // arg like "; rm -rf /" is a single literal element. On Windows shell is
+    // enabled only to launch the `.cmd` shim; args still originate from fixed
+    // npm-script verbs or a trusted local developer.
+    const result = spawnSync(BINARY, forwarded, { stdio: 'inherit', shell: SHELL })
     if (result.error) {
         log(`Failed to launch OntoIndex: ${result.error.message}`)
         return 1

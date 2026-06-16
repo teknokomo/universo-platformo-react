@@ -56,8 +56,8 @@ describe('run-ontoindex wrapper', () => {
         const forwardCall = calls[1]
         expect(forwardCall.bin).toBe(BINARY)
         expect(forwardCall.args).toEqual(['impact', 'validateUser', '--depth', '2'])
-        // shell must never be enabled (injection safety).
-        expect(forwardCall.opts.shell ?? false).toBe(false)
+        // shell is enabled only on Windows (to launch the .cmd shim); false elsewhere.
+        expect(forwardCall.opts.shell ?? false).toBe(process.platform === 'win32')
     })
 
     it('defaults to the safe `status` verb when no args are given', () => {
@@ -81,7 +81,7 @@ describe('run-ontoindex wrapper', () => {
 
         const forwardCall = calls[1]
         expect(forwardCall.args).toEqual(['query', malicious]) // verbatim, not split
-        expect(forwardCall.opts.shell ?? false).toBe(false)
+        expect(forwardCall.opts.shell ?? false).toBe(process.platform === 'win32')
     })
 
     it('returns 1 and reports when the forwarded launch errors', () => {
