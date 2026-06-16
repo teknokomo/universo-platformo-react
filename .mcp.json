@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ontoindex": {
+      "type": "stdio",
+      "command": "ontoindex",
+      "args": [
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}

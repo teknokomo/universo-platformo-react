@@ -87,6 +87,7 @@
 -   [Creating Packages](contributing/creating-packages.md)
 -   [Database Code Review Checklist](contributing/database-code-review-checklist.md)
 -   [Runtime UI UX Quality Gate](contributing/runtime-ui-ux-quality-gate.md)
+-   [OntoIndex Code Intelligence](contributing/ontoindex-code-intelligence.md)
 
 ## Guides
 

@@ -2,8 +2,7 @@
 
 > Created: 2026-06-15
 > Source research: `memory-bank/research/playcanvas-editor-upstream-2-24-2-update-research-2026-06-15.md` (Status: Reviewed)
-> Source brief: `.manager/specs/platformo/playcanvas-editor-upstream-2-24-2-update-governance-spec-2026-06-15.md`
-> Source TZ: `.manager/inputs/2026-06-15-playcanvas-editor-upstream-2-24-2-update.md`
+> Source brief and TZ: MANAGER PlayCanvas Editor upstream-update materials (tracked outside the repository)
 > Target branch: `feature/playcanvas-editor-v2-24-2-update`
 > Plan layout: 8 phases, sequential. Each phase ends with a green build and a focused test command. The plan is reviewable as a single PR, which the analysis below recommends. If a maintainer prefers to split, the natural two-PR cut is: **PR 1 = phases 0, 1, 2, 6** (snapshot + metadata + governance; build goes green on PR-1 merge); **PR 2 = phases 3, 4, 5, 7, 8** (cross-package metadata, Skills, docs, E2E proof, closeout).
 

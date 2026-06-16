@@ -15,5 +15,6 @@ export default defineWorkspace([
     'packages/universo-react-start-frontend/vitest.config.ts',
     'packages/universo-react-types/vitest.config.ts',
     'packages/universo-react-utils/vitest.config.ts',
-    'tools/local-supabase/vitest.config.mjs'
+    'tools/local-supabase/vitest.config.mjs',
+    'tools/ontoindex/vitest.config.mjs'
 ])

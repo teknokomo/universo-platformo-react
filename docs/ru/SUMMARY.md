@@ -87,6 +87,7 @@
 -   [Создание пакетов](contributing/creating-packages.md)
 -   [Чеклист ревью кода базы данных](contributing/database-code-review-checklist.md)
 -   [Runtime UI UX Quality Gate](contributing/runtime-ui-ux-quality-gate.md)
+-   [OntoIndex: интеллект по коду](contributing/ontoindex-code-intelligence.md)
 
 ## Руководства
 

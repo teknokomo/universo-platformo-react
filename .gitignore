@@ -64,6 +64,9 @@ storage-e2e/
 ## turbo
 .turbo
 
+## code-intelligence (OntoIndex local graph — never committed)
+.ontoindex
+
 ## secrets
 **/*.key
 **/api.json
