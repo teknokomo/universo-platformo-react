@@ -2,7 +2,7 @@
 
 > Created: 2026-06-15
 > Status: Reviewed
-> Trigger: User TZ `.manager/inputs/2026-06-15-playcanvas-editor-upstream-2-24-2-update.md` + brief `.manager/specs/platformo/playcanvas-editor-upstream-2-24-2-update-governance-spec-2026-06-15.md`
+> Trigger: User TZ + MANAGER brief for the PlayCanvas Editor upstream update (tracked outside the repository)
 > Follow-up plan: TBD by PLAN mode (none yet)
 > QA pass: 2026-06-15 — 1 critical fix (models.ts Branch field claim replaced with actual `BuildJobFormat` + `BuildJob` new types), 4 minor fixes (openapi/index.yml added to Source Inventory, mmoomm-runtime-projection-2026-06-10 added, metahubs test list over-count corrected to 2 actual + 1 service, Status Draft → Reviewed).
 
@@ -243,5 +243,4 @@ The Universo compatibility contract (`protocol.describe`, `scene.list`, `scene.r
 - `.agents/skills/playcanvas-editor-authoring/references/notes.md`
 - `docs/{en,ru}/platform/playcanvas-editor.md`
 - `memory-bank/{tasks.md, progress.md, currentResearch.md, plan/*, research/*}`
-- `.manager/specs/platformo/playcanvas-editor-upstream-2-24-2-update-governance-spec-2026-06-15.md`
-- `.manager/inputs/2026-06-15-playcanvas-editor-upstream-2-24-2-update.md`
+- MANAGER brief and source TZ for this update (tracked outside the repository)

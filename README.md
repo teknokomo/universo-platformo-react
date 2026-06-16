@@ -73,6 +73,7 @@ Website: [https://universo.pro](https://universo.pro)
 -   Express.js
 -   Supabase (PostgreSQL)
 -   Turborepo workspace tooling
+-   OntoIndex (local code-intelligence for AI agents)
 
 ## Project Structure
 

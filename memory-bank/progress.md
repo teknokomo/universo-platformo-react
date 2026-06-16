@@ -55,6 +55,39 @@
 
 ---
 
+## 2026-06-16 - OntoIndex Code-Intelligence Adoption (Phase A)
+
+-   Adopted OntoIndex `v1.9.10` as a local developer/AI-agent code-intelligence
+    tool. Additive, dev-only: no `@universo-react/*` package, no backend route,
+    no UI, no DB, no schema/template version bump.
+-   Added a safe wrapper `tools/ontoindex/run-ontoindex.mjs` using only Node
+    built-ins (`node:child_process`, `shell:false`, argv array — injection-safe;
+    platform-aware binary name for Windows `.cmd` shims). The runner uses
+    dependency injection so the hermetic Vitest suite never needs the real binary.
+    7/7 tests pass; registered in `vitest.workspace.ts`. No dependency or lockfile
+    change required.
+-   Added root scripts `ontoindex:analyze` / `ontoindex:status` /
+    `ontoindex:changes` / `test:tools:ontoindex`.
+-   Authored project-native skill `.agents/skills/ontoindex-code-intelligence`
+    (SKILL.md + `references/usage.md` golden queries), registered in
+    `.agents/skills/SOURCES.md`. Skill carries the namespace-collision warning
+    (this is code intelligence over source, not OWL/RDF/SPARQL, not the Rust
+    `ontoindex-*` crates).
+-   Added mirrored EN/RU GitBook docs `contributing/ontoindex-code-intelligence.md`
+    with both `SUMMARY.md` entries and a `screenshotExemptPages` entry; added a
+    mirrored Tech Stack bullet to `README.md` / `README-RU.md`. `.ontoindex` added
+    to `.gitignore`.
+-   Verification: `pnpm test:tools:ontoindex` green; `docs:i18n:check` green
+    (96 EN/RU pairs; caught and fixed a banned RU stale-term stem);
+    `docs:gitbook-screenshot-assets:check` green; prettier clean on all authored
+    files. Wrapper verified end-to-end on the missing-binary path (friendly hint,
+    exit 127).
+-   Outstanding: root `.mcp.json` could not be written by the agent (safety
+    classifier blocks creating a file that auto-launches an MCP server). Content
+    is documented in tasks.md/plan for the user to add manually. Phase 6 index
+    pilot deferred (OntoIndex CLI not installed in this environment; no fabricated
+    output). Plan: `memory-bank/plan/ontoindex-code-intelligence-plan-2026-06-16.md`.
+
 ## 2026-06-15 - MMOOMM PlayCanvas Fixture Cleanup Closure
 
 -   Removed the upstream Editor's empty default `New Entity` authoring artifact

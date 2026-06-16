@@ -73,6 +73,7 @@ Universo Platformo React — это текущая эталонная реали
 -   Express.js
 -   Supabase (PostgreSQL)
 -   Инструментарий монорепозитория на Turborepo
+-   OntoIndex (локальный интеллект по коду для AI-агентов)
 
 ## Структура проекта
 

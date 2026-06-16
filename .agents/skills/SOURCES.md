@@ -42,6 +42,7 @@ This file records project-local Skills, imported external Skills, and external r
 | `thermo-nuclear-review`              | Local project workflow | Project repository license | Deep correctness and security review of code changes (vulnerabilities, UUID v7 validation).                                                                                                                                  |
 | `thermo-nuclear-code-quality-review` | Local project workflow | Project repository license | Deep maintainability and code quality review of code changes (modularity, circular deps, tests).                                                                                                                             |
 | `thermos`                            | Local project workflow | Project repository license | Thermos review orchestrator that synthesizes correctness and maintainability feedback.                                                                                                                                       |
+| `ontoindex-code-intelligence`        | Local project workflow | Project repository license | Wraps the external OntoIndex CLI/MCP tool (`ontograph/ontoindex`, AGPL-3.0-or-later, pinned v1.9.10) used locally for code-graph queries; tool installed per-developer, not vendored or redistributed. No tool code is copied here. |
 
 ## External Reference Sources For Local MMOOMM Skills
 
