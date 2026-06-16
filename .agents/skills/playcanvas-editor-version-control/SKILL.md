@@ -14,7 +14,7 @@ Use this skill when managing the project version control, committing checkpoints
 ## Version Guard
 
 - Schema and operation logs follow PlayCanvas VCS specifications.
-- Pinned to the version control panel capabilities of Editor `v2.23.4`.
+- Pinned to the version control panel capabilities of Editor `v2.24.2`.
 
 ## Required Output
 

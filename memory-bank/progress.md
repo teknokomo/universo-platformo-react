@@ -76,6 +76,16 @@
     MMOOMM fixture generator Playwright, local minimal Supabase MMOOMM imported
     app runtime Playwright, and `git diff --check`.
 
+## 2026-06-15 - PlayCanvas Editor v2.23.4 → v2.24.2 Upstream Update ✅
+
+-   Replaced `vendor/playcanvas-editor/` snapshot (8 commits, 42 files) with upstream `v2.24.2` (peeled commit `00360100b3b5747648eb3d7287421ef25491f5c7`) using atomic `.next` rename.
+-   Updated 30 active-code metadata files: frontend package, types contract, editor-backend test, 4 metahubs-backend sites, rest-docs OpenAPI emitter + regenerated `index.yml`, package READMEs (EN/RU), `NOTICE.md`, 9 PlayCanvas Editor Skills, EN/RU GitBook docs.
+-   Verified zero remaining `v2.23.4` / `2.23.4` / `c4916f4…` references in active code paths.
+-   New 3-guard governance surface: `check:playcanvas-editor-metadata` (fails on stale `2.23.4` / `v2.23.4`), `check:playcanvas-editor-vendor-drift` (developer-local only, no-op in CI), `.prettierignore` excluding `vendor/playcanvas-editor/**`.
+-   `playcanvas-editor-authoring` Skill extended with new `## Upstream Update Governance` section — 11-step checklist for the next upstream bump.
+-   Files: 30 active-code metadata + 9 Skills + 2 docs + 4 governance + 3 Memory Bank + 2 generated. Pattern: `playcanvas-editor-authoring/SKILL.md#upstream-update-governance`.
+-   Verification: 14/14 unit tests pass; 30/30 E2E tests pass (desktop/tablet/mobile) including the new v2.24.2 picker probe with screenshot at `e2e/screenshots/v2-24-2-picker.png`; 42/42 editor-backend tests; 125/125 types tests; 123/123 metahubs-backend targeted tests; 95/95 EN/RU doc pair checks; all 3 governance guards pass on clean state.
+
 ## 2026-06-14 - MMOOMM Imported PlayCanvas Editor Viewport Closure
 
 -   Closed the user-reported imported `metahubs-mmoomm-app-snapshot.json`

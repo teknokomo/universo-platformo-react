@@ -7,9 +7,9 @@ This package is intentionally an artifact boundary, not a React/MUI component li
 ## Upstream
 
 -   Repository: https://github.com/playcanvas/editor
--   Tag: `v2.23.4`
--   Commit: `c4916f4973963341984499f2d919f8bfd38e417c`
--   Package version: `2.23.4`
+-   Tag: `v2.24.2`
+-   Commit: `00360100b3b5747648eb3d7287421ef25491f5c7`
+-   Package version: `2.24.2`
 -   Node requirement: `>=22.22.0`
 -   License: MIT, with attribution in `NOTICE.md`
 

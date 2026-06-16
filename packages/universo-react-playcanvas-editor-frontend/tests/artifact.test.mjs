@@ -39,25 +39,25 @@ import {
 describe('PlayCanvas Editor artifact metadata', () => {
     it('keeps upstream metadata and license attribution consistent', () => {
         expect(() => assertVendorMetadata()).not.toThrow()
-        expect(upstreamPackageVersion).toBe('2.23.4')
-        expect(upstreamCommit).toBe('c4916f4973963341984499f2d919f8bfd38e417c')
+        expect(upstreamPackageVersion).toBe('2.24.2')
+        expect(upstreamCommit).toBe('00360100b3b5747648eb3d7287421ef25491f5c7')
     })
 
     it('validates the pinned artifact manifest and rejects drift', () => {
-        const manifest = createArtifactManifest('2026-06-05T00:00:00.000Z')
+        const manifest = createArtifactManifest('2026-06-15T00:00:00.000Z')
         expect(() => validateArtifactManifest(manifest)).not.toThrow()
         expect(() => validateArtifactManifest({ ...manifest, upstreamCommit: 'unexpected' })).toThrow(/upstreamCommit mismatch/)
         expect(() => validateArtifactManifest({ ...manifest, localPath: packageRoot })).toThrow(/keys/)
     })
 
     it('keeps the public package manifest aligned with the full upstream artifact mode', () => {
-        expect(PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION).toBe('2.23.4')
+        expect(PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION).toBe('2.24.2')
         expect(PLAYCANVAS_EDITOR_SMOKE_MODE).toBe(fullUpstreamUiMode)
-        expect(createPlayCanvasEditorArtifactManifest('2026-06-05T00:00:00.000Z').smokeMode).toBe(fullUpstreamUiMode)
+        expect(createPlayCanvasEditorArtifactManifest('2026-06-15T00:00:00.000Z').smokeMode).toBe(fullUpstreamUiMode)
     })
 
     it('declares the bridge bootstrap for full upstream UI mode', () => {
-        const manifest = createArtifactManifest('2026-06-05T00:00:00.000Z', fullUpstreamUiMode)
+        const manifest = createArtifactManifest('2026-06-15T00:00:00.000Z', fullUpstreamUiMode)
 
         expect(manifest.mode).toBe(fullUpstreamUiMode)
         expect(manifest.bridgeBootstrap).toBe(bridgeBootstrapFileName)

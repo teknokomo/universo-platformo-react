@@ -13,7 +13,7 @@ Use this skill when editing project settings, modifying physics engines, togglin
 
 ## Version Guard
 
-- Schema for project settings is based on PlayCanvas Editor `v2.23.4`.
+- Schema for project settings is based on PlayCanvas Editor `v2.24.2`.
 - Physics configuration includes Ammo.js configurations.
 
 ## Required Output

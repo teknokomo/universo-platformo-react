@@ -13,9 +13,9 @@ The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it is
 -   Workspace package: `packages/universo-react-playcanvas-editor-frontend/`
 -   Package name: `@universo-react/playcanvas-editor-frontend`
 -   Upstream repository: `https://github.com/playcanvas/editor`
--   Upstream tag: `v2.23.4`
--   Upstream commit: `c4916f4973963341984499f2d919f8bfd38e417c`
--   Upstream package version: `2.23.4`
+-   Upstream tag: `v2.24.2`
+-   Upstream commit: `00360100b3b5747648eb3d7287421ef25491f5c7`
+-   Upstream package version: `2.24.2`
 -   Required Node.js version for Editor build: `>=22.22.0`
 -   Default artifact mode: `universo-full-upstream-ui`
 -   Fallback artifact mode: `artifact-only`
@@ -35,7 +35,7 @@ pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
 pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 ```
 
-The package intentionally does not define a normal `build` script yet. Root `pnpm build` does not build the Editor artifact until the package is deliberately enrolled in the root Turbo pipeline.
+The package `build` script runs `editor:build`, so root `pnpm build` refreshes the artifact that the metahub backend serves from `dist/editor`. Package-local and CI checks should still run `editor:smoke` and `editor:browser-smoke` after building.
 
 ## Boundary Rules
 
@@ -68,7 +68,9 @@ Metahub copy, snapshot export, and snapshot import preserve these package displa
 
 The authoring host descriptor includes `playcanvasEditor` when the attached package can open an Universo-hosted bridge session. The MUI host sends typed commands to `POST /metahub/{metahubId}/playcanvas/editor-bridge/commands` with `sessionToken` in the JSON body and a command envelope containing UUID v7 `requestId`, UUID v7 `sessionId`, and the session `nonce`.
 
-The first bridge contract supports `protocol.describe`, `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close`, and `bridge.dirtyState`. `protocol.describe` exposes the current compatibility descriptor for the upstream `v2.23.4` Editor slice: single-user identity, branch-equivalent context, cloud-only no-op surfaces, and enabled same-origin REST/realtime/messenger/relay endpoints for the full upstream UI boot. The isolated compatibility namespace also exposes manager-only same-origin REST endpoints for `config`, `scenes`, `assets`, `settings`, and typed `cloud-only` no-op responses under `/api/v1/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}`. The compatibility `config` includes a short-lived signed-header token contract: send `auth.accessToken` as `X-PlayCanvas-Editor-Token` on compatibility REST requests while keeping the normal authenticated platform session. Mutations also use the standard CSRF contract: fetch `/api/v1/auth/csrf` and send the returned token as `X-CSRF-Token`. This surface persists single-user scene payloads and scoped settings through existing metahub PlayCanvas project storage and a ShareDB-compatible snapshot runtime; it is not a full PlayCanvas Cloud-compatible API, does not provide durable ShareDB operation-log history, and does not implement multi-user collaboration or cloud jobs. Scene saves and scoped settings writes use replay protection keyed by `requestId` and return the stored success response for safe duplicate retries. If the saved scene checksum changed, the backend returns `saveConflict` with HTTP 409 and the host shows a localized conflict dialog instead of leaking raw storage details.
+The first bridge contract supports `protocol.describe`, `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close`, and `bridge.dirtyState`. `protocol.describe` exposes the current compatibility descriptor for the upstream `v2.24.2` Editor slice: single-user identity, branch-equivalent context, cloud-only no-op surfaces, and enabled same-origin REST/realtime/messenger/relay endpoints for the full upstream UI boot. The isolated compatibility namespace also exposes manager-only same-origin REST endpoints for `config`, `scenes`, `assets`, `settings`, and typed `cloud-only` no-op responses under `/api/v1/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}`. The compatibility `config` includes a short-lived signed-header token contract: send `auth.accessToken` as `X-PlayCanvas-Editor-Token` on compatibility REST requests while keeping the normal authenticated platform session. Mutations also use the standard CSRF contract: fetch `/api/v1/auth/csrf` and send the returned token as `X-CSRF-Token`. This surface persists single-user scene payloads and scoped settings through existing metahub PlayCanvas project storage and a ShareDB-compatible snapshot runtime; it is not a full PlayCanvas Cloud-compatible API, does not provide durable ShareDB operation-log history, and does not implement multi-user collaboration or cloud jobs. Scene saves and scoped settings writes use replay protection keyed by `requestId` and return the stored success response for safe duplicate retries. If the saved scene checksum changed, the backend returns `saveConflict` with HTTP 409 and the host shows a localized conflict dialog instead of leaking raw storage details.
+
+The v2.24.2 upstream `editor-api/models.ts` adds two **new** types, `BuildJobFormat` (union of `'playcanvas' | 'static' | 'npm' | 'web_lens'`) and `BuildJob` (snake_case fields: `id`, `project_id`, `app_id`, `job_id`, `type`, `status`, `attempt`, `branch: {id, name}`, `actor`, `source`, `settings: {name, description, version, release_notes, image_s3_key, scenes, scripts_concatenate, scripts_minify, scripts_sourcemaps, optimize_scene_format, engine_version, format}`, `artifacts`, `message`, `created_at`, `modified_at`, `completed_at`, `duration_ms`). These are additive to the existing model set and are not exposed to Universo today: the artifact's bridge bootstrap does not serialize `BuildJob`, and the v2.24.2 picker calls reach REST endpoints (`rest.branches.*`, `rest.checkpoints.*`, `rest.merge.*`, `rest.projects.projectBranches`) that the Universo compatibility backend already returns as `cloud-only` no-op descriptors. No new compatibility routes are required for this slice; a follow-up brief can add them when MMOOMM authoring needs build-status semantics.
 
 The hosted artifact serializes scene data from the Editor-side `entities:list` and `assets:list` APIs. When the upstream Editor bundle does not initialize the entity API in the sandboxed hosted mode, the artifact installs a minimal hosted entity adapter behind the same `editor.call('entities:new')` and `editor.call('entities:list')` methods. This keeps authoring actions visible inside the iframe, marks the bridge dirty through `entities:add`, and saves through compatibility REST when `config` is available, with `scene.save` retained only as a bootstrap/fallback bridge command.
 
@@ -77,6 +79,11 @@ The hosted artifact serializes scene data from the Editor-side `entities:list` a
 `universo-full-upstream-ui` is the target mode for displaying the existing upstream PlayCanvas Editor UI rather than the hosted fallback panel. The metahub host requests a full-boot compatibility config for the selected/default PlayCanvas project, then the artifact boots the upstream `./js/editor.js` bundle with enabled realtime, messenger, and relay endpoints.
 
 Full-boot browser acceptance must fail if the hosted fallback is the only visible editor. Required evidence includes visible upstream DOM ids `#layout-toolbar`, `#layout-hierarchy`, `#layout-viewport`, `#canvas-3d`, `#layout-assets`, and `#layout-attributes`, absence of `window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__.hostedEntityAdapterInstalled === true`, and no `/disabled` URL in `window.config.url`.
+
+v2.24.2 also surfaces two new picker containers that should be visible inside the iframe after the upstream UI boots. Their exact PCUI class names are **TBD — verify after first browser smoke** (the upstream CSS uses `editor-version-control-picker` and `editor-builds-publish` style classes inside `sass/editor/_editor-version-control-picker.scss` and the rewritten `_editor-main.scss`):
+
+-   **Builds panel** (modern card layout, single primary build card, kebab menus, infinite scroll region) — TBD class name; assert visible after `editor.call('picker:builds-publish', { reload: true })`.
+-   **Version control picker** (top-bar branch switcher, right-side details card, kebab row menus) — TBD class name; assert visible after `editor.call('picker:versioncontrol')`.
 
 The current WebSocket runtime is a single-user ShareDB-compatible snapshot boundary. Realtime, messenger, and relay authenticate with short-lived full-boot compatibility tokens and origin checks; relay uses a first `authenticate` message instead of putting the token in the URL. The metahub adapter runs as a trusted Tier 2 service after signed-token validation and `manageMetahub` authorization, validates scene/settings snapshots before persistence, and carries checksum/revision guards into storage writes. This is not PlayCanvas Cloud parity, durable ShareDB operation history, or multi-user collaboration.
 
@@ -89,6 +96,7 @@ Do not copy `sessionToken`, artifact tokens, full tokenized artifact URLs, bridg
 -   **Permission blocked**: the host and bridge require current `manageMetahub` access. Recheck metahub membership and package attachment state; do not reuse artifact links from another user or an old browser tab.
 -   **Save conflict**: reload the latest scene from the conflict dialog and save again. The backend compares scene checksums and intentionally fails closed when another write changed the stored payload.
 -   **Development URL mode unavailable**: confirm the desired origin is present in `PLAYCANVAS_EDITOR_DEVELOPMENT_URLS`. The UI hides or rejects development URLs that the backend does not allow.
+-   **v2.24.2 picker renders empty after a swap**: ensure `playcanvas/editor@v2.24.2` is in the bundle and the new `picker-version-control.ts` orchestrator is present. `picker-conflict-manager` no-ops silently if the new `picker:versioncontrol:hasRetainedDiff` editor method is missing — verify with `editor.call('picker:versioncontrol:hasRetainedDiff', 'test')` in the browser console (should return a boolean, not `undefined`).
 
 ## Future Integration
 

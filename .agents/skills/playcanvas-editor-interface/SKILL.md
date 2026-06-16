@@ -13,7 +13,7 @@ Use this skill when developing, customising, or debugging the PlayCanvas Editor 
 
 ## Version Guard
 
-- Pinned to the UI layout of PlayCanvas Editor `v2.23.4`.
+- Pinned to the UI layout of PlayCanvas Editor `v2.24.2`.
 - Uses `@playcanvas/pcui` for UI panels and widgets.
 - Viewport rendering is powered by `playcanvas@2.19.5`.
 

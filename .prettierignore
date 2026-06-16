@@ -1,0 +1,9 @@
+**/dist/**
+**/build/**
+**/coverage/**
+**/.turbo/**
+**/.tmp/**
+**/node_modules/**
+packages/universo-react-playcanvas-editor-frontend/vendor/**
+packages/universo-react-playcanvas-editor-frontend/.tmp/**
+packages/universo-react-playcanvas-editor-frontend/dist/**

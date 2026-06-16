@@ -13,7 +13,7 @@ Use this skill when developing editor extensions via the Editor API, setting up 
 
 ## Version Guard
 
-- Upstream Editor API matches the `playcanvas/editor` `v2.23.4` implementation.
+- Upstream Editor API matches the `playcanvas/editor` `v2.24.2` implementation.
 - Realtime sync protocol runs over `@teamwork/websocket-json-stream` and `sharedb`.
 - Operational Transformation uses `ot-text`.
 

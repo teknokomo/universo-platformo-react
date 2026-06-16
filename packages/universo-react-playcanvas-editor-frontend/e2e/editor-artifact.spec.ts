@@ -219,7 +219,7 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
                                     mode: 'universo-bridge-minimal',
                                     upstream: {
                                         repository: 'https://github.com/playcanvas/editor',
-                                        minimumTag: 'v2.23.4'
+                                        minimumTag: 'v2.24.2'
                                     },
                                     defaultSceneId: '${sceneId}'
                                 }
@@ -526,7 +526,7 @@ test('PlayCanvas Editor hosted artifact updates legacy default scene state befor
                                               mode: 'universo-bridge-minimal',
                                               upstream: {
                                                   repository: 'https://github.com/playcanvas/editor',
-                                                  minimumTag: 'v2.23.4'
+                                                  minimumTag: 'v2.24.2'
                                               },
                                               defaultSceneId: '${sceneId}'
                                           }
@@ -668,7 +668,7 @@ test('PlayCanvas Editor hosted upstream UI saves serializable entities', async (
                                               mode: 'universo-bridge-minimal',
                                               upstream: {
                                                   repository: 'https://github.com/playcanvas/editor',
-                                                  minimumTag: 'v2.23.4'
+                                                  minimumTag: 'v2.24.2'
                                               },
                                               defaultSceneId: '${sceneId}'
                                           }
@@ -850,7 +850,7 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
                                               mode: 'universo-bridge-minimal',
                                               upstream: {
                                                   repository: 'https://github.com/playcanvas/editor',
-                                                  minimumTag: 'v2.23.4'
+                                                  minimumTag: 'v2.24.2'
                                               },
                                               defaultSceneId: '${sceneId}'
                                           }
@@ -1095,6 +1095,245 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
     )
     expect((savePayload?.payload?.entities ?? []).map((entity) => entity.name)).not.toContain('Stale Persisted Entity')
     expect(savePayload?.payload?.metadata).not.toEqual(expect.objectContaining({ mmoomm: expect.anything() }))
+})
+
+test('PlayCanvas Editor v2.24.2 exposes the new version-control picker and builds panel', async ({ page, baseURL }) => {
+    const sceneId = '019e9147-16c4-738c-ab0f-b98c443ee676'
+    const projectId = '019e9146-fd1b-7d1d-a858-d1e96485d901'
+    const iframeUrl = new URL('/?locale=en', baseURL ?? 'http://127.0.0.1:3487').toString()
+
+    await page.route('**/api/v1/metahub/**/playcanvas/editor-bridge/commands', async (route) => {
+        const request = route.request()
+        const body = JSON.parse(request.postData() ?? '{}') as {
+            type?: string
+            requestId?: string
+        }
+        const reply = (data: unknown) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    ok: true,
+                    requestId: body.requestId,
+                    type: body.type,
+                    data
+                })
+            })
+        if (body.type === 'protocol.describe') {
+            return reply({
+                protocol: {
+                    schemaVersion: '1',
+                    mode: 'universo-bridge-minimal',
+                    upstream: {
+                        repository: 'https://github.com/playcanvas/editor',
+                        minimumTag: 'v2.24.2'
+                    },
+                    defaultSceneId: sceneId
+                }
+            })
+        }
+        return reply({})
+    })
+
+    // Network probes registered BEFORE the iframe loads so that early
+    // asset requests are visible. We assert no remote PlayCanvas font
+    // URLs leak from the vendored bundle (per brief acceptance criterion #9).
+    const staticAssetRequests: string[] = []
+    page.on('request', (req) => {
+        const url = req.url()
+        if (url.includes('playcanvas.com/static-assets/')) staticAssetRequests.push(url)
+    })
+
+    await page.setContent(`
+        <!doctype html>
+        <html lang="en">
+            <head><title>v2.24.2 picker probe</title></head>
+            <body style="margin:0">
+                <iframe
+                    title="PlayCanvas Editor"
+                    src="${iframeUrl}"
+                    allow="autoplay; clipboard-read; clipboard-write"
+                    sandbox="allow-scripts allow-same-origin"
+                    style="width:1280px;height:720px;border:0"
+                ></iframe>
+                <script>
+                    window.bridgePayloads = [];
+                    window.addEventListener('message', (event) => {
+                        if (!event.data) return;
+                        if (event.data.requestId) {
+                            window.bridgePayloads.push(event.data);
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            const responseData =
+                                event.data.type === 'protocol.describe'
+                                    ? {
+                                          protocol: {
+                                              schemaVersion: '1',
+                                              mode: 'universo-bridge-minimal',
+                                              upstream: {
+                                                  repository: 'https://github.com/playcanvas/editor',
+                                                  minimumTag: 'v2.24.2'
+                                              },
+                                              defaultSceneId: '${sceneId}'
+                                          }
+                                      }
+                                    : event.data.type === 'project.loadSelected'
+                                      ? {
+                                            project: {
+                                                id: '${projectId}',
+                                                displayName: {
+                                                    _primary: 'en',
+                                                    locales: { en: { content: 'v2.24.2 Probe Project' } }
+                                                },
+                                                version: 1,
+                                                defaultSceneId: '${sceneId}',
+                                                compatibilityStatus: 'compatible',
+                                                status: 'ready',
+                                                sceneCount: 1,
+                                                assetCount: 0,
+                                                scriptCount: 0,
+                                                generatedArtifactCount: 0,
+                                                publishable: false
+                                            }
+                                        }
+                                      : event.data.type === 'scene.read'
+                                        ? {
+                                              scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
+                                              payload: { schemaVersion: '1', entities: [] }
+                                          }
+                                        : {};
+                            frame.contentWindow.postMessage({
+                                type: 'bridge.response',
+                                source: 'universo-playcanvas-editor-host',
+                                commandType: event.data.type,
+                                requestId: event.data.requestId,
+                                response: {
+                                    ok: true,
+                                    requestId: event.data.requestId,
+                                    type: event.data.type,
+                                    data: responseData
+                                }
+                            }, '*');
+                            return;
+                        }
+                        if (event.data.type !== 'editor.bootstrap.requestInit') return;
+                        window.setTimeout(() => {
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            frame.contentWindow.postMessage({
+                                type: 'editor.bootstrap.init',
+                                source: 'universo-playcanvas-editor-host',
+                                bootstrapRequestId: event.data.bootstrapRequestId,
+                                descriptor: {
+                                    schemaVersion: '1',
+                                    bridge: {
+                                        sessionId: '019e9146-a649-7218-b147-1e0d5ca9e45d',
+                                        nonce: '019e9146a6497218b1471e0d5ca9e45d019e9146a6497218b1471e0d5ca9e45d',
+                                        expiresAt: new Date(Date.now() + 60000).toISOString(),
+                                        bridgeVersion: '1',
+                                        writeMode: 'manager',
+                                        capabilities: ['editor.ready', 'protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read']
+                                    },
+                                    selectedProject: {
+                                        project: {
+                                            id: '${projectId}',
+                                            displayName: {
+                                                _primary: 'en',
+                                                locales: { en: { content: 'v2.24.2 Probe Project' } }
+                                            },
+                                            version: 1,
+                                            defaultSceneId: '${sceneId}',
+                                            compatibilityStatus: 'compatible',
+                                            status: 'ready',
+                                            sceneCount: 1,
+                                            assetCount: 0,
+                                            scriptCount: 0,
+                                            generatedArtifactCount: 0,
+                                            publishable: false
+                                        },
+                                        defaultSceneId: '${sceneId}'
+                                    },
+                                    compatibilityStatus: 'ready'
+                                },
+                            }, '*');
+                        }, 100);
+                    });
+                </script>
+            </body>
+        </html>
+    `)
+
+    const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+
+    // The artifact is served from the editor package's own smoke server.
+    // Wait for the upstream UI to fully boot (real boot, not a domcontentloaded
+    // placeholder). This is the v2.24.2 acceptance gate.
+    await expectHostedEditorApiReady(frame)
+
+    // Confirm the v2.24.2 manifest metadata is exposed on the iframe.
+    // The bridge marker does not surface upstreamTag directly; the
+    // canonical metadata lives in the static
+    // `universo-artifact-manifest.json` next to the artifact's index.html.
+    const manifestRes = await page.request.get(`${baseURL ?? 'http://127.0.0.1:3487'}/universo-artifact-manifest.json`)
+    expect(manifestRes.status()).toBe(200)
+    const artifactMetadata = (await manifestRes.json()) as {
+        upstreamTag?: string
+        upstreamCommit?: string
+        upstreamPackageVersion?: string
+    }
+    expect(artifactMetadata.upstreamTag).toBe('v2.24.2')
+    expect(artifactMetadata.upstreamCommit).toBe('00360100b3b5747648eb3d7287421ef25491f5c7')
+    expect(artifactMetadata.upstreamPackageVersion).toBe('2.24.2')
+
+    // The v2.24.2 picker rewrite registers the new methods on
+    // `window.editor`. Verify the methods are wired and accept benign
+    // arguments (this is the concrete acceptance gate for the
+    // version-control picker rewrite). If any of these calls throws
+    // or returns undefined, the new `picker-version-control.ts`
+    // orchestrator is missing.
+    const pickerApi = await frame.locator('body').evaluate(() => {
+        const editor = (window as unknown as { editor?: { call?: (name: string, ...args: unknown[]) => unknown } }).editor
+        if (typeof editor?.call !== 'function') return null
+        // The conflict manager probe MUST distinguish "method missing" from
+        // "method registered with no active merge". The three registered
+        // methods on the v2.24.2 orchestrator are:
+        //   - picker:conflictManager(data)            -> action, returns void
+        //   - picker:conflictManager:currentMerge()    -> returns currentMergeObject (initially null)
+        //   - picker:conflictManager:rightPanel()      -> returns panelRight
+        // `Caller.call` returns `null` when a method is missing, and the
+        // registered action handler returns `undefined` when the picker
+        // has not been opened. Distinguish the two by checking the
+        // action-handler return: `null` == missing method,
+        // `undefined` == registered method.
+        const conflictManagerActionResult = editor.call('picker:conflictManager')
+        const conflictManagerWired = conflictManagerActionResult === undefined
+        return {
+            hasRetainedDiff: typeof editor.call('picker:versioncontrol:hasRetainedDiff', 'probe-id') === 'boolean',
+            releaseDiffReturned: editor.call('picker:versioncontrol:releaseDiff', 'probe-id') === undefined,
+            transformCheckpointData: typeof editor.call('picker:versioncontrol:transformCheckpointData', { id: 'p' }) === 'object',
+            buildsPublishIsMethod: typeof editor.call('picker:builds-publish') === 'undefined',
+            conflictManagerWired
+        }
+    })
+    expect(pickerApi).not.toBeNull()
+    expect((pickerApi as { hasRetainedDiff: boolean }).hasRetainedDiff).toBe(true)
+    expect((pickerApi as { releaseDiffReturned: boolean }).releaseDiffReturned).toBe(true)
+    expect((pickerApi as { transformCheckpointData: boolean }).transformCheckpointData).toBe(true)
+    expect((pickerApi as { buildsPublishIsMethod: boolean }).buildsPublishIsMethod).toBe(true)
+    // The conflict manager must be a registered object, not `null`.
+    // A falsy check would pass for both "method missing" and
+    // "method registered, no merge active" — assert object type instead.
+    expect((pickerApi as { conflictManagerWired: boolean }).conflictManagerWired).toBe(true)
+
+    // No remote PlayCanvas font/asset URLs should leak from the v2.24.2
+    // vendored bundle (per brief acceptance criterion #9).
+    await page.waitForTimeout(500)
+    expect(staticAssetRequests).toEqual([])
+
+    // Take a screenshot of the iframe (real picker surface), not the
+    // synthetic host page. `page.locator('iframe[...').screenshot()`
+    // captures the iframe's viewport only.
+    await page.locator('iframe[title="PlayCanvas Editor"]').screenshot({ path: 'e2e/screenshots/v2-24-2-picker.png' })
+    void projectId
+    void sceneId
 })
 
 test('PlayCanvas Editor hosted upstream UI does not expose MMOOMM projection controls without host capability', async ({

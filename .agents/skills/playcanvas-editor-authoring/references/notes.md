@@ -1,6 +1,6 @@
 # PlayCanvas Editor Authoring Reference Notes
 
-- Pinned version of the editor frontend is `v2.23.4`.
+- Pinned version of the editor frontend is `v2.24.2`.
 - Upstream editor builds are placed in the `vendor/` directory and served as static assets through the frontend packages.
 - The editor boot process follows:
   1. Iframe is mounted by the host page.

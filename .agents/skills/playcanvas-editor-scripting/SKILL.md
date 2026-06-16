@@ -13,7 +13,7 @@ Use this skill when authoring, compiling, or integrating scripts, script attribu
 
 ## Version Guard
 
-- Supports ESM scripts (the default mode in `v2.23.4`, not legacy script format).
+- Supports ESM scripts (the default mode in `v2.24.2`, not legacy script format).
 - Integrated Monaco editor matches `0.47.0` (as vendored).
 - Script attribute parsing uses `@playcanvas/attribute-parser`.
 
