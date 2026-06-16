@@ -213,7 +213,7 @@ const playCanvasEditorProtocolBaseSchema = z
         upstream: z
             .object({
                 repository: z.literal('https://github.com/playcanvas/editor'),
-                minimumTag: z.literal('v2.23.4')
+                minimumTag: z.literal('v2.24.2')
             })
             .strict(),
         project: compatibilityProjectSummarySchema.nullable(),

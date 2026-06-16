@@ -13,9 +13,9 @@ description: Foundation-пакет артефакта PlayCanvas Editor.
 -   Workspace package: `packages/universo-react-playcanvas-editor-frontend/`
 -   Package name: `@universo-react/playcanvas-editor-frontend`
 -   Upstream repository: `https://github.com/playcanvas/editor`
--   Upstream tag: `v2.23.4`
--   Upstream commit: `c4916f4973963341984499f2d919f8bfd38e417c`
--   Upstream package version: `2.23.4`
+-   Upstream tag: `v2.24.2`
+-   Upstream commit: `00360100b3b5747648eb3d7287421ef25491f5c7`
+-   Upstream package version: `2.24.2`
 -   Required Node.js version for Editor build: `>=22.22.0`
 -   Default artifact mode: `universo-full-upstream-ui`
 -   Fallback artifact mode: `artifact-only`
@@ -35,7 +35,7 @@ pnpm --filter @universo-react/playcanvas-editor-frontend editor:smoke
 pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 ```
 
-Пакет намеренно пока не определяет обычный script `build`. Root `pnpm build` не собирает Editor artifact, пока пакет не будет явно подключён к root Turbo pipeline.
+Script `build` пакета делегирует в `editor:build`, поэтому root `pnpm build` обновляет artifact, который metahub backend отдаёт из `dist/editor`. Скрипты package-local и CI должны по-прежнему запускать `editor:smoke` и `editor:browser-smoke` после сборки.
 
 ## Правила границы
 
@@ -68,7 +68,9 @@ pnpm --filter @universo-react/playcanvas-editor-frontend editor:browser-smoke
 
 Authoring host descriptor содержит `playcanvasEditor`, когда подключённый пакет может открыть Universo-hosted bridge session. MUI host отправляет типизированные команды в `POST /metahub/{metahubId}/playcanvas/editor-bridge/commands` с `sessionToken` в JSON body и command envelope с UUID v7 `requestId`, UUID v7 `sessionId` и session `nonce`.
 
-Первый bridge contract поддерживает `protocol.describe`, `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close` и `bridge.dirtyState`. `protocol.describe` отдаёт текущий compatibility descriptor для upstream Editor `v2.23.4`: single-user identity, branch-equivalent context, cloud-only no-op surfaces и включённые same-origin REST/realtime/messenger/relay endpoints для full upstream UI boot. Изолированный compatibility namespace также отдаёт manager-only same-origin REST endpoints для `config`, `scenes`, `assets`, `settings` и типизированных `cloud-only` no-op responses в `/api/v1/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}`. Compatibility `config` включает short-lived signed-header token contract: `auth.accessToken` нужно отправлять как `X-PlayCanvas-Editor-Token` на compatibility REST requests, сохраняя обычную authenticated platform session. Mutations дополнительно используют стандартный CSRF contract: нужно получить token через `/api/v1/auth/csrf` и отправлять его как `X-CSRF-Token`. Этот surface сохраняет single-user payloads сцен и scoped settings через существующее хранилище PlayCanvas projects в метахабе и ShareDB-compatible snapshot runtime; это не полный PlayCanvas Cloud-compatible API, без durable ShareDB operation-log history, multi-user collaboration и cloud jobs. Сохранения сцен и scoped settings writes используют replay protection по `requestId` и возвращают сохранённый success response для безопасных повторных retries. Если checksum сохранённой сцены изменился, backend возвращает `saveConflict` с HTTP 409, а host показывает локализованный conflict dialog без утечки raw storage details.
+Первый bridge contract поддерживает `protocol.describe`, `project.loadSelected`, `scene.list`, `scene.read`, `scene.save`, `scene.saveStatus`, `asset.listMinimalForScene`, `bridge.capabilities`, `bridge.close` и `bridge.dirtyState`. `protocol.describe` отдаёт текущий compatibility descriptor для upstream Editor `v2.24.2`: single-user identity, branch-equivalent context, cloud-only no-op surfaces и включённые same-origin REST/realtime/messenger/relay endpoints для full upstream UI boot. Изолированный compatibility namespace также отдаёт manager-only same-origin REST endpoints для `config`, `scenes`, `assets`, `settings` и типизированных `cloud-only` no-op responses в `/api/v1/metahub/{metahubId}/playcanvas/editor-compatible/projects/{projectId}`. Compatibility `config` включает short-lived signed-header token contract: `auth.accessToken` нужно отправлять как `X-PlayCanvas-Editor-Token` на compatibility REST requests, сохраняя обычную authenticated platform session. Mutations дополнительно используют стандартный CSRF contract: нужно получить token через `/api/v1/auth/csrf` и отправлять его как `X-CSRF-Token`. Этот surface сохраняет single-user payloads сцен и scoped settings через существующее хранилище PlayCanvas projects в метахабе и ShareDB-compatible snapshot runtime; это не полный PlayCanvas Cloud-compatible API, без durable ShareDB operation-log history, multi-user collaboration и cloud jobs. Сохранения сцен и scoped settings writes используют replay protection по `requestId` и возвращают сохранённый success response для безопасных повторных retries. Если checksum сохранённой сцены изменился, backend возвращает `saveConflict` с HTTP 409, а host показывает локализованный conflict dialog без утечки raw storage details.
+
+В upstream `editor-api/models.ts` версии v2.24.2 добавлены два **новых** типа: `BuildJobFormat` (union `'playcanvas' | 'static' | 'npm' | 'web_lens'`) и `BuildJob` (snake_case поля: `id`, `project_id`, `app_id`, `job_id`, `type`, `status`, `attempt`, `branch: {id, name}`, `actor`, `source`, `settings: {name, description, version, release_notes, image_s3_key, scenes, scripts_concatenate, scripts_minify, scripts_sourcemaps, optimize_scene_format, engine_version, format}`, `artifacts`, `message`, `created_at`, `modified_at`, `completed_at`, `duration_ms`). Они аддитивны к существующему набору типов и в текущем срезе не экспонируются в Universo: bridge bootstrap артефакта не сериализует `BuildJob`, а вызовы picker-а v2.24.2 достигают REST endpoints (`rest.branches.*`, `rest.checkpoints.*`, `rest.merge.*`, `rest.projects.projectBranches`), которые backend совместимости Universo уже возвращает как `cloud-only` no-op descriptors. Никаких новых compatibility routes для этого среза не требуется; отдельный бриф может их добавить, когда MMOOMM authoring потребует семантики build-status.
 
 Hosted artifact сериализует scene data через Editor-side API `entities:list` и `assets:list`. Если upstream Editor bundle в sandboxed hosted mode не инициализирует entity API, artifact устанавливает минимальный hosted entity adapter за теми же методами `editor.call('entities:new')` и `editor.call('entities:list')`. Так authoring action остаётся видимым внутри iframe, bridge получает dirty state через `entities:add`, а сохранение идёт через compatibility REST при наличии `config`; `scene.save` сохраняется только как bootstrap/fallback bridge command.
 
@@ -77,6 +79,11 @@ Hosted artifact сериализует scene data через Editor-side API `en
 `universo-full-upstream-ui` — целевой режим для отображения существующего upstream UI PlayCanvas Editor вместо hosted fallback panel. Host метахаба запрашивает full-boot compatibility config для выбранного/default PlayCanvas project, затем artifact запускает upstream bundle `./js/editor.js` с включёнными realtime, messenger и relay endpoints.
 
 Full-boot browser acceptance должен падать, если виден только hosted fallback editor. Обязательная evidence включает видимые upstream DOM ids `#layout-toolbar`, `#layout-hierarchy`, `#layout-viewport`, `#canvas-3d`, `#layout-assets` и `#layout-attributes`, отсутствие `window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__.hostedEntityAdapterInstalled === true` и отсутствие `/disabled` URL в `window.config.url`.
+
+v2.24.2 также показывает два новых picker-контейнера, которые должны быть видны внутри iframe после загрузки upstream UI. Их точные имена PCUI-классов — **TBD — проверить после первого browser smoke** (upstream CSS использует классы `editor-version-control-picker` и `editor-builds-publish` в `sass/editor/_editor-version-control-picker.scss` и переписанном `_editor-main.scss`):
+
+-   **Builds panel** (современный card layout, одна primary build card, kebab-меню, infinite scroll region) — имя класса TBD; проверить видимость после `editor.call('picker:builds-publish', { reload: true })`.
+-   **Version control picker** (branch switcher в верхней панели, details card справа, kebab row menus) — имя класса TBD; проверить видимость после `editor.call('picker:versioncontrol')`.
 
 Текущий WebSocket runtime — single-user ShareDB-compatible snapshot boundary. Realtime, messenger и relay аутентифицируются короткоживущими full-boot compatibility tokens и origin checks; relay использует первое сообщение `authenticate`, а не token в URL. Metahub adapter работает как trusted Tier 2 service после signed-token validation и `manageMetahub` authorization, валидирует snapshots scenes/settings перед persistence и переносит checksum/revision guards в storage writes. Это не PlayCanvas Cloud parity, не durable ShareDB operation history и не multi-user collaboration.
 
@@ -89,6 +96,7 @@ Full-boot browser acceptance должен падать, если виден то
 -   **Permission blocked**: host и bridge требуют текущий доступ `manageMetahub`. Перепроверьте membership метахаба и состояние подключения пакета; не используйте artifact links от другого пользователя или из старой вкладки браузера.
 -   **Save conflict**: загрузите последнюю версию сцены через conflict dialog и сохраните снова. Backend сравнивает scene checksums и намеренно fail-closed, если другой write изменил сохранённый payload.
 -   **Development URL mode unavailable**: проверьте, что нужный origin есть в `PLAYCANVAS_EDITOR_DEVELOPMENT_URLS`. UI скрывает или отклоняет development URLs, которые backend не разрешает.
+-   **v2.24.2 picker рендерится пустым после обновления**: убедитесь, что `playcanvas/editor@v2.24.2` в bundle и присутствует новый orchestrator `picker-version-control.ts`. `picker-conflict-manager` тихо no-op-ит, если новый editor-метод `picker:versioncontrol:hasRetainedDiff` отсутствует — проверьте через `editor.call('picker:versioncontrol:hasRetainedDiff', 'test')` в browser console (должен вернуть boolean, не `undefined`).
 
 ## Будущая интеграция
 

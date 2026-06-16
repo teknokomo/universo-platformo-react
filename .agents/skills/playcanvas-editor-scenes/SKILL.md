@@ -14,7 +14,7 @@ Use this skill when managing the scene graph, configuring components on entities
 ## Version Guard
 
 - ECS components mapping must align with `playcanvas@2.19.5` (editor runtime version).
-- Templates/prefabs follow the schema of Editor `v2.23.4`.
+- Templates/prefabs follow the schema of Editor `v2.24.2`.
 
 ## Required Output
 

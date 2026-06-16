@@ -13,7 +13,7 @@ Use this skill when dealing with the ingestion, conversion, storage, or metadata
 
 ## Version Guard
 
-- Upstream asset schema is based on PlayCanvas Editor `v2.23.4`.
+- Upstream asset schema is based on PlayCanvas Editor `v2.24.2`.
 - Uses `@playcanvas/attribute-parser` for asset metadata parsing.
 - Texture compression includes formats supported by the runtime (e.g. WebP, basis, dxt).
 

@@ -1,6 +1,6 @@
 # Technical Context
 
-> **Last Reviewed**: 2026-05-22 (refreshed: ECAE rename to Object/Component, architectural transition baseline added, configuration model baseline added, UPDL surface marked as historical, DB layer status & future direction added)
+> **Last Reviewed**: 2026-06-15 (refreshed: PlayCanvas Editor Skills version anchor bumped v2.23.4 → v2.24.2; new governance primitives: `check:playcanvas-editor-metadata`, `check:playcanvas-editor-vendor-drift`, `.prettierignore`; vendored Editor frontend now at upstream `v2.24.2` with version-control picker rewrite and new `BuildJob` / `BuildJobFormat` types)
 
 ## Custom Modifications To Preserve
 
@@ -264,7 +264,8 @@
 
 ## PlayCanvas Editor Skills
 
-- **PlayCanvas Editor Skills:** A suite of 9 specialized AI-agent skills (`.agents/skills/playcanvas-editor-*`) that govern scripting, assets, scenes, version control, realtime ShareDB/sockets, and platform compatibility for PlayCanvas Editor.
+- **PlayCanvas Editor Skills:** A suite of 9 specialized AI-agent skills (`.agents/skills/playcanvas-editor-*`) that govern scripting, assets, scenes, version control, realtime ShareDB/sockets, and platform compatibility for PlayCanvas Editor. Pinned to the vendored upstream Editor `v2.24.2` (peeled commit `00360100b3b5747648eb3d7287421ef25491f5c7`, released 2026-06-12). Version-control picker and builds-panel are upstream-owned and rendered inside the iframe; the Universo host shell treats the artifact as opaque. The `playcanvas-editor-authoring` Skill includes a `## Upstream Update Governance` section that codifies the next-bump procedure.
+- **PlayCanvas Editor governance primitives:** Three new root-level guards: `check:playcanvas-editor-isolation` (existing, blocks cross-package vendor imports), `check:playcanvas-editor-metadata` (new, fails on stale previous-version literals in active code), `check:playcanvas-editor-vendor-drift` (new, developer-local only — exits 0 in CI when `PC_EDITOR_UPSTREAM_DIR` is unset; uses `git archive` against a sibling worktree to compare the vendored source against the pinned upstream tag). `.prettierignore` excludes `vendor/playcanvas-editor/**` from `pnpm format` and `lint-staged` walks.
 
 ## Thermos Quality Gate
 

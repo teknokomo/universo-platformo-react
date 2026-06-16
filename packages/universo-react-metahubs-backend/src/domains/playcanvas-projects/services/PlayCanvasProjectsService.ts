@@ -971,7 +971,7 @@ export class PlayCanvasProjectsService {
             mode: PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
             upstream: {
                 repository: 'https://github.com/playcanvas/editor',
-                minimumTag: 'v2.23.4'
+                minimumTag: 'v2.24.2'
             },
             project,
             defaultSceneId,

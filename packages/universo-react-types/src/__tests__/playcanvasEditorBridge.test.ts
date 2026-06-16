@@ -194,7 +194,7 @@ describe('PlayCanvas Editor bridge contracts', () => {
             mode: PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
             upstream: {
                 repository: 'https://github.com/playcanvas/editor',
-                minimumTag: 'v2.23.4'
+                minimumTag: 'v2.24.2'
             },
             project: null,
             defaultSceneId: null,

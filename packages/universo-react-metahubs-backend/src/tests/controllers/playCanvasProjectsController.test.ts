@@ -453,7 +453,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                 mode: 'universo-bridge-minimal',
                 upstream: {
                     repository: 'https://github.com/playcanvas/editor',
-                    minimumTag: 'v2.23.4'
+                    minimumTag: 'v2.24.2'
                 },
                 project: { id: projectId, defaultSceneId: projectId },
                 defaultSceneId: projectId,
@@ -607,7 +607,7 @@ describe('createPlayCanvasProjectsController permissions', () => {
                 mode: 'universo-bridge-minimal',
                 upstream: {
                     repository: 'https://github.com/playcanvas/editor',
-                    minimumTag: 'v2.23.4'
+                    minimumTag: 'v2.24.2'
                 },
                 project: null,
                 defaultSceneId: null,

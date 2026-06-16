@@ -7,9 +7,9 @@ import vm from 'node:vm'
 import { z } from 'zod'
 
 export const upstreamRepository = 'https://github.com/playcanvas/editor'
-export const upstreamTag = 'v2.23.4'
-export const upstreamCommit = 'c4916f4973963341984499f2d919f8bfd38e417c'
-export const upstreamPackageVersion = '2.23.4'
+export const upstreamTag = 'v2.24.2'
+export const upstreamCommit = '00360100b3b5747648eb3d7287421ef25491f5c7'
+export const upstreamPackageVersion = '2.24.2'
 export const nodeRequirement = '>=22.22.0'
 export const artifactOutputRoot = 'dist/editor'
 export const fullUpstreamUiMode = 'universo-full-upstream-ui'
@@ -2879,6 +2879,23 @@ export const writeBridgeBootstrap = (targetRoot) => {
       const userMatch = /^\\/api\\/users\\/([^/?]+)$/.exec(url.pathname);
       if (userMatch) {
         return { status: 200, body: createFullBootUserPayload(decodeURIComponent(userMatch[1])) };
+      }
+      // Fail-safe for any other editor-api REST GET (for example the
+      // v2.24.2 builds/apps/repositories/collaborators/activity endpoints
+      // that the upstream Editor probes during boot or picker setup).
+      // Without this branch the request falls through to native, the
+      // static artifact server answers with HTML (200) or an empty body
+      // (204), and the upstream editor-api Ajax loader throws an invalid
+      // json error when it runs JSON.parse on that body. We are a
+      // single-user, cloud-only no-op surface, so an empty list or empty
+      // object is the correct compatibility answer. List-shaped paths get
+      // a paginated empty result; everything else gets an empty object.
+      if (/^\\/api\\/projects\\/[^/]+\\//.test(url.pathname) || /^\\/api\\/(projects|scenes|assets|branches|checkpoints|merge|jobs|store|apps)\\b/.test(url.pathname)) {
+        const listShaped = /(builds|apps|repositories|collaborators|activity|branches|scenes|assets|checkpoints)(\\b|\\/|\\?|$)/.test(url.pathname);
+        return {
+          status: 200,
+          body: listShaped ? { result: [], pagination: { hasMore: false, total: 0 } } : {}
+        };
       }
     } catch {}
     return null;

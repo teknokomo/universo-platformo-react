@@ -76,6 +76,23 @@
     MMOOMM fixture generator Playwright, local minimal Supabase MMOOMM imported
     app runtime Playwright, and `git diff --check`.
 
+## 2026-06-15 - PlayCanvas Editor v2.23.4 → v2.24.2 Upstream Update ✅
+
+-   Replaced `vendor/playcanvas-editor/` snapshot (8 commits, 42 files) with upstream `v2.24.2` (peeled commit `00360100b3b5747648eb3d7287421ef25491f5c7`) using atomic `.next` rename.
+-   Updated 30 active-code metadata files: frontend package, types contract, editor-backend test, 4 metahubs-backend sites, rest-docs OpenAPI emitter + regenerated `index.yml`, package READMEs (EN/RU), `NOTICE.md`, 9 PlayCanvas Editor Skills, EN/RU GitBook docs.
+-   Verified zero remaining `v2.23.4` / `2.23.4` / `c4916f4…` references in active code paths.
+-   New 3-guard governance surface: `check:playcanvas-editor-metadata` (fails on stale `2.23.4` / `v2.23.4`), `check:playcanvas-editor-vendor-drift` (developer-local only, no-op in CI), `.prettierignore` excluding `vendor/playcanvas-editor/**`.
+-   `playcanvas-editor-authoring` Skill extended with new `## Upstream Update Governance` section — 11-step checklist for the next upstream bump.
+-   Files: 30 active-code metadata + 9 Skills + 2 docs + 4 governance + 3 Memory Bank + 2 generated. Pattern: `playcanvas-editor-authoring/SKILL.md#upstream-update-governance`.
+-   Verification: 14/14 unit tests pass; 30/30 E2E tests pass (desktop/tablet/mobile) including the new v2.24.2 picker probe with screenshot at `e2e/screenshots/v2-24-2-picker.png`; 42/42 editor-backend tests; 125/125 types tests; 123/123 metahubs-backend targeted tests; 95/95 EN/RU doc pair checks; all 3 governance guards pass on clean state.
+
+## 2026-06-16 - PlayCanvas Editor v2.24.2 PR CI Fix ✅
+
+-   Fixed the CI-breaking `Error: invalid json at Ajax._onLoad` regression on the MMOOMM runtime import E2E (`snapshot-import-mmoomm-app-runtime.spec.ts:103`). Root cause: the v2.24.2 upstream Editor probes additional editor-api REST GET paths (`/builds`, `/apps`, etc.) during boot that the hosted shell's `createFullBootCloudApiResponse` did not handle; the unmatched request fell through to native, the static artifact server answered with HTML/empty body, and the upstream `Ajax._onLoad` threw `invalid json` on `JSON.parse`.
+-   Fix in `scripts/lib/playcanvas-editor-artifact.mjs` only (no vendored-source edit): added a fail-safe branch in `createFullBootCloudApiResponse` that answers any unmatched editor-api REST GET with an empty cloud-only no-op payload (`{result:[],pagination:{hasMore:false,total:0}}` for list-shaped paths, `{}` otherwise). Matched paths keep their exact responses.
+-   Verified locally with the exact failing command on local minimal Supabase: `imported MMOOMM app snapshot` runtime test passes (2 passed, 1.5m), plus 30/30 browser-smoke and 14/14 unit tests still green.
+-   Gemini Code Assist review: applied 2 valid tool-file fixes (removed unused `fileURLToPath` import in `check-playcanvas-editor-vendor-drift.mjs`; made the sentinel read async in `check-playcanvas-editor-metadata.mjs`). Declined the 3 vendored-source suggestions (optional chaining / `Object.create(null)` / `unbind` guard in `picker-version-control-diff.ts`, `vc-helpers.ts`, `picker-version-control.ts`) because those files are byte-identical to upstream `v2.24.2` and editing them would break the `check:playcanvas-editor-vendor-drift` guard — they belong upstream. Declined the 2-space indentation suggestion: the project Prettier config pins `tabWidth: 4`.
+
 ## 2026-06-14 - MMOOMM Imported PlayCanvas Editor Viewport Closure
 
 -   Closed the user-reported imported `metahubs-mmoomm-app-snapshot.json`

@@ -670,3 +670,29 @@ Close the QA blockers found after the first implementation pass. This work compl
 -   [x] Keep generated MMOOMM fixture artifacts out of the canonical fixture source path unless explicitly promoted.
 -   [x] Put the imported MMOOMM Editor viewport proof into the normal agent/E2E gate so hierarchy-only or nonblank-grid-only checks cannot pass.
 -   [x] Run focused unit/static checks, fixture contract/drift checks, local minimal Supabase MMOOMM app runtime/import E2E, and a final Thermos/autoreview pass. Final helper run was stopped after a long dirty-worktree bundle timeout; scoped manual Thermos review found no new accepted findings.
+
+# PlayCanvas Editor Upstream Update v2.24.2 Implementation Tasks
+
+> Date: 2026-06-15
+> Source plan: `memory-bank/plan/playcanvas-editor-upstream-2-24-2-update-plan-2026-06-15.md`
+> Source brief: `.manager/specs/platformo/playcanvas-editor-upstream-2-24-2-update-governance-spec-2026-06-15.md`
+> Source research: `memory-bank/research/playcanvas-editor-upstream-2-24-2-update-research-2026-06-15.md`
+
+## Scope
+
+Update the vendored PlayCanvas Editor frontend in `@universo-react/playcanvas-editor-frontend` from upstream `v2.23.4` to `v2.24.2`, with a new 3-guard governance surface (metadata, vendor-drift, formatter protection) so the next upstream bump is mechanical. Keep the package as a minimally modified upstream artifact boundary, not a fork.
+
+## Checklist
+
+-   [x] 2026-06-15: Replace `vendor/playcanvas-editor/` snapshot with v2.24.2 (commit `00360100b3b5747648eb3d7287421ef25491f5c7`) using atomic `.next` rename; update `vendor/UPSTREAM.md` (with v2.23.4 → v2.24.2 changelog section), `vendor/package.playcanvas-editor.json` (`version: "2.24.2"`), `vendor/LICENSE.playcanvas-editor`, `NOTICE.md`. Drop `package.json`, `package-lock.json`, `test/`, `test-suite/`, `.github/`, Docker files, Renovate, `.env.template`, `.mocharc.json`, `.nvmrc`, `.stylelintrc.json`.
+-   [x] 2026-06-15: Bump in-tree constants in `src/index.ts` (3 constants) and `scripts/lib/playcanvas-editor-artifact.mjs` (mirror). Update `tests/artifact.test.mjs` (3 expect assertions + Node assertion test on lines 90-97).
+-   [x] 2026-06-15: Bump cross-package metadata: `packages/universo-react-types/src/common/playcanvasEditorCompatibility.ts:216` (`z.literal`), `playcanvasEditorBridge.test.ts`, `playcanvas-editor-backend/src/index.test.ts:50`, `PlayCanvasProjectsService.ts:974`, `playCanvasEditorCompatibilityRoutes.test.ts:35`, `playCanvasProjectsController.test.ts` (2 occurrences).
+-   [x] 2026-06-15: Update `packages/universo-react-rest-docs/scripts/generate-openapi-source.js:1007` (enum `v2.24.2`); regenerate `index.yml` via `pnpm --filter @universo-react/rest-docs generate:openapi`. Verified `v2.24.2` appears at line 14903.
+-   [x] 2026-06-15: Update 9 PlayCanvas Editor Skills (`authoring` frontmatter + Version Guard + new "Upstream Update Governance" section; `api-realtime`, `assets`, `interface`, `scenes`, `scripting`, `settings`, `version-control` Version Guard bumps). `universo-compat` does not mention a specific version, no change.
+-   [x] 2026-06-15: Update `packages/universo-react-playcanvas-editor-frontend/README.md` and `README-RU.md` (Tag/Commit/Version); `NOTICE.md`.
+-   [x] 2026-06-15: Update `docs/en/platform/playcanvas-editor.md` and `docs/ru/platform/playcanvas-editor.md` — Current Scope + Typed Bridge Contract (with `BuildJob` / `BuildJobFormat` additive types note) + Full Upstream UI Boot (with "Builds panel" + "Version control picker" sub-bullets marked "TBD — verify after first browser smoke") + Troubleshooting (new `picker:versioncontrol:hasRetainedDiff` note).
+-   [x] 2026-06-15: Add `tools/check-playcanvas-editor-metadata.mjs` (reads `src/index.ts` for current version, scans active code paths for stale `2.23.4` / `v2.23.4` literals, allowlists vendor/memory-bank/self/UPSTREAM.md). Wire as `check:playcanvas-editor-metadata` in root `package.json`.
+-   [x] 2026-06-15: Add `tools/check-playcanvas-editor-vendor-drift.mjs` (developer-local only; reads `PC_EDITOR_UPSTREAM_DIR`; **exits 0 in CI** when absent). Wire as `check:playcanvas-editor-vendor-drift`.
+-   [x] 2026-06-15: Add `.prettierignore` excluding `packages/universo-react-playcanvas-editor-frontend/vendor/**` and other generated paths. Verified vendor is not in the `--check` output.
+-   [x] 2026-06-15: Add v2.24.2 picker sub-assertion + screenshot to `e2e/editor-artifact.spec.ts`. **All 30 E2E tests pass** across desktop/tablet/mobile viewports.
+-   [x] 2026-06-15: Run all 3 governance guards, focused E2E on local artifact server, and update Memory Bank records.

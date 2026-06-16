@@ -640,3 +640,26 @@
 **Detection**: `rg "rate-limiting|RedisClientManager|REDIS_URL|express-rate-limit|rate-limit-redis" packages`
 
 **Why**: the project expects production-ready distributed rate limiting for multi-instance deployments without each package inventing its own limiter contract.
+
+## Vendored Upstream Update Governance
+
+**Rule**: when a workspace package vendors an upstream third-party source (a snapshot in a `vendor/` subdirectory), the next upstream bump must be mechanical, not a hand-rolled migration.
+
+**Required** for any package that vendors upstream source under a `vendor/<upstream>/` subtree:
+
+-   **Single source of truth** for the pinned tag/version/commit: `src/index.ts` (or the equivalent constant module). The artifact build script (`scripts/lib/<artifact>.mjs`) re-declares the same constants so build-time validation can fail closed before Vite runs.
+-   **Three governance primitives** (root-level `check:` scripts in the monorepo root `package.json`):
+    1. `check:<pkg>-isolation` — blocks cross-package imports that reach into the vendor tree.
+    2. `check:<pkg>-metadata` — grep guard that reads the current constants from `src/index.ts`, derives the **previous** version literals (tag + version; the commit SHA is not enumerable), and fails if any active-code file still references the previous version. Allowlist: `vendor/`, `memory-bank/`, the guard script itself, and the provenance record (`vendor/UPSTREAM.md`).
+    3. `check:<pkg>-vendor-drift` — diff guard that compares the vendored source against the pinned upstream tag. **Developer-local only by design**: reads `PC_<PKG>_UPSTREAM_DIR` (default `~/dev/<upstream>-<tag>`), a sibling worktree OUTSIDE `packages/**` to satisfy the existing `git clone/fetch/pull/submodule update` blocklist in `assertBuildScriptsDoNotInstall`. **Exits 0 in CI** when the directory is absent; full diff in developer terminals.
+-   **Formatter protection** at the repo root: `.prettierignore` must list `<pkg>/vendor/**` and other generated paths. ESLint's `.eslintrc.js` `ignorePatterns` already covers the same paths; do not extend the format glob to vendor.
+-   **Provenance record** at `vendor/UPSTREAM.md` lists the current tag, commit, snapshot date, license, and an "Update from X → Y (DATE)" section per bump. Memory Bank `techContext.md` "Last Reviewed" date is bumped in lockstep.
+-   **Skill extension, not new Skill**: the existing `playcanvas-editor-authoring` (or equivalent) Skill gets a new `## Upstream Update Governance` H2 section with an 11-step checklist. The next agent must update `src/index.ts` constants *and* the previous-version literals in the metadata guard in the same commit.
+-   **Snapshot replacement uses atomic `.next` rename** (not `rm -rf` + `cp`): stage into `vendor/<upstream>.next`, apply local omissions (`package.json`, `package-lock.json`, `test/`, `test-suite/`, `.github/`, Docker, Renovate), verify the staged copy contains the required new files, then `rm -rf` the old tree and `mv` the new one. Single-`git-checkout` recovery is possible if the rename fails.
+-   **Sibling worktree pattern** for `git archive` extraction: clone the upstream repo into `~/dev/<upstream>-<tag>` (outside `packages/**`), then `git archive <tag> | tar -x -C staging`. Inside `packages/**`, only `git archive` is allowed by the existing `assertBuildScriptsDoNotInstall` blocklist; `git clone` is not.
+
+**Detection**: `rg "vendor/<upstream>/" packages/<pkg>/` should show no `package.json` or `package-lock.json` (boundary rule preserved). `rg -l "v<X.Y.Z>" packages/ docs/ .agents/skills/` should return only the `vendor/UPSTREAM.md` historical section and the guard scripts.
+
+**Why**: prevents silent fork-drift, makes the next upstream bump a 30-minute mechanical task, and keeps the vendored source as a replaceable artifact rather than an opaque fork.
+
+**Reference implementation**: `playcanvas/editor` v2.23.4 → v2.24.2 update (`memory-bank/plan/playcanvas-editor-upstream-2-24-2-update-plan-2026-06-15.md`).
