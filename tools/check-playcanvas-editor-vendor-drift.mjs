@@ -25,7 +25,6 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:
 import { spawnSync } from 'node:child_process'
 import { tmpdir, homedir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { PLAYCANVAS_EDITOR_OMIT_DIRS, PLAYCANVAS_EDITOR_OMIT_FILES } from './playcanvas-editor-omit-paths.mjs'
 

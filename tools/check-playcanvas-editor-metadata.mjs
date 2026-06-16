@@ -19,7 +19,6 @@
 //   - dist/, build/, node_modules/, .turbo/, .tmp/, coverage/  (generated / deps)
 
 import { readFile } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { walkSourceFiles } from './lib/walk-source-files.mjs'
 
@@ -91,7 +90,7 @@ if (!currentTag || !currentVersion || !currentCommit) {
 const PREVIOUS_VERSION_SENTINEL = path.join(ROOT, 'tools/playcanvas-editor-previous-version.txt')
 let PREVIOUS_VERSION
 try {
-    PREVIOUS_VERSION = readFileSync(PREVIOUS_VERSION_SENTINEL, 'utf8').trim()
+    PREVIOUS_VERSION = (await readFile(PREVIOUS_VERSION_SENTINEL, 'utf8')).trim()
 } catch (err) {
     if (err.code === 'ENOENT') {
         console.error(

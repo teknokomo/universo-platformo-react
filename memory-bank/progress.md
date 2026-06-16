@@ -86,6 +86,13 @@
 -   Files: 30 active-code metadata + 9 Skills + 2 docs + 4 governance + 3 Memory Bank + 2 generated. Pattern: `playcanvas-editor-authoring/SKILL.md#upstream-update-governance`.
 -   Verification: 14/14 unit tests pass; 30/30 E2E tests pass (desktop/tablet/mobile) including the new v2.24.2 picker probe with screenshot at `e2e/screenshots/v2-24-2-picker.png`; 42/42 editor-backend tests; 125/125 types tests; 123/123 metahubs-backend targeted tests; 95/95 EN/RU doc pair checks; all 3 governance guards pass on clean state.
 
+## 2026-06-16 - PlayCanvas Editor v2.24.2 PR CI Fix ✅
+
+-   Fixed the CI-breaking `Error: invalid json at Ajax._onLoad` regression on the MMOOMM runtime import E2E (`snapshot-import-mmoomm-app-runtime.spec.ts:103`). Root cause: the v2.24.2 upstream Editor probes additional editor-api REST GET paths (`/builds`, `/apps`, etc.) during boot that the hosted shell's `createFullBootCloudApiResponse` did not handle; the unmatched request fell through to native, the static artifact server answered with HTML/empty body, and the upstream `Ajax._onLoad` threw `invalid json` on `JSON.parse`.
+-   Fix in `scripts/lib/playcanvas-editor-artifact.mjs` only (no vendored-source edit): added a fail-safe branch in `createFullBootCloudApiResponse` that answers any unmatched editor-api REST GET with an empty cloud-only no-op payload (`{result:[],pagination:{hasMore:false,total:0}}` for list-shaped paths, `{}` otherwise). Matched paths keep their exact responses.
+-   Verified locally with the exact failing command on local minimal Supabase: `imported MMOOMM app snapshot` runtime test passes (2 passed, 1.5m), plus 30/30 browser-smoke and 14/14 unit tests still green.
+-   Gemini Code Assist review: applied 2 valid tool-file fixes (removed unused `fileURLToPath` import in `check-playcanvas-editor-vendor-drift.mjs`; made the sentinel read async in `check-playcanvas-editor-metadata.mjs`). Declined the 3 vendored-source suggestions (optional chaining / `Object.create(null)` / `unbind` guard in `picker-version-control-diff.ts`, `vc-helpers.ts`, `picker-version-control.ts`) because those files are byte-identical to upstream `v2.24.2` and editing them would break the `check:playcanvas-editor-vendor-drift` guard — they belong upstream. Declined the 2-space indentation suggestion: the project Prettier config pins `tabWidth: 4`.
+
 ## 2026-06-14 - MMOOMM Imported PlayCanvas Editor Viewport Closure
 
 -   Closed the user-reported imported `metahubs-mmoomm-app-snapshot.json`
