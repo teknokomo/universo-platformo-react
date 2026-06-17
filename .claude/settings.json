@@ -24,7 +24,8 @@
       "Bash(pnpm add *)",
       "Read(*)",
       "Bash(pnpm exec *)",
-      "Bash(node tools *)"
+      "Bash(node tools *)",
+      "mcp__github__*"
     ],
     "deny": [
       "Read(.env*)",
