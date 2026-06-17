@@ -1,41 +1,27 @@
 ---
 name: ontoindex-code-intelligence
-description: Use when an AI agent should consult the OntoIndex code graph before editing this monorepo — finding symbol usages, blast-radius/impact across packages, call/route/process context, or diff-to-symbol review. Covers the `ontoindex` MCP tools and CLI, the local-first index, the reindex/freshness rule, and the namespace-collision caveat (this is code intelligence over source, NOT OWL/RDF/SPARQL and NOT runtime/business-data search).
+description: Universo-specific complement to the OntoIndex code-intelligence tool. Use alongside the generated `.claude/skills/ontoindex/*` skills when querying the code graph in this monorepo. Adds the three things those generated skills do NOT cover — the namespace-collision caveat (this is code intelligence over source, NOT OWL/RDF/SPARQL), this repo's pnpm wrapper and golden queries, and the SQL-first edge-quality limitation.
 metadata:
     version: '1.9.10'
     scope: 'project-workflow'
     owner: 'Universo Platformo'
 ---
 
-# OntoIndex Code Intelligence
+# OntoIndex Code Intelligence — Universo Complement
 
-Use this skill when working in `upstream-universo-platformo-react` and a change
-benefits from a graph-level view of the codebase before editing: locating every
-usage of a symbol, estimating the blast radius of a refactor across the
-`core-backend → feature-backend → api-client → feature-frontend` chains, tracing
-call/route/process context, or mapping a diff back to the symbols it touches.
+This skill is a **thin, project-specific complement**. The generated OntoIndex
+skills under `.claude/skills/ontoindex/` are the source of truth for how to use
+the tool (tools, resources, workflows, checklists, graph schema):
 
-OntoIndex ([`ontograph/ontoindex`](https://github.com/ontograph/ontoindex),
-pinned `v1.9.10`) builds a **local-first** code graph and exposes it through a
-stdio **MCP server** and a CLI. It is a developer/agent tool only — Phase A adds
-no product feature, no UI, and no backend service.
+-   `.claude/skills/ontoindex/ontoindex-guide` — tools/resources/schema reference
+-   `.claude/skills/ontoindex/ontoindex-exploring` — understand architecture
+-   `.claude/skills/ontoindex/ontoindex-impact-analysis` — blast radius before edits
+-   `.claude/skills/ontoindex/ontoindex-debugging` — trace bugs through the graph
+-   `.claude/skills/ontoindex/ontoindex-refactoring` — safe rename/extract/split
+-   `.claude/skills/ontoindex/ontoindex-cli` — `analyze`/`status`/`clean`/`wiki`
 
-## When To Apply
-
-Apply this skill when:
-
--   a refactor or rename touches a shared symbol and you need its full cross-package usage;
--   you need the blast radius / impacted tests before changing a load-bearing module
-    (e.g. three-tier DB executors, `recordBehavior`, the entity-type resolver, the module runtime contract);
--   you need call/route/process context that plain `grep` cannot assemble;
--   you want to map a diff to the graph symbols and flows it affects.
-
-Do **not** apply this skill when:
-
--   you only need to read one known file — just read it;
--   you need product/runtime data (metahub rows, application records, user data) —
-    OntoIndex indexes **source code and markdown**, not Supabase rows;
--   you expect OWL/RDF/SPARQL semantics (see the collision warning below).
+Read those for mechanics. This file adds only what is specific to
+`universo-platformo-react` and is not in the generated set.
 
 ## Critical: Namespace Collision
 
@@ -44,41 +30,35 @@ Do **not** apply this skill when:
 -   the OWL/RDF/"OntoGraph" semantic-web family;
 -   the unrelated Rust `ontoindex-*` crates (`ontoindex-core`, `ontoindex-lsp`).
 
-Never `npm install` or `cargo install` a similarly named package expecting this
-tool. Install only the pinned release described in the contributor docs.
+Never `npm`/`pnpm add`/`cargo install` a similarly named package expecting this
+tool. Install only the pinned release described in the contributor docs
+(`docs/en/contributing/ontoindex-code-intelligence.md`).
 
-## How To Query
+## This Repo: pnpm Wrapper, Not Bare `npx`
 
-CLI (wrapped by repo scripts; the wrapper warns if the installed version differs
-from the pinned `1.9.10`):
+The generated skills call `npx ontoindex …`. In this monorepo, prefer the
+committed wrapper and scripts (pnpm-only, run from the repo root):
 
 -   `pnpm ontoindex:status` — index health, indexed `lastCommit` vs `HEAD`.
 -   `pnpm ontoindex:analyze` — build/rebuild the graph (`.ontoindex/`).
 -   `pnpm ontoindex:changes` — incremental `detect-changes` (pre-commit audit).
--   Direct verbs through the wrapper, e.g. `node tools/ontoindex/run-ontoindex.mjs impact <symbol> --depth 2`.
+-   Other verbs: `node tools/ontoindex/run-ontoindex.mjs <verb> …` (the wrapper
+    warns if the installed version differs from the pinned one).
 
-MCP (for agents): the `ontoindex` server is declared in the repo `.mcp.json`.
-Claude Code auto-approves it (`enableAllProjectMcpServers: true`). Use the
-server's search / context / impact / review tools to ask graph-level questions
-before editing. Codex/Gemini/Qoder developers configure it per-developer (see the
-contributor docs).
+The local graph lives in `.ontoindex/` (gitignored) and the global registry in
+`~/.ontoindex/`; it never leaves the machine and is never committed.
 
-## Freshness Rule
+## SQL-First Edge-Quality Limitation
 
-The graph reflects the commit it was last analyzed at. After pulling significant
-changes, re-run `pnpm ontoindex:analyze` (full) or `pnpm ontoindex:changes`
-(incremental) so impact/context answers are not stale. `ontoindex:status`
-compares the indexed `lastCommit` against `HEAD`.
-
-## Local-Only Contract
-
-The graph lives in `.ontoindex/` (gitignored) and the global registry in
-`~/.ontoindex/`. The index never leaves the machine and must never be committed.
-There are no secrets in the index; the wrapper reads no env secrets and makes no
-network calls.
+OntoIndex treats TypeScript/JavaScript as first-class. This repo is SQL-first, so
+the quality of `DEFINES`/`CALLS` edges inside raw SQL and DDL under `supabase/`
+and the schema-DDL helpers should be verified in use. Treat the graph as a strong
+aid for TypeScript, route, and call-graph questions, and keep direct review for
+the SQL layer. Do not overclaim SQL coverage.
 
 ## References
 
--   [references/usage.md](references/usage.md) — golden Universo queries to copy.
+-   [references/usage.md](references/usage.md) — golden Universo queries to copy
+    (three-tier DB executors, publication sync, metahub migrations, module runtime).
 -   Contributor docs: `docs/en/contributing/ontoindex-code-intelligence.md`
     (and `docs/ru/...`) — install, MCP setup, daily use, limitations.
