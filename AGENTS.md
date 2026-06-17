@@ -39,8 +39,8 @@ When work affects PlayCanvas Editor integrations, asset processing, scripting co
 
 For all code modifications, code reviews, final QA passes, or when the user requests an autoreview, apply the Thermos Rubrics via the `autoreview` tool with `.agents/skills/thermos*`.
 
-- **Correctness & Security:** Validate time-ordered UUID v7 usage, verify parameterized SQL query bind parameters, check origin headers in WebSocket upgrades, prevent credentials/PII logging, and maintain API backward compatibility.
-- **Maintainability:** Ensure files are modular and not monolithic, prevent circular dependencies, require unit/integration test coverage, and enforce styling standards.
+-   **Correctness & Security:** Validate time-ordered UUID v7 usage, verify parameterized SQL query bind parameters, check origin headers in WebSocket upgrades, prevent credentials/PII logging, and maintain API backward compatibility.
+-   **Maintainability:** Ensure files are modular and not monolithic, prevent circular dependencies, require unit/integration test coverage, and enforce styling standards.
 
 Issues found are graded as CRITICAL (blocker), HIGH (fix before merge), MEDIUM (track in backlog), or LOW (suggestion). Any CRITICAL correctness or blocker maintainability finding blocks merging.
 
@@ -129,3 +129,50 @@ Issues found are graded as CRITICAL (blocker), HIGH (fix before merge), MEDIUM (
     2.  **Register Migrations**: Import your migration definition into `packages/universo-react-migrations-platform/src/platformMigrations.ts` and add it to the `platformMigrations` array.
     3.  **Create Store Modules**: Write store files (e.g., `myStore.ts`) that accept a `DbExecutor` and run SQL queries via `executor.query(sql, params)`. Use `$1`, `$2`, etc. for PostgreSQL bind parameters.
     4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo-react/utils`. This ensures RLS context is applied.
+
+<!-- ontoindex:start -->
+
+# OntoIndex — Code Intelligence
+
+This project is indexed by OntoIndex as **universo-platformo-react** (59713 symbols, 98693 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
+
+> If any OntoIndex tool warns the index is stale, coordinate first; exactly one process should run `ontoindex analyze`.
+
+> Universo-specific complement: also read `.agents/skills/ontoindex-code-intelligence` for the namespace-collision caveat, this repo's pnpm wrapper (`pnpm ontoindex:*`), golden queries, and the SQL-first edge-quality limitation. In this monorepo prefer `pnpm ontoindex:*` over bare `npx ontoindex`.
+
+## Always Do
+
+-   **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run MCP `impact({action: "symbol", repo: "universo-platformo-react", target: "symbolName", direction: "upstream"})` or CLI `ontoindex impact --repo universo-platformo-react <symbol>`, then report the blast radius (direct callers, affected processes, risk level) to the user.
+-   **MUST run MCP `gn_verify_diff({repo: "universo-platformo-react", scope: "all"})` or CLI `ontoindex detect-changes --repo universo-platformo-react` before committing** to verify your changes only affect expected symbols and execution flows.
+-   **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+-   When exploring unfamiliar code, use MCP `search({action: "semantic", repo: "universo-platformo-react", query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+-   When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use MCP `inspect({action: "context", repo: "universo-platformo-react", target: "symbolName"})`.
+
+## Never Do
+
+-   NEVER edit a function, class, or method without first running MCP `impact` or CLI `ontoindex impact` on it.
+-   NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+-   NEVER rename symbols with find-and-replace — use MCP `refactor({action: "rename", ...})` which understands the call graph.
+-   NEVER commit changes without running MCP `gn_verify_diff` or CLI `ontoindex detect-changes` to check affected scope.
+
+## Resources
+
+| Resource                                                   | Use for                                  |
+| ---------------------------------------------------------- | ---------------------------------------- |
+| `ontoindex://repo/universo-platformo-react/context`        | Codebase overview, check index freshness |
+| `ontoindex://repo/universo-platformo-react/clusters`       | All functional areas                     |
+| `ontoindex://repo/universo-platformo-react/processes`      | All execution flows                      |
+| `ontoindex://repo/universo-platformo-react/process/{name}` | Step-by-step execution trace             |
+
+## CLI
+
+| Task                                         | Read this skill file                                          |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| Understand architecture / "How does X work?" | `.claude/skills/ontoindex/ontoindex-exploring/SKILL.md`       |
+| Blast radius / "What breaks if I change X?"  | `.claude/skills/ontoindex/ontoindex-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?"             | `.claude/skills/ontoindex/ontoindex-debugging/SKILL.md`       |
+| Rename / extract / split / refactor          | `.claude/skills/ontoindex/ontoindex-refactoring/SKILL.md`     |
+| Tools, resources, schema reference           | `.claude/skills/ontoindex/ontoindex-guide/SKILL.md`           |
+| Index, status, clean, wiki CLI commands      | `.claude/skills/ontoindex/ontoindex-cli/SKILL.md`             |
+
+<!-- ontoindex:end -->
