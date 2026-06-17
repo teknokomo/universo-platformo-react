@@ -44,9 +44,10 @@ catalog:
     '@types/react': ^18.3.18
     '@types/react-dom': ^18.3.5
 
-    # React Router - updated to latest for React 18 compatibility
-    react-router: ^6.28.0
-    react-router-dom: ^6.28.0
+    # React Router - bumped to 6.30.4 (fixes GHSA-2j2x-hqr9-3h42 open redirect);
+    # keep react-router and react-router-dom in lockstep (dom pins router exactly)
+    react-router: ^6.30.4
+    react-router-dom: ^6.30.4
 
     # Build tools and bundlers
     # PINNED: tsdown 0.15.7 - newer versions use rolldown 1.0.0-beta.45 which generates
