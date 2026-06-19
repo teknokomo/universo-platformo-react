@@ -354,6 +354,28 @@ describe('Packages Routes', () => {
         expect(mockFindPlayCanvasProject).toHaveBeenCalledWith(mockExec, 'mhb_default_schema', '019e8afa-0000-7000-8000-000000000001')
     })
 
+    it('ignores a malformed (non-UUID) ?projectId= and falls back to the package default project', async () => {
+        // Regression guard: a malformed override must never reach the uuid lookup
+        // (`WHERE id = $1`), or Postgres raises "invalid input syntax for type
+        // uuid" → 500. It is discarded and the configured default is used instead.
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    ...displayConfig,
+                    playcanvasProject: { defaultProjectId: '019e8afa-0000-7000-8000-000000000001' }
+                }
+            }
+        ])
+
+        await request(buildApp())
+            .get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host')
+            .query({ projectId: 'not-a-uuid' })
+            .expect(200)
+
+        expect(mockFindPlayCanvasProject).toHaveBeenCalledWith(mockExec, 'mhb_default_schema', '019e8afa-0000-7000-8000-000000000001')
+    })
+
     it('does not expose a hosted bridge artifact when the configured default project is stale', async () => {
         mockListMetahubPackages.mockResolvedValueOnce([
             {

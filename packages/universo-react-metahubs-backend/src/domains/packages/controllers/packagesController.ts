@@ -476,7 +476,12 @@ export function createPackagesController(createHandler: ReturnType<typeof create
             // duration of this session only — the attachment config is never
             // mutated, so a deep-link with `?projectId=…` is non-destructive.
             const requestedProjectIdRaw = typeof req.query?.projectId === 'string' ? req.query.projectId.trim() : ''
-            const requestedProjectId = requestedProjectIdRaw.length > 0 ? requestedProjectIdRaw : null
+            // The override flows straight into a `WHERE id = $1` uuid lookup
+            // (findPlayCanvasProject), so reject anything that is not a well-formed
+            // UUID — otherwise a malformed `?projectId=` raises a Postgres
+            // "invalid input syntax for type uuid" 500. A non-UUID override is
+            // ignored and we fall back to the package's default project.
+            const requestedProjectId = z.string().uuid().safeParse(requestedProjectIdRaw).success ? requestedProjectIdRaw : null
             const bridgeSourceProjectId = requestedProjectId ?? defaultProjectId
             const shouldEnableBridge = canServeIsolatedArtifact && manifestStatus === 'expected' && bridgeSourceProjectId != null
             const branchSchemaName = shouldEnableBridge ? await resolveDefaultBranchSchemaName(exec, metahubId) : null

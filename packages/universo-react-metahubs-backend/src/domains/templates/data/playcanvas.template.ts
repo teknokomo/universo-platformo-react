@@ -1,13 +1,12 @@
 import type { MetahubTemplateManifest } from '@universo-react/types'
 import { buildBasicMinimalSeedZoneWidgets, vlc } from './basic.template'
 
-/** Object-like per-kind settings mirrored from the basic/object defaults. */
-const buildObjectLikeProjectSettings = (kind: string) => [
+// Per-kind settings for the non-object-like `project` type. It has no
+// components (no dataSchema/records/physicalTable capability), so only the
+// copy/delete toggles apply — component-level settings would be dead config.
+const buildProjectEntitySettings = (kind: string) => [
     { key: `entity.${kind}.allowCopy`, value: { _value: true } },
-    { key: `entity.${kind}.allowDelete`, value: { _value: true } },
-    { key: `entity.${kind}.allowComponentCopy`, value: { _value: true } },
-    { key: `entity.${kind}.allowComponentDelete`, value: { _value: true } },
-    { key: `entity.${kind}.allowDeleteLastDisplayComponent`, value: { _value: true } }
+    { key: `entity.${kind}.allowDelete`, value: { _value: true } }
 ]
 
 /**
@@ -67,7 +66,7 @@ export const playcanvasTemplate: MetahubTemplateManifest = {
             { key: 'general.codenameAutoConvertMixedAlphabets', value: { _value: true } },
             { key: 'general.codenameAutoReformat', value: { _value: true } },
             { key: 'general.codenameRequireReformat', value: { _value: true } },
-            ...buildObjectLikeProjectSettings('project'),
+            ...buildProjectEntitySettings('project'),
             { key: 'entity.object.allowComponentCopy', value: { _value: true } },
             { key: 'entity.object.allowComponentDelete', value: { _value: true } },
             { key: 'entity.object.allowDeleteLastDisplayComponent', value: { _value: true } }

@@ -5443,18 +5443,6 @@
         }
       },
       {
-        "key": "entity.project.allowComponentCopy",
-        "value": {
-          "_value": true
-        }
-      },
-      {
-        "key": "entity.project.allowComponentDelete",
-        "value": {
-          "_value": true
-        }
-      },
-      {
         "key": "entity.project.allowCopy",
         "value": {
           "_value": true
@@ -5462,12 +5450,6 @@
       },
       {
         "key": "entity.project.allowDelete",
-        "value": {
-          "_value": true
-        }
-      },
-      {
-        "key": "entity.project.allowDeleteLastDisplayComponent",
         "value": {
           "_value": true
         }
