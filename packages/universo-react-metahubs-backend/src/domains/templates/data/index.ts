@@ -9,7 +9,9 @@ import { basicDemoTemplate } from './basic-demo.template'
 import { emptyTemplate } from './empty.template'
 import { lmsTemplate } from './lms.template'
 import { oneCCompatibleTemplate } from './one-c-compatible.template'
+import { playcanvasTemplate } from './playcanvas.template'
 import { objectEntityPreset } from './object.entity-preset'
+import { projectEntityPreset } from './project.entity-preset'
 import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
 import { ledgerEntityPreset } from './ledger.entity-preset'
 import { enumerationEntityPreset } from './option-list.entity-preset'
@@ -27,12 +29,14 @@ export const builtinTemplates: MetahubTemplateManifest[] = [
     basicDemoTemplate,
     emptyTemplate,
     lmsTemplate,
-    oneCCompatibleTemplate
+    oneCCompatibleTemplate,
+    playcanvasTemplate
 ]
 
 export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
     hubEntityPreset,
     objectEntityPreset,
+    projectEntityPreset,
     pageEntityPreset,
     setEntityPreset,
     enumerationEntityPreset,

@@ -1,6 +1,6 @@
 ---
 name: ontoindex-cli
-description: 'Use when the user needs to run OntoIndex CLI commands like analyze/index a repo, check status, clean the index, generate a wiki, or list indexed repos. Examples: "Index this repo", "Reanalyze the codebase", "Generate a wiki"'
+description: "Use when the user needs to run OntoIndex CLI commands like analyze/index a repo, check status, clean the index, generate a wiki, or list indexed repos. Examples: \"Index this repo\", \"Reanalyze the codebase\", \"Generate a wiki\""
 ---
 
 # OntoIndex CLI Commands
@@ -77,6 +77,6 @@ Lists all repositories registered in `~/.ontoindex/registry.json`. The MCP `list
 
 ## Troubleshooting
 
--   **"Not inside a git repository"**: Run from a directory inside a git repo
--   **Index is stale after re-analyzing**: Restart Claude Code to reload the MCP server
--   **Embeddings slow**: Omit `--embeddings` (it's off by default) or set `OPENAI_API_KEY` for faster API-based embedding
+- **"Not inside a git repository"**: Run from a directory inside a git repo
+- **Index is stale after re-analyzing**: Restart Claude Code to reload the MCP server
+- **Embeddings slow**: Omit `--embeddings` (it's off by default) or set `OPENAI_API_KEY` for faster API-based embedding

@@ -61,3 +61,8 @@ Published applications should read immutable hashed runtime assets or stored run
 -   Collaborative authoring and conflict merge UI beyond checksum-based save protection.
 -   Colyseus authoring state.
 -   AI/MCP scene editing.
+
+## Related
+
+-   [Projects Entity Type](./projects-entity-type.md) — first-class entity-type preset that binds to a PlayCanvas project 1:1.
+-   [PlayCanvas Metahub Template](./playcanvas-template.md) — metahub template that includes the Projects preset.

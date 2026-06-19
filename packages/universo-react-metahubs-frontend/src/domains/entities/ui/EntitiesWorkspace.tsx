@@ -443,6 +443,8 @@ const getDefaultEnabledComponent = (key: keyof EntityTypeCapabilities) => {
             return { enabled: true, allowManualPosting: true, allowAutomaticPosting: true }
         case 'ledgerSchema':
             return { enabled: true, allowProjections: true, allowRegistrarPolicy: true, allowManualFacts: false }
+        case 'projectBinding':
+            return { enabled: true, provider: 'playcanvasEditor', cardinality: 'single' }
         default:
             return { enabled: true }
     }
@@ -522,6 +524,13 @@ const normalizeEntityTypeCapabilitiesForBuilder = (value: unknown): EntityTypeCa
               allowManualFacts: (source.ledgerSchema as Record<string, unknown>).allowManualFacts === true
           }
         : false
+    const projectBinding = isEnabledCapabilityConfig(source.projectBinding as never)
+        ? {
+              enabled: true as const,
+              provider: 'playcanvasEditor' as const,
+              cardinality: 'single' as const
+          }
+        : false
 
     const manifest: EntityTypeCapabilities = {
         dataSchema,
@@ -551,7 +560,8 @@ const normalizeEntityTypeCapabilitiesForBuilder = (value: unknown): EntityTypeCa
         identityFields,
         recordLifecycle,
         posting,
-        ledgerSchema
+        ledgerSchema,
+        projectBinding
     }
 
     if (!isEnabledCapabilityConfig(manifest.dataSchema)) {
@@ -626,7 +636,7 @@ const patchEnabledComponentConfig = (
 ): EntityTypeCapabilities => {
     const manifest = setComponentEnabledState(manifestValue, key, true)
     const currentValue = isEnabledCapabilityConfig(manifest[key])
-        ? (manifest[key] as Record<string, unknown>)
+        ? (manifest[key] as unknown as Record<string, unknown>)
         : (getDefaultEnabledComponent(key) as Record<string, unknown>)
 
     ;(manifest as Record<string, unknown>)[key] = {
@@ -1610,7 +1620,10 @@ const EntitiesWorkspace = () => {
                                             >
                                                 <Stack spacing={1.5}>
                                                     <Typography variant='subtitle2'>
-                                                        {t(`entities.capabilities.${surface.capability}`, surface.fallbackTitle)}
+                                                        {t(
+                                                            `entities.capabilities.${surface.capability}`,
+                                                            surface.fallbackTitle ?? surface.key
+                                                        )}
                                                     </Typography>
                                                     <TextField
                                                         label={t('entities.fields.resourceSurfaceKey', 'Resource tab key')}
@@ -1996,6 +2009,29 @@ const EntitiesWorkspace = () => {
                                                 fullWidth
                                             />
                                         ) : null}
+                                    </Stack>
+                                </Box>
+                                <Box sx={COMPONENT_SECTION_SX}>
+                                    <Stack spacing={1.5}>
+                                        <Typography variant='subtitle2'>
+                                            {t('entities.capabilities.projectBinding', 'Project binding')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'entities.capabilities.projectBindingHelper',
+                                                'Adds a resource tab that binds each instance to a single external authoring project, such as a PlayCanvas Editor project.'
+                                            )}
+                                        </Typography>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={isEnabledCapabilityConfig(capabilities.projectBinding)}
+                                                    onChange={(event) => setComponentEnabled('projectBinding', event.target.checked)}
+                                                    disabled={isLoading || isStructureLocked}
+                                                />
+                                            }
+                                            label={t('entities.capabilities.projectBinding', 'Project binding')}
+                                        />
                                     </Stack>
                                 </Box>
                             </Box>

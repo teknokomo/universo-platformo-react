@@ -1,6 +1,6 @@
 # Product Context
 
-> **Last Reviewed**: 2026-05-22 (refreshed: product focus shifted from UPDL to the metahub configuration model and LMS as the primary configuration)
+> **Last Reviewed**: 2026-06-18 (refreshed: repository version 0.65.0 → 0.69.0-alpha; PlayCanvas Editor package + "Projects" entity type binding now part of the configuration model)
 
 ## Purpose
 
@@ -159,7 +159,7 @@ product.
 
 ## Current Status
 
--   **Repository version**: `upr-0.65.0-alpha`.
+-   **Repository version**: `upr-0.69.0-alpha`.
 -   **Active focus**: LMS Learning Content productization (Projects,
     Standalone Content, Courses, Learning Tracks, Quizzes), with
     iSpring LMS as the benchmark.

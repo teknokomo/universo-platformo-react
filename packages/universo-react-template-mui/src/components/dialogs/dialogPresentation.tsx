@@ -432,7 +432,17 @@ export function useDialogPresentation({
                   }
                 : resolvedHeight
                 ? {
-                      height: `min(${viewportHeight}, ${resolvedHeight}px)`
+                      // Apply the stored/resized height as a floor, never a hard
+                      // cap: the paper grows to fit its content (up to the
+                      // viewport) so it never shows a spurious scrollbar when
+                      // there is room to grow — e.g. when a shorter stored height
+                      // (shared per metahub across differently sized dialogs)
+                      // would otherwise clip taller content. Using `minHeight`
+                      // both during the drag and at rest keeps the resize gesture
+                      // continuous: growing tracks the cursor, and shrinking
+                      // stops at the content height instead of snapping taller on
+                      // mouse-up.
+                      minHeight: `min(${viewportHeight}, ${resolvedHeight}px)`
                   }
                 : {})
         }
@@ -516,9 +526,16 @@ export function useDialogPresentation({
         },
         titleActions,
         resizeHandle,
+        // Explicitly set BOTH overflow axes. Setting only one axis to a
+        // non-`visible` value while the other stays `visible` makes the browser
+        // compute the `visible` axis as `auto` (CSS overflow spec), which used to
+        // produce a spurious vertical scrollbar on the dialog content even when it
+        // fit. `auto` only scrolls when content actually exceeds the paper's
+        // `maxHeight`; `hidden` keeps horizontal resize from adding an X scrollbar.
         contentSx: enabled
             ? {
-                  overflowX: 'hidden'
+                  overflowX: 'hidden',
+                  overflowY: 'auto'
               }
             : undefined
     }

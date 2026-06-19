@@ -313,6 +313,47 @@ describe('Packages Routes', () => {
         expect(response.headers['cache-control']).toBe('no-store')
     })
 
+    it('pins the bridge session to an explicit ?projectId= even when the package has no default project', async () => {
+        const requestedProjectId = '019e8afa-0000-7000-8000-0000000000aa'
+        // No `playcanvasProject.defaultProjectId` on the attachment: the only
+        // way the bridge can resolve a project is via the query override.
+        mockListMetahubPackages.mockResolvedValueOnce([{ ...playCanvasAttachment, config: { ...displayConfig } }])
+        mockFindPlayCanvasProject.mockResolvedValueOnce({ id: requestedProjectId, version: 4 })
+        mockSummarizePlayCanvasProject.mockResolvedValueOnce({ id: requestedProjectId, defaultSceneId: null })
+
+        const response = await request(buildApp())
+            .get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host')
+            .query({ projectId: requestedProjectId })
+            .expect(200)
+
+        // The bridge resolved the REQUESTED project, not the package default
+        // (which is absent) — proving `?projectId=` overrides defaultProjectId.
+        expect(mockFindPlayCanvasProject).toHaveBeenCalledWith(mockExec, 'mhb_default_schema', requestedProjectId)
+        expect(response.body.playcanvasEditor?.selectedProject?.project?.id).toBe(requestedProjectId)
+        expect(response.body.playcanvasEditor?.bridge?.sessionToken).toEqual(expect.any(String))
+        expect(response.body.playcanvasEditor?.compatibilityStatus).toBe('ready')
+    })
+
+    it('ignores a blank ?projectId= and falls back to the package default project', async () => {
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    ...displayConfig,
+                    playcanvasProject: { defaultProjectId: '019e8afa-0000-7000-8000-000000000001' }
+                }
+            }
+        ])
+
+        await request(buildApp())
+            .get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host')
+            .query({ projectId: '   ' })
+            .expect(200)
+
+        // A blank/whitespace override is discarded; the configured default wins.
+        expect(mockFindPlayCanvasProject).toHaveBeenCalledWith(mockExec, 'mhb_default_schema', '019e8afa-0000-7000-8000-000000000001')
+    })
+
     it('does not expose a hosted bridge artifact when the configured default project is stale', async () => {
         mockListMetahubPackages.mockResolvedValueOnce([
             {

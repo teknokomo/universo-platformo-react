@@ -468,10 +468,20 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                 !isAttachmentConfigBlocked && hasArtifact && (displayMode === 'embeddedIframe' || displayMode === 'openSeparately')
             const artifactPublicOrigin = shouldServeArtifact ? resolveArtifactPublicOrigin(req) : null
             const canServeIsolatedArtifact = shouldServeArtifact && artifactPublicOrigin != null
-            const shouldEnableBridge = canServeIsolatedArtifact && manifestStatus === 'expected' && defaultProjectId != null
+
+            // The host page may pass an explicit `?projectId=<uuid>` query param to
+            // pin the bridge session to a specific project (e.g. when the user
+            // clicks "Open editor" on a Projects-section binding card). When
+            // present, it overrides the package's `defaultProjectId` for the
+            // duration of this session only — the attachment config is never
+            // mutated, so a deep-link with `?projectId=…` is non-destructive.
+            const requestedProjectIdRaw = typeof req.query?.projectId === 'string' ? req.query.projectId.trim() : ''
+            const requestedProjectId = requestedProjectIdRaw.length > 0 ? requestedProjectIdRaw : null
+            const bridgeSourceProjectId = requestedProjectId ?? defaultProjectId
+            const shouldEnableBridge = canServeIsolatedArtifact && manifestStatus === 'expected' && bridgeSourceProjectId != null
             const branchSchemaName = shouldEnableBridge ? await resolveDefaultBranchSchemaName(exec, metahubId) : null
             const selectedProjectRow =
-                shouldEnableBridge && branchSchemaName ? await findPlayCanvasProject(exec, branchSchemaName, defaultProjectId) : null
+                shouldEnableBridge && branchSchemaName ? await findPlayCanvasProject(exec, branchSchemaName, bridgeSourceProjectId) : null
             const selectedProject =
                 shouldEnableBridge && branchSchemaName && selectedProjectRow
                     ? await summarizePlayCanvasProject(exec, branchSchemaName, selectedProjectRow)

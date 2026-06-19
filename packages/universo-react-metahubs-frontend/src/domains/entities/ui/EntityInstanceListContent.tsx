@@ -74,7 +74,9 @@ import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import { createModulesTab } from '../../modules/ui/EntityModulesTab'
 import { modulesApi } from '../../modules/api/modulesApi'
 import { createEntityActionsTab, createEntityEventsTab } from './EntityAutomationTab'
+import { ProjectBindingSurface } from './ProjectBindingSurface'
 import { ObjectCollectionDeleteDialog } from '../../../components'
+import { openPlayCanvasEditor, playcanvasProjectsApi, resolveEditorDisplayMode, usePlayCanvasEditorHostQuery } from '../../packages/api'
 import type { MetahubEntityInstance, UpdateEntityInstancePayload } from '../api'
 import * as entitiesApi from '../api'
 import {
@@ -483,6 +485,9 @@ const EntityInstanceListContent = () => {
     const showActionsTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.actions))
     const showEventsTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.events))
     const showPageBlocksTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.blockContent))
+    const projectBindingSurface = entityType?.ui.resourceSurfaces?.find((surface) => surface.capability === 'projectBinding') ?? null
+    const showProjectBindingTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.projectBinding))
+    const projectBindingRouteSegment = projectBindingSurface?.routeSegment ?? 'project'
     const dataSchemaSurface = entityType?.ui.resourceSurfaces?.find((surface) => surface.capability === 'dataSchema') ?? null
     const usesDedicatedDataSchemaSurface = Boolean(
         dataSchemaSurface && dataSchemaSurface.routeSegment !== FALLBACK_DATA_SCHEMA_ROUTE_SEGMENT
@@ -1204,6 +1209,21 @@ const EntityInstanceListContent = () => {
         [instanceById]
     )
 
+    // A row is "open-editor-able" when it carries a project binding — by codename
+    // (the canonical reference) or a cached id. The editor handler resolves the
+    // live id from the codename, so a stale/absent cached id still works.
+    const hasBoundProject = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>): boolean => {
+            const entity = resolveDisplayEntity(row)
+            const binding = (entity?.config as { projectBinding?: { projectId?: unknown; projectCodename?: unknown } } | undefined)
+                ?.projectBinding
+            const hasCodename = typeof binding?.projectCodename === 'string' && binding.projectCodename.length > 0
+            const hasId = typeof binding?.projectId === 'string' && binding.projectId.length > 0
+            return hasCodename || hasId
+        },
+        [resolveDisplayEntity]
+    )
+
     const handleOpenEditRow = useCallback(
         (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
             const entity = resolveDisplayEntity(row)
@@ -1220,6 +1240,45 @@ const EntityInstanceListContent = () => {
             navigate(`${contentRouteBase}/${entity.id}/${standardCollectionRouteSegment}`)
         },
         [contentRouteBase, navigate, resolveDisplayEntity, standardCollectionRouteSegment]
+    )
+
+    // Editor host descriptor for the row "Open editor" action. Reuses the shared
+    // query (same cache key as the binding card) and is only enabled when the
+    // project-binding surface is in scope, so the row menu does not
+    // unconditionally refetch the authoring host descriptor for every kind.
+    const rowEditorHostQuery = usePlayCanvasEditorHostQuery(metahubId, showProjectBindingTab)
+
+    // Live PlayCanvas projects for the metahub, used to resolve the row binding's
+    // CURRENT project id by codename. The cached `config.projectBinding.projectId`
+    // can be stale (e.g. after a snapshot import remaps project ids), so codename
+    // — the canonical reference — wins over the cached id when both are present.
+    const rowProjectsQuery = useQuery({
+        queryKey: metahubsQueryKeys.playcanvasProjects(metahubId ?? ''),
+        queryFn: () => playcanvasProjectsApi.list(metahubId as string),
+        enabled: Boolean(metahubId && showProjectBindingTab)
+    })
+
+    const handleOpenProjectEditorRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity || !metahubId) return
+            const binding = (
+                entity.config as { projectBinding?: { projectId?: string | null; projectCodename?: string | null } } | undefined
+            )?.projectBinding
+            const cachedProjectId = typeof binding?.projectId === 'string' ? binding.projectId : null
+            const codename = typeof binding?.projectCodename === 'string' ? binding.projectCodename : null
+            const projects = rowProjectsQuery.data ?? []
+            // Prefer the live project resolved by codename (authoritative); fall
+            // back to a cached id that still matches a live project; only then to
+            // the raw cached id (covers the not-yet-loaded list case).
+            const resolved =
+                (codename
+                    ? projects.find((project) => getLocalizedContentText(project.codename, preferredVlcLocale, '') === codename)
+                    : null) ?? (cachedProjectId ? projects.find((project) => project.id === cachedProjectId) : null)
+            const projectId = resolved?.id ?? cachedProjectId
+            openPlayCanvasEditor({ metahubId, projectId, displayMode: resolveEditorDisplayMode(rowEditorHostQuery.data) })
+        },
+        [metahubId, preferredVlcLocale, resolveDisplayEntity, rowEditorHostQuery.data, rowProjectsQuery.data]
     )
 
     const handleOpenCopyRow = useCallback(
@@ -1391,6 +1450,20 @@ const EntityInstanceListContent = () => {
                 })
             }
 
+            // Project binding tab — only when the entity kind declares the
+            // `projectBinding` resource surface, and only in edit mode (we need
+            // an existing row to bind). The dialog's route is the instances list
+            // (no `:entityId` param), so we pass `metahubId`/`entityId`
+            // explicitly; the surface cannot read them from `useParams` here.
+            if (showProjectBindingTab && options.mode === 'edit' && options.entityId && metahubId) {
+                const projectTabLabel = t('projects.binding.resourceTabTitle', 'PlayCanvas')
+                tabs.push({
+                    id: projectBindingRouteSegment,
+                    label: projectTabLabel,
+                    content: <ProjectBindingSurface embedded metahubId={metahubId} entityId={options.entityId} />
+                })
+            }
+
             if (options.mode === 'edit' && options.entityId && showEmbeddedComponentsTab) {
                 tabs.push({
                     id: 'components',
@@ -1518,6 +1591,8 @@ const EntityInstanceListContent = () => {
             showLedgerSchemaTab,
             showPageBlocksTab,
             showModulesTab,
+            showProjectBindingTab,
+            projectBindingRouteSegment,
             t,
             treeAssignmentTabId,
             translate,
@@ -1640,8 +1715,17 @@ const EntityInstanceListContent = () => {
             const canShowEdit = !row.isDeleted && canEditEntityInstances
             const canShowDelete = !row.isDeleted && canDeleteEntityInstances
             const canShowOpenContent = !row.isDeleted && canOpenStandardCollectionRow
+            const canShowOpenProjectBinding = !row.isDeleted && showProjectBindingTab
 
-            if (!canShowRestore && !canShowPermanentDelete && !canShowOpenContent && !canShowCopy && !canShowEdit && !canShowDelete) {
+            if (
+                !canShowRestore &&
+                !canShowPermanentDelete &&
+                !canShowOpenContent &&
+                !canShowOpenProjectBinding &&
+                !canShowCopy &&
+                !canShowEdit &&
+                !canShowDelete
+            ) {
                 return null
             }
 
@@ -1657,6 +1741,23 @@ const EntityInstanceListContent = () => {
                     icon: <OpenInNewRoundedIcon />,
                     order: 5,
                     onSelect: ({ entity }) => handleOpenContentRow(entity)
+                })
+            }
+
+            // The "Open editor" row shortcut opens the PlayCanvas Editor pinned to
+            // THIS instance's bound project, honoring the package's `display.mode`
+            // (popup on `openSeparately`, inline iframe otherwise). All other
+            // binding management (create / unbind / publish) lives in the
+            // "PlayCanvas" tab of the edit dialog, so there is no separate
+            // "open project" row action or standalone binding page anymore. Only
+            // offered when the row carries a bound project.
+            if (canShowOpenProjectBinding && hasBoundProject(row)) {
+                descriptors.push({
+                    id: 'open-project-editor',
+                    labelKey: 'projects.binding.actions.openEditor',
+                    icon: <OpenInNewRoundedIcon fontSize='small' />,
+                    order: 6,
+                    onSelect: ({ entity }) => handleOpenProjectEditorRow(entity)
                 })
             }
 
@@ -1740,6 +1841,9 @@ const EntityInstanceListContent = () => {
             canRestoreEntityInstances,
             dataSchemaSurface?.routeSegment,
             handleOpenContentRow,
+            handleOpenProjectEditorRow,
+            hasBoundProject,
+            showProjectBindingTab,
             handleOpenCopyRow,
             handleOpenDeleteRow,
             handleOpenEditRow,

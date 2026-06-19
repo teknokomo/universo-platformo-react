@@ -199,6 +199,22 @@ export async function findPlayCanvasProject(exec: DbExecutor, schemaName: string
     return rows[0] ?? null
 }
 
+export async function findPlayCanvasProjectByCodename(
+    exec: DbExecutor,
+    schemaName: string,
+    codename: string
+): Promise<PlayCanvasProjectRow | null> {
+    const codenameSql = codenamePrimaryTextSql('codename')
+    const rows = await exec.query<PlayCanvasProjectRow>(
+        `SELECT ${projectSelect}
+           FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_projects')}
+          WHERE ${codenameSql} = $1 AND _upl_deleted = false AND _mhb_deleted = false
+          LIMIT 1`,
+        [codename]
+    )
+    return rows[0] ?? null
+}
+
 export async function listPlayCanvasProjectCodenamesByPrefix(exec: DbExecutor, schemaName: string, prefix: string): Promise<string[]> {
     const codenameSql = codenamePrimaryTextSql('codename')
     const rows = await exec.query<{ codename: string | null }>(

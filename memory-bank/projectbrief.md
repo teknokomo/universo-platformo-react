@@ -1,6 +1,6 @@
 # Project Brief - Universo Platformo
 
-> **Last Reviewed**: 2026-05-22 (refreshed: architecture, package list, version, and removed legacy UPDL-as-core framing)
+> **Last Reviewed**: 2026-06-18 (refreshed: repository version 0.65.0 → 0.69.0-alpha; added `project` entity-type preset and `playcanvas` metahub template for PlayCanvas Editor project binding)
 
 ## Mission & Strategic Vision
 
@@ -45,7 +45,7 @@ The platform is also the foundation for two larger initiatives:
 
 ## Current Status
 
--   **Repository version**: `upr-0.65.0-alpha`.
+-   **Repository version**: `upr-0.69.0-alpha`.
 -   **Architecture status**: in active transition from a "feature packages
     on `universo-template-mui`" layout to an "everything is an Application
     on `apps-template-mui`" layout. Legacy packages remain functional and
@@ -65,7 +65,7 @@ A small fixed set of platform-level entity type presets covers most
 domain modeling. Templates curate which presets a new metahub starts
 with.
 
-### Platform-level entity type presets (7)
+### Platform-level entity type presets (8)
 
 | Preset            | Codename                      | Role                                                                                                                             |
 | ----------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -76,12 +76,13 @@ with.
 | Enumeration       | `enumeration` (`option-list`) | Closed list of named values                                                                                                      |
 | Ledger            | `ledger`                      | Specialized append-only register; alternative to Object + `config.ledger`                                                        |
 | Constants Library | `fixed-values-library`        | Set-style preset for typed constants without runtime publication widgets                                                         |
+| Project           | `project`                     | Binds an instance 1:1 to an external authoring project (PlayCanvas Editor) via the `projectBinding` capability                   |
 
 Plus cross-cutting capabilities: **attached modules** (TypeScript inside
 isolated-vm, server or client) and **workspaces inside published
 applications** (multi-tenant runtime isolation).
 
-### Metahub templates (4)
+### Metahub templates (curated subset)
 
 | Template        | Codename     | Default presets                                                                             |
 | --------------- | ------------ | ------------------------------------------------------------------------------------------- |
@@ -89,9 +90,11 @@ applications** (multi-tenant runtime isolation).
 | Basic Demo      | `basic-demo` | basic + sample data                                                                         |
 | Empty           | `empty`      | _(none)_ — user picks via constructor                                                       |
 | LMS             | `lms`        | basic preset set, plus seeded LMS objects (incl. ledger-style Objects with `config.ledger`) |
+| PlayCanvas      | `playcanvas` | hub + project; attaches the PlayCanvas Editor package for 3D authoring                      |
 
-Future templates (planned) include a **1C-compatible** template that
-exposes a full 1C:Enterprise metadata-object map.
+The seeder registers additional specialized templates (e.g. the
+**1C-compatible** family exposing a full 1C:Enterprise metadata-object
+map); the table above is the curated subset most relevant to product work.
 
 The full architectural description lives in the project skill at
 `.agents/skills/universo-platform-architecture/`.

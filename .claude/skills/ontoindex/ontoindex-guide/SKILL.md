@@ -1,6 +1,6 @@
 ---
 name: ontoindex-guide
-description: 'Use when the user asks about OntoIndex itself — available tools, how to query the knowledge graph, MCP resources, graph schema, or workflow reference. Examples: "What OntoIndex tools are available?", "How do I use OntoIndex?"'
+description: "Use when the user asks about OntoIndex itself — available tools, how to query the knowledge graph, MCP resources, graph schema, or workflow reference. Examples: \"What OntoIndex tools are available?\", \"How do I use OntoIndex?\""
 ---
 
 # OntoIndex Guide
@@ -19,8 +19,8 @@ For any task involving code understanding, debugging, impact analysis, or refact
 
 ## Skills
 
-| Task                                         | Skill to read                 |
-| -------------------------------------------- | ----------------------------- |
+| Task                                         | Skill to read       |
+| -------------------------------------------- | ------------------- |
 | Understand architecture / "How does X work?" | `ontoindex-exploring`         |
 | Blast radius / "What breaks if I change X?"  | `ontoindex-impact-analysis`   |
 | Trace bugs / "Why is X failing?"             | `ontoindex-debugging`         |
@@ -37,15 +37,15 @@ For any task involving code understanding, debugging, impact analysis, or refact
 | `impact`         | Symbol blast radius — what breaks at depth 1/2/3 with confidence         |
 | `detect_changes` | Git-diff impact — what do your current changes affect                    |
 | `rename`         | Multi-file coordinated rename with confidence-tagged edits               |
-| `cypher`         | Raw graph queries (read `ontoindex://repo/{name}/schema` first)          |
+| `cypher`         | Raw graph queries (read `ontoindex://repo/{name}/schema` first)           |
 | `list_repos`     | Discover indexed repos                                                   |
 
 ## Resources Reference
 
 Lightweight reads (~100-500 tokens) for navigation:
 
-| Resource                                        | Content                                   |
-| ----------------------------------------------- | ----------------------------------------- |
+| Resource                                       | Content                                   |
+| ---------------------------------------------- | ----------------------------------------- |
 | `ontoindex://repo/{name}/context`               | Stats, staleness check                    |
 | `ontoindex://repo/{name}/clusters`              | All functional areas with cohesion scores |
 | `ontoindex://repo/{name}/cluster/{clusterName}` | Area members                              |

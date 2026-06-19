@@ -819,7 +819,9 @@
             "optionValues": "Значения перечисления",
             "optionValuesHelper": "Сохраняет совместимость типа с регистрами значений в стиле Enumeration.",
             "fixedValues": "Константы",
-            "fixedValuesHelper": "Сохраняет совместимость типа с регистрами констант в стиле Set."
+            "fixedValuesHelper": "Сохраняет совместимость типа с регистрами констант в стиле Set.",
+            "projectBinding": "Связь с проектом",
+            "projectBindingHelper": "Добавляет вкладку ресурсов, связывающую каждый экземпляр с одним внешним проектом авторинга, например проектом PlayCanvas Editor."
         },
         "recordBehavior": {
             "defaultStateTitle": "Состояние {{index}}",
@@ -1330,7 +1332,6 @@
             "message": "Вы уверены, что хотите удалить этот хаб? Вложенные объекты, определения полей и записи могут стать недоступными.",
             "confirmMessage": "Вы уверены, что хотите удалить этот хаб? Это действие нельзя отменить.",
             "fetchError": "Не удалось проверить блокирующие объекты",
-            "hasBlockingObjects": "Нельзя удалить хаб. Следующие объекты требуют хотя бы один хаб и привязаны только к этому:",
             "hasBlockingObjects": "Нельзя удалить хаб. Следующие сущности требуют хотя бы один хаб и привязаны только к этому:",
             "resolutionHint": "Чтобы удалить этот хаб, сначала перепривяжите дочерние хабы и добавьте другой хаб к этим объектам, наборам и перечислениям или отключите обязательную привязку к хабу.",
             "sections": {}
@@ -1511,71 +1512,11 @@
             "mutationFailed": "Не удалось выполнить операцию с пакетом. Обновите страницу и попробуйте ещё раз."
         },
         "projects": {
-            "title": "Проекты PlayCanvas",
-            "description": "Хранилище проектов, которое использует подключённый пакет PlayCanvas Editor.",
             "loading": "Загрузка проектов PlayCanvas...",
             "loadError": "Не удалось загрузить проекты PlayCanvas.",
-            "readOnly": "Хранилище проектов доступно управляющим метахабом. Вы можете просматривать подключённые пакеты, но не можете изменять проекты PlayCanvas.",
             "unnamed": "Проект без названия",
             "defaultProject": "Проект по умолчанию",
-            "defaultNone": "Без проекта по умолчанию",
-            "defaultChip": "По умолчанию",
-            "defaultMissing": "Сохранённый проект по умолчанию больше недоступен.",
-            "counts": "Сцен: {{scenes}}, ассетов: {{assets}}, скриптов: {{scripts}}, сгенерированных артефактов: {{artifacts}}",
-            "empty": {
-                "title": "Проектов PlayCanvas пока нет",
-                "imageAlt": "Проектов PlayCanvas нет",
-                "description": "Создайте проект до подключения bridge редактора."
-            },
-            "fields": {
-                "name": "Название проекта",
-                "nameHelper": "Это название отображается в настройках пакетов метахаба."
-            },
-            "validation": {
-                "nameRequired": "Введите название проекта."
-            },
-            "status": {
-                "ready": "Готов",
-                "missing": "Не хватает файлов",
-                "checksumMismatch": "Контрольная сумма не совпадает",
-                "unsupportedType": "Тип не поддерживается",
-                "deferredProvider": "Отложенное хранилище",
-                "regenerable": "Можно пересоздать",
-                "publishBlocking": "Публикация заблокирована"
-            },
-            "compatibility": {
-                "compatible": "Совместим",
-                "needsMigration": "Нужно обновление",
-                "unsupported": "Не поддерживается",
-                "blocked": "Заблокирован"
-            },
-            "actions": {
-                "create": "Создать проект",
-                "publish": "Опубликовать runtime",
-                "publishUnavailable": "Исправьте состояние проекта перед публикацией.",
-                "delete": "Удалить проект",
-                "deleteNamed": "Удалить {{projectName}}"
-            },
-            "dialogs": {
-                "create": {
-                    "title": "Создать проект PlayCanvas"
-                },
-                "delete": {
-                    "title": "Удалить проект PlayCanvas",
-                    "description": "Удалить {{projectName}} и файлы этого проекта PlayCanvas. Отключение пакета не удаляет проекты.",
-                    "deleting": "Удаление..."
-                }
-            },
-            "notifications": {
-                "created": "Проект PlayCanvas создан",
-                "createFailed": "Не удалось создать проект PlayCanvas",
-                "defaultSaved": "Проект PlayCanvas по умолчанию сохранён",
-                "defaultFailed": "Не удалось сохранить проект PlayCanvas по умолчанию",
-                "published": "Проект PlayCanvas опубликован: runtime-сцен — {{count}}",
-                "publishFailed": "Не удалось опубликовать проект PlayCanvas",
-                "deleted": "Проект PlayCanvas удалён",
-                "deleteFailed": "Не удалось удалить проект PlayCanvas"
-            }
+            "defaultNone": "Без проекта по умолчанию"
         },
         "editorHost": {
             "fallbackName": "Редактор пакета",
@@ -1819,6 +1760,75 @@
             "success": "Добавлено объектов: {{count}}.",
             "partialSuccess": "Добавлено объектов: {{successCount}}. Не удалось привязать: {{failCount}}.",
             "failedAll": "Не удалось привязать выбранные объекты к текущему хабу. Проверьте ограничения и попробуйте снова."
+        }
+    },
+    "projects": {
+        "title": "Проекты",
+        "binding": {
+            "title": "Проект PlayCanvas",
+            "resourceTabTitle": "PlayCanvas",
+            "loading": "Загрузка связи с проектом PlayCanvas...",
+            "loadError": "Не удалось загрузить связь с проектом.",
+            "unnamedProject": "Проект без названия",
+            "missingProject": "Связанный проект PlayCanvas больше недоступен.",
+            "counts": "Сцен: {{scenes}}, ассетов: {{assets}}, скриптов: {{scripts}}, сгенерированных артефактов: {{artifacts}}",
+            "status": {
+                "ready": "Готов",
+                "needsAttention": "Требует внимания"
+            },
+            "compatibility": {
+                "needsMigration": "Требует миграции",
+                "blocked": "Заблокирован",
+                "unsupported": "Не поддерживается"
+            },
+            "actions": {
+                "createAndBind": "Создать и связать проект",
+                "bindExisting": "Привязать существующий проект",
+                "bind": "Привязать",
+                "openEditor": "Открыть редактор",
+                "publish": "Опубликовать runtime",
+                "unbind": "Отвязать"
+            },
+            "empty": {
+                "imageAlt": "Связанного проекта PlayCanvas нет",
+                "title": "Проект PlayCanvas ещё не связан",
+                "description": "Создайте и свяжите проект PlayCanvas, чтобы редактировать его 3D-сцену в редакторе."
+            },
+            "fields": {
+                "name": "Название проекта",
+                "nameHelper": "Отображается для связанного проекта PlayCanvas."
+            },
+            "validation": {
+                "nameRequired": "Введите название проекта."
+            },
+            "dialogs": {
+                "create": {
+                    "title": "Создать и связать проект PlayCanvas"
+                },
+                "bindExisting": {
+                    "title": "Привязать существующий проект PlayCanvas",
+                    "field": "Проект PlayCanvas",
+                    "helper": "Привяжите ранее созданный проект PlayCanvas. Проекты, уже привязанные в другом месте, можно использовать совместно.",
+                    "filterUnbound": "Показывать только непривязанные проекты",
+                    "empty": "Нет доступных проектов",
+                    "alreadyBound": "Уже привязан"
+                },
+                "unbind": {
+                    "title": "Отвязать проект PlayCanvas",
+                    "description": "Удалить связь между этой сущностью и её проектом PlayCanvas. Сам проект не удаляется.",
+                    "unbinding": "Отвязываем..."
+                }
+            },
+            "notifications": {
+                "created": "Проект PlayCanvas создан и связан",
+                "createFailed": "Не удалось создать и связать проект PlayCanvas",
+                "boundExisting": "Проект PlayCanvas привязан",
+                "bindFailed": "Не удалось привязать проект PlayCanvas",
+                "published": "Runtime опубликован, сцен: {{count}}",
+                "publishFailed": "Не удалось опубликовать runtime",
+                "unbound": "Проект PlayCanvas отвязан",
+                "unbindFailed": "Не удалось отвязать проект PlayCanvas"
+            }
         }
     },
     "pages": {
@@ -3014,9 +3024,6 @@
         "clearDisplayError": "Не удалось снять флаг отображаемого компонента",
         "childComponents": "Дочерние компоненты",
         "noChildComponents": "Дочерних компонентов пока нет",
-        "createChildDialog": {
-            "title": "Создать дочерний компонент"
-        },
         "editChildDialog": {
             "title": "Редактировать дочерний компонент"
         },

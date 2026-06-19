@@ -49,8 +49,12 @@ const mockObjectsService = {
     delete: jest.fn(),
     restore: jest.fn(),
     permanentDelete: jest.fn(),
-    reorderByKind: jest.fn()
+    reorderByKind: jest.fn(),
+    countActiveProjectBindingsByCodename: jest.fn()
 }
+
+const mockDeleteBoundProject = jest.fn()
+const mockResolveBoundProjectByCodename = jest.fn()
 
 const mockSettingsService = {
     findByKey: jest.fn()
@@ -185,6 +189,14 @@ jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
 jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     __esModule: true,
     MetahubObjectsService: jest.fn().mockImplementation(() => mockObjectsService)
+}))
+
+jest.mock('../../domains/playcanvas-projects/services/PlayCanvasProjectsService', () => ({
+    __esModule: true,
+    PlayCanvasProjectsService: jest.fn().mockImplementation(() => ({
+        deleteBoundProject: (...args: unknown[]) => mockDeleteBoundProject(...args),
+        resolveBoundProjectByCodename: (...args: unknown[]) => mockResolveBoundProjectByCodename(...args)
+    }))
 }))
 
 jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
@@ -422,6 +434,9 @@ describe('Entity instance routes', () => {
         mockObjectsService.restore.mockResolvedValue(undefined)
         mockObjectsService.permanentDelete.mockResolvedValue(undefined)
         mockObjectsService.reorderByKind.mockResolvedValue({ id: 'entity-1', sort_order: 3 })
+        mockObjectsService.countActiveProjectBindingsByCodename.mockResolvedValue(0)
+        mockDeleteBoundProject.mockResolvedValue(undefined)
+        mockResolveBoundProjectByCodename.mockResolvedValue({ id: 'pc-project-1' })
     })
 
     it('lists paginated custom entities', async () => {
@@ -1428,6 +1443,89 @@ describe('Entity instance routes', () => {
         expect(response.body.error).toBe('Invalid input')
         expect(mockObjectsService.createObject).not.toHaveBeenCalled()
         expect(mockCopyDesignTimeObjectChildren).not.toHaveBeenCalled()
+    })
+
+    it('strips the projectBinding link when copying a Projects-capable entity to avoid two owners racing the cascade', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'project-1',
+            kind: 'project',
+            codename: 'MyProject',
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'My project' } } },
+            description: null,
+            config: {
+                projectBinding: {
+                    provider: 'playcanvasEditor',
+                    projectCodename: 'mmoomm_world',
+                    projectId: 'pc-1'
+                }
+            },
+            _mhb_deleted: false
+        })
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'project',
+            capabilities: {
+                dataSchema: { enabled: true },
+                records: { enabled: true },
+                physicalTable: { enabled: true, prefix: 'proj' },
+                projectBinding: { enabled: true, provider: 'playcanvasEditor', cardinality: 'single' }
+            }
+        })
+        const app = buildApp()
+
+        await request(app).post('/metahub/metahub-1/entity/project-1/copy').send({}).expect(201)
+
+        expect(mockObjectsService.createObject).toHaveBeenCalledWith(
+            'metahub-1',
+            'project',
+            expect.objectContaining({ config: {} }),
+            'user-1',
+            mockExec
+        )
+        const persistedConfig = mockObjectsService.createObject.mock.calls[0][2].config
+        expect(persistedConfig).not.toHaveProperty('projectBinding')
+    })
+
+    const setupProjectInstanceForDelete = () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'project-1',
+            kind: 'project',
+            codename: 'MyProject',
+            config: { projectBinding: { provider: 'playcanvasEditor', projectCodename: 'mmoomm_world', projectId: 'pc-1' } },
+            _mhb_deleted: false
+        })
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'project',
+            capabilities: { projectBinding: { enabled: true, provider: 'playcanvasEditor', cardinality: 'single' } }
+        })
+    }
+
+    it('cascade-deletes the bound PlayCanvas project when no other instance references it', async () => {
+        setupProjectInstanceForDelete()
+        mockObjectsService.countActiveProjectBindingsByCodename.mockResolvedValueOnce(0)
+        const app = buildApp()
+
+        await request(app).delete('/metahub/metahub-1/entity/project-1').expect(204)
+
+        expect(mockObjectsService.countActiveProjectBindingsByCodename).toHaveBeenCalledWith(
+            'metahub-1',
+            'mmoomm_world',
+            'project-1',
+            'user-1'
+        )
+        expect(mockDeleteBoundProject).toHaveBeenCalledTimes(1)
+    })
+
+    it('does NOT cascade-delete a PlayCanvas project still shared by another instance', async () => {
+        setupProjectInstanceForDelete()
+        // Another active "Projects" instance still binds the same project.
+        mockObjectsService.countActiveProjectBindingsByCodename.mockResolvedValueOnce(1)
+        const app = buildApp()
+
+        await request(app).delete('/metahub/metahub-1/entity/project-1').expect(204)
+
+        expect(mockObjectsService.countActiveProjectBindingsByCodename).toHaveBeenCalled()
+        // The shared project survives — the surviving instance keeps its binding.
+        expect(mockDeleteBoundProject).not.toHaveBeenCalled()
     })
 
     it('restores a deleted custom entity via restore mode', async () => {

@@ -16,6 +16,7 @@ import {
     normalizeLedgerConfigFromConfig,
     supportsLedgerSchema,
     validateLedgerConfigReferences,
+    PROJECT_BINDING_PROVIDERS,
     type BlockContentCapabilityConfig,
     type PageBlockContentValidationOptions,
     type ResolvedEntityType,
@@ -233,6 +234,148 @@ export const validateEntityConfigForComponents = (
         throw new MetahubValidationError('Invalid page block content', {
             field: 'config.blockContent',
             issues: error instanceof Error ? error.message : error
+        })
+    }
+}
+
+/**
+ * Validates the shape of a `projectBinding` entry in an entity-instance config.
+ * The binding is a stable reference into the existing PlayCanvas project store
+ * (by codename); the store stays the source of truth. The capability must be
+ * enabled on the entity type, and the provider must be supported.
+ */
+export const validateProjectBindingConfigForEntity = (
+    resolvedType: ResolvedEntityType,
+    config: Record<string, unknown> | undefined
+): void => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return
+    }
+    if (!Object.prototype.hasOwnProperty.call(config, 'projectBinding')) {
+        return
+    }
+
+    const binding = config.projectBinding
+    // Allow clearing the binding by setting it to null/undefined (unbind).
+    if (binding === null || binding === undefined) {
+        return
+    }
+
+    if (!isEnabledCapabilityConfig(resolvedType.capabilities.projectBinding)) {
+        throw new MetahubValidationError('Project binding is not enabled for this entity type', {
+            kind: resolvedType.kindKey,
+            field: 'config.projectBinding'
+        })
+    }
+
+    if (typeof binding !== 'object' || Array.isArray(binding)) {
+        throw new MetahubValidationError('Project binding must be an object', {
+            field: 'config.projectBinding'
+        })
+    }
+
+    const record = binding as Record<string, unknown>
+    const provider = record.provider
+    const projectCodename = record.projectCodename
+
+    if (typeof provider !== 'string' || !(PROJECT_BINDING_PROVIDERS as readonly string[]).includes(provider)) {
+        throw new MetahubValidationError('Unsupported project binding provider', {
+            field: 'config.projectBinding.provider',
+            provider
+        })
+    }
+
+    if (typeof projectCodename !== 'string' || projectCodename.trim().length === 0) {
+        throw new MetahubValidationError('Project binding requires a project codename', {
+            field: 'config.projectBinding.projectCodename'
+        })
+    }
+
+    // `projectId` is an optional cached reference to the resolved project. When
+    // present it MUST be a non-empty string so the stored config matches the
+    // `ProjectBindingInstanceConfig` contract and the cascade/extractor can rely
+    // on it; reject numbers, objects, or empty strings outright.
+    if (
+        Object.prototype.hasOwnProperty.call(record, 'projectId') &&
+        record.projectId !== null &&
+        record.projectId !== undefined &&
+        (typeof record.projectId !== 'string' || record.projectId.trim().length === 0)
+    ) {
+        throw new MetahubValidationError('Project binding projectId must be a non-empty string when provided', {
+            field: 'config.projectBinding.projectId'
+        })
+    }
+}
+
+/**
+ * Reads a `projectBinding` reference out of an entity-instance config, if present
+ * and well-formed. Used to cascade-delete the bound PlayCanvas project when the
+ * owning instance is removed.
+ */
+export const extractProjectBindingFromConfig = (
+    config: Record<string, unknown> | null | undefined
+): { provider: string; projectCodename: string; projectId: string | null } | null => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return null
+    }
+    const binding = (config as Record<string, unknown>).projectBinding
+    if (!binding || typeof binding !== 'object' || Array.isArray(binding)) {
+        return null
+    }
+    const record = binding as Record<string, unknown>
+    const provider = typeof record.provider === 'string' ? record.provider : null
+    const projectCodename = typeof record.projectCodename === 'string' ? record.projectCodename.trim() : ''
+    if (!provider || projectCodename.length === 0) {
+        return null
+    }
+    const projectId = typeof record.projectId === 'string' && record.projectId.trim().length > 0 ? record.projectId.trim() : null
+    return { provider, projectCodename, projectId }
+}
+
+/**
+ * Resolves a PlayCanvas project by codename against the project store. Backed by
+ * {@link PlayCanvasProjectsService.resolveBoundProjectByCodename} so the schema
+ * the binding is validated against is always the SAME one the store and the
+ * cascade use (the metahub's default branch), never the caller's active branch.
+ */
+export type ProjectBindingResolver = (codename: string) => Promise<{ id: string } | null>
+
+/**
+ * Validates the project binding in a request-scoped DB context. Beyond the shape
+ * checks of `validateProjectBindingConfigForEntity`, this also resolves the binding
+ * target against the project store (via `resolveProject`) and rejects bindings
+ * that point to a non-existent or soft-deleted PlayCanvas project.
+ *
+ * Used by create / update handlers to prevent storing a binding that the cascade
+ * path would silently no-op on.
+ */
+export const validateAndResolveProjectBinding = async (params: {
+    resolvedType: ResolvedEntityType
+    config: Record<string, unknown> | undefined
+    resolveProject: ProjectBindingResolver
+}): Promise<void> => {
+    // First, run the same shape validation so we get identical 400s for malformed payloads.
+    validateProjectBindingConfigForEntity(params.resolvedType, params.config)
+    const binding = extractProjectBindingFromConfig(params.config)
+    if (!binding) {
+        return
+    }
+
+    const row = await params.resolveProject(binding.projectCodename)
+    if (!row) {
+        throw new MetahubValidationError('Project binding refers to a non-existent or soft-deleted PlayCanvas project', {
+            field: 'config.projectBinding.projectCodename',
+            projectCodename: binding.projectCodename
+        })
+    }
+    // The store resolves against the default-branch project schema, so finding the
+    // row proves the project exists for this metahub. The optional cached
+    // `projectId` must match the live row when both are present.
+    if (binding.projectId && row.id !== binding.projectId) {
+        throw new MetahubValidationError('Project binding projectId does not match the PlayCanvas project resolved by codename', {
+            field: 'config.projectBinding.projectId',
+            projectId: binding.projectId,
+            resolvedProjectId: row.id
         })
     }
 }

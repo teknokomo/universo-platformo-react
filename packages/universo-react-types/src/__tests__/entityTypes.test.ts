@@ -14,6 +14,9 @@ import {
     validateEntityResourceSurfacesAgainstCapabilities,
     validateCapabilityDependencies,
     buildEntitySettingKey,
+    isEntityResourceSurfaceCapability,
+    ENTITY_RESOURCE_SURFACE_CAPABILITIES,
+    CAPABILITY_DEPENDENCIES,
     METAHUB_SETTINGS_REGISTRY,
     type EntityTypeCapabilities,
     METAHUB_MENU_ITEM_KINDS,
@@ -173,6 +176,47 @@ describe('entity type contracts', () => {
             runtimeBehavior: false,
             physicalTable: false
         })
+    })
+
+    it('recognizes projectBinding as a resource-surface capability with no structural dependencies', () => {
+        expect(ENTITY_RESOURCE_SURFACE_CAPABILITIES).toContain('projectBinding')
+        expect(isEntityResourceSurfaceCapability('projectBinding')).toBe(true)
+        expect(CAPABILITY_DEPENDENCIES.projectBinding).toEqual([])
+    })
+
+    it('resolves the default projectBinding resource surface and keeps dependency validation clean', () => {
+        expect(getDefaultEntityResourceSurfaceDefinition('projectBinding')).toMatchObject({
+            key: 'projectBinding',
+            capability: 'projectBinding',
+            routeSegment: 'project'
+        })
+
+        const manifest: EntityTypeCapabilities = {
+            dataSchema: { enabled: true },
+            records: { enabled: true },
+            treeAssignment: false,
+            optionValues: false,
+            fixedValues: false,
+            hierarchy: false,
+            nestedCollections: false,
+            relations: false,
+            actions: false,
+            events: false,
+            modules: false,
+            blockContent: false,
+            layoutConfig: false,
+            runtimeBehavior: false,
+            physicalTable: { enabled: true, prefix: 'proj' },
+            identityFields: false,
+            recordLifecycle: false,
+            posting: false,
+            ledgerSchema: false,
+            projectBinding: { enabled: true, provider: 'playcanvasEditor', cardinality: 'single' }
+        }
+
+        expect(validateCapabilityDependencies(manifest)).toEqual([])
+        expect(getEnabledCapabilityKeys(manifest)).toContain('projectBinding')
+        validateEntityResourceSurfacesAgainstCapabilities([getDefaultEntityResourceSurfaceDefinition('projectBinding')], manifest)
     })
 
     it('exposes shared default resource surface metadata by capability', () => {

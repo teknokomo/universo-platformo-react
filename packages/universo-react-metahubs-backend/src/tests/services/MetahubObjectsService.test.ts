@@ -230,6 +230,52 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
         expect(JSON.parse(params[3])).toEqual({ hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 3 })
     })
 
+    it('clears a project binding when config.projectBinding is null but keeps it when the key is absent', async () => {
+        const existing = {
+            id: 'inst-1',
+            kind: 'project',
+            codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'World' } } },
+            presentation: {},
+            config: {
+                sortOrder: 7,
+                projectBinding: { provider: 'playcanvasEditor', projectCodename: 'mmoomm_world', projectId: 'proj-1' }
+            }
+        } as never
+
+        // The persisted config is the only JSON-object string bind-param for these
+        // calls (no name/codename are sent), so locate it by parsing.
+        const persistedConfig = (callIndex: number): Record<string, unknown> => {
+            const params = mockQuery.mock.calls[callIndex][1] as unknown[]
+            for (const param of params) {
+                if (typeof param !== 'string') continue
+                try {
+                    const parsed = JSON.parse(param)
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>
+                } catch {
+                    // Non-JSON bind param (id, user id, …) — skip.
+                }
+            }
+            throw new Error('config bind-param not found')
+        }
+
+        // Unbind path: an explicit `null` survives the shallow-merge + strip
+        // (only `undefined` is stripped), so the stored binding is overwritten.
+        jest.spyOn(service, 'findById').mockResolvedValue(existing)
+        mockQuery.mockResolvedValueOnce([{ id: 'inst-1' }])
+        await service.updateObject('metahub-1', 'inst-1', 'project', { config: { projectBinding: null }, updatedBy: 'user-1' }, 'user-1')
+        expect(persistedConfig(0)).toEqual({ sortOrder: 7, projectBinding: null })
+
+        // Absent key path (the original bug): shallow-merge leaves the binding in
+        // place, which is why the unbind must send `null` rather than omit the key.
+        jest.spyOn(service, 'findById').mockResolvedValue(existing)
+        mockQuery.mockResolvedValueOnce([{ id: 'inst-1' }])
+        await service.updateObject('metahub-1', 'inst-1', 'project', { config: { sortOrder: 9 }, updatedBy: 'user-1' }, 'user-1')
+        expect(persistedConfig(1)).toEqual({
+            sortOrder: 9,
+            projectBinding: { provider: 'playcanvasEditor', projectCodename: 'mmoomm_world', projectId: 'proj-1' }
+        })
+    })
+
     it('filters virtual shared containers out of standard object lists and counts', async () => {
         mockQuery.mockResolvedValueOnce([
             { id: 'object-1', kind: 'object', codename: { _primary: 'en', locales: { en: { content: 'object' } } } }
@@ -240,5 +286,33 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
 
         expect(mockQuery.mock.calls[0][0]).toContain("COALESCE((config->>'isVirtualContainer')::boolean, false) = false")
         expect(mockQuery.mock.calls[1][0]).toContain("COALESCE((config->>'isVirtualContainer')::boolean, false) = false")
+    })
+
+    it('counts active instances bound to a PlayCanvas project by codename, excluding one instance', async () => {
+        mockQuery.mockResolvedValueOnce([{ count: '2' }])
+
+        const count = await service.countActiveProjectBindingsByCodename('metahub-1', 'mmoomm_world', 'inst-1', 'user-1')
+
+        expect(count).toBe(2)
+        const [sql, params] = mockQuery.mock.calls[0]
+        // Filters on the JSONB binding codename, excludes the given id, and only
+        // counts ACTIVE rows (not soft-deleted) so a deleted sibling cannot keep
+        // a shared project alive.
+        expect(sql).toContain("config->'projectBinding'->>'projectCodename' = $1")
+        expect(sql).toContain('id <> $2')
+        expect(sql).toContain('_mhb_deleted = FALSE')
+        expect(sql).toContain('_upl_deleted = FALSE')
+        expect(params).toEqual(['mmoomm_world', 'inst-1'])
+    })
+
+    it('omits the id-exclusion clause when no instance id is excluded', async () => {
+        mockQuery.mockResolvedValueOnce([{ count: '0' }])
+
+        const count = await service.countActiveProjectBindingsByCodename('metahub-1', 'mmoomm_world')
+
+        expect(count).toBe(0)
+        const [sql, params] = mockQuery.mock.calls[0]
+        expect(sql).not.toContain('id <> $2')
+        expect(params).toEqual(['mmoomm_world'])
     })
 })

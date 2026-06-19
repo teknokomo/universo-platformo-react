@@ -1,17 +1,17 @@
 ---
 name: ontoindex-exploring
-description: 'Use when the user asks how code works, wants to understand architecture, trace execution flows, or explore unfamiliar parts of the codebase. Examples: "How does X work?", "What calls this function?", "Show me the auth flow"'
+description: "Use when the user asks how code works, wants to understand architecture, trace execution flows, or explore unfamiliar parts of the codebase. Examples: \"How does X work?\", \"What calls this function?\", \"Show me the auth flow\""
 ---
 
 # Exploring Codebases with OntoIndex
 
 ## When to Use
 
--   "How does authentication work?"
--   "What's the project structure?"
--   "Show me the main components"
--   "Where is the database logic?"
--   Understanding code you haven't seen before
+- "How does authentication work?"
+- "What's the project structure?"
+- "Show me the main components"
+- "Where is the database logic?"
+- Understanding code you haven't seen before
 
 ## Workflow
 
@@ -38,8 +38,8 @@ description: 'Use when the user asks how code works, wants to understand archite
 
 ## Resources
 
-| Resource                                 | What you get                                            |
-| ---------------------------------------- | ------------------------------------------------------- |
+| Resource                                | What you get                                            |
+| --------------------------------------- | ------------------------------------------------------- |
 | `ontoindex://repo/{name}/context`        | Stats, staleness warning (~150 tokens)                  |
 | `ontoindex://repo/{name}/clusters`       | All functional areas with cohesion scores (~300 tokens) |
 | `ontoindex://repo/{name}/cluster/{name}` | Area members with file paths (~500 tokens)              |

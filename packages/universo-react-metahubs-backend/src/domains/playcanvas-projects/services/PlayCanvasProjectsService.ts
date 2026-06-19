@@ -56,6 +56,7 @@ import {
     createPlayCanvasProject,
     findPlayCanvasAsset,
     findPlayCanvasProject,
+    findPlayCanvasProjectByCodename,
     findPlayCanvasScene,
     findPlayCanvasSourceFileByStableId,
     listPlayCanvasProjects,
@@ -2201,6 +2202,41 @@ export class PlayCanvasProjectsService {
             throw error
         }
         return summarizePlayCanvasProject(this.exec, schemaName, deleted)
+    }
+
+    /**
+     * Cascade-deletes the PlayCanvas project bound 1:1 to a "Projects" entity
+     * instance. Resolves the project by id (preferred) or codename and reuses
+     * {@link deleteProject}. Idempotent: a missing/already-deleted project is a
+     * no-op so deleting the owning instance never fails on a stale binding.
+     */
+    async deleteBoundProject(
+        metahubId: string,
+        binding: { projectId?: string | null; projectCodename?: string | null },
+        userId: string
+    ): Promise<void> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        let row = binding.projectId ? await findPlayCanvasProject(this.exec, schemaName, binding.projectId) : null
+        if (!row && binding.projectCodename) {
+            row = await findPlayCanvasProjectByCodename(this.exec, schemaName, binding.projectCodename)
+        }
+        if (!row) {
+            return
+        }
+        await this.deleteProject(metahubId, row.id, { expectedVersion: row.version }, userId)
+    }
+
+    /**
+     * Resolves the live PlayCanvas project a `projectBinding` references, by its
+     * codename, in the same project-store schema the rest of this service uses
+     * ({@link resolveSchemaName} — the metahub's default branch). Returns `null`
+     * for a missing or soft-deleted project. The single source of truth for
+     * "where projects live" so binding validation cannot drift from the store.
+     */
+    async resolveBoundProjectByCodename(metahubId: string, codename: string): Promise<{ id: string } | null> {
+        const schemaName = await this.resolveSchemaName(metahubId)
+        const row = await findPlayCanvasProjectByCodename(this.exec, schemaName, codename)
+        return row ? { id: row.id } : null
     }
 
     async readProjectFile(

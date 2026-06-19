@@ -1,17 +1,17 @@
 ---
 name: ontoindex-debugging
-description: 'Use when the user is debugging a bug, tracing an error, or asking why something fails. Examples: "Why is X failing?", "Where does this error come from?", "Trace this bug"'
+description: "Use when the user is debugging a bug, tracing an error, or asking why something fails. Examples: \"Why is X failing?\", \"Where does this error come from?\", \"Trace this bug\""
 ---
 
 # Debugging with OntoIndex
 
 ## When to Use
 
--   "Why is this function failing?"
--   "Trace where this error comes from"
--   "Who calls this method?"
--   "This endpoint returns 500"
--   Investigating bugs, errors, or unexpected behavior
+- "Why is this function failing?"
+- "Trace where this error comes from"
+- "Who calls this method?"
+- "This endpoint returns 500"
+- Investigating bugs, errors, or unexpected behavior
 
 ## Workflow
 
@@ -39,12 +39,12 @@ description: 'Use when the user is debugging a bug, tracing an error, or asking 
 ## Debugging Patterns
 
 | Symptom              | OntoIndex Approach                                          |
-| -------------------- | ----------------------------------------------------------- |
+| -------------------- | ---------------------------------------------------------- |
 | Error message        | `ontoindex_query` for error text → `context` on throw sites |
-| Wrong return value   | `context` on the function → trace callees for data flow     |
-| Intermittent failure | `context` → look for external calls, async deps             |
-| Performance issue    | `context` → find symbols with many callers (hot paths)      |
-| Recent regression    | `detect_changes` to see what your changes affect            |
+| Wrong return value   | `context` on the function → trace callees for data flow    |
+| Intermittent failure | `context` → look for external calls, async deps            |
+| Performance issue    | `context` → find symbols with many callers (hot paths)     |
+| Recent regression    | `detect_changes` to see what your changes affect           |
 
 ## Tools
 

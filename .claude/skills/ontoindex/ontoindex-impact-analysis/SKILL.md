@@ -1,18 +1,18 @@
 ---
 name: ontoindex-impact-analysis
-description: 'Use when the user wants to know what will break if they change something, or needs safety analysis before editing code. Examples: "Is it safe to change X?", "What depends on this?", "What will break?"'
+description: "Use when the user wants to know what will break if they change something, or needs safety analysis before editing code. Examples: \"Is it safe to change X?\", \"What depends on this?\", \"What will break?\""
 ---
 
 # Impact Analysis with OntoIndex
 
 ## When to Use
 
--   "Is it safe to change this function?"
--   "What will break if I modify X?"
--   "Show me the blast radius"
--   "Who uses this code?"
--   Before making non-trivial code changes
--   Before committing — to understand what your changes affect
+- "Is it safe to change this function?"
+- "What will break if I modify X?"
+- "Show me the blast radius"
+- "Who uses this code?"
+- Before making non-trivial code changes
+- Before committing — to understand what your changes affect
 
 ## Workflow
 

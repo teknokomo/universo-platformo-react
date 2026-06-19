@@ -101,3 +101,8 @@ Do not copy `sessionToken`, artifact tokens, full tokenized artifact URLs, bridg
 ## Future Integration
 
 Later briefs can expand script asset parsing, generated artifacts, binary asset processing, S3 provider configuration, Colyseus authoring, runtime scene projection, and AI/MCP tooling. Those integrations must preserve the artifact boundary unless a new approved plan changes it.
+
+## Related
+
+-   [Projects Entity Type](./projects-entity-type.md) — entity-type preset that owns the binding between a metahub instance and an authoring project.
+-   [PlayCanvas Metahub Template](./playcanvas-template.md) — the template that includes the Projects preset.

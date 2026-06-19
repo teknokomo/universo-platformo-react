@@ -606,6 +606,34 @@ export async function listObjectCollections(api, metahubId, params = {}) {
     return response.json()
 }
 
+export async function listEntityInstances(api, metahubId, params = {}) {
+    const { kind, kindKey, ...queryParams } = params
+    const targetKind = kindKey ?? kind
+    const query = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(queryParams)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    if (targetKind !== undefined) {
+        query.set('kind', String(targetKind))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/entities${suffix}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Listing entity instances for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function createObjectCollection(api, metahubId, payload) {
     const { kindKey, ...body } = payload ?? {}
     const response = await sendWithCsrf(api, 'POST', buildManagedEntityInstancesApiPath(metahubId, 'object', kindKey), body)
