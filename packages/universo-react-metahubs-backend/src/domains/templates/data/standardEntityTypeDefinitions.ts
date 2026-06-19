@@ -42,6 +42,12 @@ export const STANDARD_LEDGER_DESCRIPTION = vlc(
     'Стандартный тип регистра для неизменяемых фактов, измерений, ресурсов и отчетов на основе проекций.'
 )
 
+export const STANDARD_PROJECT_NAME = vlc('Projects', 'Проекты')
+export const STANDARD_PROJECT_DESCRIPTION = vlc(
+    'Project entity type that binds each instance to an external authoring project, such as a PlayCanvas Editor project.',
+    'Тип сущности «Проект», который связывает каждый экземпляр с внешним проектом авторинга, например проектом PlayCanvas Editor.'
+)
+
 export const HUB_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     dataSchema: false,
     records: false,
@@ -285,6 +291,61 @@ export const LEDGER_TYPE_UI: EntityTypeUIConfig = {
 export const LEDGER_TYPE_CONFIG = {
     ledger: DEFAULT_LEDGER_CONFIG
 }
+
+const PROJECT_BINDING_RESOURCE_SURFACE: NonNullable<EntityTypeUIConfig['resourceSurfaces']>[number] = {
+    key: 'projectBinding',
+    capability: 'projectBinding',
+    routeSegment: 'project',
+    title: vlc('PlayCanvas', 'PlayCanvas'),
+    titleKey: 'metahubs:projects.binding.resourceTabTitle',
+    fallbackTitle: 'PlayCanvas'
+}
+
+// A "Project" is a dedicated external-authoring anchor (PlayCanvas Editor), like
+// an Enumeration is a dedicated option-list. It is NOT object-like: it does not
+// enable `dataSchema`/`records`/`physicalTable`, so it has no Components surface
+// and does not reuse the OBJECT metadata machinery. Its only data is the bound
+// project (stored in `_mhb_playcanvas_projects` via the `projectBinding`
+// capability); the instance itself lives in `_mhb_objects` like every entity.
+// Capability set mirrors what a user would configure in the Entity Type
+// Constructor: only `treeAssignment` (Hubs) + `projectBinding`. (`records` and
+// `hierarchy` depend on `dataSchema` per CAPABILITY_DEPENDENCIES, so they are
+// off too.)
+export const PROJECT_TYPE_CAPABILITIES: EntityTypeCapabilities = {
+    dataSchema: false,
+    records: false,
+    treeAssignment: { enabled: true },
+    optionValues: false,
+    fixedValues: false,
+    hierarchy: false,
+    nestedCollections: false,
+    relations: false,
+    actions: false,
+    events: false,
+    modules: false,
+    blockContent: false,
+    layoutConfig: false,
+    runtimeBehavior: false,
+    physicalTable: false,
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: false,
+    projectBinding: { enabled: true, provider: 'playcanvasEditor', cardinality: 'single' }
+}
+
+export const PROJECT_TYPE_UI: EntityTypeUIConfig = {
+    iconName: 'IconBox',
+    tabs: ['general', 'project', 'hubs'],
+    sidebarSection: 'objects',
+    // Below Hub (10) so the Projects section sits above Hubs in the dynamic menu.
+    sidebarOrder: 5,
+    nameKey: 'metahubs:projects.title',
+    resourceSurfaces: [PROJECT_BINDING_RESOURCE_SURFACE],
+    treeAssignmentLabels: HUB_TREE_ASSIGNMENT_LABELS
+}
+
+export const PROJECT_DEFAULT_INSTANCES: PresetDefaultInstance[] = []
 
 export const HUB_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {

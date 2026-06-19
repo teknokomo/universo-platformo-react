@@ -468,10 +468,25 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                 !isAttachmentConfigBlocked && hasArtifact && (displayMode === 'embeddedIframe' || displayMode === 'openSeparately')
             const artifactPublicOrigin = shouldServeArtifact ? resolveArtifactPublicOrigin(req) : null
             const canServeIsolatedArtifact = shouldServeArtifact && artifactPublicOrigin != null
-            const shouldEnableBridge = canServeIsolatedArtifact && manifestStatus === 'expected' && defaultProjectId != null
+
+            // The host page may pass an explicit `?projectId=<uuid>` query param to
+            // pin the bridge session to a specific project (e.g. when the user
+            // clicks "Open editor" on a Projects-section binding card). When
+            // present, it overrides the package's `defaultProjectId` for the
+            // duration of this session only — the attachment config is never
+            // mutated, so a deep-link with `?projectId=…` is non-destructive.
+            const requestedProjectIdRaw = typeof req.query?.projectId === 'string' ? req.query.projectId.trim() : ''
+            // The override flows straight into a `WHERE id = $1` uuid lookup
+            // (findPlayCanvasProject), so reject anything that is not a well-formed
+            // UUID — otherwise a malformed `?projectId=` raises a Postgres
+            // "invalid input syntax for type uuid" 500. A non-UUID override is
+            // ignored and we fall back to the package's default project.
+            const requestedProjectId = z.string().uuid().safeParse(requestedProjectIdRaw).success ? requestedProjectIdRaw : null
+            const bridgeSourceProjectId = requestedProjectId ?? defaultProjectId
+            const shouldEnableBridge = canServeIsolatedArtifact && manifestStatus === 'expected' && bridgeSourceProjectId != null
             const branchSchemaName = shouldEnableBridge ? await resolveDefaultBranchSchemaName(exec, metahubId) : null
             const selectedProjectRow =
-                shouldEnableBridge && branchSchemaName ? await findPlayCanvasProject(exec, branchSchemaName, defaultProjectId) : null
+                shouldEnableBridge && branchSchemaName ? await findPlayCanvasProject(exec, branchSchemaName, bridgeSourceProjectId) : null
             const selectedProject =
                 shouldEnableBridge && branchSchemaName && selectedProjectRow
                     ? await summarizePlayCanvasProject(exec, branchSchemaName, selectedProjectRow)

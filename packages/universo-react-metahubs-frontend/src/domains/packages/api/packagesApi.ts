@@ -38,8 +38,11 @@ export const packagesApi = {
         return data
     },
 
-    getAuthoringHost: async (metahubId: string, packageSlug: string) => {
-        const { data } = await apiClient.get<PackageAuthoringHostDescriptor>(`/metahub/${metahubId}/packages/${packageSlug}/authoring-host`)
+    getAuthoringHost: async (metahubId: string, packageSlug: string, projectId?: string | null) => {
+        const { data } = await apiClient.get<PackageAuthoringHostDescriptor>(
+            `/metahub/${metahubId}/packages/${packageSlug}/authoring-host`,
+            { params: projectId ? { projectId } : {} }
+        )
         return data
     },
 

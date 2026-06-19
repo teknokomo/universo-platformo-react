@@ -2,352 +2,152 @@
 
 > Current-focus memory only. Completed implementation detail belongs in progress.md; active and follow-up checklists belong in tasks.md.
 
+The active focus is the PlayCanvas Projects entity type and the closure of the
+2026-06-19 "non-object-like project preset" pass. Sections below cover that
+focus, the invariants it relies on, standing guardrails, and a navigation
+index into progress.md.
+
 ---
 
-## Current Focus: PlayCanvas Editor Runtime Host, Bridge, and Storage Adapter (2026-06-04)
+## Current Focus: Dialog scrollbar + PlayCanvas unbind regressions (2026-06-19, complete)
 
--   Implementation is complete for the first real Universo-backed PlayCanvas
-    Editor authoring slice.
--   The PlayCanvas Editor package now builds a `universo-hosted` artifact with
-    a bridge bootstrap, hosted engine contract, no-op hosted service-worker
-    shim, and browser smoke coverage for direct and sandboxed iframe loading.
--   Metahub package authoring host descriptors now expose tokenized artifact
-    URLs, bridge session metadata, and fail-closed artifact states for the
-    connected PlayCanvas Editor package.
--   The backend bridge command route validates typed shared schemas, HMAC
-    session tokens, user/metahub/project/capability binding, replay/idempotency,
-    and safe error responses before touching PlayCanvas project storage.
--   The frontend host uses existing MUI primitives, TanStack Query, localized
-    EN/RU states, and iframe `postMessage` handling without host descriptor
-    invalidation loops.
--   The real upstream Editor requires the platform sandbox contract
-    `allow-scripts allow-same-origin`; CSP now matches the iframe sandbox so
-    upstream `localStorage`, Worker, fetch, and service-worker probes work.
--   Final bridge closure uses request-bound iframe bootstrap ids, source/origin
-    validation, replay cleanup after failed saves, metadata-first scene
-    persistence with guarded file writes, checksum conflict mapping, and
-    `Escape` as the explicit keyboard focus return from the iframe to the host.
--   Final QA repair added dirty navigation protection, localized save-conflict
-    recovery, visible save evidence, typed OpenAPI bridge contracts, and stable
-    screenshot evidence for desktop/tablet/mobile Editor browser smoke.
--   QA round 2 hardening made iframe-originated bridge commands fail closed on
-    missing or invalid UUID v7 request ids, added explicit parent public origin
-    configuration for proxied deployments, stopped trusting forwarded origin
-    headers by default, and added tampered artifact-token browser evidence.
--   Final acceptance closure fixed replay persistence for non-UUID auth user ids,
-    made bridge/artifact token HMAC secrets fail closed in production, scoped
-    `scene.save` to the selected/default scene, reduced iframe credential
-    exposure by keeping session ids/nonces in bootstrap closure state, and
-    documented the sandbox threat model.
--   Playwright save/reopen evidence no longer stages debug scene payloads from
-    the parent page. The iframe now creates scene entities through
-    `editor.call('entities:new')`; the artifact serializes through
-    `entities:list`, emits dirty state through `entities:add`, and falls back
-    to a hosted entity adapter only when the upstream entity API is absent in
-    sandboxed hosted mode.
--   Backend storage safety now validates existing scene payload file references
-    through the scene-owned local file contract and uses checksum-guarded,
-    path-locked rollback deletes so concurrent newer file writes are not
-    removed.
--   Verification passed focused shared/backend/frontend/package builds and
-    tests, OpenAPI generation/validation, PlayCanvas Editor browser smoke,
-    full local minimal Supabase E2E build, and Playwright Chromium `@packages`
-    flow with 2/2 tests passing.
--   The local Supabase E2E profile was stopped after the browser run.
+Two QA regressions fixed with tests. Full detail in [progress.md](progress.md)
+(2026-06-19 entry).
 
-## Current Focus: Memory Bank Compression (2026-05-23)
+-   **Unbind no-op (root cause = backend shallow-merge).** The PATCH `update` endpoint shallow-merges `config` (`MetahubObjectsService.updateObject`), so an absent key means "leave unchanged", not "remove". `ProjectBindingSurface.writeBinding(null)` used `delete config.projectBinding`, so the old binding survived the merge and the unbind silently no-oped (200 + success toast, binding intact). Fix: send the documented clear signal `projectBinding: null` (allowed by `validateProjectBindingConfigForEntity`; survives `stripUndefinedEntries`, which only strips `undefined`). Readers (`readBinding`, `extractProjectBindingFromConfig`, the cascade `COUNT` SQL) all treat `null` as unbound.
+-   **Spurious dialog scrollbar (root cause = stored resize height as a hard cap).** `dialogPresentation` storage is keyed per-metahub (`storageScopeKey: metahubId`), so a custom size set on one dialog is applied to every dialog in the metahub. It was applied as a fixed `height`, so a stored height shorter than another dialog's content clipped it → inner scrollbar while the viewport still had room. Fix: when idle, apply the stored height as `minHeight` (a floor) instead of `height`; the paper grows to fit content up to `maxHeight` and only scrolls when genuinely larger than the viewport. Exact `height` is still pinned during an active resize drag for 1:1 cursor feedback.
+-   **Verification:** template-mui jest (incl. new min-height guard) — TooltipWithParser XSS 2 failures pre-existing/unrelated; metahubs-frontend vitest 351/351 (incl. rewritten unbind test asserting `projectBinding: null` + untouched sibling config); backend jest `MetahubObjectsService` 12/12 (incl. new null-clear vs absent-key merge guard); full backend sweep 4 pre-existing failing suites only (0 new regressions); projects-section E2E green incl. new unbind-confirm + data-truth (`projectBinding` is null after confirm). Lint + prettier clean; template-mui `tsc` 0 errors. Supabase profile stopped after the run.
 
--   Running comprehensive MB compression to optimize file sizes and information density.
--   Archiving older tasks and detailed implementation progress into the historical log (`progress.md`).
--   Updating the GitHub releases version history table to include `0.63.0-alpha` and `0.64.0-alpha`.
--   Following the structured sequential phase checklist defined in `tasks.md` and custom modes.
--   Validating cross-references, file structure, and factual freshness.
--   Post-compression: perform the 12-point self-validation rubric scoring to ensure target ranges are met without over-compression.
--   Ensure that `activeContext.md` contains at least 120 lines to satisfy its 80% upper bound rule.
--   Current constraints dictate that all historical implementation summaries (anything > 1 week old) be moved completely to `progress.md`.
+### Key files touched (this pass)
 
-## Recent Focus: Packages Naming Convention Rollout (Complete)
+-   `packages/universo-react-template-mui/src/components/dialogs/dialogPresentation.tsx` — stored resize height applied as `minHeight` floor when idle (exact `height` only during active drag); `isResizing` added to the `paperSx` deps.
+-   `packages/universo-react-metahubs-frontend/src/domains/entities/ui/ProjectBindingSurface.tsx` — `writeBinding` sends `projectBinding: nextBinding ?? null` (explicit null clear) instead of deleting the key.
+-   `…/dialogs/__tests__/EntityFormDialog.test.tsx` — +1 jest: stored size applied as `minHeight` floor, no fixed `height`.
+-   `…/entities/ui/__tests__/ProjectBindingSurface.test.tsx` — rewrote the unbind test to assert the null-clear contract.
+-   `…/tests/services/MetahubObjectsService.test.ts` — +1 jest: `projectBinding: null` clears, absent key keeps (documents merge semantics).
+-   `tools/testing/e2e/specs/flows/metahub-projects-section.spec.ts` — +unbind-confirm flow with UI empty-state + persisted-config assertions.
 
--   Renamed all 32 active workspace packages to the canonical
-    `packages/universo-react-<name>/` directory convention and
-    `@universo-react/<name>` package-name convention.
--   Flattened legacy `universo-*` names during the rename; no
-    `universo-react-universo-*` package names, legacy aliases, compatibility
-    re-exports, npm publish aliases, or symlinks were introduced.
--   Updated active imports, package manifests, root scripts, Turbo/Vitest/Jest/
-    Playwright tooling, CI instructions, agent guidance, GitBook docs, package
-    READMEs, steering docs, and Memory Bank references to the new scope.
--   Published the convention in `.kiro/steering/structure.md` and
-    `memory-bank/techContext.md`.
--   Added fail-closed guards for package naming, stale package base paths,
-    `apps-template-mui` isolation, React bundle loading, and workspace
-    dependency graph drift.
--   QA closure hardened the package naming guard so active docs/tooling/guidance
-    now fail closed on double-prefix references, stale removed package examples,
-    and generic active package layout text.
--   The main CI workflow now runs package naming and apps-template isolation
-    guards alongside the existing flattened-layout and DB access checks.
--   `tools/lint-db-access.mjs` Tier 3 exclusion paths were synchronized with the
-    renamed `packages/universo-react-*` directories and now passes with zero
-    violations.
--   No database schema version or metahub template version was bumped; the LMS
-    snapshot hash was refreshed from the canonical snapshot content only.
--   Verification included frozen install, full build, lint, Vitest, backend Jest
-    matrix, docs checks, local minimal Supabase build, and Playwright smoke.
+---
 
-## Recent Focus: 1C-Compatible Metahub Template Implementation (Complete)
+## Prior Focus: PlayCanvas Projects — Non-object-like + "Bind existing" (2026-06-19, complete)
 
--   Added an opt-in `1C-Compatible` metahub template with codename
-    `1c-compatible`; `DEFAULT_TEMPLATE_CODENAME` remains `basic`.
--   Added reusable typed Entity Type Constructor behavior contracts in
-    `@universo-react/types` for `singleValue`, `catalogBehavior`,
-    `documentBehavior`, `documentPosting`, `journalBehavior`,
-    `registerBehavior`, `accountChartBehavior`, `dynamicCharacteristic`, and
-    `calculationTypeGraph`.
--   Registered the full 12-preset catalog as explicit manifests. The core
-    materialized template seeds are top-level Constant, existing Enumeration,
-    Catalog, Document, Document Journal, Information Register, and Accumulation
-    Register; accounting/calculation manifests remain preview and
-    non-materializable until their engines, UI, storage, and tests are complete.
--   Kept the architecture metadata-driven: the new presets use specialized
-    typed config sections instead of extending `ObjectRecordBehavior` as the
-    primary model and instead of adding 1C-only runtime branches.
--   Extended template manifest validation so typed behavior configs are checked
-    on both preset-level `entityType.config` and `defaultInstances[].config`,
-    and behavior cross-references are validated against the enabled template
-    seed graph after preset toggles are applied.
--   Added a generic `systemTemplatePreset` marker for template-managed entity
-    types and protected those rows from structural update/delete while blocking
-    user-authored custom types from claiming the marker.
--   Corrected top-level Constant capabilities so constants do not inherit
-    object/document lifecycle, hierarchy, posting, modules, or records behavior.
--   Added fail-closed unit coverage for config normalization, strict unknown
-    keys, behavior/reference validation, preset registration, default-instance
-    config validation, protected template-managed types, preview
-    non-materialization, preset-toggle dangling references, and built-in
-    template compatibility.
--   Updated the existing template selector with localized EN/RU preview status
-    and non-affiliation copy for `1C-Compatible`, reusing current MUI
-    primitives.
--   Added GitBook EN/RU documentation and a clean-room/non-affiliation docs
-    checker. The docs explicitly state that the template is not an official 1C
-    product, certification, endorsement, partnership, or copied asset/import.
--   Added local minimal Supabase Playwright coverage tagged `@1c-compatible`
-    and `@runtime-ux-canary`; the flow verifies template registration, default
-    `basic` behavior, RU template selection, keyboard creation, viewport/no
-    overflow checks, seeded 1C kind keys, and runtime UX leakage guardrails
-    without using `pnpm dev`.
--   Validation passed: focused type tests/build, metahubs backend focused tests
-    and build, metahubs frontend lint/build, GitBook checks, clean-room docs
-    check, full E2E build on local minimal Supabase, and Playwright
-    `@1c-compatible|@runtime-ux-canary` run.
--   Post-QA verification also passed focused package lint for `types`,
-    `metahubs-backend`, and `metahubs-frontend`; local minimal Supabase was
-    stopped after the Playwright run.
--   Security QA closure reserved all registered platform preset `kindKey`
-    values from custom Entity Type Constructor creation, including 1C-like keys
-    such as `document`, `catalog`, and register kinds.
--   Template-managed object-like preset kinds now reuse generic Object metadata
-    policies and nested route handlers only when the row is a registered
-    preset-managed type; spoofed markers and non-template-managed rows do not
-    receive standard Object behavior.
--   Preset sync fails closed if an existing non-template-managed row already
-    owns a platform preset `kindKey`, preventing silent overwrite of legacy or
-    custom entity type rows.
--   Nested Object-compatible creation now requires `createContent`, matching
-    generic entity creation role semantics.
--   Security QA verification passed focused backend Jest/build/lint, types
-    test/build/lint, metahubs frontend build/lint, docs checks, local minimal
-    Supabase doctor/build, and Playwright `@1c-compatible|@runtime-ux-canary`;
-    local minimal Supabase was stopped after the run.
--   Route isolation closure now forces specialized object-compatible nested
-    route kinds into the effective query/body contract, so `document`,
-    `catalog`, and register-like route surfaces cannot be widened through
-    conflicting `kindKey` query/body input.
--   Runtime UX evidence now opens the created 1C-compatible metahub entity type
-    workspace in RU, checks localized preset labels/no technical leakage/no
-    overflow, and keyboard-navigates from the Catalog entity type action menu
-    to its instances page.
--   Final closure verification passed the focused backend metadata/schema route
-    matrix with 138 tests, package lint/build checks, docs guard, full local
-    minimal Supabase `build:e2e:local-supabase`, and Playwright
-    `@1c-compatible|@runtime-ux-canary`; local minimal Supabase was stopped
-    after the run.
--   Requisites runtime QA closure removed PostgreSQL/storage and raw data-type
-    codes from normal requisite/component surfaces and fixed `oneCCompatible`
-    i18n namespace registration so RU pages no longer fall back to English.
--   Direct 1C-compatible route regression coverage now includes access denial,
-    deterministic create collisions, route-owned kind overrides, and stored-kind
-    mismatch rejection across read/write/delete/copy/restore paths.
--   The direct top-level hub listing route now uses `MetahubTreeEntitiesService`
-    instead of generic object CRUD, keeping the normal hub page free of
-    background 400 responses during browser runtime checks.
--   Latest verification passed focused backend Jest with 59 tests, focused
-    frontend Vitest with 5 tests, metahubs frontend/backend lint, docs checks,
-    full local minimal Supabase E2E build, and Playwright `@1c-compatible` with
-    4/4 tests passing.
+Three QA follow-ups in one pass: make `project` like an Enumeration (own
+storage, no Components/Layouts), add a "Bind existing" picker with a filter,
+and fix the clipped label in the create dialog. Full detail in
+[progress.md](progress.md) (2026-06-19 entry).
 
-## Recent Focus: Scripts To Modules Rename (Complete)
+-   **Project preset is now non-object-like** (like an Enumeration, not like an Object). `PROJECT_TYPE_CAPABILITIES` = `{ treeAssignment:enabled, projectBinding:enabled }`; everything else off. `PROJECT_TYPE_UI.tabs` = `['general','hubs','project']` — no more Компоненты/Макеты/Модули/Действия/События on a fresh metahub. The capability set is dependency-clean (`validateCapabilityDependencies` returns `[]`). All toggles exist in the Entity Type Constructor (`EntitiesWorkspace.tsx:2027` for `projectBinding`, `:1865` for `treeAssignment`, `:2215` for `physicalTable`, `:1795` for `dataSchema`); the constructor's cascade (`disableRecursively`) auto-clears the dependents. The generic (null-behavior) CRUD path is already used by the frontend (`resolveEntityMetadataKind` returns `null` for `project`, since the kind is not in the builtin list) and exercised by backend handlers — no extra wiring needed.
+-   **Tracked MMOOMM snapshot fixture regenerated** (`tools/fixtures/metahubs-mmoomm-app-snapshot.json`): `project` now reflects the new capability set, `projectBinding.projectId` correctly remapped to the freshly-generated project id (via the existing snapshot-import post-pass). MMOOMM app gate green: drift check clean, generator 2/2, runtime 2/2.
+-   **"Bind existing project" UI** in the `PlayCanvas` tab: second action next to "Create & bind project". `StandardDialog` with an MUI `Autocomplete` picker, "Show only unbound projects" Switch (default on), already-bound projects visible with an "Already bound" warning chip when toggled off. Picker fed by the existing `playcanvasProjectsApi.list` + a `listEntityInstances({kind:'project'})` diff. Sharing a project across multiple instances is allowed.
+-   **Cascade-safety backend guard** (the real fix): `MetahubObjectsService.countActiveProjectBindingsByCodename` returns the count of ACTIVE instances still bound to a given codename; `entityCrudHandlers.cascadeBoundProject` consults it (excluding the about-to-be-deleted instance) and **skips project deletion** if any other ACTIVE instance still references it. Filter on `_mhb_deleted = FALSE` so a soft-deleted sibling cannot keep a shared project alive.
+-   **Dialog label clipping fix:** the "Create & bind PlayCanvas project" content stack had `pt: 0.5`; the outlined TextField's floating label sat above the dialog's top edge and got clipped by the (now-scroll) `DialogContent`. Bumped to `pt: 1.5` with a layout-math comment.
+-   **Verification:** FE vitest 351/351; BE 1048 passed (4 pre-existing failing suites unchanged, +4 from this work, 0 new regressions); builds + lint + prettier clean; i18n docs check 98/98 OK; MMOOMM app gate green; projects-section E2E 3/3 green on local minimal Supabase; Supabase profile stopped after runs. Vendor PlayCanvas Editor (`packages/universo-react-playcanvas-editor-frontend/vendor`) untouched.
 
--   Renamed the attached TypeScript-code capability from Scripts/Scripting to Modules across shared contracts, backend routes/stores, frontend authoring UI, runtime widget execution, SDK names, fixtures, E2E specs, and GitBook docs.
--   Fresh-database rename only: no `/scripts` aliases, compatibility shims, schema/template version bump, or legacy migration path.
--   Canonical contracts now use `modules`, `_mhb_modules`, `_app_modules`, `/modules`, `/module/:moduleId`, `/runtime/modules`, `moduleId`, `moduleCodename`, `ModuleRole`, and `@universo-react/modules-engine`.
--   LMS template and fixture posting handlers now use `*PostingModule` codenames/classes and refreshed snapshot hash.
--   Browser QA evidence for authoring and runtime module surfaces was captured through local minimal Supabase Playwright flows.
--   Allowed residual `script` terms are limited to HTML/security contexts, package manager `scripts`, shell/E2E scripts, external TypeScript/node APIs such as `ts.ScriptTarget`, `node:vm Script`, and isolated-vm `compileScript`.
--   Details: progress.md#2026-05-25
+---
 
-## Recent Focus: Flatten Base Directory Layout (Complete)
+## Recent focuses (historical, complete)
 
--   Removed the unused package-root `base` layer from active workspace packages.
--   Active React package roots now use `packages/universo-react-<name>/package.json`; `pnpm-workspace.yaml` uses `packages/*`.
--   Updated workspace, Turbo/package export, local Supabase, E2E runner, OpenAPI/docs tooling, agent, Kiro, GitBook, and package README references to the flat layout.
--   Added `tools/check-no-package-base-paths.mjs` and root `check:no-package-base-paths` to fail closed on stale active package-base paths and layout guidance.
--   Verified the final closure with Prettier, stale-path check, package directory inventory, full build, full lint, full Vitest workspace run, and local minimal Supabase Playwright smoke.
--   Agents still must not run `pnpm dev`; Playwright evidence uses the repository E2E runner on `http://127.0.0.1:3100`.
+-   **2026-06-19 — Non-object-like `project` preset + "Bind existing" + dialog clipping fix** — current focus above; full detail in [progress.md](progress.md).
+-   **2026-06-18 — QA Round 2 (5 defects)**: P2 removed the row "Open project" + standalone `/…/instance/:entityId/project` route + `ProjectBindingPage` export (renamed file to `ProjectBindingSurface.tsx`). P3 renamed binding tab "Project"/"Проект" → "PlayCanvas". P4 fixed "Open editor" opening the wrong project: snapshot import now remaps `config.projectBinding.projectId` (`remapEntityProjectBindingReferences` post-pass), and the row handler resolves the live id by codename. P5 fixed the global dialog scrollbar (`dialogPresentation.contentSx` now sets both `overflowX: 'hidden'` + `overflowY: 'auto'`).
+-   **2026-06-18 — Code-review remediation (10 findings)**: explicit `metahubId`/`entityId` props on the embedded surface; shared editor-host helper; canonical `entityDetail` cache + invalidations; `projectId` shape validation; dead-import removal; canon refresh.
+-   **2026-06-18 — Codex-review follow-up (2 P2)**: shared `wrap()` helper gates actions before data loads; invalidation uses canonical entity keys.
 
-## Recent Focus: 1C-Compatible Runtime UX QA Closure (Complete)
+### Key files touched (current remediation)
 
--   The opt-in `1c-compatible` template no longer shows duplicate preview labeling in the template selector.
--   Russian template copy now uses the requested non-affiliation wording and removes the old optional-template sentence.
--   Preset display names are neutral metadata-object names such as Constants, Catalogs, Documents, Document Journals, and Registers; the old compatibility prefix is not used for entity type names.
--   Generic entity-instance collection pages now use metadata-driven presentation names, action labels, and create-dialog titles, so template-managed/custom surfaces do not leak raw `ui.nameKey`, `entity-owned`, or `Создать сущность` copy.
--   The Entity Type Constructor exposes user-facing behavior profiles that populate capabilities and typed configs for constants, catalogs, documents, journals, and register-style presets without manual JSON-only setup.
--   Verification passed with focused unit tests, backend tests, docs checks, frontend/backend lint/build, full local minimal Supabase E2E build, and Playwright `@1c-compatible|@runtime-ux-canary`; local minimal Supabase was stopped after the run.
+-   `packages/universo-react-metahubs-backend/src/domains/templates/data/standardEntityTypeDefinitions.ts` — `PROJECT_TYPE_CAPABILITIES` trimmed to `treeAssignment + projectBinding` (non-object-like); `PROJECT_TYPE_UI.tabs` = `['general','hubs','project']`; updated comment.
+-   `…/metahubs/services/MetahubObjectsService.ts` — NEW `countActiveProjectBindingsByCodename` for the cascade-safety guard.
+-   `…/entities/controllers/entityCrudHandlers.ts` — `cascadeBoundProject` consults the reference count and skips project deletion if any other ACTIVE instance still references the codename.
+-   `…/playcanvas-projects/services/PlayCanvasProjectsService.ts` — no changes (reuses `deleteBoundProject`).
+-   `tools/fixtures/metahubs-mmoomm-app-snapshot.json` — regenerated; the new tracked fixture reflects the non-object-like `project` capability set and a remapped `projectBinding.projectId`.
+-   `packages/universo-react-metahubs-frontend/src/domains/entities/ui/ProjectBindingSurface.tsx` — "Bind existing project" second action + `StandardDialog` + `Autocomplete` picker + "Show only unbound projects" Switch + "Already bound" warning chip; create-dialog content `pt: 1.5` to keep the floating label visible.
+-   `…/i18n/locales/{en,ru}/metahubs.json` — new `bindExisting` / `boundExisting` / `bindFailed` / `alreadyBound` / `filterUnbound` keys.
+-   `…/services/MetahubObjectsService.test.ts` + `tests/routes/entityInstancesRoutes.test.ts` — +2 unit / +2 route tests for the reference-counted cascade.
+-   `…/domains/entities/ui/__tests__/ProjectBindingSurface.test.tsx` — +2 vitest for the bind-existing flow (writes config; filter shows/hides bound projects with the chip).
 
-## Recent Focus: PlayCanvas Editor Host Settings QA Round 2 Closure (Complete)
+### Verification commands
 
--   Manual QA findings for the current hosted fallback slice are closed:
-    standard MUI dialog field sizing, localized default PlayCanvas project
-    selection, short `Save` action labels, visible host save action,
-    host-level save shortcut prevention, and direct open-separately navigation.
--   Backend hardening now fails closed for artifact-only manifests when
-    `universo-hosted` readiness is expected and prevents bridge scene saves
-    from writing outside the scene-owned payload path.
--   Test coverage explicitly identifies the hosted fallback surface and no
-    longer treats its `Add entity` control as evidence of the full upstream
-    PlayCanvas Editor UI.
--   Full upstream `playcanvas/editor` UI hosting remains out of this slice and
-    needs separate research, brief, and plan before implementation.
--   Verification passed with focused backend/frontend/editor tests, lint/build
-    checks, targeted local minimal Supabase Chromium packages/resources E2E,
-    `git diff --check`, and local autoreview with no accepted/actionable
-    findings.
--   Details: progress.md#2026-06-04---playcanvas-editor-host-settings-qa-round-2-closure
+-   Frontend: `pnpm --filter @universo-react/metahubs-frontend build && pnpm --filter @universo-react/metahubs-frontend lint && pnpm --filter @universo-react/metahubs-frontend vitest run`.
+-   Backend: `pnpm --filter @universo-react/metahubs-backend build && pnpm --filter @universo-react/metahubs-backend lint`; targeted jest via `tools/testing/backend/run-jest.cjs`.
+-   E2E: `pnpm supabase:e2e:start:minimal` then the projects-section spec through the repository runner on `http://127.0.0.1:3100`.
 
-## Recent Focus: 1C-Compatible Constructor UX And Lifecycle QA Closure (Complete)
+### Invariants to preserve (PlayCanvas binding)
 
--   Entity Type Constructor list and card surfaces now use reusable behavior
-    profile metadata for user-facing capabilities and no longer show raw
-    `kindKey`, behavior keys, or mixed localized copy on normal user surfaces.
--   Template-managed 1C-compatible settings now expose requisites/register
-    terminology through seeded settings and localized labels instead of generic
-    component wording where the metadata object expects requisites.
--   Shared resources for 1C-compatible metahubs use the common requisites
-    surface and no longer expose the generic unavailable-container message.
--   The 1C-compatible Playwright canary now covers the full browser path:
-    template selection, viewport-safe listbox/dialog rendering, created entity
-    type workspace, instance pages, resources/settings, the default hub
-    instances 400-regression guard, and create/edit/copy/delete lifecycle for
-    Constant, Catalog, Document, Document Journal, Information Register, and
-    Accumulation Register.
--   The latest 1C-compatible full preset QA remediation ships all 12 preset
-    kinds from the template manifest, seeds system components for every
-    object-like 1C-compatible kind, enforces route-kind isolation across
-    component/requisite handlers, and localizes requisite/register-field
-    lifecycle terminology. Verification passed with Prettier, focused
-    backend/frontend/types tests, backend/frontend lint/build, docs guard,
-    full local minimal Supabase `build:e2e`, Playwright `@1c-compatible` 4/4,
-    and the local Supabase profile stopped after the run.
--   The latest runtime QA remediation keeps 1C-compatible container/subsystem
-    columns hidden until the corresponding capability is enabled, exposes local
-    requisites through dedicated `/requisites` pages with an accessible Open
-    Requisites action, renames shared resources to Requisites, and registers
-    distinct sidebar icons for the new preset kinds.
--   The latest QA findings closure enforces 1C-compatible constant lifecycle
-    policy, rejects mismatched specialized requisite routes, fixes copied
-    requisite deletion cleanup, removes dynamic dialog `key` spread warnings,
-    and strengthens Playwright coverage for real UI metahub creation, exact
-    preset drift, responsive picker, keyboard edit access, and requisite
-    lifecycle flows.
--   Verification passed with Prettier, focused frontend/backend tests, frontend
-    and backend/template-mui lint/build checks, docs checks, full local minimal
-    Supabase E2E build, and Playwright `@1c-compatible` with 4/4 tests passing;
-    local minimal Supabase was stopped after the run.
+Non-obvious facts a future session must respect:
 
-## Recent Focus: Object Collections And Components Rename (Complete)
+-   **Project store lives in the default branch only.** Entity instances live in the user's active branch, but PlayCanvas projects (`_mhb_playcanvas_projects`) live in the metahub's default-branch schema. Binding validation, cascade delete, and `getAuthoringHost` must all resolve projects against the default branch — never `ensureSchema(metahubId, userId)`. Route everything through `PlayCanvasProjectsService` so the schema cannot drift.
+-   **`project` preset is a dedicated (non-object-like) type.** It enables only `treeAssignment` + `projectBinding`; the entity lives in the generic `_mhb_objects` table and uses the null-behavior CRUD path (no OBJECT metadata kind). Its tabs are exactly `['general','hubs','project']` — no Components / Layouts / Modules / Actions / Events. The capability set is dependency-clean (`validateCapabilityDependencies` returns `[]`); all toggles exist in the Entity Type Constructor and the cascade auto-clears dependents. Do not re-add `dataSchema`/`records`/`physicalTable`/`hierarchy` etc. — that would re-introduce the Компоненты/Layouts tabs and turn the type into a generic Object.
+-   **Sharing a PlayCanvas project across instances is allowed; cascade is reference-counted.** "Bind existing" can pick a project that another instance already binds. When deleting an instance, `cascadeBoundProject` consults `countActiveProjectBindingsByCodename` (excluding the about-to-be-deleted instance, filtered on `_mhb_deleted = FALSE`) and SKIPS project deletion if any other ACTIVE instance still references the codename — otherwise the surviving instance would be orphaned. The copy flow still strips `projectBinding` (copying a binding would create two owners racing the reference count).
+-   **The cascade is best-effort.** Errors (optimistic-lock, file cleanup) are logged and swallowed so the user-facing `204` is never blocked; an orphan is acceptable over a phantom failure.
+-   **create+bind is a two-step client flow with rollback.** `createAndBindMutation` creates the project, then writes the binding; if the write fails it removes the just-created project. The copy flow strips `projectBinding` so copies never share a project.
+-   **"Open editor" is mode-aware and project-pinned.** `openSeparately` pops `/editor/fullscreen` in a new tab; every other mode navigates inline to `/editor`; both forward `?projectId=` so the bridge session pins to the bound project, overriding the package `defaultProjectId` for that session only (non-destructive).
+-   **The binding surface gates actions behind data.** The `ProjectBindingSurface` (edit-dialog "PlayCanvas" tab — there is no standalone page) runs the loading/error guards before rendering Create/Unbind/Bind; never expose those actions while `instanceQuery`/`projectsQuery` are still loading (Create would write `config` from `{}`, Unbind would clear a still-loading binding).
+-   **Bind by codename, resolve the live id.** `config.projectBinding.projectCodename` is the canonical reference; `projectId` is a cache that can be stale (e.g. after snapshot import remaps project ids). "Open editor" (row + card) resolves the live id by codename; snapshot import remaps the binding's `projectId`. Never open the editor off the cached id alone.
 
--   Replaced Catalogs/Attributes with Objects/Components across UI and metadata.
--   Internal surface/helper name is `objectCollection`, persisted kind key is `object`.
--   System metadata tables updated to `_mhb_components` and `_app_components`.
--   Runtime physical table names come from constructor capabilities (`obj_` prefix).
--   Recommended vocabulary: user-facing `Objects` / `Объекты`.
--   Details: progress.md#2026-05-14
+Earlier slices of this feature (binding capability threading, `PlayCanvasProjectsService.deleteBoundProject`,
+legacy `PlayCanvasProjectsPanel` removal, MMOOMM generator rework, docs EN/RU) and the
+prior PlayCanvas Editor host/bridge/storage work are recorded in
+[progress.md](progress.md).
 
-## Recent Focus: Local Supabase Env Profile Generation (Complete)
+---
 
--   Local Supabase env generation derives backend profiles from normal env source order.
--   Development source order: `packages/universo-react-core-backend/.env`, `.env.example`, minimal fallback.
--   E2E source order: `.env.e2e`, `.env`, `.env.e2e.example`, `.env.example`, fallback.
--   Preserves unrelated application settings, replaces only connection values and safe missing defaults.
--   README and GitBook docs describe preserved-settings workflow, hosted/local switching, and local E2E stack.
--   Details: progress.md#2026-05-13
+## Known State / Follow-ups
 
-## Recent Focus: Scoped Menu Contract & Layouts QA Closure (Complete)
+-   **Pre-existing failing backend suites (not from this work)**: `modulesRoutes`, `metahubMigrationsRoutes`, `playCanvasProjectsController` (bridge-save replay/idempotency cases), `publicationsRoutes`. These fail on the untouched baseline; verify any future change does not add to them rather than assuming green.
+-   **Constructor-UI E2E**: the dedicated constructor reproducibility spec was removed; the headline proof (a `projectBinding`-capable type behaves like the built-in `project` preset) is covered by the built-in `project` preset in `metahub-projects-section.spec.ts` plus the frontend capability-toggle vitest. Re-add a constructor spec only after the preset-helper i18n churn that also affects `metahub-entities-workspace.spec.ts` settles.
+-   **Snapshot/template versions**: deliberately not bumped (fresh-database migration); the test DB is recreated.
 
--   Menu widget authoring uses neutral `section`, `hub`, and `link` item kinds.
--   Entity section targets discovered from layout-capable Entity type metadata.
--   Shared schemas, templates, and fixtures use `autoShowAllSections`.
--   Global layout widgets expose generic per-Entity visibility controls for every layout-capable scope.
--   Generic layout scope contracts use `scopeEntityId`, public contracts use `scopedLayouts` and `layoutWidgetOverrides`.
--   Metahub layout creation validates scoped targets through Entity component capability metadata.
--   Runtime layout selection resolves preferred Entity scope from application navigation.
--   Details: progress.md#2026-05-13 and progress.md#2026-05-12
+## Completed Work (history)
 
-## Recent Focus: PlayCanvas Editor Bridge Security Hardening (Complete)
+All prior focuses are complete and fully documented in [progress.md](progress.md).
+Do not re-log them here; the index below is navigation only.
 
--   The hosted PlayCanvas Editor artifact now treats `postMessage` bootstrap as a request/response handshake: the iframe emits a generated bootstrap request id, the MUI host echoes it with `source: universo-playcanvas-editor-host`, and the artifact pins the parent source and origin before accepting bridge responses.
--   Host bridge responses now carry an outer source marker and command type, and the iframe rejects untrusted or mismatched responses without resolving pending bridge commands.
--   Browser smoke covers spoofed bootstrap and spoofed sibling-frame bridge responses across desktop, tablet, and mobile artifact projects.
--   Details: progress.md#2026-06-04---playcanvas-editor-bridge-security-hardening
+-   PlayCanvas Projects entity type + `playcanvas` template — progress.md 2026-06-17 / 2026-06-18.
+-   PlayCanvas Editor runtime host, bridge, storage adapter + security hardening — progress.md 2026-06-04.
+-   1C-Compatible metahub template, runtime UX QA, constructor UX/lifecycle QA — progress.md 2026-05/2026-06.
+-   Scripts → Modules rename — progress.md 2026-05-25.
+-   Package naming rollout (`packages/universo-react-*`, `@universo-react/*`) — progress.md 2026-05.
+-   Base-directory flatten — progress.md 2026-05.
+-   Object/Component rename (Catalogs/Attributes → Objects/Components) — progress.md 2026-05-14.
+-   Local Supabase env profile generation — progress.md 2026-05-13.
+-   Scoped menu contract + layouts QA — progress.md 2026-05-12 / 2026-05-13.
+-   Memory Bank compression + GitHub releases table — progress.md 2026-05-23.
 
-## Recent Focus: PlayCanvas Editor Runtime Host QA Closure (Complete)
-
--   Bridge replay completion no longer releases completed mutating requests when replay response persistence fails after a successful save.
--   PlayCanvas project and asset file deletion now requires `expectedCurrentChecksum` and uses checksum-guarded physical deletion with metadata restoration on stale delete rejection.
--   Hosted fallback authoring exposes a visible `Add entity` control, and Playwright now mutates scenes through user-facing Editor controls instead of relying only on frame-internal `editor.call`.
--   Browser evidence now includes Russian save/conflict/dirty/error host lifecycle assertions and non-resizable `StandardDialog` canaries for dirty and conflict dialogs.
--   Verification passed with focused backend tests, lint, PlayCanvas Editor Vitest/build/browser smoke, local minimal Supabase E2E build, targeted Chromium packages/resources flow, and local E2E Supabase shutdown.
--   Details: progress.md#2026-06-04-playcanvas-editor-runtime-host-qa-closure
+---
 
 ## Current Guardrails
 
--   **E2E Testing Boundaries**: Browser E2E must use the dedicated E2E boundary: hosted dedicated `.env.e2e.local` / `.env.e2e` by default, or the dedicated local Supabase profile on ports `55321/55322/55323` when local mode is explicitly requested.
--   **Agent Restrictions**: Agents must not use `pnpm dev` or port `3000` for Playwright E2E. The repository E2E runner owns startup on `http://127.0.0.1:3100`.
--   **Main Supabase Testing**: Shared/main Supabase E2E mode is only for manual debugging and must require `E2E_ALLOW_MAIN_SUPABASE=true` plus `E2E_FULL_RESET_MODE=off`.
--   **Local Supabase Scripts**: Local Supabase app-start scripts have two supported profiles: full stack (`start:local-supabase`) and minimal stack (`start:local-supabase:minimal`). Both must keep `doctor:local-supabase` before app startup/reset and must pass explicit `.env.local-supabase` profiles.
--   **Local URL Distinction**: Local Supabase docs must distinguish Supabase Studio (`http://127.0.0.1:54323`) from the local API URL (`http://127.0.0.1:54321`).
--   **Legacy Avoidance**: Do not reintroduce `includeBuiltins`, `isBuiltin`, `source`, `custom.*-v2`, old top-level managed route families, or deleted frontend `domains/catalogs|hubs|sets|enumerations` folder names.
--   **Runtime Workspaces**: Runtime workspace management stays on isolated `apps-template-mui` card/list patterns.
--   **Public Exposure**: Keep public-runtime exposure tied to publication-backed state, not raw design-time flags.
--   **Form Hydration**: Keep the `EntityFormDialog` first-open state hydration pattern intact (no render-phase ref writes).
--   **Fixtures Maintenance**: Future fixture changes must be regenerated through documented Playwright generator specs.
+-   **E2E testing boundaries**: browser E2E must use the dedicated E2E boundary — hosted dedicated `.env.e2e.local` / `.env.e2e` by default, or the dedicated local Supabase profile on ports `55321/55322/55323` when local mode is explicitly requested.
+-   **Agent restrictions**: agents must not use `pnpm dev` or port `3000` for Playwright E2E; the repository E2E runner owns startup on `http://127.0.0.1:3100`. For Playwright CLI use the `.agents/skills/playwright-best-practices` skill, and for E2E start local Supabase minimal (`pnpm supabase:e2e:start:minimal`, etc.).
+-   **Main Supabase testing**: shared/main Supabase E2E mode is only for manual debugging and must require `E2E_ALLOW_MAIN_SUPABASE=true` plus `E2E_FULL_RESET_MODE=off`.
+-   **Local Supabase scripts**: local Supabase app-start scripts have two supported profiles — full stack (`start:local-supabase`) and minimal stack (`start:local-supabase:minimal`); both must keep `doctor:local-supabase` before app startup/reset and must pass explicit `.env.local-supabase` profiles.
+-   **Local URL distinction**: local Supabase docs must distinguish Supabase Studio (`http://127.0.0.1:54323`) from the local API URL (`http://127.0.0.1:54321`).
+-   **Legacy avoidance**: do not reintroduce `includeBuiltins`, `isBuiltin`, `source`, `custom.*-v2`, old top-level managed route families, or deleted frontend `domains/catalogs|hubs|sets|enumerations` folder names.
+-   **Runtime workspaces**: runtime workspace management stays on isolated `apps-template-mui` card/list patterns.
+-   **Public exposure**: keep public-runtime exposure tied to publication-backed state, not raw design-time flags.
+-   **Form hydration**: keep the `EntityFormDialog` first-open state hydration pattern intact (no render-phase ref writes).
+-   **Fixtures maintenance**: future fixture changes must be regenerated through documented Playwright generator specs.
+-   **PlayCanvas Editor vendor**: keep `packages/universo-react-playcanvas-editor-frontend/vendor` unmodified (or minimal) for easy upstream version bumps; do project-side work in `packages/universo-react-playcanvas-editor-backend` and the metahubs packages instead.
 
 ## Constraints to Preserve
 
-1. **Canonical Terminology**: Fresh Object/Component terminology is canonical: standard built-in kind key `object`, standard component resource route segment `components`, and standard capability manifest key `capabilities`.
-2. **Entity Kinds Validation**: `_mhb_objects.kind` accepts built-in and custom kind values; custom entity kinds may define their own table prefixes through the entity constructor metadata.
-3. **Snapshot Versions**: Snapshot schema/template version numbers were intentionally not bumped for this fresh-database migration.
-4. **Compatibility Limits**: Existing old test databases are disposable; do not add compatibility shims for old Object/Component fixtures unless a future migration request explicitly requires them.
-5. **Testing Integrity**: All existing E2E tests must remain green at every phase boundary. No exceptions.
+1. **Canonical terminology**: built-in kind key `object`, component resource route segment `components`, capability manifest key `capabilities`.
+2. **Entity kinds**: `_mhb_objects.kind` accepts built-in + custom kinds; custom kinds define their own table prefixes via constructor metadata.
+3. **Snapshot versions**: schema/template version numbers intentionally not bumped for fresh-database migrations.
+4. **Compatibility limits**: old test databases are disposable; add no compatibility shims unless a future migration request requires them.
+5. **Testing integrity**: all existing E2E tests must remain green at every phase boundary.
+6. **Single editor-host helper**: "Open editor" everywhere must go through `packages/api/playcanvasEditorHost.ts` (`usePlayCanvasEditorHostQuery` / `resolveEditorDisplayMode` / `openPlayCanvasEditor`); do not re-implement the URL/`openSeparately`/`?projectId=` contract inline.
+7. **Single project-store resolver**: binding existence/ownership checks must go through `PlayCanvasProjectsService` (default-branch schema); do not pass a caller-resolved `schemaName` into binding validation.
+8. **Canonical entity caches**: the binding surface reads via `useEntityInstanceQuery` (`entityDetail` key) and on every write invalidates `invalidateEntitiesQueries.all(kind)` + `.detail(entityId)`; do not reintroduce a private `entityInstance` query key or narrow single-key invalidation, or the list/edit surfaces go stale.
+9. **Reference-counted cascade**: `cascadeBoundProject` must skip project deletion when any other ACTIVE instance references the same `projectBinding.projectCodename`. Use `MetahubObjectsService.countActiveProjectBindingsByCodename` (filters on `_mhb_deleted = FALSE`) — do not delete a shared project.
 
 ## Stored Data Access Notes
 
-These names are still allowed when they are domain concepts rather than the renamed entity type:
+Domain-concept names still allowed (not the renamed entity type):
 
 -   `config.parentHubId`, `config.boundHubId`, `config.hubs` — hub/tree configuration JSONB.
--   `set`, `enumeration`, `page`, `ledger` — separate standard entity kind keys.
--   `catalog` in optional global migration catalog docs/package names may remain only where it refers to the migration registry package, not the Object entity type.
+-   `config.projectBinding` — `{ provider, projectCodename, projectId? }` on a `project`-kind instance; `projectCodename` is the canonical reference resolved against the default-branch project store, `projectId` is an optional cached id.
+-   `set`, `enumeration`, `page`, `ledger`, `project` — separate standard entity kind keys.
+-   `catalog` only where it refers to the migration registry package, not the Object entity type.
 
 ## References
 
@@ -355,3 +155,5 @@ These names are still allowed when they are domain concepts rather than the rena
 -   [progress.md](progress.md)
 -   [systemPatterns.md](systemPatterns.md)
 -   [techContext.md](techContext.md)
+-   [projectbrief.md](projectbrief.md) — refreshed 2026-06-18 (version, `project` preset, `playcanvas` template).
+-   [productContext.md](productContext.md) — refreshed 2026-06-18 (version, PlayCanvas binding).

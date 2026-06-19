@@ -125,6 +125,8 @@ const screenshotExemptPages = new Set([
     'platform/playcanvas-editor.md',
     'platform/playcanvas-editor-skills.md',
     'platform/playcanvas-projects.md',
+    'platform/playcanvas-template.md',
+    'platform/projects-entity-type.md',
     'platform/thermos-review.md',
     'contributing/README.md',
     'contributing/coding-guidelines.md',

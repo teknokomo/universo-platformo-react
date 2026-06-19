@@ -34,4 +34,21 @@ describe('metahubs i18n consolidation', () => {
 
         expect(translations.pages?.title).toBe('Страницы')
     })
+
+    it('keeps projects (PlayCanvas binding surface) translations inside the consolidated metahubs namespace', () => {
+        const ruTranslations = getMetahubsTranslations('ru') as {
+            projects?: { binding?: { title?: string; resourceTabTitle?: string; actions?: { openEditor?: string } } }
+        }
+        const enTranslations = getMetahubsTranslations('en') as {
+            projects?: { binding?: { title?: string; resourceTabTitle?: string; actions?: { openEditor?: string } } }
+        }
+
+        expect(ruTranslations.projects?.binding?.title).toBe('Проект PlayCanvas')
+        // The edit-dialog tab is labelled "PlayCanvas" (not "Проект"/"Project").
+        expect(ruTranslations.projects?.binding?.resourceTabTitle).toBe('PlayCanvas')
+        expect(ruTranslations.projects?.binding?.actions?.openEditor).toBe('Открыть редактор')
+        expect(enTranslations.projects?.binding?.title).toBe('PlayCanvas project')
+        expect(enTranslations.projects?.binding?.resourceTabTitle).toBe('PlayCanvas')
+        expect(enTranslations.projects?.binding?.actions?.openEditor).toBe('Open editor')
+    })
 })

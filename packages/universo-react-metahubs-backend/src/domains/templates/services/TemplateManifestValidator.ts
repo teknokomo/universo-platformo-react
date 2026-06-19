@@ -394,6 +394,15 @@ const componentManifestSchema = z.object({
             }),
             z.literal(false)
         ])
+        .optional(),
+    projectBinding: z
+        .union([
+            componentConfigSchema.extend({
+                provider: z.enum(['playcanvasEditor']),
+                cardinality: z.literal('single')
+            }),
+            z.literal(false)
+        ])
         .optional()
 })
 
@@ -408,7 +417,7 @@ const entityTypeUiSchema = z.object({
         .array(
             z.object({
                 key: z.string().min(1).max(64),
-                capability: z.enum(['dataSchema', 'fixedValues', 'optionValues']),
+                capability: z.enum(['dataSchema', 'fixedValues', 'optionValues', 'projectBinding']),
                 routeSegment: z.string().min(1).max(64),
                 title: vlcSchema.optional(),
                 titleKey: z.string().min(1).optional(),

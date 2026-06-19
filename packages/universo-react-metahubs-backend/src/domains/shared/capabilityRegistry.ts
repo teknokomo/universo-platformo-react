@@ -142,6 +142,15 @@ export const CAPABILITY_REGISTRY: Record<keyof EntityTypeCapabilities, BackendCa
         dependencies: [...CAPABILITY_DEPENDENCIES.ledgerSchema],
         requiresPhysicalTable: true,
         supportedKinds: null
+    },
+    projectBinding: {
+        key: 'projectBinding',
+        // The binding link lives in the entity-instance config; it owns no tables
+        // of its own and reuses the existing _mhb_playcanvas_* project store.
+        tables: [],
+        dependencies: [...CAPABILITY_DEPENDENCIES.projectBinding],
+        requiresPhysicalTable: false,
+        supportedKinds: null
     }
 }
 

@@ -486,6 +486,41 @@ describe('EntityFormDialog', () => {
         })
     })
 
+    it('applies a stored size as a min-height floor so the dialog grows to fit content (no spurious scrollbar)', async () => {
+        // Regression guard: a stored size (here shared per metahub across
+        // differently sized dialogs) must NOT pin a fixed `height` that clips
+        // taller content while the viewport still has room. It is applied as a
+        // `minHeight` floor instead, so the paper grows to fit its content.
+        window.localStorage.setItem('universo:dialog-presentation:metahub-1:size', JSON.stringify({ width: 720, height: 540 }))
+
+        let capturedPresentation: ReturnType<typeof useDialogPresentation> | null = null
+
+        render(
+            <DialogPresentationProvider
+                value={{
+                    enabled: true,
+                    sizePreset: 'medium',
+                    allowFullscreen: true,
+                    allowResize: true,
+                    closeBehavior: 'strict-modal',
+                    storageScopeKey: 'metahub-1'
+                }}
+            >
+                <DialogPresentationCapture onCapture={(presentation) => (capturedPresentation = presentation)} />
+            </DialogPresentationProvider>
+        )
+
+        await waitFor(() => {
+            expect(capturedPresentation?.dialogProps.PaperProps?.sx).toBeTruthy()
+        })
+
+        const sx = capturedPresentation!.dialogProps.PaperProps!.sx as Record<string, unknown>
+        expect(sx.minHeight).toBe('min(calc(100dvh - 32px), 540px)')
+        // The stored height must not become a hard cap that forces an inner scrollbar.
+        expect(sx.height).toBeUndefined()
+        expect(sx.maxHeight).toBe('calc(100dvh - 32px)')
+    })
+
     it('uses provided localized labels for dialog action tooltips and the resize handle aria-label', async () => {
         window.localStorage.setItem('universo:dialog-presentation:labels:size', JSON.stringify({ width: 720, height: 540 }))
 

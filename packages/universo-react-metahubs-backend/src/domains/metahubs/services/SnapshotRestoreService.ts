@@ -189,6 +189,10 @@ export class SnapshotRestoreService {
                 await this.restoreLayouts(trx, snapshot, entityIdMap, userId, playCanvasRestoreResult)
                 await this.restoreSettings(trx, snapshot, userId)
                 await this.restorePackages(trx, metahubId, snapshot, userId, playCanvasProjectIdMap)
+                // Entities are inserted before PlayCanvas projects are restored, so
+                // their `config.projectBinding.projectId` still points at the source
+                // project id. Remap it now that the new project ids are known.
+                await this.remapEntityProjectBindingReferences(trx, snapshot, entityIdMap, playCanvasProjectIdMap, userId)
             })
         } catch (error) {
             for (const backup of restoredModuleSourceBackups.reverse()) {
@@ -402,6 +406,50 @@ export class SnapshotRestoreService {
             packages,
             userId
         })
+    }
+
+    /**
+     * Remaps `config.projectBinding.projectId` on restored "Projects" entity
+     * instances from the source project id to the freshly-restored project id.
+     * The restore inserts entities before PlayCanvas projects, so this runs as a
+     * post-pass once `playCanvasProjectIdMap` is populated. `projectCodename` is
+     * stable across restore and left untouched (it is the canonical reference).
+     */
+    private async remapEntityProjectBindingReferences(
+        qb: Knex.Transaction,
+        snapshot: MetahubSnapshot,
+        entityIdMap: Map<string, string>,
+        playCanvasProjectIdMap: Map<string, string>,
+        userId: string
+    ): Promise<void> {
+        if (playCanvasProjectIdMap.size === 0) {
+            return
+        }
+        const now = new Date()
+        for (const [oldEntityId, entity] of Object.entries(snapshot.entities ?? {})) {
+            const binding = (entity.config as { projectBinding?: { projectId?: unknown } } | undefined)?.projectBinding
+            const sourceProjectId = typeof binding?.projectId === 'string' ? binding.projectId : null
+            if (!sourceProjectId) {
+                continue
+            }
+            const remappedProjectId = playCanvasProjectIdMap.get(sourceProjectId)
+            if (!remappedProjectId || remappedProjectId === sourceProjectId) {
+                continue
+            }
+            const newEntityId = entityIdMap.get(oldEntityId)
+            if (!newEntityId) {
+                continue
+            }
+            await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_objects')
+                .where({ id: newEntityId })
+                .update({
+                    config: qb.raw(`jsonb_set(config, '{projectBinding,projectId}', to_jsonb(?::text), false)`, [remappedProjectId]),
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId
+                })
+        }
     }
 
     private async restoreSettings(qb: Knex.Transaction, snapshot: MetahubSnapshot, userId: string): Promise<void> {

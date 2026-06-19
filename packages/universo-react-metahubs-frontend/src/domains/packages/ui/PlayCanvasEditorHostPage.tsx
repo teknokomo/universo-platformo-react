@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Alert, Box, Button, Chip, CircularProgress, Stack, Typography, useMediaQuery, useTheme, type AlertColor } from '@mui/material'
@@ -136,6 +136,8 @@ export interface PlayCanvasEditorHostPageProps {
 
 export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCanvasEditorHostPageProps) {
     const { metahubId = '', packageSlug = '' } = useParams()
+    const [searchParams] = useSearchParams()
+    const requestedProjectId = searchParams.get('projectId')?.trim() || null
     const { t, i18n } = useTranslation(['metahubs'])
     const queryClient = useQueryClient()
     const theme = useTheme()
@@ -156,8 +158,8 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
     const [saveConflictDialogOpen, setSaveConflictDialogOpen] = useState(false)
 
     const hostQuery = useQuery({
-        queryKey: [...metahubsQueryKeys.packagesAttached(metahubId), 'authoring-host', packageSlug],
-        queryFn: () => packagesApi.getAuthoringHost(metahubId, packageSlug),
+        queryKey: [...metahubsQueryKeys.packagesAttached(metahubId), 'authoring-host', packageSlug, requestedProjectId ?? '__default__'],
+        queryFn: () => packagesApi.getAuthoringHost(metahubId, packageSlug, requestedProjectId),
         enabled: Boolean(metahubId && packageSlug)
     })
 

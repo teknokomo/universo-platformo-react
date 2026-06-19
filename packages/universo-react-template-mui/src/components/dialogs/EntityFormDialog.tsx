@@ -16,7 +16,7 @@ import {
     useTheme
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
+import { mergeDialogPaperProps, useDialogPresentation } from './dialogPresentation'
 
 /**
  * Configuration for a single tab in the EntityFormDialog.
@@ -412,7 +412,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             PaperProps={mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps)}
         >
             <DialogTitle>{titleNode}</DialogTitle>
-            <DialogContent sx={mergeDialogSx({ overflowY: 'visible' }, presentation.contentSx)}>{renderContent()}</DialogContent>
+            <DialogContent sx={presentation.contentSx}>{renderContent()}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'space-between' }}>
                 {/* Delete button - shown in edit/copy mode when showDeleteButton is true */}
                 {(mode === 'edit' || mode === 'copy') && showDeleteButton ? (

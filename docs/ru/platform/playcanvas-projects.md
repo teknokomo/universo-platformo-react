@@ -61,3 +61,8 @@ Backend предоставляет endpoints модели хранения и п
 -   Collaborative authoring и UI слияния конфликтов за пределами checksum-based save protection.
 -   Colyseus authoring state.
 -   AI/MCP scene editing.
+
+## Связанные материалы
+
+-   [Тип сущности «Проекты»](./projects-entity-type.md) — платформенный пресет типа сущности, который связывается с PlayCanvas-проектом 1:1.
+-   [Шаблон метахаба «PlayCanvas»](./playcanvas-template.md) — шаблон метахаба, который включает пресет «Проекты».

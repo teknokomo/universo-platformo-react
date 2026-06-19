@@ -32,6 +32,8 @@
 -   [Knowledge Spaces](platform/spaces.md)
 -   [Metahubs](platform/metahubs.md)
     -   [1C-Compatible Template](platform/1c-compatible-template.md)
+    -   [Projects Entity Type](platform/projects-entity-type.md)
+    -   [PlayCanvas Metahub Template](platform/playcanvas-template.md)
     -   [Resources Workspace](platform/metahubs/common-section.md)
     -   [Metahub Packages](platform/metahubs/packages.md)
     -   [Shared Components](platform/metahubs/shared-components.md)

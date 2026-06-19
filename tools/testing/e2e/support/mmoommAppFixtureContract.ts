@@ -450,6 +450,25 @@ const assertDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>):
         'DecelerationMetersPerSecond2',
         'ArrivalRadiusMeters'
     ])
+    // The new metahub template includes a "Projects" entity-type preset; the
+    // MMOOMM generator must author exactly one project instance (MMOOMM
+    // Authoring) bound to the editor's PlayCanvas project.
+    const allEntities = Object.values(snapshot.entities ?? {}) as Array<{
+        id?: string
+        kind?: string
+        config?: Record<string, unknown> | null
+    }>
+    const projectInstances = allEntities.filter((instance) => instance.kind === 'project')
+    if (projectInstances.length === 0) {
+        throw new Error('MMOOMM fixture contract: no project entity instances were captured')
+    }
+    const authoring = projectInstances.find((instance) => {
+        const config = instance?.config as { projectBinding?: { projectCodename?: string } } | null
+        return Boolean(config?.projectBinding?.projectCodename)
+    })
+    if (!authoring?.id) {
+        throw new Error('MMOOMM fixture contract: expected at least one project instance with a projectBinding.projectCodename')
+    }
 }
 
 const assertRuntimeModules = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {

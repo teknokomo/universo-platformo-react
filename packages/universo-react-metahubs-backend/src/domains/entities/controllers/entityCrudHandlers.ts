@@ -1,12 +1,16 @@
 import { generateUuidV7 } from '@universo-react/utils'
 import { isUniqueViolation, getDbErrorConstraint } from '@universo-react/utils/database'
+import { isEnabledCapabilityConfig } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { paginateItems } from '../../shared/queryParams'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
+import { createLogger } from '../../../utils/logger'
 import { getCodenameSettings, CODENAME_RETRY_MAX_ATTEMPTS } from '../../shared/codenameStyleHelper'
 import { getCodenamePayloadText } from '../../shared/codenamePayload'
 import { copyDesignTimeObjectChildren } from '../services/designTimeObjectChildrenCopy'
 import { getEntityBehaviorService } from '../services/builtinKindBehaviorRegistry'
+import { PlayCanvasProjectsService } from '../../playcanvas-projects/services/PlayCanvasProjectsService'
+import { extractProjectBindingFromConfig } from './entityControllerShared'
 import {
     createEntityServices,
     assertSupportedEntityKind,
@@ -35,6 +39,7 @@ import {
     hasDesignTimeChildrenToCopy,
     validateEntityConfigForComponents,
     validateLedgerConfigReferencesForEntity,
+    validateAndResolveProjectBinding,
     executeBehaviorDelete,
     executeBehaviorBlockingState,
     type EntityInstanceRow
@@ -56,6 +61,7 @@ const assertEntityMatchesSpecializedRouteKind = (
 }
 
 export function createEntityCrudHandlers(createHandler: ReturnType<typeof createMetahubHandlerFactory>) {
+    const log = createLogger('entityCrudHandlers')
     const list = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const parsed = entityListQuerySchema.safeParse(req.query)
         if (!parsed.success) {
@@ -134,6 +140,12 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
         const name = buildRequiredLocalizedField(parsed.data.name, parsed.data.namePrimaryLocale, 'Name', normalizedCodename)
         const description = buildOptionalLocalizedField(parsed.data.description, parsed.data.descriptionPrimaryLocale)
         const config = validateEntityConfigForComponents(resolvedType, parsed.data.config)
+        await validateAndResolveProjectBinding({
+            resolvedType,
+            config,
+            resolveProject: (codename) =>
+                new PlayCanvasProjectsService(exec, schemaService).resolveBoundProjectByCodename(metahubId, codename)
+        })
         await validateLedgerConfigReferencesForEntity({
             resolvedType,
             config,
@@ -210,6 +222,12 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             await assertCodenameAvailable(objectsService, metahubId, existing.kind, nextCodename.normalizedCodename, userId, existing.id)
         }
         const config = validateEntityConfigForComponents(resolvedType, parsed.data.config)
+        await validateAndResolveProjectBinding({
+            resolvedType,
+            config,
+            resolveProject: (codename) =>
+                new PlayCanvasProjectsService(exec, schemaService).resolveBoundProjectByCodename(metahubId, codename)
+        })
         await validateLedgerConfigReferencesForEntity({
             resolvedType,
             config,
@@ -355,6 +373,39 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             return res.status(policyOutcome.status).json(policyOutcome.body)
         }
 
+        // Cascade-delete the 1:1 bound PlayCanvas project when removing a
+        // "Projects" instance, so deleting the instance never orphans a project.
+        // The cascade is best-effort: any error (concurrent delete, file-cleanup
+        // failure, optimistic-lock) is logged and swallowed so a 5xx from the
+        // cascade does not surface AFTER the entity instance has already been
+        // soft-deleted, leaving the caller with a phantom failure.
+        const projectBinding = extractProjectBindingFromConfig((existing as EntityInstanceRow).config)
+        const cascadeBoundProject = async (): Promise<void> => {
+            if (!projectBinding) return
+            try {
+                // A PlayCanvas project may be shared by several "Projects" instances
+                // (binding an existing project is allowed). Only cascade-delete it
+                // when NO other active instance still references it by codename —
+                // otherwise the surviving instances would be orphaned.
+                const stillReferenced = await objectsService.countActiveProjectBindingsByCodename(
+                    metahubId,
+                    projectBinding.projectCodename,
+                    existing.id,
+                    userId
+                )
+                if (stillReferenced > 0) {
+                    return
+                }
+                const projectsService = new PlayCanvasProjectsService(exec, schemaService)
+                await projectsService.deleteBoundProject(metahubId, projectBinding, userId)
+            } catch (cascadeError) {
+                log.warn(
+                    `Cascade delete of bound PlayCanvas project failed (metahub=${metahubId}, entity=${existing.id}, projectCodename=${projectBinding.projectCodename}); the project may be orphaned and should be cleaned up manually`,
+                    cascadeError
+                )
+            }
+        }
+
         const metadataKind = getEntityMetadataKind(resolvedType)
         const behavior = metadataKind ? getEntityBehaviorService(metadataKind) : null
         if (behavior) {
@@ -389,6 +440,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             })
 
             if (result.status === 204) {
+                await cascadeBoundProject()
                 return res.status(204).send()
             }
 
@@ -407,6 +459,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             }
         })
 
+        await cascadeBoundProject()
         return res.status(204).send()
     })
 
@@ -541,6 +594,13 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             ...((parsed.data.config && typeof parsed.data.config === 'object' && !Array.isArray(parsed.data.config)
                 ? parsed.data.config
                 : {}) as Record<string, unknown>)
+        }
+        // The projectBinding link is 1:1 to an external authoring project. Cloning
+        // a "Projects" instance must NOT carry the source's binding forward,
+        // otherwise both instances would race to cascade-delete the same project.
+        // The user re-binds (or the generator binds a fresh project) on the copy.
+        if (isEnabledCapabilityConfig(resolvedType.capabilities?.projectBinding)) {
+            delete nextCopyConfig.projectBinding
         }
         if (parsed.data.parentTreeEntityId !== undefined) {
             nextCopyConfig.parentTreeEntityId = parsed.data.parentTreeEntityId

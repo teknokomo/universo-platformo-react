@@ -1,5 +1,16 @@
 # Current Research
 
+## 2026-06-17: PlayCanvas metahub template + "Projects" entity type, MMOOMM snapshot regeneration
+
+-   Research artifact: `memory-bank/research/playcanvas-template-projects-entity-type-research-2026-06-17.md`. Brief: MANAGER cross-project brief (tracked outside the repository).
+-   Core finding: a new "Projects" section does NOT need a new builtin entity KIND. The 11 one-c-compatible presets are the precedent — registered presets with custom `kindKey`s, object-like capabilities, mapping to the OBJECT metadata surface and rendering through the generic entity UI. "Projects" = `kindKey: 'project'`, object-like-minimal, `sidebarSection: 'objects'`, `sidebarOrder < 10` (above Hub=10).
+-   The Entity Type Constructor (`EntitiesWorkspace.tsx`) is fully generic and exposes every field needed (kindKey, icon, tabs, sidebarSection, sidebarOrder integer, capability toggles with dependency graph, resourceSurfaces, behaviorProfile, preset selector). Menu + instance routing (`/entities/:kindKey/instances`) are data-driven — no menu/code edits to place "Projects" above Hubs.
+-   The ONLY genuinely new platform capability is the PlayCanvas project binding / launch-editor surface: `resourceSurfaces` are capability-bound (`ENTITY_RESOURCE_SURFACE_CAPABILITIES`), so a first-class binding surface needs a new generic capability (Option A) — this is the TZ's "add missing configurator functionality" clause. The existing metahub PlayCanvas project store (`domains/playcanvas-projects`) is the backing store; binding (not absorption), branches/checkpoints stay inside the PlayCanvas project.
+-   QA pass (2026-06-17): artifact `Status: Reviewed`. Verified against source: `ENTITY_RESOURCE_SURFACE_CAPABILITIES = ['dataSchema','fixedValues','optionValues']` (binding needs a new capability); metahub-create dialog already has a `TemplateSelector`; the PlayCanvas project store is ALREADY current-baseline system tables (`_mhb_playcanvas_projects` with unique-active `codename` + siblings), `CURRENT_STRUCTURE_VERSION = 1`, with an `ADDITIVE_CURRENT_BASELINE_TABLE_NAMES` no-bump path.
+-   User directives locked: DELETE the legacy Packages "PlayCanvas projects" panel (no legacy code, no dual surface); NO structure/template version bump (achievable — store already baseline, link lives in the instance record/config referencing `_mhb_playcanvas_projects.codename`); test DB recreated (no back-compat); major refactor permitted. Three prior open questions resolved.
+-   Remaining PLAN decisions: Option A (new capability+surface) vs Option B (ref field+action); object-like-minimal capability set; snapshot/hash representation of the instance↔project link; dedicated sidebar section vs `'objects'`+`sidebarOrder<10`; commit fixture now vs after E2E stabilization. Generator rework (`metahubs-mmoomm-app-export.spec.ts` + `mmoommAppFixtureContract.ts` + check/import helpers) is bounded.
+-   Recommended workflow: PLAN (this artifact is the required input). No blocking external unknowns; PlayCanvas Project model + open-source Editor frontend confirmed via vendor docs.
+
 ## 2026-06-16: OntoIndex code-intelligence adoption (CLI + MCP for AI agents)
 
 -   Research artifact: `memory-bank/research/ontoindex-code-intelligence-research-2026-06-16.md`. Brief: MANAGER cross-project brief (tracked outside the repository).

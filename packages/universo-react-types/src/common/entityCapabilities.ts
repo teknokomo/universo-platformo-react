@@ -19,7 +19,8 @@ export const ENTITY_CAPABILITY_KEYS = [
     'identityFields',
     'recordLifecycle',
     'posting',
-    'ledgerSchema'
+    'ledgerSchema',
+    'projectBinding'
 ] as const
 
 export type EntityCapabilityKey = (typeof ENTITY_CAPABILITY_KEYS)[number]
@@ -90,6 +91,21 @@ export interface LedgerSchemaCapabilityConfig extends CapabilityConfig {
     allowedModes?: readonly LedgerMode[]
 }
 
+/** Providers that can back an external-project binding resource surface. */
+export const PROJECT_BINDING_PROVIDERS = ['playcanvasEditor'] as const
+
+export type ProjectBindingProvider = (typeof PROJECT_BINDING_PROVIDERS)[number]
+
+/**
+ * Binds an entity instance to a single external authoring project (e.g. a
+ * PlayCanvas Editor project). Generic by design: the `provider` field carries
+ * the concrete system so the capability stays reusable.
+ */
+export interface ProjectBindingCapabilityConfig extends CapabilityConfig {
+    provider: ProjectBindingProvider
+    cardinality: 'single'
+}
+
 export interface EntityTypeCapabilities {
     dataSchema: DataSchemaCapabilityConfig | false
     records: RecordsCapabilityConfig | false
@@ -110,6 +126,7 @@ export interface EntityTypeCapabilities {
     recordLifecycle?: RecordLifecycleCapabilityConfig | false
     posting?: PostingCapabilityConfig | false
     ledgerSchema?: LedgerSchemaCapabilityConfig | false
+    projectBinding?: ProjectBindingCapabilityConfig | false
 }
 
 export const CAPABILITY_DEPENDENCIES: Record<EntityCapabilityKey, readonly EntityCapabilityKey[]> = {
@@ -131,7 +148,8 @@ export const CAPABILITY_DEPENDENCIES: Record<EntityCapabilityKey, readonly Entit
     identityFields: ['records'],
     recordLifecycle: ['records', 'identityFields'],
     posting: ['recordLifecycle', 'modules'],
-    ledgerSchema: ['dataSchema', 'physicalTable']
+    ledgerSchema: ['dataSchema', 'physicalTable'],
+    projectBinding: []
 }
 
 export const isEnabledCapabilityConfig = (config: CapabilityConfig | false | null | undefined): config is CapabilityConfig =>

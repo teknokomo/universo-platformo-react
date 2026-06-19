@@ -278,6 +278,80 @@ describe('SnapshotRestoreService', () => {
         expect(restoredPackagesArg?.packages?.[0]?.config?.playcanvasProject?.defaultProjectId).toBe(restoredProjectId)
     })
 
+    it('remaps config.projectBinding.projectId on restored Projects instances to the new project id', async () => {
+        const { knex, mockBuilder, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        const sourceProjectId = '019e8afa-0000-7000-8000-000000000001'
+        const playcanvasProjects: PlayCanvasProjectSnapshotSection = {
+            schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+            projects: [
+                {
+                    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                    id: sourceProjectId,
+                    codename: createLocalizedContent('en', 'mmoomm_authoring'),
+                    displayName: createLocalizedContent('en', 'MMOOMM Authoring'),
+                    description: null,
+                    packageRef: {
+                        packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                        version: '0.1.0',
+                        compatibilityStatus: 'compatible'
+                    },
+                    settings: {},
+                    defaultSceneId: null,
+                    publicationConfig: {}
+                }
+            ],
+            scenes: [],
+            assets: [],
+            scriptAssets: [],
+            sceneScriptBindings: [],
+            generatedArtifacts: []
+        }
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({
+                entities: {
+                    'old-project-instance': {
+                        kind: 'project',
+                        codename: 'MMOOMMAuthoring',
+                        presentation: { name: { en: 'MMOOMM Authoring' }, description: {} },
+                        // The exported binding references the SOURCE project id, which
+                        // must be remapped to the restored project id on import.
+                        config: {
+                            projectBinding: {
+                                provider: 'playcanvasEditor',
+                                projectId: sourceProjectId,
+                                projectCodename: 'mmoomm_authoring'
+                            }
+                        },
+                        fields: []
+                    }
+                } as unknown as MetahubSnapshot['entities'],
+                playcanvasProjects
+            }),
+            'user-1'
+        )
+
+        const restoredProjectId = (insertedRows['_mhb_playcanvas_projects']?.[0] as { id?: string } | undefined)?.id
+        expect(restoredProjectId).toBeTruthy()
+        expect(restoredProjectId).not.toBe(sourceProjectId)
+
+        // The post-pass issues an UPDATE on _mhb_objects with a jsonb_set raw that
+        // writes the remapped project id into config.projectBinding.projectId.
+        const updateCalls = mockBuilder.update.mock.calls as Array<[Record<string, unknown>]>
+        const bindingUpdate = updateCalls.find((call) => {
+            const config = call[0]?.config as { raw?: string } | undefined
+            return typeof config?.raw === 'string' && config.raw.includes('projectBinding,projectId')
+        })
+        expect(bindingUpdate).toBeTruthy()
+        // The remapped id was bound into the raw jsonb_set parameters.
+        const rawCall = mockBuilder.raw.mock.calls.find(
+            (call) => typeof call[0] === 'string' && (call[0] as string).includes('projectBinding,projectId')
+        )
+        expect(rawCall?.[1]).toEqual([restoredProjectId])
+    })
+
     it('remaps PlayCanvas runtime manifest bindings inside restored layout widget configs', async () => {
         const { knex, insertedRows } = createMockKnex()
         const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')

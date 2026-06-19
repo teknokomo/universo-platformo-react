@@ -32,6 +32,8 @@
 -   [Пространства знаний](platform/spaces.md)
 -   [Метахабы](platform/metahubs.md)
     -   [Шаблон 1С-Совместимый](platform/1c-compatible-template.md)
+    -   [Тип сущности «Проекты»](platform/projects-entity-type.md)
+    -   [Шаблон метахаба «PlayCanvas»](platform/playcanvas-template.md)
     -   [Рабочее пространство ресурсов](platform/metahubs/common-section.md)
     -   [Пакеты метахаба](platform/metahubs/packages.md)
     -   [Общие компоненты](platform/metahubs/shared-components.md)

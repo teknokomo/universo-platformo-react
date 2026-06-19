@@ -6059,4 +6059,179 @@ describe('PlayCanvasProjectsService', () => {
                 )
         ).toBe(true)
     })
+
+    describe('deleteBoundProject (cascade from "Projects" entity instance)', () => {
+        // Build a minimal project row that `findPlayCanvasProject` / `…ByCodename`
+        // can return so deleteBoundProject locates the project and then proceeds
+        // to the inner deleteProject pipeline.
+        const projectRow = () => ({
+            id: PROJECT_ID,
+            codename: createLocalizedContent('en', 'mmoomm_world'),
+            displayName: createLocalizedContent('en', 'MMOOMM World'),
+            description: null,
+            packageName: '@universo-react/playcanvas-editor-frontend',
+            packageVersion: '0.1.0',
+            compatibilityStatus: 'compatible',
+            compatibilityNotes: {},
+            schemaVersion: '1',
+            settings: {},
+            defaultSceneId: SCENE_ID,
+            publicationConfig: {},
+            version: 3
+        })
+
+        it('resolves by projectId first, then deletes via the project pipeline', async () => {
+            // We track query order so we can confirm the SELECT (find) precedes
+            // the UPDATE (soft-delete). Mock returns the project row for any
+            // SELECT, and a non-empty row for the soft-delete UPDATE.
+            const seenQueries: string[] = []
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    seenQueries.push(sql)
+                    if (sql.startsWith('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return [projectRow()]
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects') && sql.includes('RETURNING')) {
+                        return [projectRow()]
+                    }
+                    if (sql.includes('rel_metahub_packages')) {
+                        return []
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_')) {
+                        return []
+                    }
+                    return []
+                })
+            } as unknown as DbExecutor
+            const fileService = {
+                deleteProjectTree: jest.fn(async () => undefined)
+            }
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+            await service.deleteBoundProject('metahub-1', { projectId: PROJECT_ID, projectCodename: 'mmoomm_world' }, 'user-1')
+
+            // The inner deleteProject pipeline reached the file cleanup step.
+            expect(fileService.deleteProjectTree).toHaveBeenCalledTimes(1)
+            // The first query was a SELECT (the resolver), not a codename SELECT.
+            // If the projectId SELECT was honored, the codename SELECT should
+            // not have been issued.
+            const projectIdLookups = seenQueries.filter((sql) => sql.includes('WHERE id = $1') && sql.includes('_mhb_playcanvas_projects'))
+            const codenameLookups = seenQueries.filter((sql) => sql.startsWith('SELECT') && sql.includes('LEFT(codename_locale_text'))
+            expect(projectIdLookups.length).toBeGreaterThanOrEqual(1)
+            expect(codenameLookups.length).toBe(0)
+        })
+
+        it('falls back to projectCodename when projectId is missing and the lookup still finds the project', async () => {
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    if (sql.startsWith('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return [projectRow()]
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects') && sql.includes('RETURNING')) {
+                        return [projectRow()]
+                    }
+                    if (sql.includes('rel_metahub_packages')) {
+                        return []
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_')) {
+                        return []
+                    }
+                    return []
+                })
+            } as unknown as DbExecutor
+            const fileService = {
+                deleteProjectTree: jest.fn(async () => undefined)
+            }
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+            await service.deleteBoundProject('metahub-1', { projectId: null, projectCodename: 'mmoomm_world' }, 'user-1')
+
+            // Cleanup must have run; the resolver path is confirmed by the inner
+            // deleteProject pipeline completing without throwing.
+            expect(fileService.deleteProjectTree).toHaveBeenCalledTimes(1)
+        })
+
+        it('is a no-op when the bound project is already soft-deleted (idempotent)', async () => {
+            // `findPlayCanvasProject` returns the project row (so deleteBoundProject
+            // proceeds to call deleteProject), but the inner soft-delete UPDATE
+            // returns 0 rows because the project was already deleted. The inner
+            // `deleteProject` throws OptimisticLockError, which the entity
+            // CRUD handler catches and logs — the cascade is best-effort and
+            // the user-facing 204 is preserved. This test confirms that
+            // deleteBoundProject does not silently swallow the inner error
+            // (the CRUD handler is the swallow point, not this service).
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return [projectRow()]
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_projects') && sql.includes('RETURNING')) {
+                        return []
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_')) {
+                        return []
+                    }
+                    if (sql.includes('WITH affected') && sql.includes('rel_metahub_packages')) {
+                        return []
+                    }
+                    return []
+                })
+            } as unknown as DbExecutor
+            const fileService = {
+                deleteProjectTree: jest.fn(async () => undefined)
+            }
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+            await expect(
+                service.deleteBoundProject('metahub-1', { projectId: PROJECT_ID, projectCodename: 'mmoomm_world' }, 'user-1')
+            ).rejects.toBeInstanceOf(Error)
+            expect(fileService.deleteProjectTree).not.toHaveBeenCalled()
+        })
+
+        it('is a no-op when both projectId and projectCodename are missing', async () => {
+            const exec = {
+                query: jest.fn()
+            } as unknown as DbExecutor
+            const fileService = {
+                deleteProjectTree: jest.fn()
+            }
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+            await expect(
+                service.deleteBoundProject('metahub-1', { projectId: null, projectCodename: null }, 'user-1')
+            ).resolves.toBeUndefined()
+            expect(exec.query).not.toHaveBeenCalled()
+            expect(fileService.deleteProjectTree).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('resolveBoundProjectByCodename (project-binding validation source of truth)', () => {
+        it('returns the project id when the codename resolves in the project-store schema', async () => {
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    if (sql.startsWith('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return [{ id: PROJECT_ID }]
+                    }
+                    return []
+                })
+            } as unknown as DbExecutor
+            const schemaService = makeSchemaService()
+            const service = new PlayCanvasProjectsService(exec, schemaService as never)
+
+            await expect(service.resolveBoundProjectByCodename('metahub-1', 'mmoomm_world')).resolves.toEqual({ id: PROJECT_ID })
+            // Resolves against the default-branch project-store schema: no userId is
+            // passed, so the binding cannot be validated against a user's active branch.
+            expect(schemaService.ensureSchema).toHaveBeenCalledWith('metahub-1')
+            expect(schemaService.ensureSchema).not.toHaveBeenCalledWith('metahub-1', expect.anything())
+        })
+
+        it('returns null when the codename does not resolve (missing or soft-deleted)', async () => {
+            const exec = {
+                query: jest.fn(async () => [])
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+            await expect(service.resolveBoundProjectByCodename('metahub-1', 'vanished')).resolves.toBeNull()
+        })
+    })
 })

@@ -811,7 +811,9 @@
             "optionValues": "Enumeration values",
             "optionValuesHelper": "Keeps the type compatible with enumeration-style value registries.",
             "fixedValues": "Constants",
-            "fixedValuesHelper": "Keeps the type compatible with set-style constant registries."
+            "fixedValuesHelper": "Keeps the type compatible with set-style constant registries.",
+            "projectBinding": "Project binding",
+            "projectBindingHelper": "Adds a resource tab that binds each instance to a single external authoring project, such as a PlayCanvas Editor project."
         },
         "recordBehavior": {
             "defaultStateTitle": "State {{index}}",
@@ -1322,7 +1324,6 @@
             "message": "Are you sure you want to delete this hub? Nested objects, components, and records may become unavailable.",
             "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
             "fetchError": "Failed to check for blocking entities",
-            "hasBlockingObjects": "Cannot delete hub. The following objects require at least one hub and are only linked to this one:",
             "hasBlockingObjects": "Cannot delete hub. The following entities require at least one hub and are only linked to this one:",
             "resolutionHint": "To delete this hub, first re-link child hubs and add another hub to these objects, sets, and enumerations, or disable the required hub option.",
             "sections": {}
@@ -1499,71 +1500,11 @@
             "mutationFailed": "Package operation failed. Please refresh and try again."
         },
         "projects": {
-            "title": "PlayCanvas projects",
-            "description": "Project storage used by the connected PlayCanvas Editor package.",
             "loading": "Loading PlayCanvas projects...",
             "loadError": "Failed to load PlayCanvas projects.",
-            "readOnly": "Project storage is available to metahub managers. You can view connected packages, but cannot change PlayCanvas projects.",
             "unnamed": "Unnamed project",
             "defaultProject": "Default project",
-            "defaultNone": "No default project",
-            "defaultChip": "Default",
-            "defaultMissing": "The saved default project is no longer available.",
-            "counts": "{{scenes}} scenes, {{assets}} assets, {{scripts}} scripts, {{artifacts}} generated artifacts",
-            "empty": {
-                "title": "No PlayCanvas projects yet",
-                "imageAlt": "No PlayCanvas projects",
-                "description": "Create a project before connecting the Editor bridge."
-            },
-            "fields": {
-                "name": "Project name",
-                "nameHelper": "This name is shown in the metahub package settings."
-            },
-            "validation": {
-                "nameRequired": "Enter a project name."
-            },
-            "status": {
-                "ready": "Ready",
-                "missing": "Missing files",
-                "checksumMismatch": "Checksum mismatch",
-                "unsupportedType": "Unsupported type",
-                "deferredProvider": "Deferred storage",
-                "regenerable": "Regenerable",
-                "publishBlocking": "Blocked for publishing"
-            },
-            "compatibility": {
-                "compatible": "Compatible",
-                "needsMigration": "Needs update",
-                "unsupported": "Unsupported",
-                "blocked": "Blocked"
-            },
-            "actions": {
-                "create": "Create project",
-                "publish": "Publish runtime",
-                "publishUnavailable": "Resolve project status before publishing.",
-                "delete": "Delete project",
-                "deleteNamed": "Delete {{projectName}}"
-            },
-            "dialogs": {
-                "create": {
-                    "title": "Create PlayCanvas project"
-                },
-                "delete": {
-                    "title": "Delete PlayCanvas project",
-                    "description": "Delete {{projectName}} and its PlayCanvas project files. Disconnecting the package does not delete projects.",
-                    "deleting": "Deleting..."
-                }
-            },
-            "notifications": {
-                "created": "PlayCanvas project created",
-                "createFailed": "Failed to create PlayCanvas project",
-                "defaultSaved": "Default PlayCanvas project saved",
-                "defaultFailed": "Failed to save default PlayCanvas project",
-                "published": "PlayCanvas project published with {{count}} runtime scene(s)",
-                "publishFailed": "Failed to publish PlayCanvas project",
-                "deleted": "PlayCanvas project deleted",
-                "deleteFailed": "Failed to delete PlayCanvas project"
-            }
+            "defaultNone": "No default project"
         },
         "editorHost": {
             "fallbackName": "Package editor",
@@ -1803,6 +1744,75 @@
             "success": "Added {{count}} set(s).",
             "partialSuccess": "Added {{successCount}} set(s). {{failCount}} set(s) could not be linked.",
             "failedAll": "Selected sets could not be linked to this hub. Please review restrictions and try again."
+        }
+    },
+    "projects": {
+        "title": "Projects",
+        "binding": {
+            "title": "PlayCanvas project",
+            "resourceTabTitle": "PlayCanvas",
+            "loading": "Loading PlayCanvas project binding...",
+            "loadError": "Failed to load the project binding.",
+            "unnamedProject": "Unnamed project",
+            "missingProject": "The bound PlayCanvas project is no longer available.",
+            "counts": "{{scenes}} scenes, {{assets}} assets, {{scripts}} scripts, {{artifacts}} generated artifacts",
+            "status": {
+                "ready": "Ready",
+                "needsAttention": "Needs attention"
+            },
+            "compatibility": {
+                "needsMigration": "Needs migration",
+                "blocked": "Blocked",
+                "unsupported": "Unsupported"
+            },
+            "actions": {
+                "createAndBind": "Create & bind project",
+                "bindExisting": "Bind existing project",
+                "bind": "Bind",
+                "openEditor": "Open editor",
+                "publish": "Publish runtime",
+                "unbind": "Unbind"
+            },
+            "empty": {
+                "imageAlt": "No bound PlayCanvas project",
+                "title": "No PlayCanvas project bound yet",
+                "description": "Create and bind a PlayCanvas project to author its 3D scene in the editor."
+            },
+            "fields": {
+                "name": "Project name",
+                "nameHelper": "Shown for the bound PlayCanvas project."
+            },
+            "validation": {
+                "nameRequired": "Enter a project name."
+            },
+            "dialogs": {
+                "create": {
+                    "title": "Create & bind PlayCanvas project"
+                },
+                "bindExisting": {
+                    "title": "Bind existing PlayCanvas project",
+                    "field": "PlayCanvas project",
+                    "helper": "Bind an already-created PlayCanvas project. Projects already bound elsewhere can be shared.",
+                    "filterUnbound": "Show only unbound projects",
+                    "empty": "No projects available",
+                    "alreadyBound": "Already bound"
+                },
+                "unbind": {
+                    "title": "Unbind PlayCanvas project",
+                    "description": "Remove the link between this entity and its PlayCanvas project. The project itself is not deleted.",
+                    "unbinding": "Unbinding..."
+                }
+            },
+            "notifications": {
+                "created": "PlayCanvas project created and bound",
+                "createFailed": "Failed to create and bind the PlayCanvas project",
+                "boundExisting": "PlayCanvas project bound",
+                "bindFailed": "Failed to bind the PlayCanvas project",
+                "published": "Runtime published with {{count}} scene(s)",
+                "publishFailed": "Failed to publish the runtime",
+                "unbound": "PlayCanvas project unbound",
+                "unbindFailed": "Failed to unbind the PlayCanvas project"
+            }
         }
     },
     "pages": {
@@ -2965,9 +2975,6 @@
         "clearDisplayError": "Failed to clear display component",
         "childComponents": "Child Components",
         "noChildComponents": "No child components yet",
-        "createChildDialog": {
-            "title": "Create Child Component"
-        },
         "editChildDialog": {
             "title": "Edit Child Component"
         },

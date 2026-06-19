@@ -233,6 +233,36 @@ export class MetahubObjectsService {
         return result ? parseInt(result.count, 10) : 0
     }
 
+    /**
+     * Counts ACTIVE entity instances whose `config.projectBinding.projectCodename`
+     * matches the given codename, optionally excluding one instance id. Used by the
+     * cascade-delete guard so a PlayCanvas project shared by several "Projects"
+     * instances is not soft-deleted while any other instance still references it.
+     */
+    async countActiveProjectBindingsByCodename(
+        metahubId: string,
+        projectCodename: string,
+        excludeEntityId?: string | null,
+        userId?: string
+    ): Promise<number> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const softDelete = this.buildSoftDeleteSql()
+        const params: unknown[] = [projectCodename]
+        let excludeSql = ''
+        if (excludeEntityId) {
+            params.push(excludeEntityId)
+            excludeSql = ` AND id <> $${params.length}`
+        }
+        const result = await queryOne<{ count: string }>(
+            this.exec,
+            `SELECT COUNT(*) AS count FROM ${qt}
+              WHERE config->'projectBinding'->>'projectCodename' = $1${excludeSql}${softDelete}`,
+            params
+        )
+        return result ? parseInt(result.count, 10) : 0
+    }
+
     async findById(
         metahubId: string,
         id: string,

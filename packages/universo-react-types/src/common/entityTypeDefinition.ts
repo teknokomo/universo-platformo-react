@@ -1,14 +1,17 @@
-import type { EntityTypeCapabilities } from './entityCapabilities'
+import type { EntityTypeCapabilities, ProjectBindingProvider } from './entityCapabilities'
 import { isEnabledCapabilityConfig } from './entityCapabilities'
 import type { VersionedLocalizedContent } from './admin'
 import type { EntityKind } from './metahubs'
 
 export type EntitySidebarSection = 'objects' | 'admin'
-export type BuiltinEntityResourceSurfaceKey = 'components' | 'fixedValues' | 'optionValues'
-export type EntityResourceSurfaceCapability = keyof Pick<EntityTypeCapabilities, 'dataSchema' | 'fixedValues' | 'optionValues'>
+export type BuiltinEntityResourceSurfaceKey = 'components' | 'fixedValues' | 'optionValues' | 'projectBinding'
+export type EntityResourceSurfaceCapability = keyof Pick<
+    EntityTypeCapabilities,
+    'dataSchema' | 'fixedValues' | 'optionValues' | 'projectBinding'
+>
 
-export const BUILTIN_ENTITY_RESOURCE_SURFACE_KEYS = ['components', 'fixedValues', 'optionValues'] as const
-export const ENTITY_RESOURCE_SURFACE_CAPABILITIES = ['dataSchema', 'fixedValues', 'optionValues'] as const
+export const BUILTIN_ENTITY_RESOURCE_SURFACE_KEYS = ['components', 'fixedValues', 'optionValues', 'projectBinding'] as const
+export const ENTITY_RESOURCE_SURFACE_CAPABILITIES = ['dataSchema', 'fixedValues', 'optionValues', 'projectBinding'] as const
 export const ENTITY_RESOURCE_SURFACE_KEY_PATTERN = /^[a-z][a-zA-Z0-9._-]{0,63}$/
 export const ENTITY_RESOURCE_SURFACE_ROUTE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
 export const DEFAULT_ENTITY_RESOURCE_SURFACE_BY_CAPABILITY: Record<
@@ -32,6 +35,27 @@ export const DEFAULT_ENTITY_RESOURCE_SURFACE_BY_CAPABILITY: Record<
         capability: 'optionValues',
         routeSegment: 'values',
         fallbackTitle: 'optionValues'
+    },
+    projectBinding: {
+        key: 'projectBinding',
+        capability: 'projectBinding',
+        routeSegment: 'project',
+        fallbackTitle: 'projectBinding'
+    }
+}
+
+/**
+ * Per-instance binding payload stored in the generic entity-instance `config`.
+ * Anchors the instance 1:1 to an external authoring project (the project store
+ * stays the source of truth; this is a stable reference, not a copy).
+ */
+export interface ProjectBindingInstanceConfig {
+    projectBinding?: {
+        provider: ProjectBindingProvider
+        /** Stable unique-active codename in the project store. */
+        projectCodename: string
+        /** UUID v7 of the bound project row; optional convenience cache. */
+        projectId?: string | null
     }
 }
 
