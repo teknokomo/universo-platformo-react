@@ -71,6 +71,10 @@ export function createMetahubsServiceRoutes(
 
     const { read, write } = getRateLimiters()
 
+    // PlayCanvas Editor compatibility routes accept short-lived signed headers
+    // before the domain routers with catch-all session middleware.
+    router.use('/', createPlayCanvasProjectsRoutes(ensureAuth, getDbExecutor, read, write, csrfProtection))
+
     // Core metahubs CRUD
     router.use('/', createMetahubsRoutes(ensureAuth, getDbExecutor, read, write))
 
@@ -93,7 +97,6 @@ export function createMetahubsServiceRoutes(
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createPackagesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createModulesRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createPlayCanvasProjectsRoutes(ensureAuth, getDbExecutor, read, write, csrfProtection))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityTypesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityInstancesRoutes(ensureAuth, getDbExecutor, read, write))

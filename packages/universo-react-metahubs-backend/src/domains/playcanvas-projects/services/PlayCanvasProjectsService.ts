@@ -364,9 +364,10 @@ type PlayCanvasEditorSceneLocalAsset = {
 }
 
 const readPlayCanvasEditorAssetDocumentData = (asset: PlayCanvasAsset | PlayCanvasEditorSceneLocalAsset): Record<string, unknown> => {
-    const editorDocument = asRecord(asset.metadata.editorDocument)
-    const storedData = editorDocument.data !== undefined ? editorDocument.data : asset.metadata.data
-    const storedMeta = editorDocument.meta !== undefined ? editorDocument.meta : asset.metadata.meta
+    const metadata = asRecord(asset.metadata)
+    const editorDocument = asRecord(metadata.editorDocument)
+    const storedData = editorDocument.data !== undefined ? editorDocument.data : metadata.data
+    const storedMeta = editorDocument.meta !== undefined ? editorDocument.meta : metadata.meta
     return {
         item_id: readPlayCanvasEditorAssetDocumentId(asset),
         name: asset.name,
@@ -381,7 +382,7 @@ const readPlayCanvasEditorAssetDocumentData = (asset: PlayCanvasAsset | PlayCanv
               }
             : null,
         path: [],
-        tags: asStringArray(editorDocument.tags ?? asset.metadata.tags),
+        tags: asStringArray(editorDocument.tags ?? metadata.tags),
         data: storedData ?? null,
         meta: storedMeta ?? null,
         preload: typeof editorDocument.preload === 'boolean' ? editorDocument.preload : true,
@@ -485,6 +486,14 @@ const createPlayCanvasEditorSceneLocalAssetPayloadEntry = (
         meta: nextMeta,
         metadata: nextMetadata
     }
+}
+
+const sceneLocalAssetDocumentMatchesInput = (current: PlayCanvasEditorSceneLocalAsset, input: Record<string, unknown>): boolean => {
+    const currentDocument = readPlayCanvasEditorAssetDocumentData(current)
+    const comparableKeys = ['name', 'type', 'path', 'tags', 'data', 'meta', 'preload', 'source']
+    const currentComparable = Object.fromEntries(comparableKeys.map((key) => [key, currentDocument[key]]))
+    const inputComparable = Object.fromEntries(comparableKeys.map((key) => [key, input[key]]))
+    return stableStringify(currentComparable) === stableStringify(inputComparable)
 }
 
 const resolveRealtimeAssetDocument = (
@@ -1806,6 +1815,7 @@ export class PlayCanvasProjectsService {
                     name: getPrimaryText(read.scene.displayName),
                     settings: normalizeEditorSceneSettings(read.payload?.settings),
                     entities: normalizeRealtimeSceneEntities(read.payload?.entities ?? []),
+                    ...(read.payload?.metadata ? { metadata: read.payload.metadata } : {}),
                     scene: input.numericSceneId
                 }
             }
@@ -2177,12 +2187,18 @@ export class PlayCanvasProjectsService {
             }
             if (!isStoragePlayCanvasAsset(asset)) {
                 if (input.revision !== undefined && input.revision !== null && input.revision !== String(asset.version)) {
+                    if (sceneLocalAssetDocumentMatchesInput(asset, input.data)) {
+                        return { revision: String(asset.version) }
+                    }
                     throw new MetahubValidationError('PlayCanvas Editor scene-local asset revision mismatch', {
                         messageCode: 'playcanvas.editorRealtime.sceneLocalAssetRevisionMismatch',
                         documentId: input.documentId,
                         expectedRevision: input.revision,
                         actualRevision: String(asset.version)
                     })
+                }
+                if (sceneLocalAssetDocumentMatchesInput(asset, input.data)) {
+                    return { revision: String(asset.version) }
                 }
                 const read = await this.readEditorScene(input.metahubId, input.projectId, asset.sceneId, input.userId)
                 const currentAssets = read.payload?.assets ?? []
@@ -2225,7 +2241,7 @@ export class PlayCanvasProjectsService {
             const nextName = typeof input.data.name === 'string' && input.data.name.trim() ? input.data.name.trim() : asset.name
             const nextPath = asStringArray(input.data.path)
             const nextMetadata = {
-                ...asset.metadata,
+                ...asRecord(asset.metadata),
                 editorDocument: {
                     data: input.data.data ?? null,
                     meta: input.data.meta ?? null,

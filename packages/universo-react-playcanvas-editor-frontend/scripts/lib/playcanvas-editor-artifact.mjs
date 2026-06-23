@@ -3104,7 +3104,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
   const mapCompatibilityAssetToPlayCanvasAsset = (asset) => {
     const id = Number.isInteger(asset?.editorDocumentId) ? asset.editorDocumentId : null;
     if (!id) return null;
-    const { editorDocument, data, meta } = readCompatibilityAssetEditorDocument(asset);
+    const { metadata, editorDocument, data, meta } = readCompatibilityAssetEditorDocument(asset);
     const virtualPath = typeof asset.virtualPath === 'string' && asset.virtualPath.trim() ? asset.virtualPath.trim() : asset.name || 'asset';
     const filename = virtualPath.split('/').filter(Boolean).pop() || asset.name || String(id);
     const type = typeof asset.type === 'string' && asset.type ? asset.type : 'json';
@@ -3186,17 +3186,25 @@ export const writeBridgeBootstrap = (targetRoot) => {
       } catch {
         return [];
       }
-      const response = await fetch(restConfig.endpoints.assets, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          [restConfig.auth.headerName]:
-            marker.fullBootMode === true && typeof window.config?.accessToken === 'string'
-              ? window.config.accessToken
-              : restConfig.auth.accessToken
-        },
-        cache: 'no-store'
-      });
+      const requestInit =
+        marker.fullBootMode === true && typeof window.config?.accessToken === 'string'
+          ? {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                [restConfig.auth.headerName]: window.config.accessToken
+              },
+              cache: 'no-store'
+            }
+          : withRestCompatibilityAuthHeaders(
+              {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store'
+              },
+              restConfig
+            );
+      const response = await fetch(restConfig.endpoints.assets, requestInit);
       if (!response.ok) return [];
       const body = await response.json();
       const assets = Array.isArray(body?.items) ? body.items.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean) : [];

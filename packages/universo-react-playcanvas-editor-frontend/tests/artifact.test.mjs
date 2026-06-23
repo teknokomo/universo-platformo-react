@@ -220,6 +220,7 @@ describe('PlayCanvas Editor artifact metadata', () => {
             expect(source).toContain(
                 "const data = editorDocument && Object.prototype.hasOwnProperty.call(editorDocument, 'data') ? editorDocument.data : metadata?.data;"
             )
+            expect(source).toContain('const { metadata, editorDocument, data, meta } = readCompatibilityAssetEditorDocument(asset);')
             expect(source).toContain("if (normalized.blendType === 'additive') normalized.blendType = 1;")
             expect(source).toContain("if (normalized.blendType === 'normal') normalized.blendType = 2;")
             expect(source).toContain('data: editorData,')
@@ -280,7 +281,9 @@ describe('PlayCanvas Editor artifact metadata', () => {
             expect(source).toContain('const assetsEndpoint = new URL(restConfig.endpoints.assets, window.location.href);')
             expect(source).toContain('const isRestCompatibilityAssetEndpointAllowed = (restConfig, assetsEndpoint) => {')
             expect(source).toContain('if (!isRestCompatibilityAssetEndpointAllowed(restConfig, assetsEndpoint)) {')
+            expect(source).toContain('withRestCompatibilityAuthHeaders(')
             expect(source).toContain("marker.fullBootMode === true && typeof window.config?.accessToken === 'string'")
+            expect(source).toContain('[restConfig.auth.headerName]: window.config.accessToken')
             expect(source).not.toContain('if (assetsEndpoint.origin !== window.location.origin) {')
             expect(source).not.toContain('rememberScenePayloadEntities(marker.lastLoadedScene?.data?.payload);')
             expect(source).toContain('hydratePersistedSceneEntities();')

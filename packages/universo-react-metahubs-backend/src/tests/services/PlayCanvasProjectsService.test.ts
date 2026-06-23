@@ -885,6 +885,83 @@ describe('PlayCanvasProjectsService', () => {
         })
     })
 
+    it('loads realtime scene documents with scene metadata for full-boot editor serialization', async () => {
+        const exec = {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return [
+                        {
+                            id: SCENE_ID,
+                            projectId: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'visual_lab_scene'),
+                            displayName: createLocalizedContent('en', 'Visual Lab Scene'),
+                            payloadSchemaVersion: '1',
+                            payload: {
+                                schemaVersion: '1',
+                                entities: [
+                                    {
+                                        id: 'lab-camera',
+                                        name: 'MMOOMM Linkup Lab Camera',
+                                        parentId: null,
+                                        enabled: true,
+                                        components: { camera: { clearColor: [0.03, 0.04, 0.07, 1] } },
+                                        children: []
+                                    }
+                                ],
+                                metadata: {
+                                    savedBy: 'universo-playcanvas-editor-bridge',
+                                    mmoomm: {
+                                        visualLab: {
+                                            version: 1,
+                                            projectRole: 'visual-linkup-lab',
+                                            variantCount: 16,
+                                            objectTypes: ['ship', 'station', 'rockAsteroid', 'iceAsteroid']
+                                        }
+                                    }
+                                }
+                            },
+                            payloadFile: null,
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true,
+                            version: 1
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'scenes',
+            data: {
+                metadata: {
+                    savedBy: 'universo-playcanvas-editor-bridge',
+                    mmoomm: {
+                        visualLab: {
+                            projectRole: 'visual-linkup-lab',
+                            variantCount: 16,
+                            objectTypes: ['ship', 'station', 'rockAsteroid', 'iceAsteroid']
+                        }
+                    }
+                }
+            }
+        })
+    })
+
     it('rebuilds realtime scene children from parent references so upstream viewport renders root boxes', async () => {
         const exec = {
             query: jest.fn(async (sql: string, _params?: unknown[]) => {
@@ -1144,6 +1221,86 @@ describe('PlayCanvasProjectsService', () => {
                     hash: 'a'.repeat(64),
                     size: 42
                 }
+            }
+        })
+    })
+
+    it('loads realtime asset documents when asset metadata is missing', async () => {
+        const editorDocumentId = createPlayCanvasEditorNumericAssetId(ASSET_ID)
+        const exec = {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return []
+                }
+                if (sql.includes('_mhb_playcanvas_assets')) {
+                    return [
+                        {
+                            id: ASSET_ID,
+                            projectId: PROJECT_ID,
+                            stableAssetId: 'asset-root',
+                            type: 'json',
+                            name: 'Root Asset',
+                            virtualPath: ['root.json'],
+                            file: null,
+                            metadata: undefined,
+                            publish: true,
+                            version: 3
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: String(editorDocumentId),
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toEqual({
+            collection: 'assets',
+            id: String(editorDocumentId),
+            version: 3,
+            data: {
+                item_id: editorDocumentId,
+                name: 'Root Asset',
+                type: 'json',
+                file: null,
+                path: [],
+                tags: [],
+                data: null,
+                meta: null,
+                preload: true,
+                source: false,
+                branch_id: 456,
+                project: 123
             }
         })
     })
@@ -1716,6 +1873,81 @@ describe('PlayCanvasProjectsService', () => {
             }),
             'user-2'
         )
+    })
+
+    it('skips unchanged realtime scene-local material asset documents with stale revisions', async () => {
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, blendType: 2, depthWrite: false, useFog: true, shader: 'blinn' }
+        const scene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'scene'),
+            displayName: createLocalizedContent('en', 'Scene'),
+            payloadSchemaVersion: '1',
+            payload: null,
+            payloadFile: null,
+            checksum: 'c'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 9
+        }
+        const scenePayload = {
+            schemaVersion: '1',
+            entities: [],
+            assets: [
+                {
+                    id: '920000001',
+                    stableAssetId: 'mmoomm-visual-linkup-920000001',
+                    name: 'Scene Local Material',
+                    type: 'material',
+                    data: materialData,
+                    metadata: {
+                        data: materialData,
+                        editorDocument: {
+                            data: materialData,
+                            meta: null,
+                            tags: ['mmoomm', 'visual-linkup-lab'],
+                            preload: true,
+                            source: false
+                        }
+                    }
+                }
+            ]
+        }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene,
+            payload: scenePayload,
+            checksum: 'c'.repeat(64)
+        })
+        const saveEditorScene = jest.spyOn(service, 'saveEditorScene')
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '920000001',
+                data: {
+                    item_id: 920000001,
+                    name: 'Scene Local Material',
+                    type: 'material',
+                    path: [],
+                    tags: ['mmoomm', 'visual-linkup-lab'],
+                    data: materialData,
+                    meta: null,
+                    preload: true,
+                    source: false
+                },
+                version: 2,
+                revision: '7'
+            })
+        ).resolves.toEqual({ revision: '9' })
+
+        expect(saveEditorScene).not.toHaveBeenCalled()
     })
 
     it('persists realtime asset documents back to metahub PlayCanvas asset metadata', async () => {
