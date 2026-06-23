@@ -57,7 +57,11 @@ import { EventBindingService } from '../../entities/services/EventBindingService
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { enrichDefinitionsWithValueGroupFixedValues } from '../../shared/valueGroupFixedValueRefs'
-import { alignPlayCanvasRuntimeManifestBindings, attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
+import {
+    alignPlayCanvasRuntimeManifestBindings,
+    attachLayoutsToSnapshot,
+    collectPlayCanvasRuntimeManifestProjectIds
+} from '../../shared/snapshotLayouts'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('Publications')
@@ -541,6 +545,12 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
+        await serializer.refreshPlayCanvasRuntimeManifests(
+            metahubId,
+            snapshot,
+            collectPlayCanvasRuntimeManifestProjectIds(snapshot),
+            'runtime'
+        )
         alignPlayCanvasRuntimeManifestBindings(snapshot)
         const snapshotHash = serializer.calculateHash(snapshot)
 
@@ -1295,6 +1305,12 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId: metahubId ?? publication.metahubId, userId })
+        await serializer.refreshPlayCanvasRuntimeManifests(
+            metahubId ?? publication.metahubId,
+            snapshot,
+            collectPlayCanvasRuntimeManifestProjectIds(snapshot),
+            'runtime'
+        )
         alignPlayCanvasRuntimeManifestBindings(snapshot)
         const snapshotHash = serializer.calculateHash(snapshot)
 

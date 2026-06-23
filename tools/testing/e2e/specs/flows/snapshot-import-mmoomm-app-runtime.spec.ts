@@ -20,11 +20,16 @@ import {
     recordCreatedPublication
 } from '../../support/backend/run-manifest.mjs'
 import { importMmoommAppSnapshotThroughUi } from '../../support/mmoommAppSnapshotImport'
-import { expectImportedMmoommSceneThroughFullscreenEditor } from '../../support/mmoommPlaycanvasEditorAuthoring'
+import {
+    expectImportedMmoommSceneThroughFullscreenEditor,
+    expectImportedMmoommVisualLinkupLabThroughFullscreenEditor,
+    MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME
+} from '../../support/mmoommPlaycanvasEditorAuthoring'
 import {
     expectMmoommAuthenticatedNonMemberMatchmakeRejected,
     expectMmoommConnectedRuntimeLocale,
     expectMmoommRuntimeReady,
+    expectMmoommVisualLinkupLabRuntimeReady,
     expectMmoommSecondClientAndReconnect,
     expectMmoommUnauthenticatedMatchmakeRejected,
     expectMmoommUnauthorizedRuntime
@@ -34,9 +39,10 @@ type LoggedInApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
 const APP_RUNTIME_TIMEOUT = 180_000
 type BrowserRegressionIssue = {
-    source: 'console' | 'pageerror' | 'requestfailed'
+    source: 'console' | 'pageerror' | 'requestfailed' | 'response'
     text: string
     url?: string
+    status?: number
 }
 
 const isIgnoredBrowserRegressionIssue = (issue: BrowserRegressionIssue) => {
@@ -46,10 +52,14 @@ const isIgnoredBrowserRegressionIssue = (issue: BrowserRegressionIssue) => {
     return (
         issue.source === 'console' &&
         ((issue.text.includes('WebSocket connection to') && issue.text.includes('net::ERR_INTERNET_DISCONNECTED')) ||
-            issue.text === 'Permissions policy violation: xr-spatial-tracking is not allowed in this document.' ||
-            issue.text === 'Failed to load resource: the server responded with a status of 401 (Unauthorized)')
+            issue.text === 'Permissions policy violation: xr-spatial-tracking is not allowed in this document.')
     )
 }
+
+const isWatchedPlayCanvasEditorResponse = (url: string): boolean =>
+    /\/resources\/packages\/playcanvas-editor\/editor\/fullscreen(?:\?|$)/.test(url) ||
+    /\/playcanvas\/editor-(?:compatible|bridge)\//.test(url) ||
+    /\/playcanvas-editor\/editor-artifact-token\//.test(url)
 
 const watchBrowserRegressionIssues = (page: Page) => {
     const issues: BrowserRegressionIssue[] = []
@@ -75,6 +85,18 @@ const watchBrowserRegressionIssues = (page: Page) => {
         } as const
         if (!isIgnoredBrowserRegressionIssue(issue)) {
             issues.push(issue)
+        }
+    })
+    page.on('response', (response) => {
+        const status = response.status()
+        const url = response.url()
+        if (isWatchedPlayCanvasEditorResponse(url) && (status === 401 || status === 403 || status >= 500)) {
+            issues.push({
+                source: 'response',
+                text: `${status} ${response.statusText()}`,
+                url,
+                status
+            })
         }
     })
     return issues
@@ -142,13 +164,34 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
         const projectsPayload = (await listPlayCanvasProjects(api, imported.metahubId)) as {
             items?: Array<{ id?: string; displayName?: unknown }>
         }
-        const importedProject = projectsPayload.items?.find((item) =>
+        const importedAuthoringProject = projectsPayload.items?.find((item) =>
             JSON.stringify(item.displayName ?? {})
                 .toLowerCase()
                 .includes('mmoomm authoring')
         )
-        expect(importedProject?.id).toEqual(expect.any(String))
-        await expectImportedMmoommSceneThroughFullscreenEditor(page, imported.metahubId, testInfo)
+        const importedVisualLabProject = projectsPayload.items?.find((item) =>
+            JSON.stringify(item.displayName ?? {})
+                .toLowerCase()
+                .includes(MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME.toLowerCase())
+        )
+        expect(importedAuthoringProject?.id).toEqual(expect.any(String))
+        expect(importedVisualLabProject?.id).toEqual(expect.any(String))
+        await expectImportedMmoommSceneThroughFullscreenEditor(page, imported.metahubId, testInfo, {
+            projectId: importedAuthoringProject?.id ?? undefined,
+            label: 'Imported MMOOMM Authoring fullscreen PlayCanvas Editor'
+        })
+        await expectImportedMmoommVisualLinkupLabThroughFullscreenEditor(
+            page,
+            imported.metahubId,
+            importedVisualLabProject?.id ?? '',
+            testInfo
+        )
+        expect(
+            browserRegressionIssues,
+            `Imported MMOOMM Editor browser regression issues: ${JSON.stringify(browserRegressionIssues)}`
+        ).toEqual([])
+        browserRegressionIssues.length = 0
+        await page.goto('about:blank')
 
         const applicationName = `MMOOMM App Runtime ${runManifest.runId}`
         const linked = await createPublicationLinkedApplication(api, imported.metahubId, imported.publicationId, {
@@ -232,11 +275,25 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
             applicationId,
             'ru'
         )
-        const { widget, canvas } = await expectMmoommRuntimeReady(page, applicationId, {
+        await expectMmoommRuntimeReady(page, applicationId, {
             label: 'MMOOMM app snapshot runtime widget',
             checkViewportMatrix: true
         })
-        await expectMmoommSecondClientAndReconnect(browser, secondClientCredentials, page, canvas, widget, applicationId)
+        await expectMmoommVisualLinkupLabRuntimeReady(page, applicationId, {
+            label: 'MMOOMM Visual Linkup Lab runtime widget',
+            checkViewportMatrix: true
+        })
+        const primaryRuntime = await expectMmoommRuntimeReady(page, applicationId, {
+            label: 'MMOOMM app snapshot runtime widget after Visual Linkup Lab proof'
+        })
+        await expectMmoommSecondClientAndReconnect(
+            browser,
+            secondClientCredentials,
+            page,
+            primaryRuntime.canvas,
+            primaryRuntime.widget,
+            applicationId
+        )
         expect(browserRegressionIssues, `Imported MMOOMM browser regression issues: ${JSON.stringify(browserRegressionIssues)}`).toEqual([])
     })
 })

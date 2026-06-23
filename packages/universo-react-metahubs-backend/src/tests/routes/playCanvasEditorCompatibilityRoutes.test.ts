@@ -429,24 +429,24 @@ describe('PlayCanvas Editor compatibility routes', () => {
     })
 
     it('lists root-level assets with an explicit compatibility virtual path', async () => {
-        jest.spyOn(PlayCanvasProjectsService.prototype, 'listAssets').mockResolvedValue([
+        jest.spyOn(PlayCanvasProjectsService.prototype, 'listEditorCompatibilityAssetSummaries').mockResolvedValue([
             {
                 id: '019e9147-3333-7000-8000-000000000001',
-                projectId,
                 stableAssetId: 'asset-root',
                 type: 'json',
                 name: 'Root Asset',
-                virtualPath: [],
-                file: {
-                    provider: 'local',
-                    root: 'playcanvas-projects',
-                    path: `playcanvas-projects/${projectId}/assets/root.json`,
-                    mime: 'application/json',
-                    hash: 'a'.repeat(64),
-                    size: 42,
-                    status: 'ready'
+                virtualPath: '/',
+                mime: 'application/json',
+                hash: 'a'.repeat(64),
+                size: 42,
+                metadata: {
+                    data: {
+                        diffuse: [1, 1, 1],
+                        opacity: 0.5,
+                        useFog: true
+                    }
                 },
-                version: 1
+                editorDocumentId: 123
             }
         ])
 
@@ -463,6 +463,13 @@ describe('PlayCanvas Editor compatibility routes', () => {
                 id: '019e9147-3333-7000-8000-000000000001',
                 stableAssetId: 'asset-root',
                 virtualPath: '/',
+                metadata: {
+                    data: {
+                        diffuse: [1, 1, 1],
+                        opacity: 0.5,
+                        useFog: true
+                    }
+                },
                 editorDocumentId: expect.any(Number)
             })
         ])

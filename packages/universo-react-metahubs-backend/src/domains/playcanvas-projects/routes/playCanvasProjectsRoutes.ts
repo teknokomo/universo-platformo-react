@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { createPlayCanvasEditorCompatibilityRoutes, createPlayCanvasEditorNumericAssetId } from '@universo-react/playcanvas-editor-backend'
+import { createPlayCanvasEditorCompatibilityRoutes } from '@universo-react/playcanvas-editor-backend'
 import type { PlayCanvasEditorCompatibilityContext } from '@universo-react/playcanvas-editor-backend'
 import type { DbExecutor } from '../../../utils'
 import { asyncHandler } from '../../shared/asyncHandler'
@@ -46,20 +46,8 @@ export function createPlayCanvasProjectsRoutes(
                         { requestId, payload, expectedCurrentChecksum },
                         userId
                     ),
-                listAssets: async ({ metahubId, projectId, userId }) => {
-                    const assets = await service.listAssets(metahubId, projectId, userId)
-                    return assets.map((asset) => ({
-                        id: asset.id,
-                        stableAssetId: asset.stableAssetId,
-                        type: asset.type,
-                        name: asset.name,
-                        virtualPath: asset.virtualPath.length > 0 ? asset.virtualPath.join('/') : '/',
-                        mime: asset.file?.mime ?? null,
-                        hash: asset.file?.hash ?? null,
-                        size: asset.file?.size ?? null,
-                        editorDocumentId: createPlayCanvasEditorNumericAssetId(asset.id)
-                    }))
-                },
+                listAssets: ({ metahubId, projectId, userId, sceneId }) =>
+                    service.listEditorCompatibilityAssetSummaries(metahubId, projectId, userId, { sceneId }),
                 listSourceFiles: ({ metahubId, projectId, userId }) =>
                     service.listEditorCompatibilitySourceFiles(metahubId, projectId, userId),
                 readSourceFile: ({ metahubId, projectId, sourceFileId, userId }) =>

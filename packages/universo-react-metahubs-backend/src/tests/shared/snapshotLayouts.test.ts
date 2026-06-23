@@ -227,6 +227,8 @@ describe('attachLayoutsToSnapshot', () => {
 })
 
 describe('alignPlayCanvasRuntimeManifestBindings', () => {
+    const editorPackageName = `@universo-react/${'playcanvas-editor-frontend'}`
+
     it('updates layout widget runtime manifest checksums to the final publication manifest checksum', () => {
         const snapshot = {
             version: 1,
@@ -337,6 +339,140 @@ describe('alignPlayCanvasRuntimeManifestBindings', () => {
                     }
                 }
             ]
+        })
+    })
+
+    it('keeps only runtime manifests referenced by package defaults or active PlayCanvas widgets', () => {
+        const snapshot = {
+            version: 1,
+            generatedAt: '2026-06-10T00:00:00.000Z',
+            metahubId: 'metahub-1',
+            entities: {},
+            packages: [
+                {
+                    packageName: editorPackageName,
+                    version: '0.1.0',
+                    source: {
+                        kind: 'workspace',
+                        packageName: editorPackageName,
+                        importName: 'PlayCanvasEditor',
+                        upstreamPackageName: 'playcanvas-editor',
+                        upstreamVersion: '0.1.0',
+                        runtimeTargets: ['client']
+                    },
+                    config: {
+                        schemaVersion: '1',
+                        kind: 'display',
+                        display: {
+                            mode: 'embeddedIframe',
+                            developmentUrl: null,
+                            showArtifactOnlyNotice: true
+                        },
+                        playcanvasProject: {
+                            defaultProjectId: 'authoring-project'
+                        }
+                    }
+                }
+            ],
+            playcanvasRuntimeManifests: [
+                {
+                    schemaVersion: '1',
+                    projectId: 'authoring-project',
+                    sceneId: 'authoring-scene',
+                    checksum: 'authoring-checksum',
+                    assets: [],
+                    scripts: [],
+                    metadata: {}
+                },
+                {
+                    schemaVersion: '1',
+                    projectId: 'visual-lab-project',
+                    sceneId: 'visual-lab-scene',
+                    checksum: 'visual-lab-checksum',
+                    assets: [],
+                    scripts: [],
+                    metadata: {}
+                },
+                {
+                    schemaVersion: '1',
+                    projectId: 'draft-design-time-project',
+                    sceneId: 'draft-scene',
+                    checksum: 'draft-checksum',
+                    assets: [],
+                    scripts: [],
+                    metadata: {}
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'widget-authoring',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 1,
+                    config: {
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId: 'authoring-project',
+                            sceneId: 'authoring-scene',
+                            checksum: 'stale-authoring-checksum',
+                            failClosed: true
+                        }
+                    },
+                    isActive: true
+                },
+                {
+                    id: 'widget-visual-lab',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 2,
+                    config: {
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId: 'visual-lab-project',
+                            sceneId: 'visual-lab-scene',
+                            checksum: 'stale-visual-lab-checksum',
+                            failClosed: true
+                        }
+                    },
+                    isActive: true
+                },
+                {
+                    id: 'widget-inactive-draft',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 3,
+                    config: {
+                        runtimeManifest: {
+                            source: 'publishedManifest',
+                            projectId: 'draft-design-time-project',
+                            sceneId: 'draft-scene',
+                            checksum: 'draft-checksum',
+                            failClosed: true
+                        }
+                    },
+                    isActive: false
+                }
+            ]
+        } as unknown as MetahubSnapshot
+
+        alignPlayCanvasRuntimeManifestBindings(snapshot)
+
+        expect(snapshot.playcanvasRuntimeManifests?.map((manifest) => manifest.projectId)).toEqual([
+            'authoring-project',
+            'visual-lab-project'
+        ])
+        expect(snapshot.layoutZoneWidgets?.[0]?.config.runtimeManifest).toMatchObject({
+            projectId: 'authoring-project',
+            sceneId: 'authoring-scene',
+            checksum: 'authoring-checksum'
+        })
+        expect(snapshot.layoutZoneWidgets?.[1]?.config.runtimeManifest).toMatchObject({
+            projectId: 'visual-lab-project',
+            sceneId: 'visual-lab-scene',
+            checksum: 'visual-lab-checksum'
         })
     })
 

@@ -9,6 +9,10 @@ import ruApps from '../../../i18n/locales/ru/apps.json'
 const playcanvasMocks = vi.hoisted(() => ({
     createBasicApplication: vi.fn(),
     createBoxEntity: vi.fn(),
+    createLowPolySphereEntity: vi.fn(),
+    createPrimitiveEntity: vi.fn(),
+    createTranslucentStandardMaterial: vi.fn(),
+    applySceneFog: vi.fn(),
     updateHandler: null as ((dt: number) => void) | null
 }))
 
@@ -155,6 +159,8 @@ vi.mock('@universo-react/playcanvas-engine', () => {
         }
         private position = new Vec3()
         private rotation = new Quat()
+        private scale = new Vec3(1, 1, 1)
+        enabled = true
 
         constructor(name: string) {
             this.name = name
@@ -195,8 +201,13 @@ vi.mock('@universo-react/playcanvas-engine', () => {
             this.position = new Vec3(x, y, z)
         }
 
-        setLocalScale() {
+        setLocalScale(x: number, y: number, z: number) {
+            this.scale = new Vec3(x, y, z)
             return undefined
+        }
+
+        getLocalScale() {
+            return this.scale
         }
 
         getPosition() {
@@ -238,6 +249,21 @@ vi.mock('@universo-react/playcanvas-engine', () => {
             return entity
         }
     )
+    playcanvasMocks.createPrimitiveEntity.mockImplementation(
+        ({ name, position }: { name: string; position: { x: number; y: number; z: number } }) => {
+            const entity = new Entity(name)
+            entity.setPosition(position.x, position.y, position.z)
+            return entity
+        }
+    )
+    playcanvasMocks.createLowPolySphereEntity.mockImplementation(
+        (_app: unknown, { name, position }: { name: string; position: { x: number; y: number; z: number } }) => {
+            const entity = new Entity(name)
+            entity.setPosition(position.x, position.y, position.z)
+            return entity
+        }
+    )
+    playcanvasMocks.createTranslucentStandardMaterial.mockImplementation((options: unknown) => ({ options }))
 
     return {
         Color,
@@ -246,7 +272,11 @@ vi.mock('@universo-react/playcanvas-engine', () => {
         Vec3,
         createBasicApplication: playcanvasMocks.createBasicApplication,
         createBoxEntity: playcanvasMocks.createBoxEntity,
+        createLowPolySphereEntity: playcanvasMocks.createLowPolySphereEntity,
+        createPrimitiveEntity: playcanvasMocks.createPrimitiveEntity,
         createStandardMaterial: vi.fn(() => ({})),
+        createTranslucentStandardMaterial: playcanvasMocks.createTranslucentStandardMaterial,
+        applySceneFog: playcanvasMocks.applySceneFog,
         resizeApplicationCanvas: vi.fn(),
         applyFollowCameraTransform: vi.fn(),
         resolveFollowCameraPosition: ({
@@ -587,6 +617,7 @@ describe('PlayCanvasCanvasWidget', () => {
         )
 
         renderWidget({
+            moduleCodename: undefined,
             runtimeManifest: {
                 source: 'publishedManifest',
                 projectId,
@@ -972,6 +1003,351 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(await screen.findByText('The published 3D scene does not contain a runtime scene.')).toBeInTheDocument()
         expect(screen.queryByTestId('playcanvas-canvas')).not.toBeInTheDocument()
         expect(playcanvasMocks.createBasicApplication).not.toHaveBeenCalled()
+    })
+
+    it('renders a published MMOOMM visual linkup lab manifest as a static PlayCanvas scene', async () => {
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333344e1'
+        const checksum = 'd'.repeat(64)
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return { ok: true, json: async () => ({ items: [] }) } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [],
+                                    metadata: {
+                                        mmoomm: {
+                                            visualLab: {
+                                                projectRole: 'visual-linkup-lab',
+                                                variantCount: 16,
+                                                objectTypes: ['ship', 'rockAsteroid'],
+                                                variants: [
+                                                    {
+                                                        index: 1,
+                                                        slug: 'white-link-halo',
+                                                        title: 'White Link Halo',
+                                                        family: 'softWhiteLinkup',
+                                                        fogDensity: 0.018,
+                                                        coreOpacity: 0.55,
+                                                        glowOpacity: 0.16,
+                                                        shellScale: 1.1
+                                                    },
+                                                    {
+                                                        index: 2,
+                                                        slug: 'lowpoly-radar',
+                                                        title: 'Lowpoly Radar',
+                                                        family: 'lowPolyRetrowave',
+                                                        fogDensity: 0.02,
+                                                        coreOpacity: 0.5,
+                                                        glowOpacity: 0.14,
+                                                        shellScale: 1.12,
+                                                        lowPolyBands: 6
+                                                    }
+                                                ],
+                                                sceneFog: { type: 'exp2', color: [0.88, 0.91, 0.98], density: 0.04 },
+                                                objects: [
+                                                    {
+                                                        id: 'lab-ship-core',
+                                                        name: 'Linkup Lab 01 ship Core',
+                                                        variant: 'white-link-halo',
+                                                        family: 'softWhiteLinkup',
+                                                        objectType: 'ship',
+                                                        primitive: 'box',
+                                                        position: { x: 0, y: 0, z: 0 },
+                                                        scale: { x: 5, y: 1.5, z: 1.2 },
+                                                        coreOpacity: 0.55,
+                                                        glowOpacity: 0.16,
+                                                        glowColor: { r: 0.15, g: 0.85, b: 1 },
+                                                        shellScale: 1.1
+                                                    },
+                                                    {
+                                                        id: 'lab-rock-core',
+                                                        name: 'Linkup Lab 01 rockAsteroid Core',
+                                                        variant: 'lowpoly-radar',
+                                                        family: 'lowPolyRetrowave',
+                                                        objectType: 'rockAsteroid',
+                                                        primitive: 'sphere',
+                                                        position: { x: 8, y: 2, z: 0 },
+                                                        scale: { x: 2.2, y: 1.7, z: 2 },
+                                                        coreOpacity: 0.5,
+                                                        glowOpacity: 0.14,
+                                                        glowColor: { r: 1, g: 0.58, b: 0.18 },
+                                                        shellScale: 1.12,
+                                                        lowPolyBands: 6
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            runtimeManifest: {
+                source: 'publishedManifest',
+                projectId,
+                sceneId,
+                checksum,
+                failClosed: true
+            }
+        })
+
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+        await waitFor(() => expect(canvas).toHaveAttribute('data-runtime-scene-mode', 'visual_lab'))
+        expect(canvas).toHaveAttribute('data-visual-lab-object-count', '2')
+        expect(canvas).toHaveAttribute('data-visual-lab-variant-count', '16')
+        expect(canvas).toHaveAttribute('data-visual-lab-core-opacity-range', '0.50:0.55')
+        expect(canvas).toHaveAttribute('data-visual-lab-glow-opacity-range', '0.14:0.16')
+        expect(screen.getByTestId('playcanvas-runtime-mode-status')).toHaveTextContent('Static visual lab')
+        expect(screen.getByTestId('playcanvas-visual-lab-legend')).toBeVisible()
+        expect(screen.getByRole('button', { name: /1\. White Link Halo/ })).toHaveAttribute('aria-pressed', 'true')
+        const lowPolyVariantButton = screen.getByRole('button', { name: /2\. Lowpoly Radar/ })
+        expect(lowPolyVariantButton).toHaveTextContent('lowPolyRetrowave')
+        expect(screen.queryByTestId('playcanvas-realtime-status')).not.toBeInTheDocument()
+        const primitiveNames = playcanvasMocks.createPrimitiveEntity.mock.calls.map(([input]) => (input as { name: string }).name)
+        expect(primitiveNames).toEqual([
+            'Linkup Lab 01 ship Core',
+            'Linkup Lab 01 ship Core Glow Shell',
+            'Visual Lab 1 Overview Marker',
+            'Visual Lab 2 Overview Marker'
+        ])
+        const lowPolyNames = playcanvasMocks.createLowPolySphereEntity.mock.calls.map(([, input]) => (input as { name: string }).name)
+        expect(lowPolyNames).toEqual(['Linkup Lab 01 rockAsteroid Core', 'Linkup Lab 01 rockAsteroid Core Glow Shell'])
+        const firstPrimitive = playcanvasMocks.createPrimitiveEntity.mock.results[0]?.value as Entity
+        const firstLowPoly = playcanvasMocks.createLowPolySphereEntity.mock.results[0]?.value as Entity
+        expect(firstPrimitive.enabled).toBe(true)
+        expect(firstLowPoly.enabled).toBe(true)
+        expect(canvas).toHaveAttribute('data-visual-lab-visible-object-count', '2')
+        await waitFor(() => expect(canvas).toHaveAttribute('data-camera-distance', '18.00'))
+        await act(async () => {
+            lowPolyVariantButton.click()
+        })
+        await waitFor(() =>
+            expect(screen.getByTestId('playcanvas-visual-lab-selected')).toHaveTextContent('Selected: 2. Lowpoly Radar · lowPolyRetrowave')
+        )
+        await waitFor(() => expect(canvas).toHaveAttribute('data-visual-lab-selected-variant', 'lowpoly-radar'))
+        expect(firstPrimitive.enabled).toBe(false)
+        expect(firstLowPoly.enabled).toBe(true)
+        const focusedLowPolyScale = firstLowPoly.getLocalScale()
+        expect(focusedLowPolyScale.x).toBeCloseTo(6.27, 3)
+        expect(focusedLowPolyScale.y).toBeCloseTo(4.845, 3)
+        expect(focusedLowPolyScale.z).toBeCloseTo(5.7, 3)
+        await waitFor(() => {
+            const cameraDistance = Number(canvas.getAttribute('data-camera-distance'))
+            expect(cameraDistance).toBeGreaterThan(20)
+            expect(cameraDistance).toBeLessThan(60)
+        })
+        const materialCalls = playcanvasMocks.createTranslucentStandardMaterial.mock.calls.map(
+            ([input]) =>
+                input as {
+                    color: { r: number; g: number; b: number }
+                    opacity: number
+                    emissive?: { r: number; g: number; b: number }
+                    emissiveIntensity?: number
+                    additive?: boolean
+                }
+        )
+        expect(materialCalls).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    color: expect.objectContaining({ r: 1, g: 1, b: 1 }),
+                    opacity: 0.55,
+                    emissiveIntensity: 4.4,
+                    emissive: expect.objectContaining({ r: 0.9, g: 0.92, b: 1 })
+                }),
+                expect.objectContaining({
+                    color: expect.objectContaining({ r: 0.15, g: 0.85, b: 1 }),
+                    opacity: 0.16,
+                    additive: true,
+                    emissiveIntensity: 14,
+                    emissive: expect.objectContaining({ r: 0.15, g: 0.85, b: 1 })
+                }),
+                expect.objectContaining({
+                    color: expect.objectContaining({ r: 1, g: 1, b: 1 }),
+                    opacity: 0.5,
+                    emissiveIntensity: 4.4,
+                    emissive: expect.objectContaining({ r: 0.9, g: 0.92, b: 1 })
+                }),
+                expect.objectContaining({
+                    color: expect.objectContaining({ r: 1, g: 0.58, b: 0.18 }),
+                    opacity: 0.14,
+                    additive: true,
+                    emissiveIntensity: 14,
+                    emissive: expect.objectContaining({ r: 1, g: 0.58, b: 0.18 })
+                })
+            ])
+        )
+        expect(colyseusMocks.joinOrCreate).not.toHaveBeenCalled()
+        expect(screen.queryByText('The published 3D scene does not contain a runtime scene.')).not.toBeInTheDocument()
+    })
+
+    it('cleans up the static MMOOMM visual linkup lab runtime on unmount', async () => {
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333344e1'
+        const checksum = 'e'.repeat(64)
+        const disconnectSpy = vi.fn()
+        vi.stubGlobal(
+            'ResizeObserver',
+            class {
+                observe() {
+                    return undefined
+                }
+                disconnect = disconnectSpy
+            }
+        )
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return { ok: true, json: async () => ({ items: [] }) } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [],
+                                    metadata: {
+                                        mmoomm: {
+                                            visualLab: {
+                                                projectRole: 'visual-linkup-lab',
+                                                variantCount: 1,
+                                                objectTypes: ['ship'],
+                                                objects: [
+                                                    {
+                                                        id: 'lab-ship-core',
+                                                        name: 'Linkup Lab 01 ship Core',
+                                                        variant: 'white-link-halo',
+                                                        family: 'softWhiteLinkup',
+                                                        objectType: 'ship',
+                                                        primitive: 'box',
+                                                        position: { x: 0, y: 0, z: 0 },
+                                                        scale: { x: 5, y: 1.5, z: 1.2 },
+                                                        coreOpacity: 0.55,
+                                                        glowOpacity: 0.16,
+                                                        glowColor: { r: 0.15, g: 0.85, b: 1 },
+                                                        shellScale: 1.1
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        const rendered = renderWidget({ runtimeManifest: { source: 'publishedManifest', projectId, sceneId, checksum, failClosed: true } })
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(canvas).toHaveAttribute('data-runtime-scene-mode', 'visual_lab'))
+        const app = playcanvasMocks.createBasicApplication.mock.results[0]?.value as { destroy: Mock }
+
+        rendered.unmount()
+
+        expect(disconnectSpy).toHaveBeenCalled()
+        expect(app.destroy).toHaveBeenCalled()
+        expect(colyseusMocks.joinOrCreate).not.toHaveBeenCalled()
+    })
+
+    it('uses the readable Visual Linkup Lab fog fallback when published metadata omits sceneFog', async () => {
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333344e1'
+        const checksum = 'f'.repeat(64)
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return { ok: true, json: async () => ({ items: [] }) } as Response
+                }
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [],
+                                    metadata: {
+                                        mmoomm: {
+                                            visualLab: {
+                                                projectRole: 'visual-linkup-lab',
+                                                variantCount: 1,
+                                                objectTypes: ['ship'],
+                                                objects: [
+                                                    {
+                                                        id: 'lab-ship-core',
+                                                        name: 'Linkup Lab 01 ship Core',
+                                                        variant: 'white-link-halo',
+                                                        family: 'softWhiteLinkup',
+                                                        objectType: 'ship',
+                                                        primitive: 'box',
+                                                        position: { x: 0, y: 0, z: 0 },
+                                                        scale: { x: 5, y: 1.5, z: 1.2 },
+                                                        coreOpacity: 0.55,
+                                                        glowOpacity: 0.16,
+                                                        glowColor: { r: 0.15, g: 0.85, b: 1 },
+                                                        shellScale: 1.1
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({ runtimeManifest: { source: 'publishedManifest', projectId, sceneId, checksum, failClosed: true } })
+
+        await waitFor(() => expect(playcanvasMocks.applySceneFog).toHaveBeenCalledTimes(1))
+        expect(playcanvasMocks.applySceneFog).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                type: 'exp2',
+                density: 0.014,
+                color: expect.objectContaining({ r: 0.045, g: 0.055, b: 0.08 })
+            })
+        )
     })
 
     it('keeps mouse wheel input inside the canvas and maps it to follow-camera zoom', async () => {

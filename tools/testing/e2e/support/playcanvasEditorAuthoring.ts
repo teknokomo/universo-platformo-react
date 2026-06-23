@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { PNG } from 'pngjs'
+import { generateUuidV7 } from '@universo-react/utils'
 import { expect } from '../fixtures/test'
 import { expectNoTechnicalLeakage, expectNoVisibleTextPatterns } from './browser/runtimeUx'
 
@@ -629,8 +630,51 @@ export const writePlayCanvasEditorCompatibilityScene = async (
         },
         headers: await createPlayCanvasCompatibilityWriteHeaders(page, config)
     })
-    expect(response.status()).toBe(200)
+    if (response.status() !== 200) {
+        let body: unknown
+        try {
+            body = await response.json()
+        } catch {
+            body = await response.text().catch(() => '<unreadable response body>')
+        }
+        throw new Error(
+            [
+                `PlayCanvas compatibility scene save failed with HTTP ${response.status()}`,
+                `sceneId: ${sceneId}`,
+                `body: ${JSON.stringify(body)}`
+            ].join('\n')
+        )
+    }
     return response.json()
+}
+
+export const saveSerializedPlayCanvasEditorSceneThroughCompatibilityRest = async (
+    page: Page,
+    metahubId: string,
+    payload: Record<string, unknown>,
+    options: { sceneId?: string } = {}
+) => {
+    const compatibilityConfig = await fetchPlayCanvasEditorCompatibilityConfig(page, metahubId)
+    const sceneId = options.sceneId ?? String(compatibilityConfig.defaultSceneId)
+    const sceneBeforeSave = (await readPlayCanvasEditorCompatibilityScene(page, compatibilityConfig, sceneId)) as {
+        item?: { scene?: { checksum?: unknown }; checksum?: unknown }
+        scene?: { checksum?: unknown }
+        checksum?: unknown
+    }
+    const expectedCurrentChecksum =
+        (typeof sceneBeforeSave.item?.scene?.checksum === 'string' && sceneBeforeSave.item.scene.checksum) ||
+        (typeof sceneBeforeSave.item?.checksum === 'string' && sceneBeforeSave.item.checksum) ||
+        (typeof sceneBeforeSave.scene?.checksum === 'string' && sceneBeforeSave.scene.checksum) ||
+        (typeof sceneBeforeSave.checksum === 'string' && sceneBeforeSave.checksum) ||
+        null
+    const requestId = generateUuidV7()
+    const responseBody = await writePlayCanvasEditorCompatibilityScene(page, compatibilityConfig, payload, {
+        sceneId,
+        expectedCurrentChecksum,
+        requestId
+    })
+    expect(responseBody).toEqual(expect.objectContaining({ ok: true }))
+    return { requestId, responseBody, sceneId, compatibilityConfig }
 }
 
 export const waitForPlayCanvasCompatibilitySceneSave = (page: Page, metahubId: string) =>
@@ -670,37 +714,26 @@ export const readPlayCanvasEditorSceneSavePayload = (response: Awaited<ReturnTyp
 
 export const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metahubId: string) => {
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
-    const compatibilityConfig = await fetchPlayCanvasEditorCompatibilityConfig(page, metahubId)
-    const sceneId = String(compatibilityConfig.defaultSceneId)
     const createdEntity = await createSerializablePlayCanvasEditorEntity(page)
     await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })
-    const saveResponsePromise = waitForPlayCanvasEditorSceneSave(page, metahubId)
-    await editorFrame.locator('body').evaluate(async () => {
+    const savePayload = await editorFrame.locator('body').evaluate(() => {
         const bridge = (
             window as unknown as {
-                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: { saveCurrentScene?: () => Promise<unknown> }
+                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
+                    serializeCurrentScene?: () => { entities?: Array<{ id?: unknown; name?: unknown }> }
+                }
             }
         ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
-        if (typeof bridge?.saveCurrentScene !== 'function') {
-            throw new Error('PlayCanvas Editor bridge saveCurrentScene is not available')
+        if (typeof bridge?.serializeCurrentScene !== 'function') {
+            throw new Error('PlayCanvas Editor bridge serializeCurrentScene is not available')
         }
-        await bridge.saveCurrentScene()
+        return bridge.serializeCurrentScene()
     })
-    const saveResponse = await saveResponsePromise
-    const saveResponseBody = await saveResponse.json()
-    expect(saveResponse.status(), JSON.stringify(saveResponseBody)).toBe(200)
-    const saveRequestBody = saveResponse.request().postDataJSON() as {
-        requestId?: unknown
-        expectedCurrentChecksum?: unknown
-        payload?: { entities?: Array<{ id?: unknown; name?: unknown }> }
-        command?: {
-            requestId?: unknown
-            expectedCurrentChecksum?: unknown
-            payload?: { entities?: Array<{ id?: unknown; name?: unknown }> }
-        }
-    }
-    const savePayload = saveRequestBody.payload ?? saveRequestBody.command?.payload
-    const saveRequestId = saveRequestBody.requestId ?? saveRequestBody.command?.requestId
+    const {
+        compatibilityConfig,
+        requestId: saveRequestId,
+        sceneId
+    } = await saveSerializedPlayCanvasEditorSceneThroughCompatibilityRest(page, metahubId, savePayload)
     expect(saveRequestId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i))
     expect(savePayload?.entities).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: createdEntity.id, name: createdEntity.name })])

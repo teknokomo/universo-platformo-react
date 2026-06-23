@@ -9,6 +9,7 @@ import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/ser
 const TEST_SCHEMA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
 const PROJECT_ID = '019e8afa-0000-7000-8000-000000000001'
 const SCENE_ID = '019e8afa-0000-7000-8000-000000000002'
+const SECOND_SCENE_ID = '019e8afa-0000-7000-8000-000000000004'
 const ASSET_ID = '019e8afa-0000-7000-8000-000000000003'
 
 const makeSchemaService = () => ({
@@ -1087,6 +1088,9 @@ describe('PlayCanvasProjectsService', () => {
                         }
                     ]
                 }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return []
+                }
                 if (sql.includes('_mhb_playcanvas_assets')) {
                     return [
                         {
@@ -1144,6 +1148,576 @@ describe('PlayCanvasProjectsService', () => {
         })
     })
 
+    it('loads realtime material asset documents with PlayCanvas material data', async () => {
+        const editorDocumentId = createPlayCanvasEditorNumericAssetId(ASSET_ID)
+        const materialData = {
+            diffuse: [1, 1, 1],
+            opacity: 0.42,
+            emissive: [0.15, 0.85, 1],
+            emissiveIntensity: 2.4,
+            blendType: 'additive',
+            depthWrite: false,
+            useFog: true,
+            useLighting: true,
+            useSkybox: false,
+            shader: 'blinn'
+        }
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: null,
+                            publicationConfig: {},
+                            version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return []
+                }
+                if (sql.includes('_mhb_playcanvas_assets')) {
+                    return [
+                        {
+                            id: ASSET_ID,
+                            projectId: PROJECT_ID,
+                            stableAssetId: 'mmoomm-visual-linkup-material',
+                            type: 'material',
+                            name: 'Linkup Material',
+                            virtualPath: ['materials', 'linkup.json'],
+                            file: null,
+                            metadata: {
+                                data: materialData,
+                                editorDocument: {
+                                    data: materialData,
+                                    tags: ['mmoomm', 'visual-linkup-lab'],
+                                    preload: true,
+                                    source: false
+                                }
+                            },
+                            publish: true,
+                            version: 3
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: String(editorDocumentId),
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'assets',
+            id: String(editorDocumentId),
+            version: 3,
+            data: {
+                item_id: editorDocumentId,
+                name: 'Linkup Material',
+                type: 'material',
+                data: materialData,
+                tags: ['mmoomm', 'visual-linkup-lab'],
+                preload: true,
+                source: false
+            }
+        })
+    })
+
+    it('loads realtime scene-local material asset documents by numeric editor id', async () => {
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, blendType: 2, depthWrite: false, useFog: true, shader: 'blinn' }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([
+            {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            }
+        ])
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            },
+            payload: {
+                schemaVersion: '1',
+                entities: [],
+                assets: [
+                    {
+                        id: '920000001',
+                        stableAssetId: 'mmoomm-visual-linkup-920000001',
+                        name: 'Scene Local Material',
+                        type: 'material',
+                        data: materialData,
+                        metadata: { data: materialData }
+                    }
+                ]
+            },
+            checksum: null
+        })
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '920000001',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'assets',
+            id: '920000001',
+            version: 7,
+            data: {
+                item_id: 920000001,
+                name: 'Scene Local Material',
+                type: 'material',
+                data: materialData
+            }
+        })
+    })
+
+    it('scopes duplicate scene-local material document ids to the owning scene', async () => {
+        const firstMaterialData = { diffuse: [1, 1, 1], opacity: 0.42, useFog: true, shader: 'blinn' }
+        const secondMaterialData = { diffuse: [0.25, 0.75, 1], opacity: 0.7, useFog: true, shader: 'blinn' }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const firstScene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'scene-one'),
+            displayName: createLocalizedContent('en', 'Scene One'),
+            payloadSchemaVersion: '1',
+            payload: null,
+            payloadFile: null,
+            checksum: null,
+            sortOrder: 0,
+            publish: true,
+            version: 7
+        }
+        const secondScene = {
+            ...firstScene,
+            id: SECOND_SCENE_ID,
+            codename: createLocalizedContent('en', 'scene-two'),
+            displayName: createLocalizedContent('en', 'Scene Two'),
+            version: 11
+        }
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([firstScene, secondScene])
+        jest.spyOn(service, 'readEditorScene').mockImplementation(async (_metahubId, _projectId, sceneId) => {
+            const isSecondScene = sceneId === SECOND_SCENE_ID
+            const scene = isSecondScene ? secondScene : firstScene
+            const materialData = isSecondScene ? secondMaterialData : firstMaterialData
+            return {
+                scene,
+                payload: {
+                    schemaVersion: '1',
+                    entities: [],
+                    assets: [
+                        {
+                            id: '920000001',
+                            stableAssetId: isSecondScene ? 'scene-two-material' : 'scene-one-material',
+                            name: isSecondScene ? 'Scene Two Material' : 'Scene One Material',
+                            type: 'material',
+                            data: materialData,
+                            metadata: { data: materialData }
+                        }
+                    ]
+                },
+                checksum: null
+            }
+        })
+
+        await expect(service.listEditorCompatibilityAssetSummaries('metahub-1', PROJECT_ID, 'user-2')).resolves.toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ name: 'Scene One Material', editorDocumentId: 920000001 }),
+                expect.objectContaining({ name: 'Scene Two Material', editorDocumentId: 920000001 })
+            ])
+        )
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SECOND_SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '920000001',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            collection: 'assets',
+            id: '920000001',
+            version: 11,
+            data: {
+                item_id: 920000001,
+                name: 'Scene Two Material',
+                type: 'material',
+                data: secondMaterialData
+            }
+        })
+    })
+
+    it('rejects storage and scene-local asset document id collisions before Editor token signing', async () => {
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, blendType: 2, depthWrite: false, useFog: true, shader: 'blinn' }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([
+            {
+                id: '920000001',
+                projectId: PROJECT_ID,
+                stableAssetId: 'storage-material',
+                type: 'material',
+                name: 'Storage Material',
+                virtualPath: ['materials', 'storage.json'],
+                file: null,
+                metadata: {},
+                publish: true,
+                version: 3
+            }
+        ])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([
+            {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            }
+        ])
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            },
+            payload: {
+                schemaVersion: '1',
+                entities: [],
+                assets: [
+                    {
+                        id: '920000001',
+                        stableAssetId: 'scene-local-material',
+                        name: 'Scene Local Material',
+                        type: 'material',
+                        data: materialData,
+                        metadata: { data: materialData }
+                    }
+                ]
+            },
+            checksum: null
+        })
+
+        await expect(service.listEditorCompatibilityAssetSummaries('metahub-1', PROJECT_ID, 'user-2')).rejects.toMatchObject({
+            details: expect.objectContaining({
+                messageCode: 'playcanvas.editorRealtime.assetDocumentIdCollision',
+                documentId: '920000001',
+                assetIds: ['920000001', '920000001']
+            })
+        })
+    })
+
+    it('rejects duplicate scene-local asset document ids before Editor token signing', async () => {
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, useFog: true, shader: 'blinn' }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([
+            {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            }
+        ])
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            },
+            payload: {
+                schemaVersion: '1',
+                entities: [],
+                assets: [
+                    {
+                        id: '920000001',
+                        stableAssetId: 'scene-local-material-a',
+                        name: 'Scene Local Material A',
+                        type: 'material',
+                        data: materialData,
+                        metadata: { data: materialData }
+                    },
+                    {
+                        id: '920000001',
+                        stableAssetId: 'scene-local-material-b',
+                        name: 'Scene Local Material B',
+                        type: 'material',
+                        data: materialData,
+                        metadata: { data: materialData }
+                    }
+                ]
+            },
+            checksum: null
+        })
+
+        await expect(service.listEditorCompatibilityAssetSummaries('metahub-1', PROJECT_ID, 'user-2')).rejects.toMatchObject({
+            details: expect.objectContaining({
+                messageCode: 'playcanvas.editorRealtime.assetDocumentIdCollision',
+                documentId: '920000001'
+            })
+        })
+    })
+
+    it('lists scene-local material assets as minimal Editor scene assets', async () => {
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, useFog: true, shader: 'blinn' }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([
+            {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            }
+        ])
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene: {
+                id: SCENE_ID,
+                projectId: PROJECT_ID,
+                codename: createLocalizedContent('en', 'scene'),
+                displayName: createLocalizedContent('en', 'Scene'),
+                payloadSchemaVersion: '1',
+                payload: null,
+                payloadFile: null,
+                checksum: null,
+                sortOrder: 0,
+                publish: true,
+                version: 7
+            },
+            payload: {
+                schemaVersion: '1',
+                entities: [
+                    {
+                        id: 'entity-1',
+                        name: 'Scene Local Material Owner',
+                        parentId: null,
+                        enabled: true,
+                        components: { render: { materialAssets: [920000001] } },
+                        children: []
+                    }
+                ],
+                assets: [
+                    {
+                        id: '920000001',
+                        stableAssetId: 'mmoomm-visual-linkup-920000001',
+                        name: 'Scene Local Material',
+                        type: 'material',
+                        data: materialData,
+                        metadata: { data: materialData }
+                    }
+                ]
+            },
+            checksum: null
+        })
+
+        await expect(service.listMinimalAssetsForEditorScene('metahub-1', PROJECT_ID, SCENE_ID, 'user-2')).resolves.toEqual([
+            {
+                id: '920000001',
+                stableAssetId: 'mmoomm-visual-linkup-920000001',
+                type: 'material',
+                name: 'Scene Local Material',
+                virtualPath: [],
+                mime: null,
+                hash: null,
+                size: null
+            }
+        ])
+    })
+
+    it('persists realtime scene-local material asset documents back to the owning scene payload', async () => {
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, blendType: 2, depthWrite: false, useFog: true, shader: 'blinn' }
+        const nextMaterialData = { diffuse: [0.7, 0.9, 1], opacity: 0.55, blendType: 1, depthWrite: false, useFog: true, shader: 'blinn' }
+        const scene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'scene'),
+            displayName: createLocalizedContent('en', 'Scene'),
+            payloadSchemaVersion: '1',
+            payload: null,
+            payloadFile: null,
+            checksum: 'c'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 7
+        }
+        const scenePayload = {
+            schemaVersion: '1',
+            entities: [],
+            assets: [
+                {
+                    id: '920000001',
+                    stableAssetId: 'mmoomm-visual-linkup-920000001',
+                    name: 'Scene Local Material',
+                    type: 'material',
+                    data: materialData,
+                    metadata: { data: materialData }
+                }
+            ]
+        }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([scene])
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene,
+            payload: scenePayload,
+            checksum: 'c'.repeat(64)
+        })
+        const saveEditorScene = jest.spyOn(service, 'saveEditorScene').mockResolvedValue({
+            scene: { ...scene, version: 8 },
+            checksum: 'd'.repeat(64)
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '920000001',
+                data: {
+                    item_id: 920000001,
+                    name: 'Edited Scene Local Material',
+                    type: 'material',
+                    tags: ['mmoomm', 'edited'],
+                    data: nextMaterialData,
+                    meta: { edited: true },
+                    preload: false,
+                    source: false
+                },
+                version: 8,
+                revision: '7'
+            })
+        ).resolves.toEqual({ revision: '8' })
+
+        expect(saveEditorScene).toHaveBeenCalledWith(
+            'metahub-1',
+            PROJECT_ID,
+            SCENE_ID,
+            expect.objectContaining({
+                expectedCurrentChecksum: 'c'.repeat(64),
+                payload: expect.objectContaining({
+                    assets: [
+                        expect.objectContaining({
+                            id: '920000001',
+                            stableAssetId: 'mmoomm-visual-linkup-920000001',
+                            name: 'Edited Scene Local Material',
+                            type: 'material',
+                            data: nextMaterialData,
+                            meta: { edited: true },
+                            metadata: expect.objectContaining({
+                                data: nextMaterialData,
+                                meta: { edited: true },
+                                editorDocument: {
+                                    data: nextMaterialData,
+                                    meta: { edited: true },
+                                    tags: ['mmoomm', 'edited'],
+                                    preload: false,
+                                    source: false,
+                                    version: 8
+                                }
+                            })
+                        })
+                    ]
+                })
+            }),
+            'user-2'
+        )
+    })
+
     it('persists realtime asset documents back to metahub PlayCanvas asset metadata', async () => {
         const editorDocumentId = createPlayCanvasEditorNumericAssetId(ASSET_ID)
         const exec = {
@@ -1190,6 +1764,9 @@ describe('PlayCanvasProjectsService', () => {
                             version: 3
                         }
                     ]
+                }
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
+                    return []
                 }
                 if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_assets')) {
                     expect(params?.[4]).toBe('Renamed Asset')
@@ -1744,6 +2321,100 @@ describe('PlayCanvasProjectsService', () => {
         )
         expect(payload.metadata?.mmoomm?.scene).toEqual(
             expect.objectContaining({ controlledObjectId: 'stable-ship', targetObjectId: 'stable-station' })
+        )
+    })
+
+    it('preserves scene-local material assets when realtime scene documents are saved', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const scene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'main_scene'),
+            displayName: createLocalizedContent('en', 'Main Scene'),
+            payloadSchemaVersion: '1',
+            payloadFile: null,
+            checksum: 'c'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 2
+        }
+        const sceneLocalMaterial = {
+            id: '920000001',
+            stableAssetId: 'mmoomm-visual-linkup-920000001',
+            name: 'White Link Halo Material',
+            type: 'material',
+            data: { diffuse: [1, 1, 1], opacity: 0.55, useFog: true },
+            metadata: { data: { diffuse: [1, 1, 1], opacity: 0.55, useFog: true } }
+        }
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene,
+            payload: {
+                schemaVersion: '1',
+                settings: {},
+                assets: [sceneLocalMaterial],
+                entities: [
+                    {
+                        id: 'stable-ship',
+                        name: 'Linkup Lab 01 ship Core',
+                        parentId: null,
+                        enabled: true,
+                        components: { render: { enabled: true, type: 'box', materialAssets: [920000001] } },
+                        children: []
+                    }
+                ]
+            }
+        })
+        const saveEditorCompatibilityScene = jest.spyOn(service, 'saveEditorCompatibilityScene').mockResolvedValue({
+            scene: { ...scene, version: 3, checksum: 'd'.repeat(64) },
+            payload: { schemaVersion: '1', settings: {}, assets: [sceneLocalMaterial], entities: [] },
+            checksum: 'd'.repeat(64)
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: {
+                    settings: {},
+                    entities: {
+                        shipDoc: {
+                            resource_id: 'stable-ship',
+                            name: 'Linkup Lab 01 ship Core Edited',
+                            parent: null,
+                            enabled: true,
+                            components: { render: { enabled: true, type: 'box', materialAssets: [920000001] } },
+                            children: []
+                        }
+                    }
+                },
+                version: 2,
+                checksum: 'c'.repeat(64),
+                revision: '1'
+            })
+        ).resolves.toEqual({ checksum: 'd'.repeat(64) })
+
+        expect(saveEditorCompatibilityScene).toHaveBeenCalledWith(
+            'metahub-1',
+            PROJECT_ID,
+            SCENE_ID,
+            expect.objectContaining({
+                payload: expect.objectContaining({
+                    assets: [sceneLocalMaterial],
+                    entities: [
+                        expect.objectContaining({
+                            id: 'stable-ship',
+                            name: 'Linkup Lab 01 ship Core Edited',
+                            components: { render: { enabled: true, type: 'box', materialAssets: [920000001] } }
+                        })
+                    ]
+                })
+            }),
+            'user-2'
         )
     })
 

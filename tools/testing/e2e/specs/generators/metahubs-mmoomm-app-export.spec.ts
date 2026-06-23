@@ -38,16 +38,20 @@ import {
 import {
     expectPlayCanvasEditorFullscreenHost,
     expectPlayCanvasEditorIframeLoaded,
+    fetchPlayCanvasEditorCompatibilityConfig,
     savePlayCanvasEditorSceneAndExpectReload
 } from '../../support/playcanvasEditorAuthoring'
 import {
+    MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME,
+    authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload,
     authorMmoommSceneThroughPlayCanvasEditorAndExpectReload,
     exportMetahubSnapshotThroughBrowser
 } from '../../support/mmoommPlaycanvasEditorAuthoring'
-import { expectMmoommRuntimeReady } from '../../support/mmoommRuntimeProof'
+import { expectMmoommRuntimeReady, expectMmoommVisualLinkupLabRuntimeReady } from '../../support/mmoommRuntimeProof'
 import {
     APP_RUNTIME_TIMEOUT,
     SPACE_SECTION_CODENAME,
+    VISUAL_LINKUP_LAB_SECTION_CODENAME,
     WELCOME_SECTION_CODENAME,
     localizedInput,
     localizedText,
@@ -59,6 +63,17 @@ import {
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type ApiSessionLike = Pick<ApiContext, 'baseURL' | 'cookies'>
 type CreatedEntityResponse = { id?: string; data?: { id?: string } }
+type ProjectInstanceSummary = { id?: string; name?: unknown; codename?: unknown; config?: Record<string, unknown> | null }
+type PlayCanvasProjectSummary = { id?: string; displayName?: unknown; codename?: unknown }
+type PublishedRuntimeManifestSummary = { projectId?: string; sceneId?: string | null; checksum?: string }
+type TargetedPublishedRuntimeManifestSummary = PublishedRuntimeManifestSummary & { projectName: string }
+type PlayCanvasWidgetRuntimeOptions = {
+    runtimeManifest: TargetedPublishedRuntimeManifestSummary
+    title: { en: string; ru: string }
+    visibleSectionName: RegExp | string
+    clientModuleName?: string
+    realtimeServerModuleName?: string
+}
 type BrowserCreatedApplicationResponse = {
     id?: string
     slug?: string
@@ -115,6 +130,72 @@ const fillLocalizedInlineField = async (page: Page, root: Locator, label: string
         throw new Error(`Localized field ${label} did not expose a Russian row after adding the locale`)
     }
     await ruRow.getByLabel(label).fill(value.ru)
+}
+
+const readLocalizedContent = (value: unknown, locale: 'en' | 'ru' = 'en'): string => {
+    if (typeof value === 'string') return value
+    if (!value || typeof value !== 'object') return ''
+    const record = value as { _primary?: string; locales?: Record<string, { content?: unknown }> }
+    const primary = record._primary ?? locale
+    const content = record.locales?.[locale]?.content ?? record.locales?.[primary]?.content
+    return typeof content === 'string' ? content.trim() : ''
+}
+
+const readCodenameText = (value: unknown): string => readLocalizedContent(value, 'en')
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const projectInstanceCodenameForName = (projectName: string): string => projectName.replace(/\s+/g, '')
+
+const publishedManifestSelectValuePrefix = (manifest: PublishedRuntimeManifestSummary): string =>
+    manifest.projectId ? `${manifest.projectId}:${manifest.sceneId ?? ''}:` : ''
+
+const requireProjectInstanceByName = async (
+    api: ApiSessionLike,
+    metahubId: string,
+    projectName: string
+): Promise<ProjectInstanceSummary> => {
+    const projectInstances = (await listEntityInstances(api, metahubId, { kind: 'project', limit: 100, offset: 0 })) as {
+        items?: ProjectInstanceSummary[]
+    }
+    const expectedCodename = projectInstanceCodenameForName(projectName)
+    const target = projectInstances.items?.find(
+        (item) => readLocalizedContent(item.name, 'en') === projectName || readCodenameText(item.codename) === expectedCodename
+    )
+    if (!target?.id) {
+        throw new Error(`MMOOMM project instance ${projectName} was not found in the Projects section`)
+    }
+    return target
+}
+
+const requirePlayCanvasProjectByName = async (
+    api: ApiSessionLike,
+    metahubId: string,
+    projectName: string
+): Promise<PlayCanvasProjectSummary> => {
+    const projectsPayload = (await listPlayCanvasProjects(api, metahubId)) as { items?: PlayCanvasProjectSummary[] }
+    const target = projectsPayload.items?.find((item) => readLocalizedContent(item.displayName, 'en') === projectName)
+    if (!target?.id) {
+        throw new Error(`MMOOMM generator did not receive a PlayCanvas project id for ${projectName}`)
+    }
+    return target
+}
+
+const requirePublishedManifestForProject = (
+    manifests: PublishedRuntimeManifestSummary[] | undefined,
+    projectId: string,
+    label: string
+): PublishedRuntimeManifestSummary => {
+    const manifest = manifests?.find((item) => item.projectId === projectId && /^[a-f0-9]{64}$/i.test(String(item.checksum ?? '')))
+    if (!manifest) {
+        throw new Error(`MMOOMM generator did not receive a published runtime manifest for ${label}`)
+    }
+    return manifest
+}
+
+const expectFullscreenEditorProject = async (page: Page, metahubId: string, projectId: string, label: string): Promise<void> => {
+    const compatibilityConfig = await fetchPlayCanvasEditorCompatibilityConfig(page, metahubId)
+    expect(compatibilityConfig.projectId, `${label} compatibility config must target the requested PlayCanvas project`).toBe(projectId)
 }
 
 const createMetahubThroughBrowser = async (page: Page) => {
@@ -179,7 +260,7 @@ const createProjectInstanceAndBindThroughBrowser = async (page: Page, api: ApiSe
     const createDialog = page.getByRole('dialog', { name: 'Create Project' })
     await expect(createDialog).toBeVisible()
     await createDialog.getByLabel('Name').first().fill(projectName)
-    await createDialog.getByLabel('Codename').first().fill(projectName.replace(/\s+/g, ''))
+    await createDialog.getByLabel('Codename').first().fill(projectInstanceCodenameForName(projectName))
     const createResponse = waitForSettledMutationResponse(
         page,
         (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/entities`),
@@ -190,23 +271,10 @@ const createProjectInstanceAndBindThroughBrowser = async (page: Page, api: ApiSe
     await expect(createDialog).toHaveCount(0)
 
     // Open the Project Binding resource tab and create+bind a PlayCanvas project.
-    const projectInstances = (await listEntityInstances(api, metahubId, { kind: 'project', limit: 100, offset: 0 })) as {
-        items?: Array<{ id?: string; name?: unknown; codename?: unknown }>
-    }
-    const target = projectInstances.items?.find((item) => {
-        const candidate = item.name && typeof item.name === 'object' ? (item.name as Record<string, unknown>) : null
-        const enContent =
-            candidate && typeof candidate === 'object'
-                ? (candidate as { locales?: Record<string, { content?: string }> }).locales?.en?.content
-                : null
-        return enContent === projectName
-    })
-    if (!target?.id) {
-        throw new Error(`MMOOMM project instance ${projectName} was not found in the Projects section`)
-    }
+    await requireProjectInstanceByName(api, metahubId, projectName)
     // Open the instance Edit dialog → "PlayCanvas" tab (the binding surface).
     // There is no standalone /project page anymore.
-    const editDialog = await openProjectEditDialogPlayCanvasTab(page)
+    const editDialog = await openProjectEditDialogPlayCanvasTab(page, projectName)
     await expect(editDialog.getByText('No PlayCanvas project bound yet')).toBeVisible()
     await editDialog.getByRole('button', { name: 'Create & bind project' }).click()
     const createDialogBinding = page.getByRole('dialog', { name: 'Create & bind PlayCanvas project' })
@@ -218,26 +286,23 @@ const createProjectInstanceAndBindThroughBrowser = async (page: Page, api: ApiSe
         { label: `Creating & binding PlayCanvas project ${projectName}` }
     )
     await createDialogBinding.getByRole('button', { name: 'Create' }).click()
-    await parseJsonResponse<{ data?: { item?: { id?: string } } }>(
-        await createBindResponse,
-        `Creating & binding PlayCanvas project ${projectName}`
-    )
+    await parseJsonResponse(await createBindResponse, `Creating & binding PlayCanvas project ${projectName}`)
+    const projectId = (await requirePlayCanvasProjectByName(api, metahubId, projectName)).id
     await expect(editDialog.getByText('No PlayCanvas project bound yet')).toHaveCount(0)
     // Close the edit dialog so subsequent steps start from the instances list.
     await editDialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(editDialog).toHaveCount(0)
+    return projectId
 }
 
-// Opens the first project instance's Edit dialog and switches to the
-// "PlayCanvas" tab. Assumes the page is on the Projects instances list.
-const openProjectEditDialogPlayCanvasTab = async (page: Page) => {
-    await page
-        .getByRole('button', { name: /Options|Опции/i })
-        .first()
-        .click()
+const openProjectEditDialogPlayCanvasTab = async (page: Page, projectName: string) => {
+    const row = page.getByRole('row', { name: new RegExp(escapeRegExp(projectName)) }).first()
+    await expect(row, `Projects row for ${projectName} must be visible`).toBeVisible()
+    await row.getByRole('button', { name: /Options|Опции/i }).click()
     await page.getByRole('menuitem', { name: /^Edit$/i }).click()
     const editDialog = page.getByRole('dialog', { name: 'Edit Project' })
     await expect(editDialog).toBeVisible()
+    await expect(editDialog.getByLabel('Name').first(), `Edit dialog must target ${projectName}`).toHaveValue(projectName)
     await editDialog.getByRole('tab', { name: 'PlayCanvas' }).click()
     return editDialog
 }
@@ -259,8 +324,8 @@ const createStandardEntityThroughBrowser = async (
         enumeration: { route: 'enumeration', heading: 'Enumerations', dialog: 'Create Enumeration', endpoint: 'enumeration/instances' }
     }[kind]
 
-    await page.goto(`/metahub/${metahubId}/entities/${labels.route}/instances`)
-    await expect(page.getByRole('heading', { name: labels.heading })).toBeVisible()
+    await page.goto(`/metahub/${metahubId}/entities/${labels.route}/instances`, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: labels.heading })).toBeVisible({ timeout: 60_000 })
     await page.getByTestId(toolbarSelectors.primaryAction).click()
     const dialog = page.getByRole('dialog', { name: labels.dialog })
     await expect(dialog).toBeVisible()
@@ -285,6 +350,7 @@ const createStandardEntityThroughBrowser = async (
 const createObjectCollectionsThroughBrowser = async (page: Page, metahubId: string, api: ApiContext) => {
     for (const entity of [
         { name: 'Space', codename: SPACE_SECTION_CODENAME },
+        { name: 'Visual Linkup Lab', codename: VISUAL_LINKUP_LAB_SECTION_CODENAME },
         { name: 'Flight Ship', codename: 'FlightShip' },
         { name: 'Flight Station', codename: 'FlightStation' }
     ]) {
@@ -756,7 +822,7 @@ const setEditorDefaultProjectThroughBrowser = async (page: Page, metahubId: stri
     await expect(settingsDialog).toHaveCount(0)
 }
 
-const openFullscreenEditorThroughBrowser = async (page: Page, metahubId: string) => {
+const openFullscreenEditorThroughBrowser = async (page: Page, metahubId: string, projectId?: string) => {
     await page.goto(`/metahub/${metahubId}/resources`)
     const editorRow = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
     await editorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
@@ -775,32 +841,25 @@ const openFullscreenEditorThroughBrowser = async (page: Page, metahubId: string)
     const editorPage = await editorPopupPromise
     await editorPage.waitForLoadState('domcontentloaded')
     await applyBrowserPreferences(editorPage, { language: 'en' })
-    await expect(editorPage).toHaveURL(new RegExp(`/metahub/${metahubId}/resources/packages/playcanvas-editor/editor/fullscreen$`))
+    if (projectId) {
+        await editorPage.goto(
+            `/metahub/${metahubId}/resources/packages/playcanvas-editor/editor/fullscreen?projectId=${encodeURIComponent(projectId)}`
+        )
+    }
+    await expect(editorPage).toHaveURL(
+        new RegExp(`/metahub/${metahubId}/resources/packages/playcanvas-editor/editor/fullscreen(?:\\?projectId=.+)?$`)
+    )
     await expectPlayCanvasEditorIframeLoaded(editorPage)
     await expectPlayCanvasEditorFullscreenHost(editorPage)
     return editorPage
 }
 
 const publishPlayCanvasProjectThroughBrowser = async (page: Page, api: ApiContext, metahubId: string, projectName: string) => {
-    // Re-resolve the project instance id for the given display name.
-    const projectInstances = (await listEntityInstances(api, metahubId, { kind: 'project', limit: 100, offset: 0 })) as {
-        items?: Array<{ id?: string; name?: unknown; codename?: unknown }>
-    }
-    const target = projectInstances.items?.find((item) => {
-        const candidate = item.name && typeof item.name === 'object' ? (item.name as Record<string, unknown>) : null
-        const enContent =
-            candidate && typeof candidate === 'object'
-                ? (candidate as { locales?: Record<string, { content?: string }> }).locales?.en?.content
-                : null
-        return enContent === projectName
-    })
-    if (!target?.id) {
-        throw new Error(`MMOOMM project instance ${projectName} was not found for publishing`)
-    }
+    await requireProjectInstanceByName(api, metahubId, projectName)
 
     await page.goto(`/metahub/${metahubId}/entities/project/instances`)
     await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
-    const editDialog = await openProjectEditDialogPlayCanvasTab(page)
+    const editDialog = await openProjectEditDialogPlayCanvasTab(page, projectName)
     const publishButton = editDialog.getByRole('button', { name: 'Publish runtime' })
     await expect(publishButton).toBeVisible()
     await expect(publishButton).toBeEnabled()
@@ -884,13 +943,19 @@ const configureMenuWidgetThroughBrowser = async (page: Page) => {
         sectionCodename: WELCOME_SECTION_CODENAME
     })
     await addMenuItemThroughBrowser(page, { title: { en: 'Space', ru: 'Космос' }, icon: 'rocket', sectionCodename: SPACE_SECTION_CODENAME })
+    await addMenuItemThroughBrowser(page, {
+        title: { en: 'Visual Linkup Lab', ru: 'Визуальная лаборатория' },
+        icon: 'visibility',
+        sectionCodename: VISUAL_LINKUP_LAB_SECTION_CODENAME
+    })
     await dialog.getByRole('button', { name: 'Save' }).click()
     await expect(dialog).toHaveCount(0)
     await expect(leftZone.getByText(/Menu: Navigation/)).toBeVisible()
 }
 
-const configurePlayCanvasCanvasWidgetThroughBrowser = async (page: Page) => {
+const configurePlayCanvasCanvasWidgetThroughBrowser = async (page: Page, options: PlayCanvasWidgetRuntimeOptions) => {
     const centerZone = page.getByTestId('layout-zone-center')
+    const widgetCountBefore = await centerZone.getByText(/^PlayCanvas canvas$/).count()
     await centerZone.getByRole('button', { name: 'Add widget' }).click()
     await page.getByRole('menuitem', { name: 'PlayCanvas canvas' }).click()
     const dialog = page.getByRole('dialog', { name: 'PlayCanvas canvas widget' })
@@ -899,23 +964,32 @@ const configurePlayCanvasCanvasWidgetThroughBrowser = async (page: Page) => {
         referenceFieldLabels: ['Client module', 'Realtime server module', 'Published scene', 'Visible in sections'],
         forbiddenEditableIdLabels: ['Runtime manifest id', 'Project id', 'Scene id']
     })
-    await fillLocalizedInlineField(page, dialog, 'Widget title', { en: 'Universo MMOOMM', ru: 'Universo MMOOMM' })
-    await getDialogComboboxByVisibleLabel(dialog, 'Client module').click()
-    await page.getByRole('option', { name: 'Flight Canvas Widget' }).click()
-    await getDialogComboboxByVisibleLabel(dialog, 'Realtime server module').click()
-    await page.getByRole('option', { name: 'Fixed Tick Flight Runtime' }).click()
+    await fillLocalizedInlineField(page, dialog, 'Widget title', options.title)
+    if (options.clientModuleName) {
+        await getDialogComboboxByVisibleLabel(dialog, 'Client module').click()
+        await page.getByRole('option', { name: options.clientModuleName }).click()
+    }
+    if (options.realtimeServerModuleName) {
+        await getDialogComboboxByVisibleLabel(dialog, 'Realtime server module').click()
+        await page.getByRole('option', { name: options.realtimeServerModuleName }).click()
+    }
     await getDialogComboboxByVisibleLabel(dialog, 'Published scene').click()
-    await page
-        .getByRole('option', { name: /MMOOMM Authoring|Published scene|Flight Arena/ })
-        .last()
-        .click()
+    const runtimeManifestSelectValuePrefix = publishedManifestSelectValuePrefix(options.runtimeManifest)
+    const publishedSceneOptions = page.locator(`li[role="option"][data-value^="${runtimeManifestSelectValuePrefix}"]`)
+    await expect(publishedSceneOptions, `Published scene option must be unique for ${options.runtimeManifest.projectName}`).toHaveCount(1)
+    const publishedSceneOption = publishedSceneOptions.first()
+    await expect(
+        publishedSceneOption,
+        `Published scene option must include the manifest for ${options.runtimeManifest.projectName}`
+    ).toBeVisible()
+    await publishedSceneOption.click()
     await dialog.getByLabel('Minimum height').fill('560')
     const fitViewport = dialog.getByRole('switch', { name: 'Fit available viewport height' })
     if (!(await fitViewport.isChecked())) {
         await fitViewport.check()
     }
     await getDialogComboboxByVisibleLabel(dialog, 'Visible in sections').click()
-    await page.getByRole('option', { name: /Space/ }).click()
+    await page.getByRole('option', { name: options.visibleSectionName }).click()
     await page.keyboard.press('Escape')
     const saveButton = dialog
         .getByRole('button', { name: 'Save' })
@@ -923,10 +997,17 @@ const configurePlayCanvasCanvasWidgetThroughBrowser = async (page: Page) => {
         .last()
     await saveButton.click()
     await expect(dialog).toHaveCount(0)
-    await expect(centerZone.getByText(/PlayCanvas canvas/)).toBeVisible()
+    await expect(centerZone.getByText(/^PlayCanvas canvas$/)).toHaveCount(widgetCountBefore + 1)
 }
 
-const configureRuntimeLayoutThroughBrowser = async (page: Page, api: ApiContext, metahubId: string, layoutId: string) => {
+const configureRuntimeLayoutThroughBrowser = async (
+    page: Page,
+    api: ApiContext,
+    metahubId: string,
+    layoutId: string,
+    authoringRuntimeManifest: TargetedPublishedRuntimeManifestSummary,
+    visualLabRuntimeManifest: TargetedPublishedRuntimeManifestSummary
+) => {
     await page.goto(`/metahub/${metahubId}/resources/layouts/${layoutId}`)
     await expect(page.getByTestId('metahub-layout-details-content')).toBeVisible()
     await expectNoTechnicalLeakage(page.getByTestId('metahub-layout-details-content'), {
@@ -938,7 +1019,18 @@ const configureRuntimeLayoutThroughBrowser = async (page: Page, api: ApiContext,
     }
     await removeDefaultLayoutWidgetsThroughBrowser(page, api, metahubId, layoutId)
     await configureMenuWidgetThroughBrowser(page)
-    await configurePlayCanvasCanvasWidgetThroughBrowser(page)
+    await configurePlayCanvasCanvasWidgetThroughBrowser(page, {
+        runtimeManifest: authoringRuntimeManifest,
+        title: { en: 'Universo MMOOMM', ru: 'Universo MMOOMM' },
+        visibleSectionName: /Space/,
+        clientModuleName: 'Flight Canvas Widget',
+        realtimeServerModuleName: 'Fixed Tick Flight Runtime'
+    })
+    await configurePlayCanvasCanvasWidgetThroughBrowser(page, {
+        runtimeManifest: visualLabRuntimeManifest,
+        title: { en: 'Visual Linkup Lab', ru: 'Визуальная лаборатория' },
+        visibleSectionName: /Visual Linkup Lab|Визуальная лаборатория/
+    })
     await expectNoTechnicalLeakage(page.getByTestId('metahub-layout-details-content'), {
         label: 'MMOOMM layout authoring surface',
         allowTextPatterns: [/flight-canvas-widget/i, /fixed-tick-flight-runtime/i],
@@ -958,6 +1050,10 @@ const createAndVerifyPublishedRuntimeBeforeExport = async (page: Page, api: ApiC
 
     await expectMmoommRuntimeReady(page, applicationId, {
         label: 'MMOOMM app generator runtime proof',
+        checkViewportMatrix: true
+    })
+    await expectMmoommVisualLinkupLabRuntimeReady(page, applicationId, {
+        label: 'MMOOMM app generator visual linkup lab runtime proof',
         checkViewportMatrix: true
     })
 }
@@ -999,18 +1095,16 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
         await expectLocalizedValidation(page.getByTestId('metahub-packages-tab'), 'en', {
             label: 'MMOOMM resources packages table'
         })
-        await createProjectInstanceAndBindThroughBrowser(page, api, 'MMOOMM Authoring', metahubId)
-
-        const projectsPayload = (await listPlayCanvasProjects(api, metahubId)) as { items?: Array<{ id?: string; displayName?: unknown }> }
-        const authoredProject = projectsPayload.items?.find((item) =>
-            JSON.stringify(item.displayName ?? {})
-                .toLowerCase()
-                .includes('mmoomm authoring')
+        const authoringProjectId = await createProjectInstanceAndBindThroughBrowser(page, api, 'MMOOMM Authoring', metahubId)
+        const visualLabProjectId = await createProjectInstanceAndBindThroughBrowser(
+            page,
+            api,
+            MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME,
+            metahubId
         )
-        const projectId = authoredProject?.id
-        if (typeof projectId !== 'string') {
-            throw new Error('MMOOMM app generator did not receive a PlayCanvas project id')
-        }
+
+        expect((await requirePlayCanvasProjectByName(api, metahubId, 'MMOOMM Authoring')).id).toBe(authoringProjectId)
+        expect((await requirePlayCanvasProjectByName(api, metahubId, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME)).id).toBe(visualLabProjectId)
 
         // The fullscreen PlayCanvas Editor host resolves the editor context from the
         // editor package's `playcanvasProject.defaultProjectId`. Without a default
@@ -1018,10 +1112,17 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
         // opening the editor" notice and never mounts the editor iframe.
         await setEditorDefaultProjectThroughBrowser(page, metahubId, 'MMOOMM Authoring')
 
-        const editorPage = await openFullscreenEditorThroughBrowser(page, metahubId)
+        const editorPage = await openFullscreenEditorThroughBrowser(page, metahubId, authoringProjectId)
+        await expectFullscreenEditorProject(editorPage, metahubId, authoringProjectId, 'MMOOMM Authoring Editor')
         await savePlayCanvasEditorSceneAndExpectReload(editorPage, metahubId)
         await authorMmoommSceneThroughPlayCanvasEditorAndExpectReload(editorPage, metahubId)
         await editorPage.close()
+
+        await setEditorDefaultProjectThroughBrowser(page, metahubId, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME)
+        const visualLabEditorPage = await openFullscreenEditorThroughBrowser(page, metahubId, visualLabProjectId)
+        await expectFullscreenEditorProject(visualLabEditorPage, metahubId, visualLabProjectId, 'MMOOMM Visual Linkup Lab Editor')
+        await authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload(visualLabEditorPage, metahubId)
+        await visualLabEditorPage.close()
 
         await createObjectCollectionsThroughBrowser(page, metahubId, api)
         await createMovementCommandsThroughBrowser(page, metahubId, api)
@@ -1044,22 +1145,29 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
         })
 
         await publishPlayCanvasProjectThroughBrowser(page, api, metahubId, 'MMOOMM Authoring')
+        await publishPlayCanvasProjectThroughBrowser(page, api, metahubId, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME)
         const publishResponse = await apiGet(api, `/api/v1/metahub/${metahubId}/playcanvas/published-runtime-manifests`)
         expect(publishResponse.ok).toBe(true)
         const publishPayload = (await publishResponse.json()) as {
             items?: Array<{ projectId?: string; sceneId?: string; checksum?: string }>
         }
-        const runtimeManifest = publishPayload.items?.[0]
-        if (!runtimeManifest?.checksum || runtimeManifest.projectId !== projectId) {
-            throw new Error('MMOOMM app generator did not receive a published runtime manifest')
+        const runtimeManifest = {
+            ...requirePublishedManifestForProject(publishPayload.items, authoringProjectId, 'MMOOMM Authoring'),
+            projectName: 'MMOOMM Authoring'
+        }
+        const visualLabRuntimeManifest = {
+            ...requirePublishedManifestForProject(publishPayload.items, visualLabProjectId, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME),
+            projectName: MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME
         }
 
         const layouts = await listLayouts(api, metahubId)
-        const layout = Array.isArray(layouts?.items) ? layouts.items[0] : Array.isArray(layouts) ? layouts[0] : null
+        const layoutItems = Array.isArray(layouts?.items) ? layouts.items : Array.isArray(layouts) ? layouts : []
+        const layout = layoutItems.find((item: { isDefault?: unknown }) => item.isDefault === true) ?? layoutItems[0]
         if (!layout?.id) {
             throw new Error('MMOOMM app generator could not find a default layout')
         }
-        await configureRuntimeLayoutThroughBrowser(page, api, metahubId, layout.id)
+        await setEditorDefaultProjectThroughBrowser(page, metahubId, 'MMOOMM Authoring')
+        await configureRuntimeLayoutThroughBrowser(page, api, metahubId, layout.id, runtimeManifest, visualLabRuntimeManifest)
         await createAndVerifyPublishedRuntimeBeforeExport(page, api, metahubId, runManifest.runId)
 
         const exportedEnvelope = await exportMetahubSnapshotThroughBrowser(

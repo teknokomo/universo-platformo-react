@@ -3,6 +3,7 @@ import type { Response } from '@playwright/test'
 const STABLE_TIMESTAMP = '1970-01-01T00:00:00.000Z'
 
 export const SPACE_SECTION_CODENAME = 'FlightWorld'
+export const VISUAL_LINKUP_LAB_SECTION_CODENAME = 'VisualLinkupLab'
 export const WELCOME_SECTION_CODENAME = 'WelcomePage'
 export const APP_RUNTIME_TIMEOUT = 180_000
 

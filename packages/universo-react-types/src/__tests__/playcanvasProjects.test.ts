@@ -3,6 +3,8 @@ import type { PackageAttachmentConfig } from '../common/packages'
 import {
     PLAYCANVAS_EDITOR_PACKAGE_NAME,
     PLAYCANVAS_PROJECT_FILE_ROOT,
+    MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS,
+    normalizeMmoommRuntimeMetadata,
     playCanvasProjectSchema,
     playCanvasProjectSnapshotSectionSchema,
     playCanvasRuntimeManifestSchema,
@@ -77,6 +79,68 @@ describe('PlayCanvas project contracts', () => {
         })
 
         expect(parsed.assets[0].type).toBe('scene')
+    })
+
+    it('normalizes MMOOMM visual lab runtime metadata and strips authoring-only fields', () => {
+        const parsed = normalizeMmoommRuntimeMetadata({
+            visualLab: {
+                projectRole: 'visual-linkup-lab',
+                variantCount: 1,
+                objectTypes: ['ship'],
+                internalEditorPath: 'playcanvas-projects/private/scene.json',
+                objects: [
+                    {
+                        id: 'ship-core',
+                        name: 'Linkup Lab 01 ship Core',
+                        variant: 'white-link-halo',
+                        family: 'softWhiteLinkup',
+                        objectType: 'ship',
+                        primitive: 'box',
+                        position: { x: 0, y: 0, z: 0 },
+                        scale: { x: 5, y: 1.5, z: 1.2 },
+                        coreOpacity: 0.55,
+                        glowColor: { r: 0.15, g: 0.85, b: 1 },
+                        glowOpacity: 0.16,
+                        shellScale: 1.1,
+                        lowPolyBands: MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS,
+                        storageRoot: 'playcanvas-projects/private'
+                    }
+                ]
+            }
+        })
+
+        expect(parsed?.visualLab?.objects[0].lowPolyBands).toBe(MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS)
+        expect(parsed?.visualLab).not.toHaveProperty('internalEditorPath')
+        expect(parsed?.visualLab?.objects[0]).not.toHaveProperty('storageRoot')
+    })
+
+    it('rejects unbounded MMOOMM visual lab geometry metadata', () => {
+        const parsed = normalizeMmoommRuntimeMetadata({
+            visualLab: {
+                projectRole: 'visual-linkup-lab',
+                variantCount: 1,
+                objectTypes: ['rockAsteroid'],
+                objects: [
+                    {
+                        id: 'rock-core',
+                        name: 'Linkup Lab 01 rockAsteroid Core',
+                        variant: 'lowpoly-radar',
+                        family: 'lowPolyRetrowave',
+                        objectType: 'rockAsteroid',
+                        primitive: 'sphere',
+                        position: { x: 0, y: 0, z: 0 },
+                        scale: { x: 2, y: 2, z: 2 },
+                        coreOpacity: 0.5,
+                        glowColor: { r: 1, g: 0.58, b: 0.18 },
+                        glowOpacity: 0.14,
+                        shellScale: 1.12,
+                        lowPolyBands: MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS + 1
+                    }
+                ]
+            }
+        })
+
+        expect(parsed).toBeNull()
     })
 
     it('keeps package config as pointer-only metadata', () => {

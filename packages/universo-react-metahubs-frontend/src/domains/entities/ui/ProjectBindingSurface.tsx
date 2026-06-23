@@ -32,6 +32,20 @@ import { useEntityInstanceQuery } from '../hooks/queries'
 
 type ProjectBinding = NonNullable<ProjectBindingInstanceConfig['projectBinding']>
 
+const readLocalizedContentCandidates = (value: unknown, locale: string): string[] => {
+    if (typeof value === 'string') return [value]
+    if (!value || typeof value !== 'object') return []
+    const record = value as { _primary?: string; locales?: Record<string, { content?: unknown }> }
+    const locales = record.locales ?? {}
+    return [locale, record._primary, 'en', ...Object.keys(locales)]
+        .filter((item): item is string => typeof item === 'string' && item.length > 0)
+        .map((item) => locales[item]?.content)
+        .filter((item): item is string => typeof item === 'string' && item.length > 0)
+}
+
+const localizedContentMatches = (value: unknown, expected: string | null | undefined, locale: string): boolean =>
+    typeof expected === 'string' && readLocalizedContentCandidates(value, locale).includes(expected)
+
 const readBinding = (instance: MetahubEntityInstance | undefined): ProjectBinding | null => {
     const config = instance?.config
     if (!config || typeof config !== 'object') return null
@@ -100,8 +114,8 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
         if (!binding) return null
         const projects = projectsQuery.data ?? []
         return (
+            projects.find((project) => localizedContentMatches(project.codename, binding.projectCodename, locale)) ??
             projects.find((project) => project.id === binding.projectId) ??
-            projects.find((project) => getLocalizedContentText(project.codename, locale, '') === binding.projectCodename) ??
             null
         )
     }, [binding, projectsQuery.data, locale])

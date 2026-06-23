@@ -251,7 +251,7 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
         await user.click(screen.getByRole('option', { name: 'Fixed Tick Flight Runtime' }))
 
         await user.click(screen.getByRole('combobox', { name: 'Published scene' }))
-        expect(screen.queryByRole('option', { name: 'Unserialized Scene' })).not.toBeInTheDocument()
+        expect(screen.getByRole('option', { name: 'Unserialized Scene' })).toBeInTheDocument()
         await user.click(screen.getByRole('option', { name: /Flight Arena · MMOOMM Authoring/ }))
 
         await user.click(screen.getByRole('combobox', { name: 'Visible in sections' }))
@@ -277,6 +277,16 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
                 })
             })
         )
+    })
+
+    it('shows published manifests from every PlayCanvas project, not only the default editor project', async () => {
+        const user = userEvent.setup()
+        renderDialog()
+
+        await user.click(await screen.findByRole('combobox', { name: 'Published scene' }))
+
+        expect(screen.getByRole('option', { name: /Flight Arena · MMOOMM Authoring/ })).toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /Unserialized Scene/ })).toBeInTheDocument()
     })
 
     it('shows a localized validation error instead of silently ignoring invalid saved config', async () => {

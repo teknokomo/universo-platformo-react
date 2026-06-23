@@ -36,12 +36,30 @@ product flow instead of writing the snapshot directly.
 
 The generator creates a metahub from the `basic` template, connects the Colyseus
 and PlayCanvas packages, authors the MMOOMM Object/Set/Enumeration model and
-runtime modules through the metahub UI, opens the hosted PlayCanvas Editor,
-applies the baseline ship/station scene through the visible iframe-local MMOOMM
-authoring control, publishes the PlayCanvas project, configures the runtime
-dashboard widgets, and exports the snapshot.
+runtime modules through the metahub UI, creates two bound Projects instances,
+opens the hosted PlayCanvas Editor for each target project, publishes both
+PlayCanvas projects, configures the runtime dashboard widgets against the
+playable authoring manifest and the visual-lab manifest, and exports the
+snapshot.
+
+The first project, `MMOOMM Authoring`, remains the playable flight proof. It
+contains the baseline ship/station scene and is the only manifest bound to the
+published `Space` `playcanvasCanvas` flight widget.
+
+The second project, `MMOOMM Visual Linkup Lab`, is a visual comparison lab for
+the MVP weak robot-avatar linkup style. It contains 16 deterministic primitive
+variants arranged as a comparison grid. Each variant includes ship, station,
+rock asteroid, and ice asteroid objects with white translucent core geometry,
+type-color additive glow shells, fog metadata, and low-poly evidence where the
+variant requests angular geometry. The lab metadata is stored under
+`metadata.mmoomm.visualLab` so it does not weaken the existing flight
+`metadata.mmoomm.scene` contract.
 
 The runtime replay test imports this snapshot, creates and syncs a published
 application, opens the `Space` section, and verifies that the PlayCanvas canvas
-uses the Editor-authored published runtime manifest rather than fallback scene
-data.
+uses the Editor-authored `MMOOMM Authoring` published runtime manifest rather
+than fallback scene data. It then opens the `Visual Linkup Lab` section and
+verifies the second bounded `playcanvasCanvas` widget as a normal user-facing
+runtime surface: static visual-lab status, nonblank WebGL canvas, expected object
+and variant counts, camera controls, focus containment, responsive viewport
+matrix, and no technical leakage.

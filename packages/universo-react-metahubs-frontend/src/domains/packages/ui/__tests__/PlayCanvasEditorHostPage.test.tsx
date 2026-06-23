@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getInstance as getI18nInstance } from '@universo-react/i18n/instance'
 import {
+    PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE,
     PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
     PLAYCANVAS_EDITOR_PACKAGE_NAME,
     type PackageAuthoringHostDescriptor
@@ -192,54 +193,102 @@ const createDeferred = <T,>() => {
     return { promise, resolve }
 }
 
+const fullBootCompatibilityConfig = () =>
+    ({
+        mode: PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
+        accessToken: 'test-full-boot-token-000000000000000000',
+        project: {
+            id: 101,
+            name: 'PlayCanvas Project',
+            permissions: { read: [101], write: [101], admin: [] },
+            settings: { id: 'project_101' }
+        },
+        scene: { id: 202, uniqueId: 202 },
+        self: { id: 303, username: 'test-user' },
+        owner: { id: 404, username: 'owner' },
+        branch: { id: 202, name: 'Main' },
+        url: {
+            api: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901',
+            home: '/',
+            frontend: 'http://localhost:3000/editor-artifact/',
+            engine: 'http://localhost:3000/editor-artifact/js/playcanvas-engine.js',
+            images: '/',
+            static: '/',
+            store: '/store',
+            howdoi: '/jobs',
+            realtime: {
+                http: 'ws://localhost:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/realtime'
+            },
+            messenger: {
+                ws: 'ws://localhost:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/messenger'
+            },
+            relay: {
+                ws: 'ws://localhost:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/relay?accessToken=test-full-boot-token-000000000000000000'
+            }
+        },
+        schema: { asset: {}, scene: {}, settings: {} },
+        engineVersions: {},
+        store: {},
+        aws: {},
+        wasmModules: {},
+        sentry: {},
+        metrics: {},
+        selfHosted: true,
+        universoHosted: true,
+        universoBridge: null
+    } as any)
+
+const restCompatibilityConfig = () =>
+    ({
+        schemaVersion: '1',
+        mode: PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE,
+        protocol: {
+            schemaVersion: '1',
+            mode: 'universo-bridge-minimal',
+            capabilities: ['editor.ready', 'protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save'],
+            endpoints: {
+                bridgeCommands: '/api/v1/metahub/metahub-1/playcanvas/editor-bridge/commands',
+                compatibilityRest: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901'
+            },
+            limits: {
+                maxSceneJsonBytes: 512000,
+                maxSettingsJsonBytes: 64000
+            },
+            cloudOnly: {
+                jobs: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                store: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                publishing: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' },
+                collaboration: { status: 'stubbed', reason: 'cloudOnlySurfaceOutsideFirstSlice' }
+            }
+        },
+        projectId: '019e9146-fd1b-7d1d-a858-d1e96485d901',
+        defaultSceneId: '019e9147-16c4-738c-ab0f-b98c443ee676',
+        userId: 'test-user',
+        permissions: { read: true, write: true, admin: false },
+        auth: {
+            scheme: 'signed-header',
+            headerName: 'X-PlayCanvas-Editor-Token',
+            accessToken: 'test-compat-token-0000000000000000',
+            expiresAt: new Date(Date.now() + 60_000).toISOString()
+        },
+        csrf: { tokenUrl: '/api/v1/auth/csrf', headerName: 'X-CSRF-Token' },
+        endpoints: {
+            scenes: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/scenes',
+            assets: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/assets',
+            settings: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/settings',
+            cloudOnly: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/cloud-only'
+        }
+    } as any)
+
 describe('PlayCanvasEditorHostPage', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         compactViewport = false
         vi.mocked(packagesApi.getAuthoringHost).mockResolvedValue(hostDescriptor())
-        vi.mocked(packagesApi.getPlayCanvasEditorCompatibilityConfig).mockResolvedValue({
-            mode: 'universo-full-upstream-ui',
-            accessToken: 'test-full-boot-token-000000000000000000',
-            project: {
-                id: 101,
-                name: 'PlayCanvas Project',
-                permissions: { read: [101], write: [101], admin: [] },
-                settings: { id: 'project_101' }
-            },
-            scene: { id: 202, uniqueId: 202 },
-            self: { id: 303, username: 'test-user' },
-            owner: { id: 404, username: 'owner' },
-            branch: { id: 202, name: 'Main' },
-            url: {
-                api: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901',
-                home: '/',
-                frontend: 'http://localhost:3000/editor-artifact/',
-                engine: 'http://localhost:3000/editor-artifact/js/playcanvas-engine.js',
-                images: '/',
-                static: '/',
-                store: '/store',
-                howdoi: '/jobs',
-                realtime: {
-                    http: 'ws://localhost:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/realtime'
-                },
-                messenger: {
-                    ws: 'ws://localhost:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/messenger'
-                },
-                relay: {
-                    ws: 'ws://localhost:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/relay?accessToken=test-full-boot-token-000000000000000000'
-                }
-            },
-            schema: { asset: {}, scene: {}, settings: {} },
-            engineVersions: {},
-            store: {},
-            aws: {},
-            wasmModules: {},
-            sentry: {},
-            metrics: {},
-            selfHosted: true,
-            universoHosted: true,
-            universoBridge: null
-        } as any)
+        vi.mocked(packagesApi.getPlayCanvasEditorCompatibilityConfig).mockImplementation(
+            async (_metahubId, _projectId, _artifactOrigin, _artifactBaseUrl, mode) =>
+                mode === PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE ? restCompatibilityConfig() : fullBootCompatibilityConfig()
+        )
         vi.mocked(packagesApi.getCsrfToken).mockResolvedValue('test-host-csrf-token')
         vi.stubGlobal(
             'fetch',
@@ -263,6 +312,15 @@ describe('PlayCanvasEditorHostPage', () => {
                 'http://localhost:3000',
                 'http://localhost:3000/editor-artifact/',
                 PLAYCANVAS_EDITOR_FULL_BOOT_MODE
+            )
+        )
+        await waitFor(() =>
+            expect(packagesApi.getPlayCanvasEditorCompatibilityConfig).toHaveBeenCalledWith(
+                'metahub-1',
+                '019e9146-fd1b-7d1d-a858-d1e96485d901',
+                'http://localhost:3000',
+                'http://localhost:3000/editor-artifact/',
+                PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE
             )
         )
 
@@ -437,12 +495,23 @@ describe('PlayCanvasEditorHostPage', () => {
             expect(postMessage).toHaveBeenCalledWith(
                 expect.objectContaining({
                     type: 'editor.bootstrap.init',
-                    descriptor: expect.not.objectContaining({
-                        mmoommAuthoring: expect.anything()
+                    descriptor: expect.objectContaining({
+                        restCompatibilityConfig: expect.objectContaining({
+                            mode: PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE
+                        }),
+                        compatibilityCsrfToken: {
+                            headerName: 'X-CSRF-Token',
+                            token: 'test-host-csrf-token'
+                        }
                     })
                 }),
                 window.location.origin
             )
+        )
+        expect(postMessage.mock.calls[0]?.[0]?.descriptor).not.toEqual(
+            expect.objectContaining({
+                mmoommAuthoring: expect.anything()
+            })
         )
     })
 

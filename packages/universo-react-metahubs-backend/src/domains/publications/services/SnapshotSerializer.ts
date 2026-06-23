@@ -775,17 +775,39 @@ export class SnapshotSerializer {
             ? collectPlayCanvasRuntimeProjectIds(playCanvasRuntimeConfigPackages)
             : undefined
         const includePlayCanvasRuntimeManifests = includePlayCanvasRuntime && (playCanvasRuntimeProjectIds?.length ?? 0) > 0
-        const shouldExportPlayCanvasProjects =
-            this.playCanvasProjectSnapshotService &&
-            (includePlayCanvasSnapshot || (playCanvasMode === 'runtime' && includePlayCanvasRuntimeManifests))
-        const playcanvasProjects = shouldExportPlayCanvasProjects
-            ? await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
-                  includeRuntimeManifests: includePlayCanvasRuntimeManifests,
-                  projectIds: includePlayCanvasRuntimeManifests ? playCanvasRuntimeProjectIds : undefined
-              })
-            : undefined
-        const playcanvasRuntimeManifests =
-            playCanvasMode === 'runtime' && playcanvasProjects?.runtimeManifests?.length ? playcanvasProjects.runtimeManifests : undefined
+        let playcanvasProjects: PlayCanvasProjectSnapshotSection | undefined
+        let playcanvasRuntimeManifests: PlayCanvasProjectSnapshotSection['runtimeManifests'] | undefined
+        if (this.playCanvasProjectSnapshotService) {
+            if (playCanvasMode === 'snapshot') {
+                playcanvasProjects = await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
+                    includeRuntimeManifests: false,
+                    projectIds: undefined
+                })
+            } else if (playCanvasMode === 'runtime' && includePlayCanvasRuntimeManifests) {
+                const runtimeProjects = await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
+                    includeRuntimeManifests: true,
+                    projectIds: playCanvasRuntimeProjectIds
+                })
+                playcanvasRuntimeManifests = runtimeProjects?.runtimeManifests?.length ? runtimeProjects.runtimeManifests : undefined
+            } else if (playCanvasMode === 'snapshot-runtime') {
+                playcanvasProjects = await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
+                    includeRuntimeManifests: false,
+                    projectIds: undefined
+                })
+                if (includePlayCanvasRuntimeManifests) {
+                    const runtimeProjects = await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
+                        includeRuntimeManifests: true,
+                        projectIds: playCanvasRuntimeProjectIds
+                    })
+                    if (playcanvasProjects) {
+                        playcanvasProjects = {
+                            ...playcanvasProjects,
+                            runtimeManifests: runtimeProjects?.runtimeManifests?.length ? runtimeProjects.runtimeManifests : undefined
+                        }
+                    }
+                }
+            }
+        }
 
         const elementObjectIds = serializedObjects
             .filter(({ kind, object }) => {
@@ -1005,6 +1027,38 @@ export class SnapshotSerializer {
             playcanvasRuntimeManifests,
             settings: settings.length > 0 ? settings : undefined,
             runtimePolicy
+        }
+    }
+
+    async refreshPlayCanvasRuntimeManifests(
+        metahubId: string,
+        snapshot: MetahubSnapshot,
+        projectIds: string[],
+        target: 'runtime' | 'snapshot-runtime'
+    ): Promise<void> {
+        if (!this.playCanvasProjectSnapshotService) return
+
+        const scopedProjectIds = [...new Set(projectIds.map((id) => id.trim()).filter(Boolean))]
+        if (scopedProjectIds.length === 0) return
+
+        const playcanvasProjects = await this.playCanvasProjectSnapshotService.exportSnapshot(metahubId, {
+            includeRuntimeManifests: true,
+            projectIds: scopedProjectIds
+        })
+        const runtimeManifests = playcanvasProjects?.runtimeManifests ?? []
+
+        if (target === 'runtime') {
+            snapshot.playcanvasRuntimeManifests = runtimeManifests.length > 0 ? runtimeManifests : undefined
+            return
+        }
+
+        if (snapshot.playcanvasProjects) {
+            snapshot.playcanvasProjects = {
+                ...snapshot.playcanvasProjects,
+                runtimeManifests: runtimeManifests.length > 0 ? runtimeManifests : undefined
+            }
+        } else if (playcanvasProjects) {
+            snapshot.playcanvasProjects = playcanvasProjects
         }
     }
 

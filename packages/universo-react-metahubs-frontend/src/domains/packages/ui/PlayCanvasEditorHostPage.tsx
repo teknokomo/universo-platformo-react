@@ -215,7 +215,8 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
             'playcanvas-editor-compatibility-config',
             selectedProjectId,
             frameOrigin,
-            frameBaseUrl
+            frameBaseUrl,
+            PLAYCANVAS_EDITOR_FULL_BOOT_MODE
         ],
         queryFn: () =>
             packagesApi.getPlayCanvasEditorCompatibilityConfig(
@@ -227,15 +228,37 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
             ),
         enabled: Boolean(bridgeEnabled && selectedProjectId && frameOrigin && frameBaseUrl)
     })
+    const restCompatibilityConfigQuery = useQuery({
+        queryKey: [
+            ...metahubsQueryKeys.packagesAttached(metahubId),
+            'playcanvas-editor-compatibility-config',
+            selectedProjectId,
+            frameOrigin,
+            frameBaseUrl,
+            PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE
+        ],
+        queryFn: () =>
+            packagesApi.getPlayCanvasEditorCompatibilityConfig(
+                metahubId,
+                selectedProjectId ?? '',
+                frameOrigin,
+                frameBaseUrl,
+                PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE
+            ),
+        enabled: Boolean(bridgeEnabled && selectedProjectId && frameOrigin && frameBaseUrl)
+    })
     const restCompatibilityConfig =
-        compatibilityConfigQuery.data?.mode === PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE ? compatibilityConfigQuery.data : null
+        restCompatibilityConfigQuery.data?.mode === PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE ? restCompatibilityConfigQuery.data : null
     const fullBootCompatibilityConfig =
         compatibilityConfigQuery.data?.mode === PLAYCANVAS_EDITOR_FULL_BOOT_MODE ? compatibilityConfigQuery.data : null
     const fullBootConfigError =
         bridgeEnabled &&
         selectedProjectId &&
         mode !== 'developmentUrl' &&
-        (compatibilityConfigQuery.isError || Boolean(compatibilityConfigQuery.data && !fullBootCompatibilityConfig))
+        (compatibilityConfigQuery.isError ||
+            restCompatibilityConfigQuery.isError ||
+            Boolean(compatibilityConfigQuery.data && !fullBootCompatibilityConfig) ||
+            Boolean(restCompatibilityConfigQuery.data && !restCompatibilityConfig))
     const compatibilityCsrfTokenQuery = useQuery({
         queryKey: [...metahubsQueryKeys.packagesAttached(metahubId), 'playcanvas-editor-compatibility-csrf', selectedProjectId],
         queryFn: () => packagesApi.getCsrfToken(),
@@ -246,6 +269,9 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
             return null
         }
         if (bridgeEnabled && selectedProjectId && !compatibilityConfigQuery.data && !compatibilityConfigQuery.isError) {
+            return null
+        }
+        if (bridgeEnabled && selectedProjectId && !restCompatibilityConfigQuery.data && !restCompatibilityConfigQuery.isError) {
             return null
         }
         if (fullBootConfigError) {
@@ -264,7 +290,8 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
             schemaVersion: host.playcanvasEditor.schemaVersion,
             metahubId: host.metahubId,
             packageSlug: host.packageSlug,
-            compatibilityConfig: compatibilityConfigQuery.data ?? null,
+            compatibilityConfig: fullBootCompatibilityConfig,
+            restCompatibilityConfig,
             compatibilityCsrfToken:
                 restCompatibilityConfig?.csrf && compatibilityCsrfTokenQuery.data
                     ? {
@@ -291,10 +318,13 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
         compatibilityCsrfTokenQuery.data,
         compatibilityCsrfTokenQuery.isError,
         fullBootConfigError,
+        fullBootCompatibilityConfig,
         host?.metahubId,
         host?.packageSlug,
         host?.playcanvasEditor,
         restCompatibilityConfig,
+        restCompatibilityConfigQuery.data,
+        restCompatibilityConfigQuery.isError,
         selectedProjectId
     ])
     const postBootstrapInit = useCallback(

@@ -42,7 +42,7 @@ import {
     createPlayCanvasEditorCompatibilityConfig,
     getLocalizedName
 } from '../config/index.js'
-import { validateCompatibilityToken } from '../tokens/index.js'
+import { resolveCompatibilityToken, validateCompatibilityToken, validateFullBootClaims } from '../tokens/index.js'
 
 export const validateParams = <T>(
     schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } },
@@ -171,7 +171,7 @@ export interface PlayCanvasEditorCompatibilityProjectPort {
         payload: PlayCanvasEditorScenePayload
         expectedCurrentChecksum?: string | null
     }): Promise<{ scene: PlayCanvasScene; payload: PlayCanvasEditorScenePayload | null; checksum: string | null }>
-    listAssets(input: { metahubId: string; projectId: string; userId: string }): Promise<unknown[]>
+    listAssets(input: { metahubId: string; projectId: string; userId: string; sceneId?: string | null }): Promise<unknown[]>
     listSourceFiles?(input: {
         metahubId: string
         projectId: string
@@ -439,9 +439,9 @@ export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditor
                         }
                         const project = await projectPort.resolveProject({ metahubId, projectId: params.projectId, userId })
                         const scenes = await projectPort.listScenes({ metahubId, projectId: params.projectId, userId })
-                        const assets = await projectPort.listAssets({ metahubId, projectId: params.projectId, userId })
                         const sceneId = project.defaultSceneId || scenes[0]?.id
                         if (!sceneId) return sendInvalid(res)
+                        const assets = await projectPort.listAssets({ metahubId, projectId: params.projectId, userId, sceneId })
                         const assetDocumentIds = assets
                             .map((asset) =>
                                 asset && typeof asset === 'object' && 'editorDocumentId' in asset
@@ -604,12 +604,35 @@ export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditor
                     const projectPort = deps.createProjectPort(context)
                     const params = validateParams(playCanvasEditorCompatibilityParamsSchema, { ...req.params, metahubId })
                     if (!params) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
+                    const claims = validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })
+                    const fullBootClaims = claims
+                        ? null
+                        : validateFullBootClaims(deps.tokenService, resolveCompatibilityToken(req) ?? '', {
+                              metahubId,
+                              projectId: params.projectId,
+                              origin: resolveRequestOrigin(req) ?? resolvePlatformApiOrigin(req)
+                          })
+                    if (!claims && !fullBootClaims) {
                         return sendUnauthorized(res)
                     }
-                    const assets = await projectPort.listAssets({ metahubId, projectId: params.projectId, userId })
+                    const assets = await projectPort.listAssets({
+                        metahubId,
+                        projectId: params.projectId,
+                        userId,
+                        sceneId: claims?.sceneId ?? fullBootClaims?.sceneId
+                    })
+                    const allowedFullBootAssetIds = new Set(fullBootClaims?.assetDocumentIds ?? [])
+                    const visibleAssets = fullBootClaims
+                        ? assets.filter((asset) => {
+                              const documentId =
+                                  asset && typeof asset === 'object' && 'editorDocumentId' in asset
+                                      ? (asset as { editorDocumentId?: unknown }).editorDocumentId
+                                      : null
+                              return typeof documentId === 'number' && allowedFullBootAssetIds.has(documentId)
+                          })
+                        : assets
                     res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ items: assets.map((asset) => playCanvasEditorCompatibilityAssetSummarySchema.parse(asset)) })
+                    return res.json({ items: visibleAssets.map((asset) => playCanvasEditorCompatibilityAssetSummarySchema.parse(asset)) })
                 },
                 { permission: 'manageMetahub' }
             )

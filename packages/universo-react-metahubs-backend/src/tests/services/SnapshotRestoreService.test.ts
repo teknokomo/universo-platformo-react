@@ -469,6 +469,129 @@ describe('SnapshotRestoreService', () => {
         })
     })
 
+    it('preserves file-backed PlayCanvas scene-local material assets during snapshot restore', async () => {
+        const sourceProjectId = '019e8afa-0000-7000-8000-000000000001'
+        const sourceSceneId = '019e8afa-0000-7000-8000-000000000002'
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, useFog: true, shader: 'blinn' }
+        const scenePayload = {
+            schemaVersion: '1',
+            entities: [
+                {
+                    id: 'entity-1',
+                    name: 'Scene Local Material Owner',
+                    parentId: null,
+                    enabled: true,
+                    components: { render: { materialAssets: [920000001] } },
+                    children: []
+                }
+            ],
+            assets: [
+                {
+                    id: '920000001',
+                    stableAssetId: 'mmoomm-visual-linkup-920000001',
+                    name: 'Scene Local Material',
+                    type: 'material',
+                    data: materialData,
+                    metadata: { data: materialData, mmoomm: { visualMaterial: { blendType: 'normal' } } }
+                }
+            ]
+        }
+        const sceneContent = Buffer.from(JSON.stringify(scenePayload))
+        const sceneHash = 'b'.repeat(64)
+        const playcanvasProjects: PlayCanvasProjectSnapshotSection = {
+            schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+            projects: [
+                {
+                    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                    id: sourceProjectId,
+                    codename: createLocalizedContent('en', 'playcanvas_project'),
+                    displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                    description: null,
+                    packageRef: {
+                        packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                        version: '0.1.0',
+                        compatibilityStatus: 'compatible'
+                    },
+                    settings: {},
+                    defaultSceneId: sourceSceneId,
+                    publicationConfig: {}
+                }
+            ],
+            scenes: [
+                {
+                    id: sourceSceneId,
+                    projectId: sourceProjectId,
+                    codename: createLocalizedContent('en', 'scene'),
+                    displayName: createLocalizedContent('en', 'Scene'),
+                    payloadSchemaVersion: '1',
+                    payload: scenePayload,
+                    payloadFile: {
+                        provider: 'local',
+                        root: 'playcanvas-projects',
+                        path: `playcanvas-projects/${sourceProjectId}/scenes/${sourceSceneId}.json`,
+                        hash: sceneHash,
+                        mime: 'application/json',
+                        size: sceneContent.length,
+                        status: 'ready',
+                        snapshotContentBase64: sceneContent.toString('base64')
+                    },
+                    checksum: sceneHash,
+                    sortOrder: 0,
+                    publish: true
+                }
+            ],
+            assets: [],
+            scriptAssets: [],
+            sceneScriptBindings: [],
+            generatedArtifacts: []
+        }
+        const missingFileError = Object.assign(new Error('missing scene'), { code: 'ENOENT' })
+        const playCanvasProjectFileService = {
+            buildDefaultScenePath: jest.fn(
+                (projectId: string, sceneId: string) => `playcanvas-projects/${projectId}/scenes/${sceneId}.json`
+            ),
+            read: jest.fn().mockRejectedValue(missingFileError),
+            write: jest.fn().mockResolvedValue({ checksum: sceneHash }),
+            delete: jest.fn()
+        }
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(
+            knex as any,
+            'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+            undefined as any,
+            playCanvasProjectFileService as any
+        )
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({ playcanvasProjects } as unknown as Partial<MetahubSnapshot>),
+            'user-1'
+        )
+
+        const restoredProjectId = (insertedRows['_mhb_playcanvas_projects']?.[0] as { id?: string } | undefined)?.id
+        const restoredSceneId = (insertedRows['_mhb_playcanvas_scenes']?.[0] as { id?: string } | undefined)?.id
+        const restoredScene = insertedRows['_mhb_playcanvas_scenes']?.[0] as
+            | { payload?: typeof scenePayload; payload_file?: { path?: string; snapshotContentBase64?: string } }
+            | undefined
+        expect(restoredProjectId).toBeTruthy()
+        expect(restoredSceneId).toBeTruthy()
+        expect(restoredScene?.payload?.assets).toHaveLength(1)
+        expect(restoredScene?.payload?.assets?.[0]).toMatchObject({
+            id: '920000001',
+            type: 'material',
+            data: expect.objectContaining({ opacity: 0.42 }),
+            metadata: expect.objectContaining({ data: expect.objectContaining({ useFog: true }) })
+        })
+        expect(restoredScene?.payload_file?.path).toBe(`playcanvas-projects/${restoredProjectId}/scenes/${restoredSceneId}.json`)
+        expect(restoredScene?.payload_file?.snapshotContentBase64).toBeUndefined()
+        expect(playCanvasProjectFileService.write).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
+            `playcanvas-projects/${restoredProjectId}/scenes/${restoredSceneId}.json`,
+            sceneContent,
+            { expectedChecksum: sceneHash, mime: 'application/json' }
+        )
+    })
+
     it('replaces existing package dependencies when a snapshot explicitly contains no packages', async () => {
         const { knex } = createMockKnex()
         const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')

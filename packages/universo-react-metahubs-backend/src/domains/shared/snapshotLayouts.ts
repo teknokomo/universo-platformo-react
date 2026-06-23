@@ -10,6 +10,69 @@ const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(v
 const manifestKey = (projectId: string, sceneId: string | null | undefined): string => `${projectId}\u0000${sceneId ?? ''}`
 
 type RuntimeManifestSummary = { checksum: string; sceneId: string | null }
+type RuntimeManifestReference = { projectId: string; sceneId: string | null }
+
+const addRuntimeManifestReference = (refs: Map<string, RuntimeManifestReference>, value: unknown): void => {
+    if (!isRecord(value)) return
+    const projectId = typeof value.projectId === 'string' && value.projectId.trim() ? value.projectId : null
+    if (!projectId) return
+    const sceneId = typeof value.sceneId === 'string' && value.sceneId.trim() ? value.sceneId : null
+    refs.set(manifestKey(projectId, sceneId), { projectId, sceneId })
+}
+
+const collectRuntimeManifestReferences = (refs: Map<string, RuntimeManifestReference>, value: unknown): void => {
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectRuntimeManifestReferences(refs, item)
+        }
+        return
+    }
+    if (!isRecord(value)) return
+
+    for (const [key, item] of Object.entries(value)) {
+        if (key === 'runtimeManifest') {
+            addRuntimeManifestReference(refs, item)
+            continue
+        }
+        collectRuntimeManifestReferences(refs, item)
+    }
+}
+
+const collectPlayCanvasRuntimeManifestReferences = (snapshot: MetahubSnapshot): RuntimeManifestReference[] => {
+    const refs = new Map<string, RuntimeManifestReference>()
+
+    for (const item of snapshot.packages ?? []) {
+        const config = item.config
+        if (config?.kind !== 'display') continue
+        const projectId = config.playcanvasProject?.defaultProjectId
+        if (typeof projectId === 'string' && projectId.trim()) {
+            refs.set(manifestKey(projectId, null), { projectId, sceneId: null })
+        }
+    }
+
+    collectRuntimeManifestReferences(refs, snapshot.layoutConfig)
+    for (const layout of snapshot.layouts ?? []) {
+        collectRuntimeManifestReferences(refs, layout.config)
+    }
+    for (const layout of snapshot.scopedLayouts ?? []) {
+        collectRuntimeManifestReferences(refs, layout.config)
+    }
+    for (const widget of snapshot.layoutZoneWidgets ?? []) {
+        if (widget.isActive === false) continue
+        if (widget.widgetKey !== 'playcanvasCanvas') continue
+        collectRuntimeManifestReferences(refs, widget.config)
+    }
+    for (const override of snapshot.layoutWidgetOverrides ?? []) {
+        if (override.isDeletedOverride === true || override.isActive === false || override.config == null) continue
+        collectRuntimeManifestReferences(refs, override.config)
+    }
+
+    return [...refs.values()]
+}
+
+export const collectPlayCanvasRuntimeManifestProjectIds = (snapshot: MetahubSnapshot): string[] => [
+    ...new Set(collectPlayCanvasRuntimeManifestReferences(snapshot).map((ref) => ref.projectId))
+]
 
 const alignRuntimeManifestBinding = (
     binding: Record<string, unknown>,
@@ -74,9 +137,21 @@ export function alignPlayCanvasRuntimeManifestBindings(snapshot: MetahubSnapshot
     const manifests = snapshot.playcanvasRuntimeManifests ?? []
     if (manifests.length === 0) return
 
+    const runtimeReferences = collectPlayCanvasRuntimeManifestReferences(snapshot)
+    if (runtimeReferences.length > 0) {
+        snapshot.playcanvasRuntimeManifests = manifests.filter((manifest) =>
+            runtimeReferences.some(
+                (ref) => manifest.projectId === ref.projectId && (ref.sceneId === null || (manifest.sceneId ?? null) === ref.sceneId)
+            )
+        )
+    }
+
+    const scopedManifests = snapshot.playcanvasRuntimeManifests ?? []
+    if (scopedManifests.length === 0) return
+
     const manifestsByProjectScene = new Map<string, RuntimeManifestSummary>()
     const manifestsByProject = new Map<string, RuntimeManifestSummary | null>()
-    for (const manifest of manifests) {
+    for (const manifest of scopedManifests) {
         const summary = { checksum: manifest.checksum, sceneId: manifest.sceneId ?? null }
         manifestsByProjectScene.set(manifestKey(manifest.projectId, manifest.sceneId ?? null), summary)
         manifestsByProject.set(manifest.projectId, manifestsByProject.has(manifest.projectId) ? null : summary)

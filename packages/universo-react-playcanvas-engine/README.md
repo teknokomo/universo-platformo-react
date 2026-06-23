@@ -2,7 +2,7 @@
 
 Workspace wrapper for `playcanvas@2.18.1`.
 
-The package re-exports the public PlayCanvas engine API and adds generic browser runtime helpers for bounded canvas applications, primitive box entities, follow-camera transforms, zoom/rotation controls, and AABB metadata.
+The package re-exports the public PlayCanvas engine API and adds generic browser runtime helpers for bounded canvas applications, primitive entities, translucent materials, low-poly sphere meshes, scene fog, follow-camera transforms, zoom/rotation controls, and AABB metadata.
 
 ```ts
 export * from 'playcanvas'

@@ -13,6 +13,26 @@ export interface BoxEntityOptions {
     material?: pc.Material
 }
 
+export interface PrimitiveEntityOptions extends BoxEntityOptions {
+    primitive?: 'box' | 'sphere'
+}
+
+export interface TranslucentMaterialOptions {
+    color: pc.Color
+    opacity?: number
+    emissive?: pc.Color
+    emissiveIntensity?: number
+    additive?: boolean
+}
+
+export interface LowPolySphereEntityOptions extends BoxEntityOptions {
+    latitudeBands?: number
+    longitudeBands?: number
+}
+
+export const MIN_LOW_POLY_SPHERE_BANDS = 3
+export const MAX_LOW_POLY_SPHERE_BANDS = 16
+
 export interface FollowCameraOptions {
     target: Vector3Like
     yaw: number
@@ -49,15 +69,70 @@ export const createStandardMaterial = (color: pc.Color): pc.StandardMaterial => 
     return material
 }
 
-export const createBoxEntity = (options: BoxEntityOptions): pc.Entity => {
+export const createTranslucentStandardMaterial = (options: TranslucentMaterialOptions): pc.StandardMaterial => {
+    const material = new pc.StandardMaterial()
+    material.diffuse = options.color
+    if (options.emissive) {
+        material.emissive = options.emissive
+        material.emissiveIntensity = Math.max(0, options.emissiveIntensity ?? 1)
+    }
+    const opacity = Math.min(1, Math.max(0, options.opacity ?? 1))
+    material.opacity = opacity
+    if (opacity < 1) {
+        material.blendType = options.additive ? pc.BLEND_ADDITIVE : pc.BLEND_NORMAL
+        material.depthWrite = false
+    }
+    material.update()
+    return material
+}
+
+export const createPrimitiveEntity = (options: PrimitiveEntityOptions): pc.Entity => {
     const entity = new pc.Entity(options.name)
     entity.addComponent('render', {
-        type: 'box',
+        type: options.primitive ?? 'box',
         material: options.material
     })
     entity.setLocalPosition(options.position.x, options.position.y, options.position.z)
     entity.setLocalScale(options.scale.x, options.scale.y, options.scale.z)
     return entity
+}
+
+export const createBoxEntity = (options: BoxEntityOptions): pc.Entity => {
+    return createPrimitiveEntity({ ...options, primitive: 'box' })
+}
+
+export const createLowPolySphereEntity = (app: pc.Application, options: LowPolySphereEntityOptions): pc.Entity => {
+    const clampBands = (value: number | undefined): number =>
+        Math.min(MAX_LOW_POLY_SPHERE_BANDS, Math.max(MIN_LOW_POLY_SPHERE_BANDS, Math.floor(value ?? 8)))
+    const geometry = new pc.SphereGeometry({
+        radius: 0.5,
+        latitudeBands: clampBands(options.latitudeBands),
+        longitudeBands: clampBands(options.longitudeBands)
+    })
+    const material = options.material ?? createStandardMaterial(new pc.Color(1, 1, 1))
+    const mesh = pc.Mesh.fromGeometry(app.graphicsDevice, geometry)
+    const meshInstance = new pc.MeshInstance(mesh, material)
+    const entity = new pc.Entity(options.name)
+    entity.addComponent('render')
+    if (entity.render) {
+        entity.render.meshInstances = [meshInstance]
+    }
+    entity.setLocalPosition(options.position.x, options.position.y, options.position.z)
+    entity.setLocalScale(options.scale.x, options.scale.y, options.scale.z)
+    return entity
+}
+
+export const applySceneFog = (
+    scene: pc.Scene,
+    options: { type?: 'none' | 'linear' | 'exp' | 'exp2'; color?: pc.Color; density?: number }
+): void => {
+    scene.fog.type = options.type ?? 'none'
+    if (options.color) {
+        scene.fog.color = options.color
+    }
+    if (Number.isFinite(options.density)) {
+        scene.fog.density = Math.max(0, Number(options.density))
+    }
 }
 
 export const resolveFollowCameraPosition = (options: FollowCameraOptions): Vector3Like => {

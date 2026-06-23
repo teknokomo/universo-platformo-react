@@ -441,6 +441,13 @@ export const createAllowedShareDbDocumentKeys = (claims: PlayCanvasEditorCompati
     ])
 }
 
+export const addAllowedShareDbDocumentKeys = (backend: ShareDB, claims: PlayCanvasEditorCompatibilityTokenClaims): void => {
+    const keys = getShareDbAllowedDocumentKeys(backend)
+    for (const key of createAllowedShareDbDocumentKeys(claims)) {
+        keys.add(key)
+    }
+}
+
 export const isAllowedShareDbDocument = (backend: ShareDB, collection: unknown, documentId: unknown): collection is RealtimeCollection =>
     typeof collection === 'string' &&
     typeof documentId === 'string' &&
@@ -701,9 +708,7 @@ export const createScopedShareDbBackend = (
 ): ShareDB => {
     const backend = new ShareDB()
     const persistedMetadata = getShareDbPersistedMetadata(backend)
-    for (const key of createAllowedShareDbDocumentKeys(claims)) {
-        getShareDbAllowedDocumentKeys(backend).add(key)
-    }
+    addAllowedShareDbDocumentKeys(backend, claims)
     backend.use('submit', (context, next) => {
         if (!isAllowedShareDbDocument(backend, context.collection, context.id)) {
             next(new Error('playcanvasEditor.fullBoot.documentNotAllowed'))
@@ -747,6 +752,28 @@ export const createScopedShareDbBackend = (
             })
     })
     return backend
+}
+
+export const seedShareDbAssetDocumentsInBatches = async (
+    backend: ShareDB,
+    port: PlayCanvasEditorRealtimeDocumentPort,
+    claims: PlayCanvasEditorCompatibilityTokenClaims,
+    assetDocumentIds: readonly number[],
+    batchSize = 16
+): Promise<void> => {
+    for (let index = 0; index < assetDocumentIds.length; index += batchSize) {
+        const batch = assetDocumentIds.slice(index, index + batchSize)
+        await Promise.all(
+            batch.map((documentId) =>
+                seedShareDbDocument(backend, {
+                    port,
+                    claims,
+                    collection: 'assets',
+                    documentId: String(documentId)
+                })
+            )
+        )
+    }
 }
 
 export const handleRealtimeSocket = (
@@ -825,10 +852,25 @@ export const handleRealtimeSocket = (
                     documentId: `${numericIds.sceneId}_${numericIds.selfId}`
                 })
             ])
+            if (!isSocketOpen(socket)) return
             socket.send('auth{"ok":true}')
             const stream = new WebSocketJSONStream(createShareDbWebSocket(socket))
             stream.on('error', () => closeInternalError(socket, 'playcanvasEditor.fullBoot.realtimeProtocolError'))
             backend.listen(stream, request)
+            const assetDocumentIds = claims.assetDocumentIds ?? []
+            if (assetDocumentIds.length > 0) {
+                void seedShareDbAssetDocumentsInBatches(backend, deps.documentPort, claims, assetDocumentIds).catch((error) => {
+                    console.warn('[PlayCanvasEditorFullBootRuntime] Failed to seed signed realtime asset documents', {
+                        metahubId: claims.metahubId,
+                        projectId: claims.projectId,
+                        assetDocumentCount: assetDocumentIds.length,
+                        error: error instanceof Error ? error.message : String(error)
+                    })
+                    if (isSocketOpen(socket)) {
+                        closeInternalError(socket, 'playcanvasEditor.fullBoot.assetSeedFailed')
+                    }
+                })
+            }
         } catch (error) {
             console.warn('[PlayCanvasEditorFullBootRuntime] Realtime socket initialization failed', {
                 metahubId: path.metahubId,
@@ -1077,6 +1119,8 @@ export const attachPlayCanvasEditorFullBootRuntime = (deps: PlayCanvasEditorReal
         if (!backend) {
             backend = createScopedShareDbBackend(claims, deps.documentPort)
             backends.set(key, backend)
+        } else {
+            addAllowedShareDbDocumentKeys(backend, claims)
         }
         return backend
     }

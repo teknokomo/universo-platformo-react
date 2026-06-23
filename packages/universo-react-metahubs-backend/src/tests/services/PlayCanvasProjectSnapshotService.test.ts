@@ -415,6 +415,29 @@ describe('PlayCanvasProjectSnapshotService', () => {
                             { id: 'stable-ship', position: { x: 0, y: 0, z: 0 }, scale: { x: 12, y: 4, z: 4 } },
                             { id: 'stable-station', position: { x: 72, y: 0, z: -48 }, scale: { x: 48, y: 16, z: 16 } }
                         ]
+                    },
+                    visualLab: {
+                        projectRole: 'visual-linkup-lab',
+                        variantCount: 16,
+                        objectTypes: ['ship', 'station', 'rockAsteroid', 'iceAsteroid'],
+                        internalEditorPath: 'playcanvas-projects/project-1/scenes/scene.json',
+                        objects: [
+                            {
+                                id: 'lab-ship-core',
+                                name: 'Linkup Lab 01 ship Core',
+                                variant: 'white-link-halo',
+                                family: 'softWhiteLinkup',
+                                objectType: 'ship',
+                                primitive: 'box',
+                                position: { x: 0, y: 0, z: 0 },
+                                scale: { x: 5, y: 1.5, z: 1.2 },
+                                coreOpacity: 0.55,
+                                glowColor: { r: 0.15, g: 0.85, b: 1 },
+                                glowOpacity: 0.16,
+                                shellScale: 1.1,
+                                storageRoot: 'playcanvas-projects/project-1'
+                            }
+                        ]
                     }
                 }
             },
@@ -467,6 +490,14 @@ describe('PlayCanvasProjectSnapshotService', () => {
 
         expect(snapshot?.runtimeManifests).toHaveLength(1)
         expect(snapshot?.runtimeManifests?.[0].metadata?.mmoomm?.scene).toEqual(scenePayload.metadata.mmoomm.scene)
+        expect(snapshot?.runtimeManifests?.[0].metadata?.mmoomm?.visualLab).toEqual(
+            expect.objectContaining({ projectRole: 'visual-linkup-lab', variantCount: 16 })
+        )
+        expect(snapshot?.runtimeManifests?.[0].metadata?.mmoomm?.visualLab).not.toHaveProperty('internalEditorPath')
+        expect(
+            ((snapshot?.runtimeManifests?.[0].metadata?.mmoomm?.visualLab as { objects?: Array<Record<string, unknown>> } | undefined)
+                ?.objects?.[0] as Record<string, unknown> | undefined) ?? {}
+        ).not.toHaveProperty('storageRoot')
         const manifestCalls = jest
             .mocked(exec.query)
             .mock.calls.filter(([sql]) => String(sql).includes('_mhb_playcanvas_publication_manifests'))
@@ -1311,6 +1342,81 @@ describe('PlayCanvasProjectSnapshotService', () => {
         expect(del).not.toHaveBeenCalled()
     })
 
+    it('rejects restore when inline scene payload differs from the bundled scene file payload', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const scenePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/scenes/${sceneId}.json`
+        const bundledContent = '{"fog_density":0.036}'
+        const bundledChecksum = computePlayCanvasProjectFileChecksum(bundledContent)
+        const del = jest.fn(async () => undefined)
+        const insert = jest.fn(async () => undefined)
+        const trx = {
+            withSchema: jest.fn(() => ({
+                from: jest.fn(() => ({ del })),
+                into: jest.fn(() => ({ insert }))
+            }))
+        }
+        const service = new PlayCanvasProjectSnapshotService(makeExec({}), makeSchemaService() as never)
+
+        await expect(
+            service.restoreSnapshot({
+                trx: trx as never,
+                metahubId: 'metahub-1',
+                schemaName: TEST_SCHEMA,
+                snapshot: {
+                    schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+                    projects: [
+                        {
+                            id: projectId,
+                            codename: createLocalizedContent('en', 'project_one'),
+                            displayName: createLocalizedContent('en', 'Project One'),
+                            packageRef: {
+                                packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                                version: '0.1.0',
+                                compatibilityStatus: 'compatible'
+                            },
+                            schemaVersion: '1',
+                            settings: {},
+                            defaultSceneId: sceneId,
+                            publicationConfig: {}
+                        }
+                    ],
+                    scenes: [
+                        {
+                            id: sceneId,
+                            projectId,
+                            codename: createLocalizedContent('en', 'scene_one'),
+                            displayName: createLocalizedContent('en', 'Scene One'),
+                            payloadSchemaVersion: '1',
+                            payload: { fog_density: 0.014 },
+                            payloadFile: {
+                                provider: 'local',
+                                root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                                path: scenePath,
+                                hash: bundledChecksum,
+                                mime: 'application/json',
+                                snapshotContentBase64: Buffer.from(bundledContent).toString('base64')
+                            },
+                            checksum: null,
+                            sortOrder: 0,
+                            publish: true
+                        }
+                    ],
+                    assets: [],
+                    scriptAssets: [],
+                    sceneScriptBindings: [],
+                    generatedArtifacts: [],
+                    runtimeManifests: []
+                },
+                moduleIdMap: new Map(),
+                entityIdMap: new Map(),
+                userId: 'user-1'
+            })
+        ).rejects.toMatchObject({ details: expect.objectContaining({ messageCode: 'playcanvas.snapshot.scenePayloadFileMismatch' }) })
+        expect(del).not.toHaveBeenCalled()
+        expect(insert).not.toHaveBeenCalled()
+    })
+
     it('tracks restored local file backups for transaction rollback cleanup', async () => {
         const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pc-snapshot-restore-'))
         const fileService = new PlayCanvasProjectFileService(root)
@@ -1364,7 +1470,7 @@ describe('PlayCanvasProjectSnapshotService', () => {
                         codename: createLocalizedContent('en', 'scene_one'),
                         displayName: createLocalizedContent('en', 'Scene One'),
                         payloadSchemaVersion: '1',
-                        payload: {},
+                        payload: { previous: false },
                         payloadFile: {
                             provider: 'local',
                             root: PLAYCANVAS_PROJECT_FILE_ROOT,

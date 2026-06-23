@@ -157,18 +157,19 @@ describe('PlayCanvas Editor user data realtime contract', () => {
     })
 })
 
-const createTokenHeader = (projectId = uuid, userId = 'user-1') => {
+const createTokenHeader = (projectId = uuid, userId = 'user-1', input: { sceneId?: string } = {}) => {
     const { token } = tokenService.create({
         metahubId: 'metahub-1',
         projectId,
         userId,
         packageSlug: 'playcanvas-editor',
+        ...(input.sceneId ? { sceneId: input.sceneId } : {}),
         now: Date.now()
     })
     return token
 }
 
-const createFullBootToken = (input: { now?: number; sessionId?: string; nonce?: string } = {}) =>
+const createFullBootToken = (input: { now?: number; sessionId?: string; nonce?: string; assetDocumentIds?: number[] } = {}) =>
     tokenService.create({
         metahubId: 'metahub-1',
         projectId: uuid,
@@ -179,6 +180,7 @@ const createFullBootToken = (input: { now?: number; sessionId?: string; nonce?: 
         origin: 'https://editor-assets.example.test',
         sessionId: input.sessionId ?? `session-${Date.now()}-${Math.random()}`,
         nonce: input.nonce ?? `nonce-${Date.now()}-${Math.random()}`,
+        assetDocumentIds: input.assetDocumentIds,
         now: input.now
     }).token
 
@@ -242,6 +244,7 @@ const createTestServer = async (
         size: content.length
     }))
     const deleteSourceFile = vi.fn(async ({ sourceFileId }) => ({ id: sourceFileId, deleted: true as const }))
+    const listAssets = vi.fn(async () => options.assets ?? [])
     const app = express()
     app.use(express.json())
     app.use(
@@ -303,7 +306,7 @@ const createTestServer = async (
                     payload: { schemaVersion: '1', entities: [] }
                 }),
                 saveScene,
-                listAssets: async () => options.assets ?? [],
+                listAssets,
                 listSourceFiles: async () => options.sourceFiles ?? [sourceFile],
                 readSourceFile: async ({ sourceFileId }) => ({
                     ...sourceFile,
@@ -322,7 +325,7 @@ const createTestServer = async (
     await new Promise<void>((resolve) => server.once('listening', resolve))
     const address = server.address()
     if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
-    return { baseUrl: `http://127.0.0.1:${address.port}`, saveScene, writeSettings, writeSourceFile, deleteSourceFile }
+    return { baseUrl: `http://127.0.0.1:${address.port}`, saveScene, listAssets, writeSettings, writeSourceFile, deleteSourceFile }
 }
 
 beforeEach(() => {
@@ -423,6 +426,70 @@ describe('PlayCanvas Editor compatibility backend routes', () => {
             headers: { 'x-playcanvas-editor-token': token, referer: 'https://attacker.example.test/editor/' }
         })
         expect(hostileRefererResponse.status).toBe(401)
+    })
+
+    it('scopes compatibility REST asset summaries to the token scene', async () => {
+        const { baseUrl, listAssets } = await createTestServer(fullBootProtocol, {
+            assets: [
+                {
+                    id: 'asset-1',
+                    stableAssetId: 'asset-1',
+                    type: 'material',
+                    name: 'Material',
+                    virtualPath: '/',
+                    mime: null,
+                    hash: null,
+                    size: null,
+                    editorDocumentId: 123
+                }
+            ]
+        })
+        const response = await fetch(`${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/assets`, {
+            headers: { 'x-playcanvas-editor-token': createTokenHeader(uuid, 'user-1', { sceneId }) }
+        })
+
+        expect(response.status).toBe(200)
+        await expect(response.json()).resolves.toMatchObject({ items: [{ editorDocumentId: 123 }] })
+        expect(listAssets).toHaveBeenCalledWith(expect.objectContaining({ sceneId }))
+    })
+
+    it('serves full-boot asset summaries through the signed full-boot asset allowlist', async () => {
+        const { baseUrl, listAssets } = await createTestServer(fullBootProtocol, {
+            assets: [
+                {
+                    id: 'asset-1',
+                    stableAssetId: 'asset-1',
+                    type: 'material',
+                    name: 'Visible Material',
+                    virtualPath: '/',
+                    mime: null,
+                    hash: null,
+                    size: null,
+                    editorDocumentId: 123
+                },
+                {
+                    id: 'asset-2',
+                    stableAssetId: 'asset-2',
+                    type: 'material',
+                    name: 'Hidden Material',
+                    virtualPath: '/',
+                    mime: null,
+                    hash: null,
+                    size: null,
+                    editorDocumentId: 456
+                }
+            ]
+        })
+        const response = await fetch(`${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/assets`, {
+            headers: {
+                origin: 'https://editor-assets.example.test',
+                'x-playcanvas-editor-token': createFullBootToken({ assetDocumentIds: [123] })
+            }
+        })
+
+        expect(response.status).toBe(200)
+        await expect(response.json()).resolves.toMatchObject({ items: [{ editorDocumentId: 123, name: 'Visible Material' }] })
+        expect(listAssets).toHaveBeenCalledWith(expect.objectContaining({ sceneId }))
     })
 
     it('persists settings through the compatibility endpoint with CSRF and optimistic revision', async () => {
@@ -674,7 +741,7 @@ describe('PlayCanvas Editor compatibility backend routes', () => {
 
     it('preserves the artifact subpath in full-boot frontend and engine URLs', async () => {
         process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = 'https://assets.example.test'
-        const { baseUrl } = await createTestServer()
+        const { baseUrl, listAssets } = await createTestServer()
         const response = await fetch(
             `${baseUrl}/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}/config?mode=universo-full-upstream-ui&artifactBaseUrl=${encodeURIComponent(
                 'https://assets.example.test/editor-artifact/'
@@ -692,6 +759,7 @@ describe('PlayCanvas Editor compatibility backend routes', () => {
                 }
             }
         })
+        expect(listAssets).toHaveBeenCalledWith(expect.objectContaining({ sceneId }))
     })
 
     it('rejects full-boot config when asset realtime document ids collide', async () => {
@@ -891,6 +959,14 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         expect(config.schema.settings.editor.cameraClearColor).toMatchObject({
             $default: [0.118, 0.118, 0.118, 1],
             $scope: 'projectUser'
+        })
+        expect(config.schema.materialData).toMatchObject({
+            diffuse: { $default: [1, 1, 1] },
+            opacity: { $default: 1 },
+            blendType: { $default: 0 },
+            depthWrite: { $default: true },
+            useFog: { $default: true },
+            shader: { $default: 'blinn' }
         })
         expect(config.engineVersions.force.version).toBe('2.19.5')
         expect(config.engineVersions.current.version).toBe('2.19.5')
@@ -1218,6 +1294,241 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         expect(incompatibleParent).toEqual({ editor: { cameraClearColor: 'black' } })
         expect(repairSnapshotForJson0ListOperations(missingArrayEntry, [{ p: ['rows', 0, 'values', 0], li: 'value' }])).toBe(0)
         expect(missingArrayEntry).toEqual({ rows: [] })
+    })
+
+    it('seeds signed full-boot asset documents before upstream Editor asset subscription', async () => {
+        const app = express()
+        const server = http.createServer(app)
+        servers.push(server)
+        const materialDocumentId = 123456
+        const materialData = {
+            item_id: materialDocumentId,
+            name: 'Visual Linkup Core Material',
+            type: 'material',
+            file: null,
+            path: [],
+            tags: [],
+            data: {
+                diffuse: [1, 1, 1],
+                opacity: 0.58,
+                blendType: 2,
+                depthWrite: false,
+                useFog: true,
+                shader: 'blinn'
+            },
+            meta: null,
+            preload: true,
+            source: false,
+            branch_id: numericIds.sceneId,
+            project: numericIds.projectId
+        }
+        const handle = attachPlayCanvasEditorFullBootRuntime({
+            server,
+            tokenService,
+            documentPort: {
+                loadDocument: async ({ collection, documentId }) => ({
+                    collection,
+                    id: documentId,
+                    data: collection === 'assets' && documentId === String(materialDocumentId) ? materialData : {},
+                    version: 0
+                }),
+                persistDocument: async () => undefined
+            }
+        })
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        const address = server.address()
+        if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
+        const token = createFullBootToken({ assetDocumentIds: [materialDocumentId] })
+        const config = createPlayCanvasEditorFullBootConfig({
+            metahubId: 'metahub-1',
+            projectId: uuid,
+            sceneId,
+            userId: 'user-1',
+            projectName: 'PlayCanvas Project',
+            accessToken: token,
+            apiOrigin: `http://127.0.0.1:${address.port}`
+        })
+        const realtime = new WebSocket(config.url.realtime.http, { headers: { Origin: 'https://editor-assets.example.test' } })
+        try {
+            await waitForEvent<void>(realtime, 'open')
+            realtime.send(`auth${JSON.stringify({ accessToken: token })}`)
+            await expect(waitForEvent<Buffer>(realtime, 'message').then((data) => data.toString())).resolves.toMatch(/^auth/)
+
+            const connection = new ShareDBClient.Connection(realtime)
+            const doc = connection.get('assets', String(materialDocumentId))
+            doc.subscribe()
+            await waitForEvent<void>(doc, 'load')
+
+            expect(doc.data).toMatchObject(materialData)
+            connection.close()
+        } finally {
+            realtime.close()
+            await handle.close()
+        }
+    })
+
+    it('extends a reused scoped realtime backend with signed asset documents from the next token', async () => {
+        const app = express()
+        const server = http.createServer(app)
+        servers.push(server)
+        const materialDocumentId = 654321
+        const materialData = {
+            item_id: materialDocumentId,
+            name: 'Visual Linkup Reused Scope Material',
+            type: 'material',
+            file: null,
+            path: [],
+            tags: [],
+            data: {
+                diffuse: [0.3, 0.85, 1],
+                opacity: 0.72,
+                blendType: 2,
+                depthWrite: false,
+                useFog: true,
+                shader: 'blinn'
+            },
+            meta: null,
+            preload: true,
+            source: false,
+            branch_id: numericIds.sceneId,
+            project: numericIds.projectId
+        }
+        const loadDocument = vi.fn(async ({ collection, documentId }) => ({
+            collection,
+            id: documentId,
+            data: collection === 'assets' && documentId === String(materialDocumentId) ? materialData : {},
+            version: 0
+        }))
+        const handle = attachPlayCanvasEditorFullBootRuntime({
+            server,
+            tokenService,
+            documentPort: {
+                loadDocument,
+                persistDocument: async () => undefined
+            }
+        })
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        const address = server.address()
+        if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
+        const apiOrigin = `http://127.0.0.1:${address.port}`
+        const openRealtime = async (token: string) => {
+            const config = createPlayCanvasEditorFullBootConfig({
+                metahubId: 'metahub-1',
+                projectId: uuid,
+                sceneId,
+                userId: 'user-1',
+                projectName: 'PlayCanvas Project',
+                accessToken: token,
+                apiOrigin
+            })
+            const realtime = new WebSocket(config.url.realtime.http, { headers: { Origin: 'https://editor-assets.example.test' } })
+            await waitForEvent<void>(realtime, 'open')
+            realtime.send(`auth${JSON.stringify({ accessToken: token })}`)
+            await expect(waitForEvent<Buffer>(realtime, 'message').then((data) => data.toString())).resolves.toMatch(/^auth/)
+            return realtime
+        }
+        try {
+            const firstRealtime = await openRealtime(createFullBootToken())
+            firstRealtime.close()
+            await waitForEvent<void>(firstRealtime, 'close')
+
+            const secondRealtime = await openRealtime(createFullBootToken({ assetDocumentIds: [materialDocumentId] }))
+            try {
+                const connection = new ShareDBClient.Connection(secondRealtime)
+                const doc = connection.get('assets', String(materialDocumentId))
+                doc.subscribe()
+                await waitForEvent<void>(doc, 'load')
+
+                expect(doc.data).toMatchObject(materialData)
+                expect(loadDocument).toHaveBeenCalledWith(
+                    expect.objectContaining({ collection: 'assets', documentId: String(materialDocumentId) })
+                )
+                connection.close()
+            } finally {
+                secondRealtime.close()
+            }
+        } finally {
+            await handle.close()
+        }
+    })
+
+    it('authenticates full-boot realtime before async signed asset documents finish seeding', async () => {
+        const app = express()
+        const server = http.createServer(app)
+        servers.push(server)
+        const materialDocumentIds = Array.from({ length: 4 }, (_, index) => 200_000 + index)
+        let releaseAssetLoads: (() => void) | null = null
+        const assetLoadsReleased = new Promise<void>((resolve) => {
+            releaseAssetLoads = resolve
+        })
+        const loadDocument = vi.fn(async ({ collection, documentId }) => {
+            if (collection === 'assets') {
+                await assetLoadsReleased
+                return {
+                    collection,
+                    id: documentId,
+                    data: {
+                        item_id: Number(documentId),
+                        name: `Material ${documentId}`,
+                        type: 'material',
+                        data: { diffuse: [1, 1, 1], opacity: 0.5, blendType: 2, depthWrite: false, useFog: true },
+                        project: numericIds.projectId
+                    },
+                    version: 0
+                }
+            }
+            return {
+                collection,
+                id: documentId,
+                data: {},
+                version: 0
+            }
+        })
+        const handle = attachPlayCanvasEditorFullBootRuntime({
+            server,
+            tokenService,
+            documentPort: {
+                loadDocument,
+                persistDocument: async () => undefined
+            }
+        })
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        const address = server.address()
+        if (!address || typeof address === 'string') throw new Error('Test server did not bind to a TCP port')
+        const token = createFullBootToken({ assetDocumentIds: materialDocumentIds })
+        const config = createPlayCanvasEditorFullBootConfig({
+            metahubId: 'metahub-1',
+            projectId: uuid,
+            sceneId,
+            userId: 'user-1',
+            projectName: 'PlayCanvas Project',
+            accessToken: token,
+            apiOrigin: `http://127.0.0.1:${address.port}`
+        })
+        const realtime = new WebSocket(config.url.realtime.http, { headers: { Origin: 'https://editor-assets.example.test' } })
+        try {
+            await waitForEvent<void>(realtime, 'open')
+            const authMessage = waitForEvent<Buffer>(realtime, 'message').then((data) => data.toString())
+            realtime.send(`auth${JSON.stringify({ accessToken: token })}`)
+            await vi.waitFor(() => expect(loadDocument).toHaveBeenCalledWith(expect.objectContaining({ collection: 'scenes' })))
+            await expect(authMessage).resolves.toMatch(/^auth/)
+            releaseAssetLoads?.()
+            await vi.waitFor(() =>
+                expect(loadDocument).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        collection: 'assets',
+                        documentId: String(materialDocumentIds[materialDocumentIds.length - 1])
+                    })
+                )
+            )
+            expect(loadDocument).toHaveBeenCalledWith(
+                expect.objectContaining({ collection: 'assets', documentId: String(materialDocumentIds[0]) })
+            )
+        } finally {
+            releaseAssetLoads?.()
+            realtime.close()
+            await handle.close()
+        }
     })
 
     it('rejects ShareDB submits outside the authenticated full-boot document allowlist', async () => {

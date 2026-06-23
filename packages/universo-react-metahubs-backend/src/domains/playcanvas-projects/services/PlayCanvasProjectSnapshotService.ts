@@ -17,6 +17,7 @@ import {
     type PlayCanvasSceneScriptBinding,
     type PlayCanvasScriptAsset,
     type PlayCanvasSourceFile,
+    normalizeMmoommRuntimeMetadata,
     playCanvasProjectSnapshotSectionSchema
 } from '@universo-react/types'
 import type { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
@@ -148,8 +149,8 @@ const readMmoommRuntimeSceneMetadata = (scene: Record<string, unknown>): Record<
     const payload = asNullableRecord(scene.payload)
     const metadata = asNullableRecord(payload?.metadata)
     const mmoomm = asNullableRecord(metadata?.mmoomm)
-    const runtimeScene = asNullableRecord(mmoomm?.scene)
-    return runtimeScene ? { scene: runtimeScene } : null
+    if (!mmoomm) return null
+    return normalizeMmoommRuntimeMetadata(mmoomm)
 }
 
 const remapCompatibilitySettingsDocumentIds = (settings: JsonRecord, oldProjectId: string, newProjectId: string): JsonRecord => {
@@ -310,6 +311,24 @@ const readBundledScenePayload = (file: PlayCanvasFileReference | null | undefine
     }
 }
 
+const assertScenePayloadFileMatchesInlinePayload = (scene: PlayCanvasScene): void => {
+    const inlinePayload = asNullableRecord(scene.payload)
+    if (!inlinePayload) return
+
+    const bundledPayload = readBundledScenePayload(scene.payloadFile)
+    if (!bundledPayload) return
+
+    if (stableStringify(inlinePayload) === stableStringify(bundledPayload)) {
+        return
+    }
+
+    throw new MetahubValidationError('PlayCanvas project scene inline payload and bundled payload file differ', {
+        messageCode: 'playcanvas.snapshot.scenePayloadFileMismatch',
+        sceneId: scene.id,
+        projectId: scene.projectId
+    })
+}
+
 const validateSnapshotReferencesBeforeRestore = (
     section: PlayCanvasProjectSnapshotSection,
     moduleIdMap: Map<string, string>,
@@ -347,6 +366,7 @@ const validateSnapshotReferencesBeforeRestore = (
     for (const scene of section.scenes) {
         assertSetHas(projectIds, scene.projectId, 'playcanvas.snapshot.missingProjectReference')
         assertSnapshotLocalFileIsBundled(scene.payloadFile)
+        assertScenePayloadFileMatchesInlinePayload(scene)
     }
 
     for (const asset of section.assets) {

@@ -1209,6 +1209,23 @@ const EntityInstanceListContent = () => {
         [instanceById]
     )
 
+    const projectCodenameMatches = useCallback(
+        (projectCodename: unknown, expectedCodename: string): boolean => {
+            if (typeof expectedCodename !== 'string' || expectedCodename.length === 0) return false
+            if (typeof projectCodename === 'string') return projectCodename === expectedCodename
+            if (!projectCodename || typeof projectCodename !== 'object') return false
+            const record = projectCodename as { _primary?: string; locales?: Record<string, { content?: unknown }> }
+            const locales = record.locales ?? {}
+            const candidateLocales = [preferredVlcLocale, record._primary, 'en', ...Object.keys(locales)]
+            return candidateLocales.some((candidateLocale) => {
+                if (!candidateLocale) return false
+                const content = locales[candidateLocale]?.content
+                return typeof content === 'string' && content === expectedCodename
+            })
+        },
+        [preferredVlcLocale]
+    )
+
     // A row is "open-editor-able" when it carries a project binding — by codename
     // (the canonical reference) or a cached id. The editor handler resolves the
     // live id from the codename, so a stale/absent cached id still works.
@@ -1272,13 +1289,12 @@ const EntityInstanceListContent = () => {
             // back to a cached id that still matches a live project; only then to
             // the raw cached id (covers the not-yet-loaded list case).
             const resolved =
-                (codename
-                    ? projects.find((project) => getLocalizedContentText(project.codename, preferredVlcLocale, '') === codename)
-                    : null) ?? (cachedProjectId ? projects.find((project) => project.id === cachedProjectId) : null)
+                (codename ? projects.find((project) => projectCodenameMatches(project.codename, codename)) : null) ??
+                (cachedProjectId ? projects.find((project) => project.id === cachedProjectId) : null)
             const projectId = resolved?.id ?? cachedProjectId
             openPlayCanvasEditor({ metahubId, projectId, displayMode: resolveEditorDisplayMode(rowEditorHostQuery.data) })
         },
-        [metahubId, preferredVlcLocale, resolveDisplayEntity, rowEditorHostQuery.data, rowProjectsQuery.data]
+        [metahubId, projectCodenameMatches, resolveDisplayEntity, rowEditorHostQuery.data, rowProjectsQuery.data]
     )
 
     const handleOpenCopyRow = useCallback(

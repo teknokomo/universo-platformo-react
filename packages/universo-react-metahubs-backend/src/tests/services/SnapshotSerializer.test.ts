@@ -1,4 +1,4 @@
-import { SnapshotSerializer } from '../../domains/publications/services/SnapshotSerializer'
+import { SnapshotSerializer, type MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
 const createEntityTypeComponents = () => ({
     dataSchema: { enabled: true },
@@ -820,10 +820,31 @@ describe('SnapshotSerializer system field propagation', () => {
         ])
     })
 
-    it('keeps PlayCanvas authoring project snapshots out of runtime publication snapshots', async () => {
+    it('exports PlayCanvas runtime manifests for package defaults without design-time Project bindings', async () => {
         const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const boundProjectId = '019e8afa-0000-7000-8000-000000000099'
         const objectsService = {
-            findAllByKind: jest.fn(async () => [])
+            findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
+                if (kind !== 'project') {
+                    return []
+                }
+                return [
+                    {
+                        id: 'project-instance-1',
+                        kind: 'project',
+                        codename: createCodenameVlc('VisualLab'),
+                        table_name: 'obj_visual_lab',
+                        presentation: { name: { en: 'Visual Lab' }, description: {} },
+                        config: {
+                            projectBinding: {
+                                provider: 'playcanvasEditor',
+                                projectId: boundProjectId,
+                                projectCodename: 'VisualLab'
+                            }
+                        }
+                    }
+                ]
+            })
         }
         const componentsService = {
             findAllFlatForSnapshot: jest.fn(async () => []),
@@ -831,7 +852,23 @@ describe('SnapshotSerializer system field propagation', () => {
             listObjectSystemComponents: jest.fn(async () => [])
         }
         const entityTypeService = {
-            listTypes: jest.fn(async () => [])
+            listTypes: jest.fn(async () => [
+                {
+                    id: 'type-project',
+                    kindKey: 'project',
+                    codename: createCodenameVlc('project'),
+                    presentation: { name: { en: 'Projects' }, description: {} },
+                    capabilities: createEntityTypeComponents(),
+                    ui: {
+                        iconName: 'IconFolders',
+                        tabs: ['general'],
+                        sidebarSection: 'objects',
+                        nameKey: 'metahubs:projects.title'
+                    },
+                    config: {},
+                    published: true
+                }
+            ])
         }
         const packagesService = {
             listPublishedPackages: jest.fn(async () => [
@@ -949,10 +986,165 @@ describe('SnapshotSerializer system field propagation', () => {
             projectIds: undefined
         })
         expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(3, 'metahub-1', {
+            includeRuntimeManifests: false,
+            projectIds: undefined
+        })
+        expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(4, 'metahub-1', {
             includeRuntimeManifests: true,
             projectIds: [projectId]
         })
         expect(packagesService.listPublishedPackages).toHaveBeenCalledTimes(3)
         expect(packagesService.listMetahubSnapshotPackages).toHaveBeenCalledTimes(2)
+    })
+
+    it('refreshes PlayCanvas runtime manifests for layout-bound non-default projects', async () => {
+        const authoringProjectId = '019e8afa-0000-7000-8000-000000000001'
+        const visualLabProjectId = '019e8afa-0000-7000-8000-000000000002'
+        const draftProjectId = '019e8afa-0000-7000-8000-000000000003'
+        const playCanvasProjectSnapshotService = {
+            exportSnapshot: jest.fn(async () => ({
+                schemaVersion: 1,
+                projects: [
+                    {
+                        schemaVersion: '1',
+                        id: authoringProjectId,
+                        codename: createCodenameVlc('authoring_project'),
+                        displayName: createCodenameVlc('Authoring Project'),
+                        packageRef: {
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            compatibilityStatus: 'compatible'
+                        },
+                        settings: {},
+                        publicationConfig: {}
+                    },
+                    {
+                        schemaVersion: '1',
+                        id: visualLabProjectId,
+                        codename: createCodenameVlc('visual_lab_project'),
+                        displayName: createCodenameVlc('Visual Lab Project'),
+                        packageRef: {
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            compatibilityStatus: 'compatible'
+                        },
+                        settings: {},
+                        publicationConfig: {}
+                    }
+                ],
+                scenes: [],
+                assets: [],
+                scriptAssets: [],
+                sceneScriptBindings: [],
+                generatedArtifacts: [],
+                runtimeManifests: [
+                    {
+                        schemaVersion: '1',
+                        projectId: authoringProjectId,
+                        sceneId: 'authoring-scene',
+                        checksum: 'authoring-checksum',
+                        assets: [],
+                        scripts: []
+                    },
+                    {
+                        schemaVersion: '1',
+                        projectId: visualLabProjectId,
+                        sceneId: 'visual-lab-scene',
+                        checksum: 'visual-lab-checksum',
+                        assets: [],
+                        scripts: []
+                    }
+                ]
+            }))
+        }
+        const serializer = new SnapshotSerializer(
+            { findAllByKind: jest.fn(async () => []) } as never,
+            {
+                findAllFlatForSnapshot: jest.fn(async () => []),
+                getObjectSystemFieldsSnapshot: jest.fn(async () => null),
+                listObjectSystemComponents: jest.fn(async () => [])
+            } as never,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            { listTypes: jest.fn(async () => []) } as never,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            playCanvasProjectSnapshotService as never
+        )
+
+        const runtimeSnapshot = {
+            version: 1,
+            generatedAt: '2026-06-10T00:00:00.000Z',
+            metahubId: 'metahub-1',
+            entities: {}
+        } as unknown as MetahubSnapshot
+        const snapshotRuntimeSnapshot = {
+            version: 1,
+            generatedAt: '2026-06-10T00:00:00.000Z',
+            metahubId: 'metahub-1',
+            entities: {},
+            playcanvasProjects: {
+                schemaVersion: 1,
+                projects: [
+                    {
+                        schemaVersion: '1',
+                        id: draftProjectId,
+                        codename: createCodenameVlc('draft_project'),
+                        displayName: createCodenameVlc('Draft Project'),
+                        packageRef: {
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            compatibilityStatus: 'compatible'
+                        },
+                        settings: {},
+                        publicationConfig: {}
+                    }
+                ],
+                scenes: [],
+                assets: [],
+                scriptAssets: [],
+                sceneScriptBindings: [],
+                generatedArtifacts: [],
+                runtimeManifests: []
+            }
+        } as unknown as MetahubSnapshot
+
+        await serializer.refreshPlayCanvasRuntimeManifests(
+            'metahub-1',
+            runtimeSnapshot,
+            [authoringProjectId, visualLabProjectId],
+            'runtime'
+        )
+        await serializer.refreshPlayCanvasRuntimeManifests(
+            'metahub-1',
+            snapshotRuntimeSnapshot,
+            [authoringProjectId, visualLabProjectId],
+            'snapshot-runtime'
+        )
+
+        expect(runtimeSnapshot.playcanvasRuntimeManifests?.map((manifest) => manifest.projectId)).toEqual([
+            authoringProjectId,
+            visualLabProjectId
+        ])
+        expect(snapshotRuntimeSnapshot.playcanvasProjects?.runtimeManifests?.map((manifest) => manifest.projectId)).toEqual([
+            authoringProjectId,
+            visualLabProjectId
+        ])
+        expect(snapshotRuntimeSnapshot.playcanvasProjects?.projects.map((project) => project.id)).toEqual([draftProjectId])
+        expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(1, 'metahub-1', {
+            includeRuntimeManifests: true,
+            projectIds: [authoringProjectId, visualLabProjectId]
+        })
+        expect(playCanvasProjectSnapshotService.exportSnapshot).toHaveBeenNthCalledWith(2, 'metahub-1', {
+            includeRuntimeManifests: true,
+            projectIds: [authoringProjectId, visualLabProjectId]
+        })
     })
 })

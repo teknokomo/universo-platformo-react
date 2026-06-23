@@ -453,6 +453,11 @@
         "participantsStatus": "Ships: {{total}} (you + {{remote}} remote)",
         "participantsViewOnlyStatus": "Ships: {{total}} (view only)",
         "canvasLabel": "Interactive 3D flight scene",
+        "visualLab": {
+            "staticMode": "Static visual lab",
+            "variants": "Visual variants",
+            "selectedVariant": "Selected: {{index}}. {{title}} · {{family}}"
+        },
         "realtime": {
             "connecting": "Realtime connecting",
             "connected": "Realtime connected",
