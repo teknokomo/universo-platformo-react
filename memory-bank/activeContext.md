@@ -2,75 +2,68 @@
 
 > Current-focus memory only. Completed implementation detail belongs in progress.md; active and follow-up checklists belong in tasks.md.
 
-The active focus is the PlayCanvas Projects entity type and the closure of the
-2026-06-19 "non-object-like project preset" pass. Sections below cover that
-focus, the invariants it relies on, standing guardrails, and a navigation
-index into progress.md.
+The active focus is the completed MMOOMM PlayCanvas Visual Linkup Lab slice on
+top of the PlayCanvas Projects entity type. Sections below cover the current
+invariants, standing guardrails, and a navigation index into progress.md.
 
 ---
 
-## Current Focus: Dialog scrollbar + PlayCanvas unbind regressions (2026-06-19, complete)
+## Current Focus: MMOOMM Visual Linkup Lab (2026-06-20 → 2026-06-21, complete)
 
-Two QA regressions fixed with tests. Full detail in [progress.md](progress.md)
-(2026-06-19 entry).
+The MMOOMM canonical fixture now has two PlayCanvas-backed Projects instances:
 
--   **Unbind no-op (root cause = backend shallow-merge).** The PATCH `update` endpoint shallow-merges `config` (`MetahubObjectsService.updateObject`), so an absent key means "leave unchanged", not "remove". `ProjectBindingSurface.writeBinding(null)` used `delete config.projectBinding`, so the old binding survived the merge and the unbind silently no-oped (200 + success toast, binding intact). Fix: send the documented clear signal `projectBinding: null` (allowed by `validateProjectBindingConfigForEntity`; survives `stripUndefinedEntries`, which only strips `undefined`). Readers (`readBinding`, `extractProjectBindingFromConfig`, the cascade `COUNT` SQL) all treat `null` as unbound.
--   **Spurious dialog scrollbar (root cause = stored resize height as a hard cap).** `dialogPresentation` storage is keyed per-metahub (`storageScopeKey: metahubId`), so a custom size set on one dialog is applied to every dialog in the metahub. It was applied as a fixed `height`, so a stored height shorter than another dialog's content clipped it → inner scrollbar while the viewport still had room. Fix: when idle, apply the stored height as `minHeight` (a floor) instead of `height`; the paper grows to fit content up to `maxHeight` and only scrolls when genuinely larger than the viewport. Exact `height` is still pinned during an active resize drag for 1:1 cursor feedback.
--   **Verification:** template-mui jest (incl. new min-height guard) — TooltipWithParser XSS 2 failures pre-existing/unrelated; metahubs-frontend vitest 351/351 (incl. rewritten unbind test asserting `projectBinding: null` + untouched sibling config); backend jest `MetahubObjectsService` 12/12 (incl. new null-clear vs absent-key merge guard); full backend sweep 4 pre-existing failing suites only (0 new regressions); projects-section E2E green incl. new unbind-confirm + data-truth (`projectBinding` is null after confirm). Lint + prettier clean; template-mui `tsc` 0 errors. Supabase profile stopped after the run.
+-   `MMOOMM Authoring` remains the existing flight simulator project and powers
+    the published flight runtime widget.
+-   `MMOOMM Visual Linkup Lab` is a second Editor-authored project with 16
+    weak-linkup visual variants for white translucent bodies, dense fog,
+    low-poly/primitive shapes, and type-colored glow semantics for ships,
+    stations, rock asteroids, and ice asteroids.
 
-### Key files touched (this pass)
+Implementation placement:
 
--   `packages/universo-react-template-mui/src/components/dialogs/dialogPresentation.tsx` — stored resize height applied as `minHeight` floor when idle (exact `height` only during active drag); `isResizing` added to the `paperSx` deps.
--   `packages/universo-react-metahubs-frontend/src/domains/entities/ui/ProjectBindingSurface.tsx` — `writeBinding` sends `projectBinding: nextBinding ?? null` (explicit null clear) instead of deleting the key.
--   `…/dialogs/__tests__/EntityFormDialog.test.tsx` — +1 jest: stored size applied as `minHeight` floor, no fixed `height`.
--   `…/entities/ui/__tests__/ProjectBindingSurface.test.tsx` — rewrote the unbind test to assert the null-clear contract.
--   `…/tests/services/MetahubObjectsService.test.ts` — +1 jest: `projectBinding: null` clears, absent key keeps (documents merge semantics).
--   `tools/testing/e2e/specs/flows/metahub-projects-section.spec.ts` — +unbind-confirm flow with UI empty-state + persisted-config assertions.
+-   Multi-project fixture generation lives in the Playwright product generator
+    and support helpers. Project selection is by role/display name/codename,
+    not by row order or newest manifest.
+-   Runtime-visible lab rendering is generic and metadata-driven through
+    `@universo-react/playcanvas-engine` helpers and the existing
+    `apps-template-mui` `playcanvasCanvas` widget when
+    `metadata.mmoomm.visualLab` is present.
+-   PlayCanvas scene entity metadata is preserved through shared bridge schemas,
+    the artifact serializer, backend compatibility normalization, snapshot
+    serialization, and runtime manifest export.
+-   The PlayCanvas Editor vendor tree remains untouched; all changes are at the
+    Universo generator/backend/runtime boundaries.
+
+Latest verification:
+
+-   Full combined `pnpm run test:e2e:mmoomm-app-gate:local-supabase` passed:
+    generator 2/2, fixture drift clean, runtime import 2/2.
+-   Focused package tests/builds passed for metahubs-backend, shared types,
+    playcanvas-engine, playcanvas-editor-frontend, and apps-template canvas
+    widget coverage.
+-   OntoIndex diff verification passed with the expected changed file set.
+-   Advisory autoreview could not start because `~/.codex/state_5.sqlite` is
+    read-only in this environment; keep this as an environment limitation, not a
+    content finding.
 
 ---
 
-## Prior Focus: PlayCanvas Projects — Non-object-like + "Bind existing" (2026-06-19, complete)
+## Completed Focus: PlayCanvas Projects entity type (2026-06-17 → 2026-06-19)
 
-Three QA follow-ups in one pass: make `project` like an Enumeration (own
-storage, no Components/Layouts), add a "Bind existing" picker with a filter,
-and fix the clipped label in the create dialog. Full detail in
-[progress.md](progress.md) (2026-06-19 entry).
+Latest pass closed the `project` entity-type binding feature. The four recent
+QA/closure passes are complete; full per-pass detail (root causes, file lists,
+verification) is in [progress.md](progress.md) (2026-06-17 → 2026-06-19 entries).
+Highlights of the most recent work:
 
--   **Project preset is now non-object-like** (like an Enumeration, not like an Object). `PROJECT_TYPE_CAPABILITIES` = `{ treeAssignment:enabled, projectBinding:enabled }`; everything else off. `PROJECT_TYPE_UI.tabs` = `['general','hubs','project']` — no more Компоненты/Макеты/Модули/Действия/События on a fresh metahub. The capability set is dependency-clean (`validateCapabilityDependencies` returns `[]`). All toggles exist in the Entity Type Constructor (`EntitiesWorkspace.tsx:2027` for `projectBinding`, `:1865` for `treeAssignment`, `:2215` for `physicalTable`, `:1795` for `dataSchema`); the constructor's cascade (`disableRecursively`) auto-clears the dependents. The generic (null-behavior) CRUD path is already used by the frontend (`resolveEntityMetadataKind` returns `null` for `project`, since the kind is not in the builtin list) and exercised by backend handlers — no extra wiring needed.
--   **Tracked MMOOMM snapshot fixture regenerated** (`tools/fixtures/metahubs-mmoomm-app-snapshot.json`): `project` now reflects the new capability set, `projectBinding.projectId` correctly remapped to the freshly-generated project id (via the existing snapshot-import post-pass). MMOOMM app gate green: drift check clean, generator 2/2, runtime 2/2.
--   **"Bind existing project" UI** in the `PlayCanvas` tab: second action next to "Create & bind project". `StandardDialog` with an MUI `Autocomplete` picker, "Show only unbound projects" Switch (default on), already-bound projects visible with an "Already bound" warning chip when toggled off. Picker fed by the existing `playcanvasProjectsApi.list` + a `listEntityInstances({kind:'project'})` diff. Sharing a project across multiple instances is allowed.
--   **Cascade-safety backend guard** (the real fix): `MetahubObjectsService.countActiveProjectBindingsByCodename` returns the count of ACTIVE instances still bound to a given codename; `entityCrudHandlers.cascadeBoundProject` consults it (excluding the about-to-be-deleted instance) and **skips project deletion** if any other ACTIVE instance still references it. Filter on `_mhb_deleted = FALSE` so a soft-deleted sibling cannot keep a shared project alive.
--   **Dialog label clipping fix:** the "Create & bind PlayCanvas project" content stack had `pt: 0.5`; the outlined TextField's floating label sat above the dialog's top edge and got clipped by the (now-scroll) `DialogContent`. Bumped to `pt: 1.5` with a layout-math comment.
--   **Verification:** FE vitest 351/351; BE 1048 passed (4 pre-existing failing suites unchanged, +4 from this work, 0 new regressions); builds + lint + prettier clean; i18n docs check 98/98 OK; MMOOMM app gate green; projects-section E2E 3/3 green on local minimal Supabase; Supabase profile stopped after runs. Vendor PlayCanvas Editor (`packages/universo-react-playcanvas-editor-frontend/vendor`) untouched.
+-   **Unbind no-op fix (2026-06-19):** root cause was the backend shallow-merge — the PATCH `update` (`MetahubObjectsService.updateObject`) treats an absent `config` key as "leave unchanged", so `delete config.projectBinding` let the old binding survive. Fix: send the clear signal `projectBinding: null` (survives `stripUndefinedEntries`; readers treat `null` as unbound).
+-   **Dialog scrollbar fix (2026-06-19):** `dialogPresentation` per-metahub stored size was applied as a fixed `height`, clipping taller dialogs. Fix: apply stored height as a `minHeight` floor when idle; pin exact `height` only during an active resize drag.
+-   **Non-object-like preset + "Bind existing" (2026-06-19):** `PROJECT_TYPE_CAPABILITIES` trimmed to `{treeAssignment, projectBinding}`, tabs `['general','hubs','project']` (no Components/Layouts/Modules/Actions/Events); added the "Bind existing project" Autocomplete picker with unbound-only filter; reference-counted cascade so a shared project is not orphan-deleted.
+-   **Prior passes (2026-06-17/18):** entity type + `playcanvas` template + live E2E + MMOOMM gate; QA Round 2 (5 defects: removed junk row action, tab rename, projectId remap, dialog overflow); code-review remediation (10 findings); QA defects closure (13 issues).
+-   Latest verification: ✅ FE vitest 351/351, BE full sweep 0 new regressions (4 pre-existing failing suites), builds + lint + prettier + tsc clean, MMOOMM app gate green, projects-section E2E green on local minimal Supabase; vendor PlayCanvas Editor untouched.
 
 ---
 
-## Recent focuses (historical, complete)
-
--   **2026-06-19 — Non-object-like `project` preset + "Bind existing" + dialog clipping fix** — current focus above; full detail in [progress.md](progress.md).
--   **2026-06-18 — QA Round 2 (5 defects)**: P2 removed the row "Open project" + standalone `/…/instance/:entityId/project` route + `ProjectBindingPage` export (renamed file to `ProjectBindingSurface.tsx`). P3 renamed binding tab "Project"/"Проект" → "PlayCanvas". P4 fixed "Open editor" opening the wrong project: snapshot import now remaps `config.projectBinding.projectId` (`remapEntityProjectBindingReferences` post-pass), and the row handler resolves the live id by codename. P5 fixed the global dialog scrollbar (`dialogPresentation.contentSx` now sets both `overflowX: 'hidden'` + `overflowY: 'auto'`).
--   **2026-06-18 — Code-review remediation (10 findings)**: explicit `metahubId`/`entityId` props on the embedded surface; shared editor-host helper; canonical `entityDetail` cache + invalidations; `projectId` shape validation; dead-import removal; canon refresh.
--   **2026-06-18 — Codex-review follow-up (2 P2)**: shared `wrap()` helper gates actions before data loads; invalidation uses canonical entity keys.
-
-### Key files touched (current remediation)
-
--   `packages/universo-react-metahubs-backend/src/domains/templates/data/standardEntityTypeDefinitions.ts` — `PROJECT_TYPE_CAPABILITIES` trimmed to `treeAssignment + projectBinding` (non-object-like); `PROJECT_TYPE_UI.tabs` = `['general','hubs','project']`; updated comment.
--   `…/metahubs/services/MetahubObjectsService.ts` — NEW `countActiveProjectBindingsByCodename` for the cascade-safety guard.
--   `…/entities/controllers/entityCrudHandlers.ts` — `cascadeBoundProject` consults the reference count and skips project deletion if any other ACTIVE instance still references the codename.
--   `…/playcanvas-projects/services/PlayCanvasProjectsService.ts` — no changes (reuses `deleteBoundProject`).
--   `tools/fixtures/metahubs-mmoomm-app-snapshot.json` — regenerated; the new tracked fixture reflects the non-object-like `project` capability set and a remapped `projectBinding.projectId`.
--   `packages/universo-react-metahubs-frontend/src/domains/entities/ui/ProjectBindingSurface.tsx` — "Bind existing project" second action + `StandardDialog` + `Autocomplete` picker + "Show only unbound projects" Switch + "Already bound" warning chip; create-dialog content `pt: 1.5` to keep the floating label visible.
--   `…/i18n/locales/{en,ru}/metahubs.json` — new `bindExisting` / `boundExisting` / `bindFailed` / `alreadyBound` / `filterUnbound` keys.
--   `…/services/MetahubObjectsService.test.ts` + `tests/routes/entityInstancesRoutes.test.ts` — +2 unit / +2 route tests for the reference-counted cascade.
--   `…/domains/entities/ui/__tests__/ProjectBindingSurface.test.tsx` — +2 vitest for the bind-existing flow (writes config; filter shows/hides bound projects with the chip).
-
-### Verification commands
-
--   Frontend: `pnpm --filter @universo-react/metahubs-frontend build && pnpm --filter @universo-react/metahubs-frontend lint && pnpm --filter @universo-react/metahubs-frontend vitest run`.
--   Backend: `pnpm --filter @universo-react/metahubs-backend build && pnpm --filter @universo-react/metahubs-backend lint`; targeted jest via `tools/testing/backend/run-jest.cjs`.
--   E2E: `pnpm supabase:e2e:start:minimal` then the projects-section spec through the repository runner on `http://127.0.0.1:3100`.
-
-### Invariants to preserve (PlayCanvas binding)
+## Invariants to preserve (PlayCanvas binding)
 
 Non-obvious facts a future session must respect:
 
@@ -87,6 +80,16 @@ Earlier slices of this feature (binding capability threading, `PlayCanvasProject
 legacy `PlayCanvasProjectsPanel` removal, MMOOMM generator rework, docs EN/RU) and the
 prior PlayCanvas Editor host/bridge/storage work are recorded in
 [progress.md](progress.md).
+
+### Key files for the active feature
+
+-   `…/metahubs-backend/.../templates/data/standardEntityTypeDefinitions.ts` — `PROJECT_TYPE_CAPABILITIES` (`treeAssignment + projectBinding`); `PROJECT_TYPE_UI.tabs`.
+-   `…/metahubs-backend/.../metahubs/services/MetahubObjectsService.ts` — `countActiveProjectBindingsByCodename` (cascade-safety, shallow-merge `updateObject`).
+-   `…/metahubs-backend/.../entities/controllers/entityCrudHandlers.ts` — `cascadeBoundProject` (reference-counted, best-effort).
+-   `…/metahubs-frontend/src/domains/entities/ui/ProjectBindingSurface.tsx` — binding tab (Create / Bind existing / Unbind; null-clear write).
+-   `…/template-mui/src/components/dialogs/dialogPresentation.tsx` — stored dialog size as `minHeight` floor when idle.
+-   `packages/api/playcanvasEditorHost.ts` — single editor-host helper (`?projectId=` contract).
+-   `tools/fixtures/metahubs-mmoomm-app-snapshot.json` — regenerate via the documented Playwright generator after binding/capability changes.
 
 ---
 

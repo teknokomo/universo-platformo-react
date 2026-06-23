@@ -58,7 +58,22 @@ export const createPlayCanvasEditorFullBootEndpointDescriptor = (input: {
 export const buildDefaultEditorSchema = () => ({
     asset: { type: { $enum: ['script', 'texture', 'material', 'model', 'json', 'template'] } },
     animstategraphData: {},
-    materialData: {},
+    materialData: {
+        name: { $type: 'string', $default: 'Untitled Material' },
+        shader: { $type: 'string', $default: 'blinn' },
+        diffuse: { $type: 'array', $default: [1, 1, 1] },
+        opacity: { $type: 'number', $default: 1 },
+        alphaTest: { $type: 'number', $default: 0 },
+        blendType: { $type: 'number', $default: 0 },
+        depthTest: { $type: 'boolean', $default: true },
+        depthWrite: { $type: 'boolean', $default: true },
+        emissive: { $type: 'array', $default: [0, 0, 0] },
+        emissiveIntensity: { $type: 'number', $default: 1 },
+        useFog: { $type: 'boolean', $default: true },
+        useLighting: { $type: 'boolean', $default: true },
+        useSkybox: { $type: 'boolean', $default: true },
+        cull: { $type: 'number', $default: 1 }
+    },
     scene: {
         entities: {
             $of: {

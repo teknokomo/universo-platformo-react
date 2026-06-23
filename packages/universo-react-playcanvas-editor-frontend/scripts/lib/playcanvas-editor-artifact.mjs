@@ -417,6 +417,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 		  let bridgeNonce = null;
 		  const pendingBridgeRequests = new Map();
 		  const hostedEntityObservers = [];
+      const hostedAssetObservers = [];
 			  const observedEntityObservers = [];
         let loadedScenePayloadEntityObservers = [];
 			  let hostedEntityEditor = null;
@@ -500,6 +501,62 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return marker.selectedProject;
   };
 
+  const isPlainObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+
+  const cloneScenePayloadSnapshot = (payload) => {
+    if (!isPlainObject(payload)) return null;
+    try {
+      return JSON.parse(JSON.stringify(payload));
+    } catch {
+      return { ...payload };
+    }
+  };
+
+  const mergeRecordSnapshots = (base, next) => ({
+    ...(isPlainObject(base) ? base : {}),
+    ...(isPlainObject(next) ? next : {})
+  });
+
+  const mergeSceneMetadataSnapshots = (...metadataSnapshots) => {
+    let merged = {};
+    for (const metadata of metadataSnapshots) {
+      if (!isPlainObject(metadata)) continue;
+      const previousMmoomm = isPlainObject(merged.mmoomm) ? merged.mmoomm : {};
+      const nextMmoomm = isPlainObject(metadata.mmoomm) ? metadata.mmoomm : {};
+      merged = {
+        ...merged,
+        ...metadata,
+        ...(Object.keys(previousMmoomm).length > 0 || Object.keys(nextMmoomm).length > 0
+          ? {
+              mmoomm: {
+                ...previousMmoomm,
+                ...nextMmoomm
+              }
+            }
+          : {})
+      };
+    }
+    return merged;
+  };
+
+  const mergeScenePayloadSnapshots = (...payloads) => {
+    let merged = null;
+    for (const payload of payloads) {
+      if (!isPlainObject(payload)) continue;
+      const next = cloneScenePayloadSnapshot(payload);
+      if (!next) continue;
+      merged = merged
+        ? {
+            ...merged,
+            ...next,
+            settings: mergeRecordSnapshots(merged.settings, next.settings),
+            metadata: mergeSceneMetadataSnapshots(merged.metadata, next.metadata)
+          }
+        : next;
+    }
+    return merged;
+  };
+
   const readLoadedScenePayload = (response = marker.lastLoadedScene) => {
     const candidates = [
       response?.data?.payload,
@@ -509,12 +566,13 @@ export const writeBridgeBootstrap = (targetRoot) => {
       response?.data?.scene?.payload,
       response?.scene?.payload
     ];
+    const payloads = [];
     for (const candidate of candidates) {
       if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
-        return candidate;
+        payloads.push(candidate);
       }
     }
-    return null;
+    return mergeScenePayloadSnapshots(...payloads);
   };
 
   const requestBootstrapInit = () => {
@@ -702,6 +760,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         rotation: Array.isArray(raw.rotation) ? raw.rotation : [0, 0, 0],
         scale: Array.isArray(raw.scale) ? raw.scale : [1, 1, 1],
         components: normalizePlayCanvasEntityComponents(raw.components),
+        metadata: raw.metadata && typeof raw.metadata === 'object' && !Array.isArray(raw.metadata) ? raw.metadata : undefined,
         children: []
       };
       byId.set(resourceId, entity);
@@ -772,6 +831,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
           rotation: entity.rotation,
           scale: entity.scale,
           components: entity.components,
+          metadata: entity.metadata,
           children: Array.isArray(entity.children) ? entity.children.filter((child) => typeof child === 'string') : []
         }
       ])
@@ -799,8 +859,9 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.lastLoadedScenePayloadEntityIds = [];
       return;
     }
-    loadedScenePayloadEntityObservers = scenePayloadEntitiesToObservers(payload);
-    marker.lastCleanLoadedScenePayload = payload;
+    const cleanPayloadSnapshot = cloneScenePayloadSnapshot(payload) || payload;
+    loadedScenePayloadEntityObservers = scenePayloadEntitiesToObservers(cleanPayloadSnapshot);
+    marker.lastCleanLoadedScenePayload = cleanPayloadSnapshot;
     marker.lastLoadedScenePayloadEntityIds = loadedScenePayloadEntityObservers
       .map((observer) => getEntityObserverId(observer))
       .filter(Boolean);
@@ -957,6 +1018,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     rotation: entity.rotation,
     scale: entity.scale,
     components: entity.components,
+    metadata: entity.metadata,
     noHistory: true,
       noSelect: true
   });
@@ -1000,6 +1062,98 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return Array.isArray(value) ? value : [];
   };
 
+  const readMmoommVisualMaterialMetadata = (entity) => {
+    const metadata = entity?.metadata;
+    const mmoomm = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata.mmoomm : null;
+    const visualMaterial = mmoomm && typeof mmoomm === 'object' && !Array.isArray(mmoomm) ? mmoomm.visualMaterial : null;
+    return visualMaterial && typeof visualMaterial === 'object' && !Array.isArray(visualMaterial) ? visualMaterial : null;
+  };
+
+  const createColorLike = (sourceColor, tuple, alpha = 1) => {
+    const ColorCtor = sourceColor && typeof sourceColor.constructor === 'function' ? sourceColor.constructor : null;
+    if (!ColorCtor || !Array.isArray(tuple) || tuple.length < 3) return sourceColor;
+    try {
+      return new ColorCtor(Number(tuple[0]) || 0, Number(tuple[1]) || 0, Number(tuple[2]) || 0, alpha);
+    } catch {
+      return sourceColor;
+    }
+  };
+
+  const createMmoommVisualMaterialFromExisting = (existingMaterial, visualMaterial) => {
+    if (!existingMaterial || !visualMaterial) return null;
+    const signature = JSON.stringify({
+      diffuse: visualMaterial.diffuse,
+      emissive: visualMaterial.emissive,
+      emissiveIntensity: visualMaterial.emissiveIntensity,
+      opacity: visualMaterial.opacity,
+      blendType: visualMaterial.blendType,
+      depthWrite: visualMaterial.depthWrite,
+      useFog: visualMaterial.useFog
+    });
+    if (existingMaterial.__universoMmoommVisualMaterialSignature === signature) {
+      return existingMaterial;
+    }
+    const material = typeof existingMaterial.clone === 'function' ? existingMaterial.clone() : existingMaterial;
+    const opacity = Math.min(1, Math.max(0, Number(visualMaterial.opacity ?? 1)));
+    const diffuse = Array.isArray(visualMaterial.diffuse) ? visualMaterial.diffuse : [1, 1, 1];
+    material.diffuse = createColorLike(existingMaterial.diffuse, diffuse, opacity);
+    material.opacity = opacity;
+    material.depthWrite = visualMaterial.depthWrite === true;
+    if (Array.isArray(visualMaterial.emissive)) {
+      material.emissive = createColorLike(existingMaterial.emissive || existingMaterial.diffuse, visualMaterial.emissive, 1);
+      material.emissiveIntensity = Math.max(0, Number(visualMaterial.emissiveIntensity ?? 1));
+    }
+    // PlayCanvas Editor v2.24.2 uses numeric blend constants internally; when the
+    // constants are not available in the artifact scope, these stable values match
+    // the Engine blend modes for normal alpha and additive glow.
+    if (opacity < 1) {
+      material.blendType = visualMaterial.blendType === 'additive' ? 1 : 2;
+      material.depthWrite = false;
+    }
+    material.useFog = visualMaterial.useFog !== false;
+    if (typeof material.update === 'function') {
+      material.update();
+    }
+    material.__universoMmoommVisualMaterialOwned = material !== existingMaterial;
+    material.__universoMmoommVisualMaterialSignature = signature;
+    return material;
+  };
+
+  const applyMmoommVisualMaterialToEngineEntity = (editorInstance, entity) => {
+    const visualMaterial = readMmoommVisualMaterialMetadata(entity);
+    const resourceId = entity?.resource_id || entity?.id;
+    if (!visualMaterial || !resourceId) return false;
+    const engineEntity = readEngineRenderableEntity(editorInstance, resourceId, entity?.name);
+    const meshInstances = engineEntity?.render?.meshInstances;
+    if (!Array.isArray(meshInstances) || meshInstances.length === 0) return false;
+    let applied = 0;
+    for (const meshInstance of meshInstances) {
+      const previousMaterial = meshInstance?.material;
+      const material = createMmoommVisualMaterialFromExisting(meshInstance?.material, visualMaterial);
+      if (!material) continue;
+      meshInstance.material = material;
+      if (
+        previousMaterial &&
+        previousMaterial !== material &&
+        previousMaterial.__universoMmoommVisualMaterialOwned === true &&
+        typeof previousMaterial.destroy === 'function'
+      ) {
+        try {
+          previousMaterial.destroy();
+        } catch {}
+      }
+      applied += 1;
+    }
+    if (applied > 0) {
+      marker.lastMmoommVisualMaterialAppliedCount = Number(marker.lastMmoommVisualMaterialAppliedCount || 0) + applied;
+      if (typeof editorInstance?.call === 'function') {
+        editorInstance.call('viewport:render');
+      }
+      return true;
+    }
+    return false;
+  };
+
   const ensureEntityObserverArrayPath = (observer, path) => {
     if (!observer || typeof observer.set !== 'function') return false;
     const value = readEntityObserverPath(observer, path);
@@ -1026,6 +1180,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
           rotation: entity.rotation,
           scale: entity.scale,
           components: entity.components,
+          metadata: entity.metadata,
           children: Array.isArray(entity.children) ? entity.children.filter((child) => typeof child === 'string') : []
         });
         const added = apiEntities.get(entity.resource_id);
@@ -1077,6 +1232,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
       }
     }
 
+    if (entity.metadata && typeof entity.metadata === 'object' && !Array.isArray(entity.metadata)) {
+      updated = writeEntityObserverPath(observer, 'metadata', entity.metadata) || updated;
+    }
+
     if (typeof entity.parent === 'string') {
       updated = writeEntityObserverPath(observer, 'parent', entity.parent) || updated;
     }
@@ -1086,7 +1245,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return updated;
   };
 
-  const readEngineRenderableEntity = (editorInstance, id) => {
+  const readEngineRenderableEntity = (editorInstance, id, name = null) => {
     if (!editorInstance || typeof editorInstance.call !== 'function' || !id) return null;
     let app = null;
     try {
@@ -1094,9 +1253,18 @@ export const writeBridgeBootstrap = (targetRoot) => {
     } catch {
       app = null;
     }
-    if (!app?.root || typeof app.root.findByGuid !== 'function') return null;
+    if (!app?.root) return null;
     try {
-      return app.root.findByGuid(String(id)) || null;
+      if (typeof app.root.findByGuid === 'function') {
+        const byGuid = app.root.findByGuid(String(id));
+        if (byGuid) return byGuid;
+      }
+    } catch {
+      // Fall back to name lookup below; some Editor viewport roots expose only
+      // the name finder during early import hydration.
+    }
+    try {
+      return typeof app.root.findByName === 'function' && name ? app.root.findByName(String(name)) || null : null;
     } catch {
       return null;
     }
@@ -1110,6 +1278,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     if (!engineEntity) return false;
     if (components.render) {
       const meshInstances = engineEntity.render?.meshInstances;
+      applyMmoommVisualMaterialToEngineEntity(editorInstance, entity);
       return Boolean(engineEntity.render) && Array.isArray(meshInstances) && meshInstances.length > 0;
     }
     return Object.keys(components).every((componentName) => Boolean(engineEntity[componentName]));
@@ -1502,6 +1671,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
           const existingObserver = getApiEntityObserver(existingEntity);
           if (existingObserver) {
             applyPersistedEntityToObserver(existingObserver, entity);
+            applyMmoommVisualMaterialToEngineEntity(editorInstance, entity);
             rememberEntityObserver(existingObserver, entity);
             materialized += 1;
             continue;
@@ -1516,6 +1686,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
           }
           if (!created || !getEntityObserverId(created)) continue;
           applyPersistedEntityToObserver(created, entity);
+          applyMmoommVisualMaterialToEngineEntity(editorInstance, entity);
           rememberEntityObserver(created, entity);
           hydrated += 1;
           materialized += 1;
@@ -1538,6 +1709,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       markHydratedClean();
     }
     rebindUpstreamHierarchy();
+    installHostedAssetAdapter(editorInstance, marker.lastCleanLoadedScenePayload);
     markAssetsLoadedForAssetlessPersistedScene(editorInstance);
     markEntitiesLoadedForPersistedScene(editorInstance);
     return materialized > 0;
@@ -1668,6 +1840,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    const parentId = getObserverValue(normalized, 'parent') || raw.parent || raw.parent_id || null;
 	    const rawChildren = getObserverValue(normalized, 'children') || raw.children;
 	    const rawComponents = getObserverValue(normalized, 'components') || raw.components;
+	    const rawMetadata = getObserverValue(normalized, 'metadata') || raw.metadata;
     const children = Array.isArray(rawChildren)
       ? rawChildren.map(getEntityReferenceId).filter(Boolean)
       : undefined;
@@ -1682,6 +1855,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	      rotation: readVector3(normalized, raw, 'rotation', [0, 0, 0]),
 	      scale: readVector3(normalized, raw, 'scale', [1, 1, 1]),
 	      components: rawComponents && typeof rawComponents === 'object' ? rawComponents : undefined,
+	      metadata: rawMetadata && typeof rawMetadata === 'object' && !Array.isArray(rawMetadata) ? rawMetadata : undefined,
       children
     };
   };
@@ -1695,7 +1869,22 @@ export const writeBridgeBootstrap = (targetRoot) => {
     const currentMetadata = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {};
     const mmoomm = currentMetadata.mmoomm && typeof currentMetadata.mmoomm === 'object' ? currentMetadata.mmoomm : null;
     const scene = mmoomm?.scene && typeof mmoomm.scene === 'object' ? mmoomm.scene : null;
-    if (!scene) return currentMetadata;
+    if (!scene) {
+      return {
+        ...currentMetadata,
+        ...(mmoomm
+          ? {
+              mmoomm: {
+                ...mmoomm,
+                provenance: {
+                  ...(mmoomm.provenance && typeof mmoomm.provenance === 'object' ? mmoomm.provenance : {}),
+                  authoringFlow: 'playcanvas-editor-native-scene'
+                }
+              }
+            }
+          : {})
+      };
+    }
 
     const entityById = new Map(
       (Array.isArray(entities) ? entities : [])
@@ -1826,6 +2015,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       rotation: Array.isArray(input.rotation) ? input.rotation : [0, 0, 0],
       scale: Array.isArray(input.scale) ? input.scale : [1, 1, 1],
       components: input.components && typeof input.components === 'object' ? input.components : {},
+      metadata: input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata) ? input.metadata : undefined,
       children: Array.isArray(input.children) ? input.children : []
     };
     const setPath = (path, value) => {
@@ -1850,6 +2040,122 @@ export const writeBridgeBootstrap = (targetRoot) => {
       json: () => ({ ...entity }),
       toJSON: () => ({ ...entity })
     };
+  };
+
+  const createHostedAssetObserver = (input = {}) => {
+    const numericId = Number(input.id ?? input.item_id);
+    const id = Number.isInteger(numericId) && numericId > 0 ? numericId : String(input.id || input.stableAssetId || createUuidV7());
+    const metadata =
+      input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
+        ? input.metadata
+        : input.meta && typeof input.meta === 'object' && !Array.isArray(input.meta)
+          ? input.meta
+          : {};
+    const editorDocument = metadata.editorDocument && typeof metadata.editorDocument === 'object' ? metadata.editorDocument : {};
+    const data =
+      input.data && typeof input.data === 'object'
+        ? input.data
+        : metadata.data && typeof metadata.data === 'object'
+          ? metadata.data
+          : null;
+    const asset = {
+      id,
+      uniqueId: id,
+      item_id: id,
+      name: typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Asset ' + id,
+      type: typeof input.type === 'string' && input.type ? input.type : 'json',
+      file: null,
+      path: [],
+      tags: Array.isArray(editorDocument.tags) ? editorDocument.tags.filter((tag) => typeof tag === 'string') : [],
+      data,
+      meta: input.meta && typeof input.meta === 'object' && !Array.isArray(input.meta) ? input.meta : metadata,
+      metadata,
+      preload: typeof editorDocument.preload === 'boolean' ? editorDocument.preload : true,
+      source: typeof editorDocument.source === 'boolean' ? editorDocument.source : false
+    };
+    const setPath = (path, value) => {
+      const parts = String(path || '').split('.').filter(Boolean);
+      if (!parts.length) return;
+      let current = asset;
+      for (const part of parts.slice(0, -1)) {
+        if (!current[part] || typeof current[part] !== 'object') {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+      current[parts[parts.length - 1]] = value;
+      markDirty({ force: true });
+    };
+    const observer = {
+      data: asset,
+      _data: asset,
+      get: (path) => String(path || '').split('.').filter(Boolean).reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), asset),
+      set: setPath,
+      json: () => ({ ...asset }),
+      toJSON: () => ({ ...asset }),
+      on: () => observer,
+      once: () => observer,
+      off: () => observer,
+      unbind: () => observer,
+      load: () => Promise.resolve(observer),
+      loadAndSubscribe: () => Promise.resolve(observer),
+      initializeHistory: () => undefined
+    };
+    observer.apiAsset = observer;
+    observer.observer = observer;
+    return observer;
+  };
+
+  const installHostedAssetAdapter = (editorInstance, payloadOverride = null) => {
+    const payload =
+      payloadOverride && typeof payloadOverride === 'object' && !Array.isArray(payloadOverride)
+        ? payloadOverride
+        : marker.lastCleanLoadedScenePayload && typeof marker.lastCleanLoadedScenePayload === 'object'
+        ? marker.lastCleanLoadedScenePayload
+        : readLoadedScenePayload();
+    const payloadAssets = Array.isArray(payload?.assets) ? payload.assets : [];
+    const explicitAssets = Array.isArray(payloadOverride) ? payloadOverride : payloadAssets;
+    const cachedFullBootAssets =
+      marker.fullBootAssetsById && typeof marker.fullBootAssetsById === 'object' ? Object.values(marker.fullBootAssetsById) : [];
+    const inputAssets = explicitAssets.length > 0 ? explicitAssets : cachedFullBootAssets;
+    marker.hostedAssetInputCount = inputAssets.length;
+    if (!editorInstance || typeof editorInstance.method !== 'function') {
+      marker.hostedAssetAdapterSkippedReason = 'editor-unavailable';
+      return false;
+    }
+    if (inputAssets.length === 0) {
+      marker.hostedAssetAdapterSkippedReason = 'no-payload-assets';
+      return marker.hostedAssetAdapterInstalled === true && hostedAssetObservers.length > 0;
+    }
+    hostedAssetObservers.splice(0, hostedAssetObservers.length, ...inputAssets.map(createHostedAssetObserver));
+    if (typeof editorInstance.methodRemove === 'function') {
+      for (const methodName of ['assets:list', 'assets:raw', 'assets:get', 'assets:loaded']) {
+        try {
+          editorInstance.methodRemove(methodName);
+        } catch {}
+      }
+    }
+    editorInstance.method('assets:list', () => hostedAssetObservers);
+    editorInstance.method('assets:raw', () => ({
+      data: hostedAssetObservers,
+      array: () => hostedAssetObservers
+    }));
+    editorInstance.method('assets:get', (id) => hostedAssetObservers.find((asset) => String(asset.get('id')) === String(id)) || null);
+    editorInstance.method('assets:loaded', () => true);
+    marker.hostedAssetAdapterInstalled = true;
+    marker.hostedAssetAdapterSkippedReason = null;
+    marker.hostedAssetObserverCount = hostedAssetObservers.length;
+    if (typeof editorInstance.emit === 'function') {
+      for (const asset of hostedAssetObservers) {
+        editorInstance.emit('assets:add', asset);
+      }
+    }
+    if (marker.persistedAssetsLoadEmitted !== true && typeof editorInstance.emit === 'function') {
+      marker.persistedAssetsLoadEmitted = true;
+      editorInstance.emit('assets:load');
+      editorInstance.emit('assets:load:all');
+    }
+    return true;
   };
 
   const editorMethodIsAvailable = (editorInstance, methodName, predicate) => {
@@ -1893,13 +2199,31 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    const id = raw.id || getObserverValue(observer, 'id');
     const type = raw.type || getObserverValue(observer, 'type');
     if ((typeof id !== 'string' && typeof id !== 'number') || typeof type !== 'string') return null;
+    const data = raw.data && typeof raw.data === 'object' ? raw.data : getObserverValue(observer, 'data');
+    const meta = raw.meta && typeof raw.meta === 'object' ? raw.meta : getObserverValue(observer, 'meta');
+    const metadata =
+      raw.metadata && typeof raw.metadata === 'object'
+        ? raw.metadata
+        : meta && typeof meta === 'object'
+          ? meta
+          : undefined;
     return {
       id: String(id),
       name: typeof raw.name === 'string' ? raw.name : undefined,
       type,
       stableAssetId: typeof raw.uniqueId === 'string' ? raw.uniqueId : typeof raw.unique_id === 'string' ? raw.unique_id : undefined,
       mime: raw.file?.mimeType === 'application/json' ? 'application/json' : raw.file?.mime === 'application/json' ? 'application/json' : undefined,
-	      metadata: raw.meta && typeof raw.meta === 'object' ? raw.meta : undefined
+      data: data && typeof data === 'object' ? data : undefined,
+      meta: meta && typeof meta === 'object' ? meta : undefined,
+      metadata:
+        metadata && typeof metadata === 'object'
+          ? {
+              ...metadata,
+              ...(data && typeof data === 'object' && !metadata.data ? { data } : {})
+            }
+          : data && typeof data === 'object'
+            ? { data }
+            : undefined
 	    };
 	  };
 
@@ -1955,7 +2279,15 @@ export const writeBridgeBootstrap = (targetRoot) => {
   };
 
   const serializeCurrentScene = () => {
-    const fallbackPayload = marker.dirty === true ? marker.lastCleanLoadedScenePayload || null : readLoadedScenePayload();
+    const cleanLoadedScenePayload =
+      marker.lastCleanLoadedScenePayload && typeof marker.lastCleanLoadedScenePayload === 'object'
+        ? marker.lastCleanLoadedScenePayload
+        : null;
+    const loadedScenePayload = readLoadedScenePayload();
+    const fallbackPayload =
+      marker.dirty === true
+        ? cleanLoadedScenePayload || loadedScenePayload || null
+        : mergeScenePayloadSnapshots(cleanLoadedScenePayload, loadedScenePayload) || loadedScenePayload || cleanLoadedScenePayload || null;
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     if (!editorInstance) {
       return fallbackPayload || { schemaVersion: bridgeVersion, entities: [] };
@@ -2001,16 +2333,24 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.lastObservedEntityObserverCount = observedEntityObservers.length;
       marker.lastObservedEntityObserverIds = observedEntityObservers.map((observer) => getEntityObserverId(observer)).filter(Boolean);
       marker.lastEntitySerializationErrors = entitySerializationErrors.slice(-20);
-      const assets = observerListToArray(safeEditorCall(editorInstance, 'assets:list') || safeEditorCall(editorInstance, 'assets:raw'))
+      marker.lastSerializedMmoommVisualMaterialEntityCount = entities.filter((entity) =>
+        applyMmoommVisualMaterialToEngineEntity(editorInstance, entity)
+      ).length;
+      installHostedAssetAdapter(editorInstance, fallbackPayload);
+	      const editorAssets = observerListToArray(safeEditorCall(editorInstance, 'assets:list') || safeEditorCall(editorInstance, 'assets:raw'))
         .map(serializeAsset)
         .filter(Boolean);
+      const assetsById = new Map();
+      for (const asset of [...(Array.isArray(fallbackPayload?.assets) ? fallbackPayload.assets : []), ...editorAssets]) {
+        if (!asset || typeof asset !== 'object' || Array.isArray(asset)) continue;
+        const id = asset.id;
+        if (typeof id !== 'string' && typeof id !== 'number') continue;
+        assetsById.set(String(id), asset);
+      }
+      const assets = Array.from(assetsById.values());
       const sceneMetadata = readCurrentSceneMetadata(editorInstance);
       const metadata = syncMmoommMetadataWithEntities(
-        {
-          ...(fallbackPayload?.metadata && typeof fallbackPayload.metadata === 'object' ? fallbackPayload.metadata : {}),
-          ...(sceneMetadata && typeof sceneMetadata === 'object' ? sceneMetadata : {}),
-          savedBy: 'universo-playcanvas-editor-bridge'
-        },
+        mergeSceneMetadataSnapshots(fallbackPayload?.metadata, sceneMetadata, { savedBy: 'universo-playcanvas-editor-bridge' }),
         entities
       );
       return {
@@ -2211,6 +2551,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       }
 	      marker.lastSavedScene = response;
 	      marker.currentSceneChecksum = response?.data?.checksum || response?.data?.scene?.checksum || marker.currentSceneChecksum || null;
+	      rememberScenePayloadEntities(payload);
 	      markClean();
 	      return response;
     } finally {
@@ -2633,12 +2974,53 @@ export const writeBridgeBootstrap = (targetRoot) => {
     }
   };
 
+  const readCompatibilityTokenClaims = (token) => {
+    if (typeof token !== 'string') return null;
+    const [encodedPayload, signature, extra] = token.split('.');
+    if (!encodedPayload || !signature || extra) return null;
+    try {
+      const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      return JSON.parse(atob(padded));
+    } catch {
+      return null;
+    }
+  };
+
+  const isUsableFullBootAccessToken = (token) => {
+    const claims = readCompatibilityTokenClaims(token);
+    return (
+      claims?.mode === 'universo-full-upstream-ui' &&
+      typeof claims.expiresAt === 'number' &&
+      claims.expiresAt - 30000 > Date.now()
+    );
+  };
+
+  const isUsableRestCompatibilityConfig = (compatibilityConfig) => {
+    const hasRestConfig =
+      compatibilityConfig?.auth?.scheme === 'signed-header' &&
+      typeof compatibilityConfig.auth.accessToken === 'string' &&
+      typeof compatibilityConfig.auth.headerName === 'string' &&
+      typeof compatibilityConfig.endpoints?.assets === 'string';
+    if (!hasRestConfig) return false;
+    const claims = readCompatibilityTokenClaims(compatibilityConfig.auth.accessToken);
+    return !claims || typeof claims.origin !== 'string' || claims.origin === window.location.origin;
+  };
+
   const refreshFullBootAccessToken = async () => {
     if (marker.fullBootMode !== true) return window.config?.accessToken || null;
+    const existingToken =
+      (typeof marker.compatibilityConfig?.accessToken === 'string' && marker.compatibilityConfig.accessToken) ||
+      (typeof window.config?.accessToken === 'string' && window.config.accessToken) ||
+      null;
+    if (isUsableFullBootAccessToken(existingToken)) {
+      window.config.accessToken = existingToken;
+      return existingToken;
+    }
     if (marker.fullBootAccessTokenRefreshPromise) return marker.fullBootAccessTokenRefreshPromise;
     const refreshUrl = resolveFullBootTokenRefreshUrl();
     if (!refreshUrl) return window.config?.accessToken || null;
-    marker.fullBootAccessTokenRefreshPromise = fetch(refreshUrl, {
+    marker.fullBootAccessTokenRefreshPromise = fetch(appendArtifactOriginParams(refreshUrl), {
       credentials: 'include',
       cache: 'no-store'
     })
@@ -2670,12 +3052,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.restCompatibilityConfig ||
       (marker.restCompatibilityConfigPromise ? await marker.restCompatibilityConfigPromise.catch(() => null) : null) ||
       null;
-    const hasRestConfig =
-      compatibilityConfig?.auth?.scheme === 'signed-header' &&
-      typeof compatibilityConfig.auth.accessToken === 'string' &&
-      typeof compatibilityConfig.auth.headerName === 'string' &&
-      typeof compatibilityConfig.endpoints?.assets === 'string';
-    if (hasRestConfig) return compatibilityConfig;
+    if (isUsableRestCompatibilityConfig(compatibilityConfig)) return compatibilityConfig;
     if (typeof window.config?.universoBridge?.compatibilityRestBaseUrl !== 'string') return null;
     const restConfigUrl = appendArtifactOriginParams(
       window.config.universoBridge.compatibilityRestBaseUrl.replace(/\\/$/, '') +
@@ -2695,26 +3072,50 @@ export const writeBridgeBootstrap = (targetRoot) => {
         return null;
       });
     compatibilityConfig = await marker.restCompatibilityConfigPromise;
-    return compatibilityConfig?.auth?.scheme === 'signed-header' &&
-      typeof compatibilityConfig.auth.accessToken === 'string' &&
-      typeof compatibilityConfig.auth.headerName === 'string' &&
-      typeof compatibilityConfig.endpoints?.assets === 'string'
-      ? compatibilityConfig
-      : null;
+    return isUsableRestCompatibilityConfig(compatibilityConfig) ? compatibilityConfig : null;
+  };
+
+  const readPlainObject = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : null);
+
+  const normalizeCompatibilityMaterialData = (value) => {
+    const data = readPlainObject(value);
+    if (!data) return null;
+    const normalized = { ...data };
+    if (normalized.blendType === 'additive') normalized.blendType = 1;
+    if (normalized.blendType === 'normal') normalized.blendType = 2;
+    if (typeof normalized.opacity === 'number' && normalized.opacity < 1 && typeof normalized.alphaTest !== 'number') {
+      normalized.alphaTest = 0;
+    }
+    if (typeof normalized.useFog !== 'boolean') normalized.useFog = true;
+    if (typeof normalized.useLighting !== 'boolean') normalized.useLighting = true;
+    if (typeof normalized.useSkybox !== 'boolean') normalized.useSkybox = false;
+    if (typeof normalized.shader !== 'string') normalized.shader = 'blinn';
+    return normalized;
+  };
+
+  const readCompatibilityAssetEditorDocument = (asset) => {
+    const metadata = readPlainObject(asset?.metadata);
+    const editorDocument = readPlainObject(metadata?.editorDocument);
+    const data = editorDocument && Object.prototype.hasOwnProperty.call(editorDocument, 'data') ? editorDocument.data : metadata?.data;
+    const meta = editorDocument && Object.prototype.hasOwnProperty.call(editorDocument, 'meta') ? editorDocument.meta : metadata?.meta;
+    return { metadata, editorDocument, data, meta };
   };
 
   const mapCompatibilityAssetToPlayCanvasAsset = (asset) => {
     const id = Number.isInteger(asset?.editorDocumentId) ? asset.editorDocumentId : null;
     if (!id) return null;
+    const { metadata, editorDocument, data, meta } = readCompatibilityAssetEditorDocument(asset);
     const virtualPath = typeof asset.virtualPath === 'string' && asset.virtualPath.trim() ? asset.virtualPath.trim() : asset.name || 'asset';
     const filename = virtualPath.split('/').filter(Boolean).pop() || asset.name || String(id);
+    const type = typeof asset.type === 'string' && asset.type ? asset.type : 'json';
+    const editorData = type === 'material' ? normalizeCompatibilityMaterialData(data) : data ?? null;
     return {
       id,
       uniqueId: String(id),
       item_id: id,
       branch_id: window.config?.self?.branch?.id || window.config?.scene?.id || null,
       project: window.config?.project?.id || null,
-      type: typeof asset.type === 'string' && asset.type ? asset.type : 'json',
+      type,
       name: typeof asset.name === 'string' && asset.name ? asset.name : filename,
       file: asset.hash
         ? {
@@ -2726,30 +3127,94 @@ export const writeBridgeBootstrap = (targetRoot) => {
           }
         : null,
       path: [],
-      tags: [],
-      data: null,
-      meta: null,
-      preload: true,
-      source: false
+      tags: Array.isArray(editorDocument?.tags) ? editorDocument.tags.filter((tag) => typeof tag === 'string') : [],
+      data: editorData,
+      meta: meta ?? null,
+      metadata:
+        metadata && typeof metadata === 'object'
+          ? {
+              ...metadata,
+              ...(editorData && typeof editorData === 'object' && !metadata.data ? { data: editorData } : {})
+            }
+          : editorData && typeof editorData === 'object'
+            ? { data: editorData }
+            : undefined,
+      preload: typeof editorDocument?.preload === 'boolean' ? editorDocument.preload : true,
+      source: typeof editorDocument?.source === 'boolean' ? editorDocument.source : false
     };
   };
 
-  const loadFullBootAssets = async () => {
-    const restConfig = await resolveRestCompatibilityConfig();
-    if (!restConfig) return [];
-    const response = await fetch(restConfig.endpoints.assets, {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        [restConfig.auth.headerName]: restConfig.auth.accessToken
-      },
-      cache: 'no-store'
+  const isRestCompatibilityAssetEndpointAllowed = (restConfig, assetsEndpoint) => {
+    if (assetsEndpoint.origin === window.location.origin) return true;
+    const endpoints = restConfig?.endpoints && typeof restConfig.endpoints === 'object' ? restConfig.endpoints : {};
+    return Object.values(endpoints).some((endpoint) => {
+      if (typeof endpoint !== 'string') return false;
+      try {
+        return new URL(endpoint, window.location.href).origin === assetsEndpoint.origin;
+      } catch {
+        return false;
+      }
     });
-    if (!response.ok) return [];
-    const body = await response.json();
-    const assets = Array.isArray(body?.items) ? body.items.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean) : [];
-    marker.fullBootAssetsById = Object.fromEntries(assets.map((asset) => [String(asset.id), asset]));
-    return assets;
+  };
+
+  const loadFullBootAssets = async () => {
+    if (marker.fullBootAssetsById && typeof marker.fullBootAssetsById === 'object') {
+      return Object.values(marker.fullBootAssetsById);
+    }
+    const loadedScenePayload = readLoadedScenePayload(marker.lastLoadedScene);
+    const loadedSceneAssets = Array.isArray(loadedScenePayload?.assets)
+      ? loadedScenePayload.assets.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean)
+      : [];
+    if (loadedSceneAssets.length > 0) {
+      marker.fullBootAssetsById = Object.fromEntries(loadedSceneAssets.map((asset) => [String(asset.id), asset]));
+      if (window.editor && typeof window.editor.method === 'function') {
+        installHostedAssetAdapter(window.editor, loadedSceneAssets);
+      }
+      return loadedSceneAssets;
+    }
+    if (marker.fullBootAssetsPromise) {
+      return marker.fullBootAssetsPromise;
+    }
+    marker.fullBootAssetsPromise = (async () => {
+      const restConfig = await resolveRestCompatibilityConfig();
+      if (!restConfig) return [];
+      try {
+        const assetsEndpoint = new URL(restConfig.endpoints.assets, window.location.href);
+        if (!isRestCompatibilityAssetEndpointAllowed(restConfig, assetsEndpoint)) {
+          return [];
+        }
+      } catch {
+        return [];
+      }
+      const requestInit =
+        marker.fullBootMode === true && typeof window.config?.accessToken === 'string'
+          ? {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                [restConfig.auth.headerName]: window.config.accessToken
+              },
+              cache: 'no-store'
+            }
+          : withRestCompatibilityAuthHeaders(
+              {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store'
+              },
+              restConfig
+            );
+      const response = await fetch(restConfig.endpoints.assets, requestInit);
+      if (!response.ok) return [];
+      const body = await response.json();
+      const assets = Array.isArray(body?.items) ? body.items.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean) : [];
+      marker.fullBootAssetsById = Object.fromEntries(assets.map((asset) => [String(asset.id), asset]));
+      if (window.editor && typeof window.editor.method === 'function') {
+        installHostedAssetAdapter(window.editor, assets);
+      }
+      return assets;
+    })();
+    return marker.fullBootAssetsPromise;
   };
 
   const createFullBootBranchPayload = () => {
@@ -2826,10 +3291,30 @@ export const writeBridgeBootstrap = (targetRoot) => {
     };
   };
 
+  const createFullBootConfigResponseBody = (mode) => {
+    if (mode === 'universo-compatibility-rest-minimal') {
+      const config = marker.restCompatibilityConfig || window.config?.universoRestCompatibilityConfig || null;
+      return config ? { item: config } : null;
+    }
+    if (mode === 'universo-full-upstream-ui') {
+      const config =
+        marker.compatibilityConfig ||
+        window.config?.universoCompatibilityConfig ||
+        (window.config?.mode === 'universo-full-upstream-ui' ? window.config : null);
+      return config ? { item: config } : null;
+    }
+    return null;
+  };
+
   const createFullBootCloudApiResponse = (method, requestUrl) => {
-    if (String(method || 'GET').toUpperCase() !== 'GET' || !window.config?.project?.id) return null;
+    if (String(method || 'GET').toUpperCase() !== 'GET') return null;
     try {
       const url = new URL(requestUrl, window.location.href);
+      if (/\\/config$/.test(url.pathname)) {
+        const body = createFullBootConfigResponseBody(url.searchParams.get('mode'));
+        if (body) return { status: 200, body };
+      }
+      if (!window.config?.project?.id) return null;
       const numericProjectId = String(window.config.project.id);
       const numericSceneId = String(window.config.scene?.uniqueId || window.config.scene?.id || '');
       if (url.pathname === '/api/projects/' + numericProjectId) {
@@ -2874,6 +3359,17 @@ export const writeBridgeBootstrap = (targetRoot) => {
             project_id: window.config.project.id,
             branch_id: window.config.self?.branch?.id || window.config.scene.id
           }
+        };
+      }
+      if (url.pathname === '/api/projects/' + numericProjectId + '/assets') {
+        return { status: 200, bodyPromise: loadFullBootAssets() };
+      }
+      const fullBootAssetMatch = /^\\/api\\/assets\\/([^/]+)$/.exec(url.pathname);
+      if (fullBootAssetMatch) {
+        const assetId = decodeURIComponent(fullBootAssetMatch[1]);
+        return {
+          status: 200,
+          bodyPromise: loadFullBootAssets().then((assets) => assets.find((asset) => String(asset.id) === assetId) || { error: 'notFound' })
         };
       }
       const userMatch = /^\\/api\\/users\\/([^/?]+)$/.exec(url.pathname);
@@ -3068,9 +3564,16 @@ export const writeBridgeBootstrap = (targetRoot) => {
           }
         }
         if (synthetic) {
-          setTimeout(() => {
+          setTimeout(async () => {
+            let body = synthetic.body;
             status = synthetic.status;
-            responseText = JSON.stringify(synthetic.body);
+            try {
+              body = await Promise.resolve(synthetic.bodyPromise || synthetic.body);
+            } catch (error) {
+              status = 500;
+              body = { error: error && typeof error.message === 'string' ? error.message : String(error) };
+            }
+            responseText = JSON.stringify(body);
             response = responseText;
             readyState = 4;
             dispatchSyntheticEvent('readystatechange');
@@ -3175,10 +3678,16 @@ export const writeBridgeBootstrap = (targetRoot) => {
             return Promise.resolve(createJsonResponse(syntheticFetchResponse.body, syntheticFetchResponse.status));
           }
           if (/\\/config$/.test(url.pathname)) {
+            const body = createFullBootConfigResponseBody(url.searchParams.get('mode'));
+            if (body) return Promise.resolve(createJsonResponse(body));
             return nativeFetch(input, init);
           }
           const cloudApiResponse = createFullBootCloudApiResponse('GET', requestUrl);
-          if (cloudApiResponse) return Promise.resolve(createJsonResponse(cloudApiResponse.body, cloudApiResponse.status));
+          if (cloudApiResponse) {
+            return Promise.resolve(cloudApiResponse.bodyPromise || cloudApiResponse.body).then((body) =>
+              createJsonResponse(body, cloudApiResponse.status)
+            );
+          }
           if (url.pathname === '/api/projects/' + numericProjectId + '/assets') {
             return loadFullBootAssets().then((assets) => createJsonResponse(assets));
           }
@@ -3446,6 +3955,34 @@ export const writeBridgeBootstrap = (targetRoot) => {
     document.head.appendChild(script);
   };
 
+  const applyBootstrapCompatibilityDescriptor = (descriptor) => {
+    if (descriptor?.compatibilityConfig && typeof descriptor.compatibilityConfig === 'object') {
+      marker.compatibilityConfig = descriptor.compatibilityConfig;
+      marker.compatibilityConfigReady = true;
+      if (window.config) {
+        window.config.universoCompatibilityConfig = marker.compatibilityConfig;
+      }
+    }
+    if (descriptor?.restCompatibilityConfig && typeof descriptor.restCompatibilityConfig === 'object') {
+      marker.restCompatibilityConfig = descriptor.restCompatibilityConfig;
+      marker.restCompatibilityConfigReady = true;
+      if (window.config) {
+        window.config.universoRestCompatibilityConfig = marker.restCompatibilityConfig;
+      }
+    }
+    if (
+      descriptor?.compatibilityCsrfToken &&
+      typeof descriptor.compatibilityCsrfToken === 'object' &&
+      typeof descriptor.compatibilityCsrfToken.token === 'string' &&
+      typeof descriptor.compatibilityCsrfToken.headerName === 'string'
+    ) {
+      marker.compatibilityCsrfToken = {
+        token: descriptor.compatibilityCsrfToken.token,
+        headerName: descriptor.compatibilityCsrfToken.headerName
+      };
+    }
+  };
+
 	  const initialize = (descriptor) => {
 	    if (initialized) return;
 	    initialized = true;
@@ -3458,6 +3995,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    bridgeSessionId = descriptor?.bridge?.sessionId || null;
 	    bridgeNonce = descriptor?.bridge?.nonce || null;
     window.config = resolveInitialConfig(descriptor);
+    applyBootstrapCompatibilityDescriptor(descriptor);
     installFullBootFetchAdapter();
     installFullBootXmlHttpRequestAuthAdapter();
     installFullBootWebSocketDiagnostics();
@@ -3495,24 +4033,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    const projectId = selectedProject?.project?.id;
 	    const sceneId = selectedProject?.defaultSceneId;
 	    if (typeof projectId !== 'string' || !projectId) return;
-    if (descriptor?.compatibilityConfig && typeof descriptor.compatibilityConfig === 'object') {
-      marker.compatibilityConfig = descriptor.compatibilityConfig;
-      marker.compatibilityConfigReady = true;
-      if (window.config) {
-        window.config.universoCompatibilityConfig = marker.compatibilityConfig;
-      }
-    }
-    if (
-      descriptor?.compatibilityCsrfToken &&
-      typeof descriptor.compatibilityCsrfToken === 'object' &&
-      typeof descriptor.compatibilityCsrfToken.token === 'string' &&
-      typeof descriptor.compatibilityCsrfToken.headerName === 'string'
-    ) {
-      marker.compatibilityCsrfToken = {
-        token: descriptor.compatibilityCsrfToken.token,
-        headerName: descriptor.compatibilityCsrfToken.headerName
-      };
-    }
+    applyBootstrapCompatibilityDescriptor(descriptor);
 
 	    void (async () => {
 	      try {
@@ -3532,9 +4053,19 @@ export const writeBridgeBootstrap = (targetRoot) => {
             marker.skippedDirtySceneReadPayloadAt = Date.now();
             clearLoadedScenePayloadObservers('dirty-scene-read-skip');
             advancePersistedSceneHydrationGeneration('dirty-scene-read-skip');
+            if (marker.fullBootMode === true) {
+              void loadFullBootAssets();
+            }
           } else {
-            rememberScenePayloadEntities(readLoadedScenePayload(marker.lastLoadedScene));
-            schedulePersistedSceneHydration();
+		            const loadedScenePayload = readLoadedScenePayload(marker.lastLoadedScene);
+		            rememberScenePayloadEntities(loadedScenePayload);
+		            if (window.editor && typeof window.editor.call === 'function') {
+		              installHostedAssetAdapter(window.editor, loadedScenePayload);
+		            }
+                if (marker.fullBootMode === true) {
+                  void loadFullBootAssets();
+                }
+		            schedulePersistedSceneHydration();
           }
           marker.currentSceneChecksum =
             marker.lastLoadedScene?.data?.scene?.checksum || marker.lastLoadedScene?.data?.checksum || marker.currentSceneChecksum || null;

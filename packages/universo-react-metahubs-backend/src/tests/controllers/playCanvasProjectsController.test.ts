@@ -309,6 +309,118 @@ describe('createPlayCanvasProjectsController permissions', () => {
         saveEditorScene.mockRestore()
     })
 
+    it('accepts bridge sessions for an explicitly requested secondary project when the editor artifact remains enabled', async () => {
+        const defaultProjectId = '019e8afa-0000-7000-8000-000000000001'
+        const requestedProjectId = '019e8afa-0000-7000-8000-0000000000aa'
+        const sessionService = new PlayCanvasEditorBridgeSessionService()
+        const session = sessionService.create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId: requestedProjectId,
+            userId: 'user-1',
+            capabilities: ['protocol.describe']
+        })
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                const accessRows = bridgeManagerAccessRows(sql)
+                if (accessRows) return accessRows
+                if (sql.includes('FROM "metahubs"."rel_metahub_packages"')) {
+                    return [
+                        {
+                            id: '019e8afa-0000-7000-8000-000000000003',
+                            metahubId: 'metahub-1',
+                            packageId: '019e8afa-0000-7000-8000-000000000004',
+                            packageName: editorPackageName,
+                            version: '0.1.0',
+                            displayName: createLocalizedContent('en', 'PlayCanvas Editor'),
+                            description: null,
+                            source: { kind: 'workspace', packageName: editorPackageName },
+                            authoringSurface: {
+                                schemaVersion: '1',
+                                kind: 'playcanvasEditor',
+                                packageSlug: 'playcanvas-editor',
+                                supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately'],
+                                defaultConfig: {
+                                    schemaVersion: '1',
+                                    kind: 'display',
+                                    display: {
+                                        mode: 'embeddedIframe',
+                                        developmentUrl: null,
+                                        showArtifactOnlyNotice: false
+                                    },
+                                    playcanvasProject: {
+                                        defaultProjectId: null
+                                    }
+                                },
+                                artifact: {
+                                    packageName: editorPackageName,
+                                    manifestFileName: 'universo-artifact-manifest.json',
+                                    outputRoot: 'dist/editor',
+                                    smokeMode: 'universo-full-upstream-ui'
+                                }
+                            },
+                            config: {
+                                schemaVersion: '1',
+                                kind: 'display',
+                                display: {
+                                    mode: 'embeddedIframe',
+                                    developmentUrl: null,
+                                    showArtifactOnlyNotice: false
+                                },
+                                playcanvasProject: {
+                                    defaultProjectId
+                                }
+                            },
+                            attachedAt: new Date(),
+                            isActive: true
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        }
+
+        await ctrl.editorBridgeCommand({
+            req: {
+                body: {
+                    sessionToken: session.token,
+                    command: {
+                        type: 'editor.ready',
+                        requestId: session.payload.sessionId,
+                        sessionId: session.payload.sessionId,
+                        nonce: session.payload.nonce,
+                        bridgeVersion: session.payload.bridgeVersion,
+                        capabilities: session.payload.capabilities
+                    }
+                }
+            },
+            res,
+            metahubId: 'metahub-1',
+            userId: 'user-1',
+            exec,
+            schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+        } as never)
+
+        expect(res.status).not.toHaveBeenCalled()
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: true,
+                requestId: session.payload.sessionId,
+                data: expect.objectContaining({
+                    capabilities: session.payload.capabilities
+                })
+            })
+        )
+    })
+
     it('loads the selected editor project through the mutation-safe default scene initializer', async () => {
         const projectId = '019e8afa-0000-7000-8000-000000000001'
         const requestId = '019e8afa-0000-7000-8000-000000000002'
@@ -905,16 +1017,8 @@ describe('createPlayCanvasProjectsController permissions', () => {
                     ]
                 }
                 if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
-                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) {
-                    const key = String(params?.[1] ?? '')
-                    if (replayRows.has(key)) {
-                        return []
-                    }
-                    replayRows.set(key, { value: JSON.parse(String(params?.[2])) })
-                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
-                }
-                if (sql.includes('UPDATE') && sql.includes('_app_settings')) {
-                    const [key, sessionId, storedRequestId, commandType, fingerprint, response] = params ?? []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings') && sql.includes('DO UPDATE')) {
+                    const [, key, , sessionId, storedRequestId, commandType, fingerprint, , , , response] = params ?? []
                     const current = replayRows.get(String(key))?.value as
                         | {
                               sessionId?: string
@@ -939,6 +1043,14 @@ describe('createPlayCanvasProjectsController permissions', () => {
                         return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
                     }
                     return []
+                }
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) {
+                    const key = String(params?.[1] ?? '')
+                    if (replayRows.has(key)) {
+                        return []
+                    }
+                    replayRows.set(key, { value: JSON.parse(String(params?.[2])) })
+                    return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
                 }
                 if (sql.includes('SELECT') && sql.includes('_app_settings')) {
                     const [key, sessionId, storedRequestId, commandType, fingerprint] = params ?? []
@@ -1221,8 +1333,10 @@ describe('createPlayCanvasProjectsController permissions', () => {
                     ]
                 }
                 if (sql.includes('DELETE FROM') && sql.includes('_app_settings')) return []
+                if (sql.includes('INSERT INTO') && sql.includes('_app_settings') && sql.includes('DO UPDATE')) {
+                    throw new Error('replay completion failed')
+                }
                 if (sql.includes('INSERT INTO') && sql.includes('_app_settings')) return [{ id: '019e8afa-0000-7000-8000-000000000006' }]
-                if (sql.includes('UPDATE') && sql.includes('_app_settings')) throw new Error('replay completion failed')
                 throw new Error(`Unexpected SQL: ${sql}`)
             })
         }

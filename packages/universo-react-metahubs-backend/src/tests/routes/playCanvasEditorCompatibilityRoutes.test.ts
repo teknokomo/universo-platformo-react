@@ -106,7 +106,7 @@ const createFullBootProtocol = () => {
     } as never
 }
 
-const createApp = (role: 'admin' | 'member' = 'admin') => {
+const createApp = (role: 'admin' | 'member' = 'admin', authOverride?: RequestHandler) => {
     const app = express()
     app.use(express.json())
 
@@ -138,7 +138,9 @@ const createApp = (role: 'admin' | 'member' = 'admin') => {
         })
     }
 
-    app.use(createPlayCanvasProjectsRoutes(ensureAuth, () => exec as never, limiter as never, limiter as never, csrfProtection))
+    app.use(
+        createPlayCanvasProjectsRoutes(authOverride ?? ensureAuth, () => exec as never, limiter as never, limiter as never, csrfProtection)
+    )
     const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
         res.status(error.statusCode ?? error.status ?? 500).json({ error: error.message })
     }
@@ -429,24 +431,24 @@ describe('PlayCanvas Editor compatibility routes', () => {
     })
 
     it('lists root-level assets with an explicit compatibility virtual path', async () => {
-        jest.spyOn(PlayCanvasProjectsService.prototype, 'listAssets').mockResolvedValue([
+        jest.spyOn(PlayCanvasProjectsService.prototype, 'listEditorCompatibilityAssetSummaries').mockResolvedValue([
             {
                 id: '019e9147-3333-7000-8000-000000000001',
-                projectId,
                 stableAssetId: 'asset-root',
                 type: 'json',
                 name: 'Root Asset',
-                virtualPath: [],
-                file: {
-                    provider: 'local',
-                    root: 'playcanvas-projects',
-                    path: `playcanvas-projects/${projectId}/assets/root.json`,
-                    mime: 'application/json',
-                    hash: 'a'.repeat(64),
-                    size: 42,
-                    status: 'ready'
+                virtualPath: '/',
+                mime: 'application/json',
+                hash: 'a'.repeat(64),
+                size: 42,
+                metadata: {
+                    data: {
+                        diffuse: [1, 1, 1],
+                        opacity: 0.5,
+                        useFog: true
+                    }
                 },
-                version: 1
+                editorDocumentId: 123
             }
         ])
 
@@ -463,9 +465,91 @@ describe('PlayCanvas Editor compatibility routes', () => {
                 id: '019e9147-3333-7000-8000-000000000001',
                 stableAssetId: 'asset-root',
                 virtualPath: '/',
+                metadata: {
+                    data: {
+                        diffuse: [1, 1, 1],
+                        opacity: 0.5,
+                        useFog: true
+                    }
+                },
                 editorDocumentId: expect.any(Number)
             })
         ])
+    })
+
+    it('accepts signed compatibility asset reads when the browser session cookie is unavailable', async () => {
+        const listEditorCompatibilityAssetSummaries = jest
+            .spyOn(PlayCanvasProjectsService.prototype, 'listEditorCompatibilityAssetSummaries')
+            .mockResolvedValue([
+                {
+                    id: '019e9147-3333-7000-8000-000000000001',
+                    stableAssetId: 'asset-root',
+                    type: 'json',
+                    name: 'Root Asset',
+                    virtualPath: '/',
+                    mime: 'application/json',
+                    hash: 'a'.repeat(64),
+                    size: 42,
+                    metadata: {},
+                    editorDocumentId: 123
+                }
+            ])
+
+        const token = await readCompatibilityToken(createApp())
+        const rejectSessionAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'missing session' })
+        const response = await request(createApp('admin', rejectSessionAuth))
+            .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/assets`)
+            .set('origin', compatibilityOrigin)
+            .set('x-playcanvas-editor-token', token)
+
+        expect(response.status).toBe(200)
+        expect(response.body.items).toEqual([expect.objectContaining({ id: '019e9147-3333-7000-8000-000000000001' })])
+        expect(listEditorCompatibilityAssetSummaries).toHaveBeenCalledWith('metahub-1', projectId, 'user-1', { sceneId: undefined })
+    })
+
+    it('requires browser session auth before issuing fresh compatibility config tokens', async () => {
+        const token = await readCompatibilityToken(createApp())
+        const rejectSessionAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'missing session' })
+        const response = await request(createApp('admin', rejectSessionAuth))
+            .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`)
+            .set('origin', compatibilityOrigin)
+            .set('x-playcanvas-editor-token', token)
+
+        expect(response.status).toBe(401)
+        expect(response.body).toEqual({ error: 'missing session' })
+    })
+
+    it('fails closed when browser session auth forwards an error before issuing fresh compatibility config tokens', async () => {
+        const describeEditorCompatibilityProtocol = jest
+            .spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol')
+            .mockResolvedValue(createProtocol())
+        const rejectSessionAuth: RequestHandler = (_req, _res, next) => next(new Error('rls context failed'))
+
+        const response = await request(createApp('admin', rejectSessionAuth)).get(
+            `/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`
+        )
+
+        expect(response.status).toBe(500)
+        expect(response.body).toEqual({ error: 'rls context failed' })
+        expect(describeEditorCompatibilityProtocol).not.toHaveBeenCalled()
+    })
+
+    it('does not apply PlayCanvas session auth middleware to unrelated metahub routes', async () => {
+        const app = express()
+        const rejectSessionAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'missing session' })
+        const limiter: RequestHandler = (_req, _res, next) => next()
+        const csrfProtection: RequestHandler = (_req, _res, next) => next()
+        const exec = {
+            query: jest.fn()
+        }
+
+        app.use(createPlayCanvasProjectsRoutes(rejectSessionAuth, () => exec as never, limiter as never, limiter as never, csrfProtection))
+        app.get('/metahub/metahub-1/other-domain', (_req, res) => res.json({ ok: true }))
+
+        const response = await request(app).get('/metahub/metahub-1/other-domain')
+
+        expect(response.status).toBe(200)
+        expect(response.body).toEqual({ ok: true })
     })
 
     it('stores scoped settings documents with optimistic revisions', async () => {

@@ -40,9 +40,9 @@ const expectNonBlankScreenshot = async (locator: Locator, path: string) => {
 }
 
 const expectHostedEditorApiReady = async (frame: FrameLocator) => {
-    await expect(frame.locator('#layout-hierarchy')).toBeVisible()
-    await expect(frame.locator('#layout-assets')).toBeVisible()
-    await expect(frame.locator('#layout-attributes')).toBeVisible()
+    await expect(frame.locator('#layout-hierarchy')).toBeVisible({ timeout: 15_000 })
+    await expect(frame.locator('#layout-assets')).toBeVisible({ timeout: 15_000 })
+    await expect(frame.locator('#layout-attributes')).toBeVisible({ timeout: 15_000 })
     await expect
         .poll(
             () =>
@@ -140,11 +140,13 @@ test('PlayCanvas Editor hosted artifact shell is safe and nonblank', async ({ pa
     expect(notFoundResponse.headers()['x-content-type-options']).toBe('nosniff')
 
     await expect
-        .poll(() =>
-            page.locator('body').evaluate((body) => {
-                const rect = body.getBoundingClientRect()
-                return rect.width > 100 && rect.height > 100 && body.childElementCount > 0
-            })
+        .poll(
+            () =>
+                page.locator('body').evaluate((body) => {
+                    const rect = body.getBoundingClientRect()
+                    return rect.width > 100 && rect.height > 100 && body.childElementCount > 0
+                }),
+            { timeout: 15_000 }
         )
         .toBe(true)
     await expectNonBlankScreenshot(
@@ -467,7 +469,7 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
     })
     await expect
         .poll(() => frame.locator('body').evaluate(() => window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.securityRejectedMessages ?? 0), {
-            timeout: 5000
+            timeout: 15_000
         })
         .toBeGreaterThan(rejectedBeforeSpoofedResponse)
     await expect

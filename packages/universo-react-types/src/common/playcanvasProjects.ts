@@ -42,7 +42,17 @@ export const PLAYCANVAS_FILE_RECOVERY_STATUSES = [
 ] as const
 export type PlayCanvasFileRecoveryStatus = (typeof PLAYCANVAS_FILE_RECOVERY_STATUSES)[number]
 
-export const PLAYCANVAS_ASSET_TYPES = ['scene', 'script', 'generatedScript', 'texture', 'model', 'audio', 'json', 'other'] as const
+export const PLAYCANVAS_ASSET_TYPES = [
+    'scene',
+    'script',
+    'generatedScript',
+    'texture',
+    'material',
+    'model',
+    'audio',
+    'json',
+    'other'
+] as const
 export type PlayCanvasAssetType = (typeof PLAYCANVAS_ASSET_TYPES)[number]
 
 export const PLAYCANVAS_SCRIPT_KINDS = ['esm', 'classic'] as const
@@ -241,6 +251,155 @@ export interface PlayCanvasRuntimeManifest {
     assets: PlayCanvasRuntimeAssetManifest[]
     scripts: PlayCanvasRuntimeScriptManifest[]
     metadata?: Record<string, unknown>
+}
+
+export const MMOOMM_VISUAL_LAB_MAX_OBJECTS = 128
+export const MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS = 16
+
+const mmoommRuntimeVector3Schema = z
+    .object({
+        x: z.number().finite(),
+        y: z.number().finite(),
+        z: z.number().finite()
+    })
+    .strict()
+
+const mmoommRuntimeSceneObjectSchema = z
+    .object({
+        id: z.string().min(1).max(128),
+        position: mmoommRuntimeVector3Schema,
+        scale: mmoommRuntimeVector3Schema,
+        selectable: z.boolean().optional(),
+        guard: z.boolean().optional()
+    })
+    .strict()
+
+export const mmoommRuntimeSceneSchema = z
+    .object({
+        objects: z.array(mmoommRuntimeSceneObjectSchema).max(64).optional(),
+        controlledObjectId: z.string().min(1).max(128).optional(),
+        targetObjectId: z.string().min(1).max(128).optional()
+    })
+    .strip()
+
+export type MmoommRuntimeScene = z.infer<typeof mmoommRuntimeSceneSchema>
+
+const mmoommVisualLabColorSchema = z
+    .object({
+        r: z.number().finite().min(0).max(1),
+        g: z.number().finite().min(0).max(1),
+        b: z.number().finite().min(0).max(1)
+    })
+    .strict()
+
+const mmoommVisualLabMaterialEvidenceSchema = z
+    .object({
+        role: z.enum(['core', 'glow', 'variantMarker']),
+        diffuse: z.tuple([z.number().finite().min(0).max(1), z.number().finite().min(0).max(1), z.number().finite().min(0).max(1)]),
+        opacity: z.number().finite().min(0.02).max(1),
+        emissive: z
+            .tuple([z.number().finite().min(0).max(1), z.number().finite().min(0).max(1), z.number().finite().min(0).max(1)])
+            .optional(),
+        emissiveIntensity: z.number().finite().min(0).max(8).optional(),
+        blendType: z.enum(['normal', 'additive']),
+        depthWrite: z.boolean().optional(),
+        useFog: z.boolean().optional()
+    })
+    .strip()
+
+const mmoommVisualLabObjectSchema = z
+    .object({
+        id: z.string().min(1).max(128),
+        name: z.string().min(1).max(160),
+        variant: z.string().min(1).max(80),
+        family: z.string().min(1).max(80),
+        objectType: z.enum(['ship', 'station', 'rockAsteroid', 'iceAsteroid']),
+        primitive: z.enum(['box', 'sphere']),
+        position: mmoommRuntimeVector3Schema,
+        scale: mmoommRuntimeVector3Schema,
+        coreOpacity: z.number().finite().min(0.05).max(1),
+        glowColor: mmoommVisualLabColorSchema,
+        glowOpacity: z.number().finite().min(0.02).max(1),
+        shellScale: z.number().finite().min(1).max(2),
+        lowPolyBands: z.number().int().min(3).max(MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS).nullable().optional(),
+        material: z
+            .object({
+                core: mmoommVisualLabMaterialEvidenceSchema,
+                glow: mmoommVisualLabMaterialEvidenceSchema
+            })
+            .strip()
+            .optional()
+    })
+    .strip()
+
+export type MmoommVisualLabObject = z.infer<typeof mmoommVisualLabObjectSchema>
+
+const mmoommVisualLabVariantSchema = z
+    .object({
+        index: z.number().int().min(1).max(64),
+        slug: z.string().min(1).max(80),
+        title: z.string().min(1).max(120),
+        family: z.string().min(1).max(80),
+        fogDensity: z.number().finite().min(0).max(1),
+        coreOpacity: z.number().finite().min(0.05).max(1),
+        glowOpacity: z.number().finite().min(0.02).max(1),
+        shellScale: z.number().finite().min(1).max(2),
+        lowPolyBands: z.number().int().min(3).max(MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS).optional()
+    })
+    .strip()
+
+export const mmoommVisualLabSceneSchema = z
+    .object({
+        version: z.number().int().min(1).max(1).optional(),
+        projectRole: z.literal('visual-linkup-lab'),
+        variantCount: z.number().int().min(1).max(64),
+        objectTypes: z.array(z.enum(['ship', 'station', 'rockAsteroid', 'iceAsteroid'])).max(8),
+        variants: z.array(mmoommVisualLabVariantSchema).max(64).optional(),
+        sceneFog: z
+            .object({
+                type: z.enum(['none', 'linear', 'exp', 'exp2']),
+                color: z.tuple([z.number().finite().min(0).max(1), z.number().finite().min(0).max(1), z.number().finite().min(0).max(1)]),
+                density: z.number().finite().min(0).max(1)
+            })
+            .strip()
+            .optional(),
+        objects: z.array(mmoommVisualLabObjectSchema).min(1).max(MMOOMM_VISUAL_LAB_MAX_OBJECTS)
+    })
+    .strip()
+
+export type MmoommVisualLabScene = z.infer<typeof mmoommVisualLabSceneSchema>
+
+export const mmoommRuntimeMetadataSchema = z
+    .object({
+        scene: mmoommRuntimeSceneSchema.optional(),
+        visualLab: mmoommVisualLabSceneSchema.optional(),
+        provenance: z.record(z.string(), z.unknown()).optional()
+    })
+    .strip()
+
+export type MmoommRuntimeMetadata = z.infer<typeof mmoommRuntimeMetadataSchema>
+
+export const normalizeMmoommRuntimeMetadata = (value: unknown): MmoommRuntimeMetadata | null => {
+    const parsed = mmoommRuntimeMetadataSchema.safeParse(value)
+    if (!parsed.success) return null
+    const normalized: MmoommRuntimeMetadata = {}
+    if (parsed.data.scene) normalized.scene = parsed.data.scene
+    if (parsed.data.visualLab) normalized.visualLab = parsed.data.visualLab
+    if (parsed.data.provenance) normalized.provenance = parsed.data.provenance
+    return Object.keys(normalized).length > 0 ? normalized : null
+}
+
+export const normalizePlayCanvasRuntimeManifestMetadata = (value: unknown): Record<string, unknown> | undefined => {
+    const metadata = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+    if (!metadata) return undefined
+    const normalized: Record<string, unknown> = { ...metadata }
+    const mmoomm = normalizeMmoommRuntimeMetadata(metadata.mmoomm)
+    if (mmoomm) {
+        normalized.mmoomm = mmoomm
+    } else {
+        delete normalized.mmoomm
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined
 }
 
 export interface PlayCanvasPublishedRuntimeManifestSummary {

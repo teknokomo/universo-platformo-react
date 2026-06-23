@@ -154,6 +154,35 @@ describe('ProjectBindingSurface', () => {
         )
     })
 
+    it('opens the live PlayCanvas project resolved by codename when the cached binding id is stale after snapshot import', async () => {
+        const staleProjectId = '0190ffff-eeee-dddd-cccc-bbbbbbbbbbbb'
+        mockGetInstance.mockResolvedValue({
+            id: 'inst-1',
+            kind: 'project',
+            codename: vlc('World'),
+            config: { projectBinding: { provider: 'playcanvasEditor', projectCodename: 'mmoomm_world', projectId: staleProjectId } },
+            version: 1
+        })
+        mockListProjects.mockResolvedValue([boundProject])
+        editorHostData = {
+            attachmentConfig: { kind: 'display', display: { mode: 'openSeparately' } }
+        }
+
+        renderPage()
+
+        expect(await screen.findByText('MMOOMM World')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Open editor' }))
+
+        await waitFor(() =>
+            expect(mockWindowOpen).toHaveBeenCalledWith(
+                `/metahub/mh-1/resources/packages/playcanvas-editor/editor/fullscreen?projectId=${boundProject.id}`,
+                '_blank',
+                'noopener,noreferrer'
+            )
+        )
+        expect(mockWindowOpen).not.toHaveBeenCalledWith(expect.stringContaining(staleProjectId), expect.anything(), expect.anything())
+    })
+
     it('routes the Open editor click to the inline route in embeddedIframe mode (no popup)', async () => {
         const originalLocation = window.location
         // jsdom does not allow reassigning `window.location` directly; stub

@@ -67,6 +67,7 @@ const sceneEntitySchema = z
         rotation: sceneEntityVector3Schema.optional(),
         scale: sceneEntityVector3Schema.optional(),
         components: z.record(z.string().max(80), jsonValueSchema).optional(),
+        metadata: z.record(z.string().max(120), jsonValueSchema).optional(),
         children: z.array(z.string().min(1).max(160)).max(512).optional()
     })
     .strict()
@@ -79,6 +80,8 @@ const sceneAssetReferenceSchema = z
         stableAssetId: z.string().min(1).max(160).optional(),
         fileId: uuidSchema.nullable().optional(),
         mime: z.enum(PLAYCANVAS_PROJECT_JSON_MIME_TYPES).nullable().optional(),
+        data: jsonValueSchema.optional(),
+        meta: jsonValueSchema.optional(),
         metadata: z.record(z.string().max(120), jsonValueSchema).optional()
     })
     .strict()
@@ -315,7 +318,7 @@ export const playCanvasEditorCompatibilitySettingsParamsSchema = playCanvasEdito
 
 export const playCanvasEditorCompatibilityAssetSummarySchema = z
     .object({
-        id: uuidSchema,
+        id: z.string().min(1).max(160),
         stableAssetId: z.string().min(1).max(160),
         type: z.string().min(1).max(80),
         name: z.string().min(1).max(255),
@@ -323,6 +326,7 @@ export const playCanvasEditorCompatibilityAssetSummarySchema = z
         mime: z.string().min(1).max(120).nullable(),
         hash: z.string().min(1).max(160).nullable(),
         size: z.number().int().nonnegative().nullable(),
+        metadata: z.record(z.string().max(120), jsonValueSchema).optional(),
         editorDocumentId: z.number().int().positive().max(2_147_483_647)
     })
     .strict()

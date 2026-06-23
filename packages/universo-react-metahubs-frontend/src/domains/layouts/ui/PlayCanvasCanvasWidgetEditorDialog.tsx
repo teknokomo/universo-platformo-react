@@ -224,19 +224,13 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
         }
     })
 
-    const runtimeProjectIds = useMemo(
-        () =>
-            new Set(
-                (packagesQuery.data ?? [])
-                    .filter((item) => item.isActive && item.config.kind === 'display')
-                    .map((item) => (item.config.kind === 'display' ? item.config.playcanvasProject?.defaultProjectId : null))
-                    .filter((projectId): projectId is string => typeof projectId === 'string' && projectId.length > 0)
-            ),
+    const hasActivePlayCanvasDisplayPackage = useMemo(
+        () => (packagesQuery.data ?? []).some((item) => item.isActive && item.config.kind === 'display'),
         [packagesQuery.data]
     )
     const manifests = useMemo(
-        () => (manifestsQuery.data ?? []).filter((item) => runtimeProjectIds.has(item.projectId)),
-        [manifestsQuery.data, runtimeProjectIds]
+        () => (hasActivePlayCanvasDisplayPackage ? manifestsQuery.data ?? [] : []),
+        [hasActivePlayCanvasDisplayPackage, manifestsQuery.data]
     )
     const modules = useMemo(() => modulesQuery.data ?? [], [modulesQuery.data])
     const sectionTargets = sectionTargetsQuery.data ?? []

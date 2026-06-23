@@ -453,6 +453,11 @@
         "participantsStatus": "Корабли: {{total}} (вы + удалённых: {{remote}})",
         "participantsViewOnlyStatus": "Корабли: {{total}} (только просмотр)",
         "canvasLabel": "Интерактивная 3D-сцена полёта",
+        "visualLab": {
+            "staticMode": "Статическая визуальная лаборатория",
+            "variants": "Визуальные варианты",
+            "selectedVariant": "Выбрано: {{index}}. {{title}} · {{family}}"
+        },
         "realtime": {
             "connecting": "Подключение realtime",
             "connected": "Realtime подключён",

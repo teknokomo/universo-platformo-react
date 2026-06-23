@@ -186,7 +186,13 @@ const isCurrentBridgeAttachmentEnabled = async (
         if (config.kind !== 'display' || (config.display.mode !== 'embeddedIframe' && config.display.mode !== 'openSeparately')) {
             return false
         }
-        return (config.playcanvasProject?.defaultProjectId ?? null) === projectId
+        // A bridge session is bound to a concrete project by a signed token
+        // minted by the authoring-host endpoint after it resolves that project
+        // inside the current metahub. This gate only verifies that the Editor
+        // artifact attachment is still enabled. Requiring the project to remain
+        // the package default breaks non-destructive `?projectId=` sessions for
+        // secondary Projects entries such as MMOOMM Visual Linkup Lab.
+        return projectId !== null
     } catch {
         return false
     }

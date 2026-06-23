@@ -99,6 +99,126 @@ version bump.
 
 ---
 
+# MMOOMM PlayCanvas Visual Linkup Lab — Implementation Tasks (2026-06-20)
+
+> Status: IMPLEMENT complete (2026-06-21)
+> Plan: `memory-bank/plan/mmoomm-playcanvas-visual-linkup-lab-plan-2026-06-20.md`
+> Brief: local cross-project MMOOMM PlayCanvas Visual Linkup Lab brief, dated 2026-06-20
+> Research: `memory-bank/research/mmoomm-playcanvas-visual-linkup-lab-research-2026-06-20.md`
+
+## Scope
+
+Implement the visual linkup lab in the canonical MMOOMM PlayCanvas fixture flow:
+make the generator safe for two Projects instances, author a second
+Editor-reviewable PlayCanvas project with 16 weak-linkup visual variants,
+preserve the existing flight runtime proof, add fixture/runtime contracts, and
+update docs/tests/snapshot evidence. Do not modify the vendored PlayCanvas Editor
+frontend unless absolutely necessary; use our generator, backend compatibility,
+runtime wrapper, and apps-template boundaries.
+
+## Checklist
+
+-   [x] 1. Preflight: loaded required skills/context, used OntoIndex impact/verify where available, inspected affected code, and kept the vendored PlayCanvas Editor frontend untouched.
+-   [x] 2. Made the MMOOMM generator multi-project safe: project rows/dialogs are targeted by display name/codename, manifests are selected by project role/project id, and the flight widget stays bound to `MMOOMM Authoring`.
+-   [x] 3. Added `MMOOMM Visual Linkup Lab`: created/bound the second project, opened the intended Editor project, authored 16 visual variants, saved through the compatibility path, and preserved the flight authoring sequence.
+-   [x] 4. Extended fixture contracts: the snapshot now requires the intended project roles, keeps strict flight assertions, adds separate lab assertions, verifies role-aware runtime manifests, and reports drift cleanly.
+-   [x] 5. Implemented runtime-visible lab support through generic `@universo-react/playcanvas-engine` helpers and the existing `apps-template-mui` `playcanvasCanvas` widget; no parallel app shell was added.
+-   [x] 6. Added/updated Jest/Vitest/Playwright evidence for bridge metadata, backend normalization/export, runtime widget rendering, generator contract, fixture drift, and published runtime import.
+-   [x] 7. Regenerated `tools/fixtures/metahubs-mmoomm-app-snapshot.json` through the Playwright product flow on local minimal Supabase.
+-   [x] 8. Updated EN/RU GitBook docs and the PlayCanvas engine README for the new canonical fixture/lab behavior.
+-   [x] 9. Ran focused validation gates, package tests/builds, fixture contract/drift, full MMOOMM app gate, OntoIndex diff verification, and documented the only environment limitation: `autoreview` cannot start because the local Codex state DB is read-only.
+
+## Notes
+
+-   Runtime-visible lab support was implemented because the acceptance path needs
+    visual comparison in the published application. It is deliberately generic:
+    metadata-driven PlayCanvas primitives, fog, translucent bodies, glow shells,
+    and low-poly variants inside the existing canvas widget.
+-   The PlayCanvas Editor vendor tree remains untouched. Metadata preservation is
+    handled through shared bridge schemas, backend compatibility normalization,
+    artifact serialization, and snapshot/runtime manifest export.
+-   Final validation includes the full combined `pnpm run test:e2e:mmoomm-app-gate:local-supabase`
+    run: generator 2/2, fixture drift clean, runtime import 2/2.
+
+## Post-QA Remediation Checklist (2026-06-21)
+
+-   [x] 10. Add a shared runtime-safe `metadata.mmoomm.visualLab` contract in `@universo-react/types`, filter MMOOMM metadata on publish/export, and clamp low-poly geometry inputs.
+-   [x] 11. Refactor Visual Linkup Lab runtime mounting out of the monolithic `PlayCanvasCanvasWidget` branch and add static-lab user-facing status instead of realtime-unavailable UX.
+-   [x] 12. Strengthen fixture/generator contracts: duplicate-id guards, manifest role guards, semantic lookup instead of row/order assumptions, and strict widget binding checks.
+-   [x] 13. Add normal user Playwright proof for the Visual Linkup Lab runtime section: menu navigation, nonblank WebGL canvas, viewport matrix, focus/camera controls, and no technical leakage.
+-   [x] 14. Regenerate the MMOOMM fixture through the product flow if snapshot-shaping changes affect exported JSON.
+-   [x] 15. Fix post-QA blockers: derive PlayCanvas runtime manifests only from runtime bindings, re-sync EN/RU GitBook docs, remove raw runtime error diagnostics from DOM, and add focused regression coverage.
+-   [x] 16. Run focused package tests, formatter/lint gates, E2E gate where feasible, and update Memory Bank/docs if the runtime contract changes.
+-   [x] 17. Fix final QA camera contract gap: persist `MMOOMM Linkup Lab Camera` as a real Editor `camera` component, strengthen scene/fixture assertions, regenerate the fixture if needed, and rerun focused gates.
+-   [x] 18. Fix Visual Linkup Lab Editor material gap: persisted scene-local PlayCanvas material asset data through the shared bridge schema, preserved render `materialAssets`, and kept Editor-compatible fog/material payloads from being rejected during product save.
+-   [x] 19. Strengthen fixture and browser contracts so `materialAssets: [null]`, missing material asset data, or `fog: none` fail closed (`check:mmoomm-app-fixture-contract` green).
+-   [x] 20. Strengthen runtime visual proof so canvas evidence checks the Visual Linkup Lab mode, 16 variants, 64+ rendered objects, painted WebGL output, bounded responsive viewport, keyboard focus, disabled movement controls, and no technical leakage/overflow.
+-   [x] 21. Regenerate `tools/fixtures/metahubs-mmoomm-app-snapshot.json` through the product Playwright flow on local minimal Supabase; drift check is clean against `tools/testing/e2e/.artifacts/generated-metahubs-mmoomm-app-snapshot.json`.
+-   [x] 22. Rerun focused tests, Prettier, fixture contract/drift, backend/types builds, and the local-Supabase MMOOMM app runtime E2E after the material/fog remediation.
+
+### Post-QA Material/Fog Remediation Evidence (2026-06-22)
+
+-   `pnpm --filter @universo-react/types test -- playcanvasEditorBridge.test.ts` — 18 files / 131 tests passed.
+-   `pnpm --filter @universo-react/types build` — passed.
+-   `pnpm --filter @universo-react/metahubs-backend test -- PlayCanvasProjectsService.test.ts --runInBand` — 1 suite / 91 tests passed, including scene-local material asset realtime write-back into the owning scene payload.
+-   `pnpm --filter @universo-react/metahubs-backend test -- PlayCanvasProjectSnapshotService.test.ts SnapshotSerializer.test.ts --runInBand` — 2 suites / 37 tests passed.
+-   `pnpm --filter @universo-react/metahubs-backend build` — passed.
+-   `pnpm check:mmoomm-app-fixture-contract` — passed.
+-   `pnpm run check:mmoomm-app-fixture-drift -- tools/testing/e2e/.artifacts/generated-metahubs-mmoomm-app-snapshot.json` — passed.
+-   `pnpm run test:e2e:mmoomm-app-runtime:local-supabase` on Node 22.22.2 — 2/2 passed, including imported MMOOMM app snapshot runtime and Visual Linkup Lab canvas proof.
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --prompt-file .agents/skills/autoreview/rubrics/thermos.md` — clean after fixing the accepted P2 scene-local asset persistence finding.
+-   `ontoindex detect-changes --repo universo-platformo-react` — completed; overall diff is critical-scope because the full feature touches 44 files / 538 symbols / 31 affected processes.
+
+## Post-QA Visual Distinctness Remediation Checklist (2026-06-22)
+
+-   [x] 23. Preserve authored Visual Linkup Lab opacity/glow differences in the published runtime instead of clamping all variants toward the same look.
+-   [x] 24. Strengthen runtime Playwright proof so the Visual Linkup Lab fails if representative variant cells are visually identical or family color signatures disappear.
+-   [x] 25. Strengthen PlayCanvas Editor authoring proof so it validates live material application on representative engine mesh instances, not only persisted JSON assets.
+-   [x] 26. Make the generator E2E verify the published Visual Linkup Lab section before exporting the canonical fixture.
+-   [x] 27. Run focused format/test/contract/E2E verification for the visual-distinctness remediation and record evidence.
+
+### Post-QA Visual Distinctness Remediation Evidence (2026-06-22)
+
+-   `pnpm exec prettier --write` on the touched runtime/E2E/task files — passed.
+-   `git diff --check` — passed.
+-   `pnpm --filter @universo-react/apps-template-mui build` — passed after sequential workspace builds; an earlier parallel run failed while another command cleaned `@universo-react/types/dist`.
+-   `pnpm --filter @universo-react/apps-template-mui test -- PlayCanvasCanvasWidget.test.tsx` — 32 files / 356 tests passed when run after rebuilding `@universo-react/types` and `@universo-react/utils` sequentially.
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend test -- artifact.test.mjs` — 1 file / 14 tests passed.
+-   `pnpm --filter @universo-react/playcanvas-editor-frontend build` — passed; vendored Editor sources remain untouched.
+-   `pnpm --filter @universo-react/playcanvas-engine test` — 1 file / 6 tests passed.
+-   `pnpm check:mmoomm-app-fixture-contract` — passed.
+-   `pnpm run check:mmoomm-app-fixture-drift -- tools/testing/e2e/.artifacts/generated-metahubs-mmoomm-app-snapshot.json` — passed.
+-   `pnpm run test:e2e:mmoomm-app-runtime:local-supabase` on Node 22.22.2 — 2/2 passed, including imported published Visual Linkup Lab runtime with the strengthened opacity-range proof.
+
+## Post-QA Editor Asset/Visibility Remediation Checklist (2026-06-22)
+
+-   [x] 28. Seed PlayCanvas Editor full-boot ShareDB `assets` documents for every signed `assetDocumentIds` entry so material assets resolve in the upstream asset registry and inspector.
+-   [x] 29. Populate the full-boot `schema.materialData` defaults and normalize material payloads to upstream numeric blend/depth/fog fields without editing the vendored Editor frontend.
+-   [x] 30. Rework Visual Linkup Lab authoring constants so the Editor overview has readable lighting, camera framing, lower fog washout, and visible material differences at default distance.
+-   [x] 31. Add published runtime variant legend/selection evidence from `metadata.mmoomm.visualLab.variants` so users can compare 16 named variants without hidden `data-*` knowledge.
+-   [x] 32. Strengthen Editor/runtime tests: ShareDB asset doc subscription, inspector material resolution, visible variant labels, per-variant visual evidence, fixture contract/drift, and focused package tests.
+-   [x] 33. Regenerate `tools/fixtures/metahubs-mmoomm-app-snapshot.json` after the visual/asset fixes and record validation evidence.
+
+### Post-QA Editor Asset/Visibility Remediation Evidence (2026-06-22)
+
+-   Root cause for the latest manual empty/wrong Editor project symptom was a stale imported `config.projectBinding.projectId` winning over the canonical `projectBinding.projectCodename` in the Projects binding card. The row action already preferred codename, but both paths now compare codename across the active locale, primary locale, `en`, and every stored VLC locale before falling back to the cached id.
+-   Backend material support was rechecked: scene-local Visual Linkup Lab material assets are exposed through `listEditorCompatibilityAssetSummaries`, signed into full-boot `assetDocumentIds`, loaded as ShareDB `assets` documents, and persisted back to the owning scene payload. No vendored PlayCanvas Editor frontend changes were needed.
+-   Validation: `pnpm exec vitest run --config packages/universo-react-metahubs-frontend/vitest.config.ts packages/universo-react-metahubs-frontend/src/domains/entities/ui/__tests__/ProjectBindingSurface.test.tsx` — 14/14 passed, including stale cached project id after snapshot import.
+-   Validation: `pnpm --filter @universo-react/metahubs-backend test -- PlayCanvasProjectsService.test.ts` — 91/91 passed, including realtime scene-local material asset document load/persist tests.
+-   Validation: `pnpm run check:mmoomm-app-fixture-contract` passed; the tracked snapshot still contains the Visual Linkup Lab PlayCanvas project, 147 scene entities, 144 scene-local material assets, and the visualLab runtime metadata contract.
+-   Validation: `pnpm --filter @universo-react/metahubs-frontend lint` and `git diff --check` passed.
+
+## Post-QA Imported Visual Linkup Lab Empty Scene Remediation Checklist (2026-06-22)
+
+-   [x] 34. Close the imported `MMOOMM Visual Linkup Lab` regression: prove the fixture contains the Lab project/scene/materials, ensure the fullscreen authoring host opens the project selected by `?projectId=`, and fail if the Editor scene is empty.
+-   [ ] 35. Remove the E2E blind spot that allowed the imported runtime flow to verify `MMOOMM Authoring` while skipping the imported `MMOOMM Visual Linkup Lab` Editor project.
+-   [ ] 36. Treat fullscreen Editor 401 responses as regressions in the MMOOMM app runtime flow instead of allow-listing them.
+-   [ ] 37. Run focused contracts, frontend/backend unit tests, the local-Supabase MMOOMM app runtime E2E, formatting, OntoIndex diff verification, and record final evidence.
+
+---
+
+---
+
 # PlayCanvas Metahub Template + "Projects" Entity Type — Implementation Tasks (2026-06-17)
 
 > Status: IMPLEMENT complete (code + tests + docs) + MMOOMM-app-gate fixture regenerated (2026-06-17). Live Supabase/Playwright E2E and fixture regeneration deferred — see "Open for live E2E" below.

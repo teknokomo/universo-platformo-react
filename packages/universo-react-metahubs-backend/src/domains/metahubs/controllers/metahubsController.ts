@@ -87,7 +87,11 @@ import { EventBindingService } from '../../entities/services/EventBindingService
 import { SnapshotSerializer } from '../../publications/services/SnapshotSerializer'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
-import { alignPlayCanvasRuntimeManifestBindings, attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
+import {
+    alignPlayCanvasRuntimeManifestBindings,
+    attachLayoutsToSnapshot,
+    collectPlayCanvasRuntimeManifestProjectIds
+} from '../../shared/snapshotLayouts'
 import {
     createPoolSnapshotRestoreService,
     poolKnexTransaction,
@@ -2259,6 +2263,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 metahubId: metahub.id,
                 userId
             })
+            await serializer.refreshPlayCanvasRuntimeManifests(
+                metahub.id,
+                canonicalPublicationSnapshot,
+                collectPlayCanvasRuntimeManifestProjectIds(canonicalPublicationSnapshot),
+                'runtime'
+            )
             alignPlayCanvasRuntimeManifestBindings(canonicalPublicationSnapshot)
             const canonicalPublicationSnapshotHash = serializer.calculateHash(canonicalPublicationSnapshot)
 
@@ -2423,6 +2433,14 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
+        if (playCanvasMode === 'snapshot-runtime') {
+            await serializer.refreshPlayCanvasRuntimeManifests(
+                metahubId,
+                snapshot,
+                collectPlayCanvasRuntimeManifestProjectIds(snapshot),
+                'snapshot-runtime'
+            )
+        }
 
         const exportedModules = Array.isArray(snapshot.modules) ? snapshot.modules : []
         const liveModules = exportedModules.length > 0 ? await modulesService.listModules(metahubId, { onlyActive: true }, userId) : []

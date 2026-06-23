@@ -1,5 +1,25 @@
 # Current Research
 
+## 2026-06-20: MMOOMM PlayCanvas Visual Linkup Lab
+
+-   Research artifact created and QA-updated: `memory-bank/research/mmoomm-playcanvas-visual-linkup-lab-research-2026-06-20.md`. Brief: local cross-project MMOOMM PlayCanvas Visual Linkup Lab brief, dated 2026-06-20; source TZ: local MMOOMM PlayCanvas Visual Linkup Lab input, dated 2026-06-20.
+-   Core finding: the visual lab should start as a second bound PlayCanvas project in the existing MMOOMM metahub fixture flow, not as a new package or new built-in entity kind. The low-risk first visual stack is `FOG_EXP2`, white translucent `StandardMaterial`, additive/emissive glow shell geometry, and low-band sphere/primitive geometry. CameraFrame, shader chunks, screen-space outlines, dither/noise, and custom post passes are valid but gated enhancements until projection and browser evidence prove them.
+-   Codebase risk finding: the current generator/contract/runtime path is still conceptually "one playable MMOOMM project + one published flight scene". PLAN must make project-row targeting, publish actions, manifest lookup, and widget published-scene selection deterministic by project identity before publishing or validating two PlayCanvas projects.
+-   Runtime projection finding: `PlayCanvasCanvasWidget.tsx` currently consumes only `metadata.mmoomm.scene.objects` and renders every object as a white box. It cannot prove spheres, material opacity/emissive glow, fog, low-poly segmentation, or glow shells without a runtime projection extension or separate lab rendering path.
+-   Fixture contract implication: keep `MMOOMM Authoring` as the playable flight project requiring ship/station MMOOMM metadata, and add a separate `MMOOMM Visual Linkup Lab` role/contract. If the lab is published, do not require every runtime manifest to carry flight `metadata.mmoomm`; either define `metadata.mmoomm.visualLab` or validate the lab through its Editor scene payload.
+-   QA update (2026-06-20): added missing local-doc evidence from `browser-e2e-testing.md`, `mmoomm-flight-simulator.md`, `playcanvas-projects.md`, `playcanvas-editor.md`, and the PlayCanvas Engine README; strengthened runtime-visible lab gates to require nonblank bounded canvas, viewport matrix, focus behavior, no overflow, no technical leakage, and cleanup ownership for any CameraFrame/runtime path.
+-   Subagent QA follow-up (2026-06-20): clarified that PlayCanvas snippets are runtime-helper candidates, not proof of current Editor serialization; Editor-only lab acceptance now requires visible Editor/fullscreen canvas evidence plus serialized-scene assertions; PlayCanvas version authority wording now separates runtime package-local d.ts from vendored Editor metadata.
+-   Tooling note: Context7 and the web-search helper were requested but unavailable in this session (`unsupported call: mcp__context7`, `unsupported call: omniroute_web_search`). Official PlayCanvas docs/API/source plus local `playcanvas@2.18.1` d.ts were used instead. No application code or generated snapshot was edited in RESEARCH mode.
+-   Open PLAN decisions: Editor-only vs published vs runtime-visible lab; 16 recommended variants vs exactly 20; visual-only asteroid objects vs domain model asteroid types; whether generic runtime helpers belong in `@universo-react/playcanvas-engine` now or later.
+-   Implementation update (2026-06-21): the accepted path is both
+    Editor-reviewable and runtime-visible. The generator authors 16 variants in
+    a second bound project (`MMOOMM Visual Linkup Lab`), publishes both projects,
+    and validates manifests by role/project identity. The runtime projection is
+    a generic extension of `@universo-react/playcanvas-engine` plus the existing
+    `apps-template-mui` `playcanvasCanvas` widget, driven by
+    `metadata.mmoomm.visualLab`. No new asteroid domain object types were added;
+    asteroid semantics are visual-lab metadata only for this slice.
+
 ## 2026-06-17: PlayCanvas metahub template + "Projects" entity type, MMOOMM snapshot regeneration
 
 -   Research artifact: `memory-bank/research/playcanvas-template-projects-entity-type-research-2026-06-17.md`. Brief: MANAGER cross-project brief (tracked outside the repository).

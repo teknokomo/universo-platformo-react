@@ -45,6 +45,14 @@ describe('PlayCanvas Editor bridge contracts', () => {
                             camera: {
                                 clearColor: [0, 0, 0]
                             }
+                        },
+                        metadata: {
+                            mmoomm: {
+                                visualMaterial: {
+                                    role: 'core',
+                                    opacity: 0.45
+                                }
+                            }
                         }
                     }
                 ],
@@ -59,6 +67,82 @@ describe('PlayCanvas Editor bridge contracts', () => {
         })
 
         expect(parsed.success).toBe(true)
+    })
+
+    it('allows bounded scene entity metadata in bridge and compatibility payloads', () => {
+        const payload = {
+            schemaVersion: '1',
+            entities: [
+                {
+                    id: 'visual-linkup-core',
+                    name: 'Visual Linkup Core',
+                    metadata: {
+                        mmoomm: {
+                            visualMaterial: {
+                                role: 'core',
+                                opacity: 0.45,
+                                blendType: 'normal'
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+
+        expect(playCanvasEditorScenePayloadSchema.safeParse(payload).success).toBe(true)
+        expect(playCanvasEditorCompatibilityScenePayloadSchema.safeParse(payload).success).toBe(true)
+    })
+
+    it('allows scene-local material asset data in bridge and compatibility payloads', () => {
+        const materialData = {
+            diffuse: [1, 1, 1],
+            opacity: 0.42,
+            emissive: [0.1, 0.8, 1],
+            emissiveIntensity: 2.4,
+            blendType: 'additive',
+            depthWrite: false,
+            useFog: true,
+            useLighting: true,
+            useSkybox: false,
+            shader: 'blinn'
+        }
+        const payload = {
+            schemaVersion: '1',
+            entities: [
+                {
+                    id: 'visual-linkup-glow',
+                    name: 'Visual Linkup Glow',
+                    components: {
+                        render: {
+                            enabled: true,
+                            type: 'sphere',
+                            materialAssets: [920000001]
+                        }
+                    }
+                }
+            ],
+            assets: [
+                {
+                    id: '920000001',
+                    name: 'Visual Linkup Glow Material',
+                    type: 'material',
+                    stableAssetId: 'mmoomm-visual-linkup-920000001',
+                    data: materialData,
+                    metadata: {
+                        data: materialData,
+                        editorDocument: {
+                            data: materialData,
+                            tags: ['mmoomm', 'visual-linkup-lab'],
+                            preload: true,
+                            source: false
+                        }
+                    }
+                }
+            ]
+        }
+
+        expect(playCanvasEditorScenePayloadSchema.safeParse(payload).success).toBe(true)
+        expect(playCanvasEditorCompatibilityScenePayloadSchema.safeParse(payload).success).toBe(true)
     })
 
     it('rejects unknown top-level scene payload fields', () => {

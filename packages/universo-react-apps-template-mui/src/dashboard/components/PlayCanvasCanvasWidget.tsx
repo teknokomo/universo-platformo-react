@@ -42,11 +42,17 @@ import {
     lerpVector3,
     type Room
 } from '@universo-react/colyseus-client'
-import { playcanvasCanvasWidgetConfigSchema, readLocalizedTextValue } from '@universo-react/types'
+import {
+    normalizeMmoommRuntimeMetadata,
+    playcanvasCanvasWidgetConfigSchema,
+    readLocalizedTextValue,
+    type MmoommVisualLabScene
+} from '@universo-react/types'
 import { fetchRuntimePlayCanvasManifests } from '../../api/api'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { executeClientModuleMethod } from '../runtime/browserModuleRuntime'
 import { createClientModuleContext, isClientModuleMethodTarget, useRuntimeWidgetClientModule } from './runtimeWidgetHelpers'
+import { mountVisualLinkupLabRuntime } from './visualLinkupLabRuntime'
 
 interface SceneObjectConfig {
     id: string
@@ -62,6 +68,7 @@ interface RuntimeModuleMountModel {
         controlledObjectId?: string
         targetObjectId?: string
     }
+    visualLab?: MmoommVisualLabScene
 }
 
 interface PlayCanvasCanvasWidgetProps {
@@ -216,8 +223,8 @@ const normalizePublishedManifestSceneModel = (value: unknown): RuntimeModuleMoun
     }
     const metadata = (value as { metadata?: unknown }).metadata
     const mmoomm = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? (metadata as { mmoomm?: unknown }).mmoomm : null
-    const scene = mmoomm && typeof mmoomm === 'object' && !Array.isArray(mmoomm) ? (mmoomm as { scene?: unknown }).scene : null
-    return normalizeRuntimeModuleMountModel({ scene })
+    const normalizedMmoomm = normalizeMmoommRuntimeMetadata(mmoomm)
+    return { ...normalizeRuntimeModuleMountModel({ scene: normalizedMmoomm?.scene }), visualLab: normalizedMmoomm?.visualLab }
 }
 
 const readShipEntries = (state: FixedTickSceneState | undefined): Array<[string, FixedTickShipState]> => {
@@ -738,6 +745,8 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const [measuredCanvasHeight, setMeasuredCanvasHeight] = useState<number | null>(null)
     const [participantSummary, setParticipantSummary] = useState({ total: 0, remote: 0 })
     const [localShipAssigned, setLocalShipAssigned] = useState(false)
+    const [selectedVisualLabVariant, setSelectedVisualLabVariant] = useState<string | null>(null)
+    const [visualLabVariantFocusRequested, setVisualLabVariantFocusRequested] = useState(false)
     const loadFailedMessageRef = useRef(t('playcanvasCanvas.loadFailed', 'The 3D scene could not be loaded.'))
     loadFailedMessageRef.current = t('playcanvasCanvas.loadFailed', 'The 3D scene could not be loaded.')
 
@@ -815,6 +824,13 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         () => normalizePublishedManifestSceneModel(runtimeManifestQuery.data),
         [runtimeManifestQuery.data]
     )
+    const visualLabScene = publishedManifestScene.visualLab
+    const isVisualLabScene = Boolean(visualLabScene?.objects.length)
+    const visualLabVariants = useMemo(() => visualLabScene?.variants ?? [], [visualLabScene?.variants])
+    const visualLabVariantSlugs = useMemo(() => visualLabVariants.map((variant) => variant.slug), [visualLabVariants])
+    const visualLabVariantSignature = visualLabVariantSlugs.join('|')
+    const selectedVisualLabVariantInfo =
+        visualLabVariants.find((variant) => variant.slug === selectedVisualLabVariant) ?? visualLabVariants[0]
     const runtimeManifestFailClosed = runtimeManifestBinding?.failClosed !== false
     const title = readLocalizedTextValue(widgetConfig?.title, details?.locale ?? 'en') ?? t('playcanvasCanvas.title', '3D scene')
     const sceneObjects = useMemo(
@@ -857,7 +873,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         runtimeManifestBinding && !manifestBindingLoading && !manifestBindingError && !runtimeManifestQuery.data
     )
     const manifestBindingSceneMissing = Boolean(
-        runtimeManifestBinding && runtimeManifestQuery.data && !publishedManifestScene.scene?.objects?.length
+        runtimeManifestBinding && runtimeManifestQuery.data && !publishedManifestScene.scene?.objects?.length && !isVisualLabScene
     )
     const manifestBindingReady =
         !runtimeManifestBinding ||
@@ -888,9 +904,32 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         !runtimeModuleError &&
         (!selectedModule || !clientBundle || !runtimeModuleHasMountMethod)
     const runtimeModuleReady =
+        isVisualLabScene ||
         !requiresRuntimeModule ||
         (!runtimeModuleLoading && !runtimeModuleError && !runtimeModuleMissing && runtimeModuleMountQuery.isSuccess)
     const sceneReady = runtimeModuleReady && manifestBindingReady
+
+    useEffect(() => {
+        if (!isVisualLabScene || visualLabVariantSlugs.length === 0) {
+            setSelectedVisualLabVariant(null)
+            setVisualLabVariantFocusRequested(false)
+            return
+        }
+        setVisualLabVariantFocusRequested(false)
+        setSelectedVisualLabVariant((current) => (current && visualLabVariantSlugs.includes(current) ? current : visualLabVariantSlugs[0]))
+    }, [isVisualLabScene, visualLabVariantSignature, visualLabVariantSlugs])
+
+    useEffect(() => {
+        if (!isVisualLabScene || !ready || !selectedVisualLabVariant || !visualLabVariantFocusRequested) {
+            return
+        }
+        const canvas = canvasRef.current
+        if (!canvas) {
+            return
+        }
+        const event = new CustomEvent('playcanvas-visual-lab-focus-variant', { detail: selectedVisualLabVariant })
+        canvas.dispatchEvent(event)
+    }, [isVisualLabScene, ready, selectedVisualLabVariant, visualLabVariantFocusRequested])
 
     useEffect(() => {
         if (widgetConfig?.heightMode !== 'fitViewport' || !sceneReady) {
@@ -1020,6 +1059,18 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         }
         try {
             setError(null)
+            if (visualLabScene) {
+                const unmountVisualLab = mountVisualLinkupLabRuntime({ canvas, container, visualLabScene, requiresRuntimeModule })
+                setRealtimeStatus('unavailable')
+                setReady(true)
+
+                return () => {
+                    disposed = true
+                    setReady(false)
+                    unmountVisualLab()
+                }
+            }
+
             app = createBasicApplication(canvas)
             app.scene.ambientLight = new pc.Color(0.25, 0.25, 0.25)
 
@@ -1864,13 +1915,14 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         sceneObjects,
         selectedModule?.codename,
         targetObjectId,
+        visualLabScene,
         widgetConfig?.camera,
         widgetConfig?.scene?.cruiseSpeed,
         widgetConfig?.scene?.intentDistance,
         widgetId
     ])
 
-    const movementControlsEnabled = localShipAssigned && isRealtimeMovementEnabled(realtimeStatus, canControlScene)
+    const movementControlsEnabled = !isVisualLabScene && localShipAssigned && isRealtimeMovementEnabled(realtimeStatus, canControlScene)
 
     const moveToConfiguredTarget = () => {
         if (!movementControlsEnabled) {
@@ -1896,6 +1948,14 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         if (!canvas) return
         const event = new CustomEvent('playcanvas-camera-control', { detail: kind })
         canvas.dispatchEvent(event)
+    }
+
+    const focusVisualLabVariant = (slug: string) => {
+        setVisualLabVariantFocusRequested(true)
+        setSelectedVisualLabVariant(slug)
+        const canvas = canvasRef.current
+        if (!canvas) return
+        canvas.focus({ preventScroll: true })
     }
 
     const releaseCapturedPointer = (canvas: HTMLCanvasElement | null) => {
@@ -1990,7 +2050,9 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     if (!parsed.success) {
         return <Alert severity='warning'>{t('playcanvasCanvas.invalidConfig', 'The 3D scene configuration is invalid.')}</Alert>
     }
-    const runtimeModuleAlert = runtimeModuleLoading
+    const runtimeModuleAlert = isVisualLabScene
+        ? null
+        : runtimeModuleLoading
         ? { severity: 'info' as const, message: t('playcanvasCanvas.moduleLoading', 'Loading 3D runtime module...') }
         : runtimeModuleError
         ? {
@@ -2037,7 +2099,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                   severity: 'warning' as const,
                   message: t('playcanvasCanvas.realtime.versionMismatchDescription', 'Realtime version mismatch. Reload the application.')
               }
-            : realtimeStatus === 'unavailable'
+            : realtimeStatus === 'unavailable' && !isVisualLabScene
             ? {
                   severity: 'warning' as const,
                   message: t('playcanvasCanvas.realtime.unavailableDescription', 'Realtime control is unavailable for this application.')
@@ -2063,6 +2125,10 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                   message: t('playcanvasCanvas.realtime.disconnectedDescription', 'Realtime control is not connected.')
               }
             : null
+    const runtimeStatusLabel = isVisualLabScene
+        ? t('playcanvasCanvas.visualLab.staticMode', 'Static visual lab')
+        : t(`playcanvasCanvas.realtime.${realtimeStatus}`, realtimeStatus)
+    const runtimeStatusTestId = isVisualLabScene ? 'playcanvas-runtime-mode-status' : 'playcanvas-realtime-status'
     const showViewOnlyState = (realtimeStatus === 'connected' || realtimeStatus === 'restored') && (!canControlScene || !localShipAssigned)
 
     return (
@@ -2071,8 +2137,8 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 <Typography variant='h6' sx={{ flex: 1, minWidth: 0 }}>
                     {title}
                 </Typography>
-                <Typography variant='caption' color='text.secondary' data-testid='playcanvas-realtime-status' sx={{ minWidth: 0 }}>
-                    {t(`playcanvasCanvas.realtime.${realtimeStatus}`, realtimeStatus)}
+                <Typography variant='caption' color='text.secondary' data-testid={runtimeStatusTestId} sx={{ minWidth: 0 }}>
+                    {runtimeStatusLabel}
                 </Typography>
                 {participantSummary.total > 0 ? (
                     <Typography variant='caption' color='text.secondary' data-testid='playcanvas-participants-status' sx={{ minWidth: 0 }}>
@@ -2162,8 +2228,121 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 <Alert severity='info'>{t('playcanvasCanvas.loading', 'Loading 3D scene...')}</Alert>
             ) : null}
             {ready && realtimeAlert && !error ? <Alert severity={realtimeAlert.severity}>{realtimeAlert.message}</Alert> : null}
+            {isVisualLabScene && visualLabVariants.length > 0 ? (
+                <Box
+                    data-testid='playcanvas-visual-lab-legend'
+                    sx={{
+                        mb: 1,
+                        p: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        bgcolor: 'background.default',
+                        minWidth: 0,
+                        '@media (max-width: 900px), (max-height: 700px)': {
+                            maxHeight: 104,
+                            overflowY: 'auto'
+                        }
+                    }}
+                >
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        alignItems='center'
+                        sx={{
+                            mb: 1,
+                            minWidth: 0,
+                            flexWrap: 'wrap',
+                            rowGap: 0.5,
+                            '@media (max-width: 900px), (max-height: 700px)': {
+                                mb: 0.5
+                            }
+                        }}
+                    >
+                        <Typography variant='subtitle2' sx={{ minWidth: 0 }}>
+                            {t('playcanvasCanvas.visualLab.variants', 'Visual variants')}
+                        </Typography>
+                        {selectedVisualLabVariantInfo ? (
+                            <Typography
+                                variant='caption'
+                                color='text.secondary'
+                                data-testid='playcanvas-visual-lab-selected'
+                                sx={{ minWidth: 0 }}
+                            >
+                                {t('playcanvasCanvas.visualLab.selectedVariant', {
+                                    defaultValue: `Selected: ${selectedVisualLabVariantInfo.index}. ${selectedVisualLabVariantInfo.title} · ${selectedVisualLabVariantInfo.family}`,
+                                    index: selectedVisualLabVariantInfo.index,
+                                    title: selectedVisualLabVariantInfo.title,
+                                    family: selectedVisualLabVariantInfo.family
+                                })}
+                            </Typography>
+                        ) : null}
+                    </Stack>
+                    <Stack
+                        direction='row'
+                        spacing={0.75}
+                        useFlexGap
+                        sx={{
+                            flexWrap: 'wrap',
+                            minWidth: 0,
+                            '@media (max-width: 900px), (max-height: 700px)': {
+                                flexWrap: 'nowrap',
+                                overflowX: 'auto',
+                                overflowY: 'hidden',
+                                pb: 0.5
+                            }
+                        }}
+                    >
+                        {visualLabVariants.map((variant) => {
+                            const selected = variant.slug === selectedVisualLabVariant
+                            return (
+                                <Box
+                                    key={variant.slug}
+                                    component='button'
+                                    type='button'
+                                    data-testid={`playcanvas-visual-lab-variant-${variant.slug}`}
+                                    aria-pressed={selected}
+                                    onClick={() => focusVisualLabVariant(variant.slug)}
+                                    sx={{
+                                        appearance: 'none',
+                                        border: 1,
+                                        borderColor: selected ? 'primary.main' : 'divider',
+                                        borderRadius: 1,
+                                        bgcolor: selected ? 'action.selected' : 'background.paper',
+                                        color: 'text.primary',
+                                        cursor: 'pointer',
+                                        font: 'inherit',
+                                        px: 1,
+                                        py: 0.5,
+                                        minWidth: 0,
+                                        maxWidth: { xs: '100%', sm: 220 },
+                                        '@media (max-width: 900px), (max-height: 700px)': {
+                                            flex: '0 0 auto',
+                                            maxWidth: 180,
+                                            py: 0.375
+                                        },
+                                        textAlign: 'left',
+                                        '&:focus-visible': {
+                                            outline: '2px solid',
+                                            outlineColor: 'primary.main',
+                                            outlineOffset: 2
+                                        }
+                                    }}
+                                >
+                                    <Typography component='span' variant='caption' sx={{ display: 'block', fontWeight: 600 }}>
+                                        {variant.index}. {variant.title}
+                                    </Typography>
+                                    <Typography component='span' variant='caption' color='text.secondary' sx={{ display: 'block' }}>
+                                        {variant.family}
+                                    </Typography>
+                                </Box>
+                            )
+                        })}
+                    </Stack>
+                </Box>
+            ) : null}
             {sceneReady ? (
-                <Box ref={containerRef} sx={{ width: '100%', minWidth: 0, height: canvasHeight, bgcolor: 'grey.950', overflow: 'hidden' }}>
+                <Box ref={containerRef} sx={{ width: '100%', minWidth: 0, height: canvasHeight, bgcolor: '#020611', overflow: 'hidden' }}>
                     <canvas
                         ref={canvasRef}
                         data-testid='playcanvas-canvas'
@@ -2177,7 +2356,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerCancel}
                         onPointerLeave={handlePointerCancel}
-                        style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none' }}
+                        style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none', backgroundColor: '#020611' }}
                     />
                 </Box>
             ) : null}

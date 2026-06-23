@@ -81,6 +81,7 @@ export {
     getShareDbSeedWriteKeys,
     getShareDbAllowedDocumentKeys,
     createAllowedShareDbDocumentKeys,
+    addAllowedShareDbDocumentKeys,
     isAllowedShareDbDocument,
     createDefaultRealtimeDocument,
     seedShareDbDocument,

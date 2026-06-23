@@ -24,6 +24,16 @@ export const MMOOMM_APP_PACKAGES = [
     { packageName: '@universo-react/colyseus-server', version: '0.1.0', target: 'server' }
 ] as const
 
+const MMOOMM_AUTHORING_PROJECT_NAME = 'MMOOMM Authoring'
+const MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME = 'MMOOMM Visual Linkup Lab'
+const MMOOMM_VISUAL_LINKUP_LAB_METADATA_KEY = 'visualLab'
+const MMOOMM_VISUAL_LINKUP_LAB_VARIANT_COUNT = 16
+const MMOOMM_VISUAL_LINKUP_LAB_OBJECT_TYPES = ['ship', 'station', 'rockAsteroid', 'iceAsteroid'] as const
+const MMOOMM_VISUAL_LINKUP_LAB_FOG_COLOR = [0.045, 0.055, 0.08] as const
+const MMOOMM_VISUAL_LINKUP_LAB_FOG_DENSITY = 0.014
+const MMOOMM_SPACE_SECTION_CODENAME = 'FlightWorld'
+const MMOOMM_VISUAL_LINKUP_LAB_SECTION_CODENAME = 'VisualLinkupLab'
+
 export type SnapshotEnvelope = Record<string, unknown> & {
     metahub?: { name?: unknown; description?: unknown; codename?: unknown }
     snapshot?: {
@@ -40,10 +50,19 @@ export type SnapshotEnvelope = Record<string, unknown> & {
 }
 
 type PlayCanvasProjectSnapshot = {
-    projects?: Array<{ id?: unknown; defaultSceneId?: unknown }>
+    projects?: Array<{ id?: unknown; displayName?: unknown; codename?: unknown; defaultSceneId?: unknown }>
     scenes?: Array<{
         id?: unknown
+        projectId?: unknown
         payload?: {
+            settings?: {
+                render?: Record<string, unknown>
+            }
+            assets?: Array<{
+                id?: unknown
+                type?: unknown
+                metadata?: Record<string, unknown>
+            }>
             entities?: Array<{
                 id?: unknown
                 name?: unknown
@@ -53,6 +72,9 @@ type PlayCanvasProjectSnapshot = {
                 components?: unknown
             }>
             metadata?: Record<string, unknown>
+        }
+        payloadFile?: {
+            snapshotContentBase64?: unknown
         }
     }>
     sourceFiles?: unknown[]
@@ -83,11 +105,58 @@ const readLocalizedText = (value: unknown, locale: 'en' | 'ru'): string => {
     return typeof content === 'string' ? content.trim() : ''
 }
 
+const readPrimaryText = (value: unknown): string => readLocalizedText(value, 'en') || readCodenameText(value)
+
+const stableStringify = (value: unknown): string => {
+    if (value === null || typeof value !== 'object') {
+        return JSON.stringify(value)
+    }
+    if (Array.isArray(value)) {
+        return `[${value.map((item) => stableStringify(item)).join(',')}]`
+    }
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+        .join(',')}}`
+}
+
+const readScenePayloadFilePayload = (
+    scene: NonNullable<PlayCanvasProjectSnapshot['scenes']>[number],
+    projectName: string
+): Record<string, unknown> | null => {
+    const encoded = scene.payloadFile?.snapshotContentBase64
+    if (typeof encoded !== 'string' || encoded.length === 0) {
+        return null
+    }
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as unknown
+    } catch {
+        throw new Error(`MMOOMM app fixture PlayCanvas project ${projectName} must include valid bundled scene payload JSON`)
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`MMOOMM app fixture PlayCanvas project ${projectName} bundled scene payload must be an object`)
+    }
+    return parsed as Record<string, unknown>
+}
+
 const isVector3Tuple = (value: unknown): value is [number, number, number] =>
     Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(item))
 
 const isUuidV4 = (value: unknown): boolean =>
     typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+
+const assertUniqueStrings = (values: unknown[], label: string): void => {
+    const strings = values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    const seen = new Set<string>()
+    for (const value of strings) {
+        if (seen.has(value)) {
+            throw new Error(`MMOOMM app fixture ${label} must be unique: ${value}`)
+        }
+        seen.add(value)
+    }
+}
 
 const readVector3 = (value: unknown): { x: number; y: number; z: number } | null => {
     if (isVector3Tuple(value)) {
@@ -216,6 +285,247 @@ const assertMmoommSceneObjectMatchesEntity = (
     }
 }
 
+const requirePlayCanvasProjectByName = (playcanvasProjects: PlayCanvasProjectSnapshot, projectName: string) => {
+    const project = (playcanvasProjects.projects ?? []).find((item) => readPrimaryText(item.displayName) === projectName)
+    if (!project?.id || typeof project.id !== 'string') {
+        throw new Error(`MMOOMM app fixture must include PlayCanvas project ${projectName}`)
+    }
+    if (typeof project.defaultSceneId !== 'string') {
+        throw new Error(`MMOOMM app fixture PlayCanvas project ${projectName} must include a default scene id`)
+    }
+    return project as typeof project & { id: string; defaultSceneId: string }
+}
+
+const requirePlayCanvasSceneForProject = (
+    playcanvasProjects: PlayCanvasProjectSnapshot,
+    project: { id: string; defaultSceneId: string },
+    projectName: string
+) => {
+    const scene = (playcanvasProjects.scenes ?? []).find((item) => item.id === project.defaultSceneId && item.projectId === project.id)
+    if (!scene?.payload) {
+        throw new Error(`MMOOMM app fixture PlayCanvas project ${projectName} must include its default scene payload`)
+    }
+    const filePayload = readScenePayloadFilePayload(scene, projectName)
+    if (!filePayload) {
+        throw new Error(`MMOOMM app fixture PlayCanvas project ${projectName} must include bundled default scene payload content`)
+    }
+    if (stableStringify(scene.payload) !== stableStringify(filePayload)) {
+        throw new Error(`MMOOMM app fixture PlayCanvas project ${projectName} inline and bundled default scene payloads must match`)
+    }
+    return scene
+}
+
+const assertVisualLinkupLabEntity = (entity: PlayCanvasSceneEntitySnapshot): void => {
+    const record = entity as {
+        name?: unknown
+        position?: unknown
+        rotation?: unknown
+        scale?: unknown
+        components?: Record<string, unknown>
+    }
+    if (!readVector3(record.position) || !isVector3Tuple(record.rotation) || !readVector3(record.scale)) {
+        throw new Error(`MMOOMM visual linkup lab entity ${String(record.name ?? '')} must persist transform tuples`)
+    }
+    const render =
+        record.components?.render && typeof record.components.render === 'object'
+            ? (record.components.render as Record<string, unknown>)
+            : null
+    const camera =
+        record.components?.camera && typeof record.components.camera === 'object'
+            ? (record.components.camera as Record<string, unknown>)
+            : null
+    const light =
+        record.components?.light && typeof record.components.light === 'object'
+            ? (record.components.light as Record<string, unknown>)
+            : null
+    if (!render && !camera && !light) {
+        throw new Error(`MMOOMM visual linkup lab entity ${String(record.name ?? '')} must persist render, camera, or light data`)
+    }
+    if (render) {
+        if (render.enabled === false || !['box', 'sphere'].includes(String(render.type))) {
+            throw new Error(`MMOOMM visual linkup lab entity ${String(record.name ?? '')} must use an enabled box/sphere render primitive`)
+        }
+        const metadata = (record as { metadata?: { mmoomm?: Record<string, unknown> } }).metadata?.mmoomm
+        const visualMaterial = metadata?.visualMaterial as Record<string, unknown> | undefined
+        if (String(record.name ?? '').startsWith('Linkup Lab ') && !visualMaterial) {
+            throw new Error(`MMOOMM visual linkup lab entity ${String(record.name ?? '')} must persist visual material evidence`)
+        }
+        if (visualMaterial) {
+            const role = visualMaterial.role
+            const opacity = Number(visualMaterial.opacity)
+            const materialAssetId = Number(visualMaterial.materialAssetId)
+            if (!['core', 'glow', 'variantMarker'].includes(String(role)) || !Number.isFinite(opacity) || opacity <= 0 || opacity > 1) {
+                throw new Error(
+                    `MMOOMM visual linkup lab entity ${String(record.name ?? '')} must persist bounded material opacity evidence`
+                )
+            }
+            if (!Number.isInteger(materialAssetId) || materialAssetId <= 0 || !visualMaterial.materialAssetName) {
+                throw new Error(`MMOOMM visual linkup lab entity ${String(record.name ?? '')} must persist material asset evidence`)
+            }
+            const materialAssets = Array.isArray(render.materialAssets) ? render.materialAssets : []
+            if (materialAssets.length !== 1 || Number(materialAssets[0]) !== materialAssetId) {
+                throw new Error(`MMOOMM visual linkup lab entity ${String(record.name ?? '')} must reference its material asset`)
+            }
+            if (role === 'glow') {
+                const emissive = visualMaterial.emissive
+                if (!isVector3Tuple(emissive) || visualMaterial.blendType !== 'additive') {
+                    throw new Error(
+                        `MMOOMM visual linkup lab glow entity ${String(record.name ?? '')} must persist additive emissive evidence`
+                    )
+                }
+            }
+        }
+    }
+}
+
+const assertVisualLinkupLabScene = (scene: NonNullable<PlayCanvasProjectSnapshot['scenes']>[number]): void => {
+    const entities = scene.payload?.entities ?? []
+    assertUniqueStrings(
+        entities.map((entity) => entity.id),
+        'visual lab scene entity ids'
+    )
+    assertUniqueStrings(entities.map((entity) => String(entity.name ?? '')).filter(Boolean), 'visual lab scene entity names')
+    const entityNames = new Set(entities.map((entity) => String(entity.name ?? '')).filter(Boolean))
+    if (!entityNames.has('MMOOMM Linkup Lab Camera') || !entityNames.has('MMOOMM Linkup Lab Key Light')) {
+        throw new Error('MMOOMM visual linkup lab scene must include its camera and key light')
+    }
+    const cameraEntity = entities.find((entity) => entity.name === 'MMOOMM Linkup Lab Camera')
+    const cameraComponent =
+        cameraEntity?.components?.camera && typeof cameraEntity.components.camera === 'object'
+            ? (cameraEntity.components.camera as Record<string, unknown>)
+            : null
+    if (!cameraComponent || cameraComponent.enabled === false) {
+        throw new Error('MMOOMM visual linkup lab camera must persist an enabled PlayCanvas camera component')
+    }
+    if (cameraEntity?.components?.render) {
+        throw new Error('MMOOMM visual linkup lab camera must not be persisted as a render placeholder')
+    }
+    const renderSettings = scene.payload?.settings?.render
+    if (
+        !renderSettings ||
+        renderSettings.fog !== 'exp2' ||
+        JSON.stringify(renderSettings.fog_color) !== JSON.stringify(MMOOMM_VISUAL_LINKUP_LAB_FOG_COLOR) ||
+        Number(renderSettings.fog_density) !== MMOOMM_VISUAL_LINKUP_LAB_FOG_DENSITY
+    ) {
+        throw new Error('MMOOMM visual linkup lab scene must persist readable PlayCanvas exp2 fog settings')
+    }
+    const materialAssets = (scene.payload?.assets ?? []).filter((asset) => asset.type === 'material')
+    const materialAssetIds = new Set(materialAssets.map((asset) => String(asset.id ?? '')).filter(Boolean))
+    if (materialAssets.length < MMOOMM_VISUAL_LINKUP_LAB_VARIANT_COUNT * (1 + MMOOMM_VISUAL_LINKUP_LAB_OBJECT_TYPES.length * 2)) {
+        throw new Error('MMOOMM visual linkup lab scene must persist material assets for every marker/core/glow render entity')
+    }
+    const referencedMaterialIds = entities.flatMap((entity) => {
+        const render =
+            entity.components?.render && typeof entity.components.render === 'object'
+                ? (entity.components.render as Record<string, unknown>)
+                : null
+        const materialRefs = Array.isArray(render?.materialAssets) ? render.materialAssets : []
+        return materialRefs.filter((value) => Number.isInteger(value) && Number(value) > 0).map(String)
+    })
+    if (referencedMaterialIds.length === 0 || referencedMaterialIds.some((id) => !materialAssetIds.has(id))) {
+        throw new Error('MMOOMM visual linkup lab scene render materialAssets must reference persisted material assets')
+    }
+    for (const asset of materialAssets) {
+        const record = asset as Record<string, unknown>
+        const metadata = record.metadata && typeof record.metadata === 'object' ? (record.metadata as Record<string, unknown>) : {}
+        const editorDocument =
+            metadata.editorDocument && typeof metadata.editorDocument === 'object'
+                ? (metadata.editorDocument as Record<string, unknown>)
+                : {}
+        const materialData = record.data && typeof record.data === 'object' ? (record.data as Record<string, unknown>) : null
+        const metadataData = metadata.data && typeof metadata.data === 'object' ? (metadata.data as Record<string, unknown>) : null
+        const editorDocumentData =
+            editorDocument.data && typeof editorDocument.data === 'object' ? (editorDocument.data as Record<string, unknown>) : null
+        if (!materialData || !metadataData || !editorDocumentData) {
+            throw new Error('MMOOMM visual linkup lab material assets must persist PlayCanvas material data for Editor asset loading')
+        }
+        for (const data of [materialData, metadataData, editorDocumentData]) {
+            if (typeof data.blendType !== 'number') {
+                throw new Error('MMOOMM visual linkup lab material assets must persist numeric PlayCanvas blendType data')
+            }
+        }
+    }
+    for (let index = 1; index <= MMOOMM_VISUAL_LINKUP_LAB_VARIANT_COUNT; index += 1) {
+        const prefix = `Linkup Lab ${String(index).padStart(2, '0')}`
+        const hasVariantMarker = Array.from(entityNames).some(
+            (name) => name.startsWith(`${prefix} `) && !name.endsWith(' Core') && !name.endsWith(' Glow')
+        )
+        if (!hasVariantMarker) {
+            throw new Error(`MMOOMM visual linkup lab scene is missing variant marker ${prefix}`)
+        }
+        for (const objectType of MMOOMM_VISUAL_LINKUP_LAB_OBJECT_TYPES) {
+            if (!entityNames.has(`${prefix} ${objectType} Core`) || !entityNames.has(`${prefix} ${objectType} Glow`)) {
+                throw new Error(`MMOOMM visual linkup lab scene is missing ${prefix} ${objectType} core/glow entities`)
+            }
+        }
+    }
+    for (const entity of entities.filter(
+        (item) =>
+            String(item.name ?? '').startsWith('Linkup Lab ') ||
+            item.name === 'MMOOMM Linkup Lab Camera' ||
+            item.name === 'MMOOMM Linkup Lab Key Light'
+    )) {
+        assertVisualLinkupLabEntity(entity)
+    }
+    const mmoomm = scene.payload?.metadata?.mmoomm as Record<string, unknown> | undefined
+    const visualLab = mmoomm?.[MMOOMM_VISUAL_LINKUP_LAB_METADATA_KEY] as Record<string, unknown> | undefined
+    if (!visualLab || visualLab.projectRole !== 'visual-linkup-lab' || visualLab.variantCount !== MMOOMM_VISUAL_LINKUP_LAB_VARIANT_COUNT) {
+        throw new Error('MMOOMM visual linkup lab scene must persist metadata.mmoomm.visualLab with 16 variants')
+    }
+    if (JSON.stringify(visualLab).includes('playcanvas-editor-iframe-mmoomm-panel')) {
+        throw new Error('MMOOMM visual linkup lab metadata must not depend on the removed Editor overlay panel')
+    }
+    const objectTypes = Array.isArray(visualLab.objectTypes) ? visualLab.objectTypes : []
+    for (const expected of MMOOMM_VISUAL_LINKUP_LAB_OBJECT_TYPES) {
+        if (!objectTypes.includes(expected)) {
+            throw new Error(`MMOOMM visual linkup lab metadata is missing object type ${expected}`)
+        }
+    }
+    const objects = Array.isArray(visualLab.objects) ? visualLab.objects : []
+    if (objects.length !== MMOOMM_VISUAL_LINKUP_LAB_VARIANT_COUNT * MMOOMM_VISUAL_LINKUP_LAB_OBJECT_TYPES.length) {
+        throw new Error('MMOOMM visual linkup lab metadata must describe every variant/object combination')
+    }
+    assertUniqueStrings(
+        objects.map((item) => (item as Record<string, unknown>).id),
+        'visual lab object ids'
+    )
+    assertUniqueStrings(
+        objects.map(
+            (item) => `${String((item as Record<string, unknown>).variant)}:${String((item as Record<string, unknown>).objectType)}`
+        ),
+        'visual lab variant/object pairs'
+    )
+    const lowPolyObjects = objects.filter((item) => {
+        const object = item as Record<string, unknown>
+        return Number.isFinite(object.lowPolyBands) && Number(object.lowPolyBands) >= 3
+    })
+    if (lowPolyObjects.length === 0) {
+        throw new Error('MMOOMM visual linkup lab metadata must include low-poly geometry evidence')
+    }
+    for (const item of objects) {
+        const object = item as Record<string, unknown>
+        const material = object.material as { core?: Record<string, unknown>; glow?: Record<string, unknown> } | undefined
+        if (!material?.core || !material.glow) {
+            throw new Error('MMOOMM visual linkup lab metadata must include core/glow material evidence for every object')
+        }
+        if (material.core.blendType !== 'normal' || material.glow.blendType !== 'additive') {
+            throw new Error('MMOOMM visual linkup lab metadata must distinguish normal cores from additive glow shells')
+        }
+        if (!isVector3Tuple(material.glow.emissive)) {
+            throw new Error('MMOOMM visual linkup lab metadata must include glow emissive color evidence')
+        }
+    }
+    const fog = visualLab.sceneFog as Record<string, unknown> | undefined
+    if (
+        !fog ||
+        fog.type !== 'exp2' ||
+        JSON.stringify(fog.color) !== JSON.stringify(MMOOMM_VISUAL_LINKUP_LAB_FOG_COLOR) ||
+        Number(fog.density) !== MMOOMM_VISUAL_LINKUP_LAB_FOG_DENSITY
+    ) {
+        throw new Error('MMOOMM visual linkup lab metadata must include readable exp2 fog evidence')
+    }
+}
+
 const hasWidget = (value: unknown, widgetKey: string): boolean => {
     if (Array.isArray(value)) {
         return value.some((item) => hasWidget(item, widgetKey))
@@ -263,19 +573,32 @@ const assertPlayCanvasProjectSnapshot = (snapshot: NonNullable<SnapshotEnvelope[
     if (!playcanvasProjects) {
         throw new Error('MMOOMM app fixture must include PlayCanvas project authoring snapshot data')
     }
-    if (!Array.isArray(playcanvasProjects.projects) || playcanvasProjects.projects.length < 1) {
-        throw new Error('MMOOMM app fixture must include at least one PlayCanvas project')
+    if (!Array.isArray(playcanvasProjects.projects) || playcanvasProjects.projects.length !== 2) {
+        throw new Error('MMOOMM app fixture must include exactly two PlayCanvas projects: authoring and visual linkup lab')
     }
+    assertUniqueStrings(
+        playcanvasProjects.projects.map((project) => project.id),
+        'PlayCanvas project ids'
+    )
+    assertUniqueStrings(
+        playcanvasProjects.projects.map((project) => readCodenameText(project.codename)),
+        'PlayCanvas project codenames'
+    )
     if (!Array.isArray(playcanvasProjects.scenes) || playcanvasProjects.scenes.length < 1) {
         throw new Error('MMOOMM app fixture must include at least one PlayCanvas scene')
     }
+    assertUniqueStrings(
+        playcanvasProjects.scenes.map((scene) => scene.id),
+        'PlayCanvas scene ids'
+    )
     assertNoEmptyDefaultPlayCanvasEntities(playcanvasProjects)
-    const authoredScene = playcanvasProjects.scenes.find((scene) => {
-        const metadata = scene.payload?.metadata
-        const mmoomm = metadata && typeof metadata === 'object' ? (metadata.mmoomm as Record<string, unknown> | undefined) : undefined
-        const mmoommScene = mmoomm && typeof mmoomm === 'object' ? (mmoomm.scene as Record<string, unknown> | undefined) : undefined
-        return Boolean(mmoommScene?.controlledObjectId && mmoommScene?.targetObjectId)
-    })
+    const authoringProject = requirePlayCanvasProjectByName(playcanvasProjects, MMOOMM_AUTHORING_PROJECT_NAME)
+    const visualLabProject = requirePlayCanvasProjectByName(playcanvasProjects, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME)
+    if (authoringProject.id === visualLabProject.id || authoringProject.defaultSceneId === visualLabProject.defaultSceneId) {
+        throw new Error('MMOOMM app fixture PlayCanvas authoring and visual lab projects must not share project or scene ids')
+    }
+    const authoredScene = requirePlayCanvasSceneForProject(playcanvasProjects, authoringProject, MMOOMM_AUTHORING_PROJECT_NAME)
+    const visualLabScene = requirePlayCanvasSceneForProject(playcanvasProjects, visualLabProject, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME)
     if (!authoredScene) {
         throw new Error('MMOOMM app fixture must contain a scene saved through the browser PlayCanvas Editor authoring flow')
     }
@@ -286,6 +609,11 @@ const assertPlayCanvasProjectSnapshot = (snapshot: NonNullable<SnapshotEnvelope[
         throw new Error('MMOOMM app fixture must not depend on the removed PlayCanvas Editor MMOOMM overlay panel')
     }
     const authoredEntities = authoredScene.payload.entities ?? []
+    assertUniqueStrings(
+        authoredEntities.map((entity) => entity.id),
+        'authoring scene entity ids'
+    )
+    assertUniqueStrings(authoredEntities.map((entity) => String(entity.name ?? '')).filter(Boolean), 'authoring scene entity names')
     const shipEntity = authoredEntities.find((entity) => entity.name === 'MMOOMM Ship')
     const stationEntity = authoredEntities.find((entity) => entity.name === 'MMOOMM Station')
     const keyLightEntity = authoredEntities.find((entity) => entity.name === 'MMOOMM Key Light')
@@ -313,6 +641,7 @@ const assertPlayCanvasProjectSnapshot = (snapshot: NonNullable<SnapshotEnvelope[
     }
     assertMmoommSceneObjectMatchesEntity(mmoommScene, shipEntity, 'ship')
     assertMmoommSceneObjectMatchesEntity(mmoommScene, stationEntity, 'station')
+    assertVisualLinkupLabScene(visualLabScene)
     if (!Array.isArray(playcanvasProjects.runtimeManifests) || playcanvasProjects.runtimeManifests.length < 1) {
         throw new Error('MMOOMM app fixture must include generated PlayCanvas runtime manifests')
     }
@@ -323,6 +652,20 @@ const assertPlayCanvasProjectSnapshot = (snapshot: NonNullable<SnapshotEnvelope[
             throw new Error('MMOOMM app fixture cannot have empty generated artifacts without published runtime manifests')
         }
     }
+    const authoringManifest = playcanvasProjects.runtimeManifests.find((manifest) => manifest.projectId === authoringProject.id)
+    const visualLabManifest = playcanvasProjects.runtimeManifests.find((manifest) => manifest.projectId === visualLabProject.id)
+    if (!authoringManifest?.metadata?.mmoomm?.scene) {
+        throw new Error('MMOOMM app fixture authoring runtime manifest must carry MMOOMM flight scene metadata')
+    }
+    if (authoringManifest.metadata.mmoomm[MMOOMM_VISUAL_LINKUP_LAB_METADATA_KEY]) {
+        throw new Error('MMOOMM app fixture authoring runtime manifest must not carry visual lab metadata')
+    }
+    if (!visualLabManifest?.metadata?.mmoomm?.[MMOOMM_VISUAL_LINKUP_LAB_METADATA_KEY]) {
+        throw new Error('MMOOMM app fixture visual lab runtime manifest must carry MMOOMM visualLab metadata')
+    }
+    if (visualLabManifest.metadata.mmoomm.scene) {
+        throw new Error('MMOOMM app fixture visual lab runtime manifest must not carry playable flight scene metadata')
+    }
     for (const manifest of playcanvasProjects.runtimeManifests) {
         if (typeof manifest.checksum !== 'string' || !/^[a-f0-9]{64}$/i.test(manifest.checksum)) {
             throw new Error('MMOOMM app fixture runtime manifests must include stable checksums')
@@ -331,6 +674,12 @@ const assertPlayCanvasProjectSnapshot = (snapshot: NonNullable<SnapshotEnvelope[
             throw new Error('MMOOMM app fixture runtime manifests must carry MMOOMM metadata')
         }
     }
+    assertUniqueStrings(
+        playcanvasProjects.runtimeManifests.map(
+            (manifest) => `${String(manifest.projectId)}:${String(manifest.sceneId)}:${String(manifest.checksum)}`
+        ),
+        'runtime manifest project/scene/checksum keys'
+    )
     return playcanvasProjects
 }
 
@@ -342,40 +691,80 @@ const assertRuntimeManifestWidgetBinding = (
         ...readWidgetConfigsByKey(snapshot.layouts, 'playcanvasCanvas'),
         ...readWidgetConfigsByKey(snapshot.layoutZoneWidgets, 'playcanvasCanvas')
     ]
-    const config = widgetConfigs.find((candidate) => candidate.runtimeManifest && typeof candidate.runtimeManifest === 'object')
-    if (!config) {
-        throw new Error('MMOOMM app fixture must bind playcanvasCanvas to a published runtimeManifest')
-    }
-    const binding = config.runtimeManifest as {
-        source?: unknown
-        projectId?: unknown
-        sceneId?: unknown
-        checksum?: unknown
-        failClosed?: unknown
-    }
-    if (binding.source !== 'publishedManifest') {
-        throw new Error('MMOOMM app fixture playcanvasCanvas runtimeManifest binding must use the publishedManifest source')
-    }
-    const matchingManifest = playcanvasProjects.runtimeManifests?.find(
-        (manifest) =>
-            manifest.projectId === binding.projectId && manifest.sceneId === binding.sceneId && manifest.checksum === binding.checksum
+    const authoringProject = requirePlayCanvasProjectByName(playcanvasProjects, MMOOMM_AUTHORING_PROJECT_NAME)
+    const visualLabProject = requirePlayCanvasProjectByName(playcanvasProjects, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME)
+    const configsWithRuntimeManifest = widgetConfigs.filter(
+        (candidate) => candidate.runtimeManifest && typeof candidate.runtimeManifest === 'object'
     )
-    if (!matchingManifest) {
-        throw new Error('MMOOMM app fixture playcanvasCanvas runtimeManifest binding must match exported manifest data')
+    if (configsWithRuntimeManifest.length !== 2) {
+        throw new Error('MMOOMM app fixture must bind exactly two playcanvasCanvas widgets: flight and visual lab')
     }
-    if (binding.failClosed !== true) {
-        throw new Error('MMOOMM app fixture playcanvasCanvas runtimeManifest binding must fail closed')
+
+    const assertWidgetBinding = (input: {
+        projectId: unknown
+        titleEn: string
+        titleRu: string
+        sectionCodename: string
+        roleLabel: string
+    }): void => {
+        const config = configsWithRuntimeManifest.find((candidate) => {
+            const binding = candidate.runtimeManifest as { projectId?: unknown } | undefined
+            return binding?.projectId === input.projectId
+        })
+        if (!config) {
+            throw new Error(`MMOOMM app fixture must include a playcanvasCanvas widget for ${input.roleLabel}`)
+        }
+        const binding = config.runtimeManifest as {
+            source?: unknown
+            projectId?: unknown
+            sceneId?: unknown
+            checksum?: unknown
+            failClosed?: unknown
+        }
+        if (binding.source !== 'publishedManifest') {
+            throw new Error(`MMOOMM app fixture ${input.roleLabel} widget runtimeManifest binding must use publishedManifest source`)
+        }
+        const matchingManifest = playcanvasProjects.runtimeManifests?.find(
+            (manifest) =>
+                manifest.projectId === binding.projectId && manifest.sceneId === binding.sceneId && manifest.checksum === binding.checksum
+        )
+        if (!matchingManifest) {
+            throw new Error(`MMOOMM app fixture ${input.roleLabel} widget runtimeManifest binding must match exported manifest data`)
+        }
+        if (binding.failClosed !== true) {
+            throw new Error(`MMOOMM app fixture ${input.roleLabel} widget runtimeManifest binding must fail closed`)
+        }
+        if (config.heightMode !== 'fitViewport' || typeof config.minHeight !== 'number' || config.minHeight < 560) {
+            throw new Error(
+                `MMOOMM app fixture ${input.roleLabel} PlayCanvas widget must use fitViewport height with a playable minimum height`
+            )
+        }
+        if (readLocalizedText(config.title, 'en') !== input.titleEn || readLocalizedText(config.title, 'ru') !== input.titleRu) {
+            throw new Error(`MMOOMM app fixture ${input.roleLabel} PlayCanvas widget title must be localized in EN/RU`)
+        }
+        const visibleFor = config.visibleFor as { sectionCodenames?: unknown } | undefined
+        if (!Array.isArray(visibleFor?.sectionCodenames) || visibleFor.sectionCodenames.length !== 1) {
+            throw new Error(`MMOOMM app fixture ${input.roleLabel} PlayCanvas widget must be visible for exactly one section`)
+        }
+        if (!visibleFor.sectionCodenames.includes(input.sectionCodename)) {
+            throw new Error(`MMOOMM app fixture ${input.roleLabel} PlayCanvas widget must be visible only for ${input.sectionCodename}`)
+        }
     }
-    if (config.heightMode !== 'fitViewport' || typeof config.minHeight !== 'number' || config.minHeight < 560) {
-        throw new Error('MMOOMM app fixture PlayCanvas widget must use fitViewport height with a playable minimum height')
-    }
-    if (readLocalizedText(config.title, 'en') !== 'Universo MMOOMM' || readLocalizedText(config.title, 'ru') !== 'Universo MMOOMM') {
-        throw new Error('MMOOMM app fixture PlayCanvas widget title must be localized in EN/RU')
-    }
-    const visibleFor = config.visibleFor as { sectionCodenames?: unknown } | undefined
-    if (!Array.isArray(visibleFor?.sectionCodenames) || !visibleFor.sectionCodenames.includes('FlightWorld')) {
-        throw new Error('MMOOMM app fixture PlayCanvas widget must be visible only for the Space section')
-    }
+
+    assertWidgetBinding({
+        projectId: authoringProject.id,
+        titleEn: 'Universo MMOOMM',
+        titleRu: 'Universo MMOOMM',
+        sectionCodename: MMOOMM_SPACE_SECTION_CODENAME,
+        roleLabel: 'flight'
+    })
+    assertWidgetBinding({
+        projectId: visualLabProject.id,
+        titleEn: 'Visual Linkup Lab',
+        titleRu: 'Визуальная лаборатория',
+        sectionCodename: MMOOMM_VISUAL_LINKUP_LAB_SECTION_CODENAME,
+        roleLabel: 'visual lab'
+    })
 }
 
 const assertMenuWidgetLocalization = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {
@@ -393,7 +782,8 @@ const assertMenuWidgetLocalization = (snapshot: NonNullable<SnapshotEnvelope['sn
     const items = Array.isArray(config.items) ? (config.items as Array<{ title?: unknown }>) : []
     const requiredItems = [
         { en: 'Welcome', ru: 'Добро пожаловать' },
-        { en: 'Space', ru: 'Космос' }
+        { en: 'Space', ru: 'Космос' },
+        { en: 'Visual Linkup Lab', ru: 'Визуальная лаборатория' }
     ]
     for (const expected of requiredItems) {
         const matched = items.find((item) => readLocalizedText(item.title, 'en') === expected.en)
@@ -450,24 +840,35 @@ const assertDomainModel = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>):
         'DecelerationMetersPerSecond2',
         'ArrivalRadiusMeters'
     ])
-    // The new metahub template includes a "Projects" entity-type preset; the
-    // MMOOMM generator must author exactly one project instance (MMOOMM
-    // Authoring) bound to the editor's PlayCanvas project.
     const allEntities = Object.values(snapshot.entities ?? {}) as Array<{
         id?: string
         kind?: string
+        name?: unknown
+        codename?: unknown
         config?: Record<string, unknown> | null
     }>
     const projectInstances = allEntities.filter((instance) => instance.kind === 'project')
-    if (projectInstances.length === 0) {
-        throw new Error('MMOOMM fixture contract: no project entity instances were captured')
+    if (projectInstances.length !== 2) {
+        throw new Error('MMOOMM fixture contract: expected exactly two Projects instances for authoring and visual lab')
     }
-    const authoring = projectInstances.find((instance) => {
-        const config = instance?.config as { projectBinding?: { projectCodename?: string } } | null
-        return Boolean(config?.projectBinding?.projectCodename)
-    })
-    if (!authoring?.id) {
-        throw new Error('MMOOMM fixture contract: expected at least one project instance with a projectBinding.projectCodename')
+    assertUniqueStrings(
+        projectInstances.map((instance) => instance.id),
+        'Projects instance ids'
+    )
+    assertUniqueStrings(
+        projectInstances.map((instance) => readCodenameText(instance.codename)),
+        'Projects instance codenames'
+    )
+    for (const expectedName of [MMOOMM_AUTHORING_PROJECT_NAME, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME]) {
+        const instance = projectInstances.find(
+            (candidate) =>
+                readLocalizedText(candidate.name, 'en') === expectedName ||
+                readCodenameText(candidate.codename) === expectedName.replace(/\s+/g, '')
+        )
+        const binding = instance?.config?.projectBinding as { projectId?: unknown; projectCodename?: unknown } | undefined
+        if (!instance?.id || typeof binding?.projectId !== 'string' || typeof binding.projectCodename !== 'string') {
+            throw new Error(`MMOOMM fixture contract: project instance ${expectedName} must be bound to a PlayCanvas project`)
+        }
     }
 }
 
