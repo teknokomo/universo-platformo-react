@@ -26,8 +26,8 @@ import {
     copyTabularRow,
     type TabularRowsResponse
 } from '../api/api'
-import { buildTabularColumns } from '../utils/tabularColumns'
-import { normalizeTabularCellValue, normalizeTabularRowValues } from '../utils/tabularCellValues'
+import { buildTabularColumns, isHiddenTabularField } from '../utils/tabularColumns'
+import { buildInitialTabularRowValues, normalizeTabularCellValue, normalizeTabularRowValues } from '../utils/tabularCellValues'
 import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 
 export interface RuntimeInlineTabularEditorProps {
@@ -37,6 +37,8 @@ export interface RuntimeInlineTabularEditorProps {
     applicationId: string
     /** Object UUID that owns the parent record. */
     objectCollectionId: string
+    /** Current workspace scope for TABLE child rows. */
+    currentWorkspaceId?: string | null
     /** Parent record UUID. */
     parentRecordId: string
     /** TABLE component UUID. */
@@ -76,6 +78,7 @@ export function RuntimeInlineTabularEditor({
     apiBaseUrl,
     applicationId,
     objectCollectionId,
+    currentWorkspaceId = null,
     parentRecordId,
     componentId,
     childFields,
@@ -126,8 +129,8 @@ export function RuntimeInlineTabularEditor({
     )
 
     const queryKey = useMemo(
-        () => ['tabularRows', applicationId, parentRecordId, componentId],
-        [applicationId, parentRecordId, componentId]
+        () => ['tabularRows', applicationId, parentRecordId, componentId, currentWorkspaceId],
+        [applicationId, parentRecordId, componentId, currentWorkspaceId]
     )
 
     // Fetch rows via React Query
@@ -137,7 +140,15 @@ export function RuntimeInlineTabularEditor({
         error: fetchError
     } = useQuery({
         queryKey,
-        queryFn: () => fetchTabularRows({ apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId }),
+        queryFn: () =>
+            fetchTabularRows({
+                apiBaseUrl,
+                applicationId,
+                parentRecordId,
+                componentId,
+                objectCollectionId,
+                workspaceId: currentWorkspaceId
+            }),
         staleTime: 0,
         refetchOnMount: 'always'
     })
@@ -156,7 +167,7 @@ export function RuntimeInlineTabularEditor({
     const [menuRowId, setMenuRowId] = useState<string | null>(null)
 
     const firstEditableFieldId = useMemo(
-        () => childFields.find((field) => field.type === 'STRING' || field.type === 'NUMBER')?.id ?? null,
+        () => childFields.find((field) => !isHiddenTabularField(field) && (field.type === 'STRING' || field.type === 'NUMBER'))?.id ?? null,
         [childFields]
     )
 
@@ -242,10 +253,8 @@ export function RuntimeInlineTabularEditor({
             const maxSortOrder = draftRows.reduce((max, row) => Math.max(max, Number(row._tp_sort_order ?? 0)), -1)
             const newRow: Record<string, unknown> = {
                 id: rowId,
+                ...buildInitialTabularRowValues(childFields),
                 _tp_sort_order: maxSortOrder + 1
-            }
-            for (const field of childFields) {
-                newRow[field.id] = field.type === 'BOOLEAN' ? false : null
             }
             const nextRows = [...draftRows, newRow]
             setDraftRows(nextRows)
@@ -260,12 +269,17 @@ export function RuntimeInlineTabularEditor({
         try {
             setMutationError(null)
             const maxSortOrder = rows.reduce((max, row) => Math.max(max, Number(row._tp_sort_order ?? 0)), -1)
-            const data: Record<string, unknown> = {}
-            for (const field of childFields) {
-                data[field.id] = field.type === 'BOOLEAN' ? false : null
-            }
+            const data: Record<string, unknown> = buildInitialTabularRowValues(childFields)
             data._tp_sort_order = maxSortOrder + 1
-            await createTabularRow({ apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, data })
+            await createTabularRow({
+                apiBaseUrl,
+                applicationId,
+                parentRecordId,
+                componentId,
+                objectCollectionId,
+                workspaceId: currentWorkspaceId,
+                data
+            })
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
             const message = getTabularErrorMessage(err, 'tabular.errorCreate', 'Failed to create row')
@@ -285,6 +299,7 @@ export function RuntimeInlineTabularEditor({
         parentRecordId,
         componentId,
         objectCollectionId,
+        currentWorkspaceId,
         queryClient,
         queryKey,
         onError,
@@ -321,6 +336,7 @@ export function RuntimeInlineTabularEditor({
                 parentRecordId,
                 componentId,
                 objectCollectionId,
+                workspaceId: currentWorkspaceId,
                 childRowId: deleteRowId
             })
             setDeleteRowId(null)
@@ -342,6 +358,7 @@ export function RuntimeInlineTabularEditor({
         parentRecordId,
         componentId,
         objectCollectionId,
+        currentWorkspaceId,
         queryClient,
         queryKey,
         onError,
@@ -410,6 +427,7 @@ export function RuntimeInlineTabularEditor({
                 parentRecordId,
                 componentId,
                 objectCollectionId,
+                workspaceId: currentWorkspaceId,
                 childRowId: menuRowId
             })
             await queryClient.invalidateQueries({ queryKey })
@@ -431,6 +449,7 @@ export function RuntimeInlineTabularEditor({
         parentRecordId,
         componentId,
         objectCollectionId,
+        currentWorkspaceId,
         queryClient,
         queryKey,
         onError,
@@ -512,6 +531,7 @@ export function RuntimeInlineTabularEditor({
                 parentRecordId,
                 componentId,
                 objectCollectionId,
+                workspaceId: currentWorkspaceId,
                 childRowId: rowId,
                 data
             })
@@ -529,6 +549,7 @@ export function RuntimeInlineTabularEditor({
             parentRecordId,
             componentId,
             objectCollectionId,
+            currentWorkspaceId,
             queryClient,
             queryKey,
             getNumberValidationMessage
@@ -573,6 +594,7 @@ export function RuntimeInlineTabularEditor({
                     parentRecordId,
                     componentId,
                     objectCollectionId,
+                    workspaceId: currentWorkspaceId,
                     childRowId: rowId,
                     data: { [fieldId]: newValue }
                 })
@@ -594,6 +616,7 @@ export function RuntimeInlineTabularEditor({
             parentRecordId,
             componentId,
             objectCollectionId,
+            currentWorkspaceId,
             queryClient,
             queryKey,
             onError,

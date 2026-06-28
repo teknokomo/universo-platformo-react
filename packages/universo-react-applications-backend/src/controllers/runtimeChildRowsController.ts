@@ -40,12 +40,105 @@ const tabularUpdateBodySchema = z
     })
     .passthrough()
 
+const tabularBatchUpdateBodySchema = z.object({
+    updates: z
+        .array(
+            z.object({
+                childRowId: z.string().trim().uuid(),
+                data: z.record(z.unknown()),
+                expectedVersion: z.number().int().positive().optional()
+            })
+        )
+        .min(1)
+        .max(25)
+})
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
 
 export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
+
+    const buildChildRowUpdate = async (
+        manager: DbExecutor,
+        schemaIdent: string,
+        tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
+        data: Record<string, unknown>,
+        userId: string
+    ): Promise<{ setClauses: string[]; values: unknown[]; nextParamIndex: number } | { error: Record<string, unknown> }> => {
+        const setClauses: string[] = []
+        const values: unknown[] = []
+        let pIdx = 1
+
+        for (const cAttr of tc.childAttrs) {
+            if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
+            const childFieldPath = formatRuntimeFieldPath(tc.tableAttr.codename, cAttr.codename)
+            const { value: raw } = getRuntimeInputValue(data, cAttr.column_name, cAttr.codename)
+            if (raw === undefined) continue
+            let normalizedRaw = raw
+            if (
+                cAttr.data_type === 'REF' &&
+                cAttr.target_object_kind === 'enumeration' &&
+                getEnumPresentationMode(cAttr.ui_config) === 'label'
+            ) {
+                return { error: { error: `Field is read-only: ${childFieldPath}` } }
+            }
+            const setConstantConfig =
+                cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
+            if (setConstantConfig) {
+                const providedRefId = resolveRefId(raw)
+                if (!providedRefId) {
+                    normalizedRaw = setConstantConfig.id
+                } else if (providedRefId !== setConstantConfig.id) {
+                    return { error: { error: `Field is read-only: ${childFieldPath}` } }
+                } else {
+                    normalizedRaw = setConstantConfig.id
+                }
+            }
+            if (normalizedRaw === null && cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
+                return { error: { error: `Required field cannot be set to null: ${childFieldPath}` } }
+            }
+            try {
+                const coerced = coerceRuntimeValue(normalizedRaw, cAttr.data_type, cAttr.validation_rules)
+                if (
+                    cAttr.data_type === 'REF' &&
+                    cAttr.target_object_kind === 'enumeration' &&
+                    typeof cAttr.target_object_id === 'string' &&
+                    coerced
+                ) {
+                    await ensureEnumerationValueBelongsToTarget(manager, schemaIdent, String(coerced), cAttr.target_object_id)
+                }
+                setClauses.push(`${quoteIdentifier(cAttr.column_name)} = $${pIdx}`)
+                values.push(coerced)
+                pIdx++
+            } catch (err) {
+                return {
+                    error: {
+                        error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
+                    }
+                }
+            }
+        }
+
+        if (typeof data._tp_sort_order === 'number') {
+            setClauses.push(`_tp_sort_order = $${pIdx}`)
+            values.push(data._tp_sort_order)
+            pIdx++
+        }
+
+        if (setClauses.length === 0) {
+            return { error: { error: 'No valid fields to update' } }
+        }
+
+        setClauses.push('_upl_updated_at = NOW()')
+        setClauses.push(`_upl_updated_by = $${pIdx}`)
+        values.push(userId)
+        pIdx++
+        setClauses.push('_upl_version = COALESCE(_upl_version, 1) + 1')
+
+        return { setClauses, values, nextParamIndex: pIdx }
+    }
 
     // ============ LIST CHILD ROWS ============
     const listChildRows = async (req: Request, res: Response) => {
@@ -349,74 +442,11 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             const { expectedVersion: _ignoredExpectedVersion, ...raw } = bodyData
             return raw
         })() as Record<string, unknown>
-        const setClauses: string[] = []
-        const values: unknown[] = []
-        let pIdx = 1
-
-        for (const cAttr of tc.childAttrs) {
-            if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
-            const childFieldPath = formatRuntimeFieldPath(tc.tableAttr.codename, cAttr.codename)
-            const { value: raw } = getRuntimeInputValue(data, cAttr.column_name, cAttr.codename)
-            if (raw === undefined) continue
-            let normalizedRaw = raw
-            if (
-                cAttr.data_type === 'REF' &&
-                cAttr.target_object_kind === 'enumeration' &&
-                getEnumPresentationMode(cAttr.ui_config) === 'label'
-            ) {
-                return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
-            }
-            const setConstantConfig =
-                cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
-            if (setConstantConfig) {
-                const providedRefId = resolveRefId(raw)
-                if (!providedRefId) {
-                    normalizedRaw = setConstantConfig.id
-                } else if (providedRefId !== setConstantConfig.id) {
-                    return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
-                } else {
-                    normalizedRaw = setConstantConfig.id
-                }
-            }
-            if (normalizedRaw === null && cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
-                return res.status(400).json({ error: `Required field cannot be set to null: ${childFieldPath}` })
-            }
-            try {
-                const coerced = coerceRuntimeValue(normalizedRaw, cAttr.data_type, cAttr.validation_rules)
-                if (
-                    cAttr.data_type === 'REF' &&
-                    cAttr.target_object_kind === 'enumeration' &&
-                    typeof cAttr.target_object_id === 'string' &&
-                    coerced
-                ) {
-                    await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), cAttr.target_object_id)
-                }
-                setClauses.push(`${quoteIdentifier(cAttr.column_name)} = $${pIdx}`)
-                values.push(coerced)
-                pIdx++
-            } catch (err) {
-                return res.status(400).json({
-                    error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
-                })
-            }
+        const update = await buildChildRowUpdate(ctx.manager, ctx.schemaIdent, tc, data, ctx.userId)
+        if ('error' in update) {
+            return res.status(400).json(update.error)
         }
-
-        // Handle _tp_sort_order update
-        if (typeof data._tp_sort_order === 'number') {
-            setClauses.push(`_tp_sort_order = $${pIdx}`)
-            values.push(data._tp_sort_order)
-            pIdx++
-        }
-
-        if (setClauses.length === 0) {
-            return res.status(400).json({ error: 'No valid fields to update' })
-        }
-
-        setClauses.push('_upl_updated_at = NOW()')
-        setClauses.push(`_upl_updated_by = $${pIdx}`)
-        values.push(ctx.userId)
-        pIdx++
-        setClauses.push('_upl_version = COALESCE(_upl_version, 1) + 1')
+        const { setClauses, values, nextParamIndex: pIdx } = update
 
         values.push(childRowId)
         values.push(recordId)
@@ -493,6 +523,141 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         }
 
         return res.json({ status: 'ok' })
+    }
+
+    // ============ BATCH UPDATE CHILD ROWS ============
+    const batchUpdateChildRows = async (req: Request, res: Response) => {
+        const { applicationId, recordId, componentId } = req.params
+        if (!UUID_REGEX.test(recordId)) {
+            return res.status(400).json({ error: 'Invalid record ID format' })
+        }
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
+            return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
+
+        const parsedBody = tabularBatchUpdateBodySchema.safeParse(req.body ?? {})
+        if (!parsedBody.success) {
+            return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+        }
+
+        const seenChildRowIds = new Set<string>()
+        for (const update of parsedBody.data.updates) {
+            if (seenChildRowIds.has(update.childRowId)) {
+                return res.status(400).json({ error: 'Duplicate childRowId in batch update' })
+            }
+            seenChildRowIds.add(update.childRowId)
+        }
+
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+        if (!ensureRuntimePermission(res, ctx, 'editContent')) return
+
+        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
+        if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const runtimeRowCondition = buildRuntimeActiveRowCondition(
+            tc.lifecycleContract,
+            tc.object.config,
+            undefined,
+            ctx.currentWorkspaceId
+        )
+
+        try {
+            const updatedIds = await ctx.manager.transaction(async (tx) => {
+                const parentRows = (await tx.query(
+                    `
+            SELECT *
+            FROM ${tc.parentTableIdent}
+            WHERE id = $1
+              AND ${runtimeRowCondition}
+            FOR UPDATE
+          `,
+                    [recordId]
+                )) as Array<{ id: string; _upl_locked?: boolean }>
+
+                if (parentRows.length === 0) {
+                    throw new UpdateFailure(404, { error: 'Parent record not found' })
+                }
+                if (parentRows[0]._upl_locked) {
+                    throw new UpdateFailure(423, { error: 'Parent record is locked' })
+                }
+                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
+
+                const requestedChildRowIds = parsedBody.data.updates.map((update) => update.childRowId)
+                const childRows = (await tx.query(
+                    `
+            SELECT id, _upl_version
+            FROM ${tc.tabTableIdent}
+            WHERE id = ANY($1)
+              AND _tp_parent_id = $2
+              AND ${runtimeRowCondition}
+            FOR UPDATE
+          `,
+                    [requestedChildRowIds, recordId]
+                )) as Array<{ id: string; _upl_version?: number }>
+
+                const childRowsById = new Map(childRows.map((row) => [row.id, row]))
+                for (const childRowId of requestedChildRowIds) {
+                    if (!childRowsById.has(childRowId)) {
+                        throw new UpdateFailure(404, { error: 'Child row not found', childRowId })
+                    }
+                }
+
+                const updated: string[] = []
+                for (const updateInput of parsedBody.data.updates) {
+                    const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, updateInput.data, ctx.userId)
+                    if ('error' in update) {
+                        throw new UpdateFailure(400, update.error)
+                    }
+                    const { setClauses, values, nextParamIndex: pIdx } = update
+                    values.push(updateInput.childRowId)
+                    values.push(recordId)
+                    const childIdParam = pIdx
+                    const parentIdParam = pIdx + 1
+
+                    let expectedVersionClause = ''
+                    if (updateInput.expectedVersion !== undefined) {
+                        const actualVersion = Number(childRowsById.get(updateInput.childRowId)?._upl_version ?? 1)
+                        if (actualVersion !== updateInput.expectedVersion) {
+                            throw new UpdateFailure(409, {
+                                error: 'Version mismatch',
+                                childRowId: updateInput.childRowId,
+                                expectedVersion: updateInput.expectedVersion,
+                                actualVersion
+                            })
+                        }
+                        values.push(updateInput.expectedVersion)
+                        expectedVersionClause = `AND COALESCE(_upl_version, 1) = $${parentIdParam + 1}`
+                    }
+
+                    const rows = (await tx.query(
+                        `
+              UPDATE ${tc.tabTableIdent}
+              SET ${setClauses.join(', ')}
+              WHERE id = $${childIdParam}
+                AND _tp_parent_id = $${parentIdParam}
+                AND ${runtimeRowCondition}
+                ${expectedVersionClause}
+              RETURNING id
+            `,
+                        values
+                    )) as Array<{ id: string }>
+
+                    if (rows.length === 0) {
+                        throw new UpdateFailure(404, { error: 'Child row not found', childRowId: updateInput.childRowId })
+                    }
+                    updated.push(rows[0].id)
+                }
+
+                return updated
+            })
+
+            return res.json({ status: 'ok', updated: updatedIds })
+        } catch (e) {
+            if (e instanceof UpdateFailure) {
+                return res.status(e.statusCode).json(e.body)
+            }
+            throw e
+        }
     }
 
     // ============ COPY CHILD ROW ============
@@ -771,6 +936,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         listChildRows,
         createChildRow,
         updateChildRow,
+        batchUpdateChildRows,
         copyChildRow,
         deleteChildRow
     }

@@ -63,6 +63,7 @@
 -   [Backend Architecture](architecture/backend.md)
 -   [Frontend Architecture](architecture/frontend.md)
 -   [Entity Systems Architecture](architecture/entity-systems.md)
+-   [Interpretation Network Data Model](architecture/interpretation-network-data-model.md)
 -   [Entity Component System](architecture/entity-component-system.md)
 -   [Ledgers](architecture/ledgers.md)
 -   [LMS Entities](architecture/lms-entities.md)
@@ -111,3 +112,4 @@
 -   [Snapshot Export & Import](guides/snapshot-export-import.md)
 -   [Application Template View Settings](guides/app-template-views.md)
 -   [MMOOMM Flight Simulator](guides/mmoomm-flight-simulator.md)
+-   [Interpretation Network](guides/interpretation-network.md)

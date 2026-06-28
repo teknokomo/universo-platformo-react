@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+    batchUpdateTabularRows,
     copyAppRow,
+    createAppRow,
+    deleteAppRow,
     fetchAppData,
+    fetchTabularRows,
     fetchRuntimeRecordsUnion,
     recalculateLearningContentProgress,
     reorderAppRows,
@@ -391,7 +395,7 @@ describe('runtime row API helpers', () => {
                 })
             }
 
-            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/rows/row-1')
+            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/rows/row-1?workspaceId=workspace-1')
             return new Response(JSON.stringify({ id: 'row-1', title: 'Updated' }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }
@@ -404,16 +408,51 @@ describe('runtime row API helpers', () => {
             applicationId: 'app-1',
             rowId: 'row-1',
             objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1',
             data: { title: 'Updated' },
             expectedVersion: 4
         })
 
         const updateRequest = fetchMock.mock.calls[1]?.[1] as RequestInit
+        expect(fetchMock.mock.calls[1]?.[0]).toBe(
+            'http://localhost:3000/api/v1/applications/app-1/runtime/rows/row-1?workspaceId=workspace-1'
+        )
         expect(updateRequest.method).toBe('PATCH')
         expect(updateRequest.body).toBe(
             JSON.stringify({ data: { title: 'Updated' }, objectCollectionId: 'collection-1', expectedVersion: 4 })
         )
         expect(new Headers(updateRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    })
+
+    it('passes workspace scope through runtime row deletes', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            expect(url).toBe(
+                'http://localhost:3000/api/v1/applications/app-1/runtime/rows/row-1?workspaceId=workspace-1&objectCollectionId=collection-1&expectedVersion=4'
+            )
+            return new Response(null, { status: 204 })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await deleteAppRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1',
+            expectedVersion: 4
+        })
+
+        const deleteRequest = fetchMock.mock.calls[1]?.[1] as RequestInit
+        expect(deleteRequest.method).toBe('DELETE')
+        expect(new Headers(deleteRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 
     it('copies a runtime row through the generic copy endpoint with overrides and optimistic version', async () => {
@@ -454,6 +493,64 @@ describe('runtime row API helpers', () => {
             })
         )
         expect(new Headers(copyRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    })
+
+    it('passes workspace scope through create, copy, and tabular row helpers', async () => {
+        const seenUrls: string[] = []
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            seenUrls.push(url)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+            if (url.includes('/tabular/')) {
+                return new Response(JSON.stringify({ items: [], total: 0 }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+            return new Response(JSON.stringify({ id: 'row-created', status: 'created' }), {
+                status: 201,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await createAppRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1',
+            data: { Title: 'Created row' }
+        })
+        await copyAppRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1'
+        })
+        await fetchTabularRows({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            parentRecordId: 'row-1',
+            componentId: 'component-1',
+            objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1'
+        })
+
+        const runtimeUrls = seenUrls.filter((url) => !url.endsWith('/auth/csrf')).map((url) => new URL(url))
+        expect(runtimeUrls).toHaveLength(3)
+        expect(runtimeUrls[0].pathname).toBe('/api/v1/applications/app-1/runtime/rows')
+        expect(runtimeUrls[0].searchParams.get('workspaceId')).toBe('workspace-1')
+        expect(runtimeUrls[1].pathname).toBe('/api/v1/applications/app-1/runtime/rows/row-1/copy')
+        expect(runtimeUrls[1].searchParams.get('workspaceId')).toBe('workspace-1')
+        expect(runtimeUrls[2].pathname).toBe('/api/v1/applications/app-1/runtime/rows/row-1/tabular/component-1')
+        expect(runtimeUrls[2].searchParams.get('objectCollectionId')).toBe('collection-1')
+        expect(runtimeUrls[2].searchParams.get('workspaceId')).toBe('workspace-1')
     })
 
     it('persists Learning Content progress through the server-owned runtime endpoint', async () => {
@@ -541,7 +638,7 @@ describe('runtime row API helpers', () => {
                 })
             }
 
-            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/rows/reorder')
+            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/rows/reorder?workspaceId=workspace-1')
             return new Response(JSON.stringify({ status: 'reordered' }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }
@@ -553,6 +650,7 @@ describe('runtime row API helpers', () => {
             apiBaseUrl: '/api/v1',
             applicationId: 'app-1',
             objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1',
             orderedRowIds: ['017f22e2-79b0-7cc3-98c4-dc0c0c073997', '017f22e2-79b0-7cc3-98c4-dc0c0c073998'],
             expectedVersionsByRowId: {
                 '017f22e2-79b0-7cc3-98c4-dc0c0c073997': 2,
@@ -573,5 +671,51 @@ describe('runtime row API helpers', () => {
             })
         )
         expect(new Headers(reorderRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    })
+
+    it('persists atomic tabular batch updates with workspace scope and CSRF protection', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            expect(url).toBe(
+                'http://localhost:3000/api/v1/applications/app-1/runtime/rows/row-1/tabular/component-1/batch?objectCollectionId=collection-1&workspaceId=workspace-1'
+            )
+            return new Response(JSON.stringify({ status: 'ok', updated: ['child-1', 'child-2'] }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await batchUpdateTabularRows({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            parentRecordId: 'row-1',
+            componentId: 'component-1',
+            objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1',
+            updates: [
+                { childRowId: 'child-1', data: { Title: 'First' } },
+                { childRowId: 'child-2', data: { Title: 'Second' }, expectedVersion: 3 }
+            ]
+        })
+
+        const batchRequest = fetchMock.mock.calls[1]?.[1] as RequestInit
+        expect(batchRequest.method).toBe('POST')
+        expect(batchRequest.body).toBe(
+            JSON.stringify({
+                updates: [
+                    { childRowId: 'child-1', data: { Title: 'First' } },
+                    { childRowId: 'child-2', data: { Title: 'Second' }, expectedVersion: 3 }
+                ]
+            })
+        )
+        expect(new Headers(batchRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 })

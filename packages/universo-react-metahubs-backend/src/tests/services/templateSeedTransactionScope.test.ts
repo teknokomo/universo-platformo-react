@@ -9,6 +9,7 @@ import {
     resolveTemplateSeedCodenameConfig
 } from '../../domains/templates/services/TemplateSeedExecutor'
 import { TemplateSeedMigrator } from '../../domains/templates/services/TemplateSeedMigrator'
+import { createTemplateSeedElements } from '../../domains/templates/services/templateSeedElements'
 import { resolveWidgetTableName } from '../../domains/templates/services/widgetTableResolver'
 import { basicTemplate } from '../../domains/templates/data/basic.template'
 
@@ -342,5 +343,179 @@ describe('Template seed services transaction scope', () => {
         expect(adminSelect).toHaveBeenCalledTimes(1)
         expect(componentInserts.length).toBeGreaterThan(0)
         expect(new Set(componentInserts.map((payload) => payload.object_id))).toEqual(new Set(['catalog-id-1']))
+    })
+
+    it('resolves seeded REF data from codenames to stable target ids before element insert', () => {
+        const executor = new TemplateSeedExecutor({} as never, 'mhb_tx_scope') as any
+        const componentMap = new Map([
+            [
+                'ParentConcept',
+                {
+                    codename: 'ParentConcept',
+                    dataType: 'REF',
+                    targetEntityCodename: 'Concept',
+                    targetEntityKind: 'object'
+                }
+            ],
+            [
+                'Context',
+                {
+                    codename: 'Context',
+                    dataType: 'REF',
+                    targetEntityCodename: 'Context',
+                    targetEntityKind: 'enumeration'
+                }
+            ],
+            [
+                'InterpretationMatrix',
+                {
+                    codename: 'InterpretationMatrix',
+                    dataType: 'TABLE',
+                    childComponents: [
+                        {
+                            codename: 'CellFillColor',
+                            dataType: 'REF',
+                            targetEntityCodename: 'CellColor',
+                            targetEntityKind: 'enumeration'
+                        },
+                        {
+                            codename: 'MaterialRef',
+                            dataType: 'REF',
+                            targetEntityCodename: 'Material',
+                            targetEntityKind: 'object'
+                        }
+                    ]
+                }
+            ]
+        ])
+        const enumerationValueIdMap = new Map([
+            ['Context:Science', 'context-science-id'],
+            ['CellColor:yellow', 'cell-color-yellow-id']
+        ])
+        const elementIdMap = new Map([
+            ['Concept:ConceptGravity', 'concept-gravity-id'],
+            ['Material:GravityMaterial', 'gravity-material-id']
+        ])
+
+        const resolved = executor.resolveSeedElementData(
+            {
+                Title: 'Gravity in physics',
+                ParentConcept: 'ConceptGravity',
+                Context: 'Science',
+                InterpretationMatrix: [
+                    {
+                        CellFillColor: 'yellow',
+                        MaterialRef: 'GravityMaterial',
+                        CellValue: 'Attraction between masses.'
+                    }
+                ]
+            },
+            componentMap,
+            enumerationValueIdMap,
+            elementIdMap
+        )
+
+        expect(resolved.ParentConcept).toBe('concept-gravity-id')
+        expect(resolved.Context).toBe('context-science-id')
+        expect(resolved.InterpretationMatrix).toEqual([
+            {
+                CellFillColor: 'cell-color-yellow-id',
+                MaterialRef: 'gravity-material-id',
+                CellValue: 'Attraction between masses.'
+            }
+        ])
+    })
+
+    it('resolves dynamic Relation source/target object endpoints while preserving stable cell ids', () => {
+        const executor = new TemplateSeedExecutor({} as never, 'mhb_tx_scope') as any
+        const componentMap = new Map([
+            ['SourceKind', { codename: 'SourceKind', dataType: 'STRING' }],
+            ['SourceId', { codename: 'SourceId', dataType: 'STRING' }],
+            ['TargetKind', { codename: 'TargetKind', dataType: 'STRING' }],
+            ['TargetId', { codename: 'TargetId', dataType: 'STRING' }]
+        ])
+        const elementIdMap = new Map([
+            ['Concept:ConceptGravity', '019efc1d-0000-7000-8000-000000000001'],
+            ['Interpretation:InterpretationGravityPhysics', '019efc1d-0000-7000-8000-000000000002']
+        ])
+
+        const objectRelation = executor.resolveSeedElementData(
+            {
+                SourceKind: 'concept',
+                SourceId: 'ConceptGravity',
+                TargetKind: 'interpretation',
+                TargetId: 'InterpretationGravityPhysics'
+            },
+            componentMap,
+            new Map(),
+            elementIdMap
+        )
+
+        expect(objectRelation).toMatchObject({
+            SourceId: '019efc1d-0000-7000-8000-000000000001',
+            TargetId: '019efc1d-0000-7000-8000-000000000002'
+        })
+
+        const cellRelation = executor.resolveSeedElementData(
+            {
+                SourceKind: 'cell',
+                SourceId: '019efbfb-7000-7000-8000-000000000001',
+                TargetKind: 'cell',
+                TargetId: '019efbfb-7000-7000-8000-000000000003'
+            },
+            componentMap,
+            new Map(),
+            elementIdMap
+        )
+
+        expect(cellRelation).toMatchObject({
+            SourceId: '019efbfb-7000-7000-8000-000000000001',
+            TargetId: '019efbfb-7000-7000-8000-000000000003'
+        })
+    })
+
+    it('fails closed when an existing seed element sort order belongs to an unmarked row', async () => {
+        const first = jest.fn(async () => ({
+            id: 'wrong-existing-element-id',
+            data: { Title: 'User-created row without a seed marker' }
+        }))
+        const where = jest.fn(() => ({ first }))
+        const from = jest.fn(() => ({ where }))
+        const withSchema = jest.fn(() => ({ from }))
+        const qb = { withSchema }
+
+        await expect(
+            createTemplateSeedElements({
+                qb: qb as never,
+                schemaName: 'mhb_tx_scope',
+                elementsByEntity: {
+                    Concept: [
+                        {
+                            codename: 'ConceptGravity',
+                            sortOrder: 1,
+                            data: { Title: 'Gravity' }
+                        }
+                    ]
+                },
+                entities: [
+                    {
+                        codename: 'Concept',
+                        kind: 'object',
+                        name: {} as never,
+                        components: [{ codename: 'Title', dataType: 'STRING' }]
+                    }
+                ],
+                enumerationValueIdMap: new Map(),
+                resolveEntityIdByCodename: (codename) => (codename === 'Concept' ? 'concept-object-id' : null)
+            })
+        ).rejects.toThrow(/Seed element conflict for Concept:ConceptGravity/)
+
+        expect(from).toHaveBeenCalledWith('_mhb_elements')
+        expect(where).toHaveBeenCalledWith({
+            object_id: 'concept-object-id',
+            sort_order: 1,
+            _upl_deleted: false,
+            _mhb_deleted: false
+        })
     })
 })

@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { buildTabularColumns } from '../tabularColumns'
-import { getTabularStringDisplayValue, isLocalizedStringField, normalizeTabularRowValues } from '../tabularCellValues'
+import { buildCellStylePreviewSx, buildTabularColumns, isHiddenTabularField } from '../tabularColumns'
+import {
+    buildInitialTabularRowValues,
+    getTabularStringDisplayValue,
+    isLocalizedStringField,
+    normalizeTabularRowValues
+} from '../tabularCellValues'
 
 const localizedChildField = {
     id: 'title',
@@ -59,6 +64,212 @@ describe('tabularCellValues', () => {
         )
 
         expect(screen.getByText('Лимоны')).toBeInTheDocument()
+    })
+
+    it('renders metadata-driven cell style preview for TABLE cell values', () => {
+        const columns = buildTabularColumns({
+            childFields: [
+                {
+                    id: 'CellValue',
+                    label: 'Cell Value',
+                    type: 'STRING' as const,
+                    validationRules: { localized: true },
+                    uiConfig: {
+                        cellStylePreview: {
+                            fillColorField: 'CellFillColor',
+                            borderTopColorField: 'BorderTopColor',
+                            borderTopWidthField: 'BorderTopWidth',
+                            borderTopStyleField: 'BorderTopStyle'
+                        }
+                    }
+                },
+                {
+                    id: 'CellFillColor',
+                    label: 'Fill Color',
+                    type: 'REF' as const,
+                    refOptions: [{ id: 'color-yellow-id', label: 'Yellow', codename: 'yellow' }]
+                },
+                {
+                    id: 'BorderTopColor',
+                    label: 'Top Border Color',
+                    type: 'REF' as const,
+                    refOptions: [{ id: 'color-gray-id', label: 'Gray', codename: 'gray' }]
+                },
+                { id: 'BorderTopWidth', label: 'Top Border Width', type: 'STRING' as const },
+                { id: 'BorderTopStyle', label: 'Top Border Style', type: 'STRING' as const }
+            ],
+            rowNumberById: new Map([['row-1', 1]]),
+            onDeleteRow: vi.fn(),
+            locale: 'en'
+        })
+
+        const cellValueColumn = columns.find((column) => column.field === 'CellValue')
+        expect(cellValueColumn?.renderCell).toBeDefined()
+
+        render(
+            <>
+                {cellValueColumn?.renderCell?.({
+                    id: 'row-1',
+                    field: 'CellValue',
+                    value: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: {
+                                content: 'Attraction between masses.',
+                                version: 1,
+                                isActive: true
+                            }
+                        }
+                    },
+                    row: {
+                        id: 'row-1',
+                        CellFillColor: 'color-yellow-id',
+                        BorderTopColor: 'color-gray-id',
+                        BorderTopWidth: '2px',
+                        BorderTopStyle: 'solid'
+                    }
+                } as never)}
+            </>
+        )
+
+        expect(screen.getByTestId('tabular-cell-style-preview')).toBeInTheDocument()
+        expect(screen.getByText('Attraction between masses.')).toBeInTheDocument()
+    })
+
+    it('resolves cell style preview codenames to physical row field ids', () => {
+        const sx = buildCellStylePreviewSx(
+            {
+                id: 'row-1',
+                'field-fill-color-id': 'color-yellow-id',
+                'field-border-top-color-id': 'color-gray-id',
+                'field-border-top-width-id': '2px',
+                'field-border-top-style-id': 'solid'
+            },
+            {
+                fillColorField: 'CellFillColor',
+                borderTopColorField: 'BorderTopColor',
+                borderTopWidthField: 'BorderTopWidth',
+                borderTopStyleField: 'BorderTopStyle'
+            },
+            new Map([
+                [
+                    'field-fill-color-id',
+                    {
+                        id: 'field-fill-color-id',
+                        codename: 'CellFillColor',
+                        label: 'Fill Color',
+                        type: 'REF' as const,
+                        refOptions: [{ id: 'color-yellow-id', label: 'Yellow', codename: 'yellow' }]
+                    }
+                ],
+                [
+                    'field-border-top-color-id',
+                    {
+                        id: 'field-border-top-color-id',
+                        codename: 'BorderTopColor',
+                        label: 'Top Border Color',
+                        type: 'REF' as const,
+                        refOptions: [{ id: 'color-gray-id', label: 'Gray', codename: 'gray' }]
+                    }
+                ],
+                [
+                    'field-border-top-width-id',
+                    { id: 'field-border-top-width-id', codename: 'BorderTopWidth', label: 'Top Border Width', type: 'STRING' as const }
+                ],
+                [
+                    'field-border-top-style-id',
+                    { id: 'field-border-top-style-id', codename: 'BorderTopStyle', label: 'Top Border Style', type: 'STRING' as const }
+                ]
+            ])
+        )
+
+        expect(sx).toEqual(expect.objectContaining({ bgcolor: '#fdd835', borderTop: '2px solid #9e9e9e' }))
+    })
+
+    it('omits metadata-hidden TABLE child fields from tabular columns', () => {
+        const columns = buildTabularColumns({
+            childFields: [
+                { id: 'CellId', label: 'Cell ID', type: 'STRING' as const, uiConfig: { hidden: true, gridHidden: true } },
+                { id: 'CellValue', label: 'Cell Value', type: 'STRING' as const }
+            ],
+            rowNumberById: new Map([['row-1', 1]]),
+            onDeleteRow: vi.fn(),
+            locale: 'en'
+        })
+
+        expect(columns.some((column) => column.field === 'CellId')).toBe(false)
+        expect(columns.some((column) => column.field === 'CellValue')).toBe(true)
+    })
+
+    it('exposes the same hidden TABLE child field predicate used by tabular columns', () => {
+        expect(isHiddenTabularField({ id: 'CellId', label: 'Cell ID', type: 'STRING', uiConfig: { hidden: true } })).toBe(true)
+        expect(isHiddenTabularField({ id: 'CellValue', label: 'Cell Value', type: 'STRING' })).toBe(false)
+    })
+
+    it('generates stable UUID v7 CellId values for new matrix rows without exposing hidden fields', () => {
+        const row = buildInitialTabularRowValues([
+            {
+                id: 'CellId',
+                codename: 'CellId',
+                label: 'Cell ID',
+                type: 'STRING' as const,
+                uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+            },
+            {
+                id: 'ColKey',
+                codename: 'ColKey',
+                label: 'Column Key',
+                type: 'STRING' as const,
+                uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+            },
+            { id: 'IsFeatured', label: 'Featured', type: 'BOOLEAN' as const }
+        ])
+
+        expect(row.CellId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+        expect(row.ColKey).toBeNull()
+        expect(row.IsFeatured).toBe(false)
+    })
+
+    it('renders bounded selects for metadata-driven cell border width and style values', () => {
+        const onSelectChange = vi.fn()
+        const columns = buildTabularColumns({
+            childFields: [
+                {
+                    id: 'BorderTopWidth',
+                    label: 'Top Border Width',
+                    type: 'STRING' as const,
+                    uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'width' }
+                },
+                {
+                    id: 'BorderTopStyle',
+                    label: 'Top Border Style',
+                    type: 'STRING' as const,
+                    uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'lineStyle' }
+                }
+            ],
+            rowNumberById: new Map([['row-1', 1]]),
+            onDeleteRow: vi.fn(),
+            onSelectChange,
+            locale: 'en'
+        })
+
+        const widthColumn = columns.find((column) => column.field === 'BorderTopWidth')
+        render(
+            <>
+                {widthColumn?.renderCell?.({
+                    id: 'row-1',
+                    field: 'BorderTopWidth',
+                    value: '1px'
+                } as never)}
+            </>
+        )
+
+        const widthSelect = screen.getByRole('combobox')
+        fireEvent.mouseDown(widthSelect)
+        fireEvent.click(screen.getByRole('option', { name: '2px' }))
+
+        expect(onSelectChange).toHaveBeenCalledWith('row-1', 'BorderTopWidth', '2px')
     })
 
     it('renders safe display labels for object-backed child STRING values', () => {
@@ -458,5 +669,42 @@ describe('tabularCellValues', () => {
 
         expect(screen.getByText('Окно отправления, Коридор стыковки')).toBeInTheDocument()
         expect(screen.queryByText(/\[object Object]/)).not.toBeInTheDocument()
+    })
+
+    it('renders cell line style options as localized labels in tabular editors', () => {
+        const columns = buildTabularColumns({
+            childFields: [
+                {
+                    id: 'BorderTopStyle',
+                    label: 'Top Border Style',
+                    type: 'STRING' as const,
+                    validationRules: {},
+                    uiConfig: {
+                        widget: 'cellStylePicker',
+                        cellStyleValue: 'lineStyle'
+                    }
+                }
+            ],
+            rowNumberById: new Map([['row-1', 1]]),
+            onDeleteRow: vi.fn(),
+            locale: 'ru'
+        })
+
+        const styleColumn = columns.find((column) => column.field === 'BorderTopStyle')
+        expect(styleColumn?.renderCell).toBeDefined()
+        expect(styleColumn?.valueFormatter?.('dashed' as never)).toBe('Штриховая')
+
+        render(
+            <>
+                {styleColumn?.renderCell?.({
+                    id: 'row-1',
+                    field: 'BorderTopStyle',
+                    value: 'dashed'
+                } as never)}
+            </>
+        )
+
+        expect(screen.getByText('Штриховая')).toBeInTheDocument()
+        expect(screen.queryByText('dashed')).not.toBeInTheDocument()
     })
 })

@@ -207,6 +207,8 @@
     },
     "validation": {
         "vlcMinLength": "Язык \"{{locale}}\": минимальная длина {{min}}",
+        "vlcMaxLength": "Язык \"{{locale}}\": максимальная длина {{max}}",
+        "vlcLengthBetween": "Язык \"{{locale}}\": длина должна быть от {{min}} до {{max}}",
         "lengthBetween": "Длина должна быть от {{min}} до {{max}}",
         "minLength": "Минимальная длина: {{min}}",
         "maxLength": "Максимальная длина: {{max}}",
@@ -398,7 +400,8 @@
         "shareUntitledMember": "Участник рабочего пространства",
         "shareSubmit": "Поделиться",
         "menu": {
-            "more": "Ещё"
+            "more": "Ещё",
+            "navigation": "Навигация приложения"
         }
     },
     "trash": {

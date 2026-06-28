@@ -809,6 +809,31 @@ describe('FormDialog block editor fields', () => {
         })
     })
 
+    it('disables submit when a localized string value exceeds max length', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'title',
+                label: 'Title',
+                type: 'STRING',
+                validationRules: { localized: true, versioned: true, maxLength: '5' as unknown as number }
+            }
+        ]
+
+        const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <FormDialog open title='Create material' fields={fields} locale='en' onClose={vi.fn()} onSubmit={onSubmit} />
+            </QueryClientProvider>
+        )
+
+        fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), { target: { value: 'Too long' } })
+
+        expect(await screen.findByText('Language "EN": maximum length 5')).toBeVisible()
+        expect(screen.getByTestId('entity-form-submit')).toBeDisabled()
+    })
+
     it('renders semantic long-text string fields as multiline controls by default', async () => {
         const fields: FieldConfig[] = [
             {

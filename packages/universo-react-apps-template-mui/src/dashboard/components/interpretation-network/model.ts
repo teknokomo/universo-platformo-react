@@ -1,0 +1,385 @@
+import { createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
+import type { AppDataResponse } from '../../../api/api'
+import type { FieldConfig, FieldType } from '../../../components/dialogs/FormDialog'
+import { formatRuntimeSafeValue } from '../../../utils/displayValue'
+
+export type RuntimeRow = Record<string, unknown> & { id: string }
+
+export type RuntimeColumnLike = {
+    id?: string
+    codename?: string
+    field?: string
+    dataType?: string
+    headerName?: string
+    isRequired?: boolean
+    validationRules?: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
+    refTargetEntityId?: string | null
+    refTargetEntityKind?: string | null
+    refTargetConstantId?: string | null
+    refOptions?: Array<{ id: string; label: string; codename?: string; isDefault?: boolean }>
+    enumOptions?: Array<{ id: string; label: string; codename?: string; isDefault?: boolean }>
+    childColumns?: RuntimeColumnLike[]
+}
+
+type RuntimeDataset = Pick<AppDataResponse, 'section' | 'columns' | 'rows'>
+
+export type InterpretationNetworkWorkspaceConfig = {
+    conceptCodename?: string
+    interpretationCodename?: string
+    relationCodename?: string
+    materialCodename?: string
+    tableTemplateCodename?: string
+    matrixField?: string
+    materialTitleField?: string
+    conceptNameField?: string
+    conceptDescriptionField?: string
+    interpretationTitleField?: string
+    interpretationParentField?: string
+    tableTemplateNameField?: string
+    tableTemplateDescriptionField?: string
+    tableTemplateMatrixField?: string
+}
+
+export type MatrixCell = {
+    id: string
+    rowKey: string
+    rowLabel: string
+    colKey: string
+    colLabel: string
+    title: string
+    description: string
+    materialRef: string | null
+    style: {
+        fill: string | null
+        borderTop: string
+        borderRight: string
+        borderBottom: string
+        borderLeft: string
+    }
+}
+
+const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
+    conceptCodename: 'Concept',
+    interpretationCodename: 'Interpretation',
+    relationCodename: 'Relation',
+    materialCodename: 'Material',
+    tableTemplateCodename: 'TableTemplate',
+    matrixField: 'InterpretationMatrix',
+    materialTitleField: 'Title',
+    conceptNameField: 'Term',
+    conceptDescriptionField: 'Description',
+    interpretationTitleField: 'Title',
+    interpretationParentField: 'ParentConcept',
+    tableTemplateNameField: 'Name',
+    tableTemplateDescriptionField: 'Description',
+    tableTemplateMatrixField: 'TemplateMatrix'
+}
+
+const CELL_COLOR_HEX: Record<string, string | null> = {
+    none: null,
+    gray: '#9e9e9e',
+    red: '#e53935',
+    orange: '#fb8c00',
+    yellow: '#fdd835',
+    green: '#43a047',
+    teal: '#00897b',
+    blue: '#1e88e5',
+    indigo: '#3949ab',
+    purple: '#8e24aa',
+    pink: '#d81b60',
+    black: '#212121'
+}
+
+const BORDER_STYLE_DEFAULT = '1px solid rgba(0, 0, 0, 0.12)'
+const BORDER_STYLE_NONE = '0 solid transparent'
+
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+export const toConfig = (config: Record<string, unknown> | undefined): Required<InterpretationNetworkWorkspaceConfig> => ({
+    ...DEFAULT_CONFIG,
+    ...Object.fromEntries(Object.entries(config ?? {}).filter(([, value]) => typeof value === 'string' && value.trim().length > 0))
+})
+
+const readRowValue = (row: Record<string, unknown> | undefined, field: string): unknown => {
+    if (!row) return undefined
+    if (Object.prototype.hasOwnProperty.call(row, field)) return row[field]
+    const data = row.data
+    if (isRecord(data) && Object.prototype.hasOwnProperty.call(data, field)) return data[field]
+    return undefined
+}
+
+const readText = (value: unknown, locale: string): string => formatRuntimeSafeValue(value, locale) || ''
+
+export const findColumn = (columns: RuntimeColumnLike[] | undefined, codename: string): RuntimeColumnLike | undefined =>
+    (columns ?? []).find((column) => column.codename === codename || column.field === codename)
+
+const resolveField = (columns: RuntimeColumnLike[] | undefined, codename: string): string =>
+    findColumn(columns, codename)?.field ?? codename
+
+export const readColumnValue = (
+    row: Record<string, unknown> | undefined,
+    columns: RuntimeColumnLike[] | undefined,
+    codename: string
+): unknown => readRowValue(row, resolveField(columns, codename))
+
+export const readColumnText = (
+    row: RuntimeRow | undefined,
+    columns: RuntimeColumnLike[] | undefined,
+    codename: string,
+    locale: string
+): string => readText(readColumnValue(row, columns, codename), locale)
+
+export const findOptionIdByCodename = (field: RuntimeColumnLike | undefined, codename: string): string | null =>
+    [...(field?.refOptions ?? []), ...(field?.enumOptions ?? [])].find((option) => option.codename === codename || option.id === codename)
+        ?.id ?? null
+
+const getOptionCodename = (field: RuntimeColumnLike | undefined, value: unknown): string => {
+    if (typeof value !== 'string' || !value.trim()) return 'none'
+    const normalized = value.trim()
+    const option = [...(field?.refOptions ?? []), ...(field?.enumOptions ?? [])].find(
+        (candidate) => candidate.id === normalized || candidate.codename === normalized || candidate.label === normalized
+    )
+    return option?.codename ?? normalized
+}
+
+const toBorderCss = (colorValue: unknown, widthValue: unknown, styleValue: unknown, field: RuntimeColumnLike | undefined): string => {
+    const colorCodename = getOptionCodename(field, colorValue)
+    const hasWidth = typeof widthValue === 'string' && widthValue.trim().length > 0
+    const hasLineStyle = typeof styleValue === 'string' && styleValue.trim().length > 0
+    const width = hasWidth ? widthValue.trim() : '1px'
+    const lineStyle = hasLineStyle ? styleValue.trim() : 'solid'
+    const color = CELL_COLOR_HEX[colorCodename] ?? 'transparent'
+    if ((hasWidth && width === '0') || (hasLineStyle && lineStyle === 'none')) return BORDER_STYLE_NONE
+    if (!hasWidth && !hasLineStyle) return BORDER_STYLE_DEFAULT
+    return `${width} ${lineStyle} ${color}`
+}
+
+export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColumnLike | undefined, locale: string): MatrixCell[] => {
+    const childColumns = matrixColumn?.childColumns ?? []
+    const colorField = (field: string) => findColumn(childColumns, field)
+    const readCellValue = (rawCell: Record<string, unknown>, codename: string): unknown => readColumnValue(rawCell, childColumns, codename)
+    const readCellText = (rawCell: Record<string, unknown>, codename: string): string => readText(readCellValue(rawCell, codename), locale)
+
+    return rawMatrixRows.flatMap((rawCell, index) => {
+        if (!isRecord(rawCell)) return []
+        const rawCellId = readCellValue(rawCell, 'CellId')
+        const rawRowKey = readCellValue(rawCell, 'RowKey')
+        const rawColKey = readCellValue(rawCell, 'ColKey')
+        const rawMaterialRef = readCellValue(rawCell, 'MaterialRef')
+        const cellId = typeof rawCellId === 'string' && rawCellId.trim() ? rawCellId.trim() : `cell-${index}`
+        const fillCodename = getOptionCodename(colorField('CellFillColor'), readCellValue(rawCell, 'CellFillColor'))
+        return [
+            {
+                id: cellId,
+                rowKey: typeof rawRowKey === 'string' && rawRowKey.trim() ? rawRowKey.trim() : `row-${index}`,
+                rowLabel: readCellText(rawCell, 'RowLabel') || `Row ${index + 1}`,
+                colKey: typeof rawColKey === 'string' && rawColKey.trim() ? rawColKey.trim() : `col-${index}`,
+                colLabel: readCellText(rawCell, 'ColLabel') || `Column ${index + 1}`,
+                title: readCellText(rawCell, 'CellValue'),
+                description: readCellText(rawCell, 'CellDescription'),
+                materialRef: typeof rawMaterialRef === 'string' && rawMaterialRef.trim() ? rawMaterialRef.trim() : null,
+                style: {
+                    fill: CELL_COLOR_HEX[fillCodename],
+                    borderTop: toBorderCss(
+                        readCellValue(rawCell, 'BorderTopColor'),
+                        readCellValue(rawCell, 'BorderTopWidth'),
+                        readCellValue(rawCell, 'BorderTopStyle'),
+                        colorField('BorderTopColor')
+                    ),
+                    borderRight: toBorderCss(
+                        readCellValue(rawCell, 'BorderRightColor'),
+                        readCellValue(rawCell, 'BorderRightWidth'),
+                        readCellValue(rawCell, 'BorderRightStyle'),
+                        colorField('BorderRightColor')
+                    ),
+                    borderBottom: toBorderCss(
+                        readCellValue(rawCell, 'BorderBottomColor'),
+                        readCellValue(rawCell, 'BorderBottomWidth'),
+                        readCellValue(rawCell, 'BorderBottomStyle'),
+                        colorField('BorderBottomColor')
+                    ),
+                    borderLeft: toBorderCss(
+                        readCellValue(rawCell, 'BorderLeftColor'),
+                        readCellValue(rawCell, 'BorderLeftWidth'),
+                        readCellValue(rawCell, 'BorderLeftStyle'),
+                        colorField('BorderLeftColor')
+                    )
+                }
+            }
+        ]
+    })
+}
+
+export const buildDefaultMatrixCellData = (
+    childColumns: RuntimeColumnLike[] | undefined,
+    locale: string,
+    labels: { row: string; column: string; value?: string; rowKey?: string; colKey?: string }
+): Record<string, unknown> => {
+    const colorField = (field: string) => findColumn(childColumns, field)
+    const noneColorId = findOptionIdByCodename(colorField('CellFillColor'), 'none') ?? null
+    return {
+        CellId: generateUuidV7(),
+        ColKey: labels.colKey ?? `column-${generateUuidV7()}`,
+        ColLabel: createLocalizedContent(locale, labels.column),
+        RowKey: labels.rowKey ?? `row-${generateUuidV7()}`,
+        RowLabel: createLocalizedContent(locale, labels.row),
+        CellValue: createLocalizedContent(locale, labels.value ?? labels.column),
+        CellDescription: createLocalizedContent(locale, ''),
+        CellFillColor: noneColorId,
+        BorderTopColor: noneColorId,
+        BorderRightColor: noneColorId,
+        BorderBottomColor: noneColorId,
+        BorderLeftColor: noneColorId,
+        BorderTopWidth: '1px',
+        BorderRightWidth: '1px',
+        BorderBottomWidth: '1px',
+        BorderLeftWidth: '1px',
+        BorderTopStyle: 'solid',
+        BorderRightStyle: 'solid',
+        BorderBottomStyle: 'solid',
+        BorderLeftStyle: 'solid',
+        MaterialRef: null
+    }
+}
+
+export const uniqueByKey = (cells: MatrixCell[], key: 'rowKey' | 'colKey'): MatrixCell[] => {
+    const seen = new Set<string>()
+    return cells.filter((cell) => {
+        const value = cell[key]
+        if (seen.has(value)) return false
+        seen.add(value)
+        return true
+    })
+}
+
+export const getSectionId = (dataset: RuntimeDataset | undefined): string | undefined =>
+    typeof dataset?.section?.id === 'string' && dataset.section.id.trim() ? dataset.section.id : undefined
+
+const toFieldType = (dataType: string | undefined): FieldType => {
+    switch (dataType) {
+        case 'NUMBER':
+        case 'BOOLEAN':
+        case 'DATE':
+        case 'REF':
+        case 'JSON':
+        case 'TABLE':
+            return dataType
+        default:
+            return 'STRING'
+    }
+}
+
+export const toFieldConfig = (column: RuntimeColumnLike): FieldConfig => ({
+    id: column.field ?? column.codename ?? column.id ?? '',
+    codename: column.codename,
+    label: column.headerName ?? column.codename ?? column.field ?? '',
+    type: toFieldType(column.dataType),
+    required: column.isRequired,
+    validationRules: column.validationRules,
+    uiConfig: column.uiConfig,
+    refTargetEntityId: column.refTargetEntityId,
+    refTargetEntityKind: column.refTargetEntityKind,
+    refTargetConstantId: column.refTargetConstantId,
+    refOptions: column.refOptions,
+    enumOptions: column.enumOptions,
+    componentId: column.id
+})
+
+export const isStyleColumn = (column: RuntimeColumnLike): boolean => {
+    const codename = column.codename ?? column.field ?? ''
+    return (
+        codename === 'CellFillColor' ||
+        codename.startsWith('BorderTop') ||
+        codename.startsWith('BorderRight') ||
+        codename.startsWith('BorderBottom') ||
+        codename.startsWith('BorderLeft')
+    )
+}
+
+export const findMaterialTitle = (
+    materials: RuntimeRow[],
+    materialColumns: RuntimeColumnLike[] | undefined,
+    materialRef: string | null,
+    titleField: string,
+    locale: string
+): string => {
+    if (!materialRef) return ''
+    const material = materials.find((row) => row.id === materialRef)
+    return readColumnText(material, materialColumns, titleField, locale)
+}
+
+export const findMaterialsForCell = (
+    materials: RuntimeRow[],
+    materialColumns: RuntimeColumnLike[] | undefined,
+    cellId: string | undefined,
+    activeMaterialRef: string | null
+): RuntimeRow[] => {
+    const seen = new Set<string>()
+    const result: RuntimeRow[] = []
+    const push = (material: RuntimeRow | undefined) => {
+        if (!material || seen.has(material.id)) return
+        seen.add(material.id)
+        result.push(material)
+    }
+
+    if (activeMaterialRef) {
+        push(materials.find((material) => material.id === activeMaterialRef))
+    }
+
+    if (!cellId) return result
+    for (const material of materials) {
+        const materialCellId = readColumnValue(material, materialColumns, 'CellId')
+        if (materialCellId === cellId) {
+            push(material)
+        }
+    }
+    return result
+}
+
+export const matchesRelationEndpoint = (
+    relation: RuntimeRow,
+    relationColumns: RuntimeColumnLike[] | undefined,
+    endpoint: { kind: string; id: string } | null
+): boolean => {
+    if (!endpoint) return false
+    const sourceKind = readColumnValue(relation, relationColumns, 'SourceKind')
+    const sourceId = readColumnValue(relation, relationColumns, 'SourceId')
+    const targetKind = readColumnValue(relation, relationColumns, 'TargetKind')
+    const targetId = readColumnValue(relation, relationColumns, 'TargetId')
+    return (sourceKind === endpoint.kind && sourceId === endpoint.id) || (targetKind === endpoint.kind && targetId === endpoint.id)
+}
+
+export const appendUniqueRelations = (target: RuntimeRow[], source: RuntimeRow[]): RuntimeRow[] => {
+    const seen = new Set(target.map((relation) => relation.id))
+    for (const relation of source) {
+        if (seen.has(relation.id)) continue
+        seen.add(relation.id)
+        target.push(relation)
+    }
+    return target
+}
+
+export const summarizeEditorJsContent = (value: unknown, locale: string): string => {
+    const content = isRecord(value)
+        ? Array.isArray(value.blocks)
+            ? value.blocks
+            : isRecord(value.data) && Array.isArray(value.data.blocks)
+            ? value.data.blocks
+            : null
+        : null
+    if (!content) return readText(value, locale)
+    return content
+        .flatMap((block) => {
+            if (!isRecord(block)) return []
+            const data = block.data
+            if (!isRecord(data)) return []
+            return [data.text, data.caption, data.content]
+                .map((entry) => readText(entry, locale))
+                .filter((entry) => entry.trim().length > 0)
+        })
+        .join(' ')
+        .replace(/<[^>]*>/g, '')
+        .trim()
+}

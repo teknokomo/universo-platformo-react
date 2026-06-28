@@ -11692,8 +11692,146 @@ describe('Applications Routes', () => {
                 )
                 .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ updates: [{ childRowId: runtimeChildRowId, data: { title: 'Blocked' } }] })
+                .expect(403)
 
             expect(dataSource.manager.query).not.toHaveBeenCalled()
+        })
+
+        it('rejects malformed batch child row ids before opening a runtime transaction', async () => {
+            const { dataSource, executor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ updates: [{ childRowId: 'not-a-uuid', data: { title: 'Blocked' } }] })
+                .expect(400)
+
+            expect(response.body).toMatchObject({ error: 'Invalid body' })
+            expect(executor.transaction).not.toHaveBeenCalled()
+            expect(dataSource.manager.query).not.toHaveBeenCalled()
+        })
+
+        it('updates multiple child rows inside one transaction for atomic matrix swaps', async () => {
+            const sourceChildRowId = '018f8a78-7b8f-7c1d-a111-222233334566'
+            const secondChildRowId = '018f8a78-7b8f-7c1d-a111-222233334567'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        },
+                        {
+                            id: 'child-material',
+                            codename: 'materialRef',
+                            column_name: 'material_ref',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        },
+                        {
+                            id: 'child-material',
+                            codename: 'materialRef',
+                            column_name: 'material_ref',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                    expect(params).toEqual([[sourceChildRowId, secondChildRowId], runtimeRecordId])
+                    return [
+                        { id: sourceChildRowId, _upl_version: 1 },
+                        { id: secondChildRowId, _upl_version: 1 }
+                    ]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                    return [{ id: params?.[3] as string }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [
+                        { childRowId: sourceChildRowId, data: { title: 'Second title', materialRef: 'material-2' } },
+                        { childRowId: secondChildRowId, data: { title: 'First title', materialRef: 'material-1' } }
+                    ]
+                })
+
+            expect(response.status).toBe(200)
+            expect(response.body).toEqual({ status: 'ok', updated: [sourceChildRowId, secondChildRowId] })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            const updateCalls = (txExecutor.query as jest.Mock).mock.calls.filter(([sql]) =>
+                String(sql).includes('UPDATE "app_runtime_test"."items"')
+            )
+            expect(updateCalls).toHaveLength(2)
+            expect(updateCalls[0][1]).toEqual(['Second title', 'material-2', 'test-user-id', sourceChildRowId, runtimeRecordId])
+            expect(updateCalls[1][1]).toEqual(['First title', 'material-1', 'test-user-id', secondChildRowId, runtimeRecordId])
         })
 
         it('checks edit permission, not create permission, before updating child rows', async () => {

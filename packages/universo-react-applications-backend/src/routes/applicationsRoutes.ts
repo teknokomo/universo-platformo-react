@@ -120,6 +120,11 @@ export function createApplicationsRoutes(
     // ── Runtime child rows (tabular) ──
     router.get('/:applicationId/runtime/rows/:recordId/tabular/:componentId', readLimiter, asyncHandler(childRows.listChildRows))
     router.post('/:applicationId/runtime/rows/:recordId/tabular/:componentId', writeLimiter, asyncHandler(childRows.createChildRow))
+    router.post(
+        '/:applicationId/runtime/rows/:recordId/tabular/:componentId/batch',
+        writeLimiter,
+        asyncHandler(childRows.batchUpdateChildRows)
+    )
     router.patch(
         '/:applicationId/runtime/rows/:recordId/tabular/:componentId/:childRowId',
         writeLimiter,

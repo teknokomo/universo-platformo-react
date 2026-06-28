@@ -104,6 +104,7 @@ import QuizWidget from './QuizWidget'
 import PlayCanvasCanvasWidget from './PlayCanvasCanvasWidget'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import { RelationBuilderWidget } from './RelationBuilderWidget'
+import InterpretationNetworkWorkspaceWidget from './InterpretationNetworkWorkspaceWidget'
 import PageBlocksView from './PageBlocksView'
 import type {
     DashboardCreateTarget,
@@ -837,6 +838,8 @@ function RecordsListDetailsTableWidget({
     const [sortModel, setSortModelState] = useState<GridSortModel>([])
     const [filterModel, setFilterModelState] = useState<GridFilterModel>({ items: [] })
     const [orderedRows, setOrderedRows] = useState<Array<Record<string, unknown> & { id: string }>>([])
+    const [rowActionsAnchorEl, setRowActionsAnchorEl] = useState<HTMLElement | null>(null)
+    const [rowActionsRowId, setRowActionsRowId] = useState<string | null>(null)
     const targetSectionId = readRecordsListTarget(datasource, details)
     const staticSearch = datasource.query?.search?.trim() || undefined
     const runtimeSort = useMemo(
@@ -889,6 +892,50 @@ function RecordsListDetailsTableWidget({
         () => applyRuntimeTableColumnPreset(toRuntimeDisplayColumns(query.data?.columns ?? []), details?.tableDefaults?.columnPreset),
         [details?.tableDefaults?.columnPreset, query.data?.columns]
     )
+    const effectivePermissions = query.data?.permissions ?? details?.permissions
+    const canOpenRowActions =
+        effectivePermissions?.editContent === true ||
+        effectivePermissions?.createContent === true ||
+        effectivePermissions?.deleteContent === true
+    const canUseTargetRowActions = Boolean(details?.onOpenRowTarget && targetSectionId)
+    const canUseHostRowActions = Boolean(details?.onOpenRowMenu)
+    const handleOpenRowActions = useCallback(
+        (event: MouseEvent<HTMLElement>, rowId: string) => {
+            if (canUseTargetRowActions) {
+                event.preventDefault()
+                event.stopPropagation()
+                setRowActionsAnchorEl(event.currentTarget)
+                setRowActionsRowId(rowId)
+                return
+            }
+
+            details?.onOpenRowMenu?.(event, rowId)
+        },
+        [canUseTargetRowActions, details]
+    )
+    const handleCloseRowActions = useCallback(() => {
+        setRowActionsAnchorEl(null)
+        setRowActionsRowId(null)
+    }, [])
+    const handleSelectRowAction = useCallback(
+        (action: DashboardRowTargetAction) => {
+            const rowId = rowActionsRowId
+            handleCloseRowActions()
+            if (!rowId || !targetSectionId) return
+
+            details?.onOpenRowTarget?.(
+                {
+                    rowId,
+                    sectionId: targetSectionId,
+                    sectionCodename: datasource.sectionCodename,
+                    objectCollectionId: targetSectionId,
+                    objectCollectionCodename: datasource.sectionCodename
+                },
+                action
+            )
+        },
+        [datasource.sectionCodename, details, handleCloseRowActions, rowActionsRowId, targetSectionId]
+    )
 
     const reorderMutation = useMutation({
         mutationKey: [...(details?.runtimeQueryKeyPrefix ?? []), 'widget-datasource-reorder', targetSectionId],
@@ -902,6 +949,7 @@ function RecordsListDetailsTableWidget({
                 applicationId: details.applicationId,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
+                workspaceId: details.currentWorkspaceId,
                 orderedRowIds: nextRows.map((row) => row.id),
                 expectedVersionsByRowId: nextRows.reduce<Record<string, number>>((acc, row) => {
                     const version = readRuntimeRowVersion(row)
@@ -921,7 +969,9 @@ function RecordsListDetailsTableWidget({
     const columns = useMemo(() => {
         if (!query.data) return []
         const baseColumns = toGridColumns(createGridColumnSource(presetColumns, query.data.rows, query.data.pagination.total), {
-            locale: details?.locale ?? 'en'
+            locale: details?.locale ?? 'en',
+            onMenuOpen: canOpenRowActions && (canUseTargetRowActions || canUseHostRowActions) ? handleOpenRowActions : undefined,
+            actionsAriaLabel: t('app.actions', 'Actions')
         })
         if (!sequencePolicy) return baseColumns
 
@@ -967,7 +1017,17 @@ function RecordsListDetailsTableWidget({
         ] satisfies GridColDef[]
 
         return [...sequenceColumns, ...baseColumns]
-    }, [details?.locale, presetColumns, query.data, sequencePolicy, t])
+    }, [
+        canOpenRowActions,
+        canUseHostRowActions,
+        canUseTargetRowActions,
+        details?.locale,
+        handleOpenRowActions,
+        presetColumns,
+        query.data,
+        sequencePolicy,
+        t
+    ])
     const flowListColumns = useMemo(() => buildFlowListColumns(presetColumns, details?.locale ?? 'en'), [details?.locale, presetColumns])
 
     const setPaginationModel = (model: GridPaginationModel) => {
@@ -1070,6 +1130,34 @@ function RecordsListDetailsTableWidget({
                 pageSizeOptions={DATASOURCE_TABLE_PAGE_SIZE_OPTIONS}
                 localeText={details.localeText}
             />
+            {canUseTargetRowActions ? (
+                <Menu
+                    anchorEl={rowActionsAnchorEl}
+                    open={Boolean(rowActionsAnchorEl)}
+                    onClose={handleCloseRowActions}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                    {effectivePermissions?.editContent === true ? (
+                        <MenuItem onClick={() => handleSelectRowAction('edit')}>
+                            <EditRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                            {t('app.edit', 'Edit')}
+                        </MenuItem>
+                    ) : null}
+                    {effectivePermissions?.createContent === true ? (
+                        <MenuItem onClick={() => handleSelectRowAction('copy')}>
+                            <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                            {t('app.copy', 'Copy')}
+                        </MenuItem>
+                    ) : null}
+                    {effectivePermissions?.deleteContent === true ? (
+                        <MenuItem onClick={() => handleSelectRowAction('delete')} sx={{ color: 'error.main' }}>
+                            <DeleteOutlineRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                            {t('app.delete', 'Delete')}
+                        </MenuItem>
+                    ) : null}
+                </Menu>
+            ) : null}
         </Stack>
     )
 }
@@ -1369,6 +1457,7 @@ function RecordsUnionDetailsTableWidget({
                 rowId: sourceRowId,
                 objectCollectionId,
                 sectionId: objectCollectionId,
+                workspaceId: details.currentWorkspaceId,
                 expectedVersion: readRuntimeRowVersion(row),
                 data: { [action.fieldCodename]: targetRecordId }
             })
@@ -3232,6 +3321,8 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             return <LearnerPlayerWidget key={widget.id} config={widget.config} />
         case 'relationBuilder':
             return <RuntimeRelationBuilderWidget key={widget.id} config={widget.config} />
+        case 'interpretationNetworkWorkspace':
+            return <InterpretationNetworkWorkspaceWidget key={widget.id} config={widget.config} />
         case 'detailsTabs':
             return <DetailsTabsWidget key={widget.id} config={widget.config} menus={menus} fallbackMenu={fallbackMenu} depth={depth} />
         case 'quizWidget':

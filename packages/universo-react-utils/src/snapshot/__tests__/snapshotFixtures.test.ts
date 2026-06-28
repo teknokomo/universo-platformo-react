@@ -7,7 +7,12 @@ import { validateSnapshotEnvelope } from '../snapshotArchive'
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURES_DIR = path.resolve(currentDir, '../../../../../tools/fixtures')
 
-const SNAPSHOT_FIXTURES = ['metahubs-lms-app-snapshot.json', 'metahubs-quiz-app-snapshot.json', 'metahubs-self-hosted-app-snapshot.json']
+const SNAPSHOT_FIXTURES = [
+    'metahubs-lms-app-snapshot.json',
+    'metahubs-quiz-app-snapshot.json',
+    'metahubs-self-hosted-app-snapshot.json',
+    'metahubs-interpretation-network-app-snapshot.json'
+]
 const LMS_FIXTURE = 'metahubs-lms-app-snapshot.json'
 
 type SnapshotEntity = {

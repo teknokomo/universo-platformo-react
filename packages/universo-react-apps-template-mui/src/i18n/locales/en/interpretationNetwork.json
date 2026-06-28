@@ -1,0 +1,180 @@
+{
+    "workspace": {
+        "title": "Interpretation network",
+        "structureTitle": "Structure",
+        "matrix": "Matrix",
+        "matrixEmpty": "Add a cell to start the structure matrix.",
+        "matrixError": "Failed to load matrix cells",
+        "loading": "Loading interpretation network",
+        "error": "Failed to load interpretation workspace",
+        "empty": "Create a structure to start working with the matrix.",
+        "emptyDetailsMemo": "Select a matrix cell in the structure on the left. Materials attached to that cell will appear here.",
+        "missingRuntimeContext": "Runtime context is not available yet.",
+        "untitledConcept": "Untitled concept",
+        "untitledInterpretation": "Untitled interpretation",
+        "selectionFallback": "Selected item",
+        "emptyCell": "Empty cell",
+        "noCellSelected": "No matrix cell is selected.",
+        "noMaterial": "The selected cell has no attached material yet.",
+        "actions": {
+            "create": "Create",
+            "save": "Save",
+            "cancel": "Cancel",
+            "delete": "Delete",
+            "deleting": "Deleting..."
+        },
+        "permissions": {
+            "readOnly": "You can view this workspace, but content editing is not available for your role."
+        },
+        "guidance": {
+            "title": "How to work with structures",
+            "noCell": "Create or select a structure on the left. After you open a structure, select a matrix cell to manage its materials here."
+        },
+        "defaults": {
+            "meaning": "Meaning",
+            "definition": "Definition",
+            "newRow": "New row",
+            "newCell": "New cell"
+        },
+        "structure": {
+            "title": "Structures",
+            "create": "Create structure",
+            "save": "Create",
+            "backToList": "Structures",
+            "newName": "New structure",
+            "newInterpretationTitle": "{{name}} matrix",
+            "emptyConcepts": "Create a structure first.",
+            "error": "Failed to create structure",
+            "filter": "Filter by title",
+            "viewMode": "Structure view mode",
+            "tableView": "Table view",
+            "cardView": "Card view",
+            "noDescription": "No description",
+            "noFilterResults": "No structures match the current filter.",
+            "columns": {
+                "title": "Title",
+                "description": "Description"
+            }
+        },
+        "cell": {
+            "addSibling": "Add cell",
+            "addSiblingHint": "Add a cell to the selected row",
+            "addRow": "Add row",
+            "drag": "Drag cell",
+            "moveControls": "Move selected cell",
+            "moveLeft": "Move selected cell left",
+            "moveRight": "Move selected cell right",
+            "moveUp": "Move selected cell up",
+            "moveDown": "Move selected cell down",
+            "moveLeftShort": "Left",
+            "moveRightShort": "Right",
+            "moveUpShort": "Up",
+            "moveDownShort": "Down",
+            "actionsFor": "Cell actions: {{title}}",
+            "createTitle": "Add cell",
+            "editTitle": "Edit cell",
+            "basicTab": "Basic",
+            "styleTab": "Style",
+            "tabs": "Cell settings",
+            "titleField": "Title",
+            "descriptionField": "Description",
+            "metadataUnavailable": "Cell title and description fields are not available.",
+            "edit": "Edit",
+            "delete": "Delete",
+            "deleteTitle": "Delete cell?",
+            "deleteDescription": "Delete the cell “{{title}}”? Materials attached to the cell will stay in the workspace.",
+            "deleteError": "Failed to delete cell",
+            "error": "Failed to update matrix cells"
+        },
+        "cellStyle": {
+            "edit": "Cell style",
+            "title": "Cell style",
+            "save": "Save style",
+            "unavailable": "Cell style fields are not available.",
+            "error": "Failed to save cell style"
+        },
+        "material": {
+            "title": "Materials",
+            "create": "Add material",
+            "edit": "Edit material",
+            "createTitle": "Add material",
+            "editTitle": "Edit material",
+            "save": "Save",
+            "untitled": "Untitled material",
+            "filter": "Filter by title",
+            "viewMode": "Material view mode",
+            "tableView": "Table view",
+            "cardView": "Card view",
+            "tableLabel": "Materials",
+            "backToMaterials": "Back to materials",
+            "editorHint": "Material content",
+            "bodyUnavailable": "Material body field is not available.",
+            "contentLanguage": "Material language",
+            "addLanguage": "Add language",
+            "noLanguagesAvailable": "No languages available",
+            "actionsFor": "Material actions: {{title}}",
+            "noDescription": "No description",
+            "noFilterResults": "No materials match the current filter.",
+            "languages": {
+                "en": "English",
+                "ru": "Russian"
+            },
+            "languageActions": "Language actions: {{language}}",
+            "primaryLanguage": "Default language",
+            "changeLanguage": "Change language",
+            "primaryVariant": "Primary variant",
+            "makePrimary": "Make primary",
+            "removeLanguage": "Remove",
+            "backToLanguageActions": "Back",
+            "blockEditor": {
+                "loading": "Loading editor...",
+                "loadError": "The block editor could not be loaded.",
+                "validationError": "The editor content is not valid.",
+                "fallbackLabel": "Editor.js blocks JSON",
+                "fallbackHelper": "Fallback JSON editor for recovery when the visual editor cannot be loaded.",
+                "retry": "Retry"
+            },
+            "columns": {
+                "title": "Title",
+                "description": "Description",
+                "actions": "Actions"
+            },
+            "error": "Failed to save material"
+        }
+    },
+    "cellStyle": {
+        "title": "Cell style",
+        "fill": "Fill",
+        "borderTop": "Top",
+        "borderRight": "Right",
+        "borderBottom": "Bottom",
+        "borderLeft": "Left",
+        "width": "Width",
+        "style": "Style",
+        "color": "Color",
+        "none": "None",
+        "preview": "Current field preview",
+        "helper": "These settings are saved with the row.",
+        "colors": {
+            "none": "None",
+            "gray": "Gray",
+            "red": "Red",
+            "orange": "Orange",
+            "yellow": "Yellow",
+            "green": "Green",
+            "teal": "Teal",
+            "blue": "Blue",
+            "indigo": "Indigo",
+            "purple": "Purple",
+            "pink": "Pink",
+            "black": "Black"
+        },
+        "lineStyles": {
+            "solid": "Solid",
+            "dashed": "Dashed",
+            "dotted": "Dotted",
+            "double": "Double",
+            "none": "None"
+        }
+    }
+}

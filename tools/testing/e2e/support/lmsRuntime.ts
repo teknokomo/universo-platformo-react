@@ -21,6 +21,14 @@ import {
 
 export type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
+/**
+ * Internal named-entity lookup helpers. Exported for use by sibling
+ * runtime modules (e.g. `interpretationNetworkRuntime.ts`) that need the same
+ * "match by codename or by VLC label" algorithm against the metahub
+ * object-collection / enumeration APIs. The `_internal` namespace
+ * prefix marks these as implementation details of the test-support
+ * layer — they are not part of the public metahub API.
+ */
 type NamedItem = {
     id?: string
     codename?: unknown
@@ -28,46 +36,52 @@ type NamedItem = {
     title?: unknown
 }
 
-const readRuntimeLabel = (value: unknown): string => {
-    if (typeof value === 'string') {
-        return value
+export const _internal = {
+    readRuntimeLabel(value: unknown): string {
+        if (typeof value === 'string') {
+            return value
+        }
+        if (!value || typeof value !== 'object') {
+            return ''
+        }
+        const directTitle = (value as { title?: unknown }).title
+        if (typeof directTitle === 'string') {
+            return directTitle
+        }
+        const directName = (value as { name?: unknown }).name
+        if (typeof directName === 'string') {
+            return directName
+        }
+        const locales = (value as { locales?: Record<string, { content?: string }> }).locales
+        if (!locales || typeof locales !== 'object') {
+            return ''
+        }
+        return locales.en?.content ?? locales.ru?.content ?? ''
+    },
+
+    normalizeEntityLookup(value: string): string {
+        return value.trim().toLowerCase().replace(/\s+/g, '')
+    },
+
+    findNamedItem(items: NamedItem[], expectedName: string): NamedItem | undefined {
+        const normalizedExpectedName = _internal.normalizeEntityLookup(expectedName)
+        const codenameMatch = items.find((item) => {
+            const codename = _internal.readRuntimeLabel(item.codename)
+            return codename.length > 0 && _internal.normalizeEntityLookup(codename) === normalizedExpectedName
+        })
+
+        if (codenameMatch) {
+            return codenameMatch
+        }
+
+        return items.find((item) => {
+            const candidates = [item.name, item.title].map((candidate) => _internal.readRuntimeLabel(candidate)).filter(Boolean)
+            return candidates.some((candidate) => _internal.normalizeEntityLookup(candidate) === normalizedExpectedName)
+        })
     }
-    if (!value || typeof value !== 'object') {
-        return ''
-    }
-    const directTitle = (value as { title?: unknown }).title
-    if (typeof directTitle === 'string') {
-        return directTitle
-    }
-    const directName = (value as { name?: unknown }).name
-    if (typeof directName === 'string') {
-        return directName
-    }
-    const locales = (value as { locales?: Record<string, { content?: string }> }).locales
-    if (!locales || typeof locales !== 'object') {
-        return ''
-    }
-    return locales.en?.content ?? locales.ru?.content ?? ''
 }
 
-const normalizeEntityLookup = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '')
-
-const findNamedItem = (items: NamedItem[], expectedName: string) => {
-    const normalizedExpectedName = normalizeEntityLookup(expectedName)
-    const codenameMatch = items.find((item) => {
-        const codename = readRuntimeLabel(item.codename)
-        return codename.length > 0 && normalizeEntityLookup(codename) === normalizedExpectedName
-    })
-
-    if (codenameMatch) {
-        return codenameMatch
-    }
-
-    return items.find((item) => {
-        const candidates = [item.name, item.title].map((candidate) => readRuntimeLabel(candidate)).filter(Boolean)
-        return candidates.some((candidate) => normalizeEntityLookup(candidate) === normalizedExpectedName)
-    })
-}
+const { findNamedItem, normalizeEntityLookup, readRuntimeLabel } = _internal
 
 export async function waitForMetahubObjectId(api: ApiContext, metahubId: string, expectedName: string) {
     let objectId: string | null = null

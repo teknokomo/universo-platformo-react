@@ -121,6 +121,7 @@ const screenshotExemptPages = new Set([
     'architecture/modules-system.md',
     'architecture/system-app-convergence.md',
     'architecture/system-app-migration-lifecycle.md',
+    'architecture/interpretation-network-data-model.md',
     'platform/1c-compatible-template.md',
     'platform/playcanvas-editor.md',
     'platform/playcanvas-editor-skills.md',
@@ -144,7 +145,8 @@ const screenshotExemptPages = new Set([
     'guides/ledgers.md',
     'guides/lms-reports.md',
     'guides/lms-resource-model.md',
-    'guides/transactional-objects.md'
+    'guides/transactional-objects.md',
+    'guides/interpretation-network.md'
 ])
 
 const summaryCoverageExemptPages = new Set([

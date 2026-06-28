@@ -292,6 +292,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
                 applicationId: details!.applicationId!,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
+                workspaceId: details?.currentWorkspaceId,
                 data: { ...data, ...(panel.createDefaults ?? {}), [parentField]: selectedParentId }
             }),
         onSuccess: invalidate
@@ -304,6 +305,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
                 rowId: row.id,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
+                workspaceId: details?.currentWorkspaceId,
                 data: { ...data, ...(panel.createDefaults ?? {}), [parentField]: selectedParentId },
                 expectedVersion: readRuntimeRowVersion(row)
             }),
@@ -317,6 +319,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
                 rowId: row.id,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
+                workspaceId: details?.currentWorkspaceId,
                 expectedVersion: readRuntimeRowVersion(row)
             }),
         onSuccess: invalidate
@@ -328,6 +331,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
                 applicationId: details!.applicationId!,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
+                workspaceId: details?.currentWorkspaceId,
                 orderedRowIds: nextRows.map((row) => row.id),
                 expectedVersionsByRowId: nextRows.reduce<Record<string, number>>((acc, row) => {
                     const version = readRuntimeRowVersion(row)

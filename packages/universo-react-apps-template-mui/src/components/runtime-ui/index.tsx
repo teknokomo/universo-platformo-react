@@ -508,42 +508,22 @@ export function PaginationControls({
                 disabled={isLoading}
                 showFirstButton
                 showLastButton
-                SelectProps={{
-                    variant: 'outlined',
-                    size: 'small',
-                    sx: {
-                        height: 36,
-                        borderRadius: 1,
-                        bgcolor: 'background.paper',
-                        boxShadow: 'none',
-                        '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'divider',
-                            borderWidth: '1px'
-                        },
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'divider',
-                            borderWidth: '1px'
-                        },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main',
-                            borderWidth: '1px'
-                        },
-                        '& .MuiSelect-select': {
-                            py: 0.25,
-                            px: 0,
-                            paddingRight: '12px !important'
-                        }
-                    }
-                }}
                 sx={{
                     '& .MuiTablePagination-selectLabel': {
                         display: { xs: 'none', sm: 'block' }
                     },
                     '& .MuiTablePagination-select': {
+                        py: 0.25,
+                        px: 0,
+                        paddingRight: '12px !important',
                         marginLeft: { xs: '0 !important', sm: '16px !important' },
                         marginRight: '16px !important'
                     },
                     '& .MuiTablePagination-input': {
+                        height: 36,
+                        borderRadius: 1,
+                        bgcolor: 'background.paper',
+                        boxShadow: 'none',
                         marginRight: 0
                     },
                     '& .MuiTablePagination-displayedRows': {

@@ -64,6 +64,7 @@
 -   [Архитектура фронтенда](architecture/frontend.md)
 -   [Архитектура системы сущностей](architecture/entity-systems.md)
 -   [Entity Component System](architecture/entity-component-system.md)
+-   [Модель данных трактовочной сети](architecture/interpretation-network-data-model.md)
 -   [Регистры](architecture/ledgers.md)
 -   [Сущности LMS](architecture/lms-entities.md)
 -   [Проектирование базы данных](architecture/database.md)
@@ -111,3 +112,4 @@
 -   [Экспорт и импорт снимков](guides/snapshot-export-import.md)
 -   [Настройки отображения шаблона приложения](guides/app-template-views.md)
 -   [MMOOMM Flight Simulator](guides/mmoomm-flight-simulator.md)
+-   [Трактовочная сеть](guides/interpretation-network.md)
