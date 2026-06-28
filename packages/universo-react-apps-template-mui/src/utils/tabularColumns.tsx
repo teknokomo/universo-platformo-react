@@ -23,12 +23,213 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import { NUMBER_DEFAULTS, validateNumber, toNumberRules, type NumberValidationResult } from '@universo-react/utils'
+import {
+    INTERPRETATION_NETWORK_CELL_COLOR_PRESET_CODENAMES,
+    INTERPRETATION_NETWORK_CELL_STYLE_STYLES,
+    INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS,
+    type InterpretationNetworkCellColorPresetCodename,
+    type InterpretationNetworkCellStyleLineStyle,
+    type InterpretationNetworkCellStyleWidth
+} from '@universo-react/types'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { getTabularStringDisplayValue, isLocalizedStringField, updateLocalizedTabularStringValue } from './tabularCellValues'
 import { formatRuntimeDateValue, formatRuntimeSafeValue, formatRuntimeValue } from './displayValue'
 import { isSemanticLongTextRuntimeField } from './fieldSemantics'
 
-type RefOption = { id: string; label: string }
+type RefOption = { id: string; label: string; codename?: string }
+
+type CellStylePreviewConfig = {
+    fillColorField?: string
+    borderTopColorField?: string
+    borderRightColorField?: string
+    borderBottomColorField?: string
+    borderLeftColorField?: string
+    borderTopWidthField?: string
+    borderRightWidthField?: string
+    borderBottomWidthField?: string
+    borderLeftWidthField?: string
+    borderTopStyleField?: string
+    borderRightStyleField?: string
+    borderBottomStyleField?: string
+    borderLeftStyleField?: string
+}
+
+const CELL_STYLE_COLOR_HEX: Record<InterpretationNetworkCellColorPresetCodename, string | null> = {
+    none: null,
+    gray: '#9e9e9e',
+    red: '#e53935',
+    orange: '#fb8c00',
+    yellow: '#fdd835',
+    green: '#43a047',
+    teal: '#00897b',
+    blue: '#1e88e5',
+    indigo: '#3949ab',
+    purple: '#8e24aa',
+    pink: '#d81b60',
+    black: '#212121'
+}
+
+const isCellStyleColorCodename = (value: string): value is InterpretationNetworkCellColorPresetCodename =>
+    INTERPRETATION_NETWORK_CELL_COLOR_PRESET_CODENAMES.some((color) => color === value)
+
+const isCellStyleWidth = (value: string): value is InterpretationNetworkCellStyleWidth =>
+    INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS.some((width) => width === value)
+
+const isCellStyleLineStyle = (value: string): value is InterpretationNetworkCellStyleLineStyle =>
+    INTERPRETATION_NETWORK_CELL_STYLE_STYLES.some((style) => style === value)
+
+const readStringConfigValue = (source: Record<string, unknown>, key: keyof CellStylePreviewConfig): string | undefined => {
+    const value = source[key]
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+const readCellStylePreviewConfig = (value: unknown): CellStylePreviewConfig | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+    const source = value as Record<string, unknown>
+    const config: CellStylePreviewConfig = {
+        fillColorField: readStringConfigValue(source, 'fillColorField'),
+        borderTopColorField: readStringConfigValue(source, 'borderTopColorField'),
+        borderRightColorField: readStringConfigValue(source, 'borderRightColorField'),
+        borderBottomColorField: readStringConfigValue(source, 'borderBottomColorField'),
+        borderLeftColorField: readStringConfigValue(source, 'borderLeftColorField'),
+        borderTopWidthField: readStringConfigValue(source, 'borderTopWidthField'),
+        borderRightWidthField: readStringConfigValue(source, 'borderRightWidthField'),
+        borderBottomWidthField: readStringConfigValue(source, 'borderBottomWidthField'),
+        borderLeftWidthField: readStringConfigValue(source, 'borderLeftWidthField'),
+        borderTopStyleField: readStringConfigValue(source, 'borderTopStyleField'),
+        borderRightStyleField: readStringConfigValue(source, 'borderRightStyleField'),
+        borderBottomStyleField: readStringConfigValue(source, 'borderBottomStyleField'),
+        borderLeftStyleField: readStringConfigValue(source, 'borderLeftStyleField')
+    }
+    return Object.values(config).some(Boolean) ? config : null
+}
+
+const resolveRowFieldValue = (row: unknown, fieldName: string | undefined): unknown => {
+    if (!fieldName || !row || typeof row !== 'object' || Array.isArray(row)) return undefined
+    const record = row as Record<string, unknown>
+    if (Object.prototype.hasOwnProperty.call(record, fieldName)) return record[fieldName]
+    const data = record.data
+    return data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>)[fieldName] : undefined
+}
+
+const resolveStyleColor = (value: unknown, field: FieldConfig | undefined): InterpretationNetworkCellColorPresetCodename => {
+    if (typeof value === 'string') {
+        if (isCellStyleColorCodename(value)) return value
+        const option = (field?.refOptions ?? field?.enumOptions ?? []).find((candidate) => candidate.id === value)
+        if (option?.codename && isCellStyleColorCodename(option.codename)) return option.codename
+    }
+    return 'none'
+}
+
+const resolveStyleWidth = (value: unknown): InterpretationNetworkCellStyleWidth =>
+    typeof value === 'string' && isCellStyleWidth(value) ? value : '0'
+
+const resolveStyleLine = (value: unknown): InterpretationNetworkCellStyleLineStyle =>
+    typeof value === 'string' && isCellStyleLineStyle(value) ? value : 'none'
+
+const widthToCss = (width: InterpretationNetworkCellStyleWidth): string => (width === '0' ? '0' : width)
+
+export const isHiddenTabularField = (field: FieldConfig): boolean => {
+    const uiConfig = field.uiConfig ?? {}
+    return uiConfig.hidden === true || uiConfig.gridHidden === true
+}
+
+const readCellStyleStringOptions = (field: FieldConfig): readonly string[] | null => {
+    const uiConfig = field.uiConfig ?? {}
+    if (uiConfig.widget !== 'cellStylePicker') return null
+    const valueKind = typeof uiConfig.cellStyleValue === 'string' ? uiConfig.cellStyleValue : ''
+    if (valueKind === 'width' || field.id.endsWith('Width')) return INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS
+    if (valueKind === 'lineStyle' || field.id.endsWith('Style')) return INTERPRETATION_NETWORK_CELL_STYLE_STYLES
+    return null
+}
+
+const isCellStyleLineStyleField = (field: FieldConfig): boolean => {
+    const uiConfig = field.uiConfig ?? {}
+    const valueKind = typeof uiConfig.cellStyleValue === 'string' ? uiConfig.cellStyleValue : ''
+    return uiConfig.widget === 'cellStylePicker' && (valueKind === 'lineStyle' || field.id.endsWith('Style'))
+}
+
+const getCellStyleLineStyleLabel = (style: string, locale: string): string => {
+    const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+    if (normalizedLocale === 'ru') {
+        switch (style) {
+            case 'solid':
+                return 'Сплошная'
+            case 'dashed':
+                return 'Штриховая'
+            case 'dotted':
+                return 'Пунктирная'
+            case 'double':
+                return 'Двойная'
+            case 'none':
+                return 'Нет'
+            default:
+                return style
+        }
+    }
+
+    switch (style) {
+        case 'solid':
+            return 'Solid'
+        case 'dashed':
+            return 'Dashed'
+        case 'dotted':
+            return 'Dotted'
+        case 'double':
+            return 'Double'
+        case 'none':
+            return 'None'
+        default:
+            return style
+    }
+}
+
+const getCellStyleOptionLabel = (field: FieldConfig, option: string, locale: string): string =>
+    isCellStyleLineStyleField(field) ? getCellStyleLineStyleLabel(option, locale) : option
+
+export const buildCellStylePreviewSx = (
+    row: unknown,
+    config: CellStylePreviewConfig,
+    fieldById: Map<string, FieldConfig>
+): Record<string, unknown> => {
+    const fieldByCodename = new Map([...fieldById.values()].map((field) => [field.codename ?? field.id, field]))
+    const resolveField = (fieldName: string | undefined): FieldConfig | undefined =>
+        fieldName ? fieldById.get(fieldName) ?? fieldByCodename.get(fieldName) : undefined
+    const resolveValue = (fieldName: string | undefined): unknown => {
+        const field = resolveField(fieldName)
+        return resolveRowFieldValue(row, field?.id ?? fieldName)
+    }
+    const color = (fieldName: string | undefined) => resolveStyleColor(resolveValue(fieldName), resolveField(fieldName))
+    const width = (fieldName: string | undefined) => resolveStyleWidth(resolveValue(fieldName))
+    const line = (fieldName: string | undefined) => resolveStyleLine(resolveValue(fieldName))
+    const fill = CELL_STYLE_COLOR_HEX[color(config.fillColorField)]
+    const topColor = CELL_STYLE_COLOR_HEX[color(config.borderTopColorField)] ?? 'transparent'
+    const rightColor = CELL_STYLE_COLOR_HEX[color(config.borderRightColorField)] ?? 'transparent'
+    const bottomColor = CELL_STYLE_COLOR_HEX[color(config.borderBottomColorField)] ?? 'transparent'
+    const leftColor = CELL_STYLE_COLOR_HEX[color(config.borderLeftColorField)] ?? 'transparent'
+
+    return {
+        minHeight: 36,
+        width: '100%',
+        px: 1,
+        py: 0.5,
+        display: 'flex',
+        alignItems: 'center',
+        bgcolor: fill ?? 'transparent',
+        borderTop: `${widthToCss(width(config.borderTopWidthField))} ${line(config.borderTopStyleField)} ${topColor}`,
+        borderRight: `${widthToCss(width(config.borderRightWidthField))} ${line(config.borderRightStyleField)} ${rightColor}`,
+        borderBottom: `${widthToCss(width(config.borderBottomWidthField))} ${line(config.borderBottomStyleField)} ${bottomColor}`,
+        borderLeft: `${widthToCss(width(config.borderLeftWidthField))} ${line(config.borderLeftStyleField)} ${leftColor}`
+    }
+}
+
+const renderCellStylePreview = (text: string, row: unknown, config: CellStylePreviewConfig, fieldById: Map<string, FieldConfig>) => (
+    <Box data-testid='tabular-cell-style-preview' sx={buildCellStylePreviewSx(row, config, fieldById)}>
+        <Typography component='span' sx={{ fontSize: 'inherit', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+            {text}
+        </Typography>
+    </Box>
+)
 
 /** Props for the inline NUMBER edit cell. */
 interface NumberEditCellProps extends GridRenderEditCellParams {
@@ -480,6 +681,8 @@ export function buildTabularColumns({
     const incrementAriaLabel = numberIncrementAriaLabel ?? (normalizedLocale === 'ru' ? 'Увеличить' : 'Increase value')
     const decrementAriaLabel = numberDecrementAriaLabel ?? (normalizedLocale === 'ru' ? 'Уменьшить' : 'Decrease value')
     const invalidNumberMessage = numberInvalidMessage ?? (normalizedLocale === 'ru' ? 'Некорректное число' : 'Invalid number')
+    const fieldById = new Map(childFields.map((field) => [field.id, field]))
+    const visibleChildFields = childFields.filter((field) => !isHiddenTabularField(field))
 
     const fieldCols: GridColDef[] = [
         {
@@ -494,7 +697,7 @@ export function buildTabularColumns({
             headerAlign: 'center',
             renderCell: (params) => rowNumberById.get(String(params.id)) ?? ''
         },
-        ...childFields.map((field): GridColDef => {
+        ...visibleChildFields.map((field): GridColDef => {
             // REF fields with options → singleSelect dropdown
             const refOptions = field.refOptions ?? field.enumOptions ?? []
             if (field.type === 'REF' && refOptions.length > 0) {
@@ -649,6 +852,61 @@ export function buildTabularColumns({
             }
 
             if (field.type === 'STRING') {
+                const cellStyleOptions = readCellStyleStringOptions(field)
+                if (cellStyleOptions) {
+                    return {
+                        field: field.id,
+                        headerName: field.label,
+                        flex: 1,
+                        minWidth: 120,
+                        editable: false,
+                        renderCell: (params) => {
+                            const selectedValue =
+                                typeof params.value === 'string' && cellStyleOptions.includes(params.value)
+                                    ? params.value
+                                    : cellStyleOptions[0]
+                            return (
+                                <Select
+                                    size='small'
+                                    variant='standard'
+                                    value={selectedValue}
+                                    onChange={(event) => {
+                                        onSelectChange?.(String(params.id), field.id, event.target.value)
+                                    }}
+                                    fullWidth
+                                    disableUnderline
+                                    sx={{
+                                        fontSize: 'inherit',
+                                        minWidth: 0,
+                                        m: 0,
+                                        p: 0,
+                                        backgroundColor: 'transparent',
+                                        '& .MuiSelect-select': {
+                                            py: 0,
+                                            pr: '20px !important',
+                                            pl: 0,
+                                            background: 'transparent !important'
+                                        },
+                                        '& .MuiSelect-icon': { right: 0 },
+                                        '&:before, &:after': { display: 'none !important' }
+                                    }}
+                                >
+                                    {cellStyleOptions.map((option) => (
+                                        <MenuItem key={option} value={option} sx={{ minHeight: 36 }}>
+                                            {getCellStyleOptionLabel(field, option, locale)}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            )
+                        },
+                        valueFormatter: (value: unknown) =>
+                            getCellStyleOptionLabel(
+                                field,
+                                typeof value === 'string' && cellStyleOptions.includes(value) ? value : cellStyleOptions[0],
+                                locale
+                            )
+                    }
+                }
                 const isLongText = isSemanticLongTextRuntimeField({
                     id: field.id,
                     codename: field.codename,
@@ -658,11 +916,22 @@ export function buildTabularColumns({
                     uiConfig: field.uiConfig
                 })
                 const localized = isLocalizedStringField(field)
+                const stylePreviewConfig = readCellStylePreviewConfig(field.uiConfig?.cellStylePreview)
 
                 colDef.minWidth = isLongText ? 220 : colDef.minWidth
-                colDef.renderCell = isLongText
-                    ? (params) => renderTabularLongTextCell(params, locale)
-                    : (params) => getTabularStringDisplayValue(params.value, locale)
+                if (stylePreviewConfig) {
+                    colDef.renderCell = (params) =>
+                        renderCellStylePreview(
+                            getTabularStringDisplayValue(params.value, locale),
+                            params.row,
+                            stylePreviewConfig,
+                            fieldById
+                        )
+                } else {
+                    colDef.renderCell = isLongText
+                        ? (params) => renderTabularLongTextCell(params, locale)
+                        : (params) => getTabularStringDisplayValue(params.value, locale)
+                }
                 colDef.valueFormatter = (value: unknown) => getTabularStringDisplayValue(value, locale)
 
                 if (localized || isLongText) {
@@ -748,7 +1017,6 @@ export function buildTabularColumns({
     // Actions column (delete)
     fieldCols.push({
         field: '__actions',
-        type: 'actions' as const,
         headerName: actionsAriaLabel,
         width: 48,
         sortable: false,

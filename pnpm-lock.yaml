@@ -33,6 +33,15 @@ catalogs:
     '@colyseus/ws-transport':
       specifier: 0.17.13
       version: 0.17.13
+    '@dnd-kit/core':
+      specifier: ^6.3.1
+      version: 6.3.1
+    '@dnd-kit/sortable':
+      specifier: ^8.0.0
+      version: 8.0.0
+    '@dnd-kit/utilities':
+      specifier: ^3.2.2
+      version: 3.2.2
     '@editorjs/delimiter':
       specifier: ^1.4.2
       version: 1.4.2
@@ -1710,13 +1719,13 @@ importers:
   packages/universo-react-metahubs-frontend:
     dependencies:
       '@dnd-kit/core':
-        specifier: ^6.3.1
+        specifier: 'catalog:'
         version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@dnd-kit/sortable':
-        specifier: ^8.0.0
+        specifier: 'catalog:'
         version: 8.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       '@dnd-kit/utilities':
-        specifier: ^3.2.2
+        specifier: 'catalog:'
         version: 3.2.2(react@18.3.1)
       '@emotion/react':
         specifier: ^11.14.0
@@ -2720,13 +2729,13 @@ importers:
   packages/universo-react-template-mui:
     dependencies:
       '@dnd-kit/core':
-        specifier: ^6.3.1
+        specifier: 'catalog:'
         version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@dnd-kit/sortable':
-        specifier: ^8.0.0
+        specifier: 'catalog:'
         version: 8.0.0(@dnd-kit/core@6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       '@dnd-kit/utilities':
-        specifier: ^3.2.2
+        specifier: 'catalog:'
         version: 3.2.2(react@18.3.1)
       '@emotion/react':
         specifier: 'catalog:'

@@ -131,7 +131,6 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
         const onMenuOpen = options.onMenuOpen
         cols.push({
             field: 'actions',
-            type: 'actions' as const,
             headerName: options.actionsAriaLabel ?? 'Actions',
             width: 48,
             sortable: false,

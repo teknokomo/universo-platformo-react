@@ -15,8 +15,8 @@ import { validateNumber, toNumberRules, type NumberValidationResult } from '@uni
 import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
-import { buildTabularColumns } from '../utils/tabularColumns'
-import { normalizeTabularCellValue } from '../utils/tabularCellValues'
+import { buildTabularColumns, isHiddenTabularField } from '../utils/tabularColumns'
+import { buildInitialTabularRowValues, normalizeTabularCellValue } from '../utils/tabularCellValues'
 
 export interface TabularPartEditorProps {
     /** Display label for the table section. */
@@ -69,7 +69,7 @@ export function TabularPartEditor({
     const resolvedLocale = locale ?? i18n.language ?? 'en'
     const dataGridLocale = useMemo(() => getDataGridLocaleText(resolvedLocale), [resolvedLocale])
     const firstEditableFieldId = useMemo(
-        () => childFields.find((field) => field.type === 'STRING' || field.type === 'NUMBER')?.id ?? null,
+        () => childFields.find((field) => !isHiddenTabularField(field) && (field.type === 'STRING' || field.type === 'NUMBER'))?.id ?? null,
         [childFields]
     )
     const deleteDisabled = typeof minRows === 'number' && value.length <= minRows
@@ -134,19 +134,16 @@ export function TabularPartEditor({
         const localId = nextLocalIdRef.current++
         const newRow: Record<string, unknown> = {
             _localId: `__local_new_${localId}`,
+            ...buildInitialTabularRowValues(childFields),
             _tp_sort_order: value.length
         }
-        for (const field of childFields) {
-            newRow[field.id] = field.type === 'BOOLEAN' ? false : null
-        }
 
-        const firstEditableField = childFields.find((field) => field.type === 'STRING' || field.type === 'NUMBER')
-        if (firstEditableField) {
-            pendingCellEditRef.current = { rowId: String(newRow._localId), fieldId: firstEditableField.id }
+        if (firstEditableFieldId) {
+            pendingCellEditRef.current = { rowId: String(newRow._localId), fieldId: firstEditableFieldId }
         }
 
         onChange([...value, newRow])
-    }, [value, onChange, childFields, maxRows])
+    }, [value, onChange, childFields, maxRows, firstEditableFieldId])
 
     useEffect(() => {
         const pending = pendingCellEditRef.current

@@ -12,7 +12,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 | **Type**         | React Frontend Package (TypeScript)    |
 | **Status**       | ✅ Active Development                  |
 | **Framework**    | React 18 + TypeScript + Material-UI v7 |
-| **Package Name** | `@universo-react/apps-template-mui`          |
+| **Package Name** | `@universo-react/apps-template-mui`    |
 
 ## Key Features
 
@@ -79,6 +79,14 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 -   **appsTranslations**: Side-effect i18n resource registration for the apps domain
 -   **Locale utilities**: `getDataGridLocaleText()` for MUI DataGrid locale overrides
+-   **interpretationNetwork namespace**: en + ru labels for the Interpretation Network interpretation-network `cellStylePicker` widget (`apps-template-mui/src/i18n/interpretationNetwork.ts`)
+
+## Stage-1 Additions (Interpretation Network interpretation network)
+
+-   **Structure-first runtime**: the Interpretation Network app opens on the localized `InterpretationNetworkIntro` Page; the `interpretationNetworkWorkspace` center widget is scoped to the `Structures` (`Concept`) section so the empty left pane only exposes `Create structure`, while the right pane owns the start memo and selected-cell `Add material` flow.
+-   **`CellStyleDialogField`**: `uiConfig.widget: 'cellStylePicker'` extension of the standard `FormDialog` for the Interpretation Matrix cell color/border attributes (12-color chip grid + per-side width/style + current-field preview).
+-   **Cell ID defaults**: `buildInitialTabularRowValues` creates RFC 9562 UUID v7 values for hidden `CellId` matrix fields, and the Playwright generator preserves those server-owned IDs in the exported fixture.
+-   **`INTERPRETATION_NETWORK_CELL_*` types**: `INTERPRETATION_NETWORK_CELL_COLOR_PRESET_CODENAMES`, `INTERPRETATION_NETWORK_CELL_STYLE_SIDES`, `INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS`, `INTERPRETATION_NETWORK_CELL_STYLE_STYLES` from `@universo-react/types`, plus `InterpretationNetworkCellStyleState` and `InterpretationNetworkCellStyleBorder`.
 
 ## Installation
 

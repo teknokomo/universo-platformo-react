@@ -1,0 +1,73 @@
+# Interpretation Network
+
+The **Interpretation Network** template adds a real interpretation-network workspace to the Universo Platformo metahub catalog. It is the Stage-1 delivery for generic interpretation-network applications and ships:
+
+-   A pre-defined **Concept / Interpretation / Relation / Material** runtime model on top of the base `object`, `page`, and `enumeration` presets.
+-   Three closed enumerations — **Context**, **RelationType**, and **CellColor** — that drive per-cell styling and graph edges.
+-   A reusable **interpretationNetworkWorkspace** runtime widget in `packages/universo-react-apps-template-mui` that renders the two-pane workspace without reviving generic dashboard clutter.
+-   A dedicated `cellStylePicker` field widget for the Interpretation Matrix color and border controls.
+-   A product Playwright generator that emits `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` and a strict fixture contract that rejects unrelated dashboard widgets.
+
+## When to use it
+
+-   You need a multi-context knowledge graph: terms that have several interpretations depending on the domain.
+-   You need cell-level styling (background color + per-side border) that round-trips through the snapshot envelope.
+-   You need typed edges between concepts, interpretations, and individual cells.
+-   You need a workspace-scoped table-template flow so users can create or copy reusable matrix structures inside the published app.
+
+## Architecture
+
+The published app keeps the normal left application navigation. The central workspace uses the new interpretation-network widget and shows:
+
+-   left pane: structure tree + matrix;
+-   right pane: materials attached to the selected matrix cell.
+
+The workspace is intentionally operational, not decorative. It reuses shared runtime primitives and generic CRUD/dialog/material controls instead of introducing a one-off dashboard shell.
+
+## Installation
+
+```bash
+pnpm supabase:e2e:start:minimal
+pnpm env:e2e:local-supabase
+pnpm run build:e2e:local-supabase
+pnpm run test:e2e:interpretation-network-fixture-gate
+pnpm run check:interpretation-network-fixture-contract
+```
+
+## Configuration walk-through
+
+The fixture does not seed user-authored structures, matrix cells, or materials. It provides the generic object model, the startup Page, the runtime widget configuration, and the style enumerations needed for users to create their own structures inside the published app.
+
+## Two-pane workspace tour
+
+The published application renders:
+
+-   left application menu: the normal workspace/navigation shell;
+-   interpretation workspace: the new `interpretationNetworkWorkspace` widget;
+-   left pane before opening a structure: the structure list and Create structure action;
+-   left pane after opening a structure: that structure's internal matrix and matrix actions;
+-   right pane: materials attached to the selected matrix cell.
+
+## Cell styling
+
+Each matrix cell carries a stable `CellId` (UUID v7) plus flat color and border fields. The `cellStylePicker` widget renders a chip grid for color selection, border width/style controls, and a live preview.
+
+## Material attachment
+
+Materials use the Page-like object contract with title, description, and Editor.js block content. In the application UI they are shown as Materials, scoped to the selected matrix cell, with table/card modes and title filtering.
+
+## Workspace table templates
+
+Stage 1 includes a workspace-scoped table-template flow. Users can create or copy a reusable matrix template inside the workspace and instantiate visible matrix rows from it without metahub-authoring access.
+
+## Limitations
+
+-   No IPFS/IPNS/content-addressed publication in Stage 1.
+-   No new schema or metahub template version bump.
+-   Existing platform workspace roles remain sufficient for Stage 1.
+
+## Next steps
+
+-   [Interpretation Network data model](../architecture/interpretation-network-data-model.md)
+-   [Snapshot Export & Import](snapshot-export-import.md)
+-   [Runtime UI UX Quality Gate](../contributing/runtime-ui-ux-quality-gate.md)

@@ -280,6 +280,7 @@ describe('toGridColumns', () => {
             }
         )
 
+        expect(actionsColumn.type).toBeUndefined()
         const rendered = render(
             <>
                 {actionsColumn.renderCell?.({

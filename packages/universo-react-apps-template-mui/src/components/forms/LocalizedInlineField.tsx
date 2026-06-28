@@ -59,6 +59,8 @@ type BaseProps = {
     maxLength?: number | null
     /** Minimum string length (for validation display) */
     minLength?: number | null
+    /** Reports local field validation such as language-specific length errors to the parent form. */
+    onValidationError?: (message: string | null) => void
 }
 
 type SimpleFieldProps = BaseProps & {
@@ -122,6 +124,24 @@ const buildLengthConstraintText = (
     return null
 }
 
+const buildLengthErrorText = (
+    t: ReturnType<typeof useCommonTranslations<'localizedField'>>['t'],
+    value: string,
+    minLength?: number | null,
+    maxLength?: number | null
+): string | null => {
+    if (minLength != null && maxLength != null && value.length > 0 && (value.length < minLength || value.length > maxLength)) {
+        return t('lengthRange', 'Length: {{min}}-{{max}} characters', { min: minLength, max: maxLength })
+    }
+    if (minLength != null && value.length > 0 && value.length < minLength) {
+        return t('minLength', 'Minimum length: {{min}} characters', { min: minLength })
+    }
+    if (maxLength != null && value.length > maxLength) {
+        return t('maxLength', 'Maximum length: {{max}} characters', { max: maxLength })
+    }
+    return null
+}
+
 /** Simple non-localized field variant (no hooks needed) */
 const SimpleInlineField: React.FC<SimpleFieldProps> = ({
     value,
@@ -135,17 +155,13 @@ const SimpleInlineField: React.FC<SimpleFieldProps> = ({
     rows,
     size,
     maxLength,
-    minLength
+    minLength,
+    onValidationError
 }) => {
     const { t } = useCommonTranslations('localizedField')
 
-    // Block input beyond maxLength
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const newValue = event.target.value
-        if (maxLength != null && newValue.length > maxLength) {
-            return // Block input
-        }
-        onChange(newValue)
+        onChange(event.target.value)
     }
 
     // Build constraint helper text
@@ -153,7 +169,13 @@ const SimpleInlineField: React.FC<SimpleFieldProps> = ({
         return buildLengthConstraintText(t, minLength, maxLength)
     }, [maxLength, minLength, t])
 
-    const finalHelperText = error || helperText || constraintText
+    const localLengthError = useMemo(() => buildLengthErrorText(t, value, minLength, maxLength), [maxLength, minLength, t, value])
+
+    useEffect(() => {
+        onValidationError?.(localLengthError)
+    }, [localLengthError, onValidationError])
+
+    const finalHelperText = error || localLengthError || helperText || constraintText
 
     return (
         <TextField
@@ -161,7 +183,7 @@ const SimpleInlineField: React.FC<SimpleFieldProps> = ({
             label={label}
             required={required}
             disabled={disabled}
-            error={Boolean(error)}
+            error={Boolean(error || localLengthError)}
             helperText={finalHelperText}
             value={value}
             onChange={handleChange}
@@ -190,7 +212,8 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
     uiLocale,
     autoInitialize = true,
     maxLength,
-    minLength
+    minLength,
+    onValidationError
 }) => {
     const { t } = useCommonTranslations('localizedField')
     const normalizedUiLocale = normalizeLocale(uiLocale)
@@ -205,12 +228,8 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
     const primaryLocale = value?._primary ?? normalizedUiLocale
     const content = value?.locales?.[primaryLocale]?.content ?? ''
 
-    // Block input beyond maxLength
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = event.target.value
-        if (maxLength != null && newValue.length > maxLength) {
-            return // Block input
-        }
         if (!value) {
             onChange(createLocalizedContent(primaryLocale, newValue))
         } else {
@@ -223,7 +242,13 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
         return buildLengthConstraintText(t, minLength, maxLength)
     }, [maxLength, minLength, t])
 
-    const finalHelperText = error || helperText || constraintText
+    const localLengthError = useMemo(() => buildLengthErrorText(t, content, minLength, maxLength), [content, maxLength, minLength, t])
+
+    useEffect(() => {
+        onValidationError?.(localLengthError)
+    }, [localLengthError, onValidationError])
+
+    const finalHelperText = error || localLengthError || helperText || constraintText
 
     return (
         <TextField
@@ -231,7 +256,7 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
             label={label}
             required={required}
             disabled={disabled}
-            error={Boolean(error)}
+            error={Boolean(error || localLengthError)}
             helperText={finalHelperText}
             value={content}
             onChange={handleChange}
@@ -262,7 +287,8 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
     autoInitialize = true,
     localesEndpoint = '/api/v1/locales/content',
     maxLength,
-    minLength
+    minLength,
+    onValidationError
 }) => {
     const { t } = useCommonTranslations('localizedField')
     const theme = useTheme()
@@ -391,17 +417,30 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
         return buildLengthConstraintText(t, minLength, maxLength)
     }, [maxLength, minLength, t])
 
-    // Handler that blocks input beyond maxLength - MUST be before conditional returns
     const handleLocaleChange = useCallback(
         (locale: string, newValue: string) => {
-            if (maxLength != null && newValue.length > maxLength) {
-                return // Block input
-            }
             if (!value) return
             onChange(updateLocalizedContentLocale(value, locale, newValue))
         },
-        [maxLength, value, onChange]
+        [value, onChange]
     )
+
+    const localeLengthErrors = useMemo(() => {
+        if (!value) return new Map<string, string>()
+        const next = new Map<string, string>()
+        for (const locale of orderedLocales) {
+            const localeContent = value.locales[locale]?.content ?? ''
+            const message = buildLengthErrorText(t, localeContent, minLength, maxLength)
+            if (message) next.set(locale, message)
+        }
+        return next
+    }, [maxLength, minLength, orderedLocales, t, value])
+
+    const firstLengthError = useMemo(() => localeLengthErrors.values().next().value ?? null, [localeLengthErrors])
+
+    useEffect(() => {
+        onValidationError?.(firstLengthError)
+    }, [firstLengthError, onValidationError])
 
     if (localesLoading && !value) {
         return (
@@ -461,22 +500,15 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                 const isFocused = focusedLocale === locale
                 const shouldShrink = Boolean(entry?.content?.trim()) || isFocused
 
-                // Check minLength validation for this specific locale
-                const localeContent = entry?.content ?? ''
-                const hasMinLengthError = minLength != null && localeContent.length > 0 && localeContent.length < minLength
+                const localeLengthError = localeLengthErrors.get(locale) ?? null
 
                 // Determine if error should show under THIS locale:
                 // - If errorLocale is specified, show error only on that locale
                 // - If errorLocale is not specified (null/undefined), show error on primary (backward compat)
-                // - Also show minLength error independently for visual feedback
+                // - Also show length errors independently for visual feedback
                 const isErrorLocale = errorLocale ? locale.toLowerCase() === errorLocale.toLowerCase() : isPrimary
-                const showError = (isErrorLocale && error) || hasMinLengthError
-                const fieldHelperText =
-                    isErrorLocale && error
-                        ? error
-                        : hasMinLengthError
-                        ? buildLengthConstraintText(t, minLength, null)
-                        : helperText || constraintText
+                const showError = (isErrorLocale && error) || Boolean(localeLengthError)
+                const fieldHelperText = isErrorLocale && error ? error : localeLengthError ?? helperText ?? constraintText
 
                 return (
                     <Box key={locale} sx={{ position: 'relative', overflow: 'visible' }}>

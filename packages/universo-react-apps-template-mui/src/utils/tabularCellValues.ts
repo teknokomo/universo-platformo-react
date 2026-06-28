@@ -3,13 +3,14 @@ import {
     isLocalizedContent,
     normalizeLocale,
     resolveLocalizedContent,
+    generateUuidV7,
     updateLocalizedContentLocale
 } from '@universo-react/utils'
 import type { VersionedLocalizedContent } from '@universo-react/types'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { formatRuntimeSafeValue } from './displayValue'
 
-type TabularFieldLike = Pick<FieldConfig, 'id' | 'type' | 'localized' | 'validationRules'>
+type TabularFieldLike = Pick<FieldConfig, 'id' | 'codename' | 'type' | 'localized' | 'validationRules' | 'uiConfig'>
 
 export const isLocalizedStringField = (field: TabularFieldLike): boolean =>
     field.type === 'STRING' &&
@@ -72,4 +73,19 @@ export const normalizeTabularRowValues = (
     }
 
     return normalizedRow
+}
+
+const getTabularFieldCodename = (field: TabularFieldLike): string => field.codename ?? field.id
+
+const shouldGenerateStableTabularCellId = (field: TabularFieldLike): boolean =>
+    field.type === 'STRING' && getTabularFieldCodename(field) === 'CellId' && field.uiConfig?.serverOwned === true
+
+export const buildInitialTabularRowValues = (childFields: TabularFieldLike[]): Record<string, unknown> => {
+    const row: Record<string, unknown> = {}
+
+    for (const field of childFields) {
+        row[field.id] = shouldGenerateStableTabularCellId(field) ? generateUuidV7() : field.type === 'BOOLEAN' ? false : null
+    }
+
+    return row
 }

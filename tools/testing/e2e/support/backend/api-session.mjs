@@ -1713,6 +1713,24 @@ export async function createRuntimeRow(api, applicationId, payload) {
     return response.json()
 }
 
+export async function getRuntimeAppData(api, applicationId, params = {}) {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+        query.set(key, String(value))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/runtime${suffix}`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching runtime data for application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
 export async function getRuntimeRow(api, applicationId, rowId, params = {}) {
     const query = new URLSearchParams()
     const objectCollectionId = params.objectCollectionId ?? params.sectionId ?? params.objectId ?? null

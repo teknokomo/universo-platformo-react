@@ -207,6 +207,8 @@
     },
     "validation": {
         "vlcMinLength": "Language \"{{locale}}\": minimum length {{min}}",
+        "vlcMaxLength": "Language \"{{locale}}\": maximum length {{max}}",
+        "vlcLengthBetween": "Language \"{{locale}}\": length must be between {{min}} and {{max}}",
         "lengthBetween": "Length must be between {{min}} and {{max}}",
         "minLength": "Minimum length: {{min}}",
         "maxLength": "Maximum length: {{max}}",
@@ -398,7 +400,8 @@
         "shareUntitledMember": "Workspace member",
         "shareSubmit": "Share",
         "menu": {
-            "more": "More"
+            "more": "More",
+            "navigation": "Application navigation"
         }
     },
     "trash": {

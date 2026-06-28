@@ -249,13 +249,14 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 
 ### Доступные генераторы
 
-| Генератор                           | Output                                                    | Описание                                                                                                                                                       |
-| ----------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `metahubs-self-hosted-app-export`   | `tools/fixtures/metahubs-self-hosted-app-snapshot.json`   | Создаёт локализованный fixture Metahubs Self-Hosted App, сажает baseline runtime settings, публикует его и экспортирует snapshot для self-hosted parity flows. |
-| `metahubs-quiz-app-export`          | `tools/fixtures/metahubs-quiz-app-snapshot.json`          | Создаёт локализованный fixture quiz-приложения и экспортирует snapshot для quiz runtime import flows.                                                          |
-| `metahubs-lms-app-export`           | `tools/fixtures/metahubs-lms-app-snapshot.json`           | Создаёт локализованный fixture LMS-приложения и экспортирует snapshot для LMS runtime import flows.                                                            |
-| `metahubs-mmoomm-flight-app-export` | `tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json` | Создаёт fixture MMOOMM flight simulator с wrapper-пакетами, Object-сущностями, runtime-модулями и generic PlayCanvas canvas widget.                            |
-| `metahubs-mmoomm-app-export`        | `tools/fixtures/metahubs-mmoomm-app-snapshot.json`        | Создаёт основной browser-authored fixture MMOOMM через UI-first путь: метахаб, пакеты, PlayCanvas Editor authoring, публикация, привязка layout и export.      |
+| Генератор                                    | Output                                                             | Описание                                                                                                                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metahubs-self-hosted-app-export`            | `tools/fixtures/metahubs-self-hosted-app-snapshot.json`            | Создаёт локализованный fixture Metahubs Self-Hosted App, сажает baseline runtime settings, публикует его и экспортирует snapshot для self-hosted parity flows. |
+| `metahubs-quiz-app-export`                   | `tools/fixtures/metahubs-quiz-app-snapshot.json`                   | Создаёт локализованный fixture quiz-приложения и экспортирует snapshot для quiz runtime import flows.                                                          |
+| `metahubs-lms-app-export`                    | `tools/fixtures/metahubs-lms-app-snapshot.json`                    | Создаёт локализованный fixture LMS-приложения и экспортирует snapshot для LMS runtime import flows.                                                            |
+| `metahubs-mmoomm-flight-app-export`          | `tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`          | Создаёт fixture MMOOMM flight simulator с wrapper-пакетами, Object-сущностями, runtime-модулями и generic PlayCanvas canvas widget.                            |
+| `metahubs-mmoomm-app-export`                 | `tools/fixtures/metahubs-mmoomm-app-snapshot.json`                 | Создаёт основной browser-authored fixture MMOOMM через UI-first путь: метахаб, пакеты, PlayCanvas Editor authoring, публикация, привязка layout и export.      |
+| `metahubs-interpretation-network-app-export` | `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` | Создаёт канонический fixture трактовочной сети Трактовочная сеть (этап 1, без IPFS) и экспортирует snapshot для Interpretation Network runtime import flows.   |
 
 ### Создание новых генераторов
 

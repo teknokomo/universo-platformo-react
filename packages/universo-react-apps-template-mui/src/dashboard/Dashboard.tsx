@@ -93,6 +93,8 @@ export interface DashboardDetailsSlot {
     resourceSourceTypes?: ResourceSourceTypeOption[]
     /** Generic create target handler used by metadata-driven datasource widgets. */
     onOpenCreateTarget?: (target: DashboardCreateTarget) => void
+    /** Generic row action menu handler used by metadata-driven datasource widgets. */
+    onOpenRowMenu?: (event: React.MouseEvent<HTMLElement>, rowId: string) => void
     /** Generic source-row action handler used by metadata-driven datasource widgets. */
     onOpenRowTarget?: (target: DashboardRowTarget, action: DashboardRowTargetAction) => void
 }

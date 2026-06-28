@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TabularPartEditor } from '../TabularPartEditor'
 import type { FieldConfig } from '../dialogs/FormDialog'
@@ -6,6 +7,22 @@ import type { FieldConfig } from '../dialogs/FormDialog'
 const i18nState = vi.hoisted(() => ({
     language: 'ru'
 }))
+
+const gridApiState = vi.hoisted(() => {
+    const focusCalls: unknown[][] = []
+    const editCalls: unknown[] = []
+
+    return {
+        focusCalls,
+        editCalls,
+        apiRef: {
+            current: {
+                setCellFocus: (...args: unknown[]) => focusCalls.push(args),
+                startCellEditMode: (args: unknown) => editCalls.push(args)
+            }
+        }
+    }
+})
 
 vi.mock('react-i18next', () => {
     const dictionaries = {
@@ -69,7 +86,7 @@ vi.mock('@mui/x-data-grid', async () => {
                 commit invalid number
             </button>
         ),
-        useGridApiRef: () => ({ current: {} })
+        useGridApiRef: () => gridApiState.apiRef
     }
 })
 
@@ -85,6 +102,8 @@ const childFields: FieldConfig[] = [
 describe('TabularPartEditor numeric validation', () => {
     beforeEach(() => {
         i18nState.language = 'ru'
+        gridApiState.focusCalls.length = 0
+        gridApiState.editCalls.length = 0
     })
 
     it('shows localized user-facing error instead of silently accepting rollback', async () => {
@@ -105,5 +124,59 @@ describe('TabularPartEditor numeric validation', () => {
         await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Максимальное значение: 10'))
         expect(onChange).not.toHaveBeenCalled()
         expect(screen.queryByText('Maximum value: 10')).not.toBeInTheDocument()
+    })
+
+    it('starts editing the first visible field after adding a row with hidden generated fields', async () => {
+        const originalRequestAnimationFrame = window.requestAnimationFrame
+        window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+            callback(0)
+            return 0
+        }) as typeof window.requestAnimationFrame
+
+        const Wrapper = () => {
+            const [rows, setRows] = useState<Record<string, unknown>[]>([])
+
+            return (
+                <TabularPartEditor
+                    label='Rows'
+                    value={rows}
+                    onChange={setRows}
+                    childFields={[
+                        {
+                            id: 'CellId',
+                            label: 'Cell ID',
+                            type: 'STRING',
+                            uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+                        },
+                        {
+                            id: 'Name',
+                            label: 'Name',
+                            type: 'STRING'
+                        }
+                    ]}
+                    locale='ru'
+                />
+            )
+        }
+
+        try {
+            render(<Wrapper />)
+
+            fireEvent.click(screen.getByRole('button', { name: 'Добавить строку' }))
+
+            await waitFor(() =>
+                expect(gridApiState.editCalls).toContainEqual({
+                    id: '__local_new_1',
+                    field: 'Name'
+                })
+            )
+            expect(gridApiState.focusCalls).toContainEqual(['__local_new_1', 'Name'])
+            expect(gridApiState.editCalls).not.toContainEqual({
+                id: '__local_new_1',
+                field: 'CellId'
+            })
+        } finally {
+            window.requestAnimationFrame = originalRequestAnimationFrame
+        }
     })
 })

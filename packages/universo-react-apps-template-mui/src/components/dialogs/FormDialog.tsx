@@ -52,6 +52,7 @@ import { extractRuntimeErrorMessage } from '../../utils/runtimeErrors'
 import PageContainer from '../../crud-dashboard/components/PageContainer'
 import { EditorJsBlockEditor } from '@universo-react/block-editor'
 import { ResourcePreview } from '../resource-preview'
+import { CellStyleDialogField, isCellStylePickerField } from './CellStyleDialogField'
 import { fetchAppData } from '../../api'
 
 export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
@@ -291,6 +292,12 @@ const getLocalizedStringValue = (value: unknown, locale: string): string | null 
     if (typeof primaryEntry?.content === 'string') return primaryEntry.content
     const firstEntry = Object.values(locales).find((item) => typeof item?.content === 'string')
     return typeof firstEntry?.content === 'string' ? firstEntry.content : null
+}
+
+const normalizeLengthRule = (value: unknown): number | null => {
+    const numericValue = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : null
+    if (numericValue === null || !Number.isFinite(numericValue) || numericValue < 0) return null
+    return Math.floor(numericValue)
 }
 
 const isValidTimeString = (value: string) => /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?$/.test(value)
@@ -872,11 +879,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     error = null,
     requireAnyValue = false,
     emptyStateText,
-    saveButtonText = 'Save',
+    saveButtonText,
     savingButtonText,
-    cancelButtonText = 'Cancel',
+    cancelButtonText,
     showDeleteButton = false,
-    deleteButtonText = 'Delete',
+    deleteButtonText,
     deleteButtonDisabled = false,
     onDelete,
     onClose,
@@ -895,6 +902,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [blockEditorErrors, setBlockEditorErrors] = useState<Record<string, string | null>>({})
+    const [inlineFieldErrors, setInlineFieldErrors] = useState<Record<string, string | null>>({})
     const [isReady, setReady] = useState(false)
     const [activeWizardStep, setActiveWizardStep] = useState(0)
     const wasOpenRef = useRef(false)
@@ -1000,6 +1008,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])
 
     const { t } = useTranslation('apps')
+    const effectiveSaveButtonText = saveButtonText ?? t('app.save', 'Save')
+    const effectiveCancelButtonText = cancelButtonText ?? t('app.cancel', 'Cancel')
+    const effectiveDeleteButtonText = deleteButtonText ?? t('app.delete', 'Delete')
 
     const recordPickerFields = useMemo(
         () =>
@@ -1263,6 +1274,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         })
     }, [])
 
+    const handleInlineFieldValidationError = useCallback((id: string, message: string | null) => {
+        setInlineFieldErrors((prev) => {
+            if (prev[id] === message) return prev
+            return { ...prev, [id]: message }
+        })
+    }, [])
+
     const resolveValuePresent = useCallback(
         (field: FieldConfig, value: unknown) => {
             if (isValuePresent) {
@@ -1305,22 +1323,41 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         [normalizedLocale]
     )
 
-    /**
-     * For VLC fields, check minLength for ALL locales that have content.
-     * Returns the locale code that fails validation, or null if all pass.
-     */
-    const getVlcMinLengthError = useCallback((value: unknown, minLength: number): string | null => {
-        if (!isLocalizedContent(value)) return null
-        const vlc = value as VersionedLocalizedContent<string>
-        const locales = vlc.locales
-        for (const [localeCode, entry] of Object.entries(locales)) {
-            const content = entry?.content
-            if (typeof content === 'string' && content.length > 0 && content.length < minLength) {
-                return localeCode
+    const getVlcLengthError = useCallback(
+        (value: unknown, minLength: number | null, maxLength: number | null): string | null => {
+            if (!isLocalizedContent(value)) return null
+            const vlc = value as VersionedLocalizedContent<string>
+            const locales = vlc.locales
+            for (const [localeCode, entry] of Object.entries(locales)) {
+                const content = entry?.content
+                if (typeof content !== 'string' || content.length === 0) continue
+                if (minLength !== null && maxLength !== null && (content.length < minLength || content.length > maxLength)) {
+                    return t('validation.vlcLengthBetween', {
+                        defaultValue: 'Language "{{locale}}": length must be between {{min}} and {{max}}',
+                        locale: localeCode.toUpperCase(),
+                        min: minLength,
+                        max: maxLength
+                    })
+                }
+                if (minLength !== null && content.length < minLength) {
+                    return t('validation.vlcMinLength', {
+                        defaultValue: 'Language "{{locale}}": minimum length {{min}}',
+                        locale: localeCode.toUpperCase(),
+                        min: minLength
+                    })
+                }
+                if (maxLength !== null && content.length > maxLength) {
+                    return t('validation.vlcMaxLength', {
+                        defaultValue: 'Language "{{locale}}": maximum length {{max}}',
+                        locale: localeCode.toUpperCase(),
+                        max: maxLength
+                    })
+                }
             }
-        }
-        return null
-    }, [])
+            return null
+        },
+        [t]
+    )
 
     const getFieldError = useCallback(
         (field: FieldConfig, value: unknown) => {
@@ -1329,17 +1366,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             const rules = field.validationRules ?? {}
 
             if (field.type === 'STRING') {
-                const minLength = typeof rules.minLength === 'number' ? rules.minLength : null
-                const maxLength = typeof rules.maxLength === 'number' ? rules.maxLength : null
+                const minLength = normalizeLengthRule(rules.minLength)
+                const maxLength = normalizeLengthRule(rules.maxLength)
 
-                if (isLocalizedContent(value) && minLength !== null) {
-                    const failedLocale = getVlcMinLengthError(value, minLength)
-                    if (failedLocale) {
-                        return t('validation.vlcMinLength', {
-                            defaultValue: 'Language "{{locale}}": minimum length {{min}}',
-                            locale: failedLocale.toUpperCase(),
-                            min: minLength
-                        })
+                if (isLocalizedContent(value)) {
+                    const vlcLengthError = getVlcLengthError(value, minLength, maxLength)
+                    if (vlcLengthError) {
+                        return vlcLengthError
                     }
                 }
 
@@ -1439,7 +1472,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
             return null
         },
-        [t, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
+        [t, getStringValueForValidation, getVlcLengthError, resolveValuePresent]
     )
 
     const hasAnyValue = useMemo(
@@ -1477,9 +1510,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             fields.some(
                 (field) =>
                     !isHiddenField(field, formData) &&
-                    (Boolean(getFieldError(field, formData[field.id])) || Boolean(blockEditorErrors[field.id]))
+                    (Boolean(getFieldError(field, formData[field.id])) ||
+                        Boolean(blockEditorErrors[field.id]) ||
+                        Boolean(inlineFieldErrors[field.id]))
             ),
-        [blockEditorErrors, fields, formData, getFieldError]
+        [blockEditorErrors, fields, formData, getFieldError, inlineFieldErrors]
     )
 
     const hasMissingRequiredForFields = useCallback(
@@ -1511,8 +1546,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
     const hasValidationErrorsForFields = useCallback(
         (candidateFields: FieldConfig[]) =>
-            candidateFields.some((field) => Boolean(getFieldError(field, formData[field.id])) || Boolean(blockEditorErrors[field.id])),
-        [blockEditorErrors, formData, getFieldError]
+            candidateFields.some(
+                (field) =>
+                    Boolean(getFieldError(field, formData[field.id])) ||
+                    Boolean(blockEditorErrors[field.id]) ||
+                    Boolean(inlineFieldErrors[field.id])
+            ),
+        [blockEditorErrors, formData, getFieldError, inlineFieldErrors]
     )
 
     const buildPayload = useCallback(() => {
@@ -1572,14 +1612,30 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             return customField
         }
 
+        if (isCellStylePickerField(field)) {
+            return (
+                <CellStyleDialogField
+                    field={field}
+                    value={value}
+                    onChange={(next) => handleFieldChange(field.id, next)}
+                    error={fieldError}
+                    helperText={field.helperText}
+                    locale={normalizedLocale}
+                    disabled={disabled}
+                />
+            )
+        }
+
         switch (field.type) {
             case 'STRING': {
                 const isLocalized = rules?.localized ?? field.localized
                 const isVersioned = rules?.versioned
                 const isMultiline = isTextareaField(field)
                 const multilineRows = getTextareaRows(field)
+                const minLength = normalizeLengthRule(rules?.minLength)
+                const maxLength = normalizeLengthRule(rules?.maxLength)
 
-                const vlcErrorLocale = isLocalizedContent(value) && rules?.minLength ? getVlcMinLengthError(value, rules.minLength) : null
+                const vlcErrorLocale = null
 
                 if (isLocalized) {
                     return (
@@ -1596,8 +1652,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             helperText={field.helperText}
                             multiline={isMultiline}
                             rows={isMultiline ? multilineRows : undefined}
-                            maxLength={rules?.maxLength}
-                            minLength={rules?.minLength}
+                            maxLength={maxLength}
+                            minLength={minLength}
+                            onValidationError={(message) => handleInlineFieldValidationError(field.id, message)}
                         />
                     )
                 }
@@ -1617,8 +1674,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             helperText={field.helperText}
                             multiline={isMultiline}
                             rows={isMultiline ? multilineRows : undefined}
-                            maxLength={rules?.maxLength}
-                            minLength={rules?.minLength}
+                            maxLength={maxLength}
+                            minLength={minLength}
+                            onValidationError={(message) => handleInlineFieldValidationError(field.id, message)}
                         />
                     )
                 }
@@ -1720,8 +1778,8 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         error={Boolean(fieldError)}
                         helperText={helperText}
                         inputProps={{
-                            minLength: rules?.minLength ?? undefined,
-                            maxLength: rules?.maxLength ?? undefined
+                            minLength: minLength ?? undefined,
+                            maxLength: maxLength ?? undefined
                         }}
                     />
                 )
@@ -2504,6 +2562,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 apiBaseUrl={apiBaseUrl}
                                 applicationId={applicationId}
                                 objectCollectionId={objectCollectionId}
+                                currentWorkspaceId={currentWorkspaceId}
                                 parentRecordId={editRowId}
                                 componentId={field.componentId ?? field.id}
                                 childFields={childFieldDefs}
@@ -2651,12 +2710,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     startIcon={<DeleteIcon />}
                     sx={surface === 'page' ? undefined : { borderRadius: 1, mr: 'auto' }}
                 >
-                    {deleteButtonText}
+                    {effectiveDeleteButtonText}
                 </Button>
             ) : null}
             <Box sx={{ display: 'flex', gap: 1, ml: surface === 'page' ? 'auto' : 0 }}>
                 <Button data-testid='entity-form-cancel' onClick={onClose} disabled={isSubmitting}>
-                    {cancelButtonText}
+                    {effectiveCancelButtonText}
                 </Button>
                 {hasWizard && activeWizardStep > 0 ? (
                     <Button
@@ -2685,7 +2744,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     sx={{ display: hasWizard && !isLastWizardStep ? 'none' : undefined }}
                     startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
                 >
-                    {isSubmitting ? savingButtonText ?? saveButtonText : saveButtonText}
+                    {isSubmitting ? savingButtonText ?? effectiveSaveButtonText : effectiveSaveButtonText}
                 </Button>
             </Box>
         </>

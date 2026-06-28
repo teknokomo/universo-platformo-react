@@ -193,6 +193,223 @@ describe('widgetRenderer detailsTable datasource', () => {
         expect(requestedUrl.searchParams.get('locale')).toBe('en')
     })
 
+    it('renders records.list datasource row actions through the host runtime menu when permissions allow', async () => {
+        const user = userEvent.setup()
+        const appData = {
+            ...createAppDataResponse(),
+            permissions: { editContent: true }
+        }
+        const rowId = appData.rows[0].id
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => appData
+        })
+        const onOpenRowMenu = vi.fn()
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'courses' }],
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'courses' }],
+                        rows: [],
+                        columns: [],
+                        onOpenRowMenu
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-list-actions',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 0,
+                        config: {
+                            datasource: {
+                                kind: 'records.list',
+                                sectionCodename: 'courses'
+                            }
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-rows', '1'))
+        await user.click(screen.getByTestId(`grid-row-actions-trigger-${rowId}`))
+
+        expect(onOpenRowMenu).toHaveBeenCalledWith(expect.any(Object), rowId)
+    })
+
+    it('routes nested detailsTabs records.list row actions through the datasource target section', async () => {
+        const user = userEvent.setup()
+        const appData = {
+            ...createAppDataResponse(),
+            permissions: { createContent: true, editContent: true, deleteContent: true }
+        }
+        const rowId = appData.rows[0].id
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => appData
+        })
+        const onOpenRowTarget = vi.fn()
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'interpretations' }],
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'interpretations' }],
+                        rows: [],
+                        columns: [],
+                        onOpenRowTarget
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-tabs-actions',
+                        widgetKey: 'detailsTabs',
+                        sortOrder: 0,
+                        config: {
+                            tabs: [
+                                {
+                                    id: 'matrix',
+                                    label: 'Matrix',
+                                    widgets: [
+                                        {
+                                            id: 'matrix-list',
+                                            widgetKey: 'detailsTable',
+                                            config: {
+                                                datasource: {
+                                                    kind: 'records.list',
+                                                    sectionCodename: 'interpretations'
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-column-fields', 'title,actions'))
+        expect(screen.getByRole('button', { name: 'Actions' })).toBeInTheDocument()
+        await user.click(screen.getByTestId(`grid-row-actions-trigger-${rowId}`))
+        expect(await screen.findByRole('menuitem', { name: 'Copy' })).toBeInTheDocument()
+        expect(await screen.findByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+        await user.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+
+        expect(onOpenRowTarget).toHaveBeenCalledWith(
+            {
+                rowId,
+                sectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                sectionCodename: 'interpretations',
+                objectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                objectCollectionCodename: 'interpretations'
+            },
+            'edit'
+        )
+    })
+
+    it('does not render records.list row actions without any row-action handler', async () => {
+        const appData = {
+            ...createAppDataResponse(),
+            permissions: { createContent: true, editContent: true, deleteContent: true }
+        }
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => appData
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'interpretations' }],
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'interpretations' }],
+                        rows: [],
+                        columns: []
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-no-actions',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 0,
+                        config: {
+                            datasource: {
+                                kind: 'records.list',
+                                sectionCodename: 'interpretations'
+                            }
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-column-fields', 'title'))
+        expect(screen.queryByRole('button', { name: 'Actions' })).not.toBeInTheDocument()
+    })
+
+    it('does not expose records.list target row actions without row permissions', async () => {
+        const appData = {
+            ...createAppDataResponse(),
+            permissions: { createContent: false, editContent: false, deleteContent: false }
+        }
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => appData
+        })
+        const onOpenRowTarget = vi.fn()
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'interpretations' }],
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'interpretations' }],
+                        rows: [],
+                        columns: [],
+                        onOpenRowTarget
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-no-permission-actions',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 0,
+                        config: {
+                            datasource: {
+                                kind: 'records.list',
+                                sectionCodename: 'interpretations'
+                            }
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-column-fields', 'title'))
+        expect(screen.queryByRole('button', { name: 'Actions' })).not.toBeInTheDocument()
+    })
+
     it('sanitizes records.list datasource load failures before rendering table errors', async () => {
         const rawRecordId = '017f22e2-79b0-7cc3-98c4-dc0c0c073998'
         const fetchMock = vi.fn().mockResolvedValue(

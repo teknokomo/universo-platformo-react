@@ -4,6 +4,7 @@ import type {
     TemplateSeedLayout,
     TemplateSeedScopedLayout,
     TemplateSeedZoneWidget,
+    TemplateSeedComponent,
     TemplateSeedElement,
     TemplateSeedModule,
     DashboardLayoutWidgetKey,
@@ -23,13 +24,15 @@ import {
     readPlatformSystemComponentsPolicyWithKnex,
     shouldSeedObjectSystemComponents
 } from './systemComponentSeed'
+import { createTemplateSeedElements, resolveTemplateSeedElementData } from './templateSeedElements'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('TemplateSeedExecutor')
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
 const buildFixedValueMapKey = (setCodename: string, fixedValueCodename: string): string => `${setCodename}:${fixedValueCodename}`
-
+const buildEnumerationValueMapKey = (enumerationCodename: string, valueCodename: string): string =>
+    `${enumerationCodename}:${valueCodename}`
 type TemplateSeedCodenameConfig = {
     style: CodenameStyle
     alphabet: CodenameAlphabet
@@ -161,13 +164,13 @@ export class TemplateSeedExecutor {
             if (seed.entities?.length) {
                 entityIdMap = await this.createEntities(trx, seed.entities, codenameConfig)
 
-                if (seed.optionValues) {
-                    await this.createOptionValues(trx, seed.optionValues, entityIdMap)
-                }
+                const enumerationValueIdMap = seed.optionValues
+                    ? await this.createOptionValues(trx, seed.optionValues, entityIdMap)
+                    : new Map<string, string>()
 
                 // 5. Create elements if any
                 if (seed.elements) {
-                    await this.createElements(trx, seed.elements, entityIdMap)
+                    await this.createElements(trx, seed.elements, entityIdMap, seed.entities, enumerationValueIdMap)
                 }
             }
 
@@ -785,8 +788,9 @@ export class TemplateSeedExecutor {
             Array<{ codename: string; name: unknown; description?: unknown; sortOrder?: number; isDefault?: boolean }>
         >,
         entityIdMap: Map<string, string>
-    ): Promise<void> {
+    ): Promise<Map<string, string>> {
         const now = new Date()
+        const valueIdMap = new Map<string, string>()
 
         for (const [enumerationCodename, values] of Object.entries(valuesByEnumeration)) {
             const objectId = resolveEntityIdByCodename(entityIdMap, enumerationCodename, 'enumeration')
@@ -808,7 +812,12 @@ export class TemplateSeedExecutor {
                     .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [value.codename])
                     .first()
 
-                if (exists) continue
+                if (exists) {
+                    if (typeof exists.id === 'string') {
+                        valueIdMap.set(buildEnumerationValueMapKey(enumerationCodename, value.codename), exists.id)
+                    }
+                    continue
+                }
 
                 if (value.isDefault) {
                     await qb
@@ -826,7 +835,7 @@ export class TemplateSeedExecutor {
                         })
                 }
 
-                await qb
+                const [inserted] = await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_values')
                     .insert({
@@ -847,58 +856,41 @@ export class TemplateSeedExecutor {
                         _mhb_archived: false,
                         _mhb_deleted: false
                     })
+                    .returning('id')
+
+                if (typeof inserted?.id === 'string') {
+                    valueIdMap.set(buildEnumerationValueMapKey(enumerationCodename, value.codename), inserted.id)
+                }
             }
         }
+
+        return valueIdMap
     }
 
     private async createElements(
         qb: Knex,
         elementsByEntity: Record<string, TemplateSeedElement[]>,
-        entityIdMap: Map<string, string>
+        entityIdMap: Map<string, string>,
+        entities: NonNullable<MetahubTemplateSeed['entities']>,
+        enumerationValueIdMap: Map<string, string>
     ): Promise<void> {
-        const now = new Date()
+        await createTemplateSeedElements({
+            qb,
+            schemaName: this.schemaName,
+            elementsByEntity,
+            entities,
+            enumerationValueIdMap,
+            resolveEntityIdByCodename: (codename) => resolveEntityIdByCodename(entityIdMap, codename)
+        })
+    }
 
-        for (const [entityCodename, elements] of Object.entries(elementsByEntity)) {
-            const objectId = resolveEntityIdByCodename(entityIdMap, entityCodename)
-            if (!objectId) {
-                log.warn(`Entity codename "${entityCodename}" not found or ambiguous, skipping elements`)
-                continue
-            }
-
-            for (const element of elements) {
-                const exists = await qb
-                    .withSchema(this.schemaName)
-                    .from('_mhb_elements')
-                    .where({
-                        object_id: objectId,
-                        sort_order: element.sortOrder,
-                        _upl_deleted: false,
-                        _mhb_deleted: false
-                    })
-                    .whereRaw('data = ?::jsonb', [JSON.stringify(element.data ?? {})])
-                    .first()
-
-                if (exists) continue
-
-                await qb.withSchema(this.schemaName).into('_mhb_elements').insert({
-                    object_id: objectId,
-                    data: element.data,
-                    sort_order: element.sortOrder,
-                    owner_id: null,
-                    _upl_created_at: now,
-                    _upl_created_by: null,
-                    _upl_updated_at: now,
-                    _upl_updated_by: null,
-                    _upl_version: 1,
-                    _upl_archived: false,
-                    _upl_deleted: false,
-                    _upl_locked: false,
-                    _mhb_published: true,
-                    _mhb_archived: false,
-                    _mhb_deleted: false
-                })
-            }
-        }
+    private resolveSeedElementData(
+        data: Record<string, unknown>,
+        componentMap: Map<string, TemplateSeedComponent>,
+        enumerationValueIdMap: Map<string, string>,
+        elementIdMap: Map<string, string>
+    ): Record<string, unknown> {
+        return resolveTemplateSeedElementData(data, componentMap, enumerationValueIdMap, elementIdMap)
     }
 
     private async createModules(qb: Knex, modules: TemplateSeedModule[], entityIdMap: Map<string, string>): Promise<void> {

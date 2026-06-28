@@ -16,10 +16,17 @@ function ButtonField(props: ButtonFieldProps) {
     const handleRef = useForkRef(pickerContext.triggerRef, pickerContext.rootRef)
     const parsedFormat = useParsedFormat()
     const valueStr = pickerContext.value == null ? parsedFormat : pickerContext.value.format(pickerContext.fieldFormat)
+    const buttonProps = { ...forwardedProps } as React.ComponentProps<typeof Button> & {
+        inputRef?: unknown
+        slotProps?: unknown
+    }
+
+    delete buttonProps.inputRef
+    delete buttonProps.slotProps
 
     return (
         <Button
-            {...forwardedProps}
+            {...buttonProps}
             variant='outlined'
             ref={handleRef}
             size='small'

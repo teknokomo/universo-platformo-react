@@ -768,11 +768,15 @@ export async function createAppRow(options: {
     applicationId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, data } = options
+    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, data } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/rows')
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, '/rows')
+    if (workspaceId?.trim()) {
+        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
+    }
 
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
@@ -795,12 +799,16 @@ export async function updateAppRow(options: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     data: Record<string, unknown>
     expectedVersion?: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, data, expectedVersion } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, data, expectedVersion } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
+    if (workspaceId?.trim()) {
+        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
+    }
 
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
@@ -824,12 +832,16 @@ export async function deleteAppRow(options: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion?: number
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, expectedVersion } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
     const params = new URLSearchParams()
+    if (workspaceId?.trim()) {
+        params.set('workspaceId', workspaceId.trim())
+    }
     if (resolvedSectionId) {
         params.set('objectCollectionId', resolvedSectionId)
     }
@@ -887,13 +899,27 @@ export async function copyAppRow(options: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     copyChildTables?: boolean
     data?: Record<string, unknown>
     expectedVersion?: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true, data, expectedVersion } = options
+    const {
+        apiBaseUrl,
+        applicationId,
+        rowId,
+        objectCollectionId,
+        sectionId,
+        workspaceId,
+        copyChildTables = true,
+        data,
+        expectedVersion
+    } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`)
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`)
+    if (workspaceId?.trim()) {
+        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
+    }
     const body: Record<string, unknown> = { copyChildTables }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (data && Object.keys(data).length > 0) body.data = data
@@ -1011,10 +1037,11 @@ export async function reorderAppRows(options: {
     applicationId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     orderedRowIds: string[]
     expectedVersionsByRowId?: Record<string, number>
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, orderedRowIds, expectedVersionsByRowId } = options
+    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { orderedRowIds }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
@@ -1022,7 +1049,12 @@ export async function reorderAppRows(options: {
         body.expectedVersionsByRowId = expectedVersionsByRowId
     }
 
-    const res = await fetchWithCsrf(apiBaseUrl, buildAppApiUrl(apiBaseUrl, applicationId, '/rows/reorder'), {
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, '/rows/reorder')
+    if (workspaceId?.trim()) {
+        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
+    }
+
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -1052,11 +1084,16 @@ export async function fetchTabularRows(options: {
     componentId: string
     objectCollectionId: string
     sectionId?: string
+    workspaceId?: string | null
 }): Promise<TabularRowsResponse> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId } = options
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
+    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
+    if (workspaceId?.trim()) {
+        params.set('workspaceId', workspaceId.trim())
+    }
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}`)
-    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?${params.toString()}`
 
     const res = await fetch(url, { credentials: 'include' })
     if (!res.ok) {
@@ -1078,12 +1115,17 @@ export async function createTabularRow(options: {
     componentId: string
     objectCollectionId: string
     sectionId?: string
+    workspaceId?: string | null
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, data } = options
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, data } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
+    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
+    if (workspaceId?.trim()) {
+        params.set('workspaceId', workspaceId.trim())
+    }
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}`)
-    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?${params.toString()}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -1104,13 +1146,18 @@ export async function updateTabularRow(options: {
     componentId: string
     objectCollectionId: string
     sectionId?: string
+    workspaceId?: string | null
     childRowId: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, childRowId, data } = options
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, childRowId, data } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
+    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
+    if (workspaceId?.trim()) {
+        params.set('workspaceId', workspaceId.trim())
+    }
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
-    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?${params.toString()}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
@@ -1123,6 +1170,37 @@ export async function updateTabularRow(options: {
     return res.json()
 }
 
+/** Atomically update multiple child rows in a TABLE component. */
+export async function batchUpdateTabularRows(options: {
+    apiBaseUrl: string
+    applicationId: string
+    parentRecordId: string
+    componentId: string
+    objectCollectionId: string
+    sectionId?: string
+    workspaceId?: string | null
+    updates: Array<{ childRowId: string; data: Record<string, unknown>; expectedVersion?: number }>
+}): Promise<Record<string, unknown>> {
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, updates } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
+    if (workspaceId?.trim()) {
+        params.set('workspaceId', workspaceId.trim())
+    }
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/batch`)
+    url += `?${params.toString()}`
+
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Batch update tabular rows failed'))
+    }
+    return res.json()
+}
+
 /** Delete a child row in a TABLE component. */
 export async function deleteTabularRow(options: {
     apiBaseUrl: string
@@ -1131,12 +1209,17 @@ export async function deleteTabularRow(options: {
     componentId: string
     objectCollectionId: string
     sectionId?: string
+    workspaceId?: string | null
     childRowId: string
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, childRowId } = options
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, childRowId } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
+    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
+    if (workspaceId?.trim()) {
+        params.set('workspaceId', workspaceId.trim())
+    }
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
-    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?${params.toString()}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
     if (!res.ok) {
@@ -1152,16 +1235,21 @@ export async function copyTabularRow(options: {
     componentId: string
     objectCollectionId: string
     sectionId?: string
+    workspaceId?: string | null
     childRowId: string
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, childRowId } = options
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, childRowId } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
+    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
+    if (workspaceId?.trim()) {
+        params.set('workspaceId', workspaceId.trim())
+    }
     let url = buildAppApiUrl(
         apiBaseUrl,
         applicationId,
         `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}/copy`
     )
-    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?${params.toString()}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'POST' })
     if (!res.ok) {

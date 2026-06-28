@@ -138,7 +138,7 @@ export default function MenuContent({ menu }: MenuContentProps) {
     }
 
     return (
-        <List dense sx={{ p: 1 }}>
+        <List component='nav' aria-label={menu?.title || t('runtime.menu.navigation', 'Application navigation')} dense sx={{ p: 1 }}>
             {menu?.showTitle && menu.title ? (
                 <Typography
                     variant='caption'
