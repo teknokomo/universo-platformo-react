@@ -105,10 +105,62 @@ const normalizeJsonBase64Payload = (value: string, maps: NormalizerMaps): string
             return null
         }
         const parsed = JSON.parse(decoded) as unknown
-        return `normalized-json:${JSON.stringify(normalizeVolatileValues(parsed, maps))}`
+        return `normalized-json:${stableStringify(normalizeVolatileValues(parsed, maps))}`
     } catch {
         return null
     }
+}
+
+const stableStringify = (value: unknown): string => {
+    if (value === null || typeof value !== 'object') {
+        return JSON.stringify(value)
+    }
+    if (Array.isArray(value)) {
+        return `[${value.map((item) => stableStringify(item)).join(',')}]`
+    }
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+        .join(',')}}`
+}
+
+const summarizeValue = (value: unknown): string => {
+    const serialized = JSON.stringify(value)
+    return serialized === undefined ? 'undefined' : serialized.slice(0, 300)
+}
+
+const findFirstDiff = (left: unknown, right: unknown, pathLabel = '$'): string | null => {
+    if (stableStringify(left) === stableStringify(right)) {
+        return null
+    }
+    if (typeof left !== typeof right || left === null || right === null || typeof left !== 'object') {
+        return `${pathLabel}\nTracked: ${summarizeValue(left)}\nGenerated: ${summarizeValue(right)}`
+    }
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right)) {
+            return `${pathLabel}\nTracked: ${summarizeValue(left)}\nGenerated: ${summarizeValue(right)}`
+        }
+        if (left.length !== right.length) {
+            return `${pathLabel}.length\nTracked: ${left.length}\nGenerated: ${right.length}`
+        }
+        for (const [index, item] of left.entries()) {
+            const diff = findFirstDiff(item, right[index], `${pathLabel}[${index}]`)
+            if (diff) return diff
+        }
+        return `${pathLabel}\nTracked: ${summarizeValue(left)}\nGenerated: ${summarizeValue(right)}`
+    }
+    const leftRecord = left as Record<string, unknown>
+    const rightRecord = right as Record<string, unknown>
+    const keys = [...new Set([...Object.keys(leftRecord), ...Object.keys(rightRecord)])].sort()
+    for (const key of keys) {
+        if (!(key in leftRecord) || !(key in rightRecord)) {
+            return `${pathLabel}.${key}\nTracked: ${summarizeValue(leftRecord[key])}\nGenerated: ${summarizeValue(rightRecord[key])}`
+        }
+        const diff = findFirstDiff(leftRecord[key], rightRecord[key], `${pathLabel}.${key}`)
+        if (diff) return diff
+    }
+    return `${pathLabel}\nTracked: ${summarizeValue(left)}\nGenerated: ${summarizeValue(right)}`
 }
 
 const tracked = readJson(trackedPath)
@@ -117,16 +169,20 @@ const generated = readJson(generatedPath)
 assertMmoommAppFixtureEnvelopeContract(tracked as Record<string, unknown>)
 assertMmoommAppFixtureEnvelopeContract(generated as Record<string, unknown>)
 
-const normalizedTracked = JSON.stringify(normalizeVolatileValues(tracked), null, 2)
-const normalizedGenerated = JSON.stringify(normalizeVolatileValues(generated), null, 2)
+const normalizedTracked = normalizeVolatileValues(tracked)
+const normalizedGenerated = normalizeVolatileValues(generated)
 
-if (normalizedTracked !== normalizedGenerated) {
+if (stableStringify(normalizedTracked) !== stableStringify(normalizedGenerated)) {
+    const firstDiff = findFirstDiff(normalizedTracked, normalizedGenerated)
     throw new Error(
         [
             'MMOOMM app fixture drift detected after normalizing volatile IDs, timestamps, and checksums.',
             `Tracked fixture: ${trackedPath}`,
-            `Generated fixture: ${generatedPath}`
-        ].join('\n')
+            `Generated fixture: ${generatedPath}`,
+            firstDiff ? `First normalized difference:\n${firstDiff}` : null
+        ]
+            .filter(Boolean)
+            .join('\n')
     )
 }
 

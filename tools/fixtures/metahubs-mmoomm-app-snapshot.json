@@ -5654,10 +5654,10 @@
                 "_primary": "en"
               },
               "isActive": true,
-              "sectionId": "WelcomePage",
+              "sectionId": "019ef50d-d164-7ac6-9101-2522079d9323",
               "sortOrder": 1,
               "treeEntityId": null,
-              "objectCollectionId": "WelcomePage"
+              "objectCollectionId": "019ef50d-d164-7ac6-9101-2522079d9323"
             },
             {
               "id": "019ef511-878b-713d-b167-e69171d0d7d3",
@@ -5685,10 +5685,10 @@
                 "_primary": "en"
               },
               "isActive": true,
-              "sectionId": "FlightWorld",
+              "sectionId": "019ef510-703c-7321-b3e5-4f1d0e0ea180",
               "sortOrder": 2,
               "treeEntityId": null,
-              "objectCollectionId": "FlightWorld"
+              "objectCollectionId": "019ef510-703c-7321-b3e5-4f1d0e0ea180"
             },
             {
               "id": "019ef511-8dd3-7d60-be7e-5f70457874af",
@@ -5716,10 +5716,10 @@
                 "_primary": "en"
               },
               "isActive": true,
-              "sectionId": "VisualLinkupLab",
+              "sectionId": "019ef510-afa4-75f9-a7e3-a644f1ab640e",
               "sortOrder": 3,
               "treeEntityId": null,
-              "objectCollectionId": "VisualLinkupLab"
+              "objectCollectionId": "019ef510-afa4-75f9-a7e3-a644f1ab640e"
             }
           ],
           "title": {
@@ -5744,12 +5744,23 @@
           },
           "bindToHub": false,
           "showTitle": true,
-          "startPage": "WelcomePage",
+          "startPage": "019ef50d-d164-7ac6-9101-2522079d9323",
           "maxPrimaryItems": 6,
           "overflowLabelKey": "runtime.menu.more",
           "boundTreeEntityId": null,
           "workspacePlacement": "hidden",
-          "autoShowAllSections": false
+          "autoShowAllSections": false,
+          "boundHubId": null,
+          "startTarget": null,
+          "sideMenu": {
+            "primaryMode": "wide",
+            "availableModes": [
+              "wide",
+              "compact",
+              "overlay"
+            ],
+            "rememberUserChoice": true
+          }
         },
         "isActive": true
       },
@@ -40512,5 +40523,5 @@
     "scopedLayouts": [],
     "layoutWidgetOverrides": []
   },
-  "snapshotHash": "83b825df7e248c70ebc22643e31e154ef6eed717357765b95369c65ceb9a437b"
+  "snapshotHash": "2fe4de4212bf196736101892e6c3e322e31d993f2aeab88adb380bf614937a59"
 }

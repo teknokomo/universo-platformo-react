@@ -779,17 +779,39 @@ const assertMenuWidgetLocalization = (snapshot: NonNullable<SnapshotEnvelope['sn
     if (readLocalizedText(config.title, 'ru') !== 'Навигация') {
         throw new Error('MMOOMM app fixture menu title must include the Russian translation')
     }
-    const items = Array.isArray(config.items) ? (config.items as Array<{ title?: unknown }>) : []
+    const items = Array.isArray(config.items)
+        ? (config.items as Array<{ title?: unknown; sectionId?: unknown; objectCollectionId?: unknown }>)
+        : []
     const requiredItems = [
-        { en: 'Welcome', ru: 'Добро пожаловать' },
-        { en: 'Space', ru: 'Космос' },
-        { en: 'Visual Linkup Lab', ru: 'Визуальная лаборатория' }
+        { en: 'Welcome', ru: 'Добро пожаловать', targetId: requireEntityId(snapshot, 'page', 'WelcomePage') },
+        { en: 'Space', ru: 'Космос', targetId: requireEntityId(snapshot, 'object', MMOOMM_SPACE_SECTION_CODENAME) },
+        {
+            en: 'Visual Linkup Lab',
+            ru: 'Визуальная лаборатория',
+            targetId: requireEntityId(snapshot, 'object', MMOOMM_VISUAL_LINKUP_LAB_SECTION_CODENAME)
+        }
     ]
     for (const expected of requiredItems) {
         const matched = items.find((item) => readLocalizedText(item.title, 'en') === expected.en)
         if (!matched || readLocalizedText(matched.title, 'ru') !== expected.ru) {
             throw new Error(`MMOOMM app fixture menu item ${expected.en} must include the Russian translation`)
         }
+        if (matched.sectionId !== expected.targetId || matched.objectCollectionId !== expected.targetId) {
+            throw new Error(`MMOOMM app fixture menu item ${expected.en} must target the section UUID`)
+        }
+    }
+    if ((config as { startPage?: unknown }).startPage !== requiredItems[0].targetId) {
+        throw new Error('MMOOMM app fixture menu start page must target the Welcome section UUID')
+    }
+    const sideMenu = (config as { sideMenu?: unknown }).sideMenu as Record<string, unknown> | undefined
+    if (
+        !sideMenu ||
+        sideMenu.primaryMode !== 'wide' ||
+        sideMenu.rememberUserChoice !== true ||
+        !Array.isArray(sideMenu.availableModes) ||
+        sideMenu.availableModes.join(',') !== 'wide,compact,overlay'
+    ) {
+        throw new Error('MMOOMM app fixture menu widget must preserve default side menu display modes')
     }
 }
 
