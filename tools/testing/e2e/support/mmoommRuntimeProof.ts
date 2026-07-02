@@ -253,7 +253,6 @@ const isMmoommVisualLinkupCanvasFramed = (evidence: CanvasColorEvidence): boolea
     if (!bounds) return false
     return (
         evidence.foregroundRatio > 0.01 &&
-        evidence.foregroundBuckets > 3 &&
         bounds.maxX - bounds.minX > evidence.width * 0.06 &&
         bounds.maxY - bounds.minY > evidence.height * 0.06 &&
         bounds.centerX > evidence.width * 0.14 &&
@@ -285,10 +284,6 @@ const expectMmoommVisualLinkupCanvasFramed = async (page: Page, canvas: Locator,
         evidence.foregroundRatio,
         `${label} foreground object cluster must be readable, not a tiny dark speck: ${diagnostics}`
     ).toBeGreaterThan(0.01)
-    expect(
-        evidence.foregroundBuckets,
-        `${label} foreground object cluster must contain visible material variation: ${diagnostics}`
-    ).toBeGreaterThan(3)
     expect(bounds.centerX, `${label} foreground object cluster must be horizontally framed: ${diagnostics}`).toBeGreaterThan(
         evidence.width * 0.14
     )

@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, type ReactElement } from 'react'
 import Divider from '@mui/material/Divider'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -7,6 +7,7 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded'
@@ -106,40 +107,68 @@ const isRootApplicationStartHref = (href?: string | null): boolean => {
 
 interface MenuContentProps {
     menu?: DashboardMenuSlot
+    variant?: 'wide' | 'compact'
 }
 
-export default function MenuContent({ menu }: MenuContentProps) {
+type DashboardMenuItem = DashboardMenuSlot['items'][number]
+
+const hasUsableTarget = (item: DashboardMenuItem): boolean => {
+    if (item.kind === 'section') {
+        return Boolean(item.sectionId ?? item.objectCollectionId)
+    }
+
+    if (item.kind === 'hub') {
+        return Boolean(item.treeEntityId ?? item.hubId)
+    }
+
+    return true
+}
+
+export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps) {
     const [overflowAnchor, setOverflowAnchor] = useState<HTMLElement | null>(null)
     const { t } = useTranslation('apps', { i18n })
-    const items = menu?.items ?? []
-    const overflowItems = menu?.overflowItems ?? []
+    const isCompact = variant === 'compact'
+    const items = (menu?.items ?? []).filter(hasUsableTarget)
+    const overflowItems = (menu?.overflowItems ?? []).filter(hasUsableTarget)
     const overflowLabel = menu?.overflowLabel || t('runtime.menu.more')
-    const isWorkspaceRootItem = (item: DashboardMenuSlot['items'][number]) =>
+    const isWorkspaceRootItem = (item: DashboardMenuItem) =>
         item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
     const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
-    const handleItemSelect = (item: DashboardMenuSlot['items'][number]) => {
+    const handleItemSelect = (item: DashboardMenuItem) => {
         if (item.kind !== 'section') {
             return
         }
 
-        const targetSectionId = item.sectionId ?? item.objectCollectionId
-        if (!targetSectionId) {
+        if (item.objectCollectionId) {
+            if (menu?.onSelectObjectCollection) {
+                menu.onSelectObjectCollection(item.objectCollectionId)
+                return
+            }
+
+            if (menu?.onSelectSection) {
+                menu.onSelectSection(item.objectCollectionId)
+            }
             return
         }
 
-        if (menu?.onSelectSection) {
-            menu.onSelectSection(targetSectionId)
-            return
-        }
-
-        if (menu?.onSelectObjectCollection) {
-            menu.onSelectObjectCollection(targetSectionId)
+        if (item.sectionId && menu?.onSelectSection) {
+            menu.onSelectSection(item.sectionId)
         }
     }
 
+    const renderText = (label: string) => (isCompact ? null : <ListItemText primary={label} />)
+    const wrapCompactTooltip = (label: string, child: ReactElement) =>
+        isCompact ? (
+            <Tooltip title={label} placement='right'>
+                {child}
+            </Tooltip>
+        ) : (
+            child
+        )
+
     return (
         <List component='nav' aria-label={menu?.title || t('runtime.menu.navigation', 'Application navigation')} dense sx={{ p: 1 }}>
-            {menu?.showTitle && menu.title ? (
+            {menu?.showTitle && menu.title && !isCompact ? (
                 <Typography
                     variant='caption'
                     sx={{ px: 1.5, py: 0.5, display: 'block', color: 'text.secondary', fontWeight: 700, letterSpacing: 0.4 }}
@@ -158,45 +187,58 @@ export default function MenuContent({ menu }: MenuContentProps) {
                     <Fragment key={item.id}>
                         {needsWorkspaceDivider ? <Divider sx={{ my: 0.5 }} /> : null}
                         <ListItem disablePadding sx={{ display: 'block' }}>
-                            <ListItemButton
-                                disabled={isHubLabel || isInertLink}
-                                selected={isSelected}
-                                aria-current={isSelected ? 'page' : undefined}
-                                {...(item.kind === 'link' && sanitizeHref(item.href)
-                                    ? { component: 'a' as const, href: sanitizeHref(item.href) }
-                                    : {})}
-                                onClick={() => handleItemSelect(item)}
-                                sx={{
-                                    borderRadius: 1,
-                                    minHeight: 36,
-                                    '&.Mui-selected': {
-                                        bgcolor: 'action.selected',
-                                        color: 'text.primary',
-                                        '& .MuiListItemIcon-root': {
-                                            color: 'text.primary'
-                                        },
-                                        '& .MuiListItemText-primary': {
-                                            fontWeight: 700
-                                        },
-                                        '&:hover': {
-                                            bgcolor: 'action.selected'
+                            {wrapCompactTooltip(
+                                item.label,
+                                <ListItemButton
+                                    disabled={isHubLabel || isInertLink}
+                                    selected={isSelected}
+                                    aria-label={item.label}
+                                    aria-current={isSelected ? 'page' : undefined}
+                                    {...(item.kind === 'link' && sanitizeHref(item.href)
+                                        ? { component: 'a' as const, href: sanitizeHref(item.href) }
+                                        : {})}
+                                    onClick={() => handleItemSelect(item)}
+                                    sx={{
+                                        borderRadius: 1,
+                                        minHeight: 36,
+                                        justifyContent: isCompact ? 'center' : 'flex-start',
+                                        px: isCompact ? 1 : undefined,
+                                        '&.Mui-selected': {
+                                            bgcolor: 'action.selected',
+                                            color: 'text.primary',
+                                            '& .MuiListItemIcon-root': {
+                                                color: 'text.primary'
+                                            },
+                                            '& .MuiListItemText-primary': {
+                                                fontWeight: 700
+                                            },
+                                            '&:hover': {
+                                                bgcolor: 'action.selected'
+                                            }
                                         }
-                                    }
-                                }}
-                            >
-                                <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
-                                <ListItemText primary={item.label} />
-                            </ListItemButton>
+                                    }}
+                                >
+                                    <ListItemIcon sx={{ minWidth: isCompact ? 0 : 40 }}>{resolveIcon(item.icon)}</ListItemIcon>
+                                    {renderText(item.label)}
+                                </ListItemButton>
+                            )}
                         </ListItem>
                     </Fragment>
                 )
             })}
             {overflowItems.length > 0 ? (
                 <ListItem disablePadding sx={{ display: 'block' }}>
-                    <ListItemButton onClick={(event) => setOverflowAnchor(event.currentTarget)}>
-                        <ListItemIcon>{resolveIcon('more')}</ListItemIcon>
-                        <ListItemText primary={overflowLabel} />
-                    </ListItemButton>
+                    {wrapCompactTooltip(
+                        overflowLabel,
+                        <ListItemButton
+                            aria-label={overflowLabel}
+                            onClick={(event) => setOverflowAnchor(event.currentTarget)}
+                            sx={{ justifyContent: isCompact ? 'center' : 'flex-start', px: isCompact ? 1 : undefined }}
+                        >
+                            <ListItemIcon sx={{ minWidth: isCompact ? 0 : 40 }}>{resolveIcon('more')}</ListItemIcon>
+                            {renderText(overflowLabel)}
+                        </ListItemButton>
+                    )}
                     <Menu anchorEl={overflowAnchor} open={Boolean(overflowAnchor)} onClose={() => setOverflowAnchor(null)}>
                         {overflowItems.map((item) => (
                             <MenuItem

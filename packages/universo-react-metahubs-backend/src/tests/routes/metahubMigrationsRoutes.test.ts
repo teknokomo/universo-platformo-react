@@ -285,7 +285,7 @@ describe('Metahub Migrations Routes', () => {
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3',
             currentStructureVersion: '0.1.0',
             targetStructureVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
-            structureUpgradeRequired: true,
+            structureUpgradeRequired: false,
             templateId: null,
             currentTemplateVersionId: null,
             targetTemplateVersionId: null,

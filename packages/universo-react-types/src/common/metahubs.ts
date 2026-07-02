@@ -5,6 +5,7 @@ import type { VersionedLocalizedContent } from './admin'
 import type { EntityTypeCapabilities } from './entityCapabilities'
 import type { EntityTypeUIConfig } from './entityTypeDefinition'
 import type { SharedBehavior } from './shared'
+import type { DashboardSideMenuConfig } from './dashboardLayout'
 import type { ModuleAttachmentKind, ModuleCapability, ModuleRole, ModuleSourceKind } from './modules'
 
 /**
@@ -926,6 +927,13 @@ export type DashboardLayoutWidgetDefinition = {
 }
 
 /** Configuration for the menuWidget — embeds menu definition directly in widget config. */
+export type MenuWidgetTarget =
+    | { kind: 'section'; sectionId: string }
+    | { kind: 'objectCollection'; objectCollectionId: string }
+    | { kind: 'hub'; hubId: string }
+    | { kind: 'treeEntity'; treeEntityId: string }
+    | { kind: 'menuItem'; menuItemId: string }
+
 export interface MenuWidgetConfig {
     showTitle: boolean
     title: VersionedLocalizedContent<string>
@@ -943,8 +951,12 @@ export interface MenuWidgetConfig {
     overflowLabelKey?: string | null
     /** Preferred start page as a section id/codename or menu item id. */
     startPage?: string | null
+    /** UUID-backed normalized start target used by runtime materialization. */
+    startTarget?: MenuWidgetTarget | null
     /** Placement for the runtime workspace entry injected by the published app. */
     workspacePlacement?: 'primary' | 'overflow' | 'hidden'
+    /** Runtime side menu display modes controlled by this menu widget. */
+    sideMenu?: DashboardSideMenuConfig
     sharedBehavior?: SharedBehavior
     items: MenuWidgetConfigItem[]
 }

@@ -1,5 +1,5 @@
 import { fetchWithCsrf, type AppDataResponse } from './api'
-import type { CrudDataAdapter } from './types'
+import type { CrudDataAdapter, RuntimeRowTarget } from './types'
 import type { FieldValidationRules } from '../components/dialogs/FormDialog'
 
 /**
@@ -195,8 +195,8 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
          * has no dedicated GET-by-id endpoint for child rows. When such an
          * endpoint is added, this method should call it directly.
          */
-        async fetchRow(rowId: string, overrideObjectId?: string): Promise<Record<string, unknown>> {
-            const resolvedObjectId = overrideObjectId ?? objectCollectionId
+        async fetchRow(rowId: string, target?: RuntimeRowTarget): Promise<Record<string, unknown>> {
+            const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
             // The LIST endpoint already returns full row data —
             // return a single item by fetching the list and filtering.
             const res = await fetch(url(resolvedObjectId), { credentials: 'include' })
@@ -209,8 +209,8 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return { id: row.id, data: row }
         },
 
-        async createRow(data: Record<string, unknown>, overrideObjectId?: string): Promise<Record<string, unknown>> {
-            const resolvedObjectId = overrideObjectId ?? objectCollectionId
+        async createRow(data: Record<string, unknown>, target?: RuntimeRowTarget): Promise<Record<string, unknown>> {
+            const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
             const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -223,10 +223,10 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
         async updateRow(
             rowId: string,
             data: Record<string, unknown>,
-            overrideObjectId?: string,
+            target?: RuntimeRowTarget,
             expectedVersion?: number
         ): Promise<Record<string, unknown>> {
-            const resolvedObjectId = overrideObjectId ?? objectCollectionId
+            const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
             const body: Record<string, unknown> = { data }
             if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
             const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId), {
@@ -238,8 +238,8 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return res.json()
         },
 
-        async deleteRow(rowId: string, overrideObjectId?: string): Promise<void> {
-            const resolvedObjectId = overrideObjectId ?? objectCollectionId
+        async deleteRow(rowId: string, target?: RuntimeRowTarget): Promise<void> {
+            const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
             const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId), { method: 'DELETE' })
             if (!res.ok) throw new Error(await extractError(res, 'Delete tabular row failed'))
         },

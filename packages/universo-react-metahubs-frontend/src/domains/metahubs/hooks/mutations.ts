@@ -231,20 +231,21 @@ export function useUpdateMetahub() {
                 serverEntity: data ?? null,
                 moveToFront: true
             })
-            // Seed detail cache with authoritative server response — prevents
-            // the brief old→new flicker during the onSettled refetch window.
+            // Merge partial update responses into the detail cache instead of
+            // replacing the full GET shape. The shell menu reads permissions
+            // from this cache entry; dropping them hides authoring navigation
+            // until the next full detail fetch.
             if (data) {
-                queryClient.setQueryData(metahubsQueryKeys.detail(variables.id), data)
+                queryClient.setQueryData(metahubsQueryKeys.detail(variables.id), (current: unknown) => {
+                    if (!current || typeof current !== 'object' || Array.isArray(current)) return undefined
+                    return { ...current, ...data }
+                })
             }
             enqueueSnackbar(t('updateSuccess', 'Metahub updated'), { variant: 'success' })
         },
-        onSettled: (_data, _error, variables) => {
+        onSettled: async (_data, _error, variables) => {
             console.info('[metahub:update] onSettled', { id: variables.id })
-            // NOTE: We intentionally do NOT invalidate here.
-            // confirmOptimisticUpdate in onSuccess already provides the full server entity
-            // and seeds the detail cache. Invalidating marks the query stale, triggering a
-            // background refetch that briefly shows old list order (front→back→front flicker).
-            // Eventual consistency is handled by staleTime.
+            await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.id) })
         }
     })
 }

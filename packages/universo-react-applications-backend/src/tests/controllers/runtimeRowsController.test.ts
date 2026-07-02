@@ -1,5 +1,25 @@
 import { ApplicationMembershipState } from '@universo-react/types'
-import { partitionRuntimeMenuItems, resolvePreferredScopeEntityIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
+import type { Request, Response } from 'express'
+
+const mockResolveRuntimeSchema = jest.fn()
+const mockRuntimeQuery = jest.fn()
+const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
+
+jest.mock('../../shared/runtimeHelpers', () => {
+    const actual = jest.requireActual('../../shared/runtimeHelpers')
+    return {
+        __esModule: true,
+        ...actual,
+        createQueryHelper: (...args: unknown[]) => mockCreateQueryHelper(...args),
+        resolveRuntimeSchema: (...args: unknown[]) => mockResolveRuntimeSchema(...args)
+    }
+})
+
+import {
+    createRuntimeRowsController,
+    partitionRuntimeMenuItems,
+    resolvePreferredScopeEntityIdFromGlobalMenu
+} from '../../controllers/runtimeRowsController'
 import {
     UpdateFailure,
     coerceRuntimeValue,
@@ -7,6 +27,155 @@ import {
     resolveRequestedRuntimeWorkspaceId
 } from '../../shared/runtimeHelpers'
 import { createMockDbExecutor } from '../utils/dbMocks'
+
+function createResponse() {
+    const json = jest.fn()
+    const status = jest.fn().mockReturnValue({ json })
+    return {
+        status,
+        json
+    } as unknown as Response & { status: jest.Mock; json: jest.Mock }
+}
+
+function createRuntimeRequest(overrides: Partial<Request> = {}): Request {
+    return {
+        params: {
+            applicationId: '019f2000-0000-7000-8000-000000000001',
+            rowId: '019f2000-0000-7000-8000-000000000002'
+        },
+        body: {},
+        query: {},
+        method: 'POST',
+        path: '',
+        ...overrides
+    } as Request
+}
+
+const mutableObjectCollectionId = '019f2000-0000-7000-8000-000000000100'
+const staleOrPageObjectCollectionId = '019f2000-0000-7000-8000-000000000999'
+
+const runtimeObjectCollectionRows = [
+    {
+        id: mutableObjectCollectionId,
+        kind: 'object',
+        codename: { _primary: 'en', locales: { en: { content: 'Structure' } } },
+        table_name: 'structure',
+        config: {}
+    }
+]
+
+function createRuntimeMutationHarness() {
+    const { executor } = createMockDbExecutor()
+    const controller = createRuntimeRowsController(() => executor)
+
+    mockResolveRuntimeSchema.mockResolvedValue({
+        schemaName: 'runtime_schema',
+        schemaIdent: 'runtime_schema',
+        manager: executor,
+        userId: 'user-1',
+        role: 'owner',
+        permissions: {
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            restoreContent: true,
+            viewContent: true,
+            manageContent: true,
+            manageSettings: true,
+            manageUsers: true
+        },
+        workflowCapabilities: {},
+        currentWorkspaceId: null,
+        workspacesEnabled: false,
+        applicationSettings: {}
+    })
+    executor.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) {
+            return runtimeObjectCollectionRows
+        }
+        throw new Error(`Unexpected SQL after object collection resolution: ${sql}`)
+    })
+
+    return { controller, executor }
+}
+
+describe('runtimeRowsController object collection target resolution', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockRuntimeQuery.mockReset()
+        mockRuntimeQuery.mockResolvedValue([])
+    })
+
+    it.each([
+        {
+            label: 'create',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.createRow(
+                    createRuntimeRequest({
+                        body: { objectCollectionId: staleOrPageObjectCollectionId, data: { name: 'Draft' } }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'update',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.bulkUpdateRow(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: { objectCollectionId: staleOrPageObjectCollectionId, data: { name: 'Draft' }, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'delete',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.deleteRow(
+                    createRuntimeRequest({
+                        method: 'DELETE',
+                        query: { objectCollectionId: staleOrPageObjectCollectionId, expectedVersion: '1' }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'copy',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.copyRow(
+                    createRuntimeRequest({
+                        body: { objectCollectionId: staleOrPageObjectCollectionId, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'compensate-create',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.deleteRow(
+                    createRuntimeRequest({
+                        method: 'POST',
+                        path: '/runtime/rows/019f2000-0000-7000-8000-000000000002/compensate-create',
+                        body: { objectCollectionId: staleOrPageObjectCollectionId, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        }
+    ])('fails closed for $label when an explicit collection target is not mutable', async ({ run }) => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+
+        await run(controller, res)
+
+        expect(res.status).toHaveBeenCalledWith(404)
+        expect(res.json).toHaveBeenCalledWith({ error: 'Record collection not found' })
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toMatch(/\bINSERT\b/i)
+        expect(executedSql).not.toMatch(/\bUPDATE\b/i)
+        expect(executedSql).not.toMatch(/\bDELETE\b/i)
+        expect(executedSql).not.toContain('runtime_schema."structure"')
+    })
+})
 
 describe('runtimeRowsController startup section resolution', () => {
     it('prefers the menu startPage section before bound hub fallback', async () => {
@@ -91,6 +260,49 @@ describe('runtimeRowsController startup section resolution', () => {
                 schemaIdent: 'runtime_schema'
             })
         ).resolves.toBe('custom-layout-capable-entity-id')
+    })
+
+    it('prefers UUID-backed startTarget over an unresolved startPage token', async () => {
+        const { executor } = createMockDbExecutor()
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('information_schema.tables')) {
+                return [{ layoutsExists: true, widgetsExists: true }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_layouts')) {
+                return [{ id: 'global-layout-1' }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_widgets')) {
+                return [
+                    {
+                        config: {
+                            startPage: 'legacy-codename',
+                            startTarget: {
+                                kind: 'objectCollection',
+                                objectCollectionId: '019f15a0-0000-7000-8000-000000000001'
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
+                expect(params).toEqual(['019f15a0-0000-7000-8000-000000000001'])
+                return [{ id: '019f15a0-0000-7000-8000-000000000001' }]
+            }
+
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            resolvePreferredScopeEntityIdFromGlobalMenu({
+                manager: executor,
+                schemaName: 'runtime_schema',
+                schemaIdent: 'runtime_schema'
+            })
+        ).resolves.toBe('019f15a0-0000-7000-8000-000000000001')
     })
 
     it('derives startup section bindings from the global default or active layout only with config-aware section filtering', async () => {

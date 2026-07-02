@@ -3,7 +3,7 @@
 //
 // The `interpretation-network` metahub template ships the start Page, two-pane
 // dashboard layout, base presets, and the full interpretation-network
-// model (Concept / Interpretation / Relation / Material + Context /
+// model (Structure / Interpretation / Relation / Material + Context /
 // RelationType / CellColor). Fresh apps must not ship user-authored
 // demo Structures, matrix rows, Relations, Materials, or Templates.
 //
@@ -187,14 +187,14 @@ export async function expectInterpretationNetworkRuntimeDataReady(
     api: ApiContext,
     applicationId: string
 ): Promise<{
-    conceptSectionId: string
+    structureSectionId: string
     interpretationSectionId: string
     interpretationTitleField: string
     relationSectionId: string
     materialSectionId: string
 }> {
-    const concepts = (await getRuntimeAppData(api, applicationId, {
-        objectCollectionCodename: 'Concept',
+    const structures = (await getRuntimeAppData(api, applicationId, {
+        objectCollectionCodename: 'Structure',
         locale: 'en',
         limit: 20,
         offset: 0
@@ -218,23 +218,24 @@ export async function expectInterpretationNetworkRuntimeDataReady(
         offset: 0
     })) as RuntimeData
 
-    const conceptSectionId = typeof concepts?.section?.id === 'string' ? concepts.section.id : ''
+    const structureSectionId = typeof structures?.section?.id === 'string' ? structures.section.id : ''
     const interpretationSectionId = typeof interpretations?.section?.id === 'string' ? interpretations.section.id : ''
     const relationSectionId = typeof relations?.section?.id === 'string' ? relations.section.id : ''
     const materialSectionId = typeof materials?.section?.id === 'string' ? materials.section.id : ''
-    expect(conceptSectionId, 'Interpretation Network Concept runtime section id').toBeTruthy()
+    expect(structureSectionId, 'Interpretation Network Structure runtime section id').toBeTruthy()
     expect(interpretationSectionId, 'Interpretation Network Interpretation runtime section id').toBeTruthy()
     expect(relationSectionId, 'Interpretation Network Relation runtime section id').toBeTruthy()
     expect(materialSectionId, 'Interpretation Network Material runtime section id').toBeTruthy()
     const interpretationTitleField = resolveRuntimeField(interpretations, 'Title')
 
-    for (const sectionCodename of ['Concept', 'Interpretation', 'Relation', 'Material']) {
-        expectRuntimeSectionAvailable(concepts, sectionCodename, 'Interpretation Network Concept response')
+    for (const sectionCodename of ['Structure', 'Interpretation', 'Relation', 'Material']) {
+        expectRuntimeSectionAvailable(structures, sectionCodename, 'Interpretation Network Structure response')
     }
 
-    expect(getColumnCodenames(concepts)).toEqual(expect.arrayContaining(['Term', 'Description', 'Context']))
+    expect(getColumnCodenames(structures)).toEqual(expect.arrayContaining(['Name', 'Description']))
+    expect(getColumnCodenames(structures)).not.toEqual(expect.arrayContaining(['Context']))
     expect(getColumnCodenames(interpretations)).toEqual(
-        expect.arrayContaining(['Title', 'ParentConcept', 'Context', 'InterpretationMatrix'])
+        expect.arrayContaining(['Title', 'ParentStructure', 'Context', 'InterpretationMatrix'])
     )
     expect(getColumnCodenames(relations)).toEqual(expect.arrayContaining(['SourceLabel', 'TargetLabel', 'RelationType', 'Description']))
     for (const hiddenRelationColumn of ['SourceKind', 'SourceId', 'TargetKind', 'TargetId']) {
@@ -248,10 +249,10 @@ export async function expectInterpretationNetworkRuntimeDataReady(
     const materialRefColumn = findRuntimeColumn(matrixColumn?.childColumns, 'MaterialRef')
     expect(materialRefColumn?.dataType, 'InterpretationMatrix.MaterialRef must be a REF runtime child column').toBe('REF')
 
-    expect(concepts.rows ?? [], 'Fresh Interpretation Network Concepts must start without demo structures').toHaveLength(0)
+    expect(structures.rows ?? [], 'Fresh Interpretation Network Structures must start without demo structures').toHaveLength(0)
     expect(interpretations.rows ?? [], 'Fresh Interpretation Network Interpretations must start without demo pages').toHaveLength(0)
     expect(relations.rows ?? [], 'Fresh Interpretation Network Relations must start empty').toHaveLength(0)
-    expectRuntimeRowWithFieldTextAbsent(concepts, 'Term', 'Gravity', 'Interpretation Network Concepts')
+    expectRuntimeRowWithFieldTextAbsent(structures, 'Name', 'Gravity', 'Interpretation Network Structures')
     expectRuntimeRowWithFieldTextAbsent(interpretations, 'Title', 'Attraction between masses', 'Interpretation Network Interpretations')
     expectRuntimeRowWithFieldTextAbsent(relations, 'SourceLabel', 'Gravity', 'Interpretation Network Relations')
 
@@ -271,7 +272,7 @@ export async function expectInterpretationNetworkRuntimeDataReady(
     expectRuntimeRowWithFieldTextAbsent(tableTemplates, 'Name', 'Basic interpretation matrix', 'Interpretation Network TableTemplates')
 
     return {
-        conceptSectionId,
+        structureSectionId,
         interpretationSectionId,
         interpretationTitleField,
         relationSectionId,

@@ -23,11 +23,17 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import { DndContext, DragEndEvent, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import Autocomplete from '@mui/material/Autocomplete'
-import type { MenuWidgetConfig, MenuWidgetConfigItem, MetahubMenuItemKind, VersionedLocalizedContent } from '@universo-react/types'
+import {
+    defaultDashboardSideMenuConfig,
+    type MenuWidgetConfig,
+    type MenuWidgetConfigItem,
+    type MetahubMenuItemKind,
+    type VersionedLocalizedContent
+} from '@universo-react/types'
 import { isEnabledCapabilityConfig } from '@universo-react/types'
 import { EntityFormDialog, LocalizedInlineField } from '@universo-react/template-mui'
 import {
@@ -44,7 +50,11 @@ import { listEntityTypes, type MetahubEntityType } from '../../entities/api/enti
 import { useTreeEntities } from '../../entities/presets/hooks/useTreeEntities'
 import { getVLCString, normalizeLocale } from '../../../types'
 import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
+import MenuWidgetSideMenuSettings from './MenuWidgetSideMenuSettings'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
+import { normalizeSideMenuConfig } from './menuWidgetSideMenuConfig'
+
+export { applySideMenuPatch, normalizeSideMenuConfig } from './menuWidgetSideMenuConfig'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -78,6 +88,11 @@ type SectionTargetOption = {
     codename: string
     sortOrder: number
 }
+type StartPageOption = {
+    id: string
+    label: string
+    disabled?: boolean
+}
 
 const WORKSPACE_PLACEMENTS: WorkspacePlacement[] = ['primary', 'overflow', 'hidden']
 const EDITABLE_MENU_ITEM_KINDS: MetahubMenuItemKind[] = ['section', 'hub', 'link']
@@ -105,6 +120,63 @@ export const resolveMenuItemSectionTarget = (item?: MenuWidgetConfigItem | null)
 export const isLayoutMenuSectionEntityType = (entityType: Pick<MetahubEntityType, 'capabilities'>): boolean =>
     isEnabledCapabilityConfig(entityType.capabilities.layoutConfig)
 
+export const isAllowedMenuStartPage = (startPage: string | null | undefined, options: readonly StartPageOption[]): boolean =>
+    typeof startPage === 'string' && options.some((option) => option.id === startPage && !option.disabled)
+
+const normalizeConfiguredStartPage = (startPage: string | null | undefined): string | null =>
+    typeof startPage === 'string' && startPage.trim() ? startPage.trim() : null
+
+const useMenuSectionTargets = (metahubId: string, uiLocale: string, enabled: boolean, t: ReturnType<typeof useTranslation>['t']) =>
+    useQuery({
+        queryKey: [...metahubsQueryKeys.detail(metahubId), 'menuWidget', 'sectionTargets', uiLocale],
+        enabled,
+        queryFn: async (): Promise<SectionTargetOption[]> => {
+            const entityTypesPage = await fetchAllPaginatedItems((params) => listEntityTypes(metahubId, params), {
+                limit: 1000,
+                sortOrder: 'asc'
+            })
+            const layoutCapableTypes = entityTypesPage.items.filter(isLayoutMenuSectionEntityType)
+            const groups = await Promise.all(
+                layoutCapableTypes.map(async (entityType) => {
+                    const instancesPage = await fetchAllPaginatedItems(
+                        (params) => listEntityInstances(metahubId, { ...params, kind: entityType.kindKey }),
+                        { limit: 1000, sortOrder: 'asc' }
+                    )
+                    const typeLabel =
+                        getVLCString(entityType.codename, uiLocale) ||
+                        getVLCString(entityType.codename, 'en') ||
+                        entityType.ui?.nameKey ||
+                        entityType.kindKey
+
+                    return instancesPage.items.map((entity) => {
+                        const label =
+                            getVLCString(entity.name, uiLocale) ||
+                            getVLCString(entity.name, 'en') ||
+                            t('layouts.menuEditor.unnamedSection', 'Unnamed section')
+                        const codename = getVLCString(entity.codename, uiLocale) || getVLCString(entity.codename, 'en') || ''
+
+                        return {
+                            id: entity.id,
+                            label: `${label} · ${typeLabel}`,
+                            kindKey: entityType.kindKey,
+                            codename,
+                            sortOrder: typeof entity.sortOrder === 'number' ? entity.sortOrder : 0
+                        }
+                    })
+                })
+            )
+
+            return groups
+                .flat()
+                .sort(
+                    (left, right) =>
+                        left.kindKey.localeCompare(right.kindKey) ||
+                        left.sortOrder - right.sortOrder ||
+                        left.label.localeCompare(right.label)
+                )
+        }
+    })
+
 function makeDefaultConfig(): MenuWidgetConfig {
     return {
         showTitle: true,
@@ -116,6 +188,7 @@ function makeDefaultConfig(): MenuWidgetConfig {
         overflowLabelKey: 'runtime.menu.more',
         startPage: null,
         workspacePlacement: 'primary',
+        sideMenu: { ...defaultDashboardSideMenuConfig },
         items: []
     }
 }
@@ -132,12 +205,24 @@ function normalizeMenuConfig(
         title: ensureVLC(config.title, uiLocale) ?? defaultTitle,
         autoShowAllSections: Boolean(config.autoShowAllSections) && !config.bindToHub,
         bindToHub: Boolean(config.bindToHub),
-        boundTreeEntityId: typeof config.boundTreeEntityId === 'string' ? config.boundTreeEntityId : null,
+        boundTreeEntityId:
+            typeof config.boundTreeEntityId === 'string'
+                ? config.boundTreeEntityId
+                : typeof config.boundHubId === 'string'
+                ? config.boundHubId
+                : null,
+        boundHubId:
+            typeof config.boundHubId === 'string'
+                ? config.boundHubId
+                : typeof config.boundTreeEntityId === 'string'
+                ? config.boundTreeEntityId
+                : null,
         maxPrimaryItems: normalizeMaxPrimaryItems(config.maxPrimaryItems),
         overflowLabelKey:
             typeof config.overflowLabelKey === 'string' && config.overflowLabelKey.trim() ? config.overflowLabelKey.trim() : null,
-        startPage: typeof config.startPage === 'string' && config.startPage.trim() ? config.startPage.trim() : null,
+        startPage: normalizeConfiguredStartPage(config.startPage),
         workspacePlacement: normalizeWorkspacePlacement(config.workspacePlacement),
+        sideMenu: normalizeSideMenuConfig(config.sideMenu),
         items: Array.isArray(config.items) ? config.items : []
     }
 }
@@ -150,12 +235,18 @@ function SortableItemRow({
     item,
     label,
     kindLabel,
+    dragLabel,
+    editLabel,
+    removeLabel,
     onEdit,
     onRemove
 }: {
     item: MenuWidgetConfigItem
     label: string
     kindLabel: string
+    dragLabel: string
+    editLabel: string
+    removeLabel: string
     onEdit: () => void
     onRemove: () => void
 }) {
@@ -169,7 +260,7 @@ function SortableItemRow({
             variant='outlined'
             sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: 1.5 }}
         >
-            <IconButton size='small' sx={{ cursor: 'grab' }} {...components} {...listeners}>
+            <IconButton size='small' sx={{ cursor: 'grab' }} aria-label={dragLabel} title={dragLabel} {...components} {...listeners}>
                 <DragIndicatorRoundedIcon fontSize='small' />
             </IconButton>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -181,10 +272,10 @@ function SortableItemRow({
                     {!item.isActive && <Chip label='off' size='small' color='warning' variant='outlined' />}
                 </Stack>
             </Box>
-            <IconButton size='small' onClick={onEdit}>
+            <IconButton size='small' onClick={onEdit} aria-label={editLabel} title={editLabel}>
                 <EditRoundedIcon fontSize='small' />
             </IconButton>
-            <IconButton size='small' onClick={onRemove}>
+            <IconButton size='small' onClick={onRemove} aria-label={removeLabel} title={removeLabel}>
                 <DeleteRoundedIcon fontSize='small' />
             </IconButton>
         </Paper>
@@ -238,52 +329,7 @@ function ItemFormDialog({
         setIsActive(item?.isActive ?? true)
     }, [item, uiLocale])
 
-    const sectionTargetsQuery = useQuery({
-        queryKey: [...metahubsQueryKeys.detail(metahubId), 'menuWidget', 'sectionTargets', uiLocale],
-        enabled: open,
-        queryFn: async (): Promise<SectionTargetOption[]> => {
-            const entityTypesPage = await fetchAllPaginatedItems((params) => listEntityTypes(metahubId, params), {
-                limit: 1000,
-                sortOrder: 'asc'
-            })
-            const layoutCapableTypes = entityTypesPage.items.filter(isLayoutMenuSectionEntityType)
-            const groups = await Promise.all(
-                layoutCapableTypes.map(async (entityType) => {
-                    const instancesPage = await fetchAllPaginatedItems(
-                        (params) => listEntityInstances(metahubId, { ...params, kind: entityType.kindKey }),
-                        { limit: 1000, sortOrder: 'asc' }
-                    )
-                    const typeLabel =
-                        getVLCString(entityType.codename, uiLocale) ||
-                        getVLCString(entityType.codename, 'en') ||
-                        entityType.ui?.nameKey ||
-                        entityType.kindKey
-
-                    return instancesPage.items.map((entity) => {
-                        const label = getVLCString(entity.name, uiLocale) || getVLCString(entity.name, 'en') || String(entity.id)
-                        const codename = getVLCString(entity.codename, uiLocale) || getVLCString(entity.codename, 'en') || ''
-
-                        return {
-                            id: entity.id,
-                            label: `${label} · ${typeLabel}`,
-                            kindKey: entityType.kindKey,
-                            codename,
-                            sortOrder: typeof entity.sortOrder === 'number' ? entity.sortOrder : 0
-                        }
-                    })
-                })
-            )
-
-            return groups
-                .flat()
-                .sort(
-                    (left, right) =>
-                        left.kindKey.localeCompare(right.kindKey) ||
-                        left.sortOrder - right.sortOrder ||
-                        left.label.localeCompare(right.label)
-                )
-        }
-    })
+    const sectionTargetsQuery = useMenuSectionTargets(metahubId, uiLocale, open, t)
     const treeEntities = useTreeEntities(metahubId)
 
     const hasTitleContent = useMemo(() => {
@@ -339,7 +385,7 @@ function ItemFormDialog({
         })
     }
 
-    const sectionTargets = sectionTargetsQuery.data ?? []
+    const sectionTargets = useMemo(() => sectionTargetsQuery.data ?? [], [sectionTargetsQuery.data])
     const selectedSectionTarget =
         sectionTargets.find((option) => option.id === sectionTargetId || option.codename === sectionTargetId) ?? null
 
@@ -418,36 +464,20 @@ function ItemFormDialog({
 
                     {kind === 'section' && (
                         <Autocomplete
-                            freeSolo
                             options={sectionTargets}
-                            value={selectedSectionTarget ?? sectionTargetId}
+                            value={selectedSectionTarget}
                             loading={sectionTargetsQuery.isFetching}
-                            getOptionLabel={(option) => (typeof option === 'string' ? option : option.label)}
-                            isOptionEqualToValue={(option, value) =>
-                                typeof value !== 'string' && (option.id === value.id || option.codename === value.codename)
-                            }
+                            getOptionLabel={(option) => option.label}
+                            isOptionEqualToValue={(option, value) => option.id === value.id || option.codename === value.codename}
                             onChange={(_, nextValue) => {
                                 setSubmitError(null)
-                                if (typeof nextValue === 'string') {
-                                    setSectionTargetId(nextValue)
-                                    return
-                                }
                                 setSectionTargetId(nextValue?.id ?? '')
-                            }}
-                            onInputChange={(_, nextInputValue, reason) => {
-                                if (reason === 'input' || reason === 'clear') {
-                                    setSubmitError(null)
-                                    setSectionTargetId(nextInputValue)
-                                }
                             }}
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
                                     label={t('layouts.menuEditor.itemSection', 'Entity section')}
-                                    helperText={t(
-                                        'layouts.menuEditor.itemSectionHint',
-                                        'Select any layout-capable Entity instance, or enter an id/codename manually.'
-                                    )}
+                                    helperText={t('layouts.menuEditor.itemSectionHint', 'Select a layout-capable Entity instance.')}
                                 />
                             )}
                         />
@@ -519,6 +549,7 @@ export default function MenuWidgetEditorDialog({
     const isEdit = Boolean(config)
     const dialogTitle = isEdit ? t('layouts.menuEditor.editTitle') : t('layouts.menuEditor.createTitle')
     const workspacePlacementLabelId = useId()
+    const startPageLabelId = useId()
 
     const defaultTitle = useMemo(
         () => buildVLC(t('layouts.menuEditor.defaultTitle', 'Main'), t('layouts.menuEditor.defaultTitleRu', 'Основное')),
@@ -532,6 +563,8 @@ export default function MenuWidgetEditorDialog({
     const [dialogError, setDialogError] = useState<string | null>(null)
 
     const availableHubs = useTreeEntities(metahubId)
+    const sectionTargetsQuery = useMenuSectionTargets(metahubId, uiLocale, open, t)
+    const sectionTargets = useMemo(() => sectionTargetsQuery.data ?? [], [sectionTargetsQuery.data])
 
     // WARN-1 fix: Reset draft when dialog opens with new config (moved from render to effect)
     const prevOpenRef = useRef(false)
@@ -546,7 +579,10 @@ export default function MenuWidgetEditorDialog({
         }
     }, [open, config, uiLocale, defaultTitle])
 
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    )
 
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over } = event
@@ -594,27 +630,67 @@ export default function MenuWidgetEditorDialog({
             return
         }
         setDialogError(null)
+        const startPage = normalizeConfiguredStartPage(draft.startPage)
+        const initialStartPage = normalizeConfiguredStartPage(config?.startPage)
         onSave({
             ...draft,
             autoShowAllSections: draft.bindToHub ? false : Boolean(draft.autoShowAllSections),
+            boundHubId: draft.bindToHub ? draft.boundTreeEntityId ?? draft.boundHubId ?? null : null,
+            boundTreeEntityId: draft.bindToHub ? draft.boundTreeEntityId ?? draft.boundHubId ?? null : null,
             maxPrimaryItems: normalizeMaxPrimaryItems(draft.maxPrimaryItems),
             overflowLabelKey:
                 typeof draft.overflowLabelKey === 'string' && draft.overflowLabelKey.trim() ? draft.overflowLabelKey.trim() : null,
-            startPage: typeof draft.startPage === 'string' && draft.startPage.trim() ? draft.startPage.trim() : null,
+            startPage,
+            startTarget: startPage === initialStartPage ? draft.startTarget ?? null : null,
             workspacePlacement: normalizeWorkspacePlacement(draft.workspacePlacement),
+            sideMenu: normalizeSideMenuConfig(draft.sideMenu),
             items: draft.items
         })
     }
 
-    const kindLabels: Record<MetahubMenuItemKind, string> = {
-        section: t('layouts.menuEditor.kindSection', 'Entity section'),
-        hub: t('layouts.menuEditor.kindHub'),
-        link: t('layouts.menuEditor.kindLink')
-    }
+    const kindLabels = useMemo<Record<MetahubMenuItemKind, string>>(
+        () => ({
+            section: t('layouts.menuEditor.kindSection', 'Entity section'),
+            hub: t('layouts.menuEditor.kindHub'),
+            link: t('layouts.menuEditor.kindLink')
+        }),
+        [t]
+    )
 
-    const getItemLabel = (item: MenuWidgetConfigItem): string => {
-        return getVLCString(item.title, uiLocale) || getVLCString(item.title, 'en') || kindLabels[item.kind]
-    }
+    const getItemLabel = useCallback(
+        (item: MenuWidgetConfigItem): string => {
+            return getVLCString(item.title, uiLocale) || getVLCString(item.title, 'en') || kindLabels[item.kind]
+        },
+        [kindLabels, uiLocale]
+    )
+
+    const startPageOptions = useMemo<StartPageOption[]>(() => {
+        const menuOptions = draft.items
+            .filter((item) => item.isActive !== false)
+            .flatMap((item): StartPageOption[] => {
+                if (item.kind === 'section') {
+                    const targetId = item.sectionId ?? item.objectCollectionId ?? null
+                    return targetId ? [{ id: targetId, label: getItemLabel(item) }] : []
+                }
+                return []
+            })
+        const targetOptions = sectionTargets.map((option) => ({ id: option.id, label: option.label }))
+        const byId = new Map<string, StartPageOption>()
+        for (const option of [...menuOptions, ...targetOptions]) {
+            byId.set(option.id, option)
+        }
+
+        const normalizedStartPage = typeof draft.startPage === 'string' && draft.startPage.trim() ? draft.startPage.trim() : null
+        if (normalizedStartPage && !byId.has(normalizedStartPage)) {
+            byId.set(normalizedStartPage, {
+                id: normalizedStartPage,
+                label: t('layouts.menuEditor.unresolvedStartPage', 'Unavailable configured section'),
+                disabled: true
+            })
+        }
+
+        return Array.from(byId.values())
+    }, [draft.items, draft.startPage, getItemLabel, sectionTargets, t])
 
     return (
         <>
@@ -664,7 +740,8 @@ export default function MenuWidgetEditorDialog({
                                                         ...p,
                                                         bindToHub: checked,
                                                         autoShowAllSections: checked ? false : p.autoShowAllSections,
-                                                        boundTreeEntityId: checked ? p.boundTreeEntityId ?? null : null
+                                                        boundTreeEntityId: checked ? p.boundTreeEntityId ?? null : null,
+                                                        boundHubId: checked ? p.boundHubId ?? p.boundTreeEntityId ?? null : null
                                                     }))
                                                 }}
                                             />
@@ -683,7 +760,8 @@ export default function MenuWidgetEditorDialog({
                                                         setDraft((p) => ({
                                                             ...p,
                                                             boundTreeEntityId:
-                                                                typeof event.target.value === 'string' ? event.target.value : null
+                                                                typeof event.target.value === 'string' ? event.target.value : null,
+                                                            boundHubId: typeof event.target.value === 'string' ? event.target.value : null
                                                         }))
                                                     }}
                                                 >
@@ -754,22 +832,37 @@ export default function MenuWidgetEditorDialog({
                                             size='small'
                                             placeholder='runtime.menu.more'
                                         />
-                                        <TextField
-                                            label={t('layouts.menuEditor.startPage', 'Start page code')}
-                                            value={draft.startPage ?? ''}
-                                            onChange={(event) =>
-                                                setDraft((p) => ({
-                                                    ...p,
-                                                    startPage: event.target.value.trim() || null
-                                                }))
-                                            }
-                                            fullWidth
-                                            size='small'
-                                            helperText={t(
-                                                'layouts.menuEditor.startPageHint',
-                                                'Use a hub or Entity section id/codename to choose the first opened section.'
-                                            )}
-                                        />
+                                        <FormControl fullWidth size='small'>
+                                            <InputLabel id={startPageLabelId}>{t('layouts.menuEditor.startPage', 'Start page')}</InputLabel>
+                                            <Select
+                                                labelId={startPageLabelId}
+                                                value={draft.startPage ?? ''}
+                                                label={t('layouts.menuEditor.startPage', 'Start page')}
+                                                onChange={(event) =>
+                                                    setDraft((p) => ({
+                                                        ...p,
+                                                        startPage:
+                                                            typeof event.target.value === 'string' && event.target.value
+                                                                ? event.target.value
+                                                                : null,
+                                                        startTarget: null
+                                                    }))
+                                                }
+                                            >
+                                                <MenuItem value=''>{t('layouts.menuEditor.startPageDefault', 'Layout default')}</MenuItem>
+                                                {startPageOptions.map((option) => (
+                                                    <MenuItem key={option.id} value={option.id} disabled={option.disabled}>
+                                                        {option.label}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                            <FormHelperText>
+                                                {t(
+                                                    'layouts.menuEditor.startPageHint',
+                                                    'Choose the section that opens first in the published application.'
+                                                )}
+                                            </FormHelperText>
+                                        </FormControl>
                                         <FormControl fullWidth size='small'>
                                             <InputLabel id={workspacePlacementLabelId}>
                                                 {t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}
@@ -792,6 +885,10 @@ export default function MenuWidgetEditorDialog({
                                                 ))}
                                             </Select>
                                         </FormControl>
+                                        <MenuWidgetSideMenuSettings
+                                            sideMenu={draft.sideMenu}
+                                            onChange={(sideMenu) => setDraft((p) => ({ ...p, sideMenu }))}
+                                        />
                                     </Stack>
                                 </Box>
                             </Stack>
@@ -831,6 +928,15 @@ export default function MenuWidgetEditorDialog({
                                                     item={item}
                                                     label={getItemLabel(item)}
                                                     kindLabel={kindLabels[item.kind]}
+                                                    dragLabel={t('layouts.menuEditor.reorderItem', 'Reorder menu item: {{label}}', {
+                                                        label: getItemLabel(item)
+                                                    })}
+                                                    editLabel={t('layouts.menuEditor.editItemNamed', 'Edit menu item: {{label}}', {
+                                                        label: getItemLabel(item)
+                                                    })}
+                                                    removeLabel={t('layouts.menuEditor.removeItemNamed', 'Remove menu item: {{label}}', {
+                                                        label: getItemLabel(item)
+                                                    })}
                                                     onEdit={() => handleEditItem(item)}
                                                     onRemove={() => handleRemoveItem(item.id)}
                                                 />

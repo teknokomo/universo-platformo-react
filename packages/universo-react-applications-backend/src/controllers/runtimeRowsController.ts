@@ -25,6 +25,7 @@ import {
 } from '@universo-react/types'
 import {
     normalizeObjectCollectionRuntimeViewConfig,
+    normalizeDashboardSideMenuConfig,
     resolveObjectCollectionLayoutBehaviorConfig,
     resolveObjectCollectionRuntimeDashboardLayoutConfig,
     resolveApplicationLifecycleContractFromConfig
@@ -106,6 +107,7 @@ const runtimeQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(10000).default(100),
     offset: z.coerce.number().int().min(0).default(0),
     locale: z.string().optional(),
+    sectionId: z.string().uuid().optional(),
     objectCollectionId: z.string().uuid().optional(),
     objectCollectionCodename: z.string().trim().min(1).max(128).optional(),
     lifecycleState: z.enum(['active', 'deleted']).default('active'),
@@ -159,6 +161,13 @@ const runtimeRecordCommandBodySchema = z.object({
     objectCollectionId: z.string().uuid().optional(),
     expectedVersion: z.number().int().positive().optional()
 })
+
+const runtimeCompensateCreateBodySchema = z
+    .object({
+        objectCollectionId: z.string().uuid().optional(),
+        expectedVersion: z.literal(1)
+    })
+    .strict()
 
 const runtimeRestoreBodySchema = z.object({
     objectCollectionId: z.string().uuid().optional(),
@@ -1586,9 +1595,9 @@ const resolveRuntimeObjectCollection = async (manager: DbExecutor, schemaIdent: 
 
     if (objectCollections.length === 0) return { objectCollection: null, attrs: [], error: 'No record collections available' } as const
 
-    const selectedObjectCollection =
-        (requestedObjectCollectionId ? objectCollections.find((c) => c.id === requestedObjectCollectionId) : undefined) ??
-        objectCollections[0]
+    const selectedObjectCollection = requestedObjectCollectionId
+        ? objectCollections.find((c) => c.id === requestedObjectCollectionId)
+        : objectCollections[0]
     const objectCollection = selectedObjectCollection
         ? {
               ...selectedObjectCollection,
@@ -3006,6 +3015,22 @@ export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
     }
 
     const resolveStartPageTokenFromMenuConfig = (config: Record<string, unknown>): string | null => {
+        const startTarget = config.startTarget
+        if (startTarget && typeof startTarget === 'object' && !Array.isArray(startTarget)) {
+            const typedTarget = startTarget as Record<string, unknown>
+            const targetKind = typedTarget.kind
+            if (targetKind === 'section' && typeof typedTarget.sectionId === 'string' && typedTarget.sectionId.trim()) {
+                return typedTarget.sectionId.trim()
+            }
+            if (
+                targetKind === 'objectCollection' &&
+                typeof typedTarget.objectCollectionId === 'string' &&
+                typedTarget.objectCollectionId.trim()
+            ) {
+                return typedTarget.objectCollectionId.trim()
+            }
+        }
+
         const startPage = typeof config.startPage === 'string' ? config.startPage.trim() : ''
         if (!startPage) return null
 
@@ -4346,7 +4371,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const { limit, offset, locale, lifecycleState, libraryView, search, sort, filters } = parsedQuery.data
         const requestedLocale = normalizeLocale(locale)
-        const requestedObjectCollectionId = parsedQuery.data.objectCollectionId ?? null
+        const requestedSectionId = parsedQuery.data.sectionId ?? null
+        const requestedObjectCollectionId = parsedQuery.data.objectCollectionId ?? requestedSectionId ?? null
         const requestedObjectCollectionCodename = parsedQuery.data.objectCollectionCodename?.trim() || null
         const runtimeContext = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!runtimeContext) return
@@ -4393,7 +4419,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                       schemaIdent
                   })
 
-        const activeObjectCollection =
+        const hasExplicitObjectSelector = Boolean(requestedObjectCollectionId || requestedObjectCollectionCodename)
+        const matchedObjectCollection =
             (requestedObjectCollectionId ? runtimeObjects.find((objectRow) => objectRow.id === requestedObjectCollectionId) : undefined) ??
             (requestedObjectCollectionCodename
                 ? runtimeObjects.find(
@@ -4404,12 +4431,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 : undefined) ??
             (preferredObjectCollectionIdFromMenu
                 ? runtimeObjects.find((objectRow) => objectRow.id === preferredObjectCollectionIdFromMenu)
-                : undefined) ??
-            runtimeObjects[0]
+                : undefined)
+        const activeObjectCollection = matchedObjectCollection ?? (hasExplicitObjectSelector ? undefined : runtimeObjects[0])
         if (!activeObjectCollection) {
             return res.status(404).json({
                 error: 'Requested object not found in runtime schema',
-                details: { objectCollectionId: requestedObjectCollectionId, objectCollectionCodename: requestedObjectCollectionCodename }
+                details: {
+                    sectionId: requestedSectionId,
+                    objectCollectionId: requestedObjectCollectionId,
+                    objectCollectionCodename: requestedObjectCollectionCodename
+                }
             })
         }
 
@@ -4919,6 +4950,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             workflowActions: resolveRuntimeStandardKind(objectRow.kind) === 'page' ? [] : readConfiguredWorkflowActions(objectRow.config),
             name: resolvePresentationName(objectRow.presentation, requestedLocale, resolveRuntimeCodenameText(objectRow.codename))
         }))
+        const runtimeMenuTargetById = new Map(objectCollectionsForRuntime.map((section) => [section.id, section]))
 
         // Zone widgets for runtime UI (sidebar + center composition).
         type ZoneWidgetItem = {
@@ -5029,6 +5061,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         type RuntimeObjectCollectionMeta = {
             id: string
             codename: unknown
+            kind: string | null
             title: string
             sortOrder: number
             treeEntityIds: string[]
@@ -5036,9 +5069,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         let treeEntityMetaById = new Map<string, RuntimeTreeEntityMeta>()
         let treeEntityMetaByCodename = new Map<string, RuntimeTreeEntityMeta>()
+        let objectCollectionMetaById = new Map<string, RuntimeObjectCollectionMeta>()
         let objectCollectionMetaByCodename = new Map<string, RuntimeObjectCollectionMeta>()
         let childTreeEntityIdsByParent = new Map<string, string[]>()
         let objectCollectionsByTreeEntity = new Map<string, RuntimeObjectCollectionMeta[]>()
+        type RuntimeSectionTarget = { id: string; kind: 'section' | 'objectCollection' }
 
         try {
             const objectRows = (await manager.query(
@@ -5085,10 +5120,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const objectCollectionMeta: RuntimeObjectCollectionMeta = {
                     id: row.id,
                     codename: row.codename,
+                    kind: resolveRuntimeStandardKind(row.kind),
                     title,
                     sortOrder,
                     treeEntityIds
                 }
+                objectCollectionMetaById.set(row.id, objectCollectionMeta)
                 objectCollectionMetaByCodename.set(resolveRuntimeCodenameText(row.codename), objectCollectionMeta)
                 for (const treeEntityId of treeEntityIds) {
                     const list = objectCollectionsByTreeEntity.get(treeEntityId) ?? []
@@ -5123,6 +5160,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             console.warn('[ApplicationsRuntime] Failed to build hub/object runtime map for menuWidget (ignored)', e)
             treeEntityMetaById = new Map()
             treeEntityMetaByCodename = new Map()
+            objectCollectionMetaById = new Map()
             objectCollectionMetaByCodename = new Map()
             childTreeEntityIdsByParent = new Map()
             objectCollectionsByTreeEntity = new Map()
@@ -5131,8 +5169,24 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const resolveObjectCollectionId = (value: unknown): string | null => {
             if (typeof value !== 'string' || value.trim().length === 0) return null
             const normalized = value.trim()
-            if (objectCollectionsForRuntime.some((section) => section.id === normalized)) return normalized
-            return objectCollectionMetaByCodename.get(normalized)?.id ?? null
+            const byId = objectCollectionMetaById.get(normalized)
+            if (byId && byId.kind !== 'page') return normalized
+            const byCodename = objectCollectionMetaByCodename.get(normalized)
+            return byCodename && byCodename.kind !== 'page' ? byCodename.id : null
+        }
+
+        const resolveRuntimeSectionTarget = (value: unknown): RuntimeSectionTarget | null => {
+            if (typeof value !== 'string' || value.trim().length === 0) return null
+            const normalized = value.trim()
+            const runtimeTarget = runtimeMenuTargetById.get(normalized)
+            if (runtimeTarget) {
+                return {
+                    id: normalized,
+                    kind: 'section'
+                }
+            }
+            const objectCollectionId = resolveObjectCollectionId(normalized)
+            return objectCollectionId ? { id: objectCollectionId, kind: 'objectCollection' } : null
         }
 
         const resolveTreeEntityId = (value: unknown): string | null => {
@@ -5142,21 +5196,56 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return treeEntityMetaByCodename.get(normalized)?.id ?? null
         }
 
-        const resolveStartSectionId = (value: unknown, items: RuntimeMenuItem[]): string | null => {
+        const toStartTarget = (item: RuntimeMenuItem | null | undefined): RuntimeSectionTarget | null => {
+            if (!item) return null
+            if (item.objectCollectionId) return { id: item.objectCollectionId, kind: 'objectCollection' }
+            if (item.sectionId) return { id: item.sectionId, kind: 'section' }
+            return null
+        }
+
+        const resolveStartTarget = (target: unknown, items: RuntimeMenuItem[]): RuntimeSectionTarget | null => {
+            if (!target || typeof target !== 'object' || Array.isArray(target)) return null
+            const typedTarget = target as Record<string, unknown>
+            const targetKind = typedTarget.kind
+            if (targetKind === 'menuItem' && typeof typedTarget.menuItemId === 'string') {
+                const menuItemId = typedTarget.menuItemId.trim()
+                const explicitItem = items.find((item) => item.id === menuItemId)
+                return toStartTarget(explicitItem)
+            }
+            if (targetKind === 'section') return resolveRuntimeSectionTarget(typedTarget.sectionId)
+            if (targetKind === 'objectCollection') {
+                const objectCollectionId = resolveObjectCollectionId(typedTarget.objectCollectionId)
+                return objectCollectionId ? { id: objectCollectionId, kind: 'objectCollection' } : null
+            }
+            if (targetKind === 'hub' || targetKind === 'treeEntity') {
+                const treeEntityId = resolveTreeEntityId(targetKind === 'hub' ? typedTarget.hubId : typedTarget.treeEntityId)
+                if (!treeEntityId) return null
+                const firstTreeItem = items.find(
+                    (item) => item.treeEntityId === treeEntityId && (item.sectionId || item.objectCollectionId)
+                )
+                return toStartTarget(firstTreeItem)
+            }
+            return null
+        }
+
+        const resolveStartSectionTarget = (value: unknown, target: unknown, items: RuntimeMenuItem[]): RuntimeSectionTarget | null => {
+            const targetSection = resolveStartTarget(target, items)
+            if (targetSection) return targetSection
             if (typeof value !== 'string' || value.trim().length === 0) return null
             const normalized = value.trim()
             const explicitItem = items.find((item) => item.id === normalized)
             if (explicitItem?.sectionId || explicitItem?.objectCollectionId) {
-                return explicitItem.sectionId ?? explicitItem.objectCollectionId
+                return toStartTarget(explicitItem)
             }
             const treeEntityId = resolveTreeEntityId(normalized)
             if (treeEntityId) {
-                return (
-                    items.find((item) => item.treeEntityId === treeEntityId && (item.sectionId || item.objectCollectionId))?.sectionId ??
-                    null
+                const firstTreeItem = items.find(
+                    (item) => item.treeEntityId === treeEntityId && (item.sectionId || item.objectCollectionId)
                 )
+                return toStartTarget(firstTreeItem)
             }
-            return resolveObjectCollectionId(normalized)
+            const objectCollectionId = resolveObjectCollectionId(normalized)
+            return objectCollectionId ? { id: objectCollectionId, kind: 'objectCollection' } : null
         }
 
         const normalizeMenuItem = (item: unknown): RuntimeMenuItem | null => {
@@ -5165,7 +5254,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (typed.isActive === false) return null
 
             const kind = typeof typed.kind === 'string' && typed.kind.trim().length > 0 ? typed.kind : 'link'
-            const objectCollectionId = resolveObjectCollectionId(typed.sectionId ?? typed.objectCollectionId)
+            const objectCollectionId = resolveObjectCollectionId(typed.objectCollectionId)
+            const sectionTarget = objectCollectionId
+                ? { id: objectCollectionId, kind: 'objectCollection' as const }
+                : resolveRuntimeSectionTarget(typed.sectionId)
             const treeEntityId = resolveTreeEntityId(typed.hubId ?? typed.treeEntityId)
             return {
                 id: String(typed.id ?? ''),
@@ -5173,8 +5265,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 title: resolveLocalizedContent(typed.title, requestedLocale, kind),
                 icon: typeof typed.icon === 'string' ? typed.icon : null,
                 href: typeof typed.href === 'string' ? typed.href : null,
-                objectCollectionId,
-                sectionId: objectCollectionId,
+                objectCollectionId: sectionTarget?.kind === 'objectCollection' ? sectionTarget.id : null,
+                sectionId: sectionTarget?.id ?? null,
                 treeEntityId,
                 sortOrder: typeof typed.sortOrder === 'number' ? typed.sortOrder : 0,
                 isActive: true
@@ -5260,18 +5352,20 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
 
         const buildAllObjectCollectionMenuItems = (widgetId: string): RuntimeMenuItem[] => {
-            return objectCollectionsForRuntime.map((lc, index) => ({
-                id: `${widgetId}:all-sections:${lc.id}`,
-                kind: 'section',
-                title: lc.name,
-                icon: 'database',
-                href: null,
-                objectCollectionId: lc.id,
-                sectionId: lc.id,
-                treeEntityId: null,
-                sortOrder: index + 1,
-                isActive: true
-            }))
+            return objectCollectionsForRuntime
+                .filter((lc) => lc.kind !== 'page')
+                .map((lc, index) => ({
+                    id: `${widgetId}:all-sections:${lc.id}`,
+                    kind: 'section',
+                    title: lc.name,
+                    icon: 'database',
+                    href: null,
+                    objectCollectionId: lc.id,
+                    sectionId: lc.id,
+                    treeEntityId: null,
+                    sortOrder: index + 1,
+                    isActive: true
+                }))
         }
 
         const buildWorkspaceMenuItem = (widgetId: string, sortOrder: number): RuntimeMenuItem => ({
@@ -5348,7 +5442,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     title: resolveLocalizedContent(cfg.title, requestedLocale, ''),
                     autoShowAllSections,
                     startPage: typeof cfg.startPage === 'string' ? cfg.startPage : null,
-                    startSectionId: resolveStartSectionId(cfg.startPage, resolvedItems),
+                    startSectionId: resolveStartSectionTarget(cfg.startPage, cfg.startTarget, resolvedItems)?.id ?? null,
                     maxPrimaryItems,
                     overflowLabelKey: typeof cfg.overflowLabelKey === 'string' ? cfg.overflowLabelKey : null,
                     workspacePlacement,
@@ -5361,6 +5455,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         } catch (e) {
             // eslint-disable-next-line no-console
             console.warn('[ApplicationsRuntime] Failed to build menus from widget config (ignored)', e)
+        }
+
+        const sideMenuWidgetConfig = zoneWidgets.left.find(
+            (widget) => widget.widgetKey === 'menuWidget' && widget.config && typeof widget.config.sideMenu === 'object'
+        )?.config.sideMenu
+        if (sideMenuWidgetConfig && (layoutConfig.sideMenu === undefined || layoutConfig.sideMenu === null)) {
+            layoutConfig = {
+                ...layoutConfig,
+                sideMenu: normalizeDashboardSideMenuConfig(sideMenuWidgetConfig)
+            }
         }
 
         type RuntimeColumnDefinition = {
@@ -5496,7 +5600,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 ...activeSectionPayload
             },
             objectCollections: objectCollectionsForRuntime,
-            activeObjectCollectionId: activeObjectCollection.id,
+            activeObjectCollectionId: isActivePage ? null : activeObjectCollection.id,
             columns: safeComponents.map((component) => mapComponentToColumnDefinition(component, true)),
             rows,
             pagination: {
@@ -7827,19 +7931,34 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const deleteRow = async (req: Request, res: Response) => {
         const { applicationId, rowId } = req.params
         if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
-        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        const compensateCreate = req.method === 'POST' && req.path.endsWith('/compensate-create')
+        const parsedCompensation = compensateCreate ? runtimeCompensateCreateBodySchema.safeParse(req.body ?? {}) : null
+        if (parsedCompensation && !parsedCompensation.success) {
+            return res.status(400).json({ error: 'Invalid body', details: parsedCompensation.error.flatten() })
+        }
+        const objectCollectionId = compensateCreate
+            ? parsedCompensation?.data.objectCollectionId
+            : typeof req.query.objectCollectionId === 'string'
+            ? req.query.objectCollectionId
+            : undefined
         if (objectCollectionId && !UUID_REGEX.test(objectCollectionId)) return res.status(400).json({ error: 'Invalid object ID format' })
-        const expectedVersion =
-            typeof req.query.expectedVersion === 'string' && req.query.expectedVersion.trim().length > 0
-                ? Number(req.query.expectedVersion)
-                : undefined
+        const expectedVersion = compensateCreate
+            ? parsedCompensation?.data.expectedVersion
+            : typeof req.query.expectedVersion === 'string' && req.query.expectedVersion.trim().length > 0
+            ? Number(req.query.expectedVersion)
+            : undefined
         if (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion <= 0)) {
             return res.status(400).json({ error: 'Invalid expected version' })
         }
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
-        if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
+        const canDeleteContent = ctx.permissions.deleteContent === true
+        const canCompensateCreate =
+            compensateCreate && expectedVersion === 1 && ctx.permissions.createContent === true && ctx.permissions.editContent === true
+        if (!canDeleteContent && !canCompensateCreate) {
+            if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
+        }
 
         const {
             objectCollection,
@@ -7878,7 +7997,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 values: sourceValues,
                 minimumAccessLevel: 'edit'
             })
-            const sourceWhereSql = ['id = $1', runtimeRowCondition, sourceAccessClause]
+            let compensationSourceClause = ''
+            if (canCompensateCreate) {
+                sourceValues.push(ctx.userId)
+                compensationSourceClause = `_upl_created_by = $${sourceValues.length}
+                   AND COALESCE(_upl_version, 1) = 1
+                   AND _upl_created_at >= NOW() - INTERVAL '10 minutes'`
+            }
+            const sourceWhereSql = ['id = $1', runtimeRowCondition, sourceAccessClause, compensationSourceClause]
                 .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
                 .join(' AND ')
             const sourceRows = (await mgr.query(
@@ -7887,6 +8013,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
               FROM ${dataTableIdent}
               WHERE ${sourceWhereSql}
               LIMIT 1
+              FOR UPDATE
             `,
                 sourceValues
             )) as Array<Record<string, unknown>>
@@ -7938,6 +8065,13 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 values: deleteParams,
                 minimumAccessLevel: 'edit'
             })
+            let compensationDeleteClause = ''
+            if (canCompensateCreate) {
+                deleteParams.push(ctx.userId)
+                compensationDeleteClause = `_upl_created_by = $${deleteParams.length}
+                   AND COALESCE(_upl_version, 1) = 1
+                   AND _upl_created_at >= NOW() - INTERVAL '10 minutes'`
+            }
             if (expectedVersion !== undefined) {
                 deleteParams.push(expectedVersion)
             }
@@ -7946,7 +8080,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 `id = ${deleteRowIdPlaceholder}`,
                 runtimeRowCondition,
                 'COALESCE(_upl_locked, false) = false',
-                deleteAccessClause
+                deleteAccessClause,
+                compensationDeleteClause
             ]
                 .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
                 .join(' AND ')

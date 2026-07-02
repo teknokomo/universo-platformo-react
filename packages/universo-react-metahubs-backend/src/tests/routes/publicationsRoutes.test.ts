@@ -24,6 +24,7 @@ const mockPersistApplicationSchemaSyncState = jest.fn()
 const mockSerializeMetahub = jest.fn()
 const mockDeserializeSnapshot = jest.fn()
 const mockCalculateHash = jest.fn()
+const mockRefreshPlayCanvasRuntimeManifests = jest.fn(async () => undefined)
 const mockEnsureSchema = jest.fn()
 const mockResolvePublicStructureVersion = jest.fn()
 const mockEnrichDefinitionsWithSetConstants = jest.fn()
@@ -116,7 +117,8 @@ jest.mock('../../domains/publications/services/SnapshotSerializer', () => {
     const SnapshotSerializer = jest.fn().mockImplementation(() => ({
         serializeMetahub: (...args: unknown[]) => mockSerializeMetahub(...args),
         deserializeSnapshot: (...args: unknown[]) => mockDeserializeSnapshot(...args),
-        calculateHash: (...args: unknown[]) => mockCalculateHash(...args)
+        calculateHash: (...args: unknown[]) => mockCalculateHash(...args),
+        refreshPlayCanvasRuntimeManifests: (...args: unknown[]) => mockRefreshPlayCanvasRuntimeManifests(...args)
     }))
 
     ;(SnapshotSerializer as unknown as { materializeSharedEntitiesForRuntime: jest.Mock }).materializeSharedEntitiesForRuntime = jest.fn(
@@ -180,6 +182,7 @@ type MockTx = {
     isReleased: jest.Mock
 }
 
+const TEST_BRANCH_SCHEMA_NAME = 'mhb_019ccefc2f7b7b3682f485cdb1312267'
 const TEST_APP_SCHEMA_NAME = 'app_019ccefc2f7b7b3682f485cdb1312268'
 
 const createResponseErrorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction) => {
@@ -265,11 +268,12 @@ describe('Publications Routes', () => {
             description: { en: 'Metahub description' },
             templateVersionId: null
         })
-        mockFindBranchByIdAndMetahub.mockResolvedValue({ id: 'branch-1', schemaName: 'mhb_schema', structureVersion: 1 })
+        mockFindBranchByIdAndMetahub.mockResolvedValue({ id: 'branch-1', schemaName: TEST_BRANCH_SCHEMA_NAME, structureVersion: 1 })
         mockFindTemplateVersionById.mockResolvedValue(null)
         mockSerializeMetahub.mockResolvedValue({ entities: [], layouts: [], layoutZoneWidgets: [] })
         mockCalculateHash.mockReturnValue('snapshot-hash')
         mockDeserializeSnapshot.mockReturnValue([])
+        mockRefreshPlayCanvasRuntimeManifests.mockClear()
         mockEnsureSchema.mockRejectedValue(new Error('skip layouts in test'))
         mockResolvePublicStructureVersion.mockResolvedValue('0.1.0')
         mockEnrichDefinitionsWithSetConstants.mockImplementation((definitions: unknown) => definitions)
@@ -418,7 +422,7 @@ describe('Publications Routes', () => {
                 autoCreateApplication: true
             })
         )
-        expect(mockResolvePublicStructureVersion).toHaveBeenCalledWith('mhb_schema', 1)
+        expect(mockResolvePublicStructureVersion).toHaveBeenCalledWith(TEST_BRANCH_SCHEMA_NAME, 1)
         expect(mockSerializeMetahub).toHaveBeenCalledWith('metahub-1', expect.objectContaining({ structureVersion: '0.1.0' }))
         expect(mockGenerateFullSchema).not.toHaveBeenCalled()
         expect(mockCreateLinkedApplication).toHaveBeenCalledWith(

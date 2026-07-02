@@ -51,4 +51,15 @@ describe('metahubs i18n consolidation', () => {
         expect(enTranslations.projects?.binding?.resourceTabTitle).toBe('PlayCanvas')
         expect(enTranslations.projects?.binding?.actions?.openEditor).toBe('Open editor')
     })
+
+    it('keeps layout widget shared behavior translations inside the consolidated metahubs namespace', () => {
+        const ruTranslations = getMetahubsTranslations('ru') as {
+            layouts?: { sharedBehavior?: { title?: string; description?: string } }
+        }
+
+        expect(ruTranslations.layouts?.sharedBehavior?.title).toBe('Общее поведение')
+        expect(ruTranslations.layouts?.sharedBehavior?.description).toBe(
+            'Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.'
+        )
+    })
 })

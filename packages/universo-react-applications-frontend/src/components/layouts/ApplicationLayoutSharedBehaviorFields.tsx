@@ -53,7 +53,7 @@ export default function ApplicationLayoutSharedBehaviorFields({ value, onChange,
                 <Typography variant='body2' color='text.secondary'>
                     {t(
                         'layouts.sharedBehavior.description',
-                        'Control how inherited scoped layouts can exclude, deactivate, or move this widget.'
+                        'Controls whether inherited layouts can deactivate, exclude, or move this widget.'
                     )}
                 </Typography>
             </Stack>

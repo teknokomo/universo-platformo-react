@@ -490,8 +490,10 @@
                 "maxPrimaryItems": "Primary menu item limit",
                 "maxPrimaryItemsHint": "Extra active menu items are moved into the overflow menu.",
                 "overflowLabelKey": "Overflow label i18n key",
-                "startPage": "Start page code",
-                "startPageHint": "Use a hub or Entity section id/codename to choose the first opened section.",
+                "startPage": "Start page",
+                "startPageDefault": "Layout default",
+                "startPageHint": "Choose the section that opens first in the published application.",
+                "configuredSection": "Configured section",
                 "workspacePlacement": "Workspace menu placement",
                 "workspacePlacementHint": "Workspace navigation can stay in the main menu, move to overflow, or be hidden.",
                 "workspacePlacements": {
@@ -499,20 +501,31 @@
                     "overflow": "Overflow menu",
                     "hidden": "Hidden"
                 },
+                "sideMenu": {
+                    "title": "Side menu display",
+                    "primaryMode": "Primary display mode",
+                    "rememberUserChoice": "Remember user choice",
+                    "modes": {
+                        "wide": "Wide",
+                        "compact": "Compact icons",
+                        "overlay": "Overlay drawer"
+                    }
+                },
                 "itemsTitle": "Menu items",
                 "addItem": "Add item",
                 "editItem": "Edit item",
+                "editItemNamed": "Edit menu item: {{label}}",
+                "removeItemNamed": "Remove menu item: {{label}}",
+                "untitledItem": "Untitled item",
                 "kind": "Type",
                 "itemTitle": "Item title",
                 "icon": "Icon",
                 "href": "Link URL",
                 "section": "Entity section",
-                "hubId": "Hub id",
                 "isActive": "Active",
                 "kinds": {
                     "section": "Entity section",
-                    "link": "Link",
-                    "hub": "Hub"
+                    "link": "Link"
                 },
                 "validation": {
                     "titleRequired": "Name is required.",
@@ -547,9 +560,19 @@
             "rowHeightCompact": "Compact (default)",
             "rowHeightNormal": "Normal (52px)",
             "rowHeightAuto": "Auto (multi-line)",
+            "sideMenu": {
+                "title": "Side menu display",
+                "primaryMode": "Primary display mode",
+                "rememberUserChoice": "Remember user choice",
+                "modes": {
+                    "wide": "Wide",
+                    "compact": "Compact icons",
+                    "overlay": "Overlay drawer"
+                }
+            },
             "detailSourceKind": "Source: {{source}}",
             "detailSyncState": "Sync state: {{state}}",
-            "detailSourceLayout": "Source layout id: {{id}}",
+            "detailSourceLayout": "Linked to source layout",
             "zones": {
                 "top": "Top",
                 "left": "Left",
@@ -578,9 +601,15 @@
                 "pageViewsChart": "Page views chart",
                 "detailsTitle": "Details title",
                 "detailsTable": "Details table",
+                "workspaceSwitcher": "Workspace switcher",
+                "relationBuilder": "Relation builder",
+                "detailsTabs": "Details tabs",
+                "interpretationNetworkWorkspace": "Interpretation network workspace",
                 "columnsContainer": "Columns container",
                 "quizWidget": "Quiz widget",
+                "playcanvasCanvas": "PlayCanvas canvas",
                 "resourcePreview": "Resource preview",
+                "learnerPlayer": "Learner player",
                 "detailsSidePanel": "Details side panel",
                 "productTree": "Product tree",
                 "usersByCountryChart": "Users by country chart",

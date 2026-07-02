@@ -38,9 +38,12 @@ describe('interpretation-network template shape', () => {
         expect(findWidget(left, 'menuWidget')).toBeDefined()
         expect(findWidget(left, 'workspaceSwitcher')).toBeDefined()
         expect(workspace?.config).toMatchObject({
-            conceptCodename: 'Concept',
+            conceptCodename: 'Structure',
             interpretationCodename: 'Interpretation',
-            tableTemplateCodename: 'TableTemplate'
+            tableTemplateCodename: 'TableTemplate',
+            conceptNameField: 'Name',
+            conceptDescriptionField: 'Description',
+            interpretationParentField: 'ParentStructure'
         })
         const menu = findWidget(left, 'menuWidget') as { config?: { startPage?: string; items?: Array<{ id?: string }> } } | undefined
         expect(menu?.config?.startPage).toBe('InterpretationNetworkIntro')
@@ -48,9 +51,6 @@ describe('interpretation-network template shape', () => {
             'interpretationNetwork-nav-intro',
             'interpretationNetwork-nav-structures'
         ])
-        expect(center.map((widget) => widget.widgetKey)).not.toEqual(
-            expect.arrayContaining(['columnsContainer', 'detailsTabs', 'detailsTable'])
-        )
     })
 
     it('the main layout disables default overview, header, details table, and footer chrome', () => {
@@ -78,13 +78,13 @@ describe('interpretation-network template shape', () => {
         const codenames = (interpretationNetworkTemplate.seed.entities ?? []).map((e) => e.codename).sort()
         expect(codenames).toEqual([
             'CellColor',
-            'Concept',
             'Context',
             'Interpretation',
             'InterpretationNetworkIntro',
             'Material',
             'Relation',
             'RelationType',
+            'Structure',
             'TableTemplate'
         ])
     })
@@ -169,23 +169,38 @@ describe('interpretation-network template shape', () => {
     })
 
     it('marks localized runtime string values as JSONB-backed VLC fields', () => {
-        const concept = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Concept')
+        const structure = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Structure')
         const interpretation = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Interpretation')
         const relation = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Relation')
         const material = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Material')
         const matrix = interpretation?.components?.find((c) => c.codename === 'InterpretationMatrix')
 
-        expect(concept?.components?.find((c) => c.codename === 'Term')?.validationRules).toMatchObject({
+        expect(structure?.components?.map((c) => c.codename)).toEqual(['Name', 'Description'])
+        expect(structure?.components?.find((c) => c.codename === 'Name')).toMatchObject({
+            name: expect.objectContaining({
+                locales: expect.objectContaining({
+                    en: expect.objectContaining({ content: 'Name' }),
+                    ru: expect.objectContaining({ content: 'Название' })
+                })
+            }),
+            isDisplayComponent: true
+        })
+        expect(structure?.components?.find((c) => c.codename === 'Name')?.validationRules).toMatchObject({
             localized: true,
             versioned: true
         })
-        expect(concept?.components?.find((c) => c.codename === 'Description')?.validationRules).toMatchObject({
+        expect(structure?.components?.find((c) => c.codename === 'Description')?.validationRules).toMatchObject({
             localized: true,
             versioned: true
         })
+        expect(structure?.components?.find((c) => c.codename === 'Context')).toBeUndefined()
         expect(interpretation?.components?.find((c) => c.codename === 'Title')?.validationRules).toMatchObject({
             localized: true,
             versioned: true
+        })
+        expect(interpretation?.components?.find((c) => c.codename === 'ParentStructure')).toMatchObject({
+            targetEntityCodename: 'Structure',
+            targetEntityKind: 'object'
         })
         expect(relation?.components?.find((c) => c.codename === 'Description')?.validationRules).toMatchObject({
             localized: true,

@@ -168,7 +168,7 @@ export const appDataResponseSchema = z.object({
     sections: z.array(runtimeObjectCollectionSchema).optional().default([]),
     objectCollections: z.array(runtimeObjectCollectionSchema).optional().default([]),
     activeSectionId: z.string().optional(),
-    activeObjectCollectionId: z.string().optional(),
+    activeObjectCollectionId: z.string().nullable().optional(),
     columns: z.array(
         z.object({
             id: z.string(),
@@ -287,6 +287,7 @@ export const appDataResponseSchema = z.object({
                         href: z.string().nullable().optional(),
                         sectionId: z.string().nullable().optional(),
                         objectCollectionId: z.string().nullable().optional(),
+                        hubId: z.string().nullable().optional(),
                         treeEntityId: z.string().nullable().optional(),
                         sortOrder: z.number().optional().default(0),
                         isActive: z.boolean().optional().default(true)
@@ -302,6 +303,7 @@ export const appDataResponseSchema = z.object({
                             href: z.string().nullable().optional(),
                             sectionId: z.string().nullable().optional(),
                             objectCollectionId: z.string().nullable().optional(),
+                            hubId: z.string().nullable().optional(),
                             treeEntityId: z.string().nullable().optional(),
                             sortOrder: z.number().optional().default(0),
                             isActive: z.boolean().optional().default(true)
@@ -414,7 +416,6 @@ export async function fetchAppData(options: {
         lifecycleState,
         libraryView
     } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const runtimePath = `${normalizedBase}/applications/${applicationId}/runtime`
     const isAbsoluteBase = /^https?:\/\//i.test(normalizedBase)
@@ -422,8 +423,13 @@ export async function fetchAppData(options: {
     url.searchParams.set('limit', String(limit))
     url.searchParams.set('offset', String(offset))
     url.searchParams.set('locale', locale)
-    if (resolvedSectionId) {
-        url.searchParams.set('objectCollectionId', resolvedSectionId)
+    if (sectionId) {
+        url.searchParams.set('sectionId', sectionId)
+        if (objectCollectionId) {
+            url.searchParams.set('objectCollectionId', objectCollectionId)
+        }
+    } else if (objectCollectionId) {
+        url.searchParams.set('objectCollectionId', objectCollectionId)
     } else {
         const resolvedCodename = sectionCodename?.trim() || objectCollectionCodename?.trim()
         if (resolvedCodename) {
@@ -859,6 +865,34 @@ export async function deleteAppRow(options: {
     }
 }
 
+/** Remove a just-created row as server-validated compensation for a failed composite create flow. */
+export async function compensateCreatedAppRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    rowId: string
+    objectCollectionId?: string
+    sectionId?: string
+    workspaceId?: string | null
+}): Promise<void> {
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/compensate-create`)
+    if (workspaceId?.trim()) {
+        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
+    }
+    const body: Record<string, unknown> = { expectedVersion: 1 }
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Compensate created row failed'))
+    }
+}
+
 /** Restore a soft-deleted row. */
 export async function restoreAppRow(options: {
     apiBaseUrl: string
@@ -1149,8 +1183,20 @@ export async function updateTabularRow(options: {
     workspaceId?: string | null
     childRowId: string
     data: Record<string, unknown>
+    expectedVersion?: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, childRowId, data } = options
+    const {
+        apiBaseUrl,
+        applicationId,
+        parentRecordId,
+        componentId,
+        objectCollectionId,
+        sectionId,
+        workspaceId,
+        childRowId,
+        data,
+        expectedVersion
+    } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
     if (workspaceId?.trim()) {
@@ -1158,11 +1204,15 @@ export async function updateTabularRow(options: {
     }
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
     url += `?${params.toString()}`
+    const body: Record<string, unknown> = { data }
+    if (typeof expectedVersion === 'number') {
+        body.expectedVersion = expectedVersion
+    }
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data })
+        body: JSON.stringify(body)
     })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Update tabular row failed'))

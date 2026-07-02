@@ -21,6 +21,7 @@ import {
     buildApplicationSyncSourceFromPublication,
     buildCreateEntityGroupDetails,
     buildCreateTableDetails,
+    buildRuntimeSnapshotForApplicationSync,
     createExistingApplicationReleaseBundle,
     createPublicationApplicationReleaseBundle,
     hasDashboardLayoutConfigChanges,
@@ -253,11 +254,12 @@ export function createSyncController(
                     ...application,
                     workspacesEnabled: effectiveWorkspacesEnabled
                 }
+                const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(snapshot, catalogDefs, effectiveWorkspacesEnabled)
 
                 if (application.schemaName) {
                     const layoutChanges = await buildApplicationLayoutChanges({
                         schemaName: application.schemaName,
-                        snapshot
+                        snapshot: runtimeSnapshot
                     })
                     const requiredLayoutChanges = layoutChanges.filter(requiresExplicitLayoutResolution)
                     const defaultResolution = parsed.data.layoutResolutionPolicy?.default
@@ -651,11 +653,16 @@ export function createSyncController(
 
             const latestMigration = await migrationManager.getLatestMigration(schemaName)
             const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
-            const layoutChanges = await buildApplicationLayoutChanges({ schemaName, snapshot })
+            const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(
+                snapshot,
+                executableCatalogDefs,
+                workspaceMode.effectiveWorkspacesEnabled
+            )
+            const layoutChanges = await buildApplicationLayoutChanges({ schemaName, snapshot: runtimeSnapshot })
             if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
-                const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
-                const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
-                const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot })
+                const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot: runtimeSnapshot })
+                const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot: runtimeSnapshot })
+                const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot: runtimeSnapshot })
                 const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate || layoutChanges.length > 0
                 return res.json({
                     ...workspaceRuntimePayload,
@@ -683,9 +690,9 @@ export function createSyncController(
             const diff = migrator.calculateDiff(oldSnapshot, executableCatalogDefs)
             const hasDestructiveChanges = diff.destructive.length > 0
 
-            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
-            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
-            const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot })
+            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot: runtimeSnapshot })
+            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot: runtimeSnapshot })
+            const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot: runtimeSnapshot })
             const addedTableEntityIds = new Set<string>(
                 diff.additive
                     .filter((change: SchemaChange) => change.type === 'ADD_TABLE' && Boolean(change.entityId))

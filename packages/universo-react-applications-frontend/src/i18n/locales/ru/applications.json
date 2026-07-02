@@ -265,7 +265,7 @@
             "emptyZone": "В этой зоне пока нет виджетов.",
             "sharedBehavior": {
                 "title": "Общее поведение",
-                "description": "Определяет, можно ли в унаследованных каталожных макетах отключать, исключать или перемещать этот виджет.",
+                "description": "Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.",
                 "canDeactivate": "Можно деактивировать",
                 "canExclude": "Можно исключать",
                 "positionLocked": "Позиция зафиксирована"
@@ -490,8 +490,10 @@
                 "maxPrimaryItems": "Лимит основных пунктов меню",
                 "maxPrimaryItemsHint": "Дополнительные активные пункты будут перенесены в меню «Ещё».",
                 "overflowLabelKey": "i18n-ключ пункта «Ещё»",
-                "startPage": "Код стартовой страницы",
-                "startPageHint": "Используйте id или codename хаба или раздела сущности, который должен открываться первым.",
+                "startPage": "Стартовая страница",
+                "startPageDefault": "По умолчанию из макета",
+                "startPageHint": "Выберите раздел, который первым открывается в опубликованном приложении.",
+                "configuredSection": "Настроенный раздел",
                 "workspacePlacement": "Размещение рабочих пространств",
                 "workspacePlacementHint": "Навигация по рабочим пространствам может остаться в основном меню, перейти в «Ещё» или быть скрыта.",
                 "workspacePlacements": {
@@ -499,20 +501,31 @@
                     "overflow": "Меню «Ещё»",
                     "hidden": "Скрыто"
                 },
+                "sideMenu": {
+                    "title": "Отображение бокового меню",
+                    "primaryMode": "Основной режим отображения",
+                    "rememberUserChoice": "Запоминать выбор пользователя",
+                    "modes": {
+                        "wide": "Широкое",
+                        "compact": "Компактное с иконками",
+                        "overlay": "Шторка поверх контента"
+                    }
+                },
                 "itemsTitle": "Пункты меню",
                 "addItem": "Добавить пункт",
                 "editItem": "Редактировать пункт",
+                "editItemNamed": "Редактировать пункт меню: {{label}}",
+                "removeItemNamed": "Удалить пункт меню: {{label}}",
+                "untitledItem": "Пункт без названия",
                 "kind": "Тип",
                 "itemTitle": "Название пункта",
                 "icon": "Иконка",
                 "href": "Ссылка",
                 "section": "Раздел сущности",
-                "hubId": "Идентификатор хаба",
                 "isActive": "Активен",
                 "kinds": {
                     "section": "Раздел сущности",
-                    "link": "Ссылка",
-                    "hub": "Хаб"
+                    "link": "Ссылка"
                 },
                 "validation": {
                     "titleRequired": "Название обязательно.",
@@ -547,9 +560,19 @@
             "rowHeightCompact": "Компактная (по умолчанию)",
             "rowHeightNormal": "Обычная (52px)",
             "rowHeightAuto": "Авто (многострочно)",
+            "sideMenu": {
+                "title": "Отображение бокового меню",
+                "primaryMode": "Основной режим отображения",
+                "rememberUserChoice": "Запоминать выбор пользователя",
+                "modes": {
+                    "wide": "Широкое",
+                    "compact": "Компактное с иконками",
+                    "overlay": "Шторка поверх контента"
+                }
+            },
             "detailSourceKind": "Источник: {{source}}",
             "detailSyncState": "Состояние синхронизации: {{state}}",
-            "detailSourceLayout": "ID исходного макета: {{id}}",
+            "detailSourceLayout": "Связан с исходным макетом",
             "zones": {
                 "top": "Верхняя зона",
                 "left": "Левая зона",
@@ -578,9 +601,15 @@
                 "pageViewsChart": "График просмотров",
                 "detailsTitle": "Заголовок деталей",
                 "detailsTable": "Таблица деталей",
+                "workspaceSwitcher": "Переключатель рабочих пространств",
+                "relationBuilder": "Конструктор связей",
+                "detailsTabs": "Вкладки деталей",
+                "interpretationNetworkWorkspace": "Рабочая область трактовочной сети",
                 "columnsContainer": "Контейнер колонок",
                 "quizWidget": "Виджет квиза",
+                "playcanvasCanvas": "Холст PlayCanvas",
                 "resourcePreview": "Превью ресурса",
+                "learnerPlayer": "Плеер обучения",
                 "detailsSidePanel": "Боковая панель деталей",
                 "productTree": "Дерево продуктов",
                 "usersByCountryChart": "График пользователей по странам",

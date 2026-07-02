@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { dashboardLayoutConfigSchema } from './dashboardLayout'
-import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES } from './metahubs'
+import { dashboardLayoutConfigSchema, dashboardSideMenuConfigSchema } from './dashboardLayout'
+import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES, type MenuWidgetTarget } from './metahubs'
 import {
     ledgerProjectionDatasourceSchema,
     recordsListDatasourceSchema,
@@ -174,6 +174,14 @@ const menuWidgetItemSchema = z
     })
     .strict()
 
+const menuWidgetTargetSchema: z.ZodType<MenuWidgetTarget> = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('section'), sectionId: z.string().min(1) }).strict(),
+    z.object({ kind: z.literal('objectCollection'), objectCollectionId: z.string().min(1) }).strict(),
+    z.object({ kind: z.literal('hub'), hubId: z.string().min(1) }).strict(),
+    z.object({ kind: z.literal('treeEntity'), treeEntityId: z.string().min(1) }).strict(),
+    z.object({ kind: z.literal('menuItem'), menuItemId: z.string().min(1) }).strict()
+])
+
 export const menuWidgetConfigSchema = z
     .object({
         boundHubId: z.string().nullable().optional(),
@@ -185,7 +193,9 @@ export const menuWidgetConfigSchema = z
         maxPrimaryItems: z.number().int().min(1).max(12).optional(),
         overflowLabelKey: z.string().nullable().optional(),
         startPage: z.string().nullable().optional(),
+        startTarget: menuWidgetTargetSchema.nullable().optional(),
         workspacePlacement: z.enum(['primary', 'overflow', 'hidden']).optional(),
+        sideMenu: dashboardSideMenuConfigSchema.optional(),
         items: z.array(menuWidgetItemSchema),
         sharedBehavior: sharedBehaviorSchema.optional()
     })

@@ -41,6 +41,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@universo-react/template-mui', () => ({
+    EDITABLE_SIDE_MENU_MODES: ['wide', 'compact', 'overlay'],
     ViewHeaderMUI: ({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) => (
         <div>
             <h1>{title}</h1>
@@ -111,6 +112,12 @@ vi.mock('@universo-react/template-mui', () => ({
             {syncState ? <span>{labels.syncState?.[syncState]}</span> : null}
         </div>
     ),
+    normalizeSideMenuConfig: (value: any) => ({
+        availableModes:
+            Array.isArray(value?.availableModes) && value.availableModes.length > 0 ? value.availableModes : ['wide', 'compact', 'overlay'],
+        primaryMode: typeof value?.primaryMode === 'string' ? value.primaryMode : 'wide',
+        rememberUserChoice: typeof value?.rememberUserChoice === 'boolean' ? value.rememberUserChoice : true
+    }),
     EntityFormDialog: ({ open, title, extraFields, onSave }: any) =>
         open ? (
             <div data-testid='entity-form-dialog'>
@@ -328,6 +335,42 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Homepage')).toBeInTheDocument()
         expect(screen.getByText('Application')).toBeInTheDocument()
         expect(screen.getByText('Clean')).toBeInTheDocument()
+    })
+
+    it('does not expose raw source layout ids in the details alert', async () => {
+        const sourceLayoutId = '018f7b63-8e46-7cc2-8eb8-1f48b5087b7b'
+        apiMocks.getApplicationLayout.mockResolvedValueOnce({
+            item: {
+                id: 'layout-1',
+                scopeId: 'global',
+                scopeKind: 'global',
+                scopeEntityId: null,
+                templateKey: 'dashboard',
+                name: { en: 'Homepage' },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0,
+                sourceKind: 'metahub',
+                sourceLayoutId,
+                sourceSnapshotHash: null,
+                sourceContentHash: null,
+                localContentHash: null,
+                syncState: 'source_updated',
+                isSourceExcluded: false,
+                version: 1
+            },
+            widgets: []
+        })
+
+        renderPage()
+
+        await waitFor(() => {
+            expect(screen.getByText('Linked to source layout')).toBeInTheDocument()
+        })
+        expect(screen.queryByText(sourceLayoutId)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Source layout id/i)).not.toBeInTheDocument()
     })
 
     it('rolls back optimistic widget config updates when the save mutation fails', async () => {

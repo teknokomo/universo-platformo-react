@@ -1,7 +1,7 @@
 // Interpretation Network — interpretation network template.
 //
 // Re-uses the base presets and materialises the Stage-1
-// interpretation-network model through template definitions: Concept,
+// interpretation-network model through template definitions: Structure,
 // Interpretation, Relation, Material, Context, RelationType, CellColor,
 // plus a localized intro page. User-authored structures, matrix rows,
 // materials, relations, and templates are intentionally created in the
@@ -97,8 +97,8 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
                     },
                     icon: 'object',
                     href: null,
-                    sectionId: 'Concept',
-                    objectCollectionId: 'Concept',
+                    sectionId: 'Structure',
+                    objectCollectionId: 'Structure',
                     sortOrder: 1,
                     isActive: true
                 }
@@ -112,16 +112,19 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
         isActive: true,
         config: enrichConfigWithVlcTimestamps({
             visibleFor: {
-                sectionCodenames: ['Concept'],
-                objectCollectionCodenames: ['Concept']
+                sectionCodenames: ['Structure'],
+                objectCollectionCodenames: ['Structure']
             },
-            conceptCodename: 'Concept',
+            conceptCodename: 'Structure',
             interpretationCodename: 'Interpretation',
             relationCodename: 'Relation',
             materialCodename: 'Material',
             tableTemplateCodename: 'TableTemplate',
             matrixField: 'InterpretationMatrix',
-            tableTemplateMatrixField: 'TemplateMatrix'
+            tableTemplateMatrixField: 'TemplateMatrix',
+            conceptNameField: 'Name',
+            conceptDescriptionField: 'Description',
+            interpretationParentField: 'ParentStructure'
         })
     }
 ]
@@ -133,7 +136,7 @@ export const interpretationNetworkTemplate: MetahubTemplateManifest = {
     minStructureVersion: '0.1.0',
     name: vlc('Interpretation Network', 'Трактовочная сеть'),
     description: vlc(
-        'Interpretation network template with Concepts, Interpretations, typed Relations, Editor.js Materials, and matrix cell styling.',
+        'Interpretation network template with Structures, Interpretations, typed Relations, Editor.js Materials, and matrix cell styling.',
         'Шаблон трактовочной сети с понятиями, трактовками, типизированными связями, материалами Editor.js и стилями ячеек матрицы.'
     ),
     meta: {

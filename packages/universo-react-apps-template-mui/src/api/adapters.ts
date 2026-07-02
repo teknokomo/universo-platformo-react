@@ -42,8 +42,14 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 lifecycleState
             }),
 
-        fetchRow: (rowId, objectCollectionId) =>
-            fetchAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
+        fetchRow: (rowId, target) =>
+            fetchAppRow({
+                apiBaseUrl,
+                applicationId,
+                rowId,
+                objectCollectionId: target?.objectCollectionId,
+                sectionId: target?.sectionId ?? target?.objectCollectionId
+            }),
 
         fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId }) => {
             const resolvedSectionId = sectionId ?? objectCollectionId
@@ -59,22 +65,43 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
             return response.items
         },
 
-        createRow: (data, objectCollectionId) =>
-            createAppRow({ apiBaseUrl, applicationId, data, objectCollectionId, sectionId: objectCollectionId }),
+        createRow: (data, target) =>
+            createAppRow({
+                apiBaseUrl,
+                applicationId,
+                data,
+                objectCollectionId: target?.objectCollectionId,
+                sectionId: target?.sectionId ?? target?.objectCollectionId
+            }),
 
-        updateRow: (rowId, data, objectCollectionId, expectedVersion) =>
-            updateAppRow({ apiBaseUrl, applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
+        updateRow: (rowId, data, target, expectedVersion) =>
+            updateAppRow({
+                apiBaseUrl,
+                applicationId,
+                rowId,
+                data,
+                objectCollectionId: target?.objectCollectionId,
+                sectionId: target?.sectionId ?? target?.objectCollectionId,
+                expectedVersion
+            }),
 
-        deleteRow: (rowId, objectCollectionId, expectedVersion) =>
-            deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
+        deleteRow: (rowId, target, expectedVersion) =>
+            deleteAppRow({
+                apiBaseUrl,
+                applicationId,
+                rowId,
+                objectCollectionId: target?.objectCollectionId,
+                sectionId: target?.sectionId ?? target?.objectCollectionId,
+                expectedVersion
+            }),
 
-        restoreRow: (rowId, objectCollectionId, expectedVersion, restoreTarget) =>
+        restoreRow: (rowId, target, expectedVersion, restoreTarget) =>
             restoreAppRow({
                 apiBaseUrl,
                 applicationId,
                 rowId,
-                objectCollectionId,
-                sectionId: objectCollectionId,
+                objectCollectionId: target?.objectCollectionId,
+                sectionId: target?.sectionId ?? target?.objectCollectionId,
                 expectedVersion,
                 restoreTarget
             }),

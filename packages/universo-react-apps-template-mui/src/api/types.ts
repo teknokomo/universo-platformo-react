@@ -20,6 +20,11 @@ export interface RuntimeListQueryParams {
     lifecycleState?: 'active' | 'deleted'
 }
 
+export interface RuntimeRowTarget {
+    objectCollectionId?: string
+    sectionId?: string
+}
+
 /**
  * Adapter interface that decouples CRUD business logic from specific
  * API implementations (standalone fetch vs auth'd apiClient).
@@ -44,7 +49,7 @@ export interface CrudDataAdapter {
     ): Promise<AppDataResponse>
 
     /** Fetch a single row (raw data, for edit forms). */
-    fetchRow(rowId: string, objectCollectionId?: string): Promise<Record<string, unknown>>
+    fetchRow(rowId: string, target?: RuntimeRowTarget): Promise<Record<string, unknown>>
 
     /** Fetch TABLE child rows for a source row (used to prefill copy form). */
     fetchTabularRows?(params: {
@@ -55,21 +60,21 @@ export interface CrudDataAdapter {
     }): Promise<Array<Record<string, unknown>>>
 
     /** Create a new row. Returns the created row. */
-    createRow(data: Record<string, unknown>, objectCollectionId?: string): Promise<Record<string, unknown>>
+    createRow(data: Record<string, unknown>, target?: RuntimeRowTarget): Promise<Record<string, unknown>>
 
     /** Update an existing row. Returns the updated row. */
     updateRow(
         rowId: string,
         data: Record<string, unknown>,
-        objectCollectionId?: string,
+        target?: RuntimeRowTarget,
         expectedVersion?: number
     ): Promise<Record<string, unknown>>
 
     /** Soft-delete a row. */
-    deleteRow(rowId: string, objectCollectionId?: string, expectedVersion?: number): Promise<void>
+    deleteRow(rowId: string, target?: RuntimeRowTarget, expectedVersion?: number): Promise<void>
 
     /** Restore a soft-deleted row. */
-    restoreRow?(rowId: string, objectCollectionId?: string, expectedVersion?: number, restoreTarget?: RuntimeRestoreTarget): Promise<void>
+    restoreRow?(rowId: string, target?: RuntimeRowTarget, expectedVersion?: number, restoreTarget?: RuntimeRestoreTarget): Promise<void>
 
     /** Copy a row. */
     copyRow(

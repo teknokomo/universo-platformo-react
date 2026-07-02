@@ -400,8 +400,21 @@
         "shareUntitledMember": "Workspace member",
         "shareSubmit": "Share",
         "menu": {
+            "changeMode": "Change side menu mode: {{mode}}",
+            "enableCompactMenu": "Enable compact menu",
+            "enableWideMenu": "Enable wide menu",
+            "contextPanel": "Context panel",
+            "openOverlay": "Open overlay menu",
+            "useDockedMenu": "Use docked menu",
+            "useOverlayMenu": "Use overlay menu",
+            "modes": {
+                "wide": "Wide",
+                "compact": "Compact",
+                "overlay": "Overlay"
+            },
             "more": "More",
-            "navigation": "Application navigation"
+            "navigation": "Application navigation",
+            "open": "Open menu"
         }
     },
     "trash": {

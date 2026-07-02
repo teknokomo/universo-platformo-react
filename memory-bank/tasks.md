@@ -1,23 +1,26 @@
-# Interpretation Network Workspace URL and Catalog UX Tasks (2026-06-28)
+# Interpretation Network Runtime Toolbar Button Rail Follow-up Tasks (2026-07-02)
 
 > Status: IMPLEMENT complete
-> Scope: fix remaining runtime UX defects after importing `tools/fixtures/metahubs-interpretation-network-app-snapshot.json`.
+> Scope: align the visible color-mode button itself with the published app content rail without legacy retention or schema/template version bumps.
 
 ## Checklist
 
--   [x] 1. Preflight: load IMPLEMENT rules, MUI Runtime UX, Runtime UX QA, Thermos/autoreview instructions, inspect the dirty worktree, and run OntoIndex impact where available.
--   [x] 2. Make the Structures and Materials panes visually balanced: equal pane widths and a Structures catalog title matching Materials.
--   [x] 3. Reuse one local app-template catalog toolbar for Structures and Materials: filter first, table/card icon toggle next, and right-aligned `Create` action.
--   [x] 4. Persist opened Structure state in the runtime URL and restore it on refresh/back navigation without breaking existing `/a/:applicationId/:sectionId` routing.
--   [x] 5. Bring Material language tabs closer to metahub Pages behavior: default-language star, adjacent small three-dot menu, adjacent small add-language button, and localized menu actions.
--   [x] 6. Add or update reliable component tests for layout, catalog toolbar labels, URL restoration, and material language-tab controls.
--   [x] 7. Fix Thermos closeout findings: avoid workspace-id structure URLs and reject malformed batch child row IDs before runtime SQL.
--   [x] 8. Run formatting, focused tests, lint/build, app-template isolation check, OntoIndex diff verification, and Thermos/autoreview where feasible.
+-   [x] 1. Reproduce the visual mismatch from the supplied screenshots and inspect the rendered toolbar component structure.
+-   [x] 2. Run the available OntoIndex impact lookup and identify the isolated apps-template `AppNavbar` symbol.
+-   [x] 3. Remove spacing contributed by desktop-hidden mobile toolbar controls so the visible theme button owns the right edge.
+-   [x] 4. Replace the container-edge Playwright oracle with a visible color-mode button edge oracle for wide, compact, and overlay modes.
+-   [x] 5. Run formatting, focused tests/build/lint/isolation checks, local-Supabase Chromium evidence, screenshots, and closeout review.
 
 ## UI Contract
 
--   Structures and Materials catalogs use the same local `apps-template-mui` controls and do not import metahub/template UI components.
--   Catalog toolbar order is stable: title above, then filter, view toggle, and the `Create` button at the far right on desktop; controls wrap without page-level horizontal overflow on narrow screens.
--   The two main panes inside the Interpretation Network workspace divide the available workspace content width equally.
--   Opened Structure state is represented by a URL segment after the active runtime section and optional workspace segment. Refresh restores the opened structure when the row still exists; invalid structure segments fall back to the structure catalog.
--   Material language controls show the default language immediately, keep add/menu icon buttons small and adjacent to language tabs, and expose only valid localized actions for the current language set.
+-   The visible color-mode button and the visible runtime content cards share the same right rail; their right edges must differ by no more than 2 px at desktop widths.
+-   The side-menu wide/compact button tooltip describes the next action, not the current state.
+-   In overlay mode, the docked menu is absent and the drawer toggle remains on the drawer side so users can reopen/close it from the same edge.
+-   Compact and overlay modes give the active runtime page the full content width available in the application shell without large side gutters.
+-   No page-level horizontal overflow is allowed at desktop, tablet, or mobile widths.
+
+## Closeout Notes
+
+-   Root cause: responsive `display: none` was applied to inner `IconButton` elements while their outer `Badge` wrappers remained flex children; the toolbar therefore retained 16 px in wide/compact mode and 8 px in overlay mode after the visible theme button.
+-   Previous tests compared the right edge of `runtime-app-toolbar-actions`, so they validated the wrapper containing those margins instead of the visible theme button.
+-   The corrected Playwright oracle compares `[data-testid="runtime-color-mode-button"]` directly with the visible content rail and allows at most a 2 px difference.

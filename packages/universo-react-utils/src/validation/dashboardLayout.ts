@@ -1,5 +1,9 @@
 import {
+    DASHBOARD_SIDE_MENU_MODES,
     defaultDashboardLayoutConfig,
+    defaultDashboardSideMenuConfig,
+    type DashboardSideMenuConfig,
+    type DashboardSideMenuMode,
     type DashboardLayoutConfig,
     type DashboardLayoutRowHeight,
     type DashboardViewMode,
@@ -7,6 +11,13 @@ import {
 } from '@universo-react/types'
 
 const isViewMode = (value: unknown): value is DashboardViewMode => value === 'table' || value === 'card'
+const SIDE_MENU_MODE_FALLBACKS: DashboardSideMenuMode[] = ['wide', 'compact', 'overlay']
+
+const isSideMenuMode = (value: unknown): value is DashboardSideMenuMode =>
+    typeof value === 'string' &&
+    ((DASHBOARD_SIDE_MENU_MODES as readonly DashboardSideMenuMode[] | undefined) ?? SIDE_MENU_MODE_FALLBACKS).includes(
+        value as DashboardSideMenuMode
+    )
 
 const isRowHeight = (value: unknown): value is DashboardLayoutRowHeight =>
     value === 'auto' || (Number.isInteger(value) && Number(value) >= 36 && Number(value) <= 200)
@@ -15,6 +26,28 @@ const isCardColumns = (value: unknown): value is number => Number.isInteger(valu
 
 const resolveBoolean = (value: unknown, fallback: boolean): boolean => (typeof value === 'boolean' ? value : fallback)
 
+export const normalizeDashboardSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+    const fallback = defaultDashboardLayoutConfig.sideMenu ??
+        defaultDashboardSideMenuConfig ?? {
+            availableModes: SIDE_MENU_MODE_FALLBACKS,
+            primaryMode: 'wide',
+            rememberUserChoice: true
+        }
+    const availableModes = Array.isArray(source.availableModes)
+        ? source.availableModes.filter(isSideMenuMode).filter((mode, index, modes) => modes.indexOf(mode) === index)
+        : []
+    const nextAvailableModes = availableModes.length > 0 ? availableModes : [...fallback.availableModes]
+    const requestedPrimaryMode = isSideMenuMode(source.primaryMode) ? source.primaryMode : fallback.primaryMode
+    const primaryMode = nextAvailableModes.includes(requestedPrimaryMode) ? requestedPrimaryMode : nextAvailableModes[0]
+
+    return {
+        availableModes: nextAvailableModes,
+        primaryMode,
+        rememberUserChoice: resolveBoolean(source.rememberUserChoice, fallback.rememberUserChoice ?? true)
+    }
+}
+
 export function normalizeDashboardLayoutConfig(
     config: DashboardLayoutConfig | Record<string, unknown> | undefined
 ): ResolvedDashboardLayoutConfig {
@@ -22,6 +55,7 @@ export function normalizeDashboardLayoutConfig(
 
     return {
         showSideMenu: resolveBoolean(source.showSideMenu, defaultDashboardLayoutConfig.showSideMenu),
+        sideMenu: normalizeDashboardSideMenuConfig(source.sideMenu),
         showRightSideMenu: resolveBoolean(source.showRightSideMenu, defaultDashboardLayoutConfig.showRightSideMenu),
         showAppNavbar: resolveBoolean(source.showAppNavbar, defaultDashboardLayoutConfig.showAppNavbar),
         showHeader: resolveBoolean(source.showHeader, defaultDashboardLayoutConfig.showHeader),

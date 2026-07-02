@@ -64,8 +64,10 @@ const mockSerializeMetahub = jest.fn(async () => ({
     entities: {}
 }))
 const mockCalculateSnapshotHash = jest.fn(() => 'canonical-snapshot-hash')
+const mockRefreshPlayCanvasRuntimeManifests = jest.fn(async () => undefined)
 const mockAttachLayoutsToSnapshot = jest.fn(async () => undefined)
 const mockAlignPlayCanvasRuntimeManifestBindings = jest.fn(() => undefined)
+const mockCollectPlayCanvasRuntimeManifestProjectIds = jest.fn(() => [])
 const mockCreateInitialBranch = jest.fn(async () => ({
     id: 'branch-main',
     metahubId: 'metahub-1',
@@ -116,14 +118,16 @@ jest.mock('../../domains/publications/services/SnapshotSerializer', () => ({
     __esModule: true,
     SnapshotSerializer: jest.fn().mockImplementation(() => ({
         serializeMetahub: (...args: unknown[]) => mockSerializeMetahub(...args),
-        calculateHash: (...args: unknown[]) => mockCalculateSnapshotHash(...args)
+        calculateHash: (...args: unknown[]) => mockCalculateSnapshotHash(...args),
+        refreshPlayCanvasRuntimeManifests: (...args: unknown[]) => mockRefreshPlayCanvasRuntimeManifests(...args)
     }))
 }))
 
 jest.mock('../../domains/shared/snapshotLayouts', () => ({
     __esModule: true,
     alignPlayCanvasRuntimeManifestBindings: (...args: unknown[]) => mockAlignPlayCanvasRuntimeManifestBindings(...args),
-    attachLayoutsToSnapshot: (...args: unknown[]) => mockAttachLayoutsToSnapshot(...args)
+    attachLayoutsToSnapshot: (...args: unknown[]) => mockAttachLayoutsToSnapshot(...args),
+    collectPlayCanvasRuntimeManifestProjectIds: (...args: unknown[]) => mockCollectPlayCanvasRuntimeManifestProjectIds(...args)
 }))
 
 const mockEnsureMetahubAccess = jest.fn(async () => ({
@@ -318,6 +322,7 @@ describe('Metahubs Routes', () => {
         mockReplacePlayCanvasPublicationManifests.mockResolvedValue(undefined)
         mockExportPlayCanvasSnapshotFromSchema.mockClear()
         mockRestorePlayCanvasSnapshot.mockClear()
+        mockRefreshPlayCanvasRuntimeManifests.mockClear()
         mockExportPlayCanvasSnapshotFromSchema.mockResolvedValue({
             schemaVersion: 1,
             projects: [

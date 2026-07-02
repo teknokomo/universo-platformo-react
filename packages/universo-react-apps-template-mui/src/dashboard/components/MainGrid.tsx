@@ -881,10 +881,12 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
 
 export default function MainGrid({
     layoutConfig,
-    centerWidgets
+    centerWidgets,
+    fullWidth = false
 }: {
     layoutConfig?: DashboardLayoutConfig
     centerWidgets?: ZoneWidgetItem[]
+    fullWidth?: boolean
 }) {
     const details = useDashboardDetails()
     const showOverviewTitle = layoutConfig?.showOverviewTitle ?? defaultDashboardLayoutConfig.showOverviewTitle
@@ -948,7 +950,15 @@ export default function MainGrid({
         standaloneCenterWidgets.length > 0
 
     return (
-        <Box sx={{ minWidth: 0, width: '100%', maxWidth: { xs: '100%', sm: '100%', md: '1700px' }, overflowX: 'hidden' }}>
+        <Box
+            data-testid='runtime-main-grid'
+            sx={{
+                minWidth: 0,
+                width: '100%',
+                maxWidth: fullWidth ? '100%' : { xs: '100%', sm: '100%', md: '1700px' },
+                overflowX: 'hidden'
+            }}
+        >
             {/* Overview section — boolean-driven */}
             {(showOverviewTitle || showOverviewCards || showSessionsChart || showPageViewsChart) && (
                 <>

@@ -108,7 +108,6 @@ export function CellEditDialog({
                                     onChange={(value) => handleFieldChange(titleField, value)}
                                     uiLocale={normalizedLocale}
                                     required
-                                    size='small'
                                 />
                             ) : null}
                             {descriptionField ? (
@@ -120,7 +119,6 @@ export function CellEditDialog({
                                     uiLocale={normalizedLocale}
                                     multiline
                                     rows={4}
-                                    size='small'
                                 />
                             ) : null}
                             {!titleField && !descriptionField ? (

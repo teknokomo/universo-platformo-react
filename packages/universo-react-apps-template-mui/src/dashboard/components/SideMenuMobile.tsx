@@ -16,9 +16,10 @@ interface SideMenuMobileProps {
 
 export default function SideMenuMobile({ open, toggleDrawer, menu, menus, zoneWidgets }: SideMenuMobileProps) {
     // Resolve effective menu for mobile: first from menus map (sorted by widget ID for stability), or fallback to legacy menu prop
-    const firstEntry = menus ? Object.values(menus)[0] : undefined
+    const firstEntry = menus ? Object.values(menus).find((slot) => (slot?.items ?? []).length > 0) : undefined
     const effectiveMenu = firstEntry ?? menu
     const leftWidgets = zoneWidgets?.left ?? []
+    const hasMenuWidget = leftWidgets.some((widget) => widget.widgetKey === 'menuWidget')
     return (
         <Drawer
             // Intentionally anchored to 'left' — the right side is now served by SideMenuMobileRight.
@@ -42,10 +43,10 @@ export default function SideMenuMobile({ open, toggleDrawer, menu, menus, zoneWi
                 }}
             >
                 <Stack sx={{ flexGrow: 1 }}>
+                    {hasMenuWidget ? null : <MenuContent menu={effectiveMenu} />}
                     {leftWidgets.length > 0 ? (
                         <Box sx={{ flexShrink: 0 }}>{leftWidgets.map((widget) => renderWidget(widget, menus, menu))}</Box>
                     ) : null}
-                    <MenuContent menu={effectiveMenu} />
                 </Stack>
             </Stack>
         </Drawer>

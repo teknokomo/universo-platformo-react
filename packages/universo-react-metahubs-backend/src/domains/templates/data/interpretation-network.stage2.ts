@@ -8,17 +8,17 @@
 //   - `INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS` — the 20-column
 //     child-component definition for the InterpretationMatrix TABLE
 //     (CellId, CellFillColor, per-side Border*Color/Width/Style, MaterialRef)
-//   - `INTERPRETATION_NETWORK_CONCEPT_OBJECT_COMPONENTS` — Concept Object preset
-//     (Term, Description, Context)
+//   - `INTERPRETATION_NETWORK_STRUCTURE_OBJECT_COMPONENTS` — Structure Object preset
+//     (Name, Description)
 //   - `INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS` — Interpretation Object
-//     preset (Title, ParentConcept, Context, InterpretationMatrix TABLE)
+//     preset (Title, ParentStructure, Context, InterpretationMatrix TABLE)
 //   - `INTERPRETATION_NETWORK_RELATION_OBJECT_COMPONENTS` — Relation Object preset
 //     (SourceKind, SourceId, TargetKind, TargetId, RelationType, Description)
 //   - `INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS` — Material Object preset
 //     (Title, Description, Body Editor.js block content, hidden CellId attachment)
 //   - `INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME` — default hub codename (Main)
 //   - `INTERPRETATION_NETWORK_SEED_ENTITIES` — the Interpretation Network entity/page definitions
-//     (InterpretationNetworkIntro page, Concept / Interpretation / Relation /
+//     (InterpretationNetworkIntro page, Structure / Interpretation / Relation /
 //     Material / TableTemplate + Context / RelationType / CellColor) wired into
 //     `seed.entities`
 //   - `INTERPRETATION_NETWORK_CONTEXT_VALUES` / `INTERPRETATION_NETWORK_RELATION_TYPE_VALUES` /
@@ -256,11 +256,11 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
     }
 ]
 
-const INTERPRETATION_NETWORK_CONCEPT_OBJECT_COMPONENTS: TemplateSeedComponent[] = [
+const INTERPRETATION_NETWORK_STRUCTURE_OBJECT_COMPONENTS: TemplateSeedComponent[] = [
     {
-        codename: 'Term',
+        codename: 'Name',
         dataType: 'STRING',
-        name: vlc('Term', 'Термин'),
+        name: vlc('Name', 'Название'),
         sortOrder: 1,
         isDisplayComponent: true,
         validationRules: { localized: true, maxLength: 255, versioned: true },
@@ -273,14 +273,6 @@ const INTERPRETATION_NETWORK_CONCEPT_OBJECT_COMPONENTS: TemplateSeedComponent[] 
         sortOrder: 2,
         validationRules: { localized: true, versioned: true },
         uiConfig: { widget: 'textarea', rows: 4 }
-    },
-    {
-        codename: 'Context',
-        dataType: 'REF',
-        name: vlc('Context', 'Контекст'),
-        sortOrder: 3,
-        targetEntityCodename: 'Context',
-        targetEntityKind: 'enumeration'
     }
 ]
 
@@ -295,11 +287,11 @@ const INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS: TemplateSeedCompo
         uiConfig: { isDisplay: true }
     },
     {
-        codename: 'ParentConcept',
+        codename: 'ParentStructure',
         dataType: 'REF',
-        name: vlc('Parent Concept', 'Родительское понятие'),
+        name: vlc('Parent Structure', 'Родительская структура'),
         sortOrder: 2,
-        targetEntityCodename: 'Concept',
+        targetEntityCodename: 'Structure',
         targetEntityKind: 'object'
     },
     {
@@ -448,8 +440,8 @@ const INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS: TemplateSeedComponent[]
         dataType: 'JSON',
         name: vlc('Body', 'Содержимое'),
         description: vlc(
-            'Structured Editor.js content attached to a Concept or Interpretation cell.',
-            'Структурированный контент Editor.js, прикрепляемый к ячейке понятия или трактовки.'
+            'Structured Editor.js content attached to a Structure or Interpretation cell.',
+            'Структурированный контент Editor.js, прикрепляемый к ячейке структуры или трактовки.'
         ),
         sortOrder: 3,
         uiConfig: {
@@ -502,15 +494,15 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         }
     },
     {
-        codename: 'Concept',
+        codename: 'Structure',
         kind: 'object',
-        name: vlc('Concepts', 'Понятия'),
+        name: vlc('Structures', 'Структуры'),
         description: vlc(
-            'Dictionary of terms that can have multiple interpretations across contexts.',
-            'Словарь терминов, которые могут иметь несколько трактовок в разных контекстах.'
+            'Dictionary of structures that can have multiple interpretations across contexts.',
+            'Словарь структур, которые могут иметь несколько трактовок в разных контекстах.'
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
-        components: INTERPRETATION_NETWORK_CONCEPT_OBJECT_COMPONENTS,
+        components: INTERPRETATION_NETWORK_STRUCTURE_OBJECT_COMPONENTS,
         config: { recordBehavior: 'reference' }
     },
     {
@@ -518,8 +510,8 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         kind: 'object',
         name: vlc('Interpretations', 'Трактовки'),
         description: vlc(
-            'An interpretation of a Concept in a specific Context. Carries a TABLE of cells with per-cell value, color and border.',
-            'Трактовка понятия в конкретном контексте. Содержит таблицу ячеек со значением, цветом и границами.'
+            'An interpretation of a Structure in a specific Context. Carries a TABLE of cells with per-cell value, color and border.',
+            'Трактовка структуры в конкретном контексте. Содержит таблицу ячеек со значением, цветом и границами.'
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
         components: INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS,
@@ -530,8 +522,8 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         kind: 'object',
         name: vlc('Relations', 'Связи'),
         description: vlc(
-            'Typed edge between two nodes (concepts, interpretations, or cells).',
-            'Типизированное ребро между двумя узлами (понятия, трактовки или ячейки).'
+            'Typed edge between two nodes (structures, interpretations, or cells).',
+            'Типизированное ребро между двумя узлами (структуры, трактовки или ячейки).'
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
         components: INTERPRETATION_NETWORK_RELATION_OBJECT_COMPONENTS,
@@ -542,8 +534,8 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         kind: 'object',
         name: vlc('Materials', 'Материалы'),
         description: vlc(
-            'Editor.js material records attached to Concept or Interpretation cells via REF fields.',
-            'Записи материалов Editor.js, прикрепляемые к ячейкам понятий или трактовок через REF-поля.'
+            'Editor.js material records attached to Structure or Interpretation cells via REF fields.',
+            'Записи материалов Editor.js, прикрепляемые к ячейкам структур или трактовок через REF-поля.'
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
         components: INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS,
@@ -566,8 +558,8 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
         kind: 'enumeration',
         name: vlc('Contexts', 'Контексты'),
         description: vlc(
-            'Closed list of contexts in which a concept can be interpreted.',
-            'Закрытый список контекстов, в которых может быть истолковано понятие.'
+            'Closed list of contexts in which a structure can be interpreted.',
+            'Закрытый список контекстов, в которых может быть истолкована структура.'
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME]
     },

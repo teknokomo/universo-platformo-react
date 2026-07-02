@@ -100,6 +100,9 @@ const UNIVERSO_SOURCEFILES_REASON = 'universoDurableJavaScriptSourcefilesEnabled
 const isCurrentChecksumMismatch = (error: unknown): error is MetahubValidationError =>
     error instanceof MetahubValidationError && error.details?.messageCode === 'playcanvas.files.path.currentChecksumMismatch'
 
+const isSceneMetadataUpdateFailure = (error: unknown): error is MetahubValidationError =>
+    error instanceof MetahubValidationError && error.details?.messageCode === 'playcanvas.files.metadataUpdateFailed'
+
 const areEditorScenePayloadsEqual = (left: PlayCanvasEditorScenePayload | null, right: PlayCanvasEditorScenePayload): boolean => {
     const leftComparable = normalizeEditorScenePayloadForComparison(left)
     const rightComparable = normalizeEditorScenePayloadForComparison(right)
@@ -494,6 +497,34 @@ const sceneLocalAssetDocumentMatchesInput = (current: PlayCanvasEditorSceneLocal
     const currentComparable = Object.fromEntries(comparableKeys.map((key) => [key, currentDocument[key]]))
     const inputComparable = Object.fromEntries(comparableKeys.map((key) => [key, input[key]]))
     return stableStringify(currentComparable) === stableStringify(inputComparable)
+}
+
+const applySceneLocalAssetDocumentInput = (
+    currentAssets: unknown[],
+    input: {
+        projectId: string
+        sceneId: string
+        documentId: string
+        data: Record<string, unknown>
+        version: number
+        sceneVersion: number
+    }
+): { matched: boolean; alreadyApplied: boolean; assets: unknown[] } => {
+    let matched = false
+    let alreadyApplied = false
+    const assets = currentAssets.map((currentAsset) => {
+        const normalized = normalizePlayCanvasEditorSceneLocalAsset(currentAsset, input.projectId, input.sceneId, input.sceneVersion)
+        if (!normalized || String(readPlayCanvasEditorAssetDocumentId(normalized)) !== input.documentId) {
+            return currentAsset
+        }
+        matched = true
+        if (sceneLocalAssetDocumentMatchesInput(normalized, input.data)) {
+            alreadyApplied = true
+            return currentAsset
+        }
+        return createPlayCanvasEditorSceneLocalAssetPayloadEntry(currentAsset, input.data, input.version)
+    })
+    return { matched, alreadyApplied, assets }
 }
 
 const resolveRealtimeAssetDocument = (
@@ -2200,42 +2231,56 @@ export class PlayCanvasProjectsService {
                 if (sceneLocalAssetDocumentMatchesInput(asset, input.data)) {
                     return { revision: String(asset.version) }
                 }
-                const read = await this.readEditorScene(input.metahubId, input.projectId, asset.sceneId, input.userId)
-                const currentAssets = read.payload?.assets ?? []
-                let matched = false
-                const nextAssets = currentAssets.map((currentAsset) => {
-                    const normalized = normalizePlayCanvasEditorSceneLocalAsset(
-                        currentAsset,
-                        input.projectId,
-                        asset.sceneId,
-                        read.scene.version
-                    )
-                    if (!normalized || String(readPlayCanvasEditorAssetDocumentId(normalized)) !== input.documentId) {
-                        return currentAsset
-                    }
-                    matched = true
-                    return createPlayCanvasEditorSceneLocalAssetPayloadEntry(currentAsset, input.data, input.version)
-                })
-                if (!matched) {
-                    throw new MetahubValidationError('Unsupported PlayCanvas Editor scene-local asset document', {
-                        messageCode: 'playcanvas.editorRealtime.unsupportedSceneLocalAssetDocument',
-                        documentId: input.documentId
+                const maxAttempts = 4
+                for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                    const read = await this.readEditorScene(input.metahubId, input.projectId, asset.sceneId, input.userId)
+                    const currentAssets = read.payload?.assets ?? []
+                    const next = applySceneLocalAssetDocumentInput(currentAssets, {
+                        projectId: input.projectId,
+                        sceneId: asset.sceneId,
+                        documentId: input.documentId,
+                        data: input.data,
+                        version: input.version,
+                        sceneVersion: read.scene.version
                     })
+                    if (!next.matched) {
+                        throw new MetahubValidationError('Unsupported PlayCanvas Editor scene-local asset document', {
+                            messageCode: 'playcanvas.editorRealtime.unsupportedSceneLocalAssetDocument',
+                            documentId: input.documentId
+                        })
+                    }
+                    if (next.alreadyApplied) {
+                        return { revision: String(read.scene.version) }
+                    }
+                    try {
+                        const saved = await this.saveEditorScene(
+                            input.metahubId,
+                            input.projectId,
+                            asset.sceneId,
+                            {
+                                payload: {
+                                    ...(read.payload ?? { schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION, entities: [] }),
+                                    assets: next.assets
+                                } as PlayCanvasEditorScenePayload,
+                                expectedCurrentChecksum: read.scene.checksum ?? null
+                            },
+                            input.userId
+                        )
+                        return { revision: String(saved.scene.version) }
+                    } catch (error) {
+                        if (!isCurrentChecksumMismatch(error) && !isSceneMetadataUpdateFailure(error)) {
+                            throw error
+                        }
+                        if (attempt === maxAttempts) {
+                            throw error
+                        }
+                        await waitForRealtimeSettingsRetry(attempt)
+                    }
                 }
-                const saved = await this.saveEditorScene(
-                    input.metahubId,
-                    input.projectId,
-                    asset.sceneId,
-                    {
-                        payload: {
-                            ...(read.payload ?? { schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION, entities: [] }),
-                            assets: nextAssets
-                        } as PlayCanvasEditorScenePayload,
-                        expectedCurrentChecksum: read.scene.checksum ?? null
-                    },
-                    input.userId
-                )
-                return { revision: String(saved.scene.version) }
+                throw new MetahubValidationError('PlayCanvas Editor scene-local asset persistence failed', {
+                    messageCode: 'playcanvas.editorRealtime.sceneLocalAssetPersistFailed',
+                    documentId: input.documentId
+                })
             }
             const nextType = isPlayCanvasAssetType(input.data.type) ? input.data.type : asset.type
             const nextName = typeof input.data.name === 'string' && input.data.name.trim() ? input.data.name.trim() : asset.name
