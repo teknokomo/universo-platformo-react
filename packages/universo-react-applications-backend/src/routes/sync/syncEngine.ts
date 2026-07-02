@@ -48,6 +48,7 @@ import {
     toWorkspaceAwareSchemaSnapshot,
     withWorkspaceRuntimeLayoutWidgets,
     remapSnapshotLayoutScopeEntityIds,
+    remapSnapshotMenuWidgetTargets,
     toStructuralSchemaSnapshot,
     normalizeReferenceId,
     resolveLocalizedPreviewText,
@@ -85,6 +86,16 @@ export async function persistConnectorSyncTouchIfPresent(
 }
 
 // --- Main sync engine ---
+
+export const buildRuntimeSnapshotForApplicationSync = (
+    snapshot: PublishedApplicationSnapshot,
+    entities: EntityDefinition[],
+    workspacesEnabled?: boolean
+): PublishedApplicationSnapshot =>
+    withWorkspaceRuntimeLayoutWidgets(
+        remapSnapshotMenuWidgetTargets(remapSnapshotLayoutScopeEntityIds(snapshot, entities), entities),
+        workspacesEnabled === true
+    )
 
 export async function syncApplicationSchemaFromSource(options: {
     application: SyncableApplicationRecord
@@ -134,10 +145,7 @@ export async function syncApplicationSchemaFromSource(options: {
         const latestMigration = await migrationManager.getLatestMigration(application.schemaName)
         const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
         if (lastAppliedHash && lastAppliedHash === source.snapshotHash && releaseSchemaSnapshotMatchesTrackedState) {
-            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(
-                remapSnapshotLayoutScopeEntityIds(source.snapshot, source.entities),
-                application.workspacesEnabled
-            )
+            const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(source.snapshot, source.entities, application.workspacesEnabled)
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
@@ -398,10 +406,7 @@ export async function syncApplicationSchemaFromSource(options: {
         const hasDestructiveChanges = diff.destructive.length > 0
 
         if (!diff.hasChanges) {
-            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(
-                remapSnapshotLayoutScopeEntityIds(source.snapshot, source.entities),
-                application.workspacesEnabled
-            )
+            const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(source.snapshot, source.entities, application.workspacesEnabled)
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
@@ -1038,10 +1043,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
         userId,
         layoutResolutionPolicy
     } = options
-    const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(
-        remapSnapshotLayoutScopeEntityIds(snapshot, entities),
-        options.workspacesEnabled === true
-    )
+    const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(snapshot, entities, options.workspacesEnabled)
 
     await runSchemaSyncStep(`runtimeSync:${applicationId}:layouts`, async () =>
         persistPublishedLayouts({

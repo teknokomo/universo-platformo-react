@@ -7,8 +7,8 @@
 //      throw console/page/API 500 regressions.
 
 import { expect, test } from '../../fixtures/test'
-import type { Locator, Page, Response } from '@playwright/test'
-import { createLoggedInApiContext, disposeApiContext } from '../../support/backend/api-session.mjs'
+import type { Locator, Page, Response, TestInfo } from '@playwright/test'
+import { createLoggedInApiContext, disposeApiContext, updateMetahub } from '../../support/backend/api-session.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
@@ -22,10 +22,7 @@ import {
 } from '../../support/browser/runtimeUx'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { importInterpretationNetworkSnapshot } from '../../support/interpretationNetworkSnapshotImport'
-import {
-    INTERPRETATION_NETWORK_CANONICAL_METAHUB,
-    INTERPRETATION_NETWORK_FIXTURE_FILENAME
-} from '../../support/interpretationNetworkFixtureContract'
+import { INTERPRETATION_NETWORK_FIXTURE_FILENAME } from '../../support/interpretationNetworkFixtureContract'
 import {
     expectNoInterpretationNetworkBrowserRegressionIssues,
     expectInterpretationNetworkRuntimeDataReady,
@@ -34,13 +31,30 @@ import {
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
-const createdStructureTerm = 'E2E created structure'
+const createdStructureName = 'E2E created structure'
 const createdStructureDescription = 'Created through the Interpretation Network structure browser flow.'
 const createdMaterialTitle = 'E2E source note'
 const createdMaterialDescription = 'Created through the Interpretation Network material browser flow.'
 const updatedMaterialTitle = 'E2E edited source note'
 const updatedMaterialDescription = 'Updated Interpretation Network material description.'
 const materialBodyText = 'Browser-authored material body'
+
+const codenameVlc = (content: string) => {
+    const timestamp = new Date(0).toISOString()
+    return {
+        _schema: '1',
+        _primary: 'en',
+        locales: {
+            en: {
+                content,
+                version: 1,
+                isActive: true,
+                createdAt: timestamp,
+                updatedAt: timestamp
+            }
+        }
+    }
+}
 
 const getRuntimeRowsUrl = (response: Response): URL => new URL(response.url())
 
@@ -65,8 +79,8 @@ const hasLocalizedPayloadValue = (payload: unknown, expectedText: string, locale
 }
 
 const expectInterpretationNetworkStartPage = async (page: Page): Promise<void> => {
-    await expect(page.getByRole('navigation').first()).toBeVisible()
-    const menu = page.getByRole('navigation').first()
+    const menu = getVisibleRuntimeNavigation(page)
+    await expect(menu).toBeVisible()
     await expect(menu.getByRole('link', { name: 'Start' })).toBeVisible()
     await expect(menu.getByRole('link', { name: 'Structures' })).toBeVisible()
     await expect(menu.getByRole('link', { name: 'Workspaces' })).toBeVisible()
@@ -117,16 +131,376 @@ const expectEqualDesktopPaneWidths = async (page: Page, label: string): Promise<
     expect(Math.abs(widths.structure - widths.details), `${label} panes must have equal width`).toBeLessThanOrEqual(2)
 }
 
-const fillOptionalStructureDialogFields = async (dialog: Locator, values: { term: string; description: string }): Promise<void> => {
-    const termField = dialog.getByRole('textbox', { name: 'Term', exact: true })
-    if ((await termField.count()) > 0) {
-        await termField.first().fill(values.term)
+const getVisibleWorkspaceSwitcher = (page: Page): Locator =>
+    page.getByTestId('runtime-workspace-switcher').filter({ visible: true }).first()
+
+const getDockedRuntimeNavigation = (page: Page): Locator =>
+    page.getByTestId('runtime-side-menu-docked').locator('nav[aria-label="Interpretation Network"]')
+
+const getOverlayRuntimeNavigation = (page: Page): Locator =>
+    page.getByTestId('runtime-side-menu-overlay').locator('nav[aria-label="Interpretation Network"]')
+
+const getVisibleRuntimeNavigation = (page: Page): Locator =>
+    page.getByRole('navigation', { name: 'Interpretation Network' }).filter({ visible: true }).first()
+
+const getRuntimeNavigationItem = (navigation: Locator, name: string): Locator =>
+    navigation.getByRole('link', { name }).or(navigation.getByRole('button', { name })).first()
+
+const readNavigationDrawerWidth = async (navigation: Locator): Promise<number> =>
+    navigation.evaluate((node) => {
+        const drawerPaper = node.closest('.MuiDrawer-paper')
+        const rect = (drawerPaper ?? node).getBoundingClientRect()
+        return Math.round(rect.width)
+    })
+
+const getColorModeButton = (page: Page): Locator => page.locator('button[data-testid="runtime-color-mode-button"]')
+
+const expectColorModeButtonVisible = async (page: Page, label: string): Promise<void> => {
+    await expect(getColorModeButton(page), `${label} visible color-mode button`).toBeVisible({ timeout: 30_000 })
+}
+
+const expectToolbarAlignedWithContent = async (page: Page, label: string): Promise<void> => {
+    await expectColorModeButtonVisible(page, label)
+    const alignment = await page.evaluate(() => {
+        const colorModeButton = document.querySelector('button[data-testid="runtime-color-mode-button"]')
+        const content =
+            document.querySelector('[data-testid="interpretation-network-details-pane"]') ??
+            document.querySelector('[data-testid="runtime-main-grid"]')
+        if (!colorModeButton || !content) {
+            return null
+        }
+
+        const colorModeButtonRect = colorModeButton.getBoundingClientRect()
+        const contentRect = content.getBoundingClientRect()
+
+        return {
+            colorModeButtonRight: Math.round(colorModeButtonRect.right),
+            contentRight: Math.round(contentRect.right),
+            delta: Math.round(Math.abs(colorModeButtonRect.right - contentRect.right))
+        }
+    })
+
+    expect(alignment, `${label} toolbar/content alignment`).not.toBeNull()
+    expect(alignment?.delta, `${label} visible color-mode button edge must match content edge`).toBeLessThanOrEqual(2)
+}
+
+const expectStructuresVisualRails = async (page: Page, label: string, expected: { left: number; rightInset: number }): Promise<void> => {
+    await expectColorModeButtonVisible(page, label)
+    const geometry = await page.evaluate(() => {
+        const structurePane = document.querySelector('[data-testid="interpretation-network-structure-pane"]')
+        const detailsPane = document.querySelector('[data-testid="interpretation-network-details-pane"]')
+        const colorModeButton = document.querySelector('button[data-testid="runtime-color-mode-button"]')
+        if (!structurePane || !detailsPane || !colorModeButton) {
+            return null
+        }
+
+        const structureRect = structurePane.getBoundingClientRect()
+        const detailsRect = detailsPane.getBoundingClientRect()
+        const colorModeButtonRect = colorModeButton.getBoundingClientRect()
+        return {
+            structureLeft: Math.round(structureRect.left),
+            detailsRight: Math.round(detailsRect.right),
+            colorModeButtonRight: Math.round(colorModeButtonRect.right),
+            viewportWidth: window.innerWidth
+        }
+    })
+
+    expect(geometry, `${label} structures visual rail geometry`).not.toBeNull()
+    expect(Math.abs((geometry?.structureLeft ?? 0) - expected.left), `${label} content left rail`).toBeLessThanOrEqual(4)
+    expect(
+        Math.abs((geometry?.viewportWidth ?? 0) - expected.rightInset - (geometry?.detailsRight ?? 0)),
+        `${label} content right rail`
+    ).toBeLessThanOrEqual(4)
+    expect(
+        Math.abs((geometry?.colorModeButtonRight ?? 0) - (geometry?.detailsRight ?? 0)),
+        `${label} visible color-mode button right rail`
+    ).toBeLessThanOrEqual(2)
+}
+
+const expectOverlayContentUsesFullRail = async (page: Page, label: string): Promise<void> => {
+    const geometry = await page.evaluate(() => {
+        const grid = document.querySelector('[data-testid="runtime-main-grid"]')
+        const edgeControl = document.querySelector('[data-testid="runtime-overlay-menu-edge-control"]')
+        const edgeButton = edgeControl?.querySelector('button')
+        if (!grid || !edgeControl) {
+            return null
+        }
+
+        const gridRect = grid.getBoundingClientRect()
+        const edgeRect = edgeControl.getBoundingClientRect()
+        const edgeButtonRect = edgeButton?.getBoundingClientRect()
+        return {
+            gridLeft: Math.round(gridRect.left),
+            gridRight: Math.round(gridRect.right),
+            viewportWidth: window.innerWidth,
+            edgeLeft: Math.round(edgeRect.left),
+            edgeButtonLeft: Math.round(edgeButtonRect?.left ?? edgeRect.left)
+        }
+    })
+
+    expect(geometry, `${label} overlay geometry`).not.toBeNull()
+    expect(geometry?.edgeLeft, `${label} overlay opener must stay on the drawer side`).toBeLessThanOrEqual(32)
+    expect(geometry?.edgeButtonLeft, `${label} overlay opener button visual inset`).toBeGreaterThanOrEqual(16)
+    expect(geometry?.edgeButtonLeft, `${label} overlay opener button visual inset`).toBeLessThanOrEqual(32)
+    expect(geometry?.gridLeft, `${label} content left rail`).toBeLessThanOrEqual(32)
+    expect(Math.abs((geometry?.viewportWidth ?? 0) - (geometry?.gridRight ?? 0)), `${label} content right rail`).toBeLessThanOrEqual(32)
+}
+
+const attachRuntimeScreenshot = async (page: Page, testInfo: TestInfo, name: string): Promise<void> => {
+    await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true })
+}
+
+const expectRuntimeSideMenuModes = async (page: Page, testInfo: TestInfo): Promise<void> => {
+    const viewports = [
+        { name: 'desktop-1920', width: 1920, height: 1080 },
+        { name: 'tablet-768', width: 768, height: 1024 },
+        { name: 'mobile-390', width: 390, height: 844 }
+    ] as const
+
+    for (const viewport of viewports) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        await expect(page.getByRole('button', { name: 'Enable compact menu' })).toBeVisible({ timeout: 30_000 })
+        await expectColorModeButtonVisible(page, `Interpretation Network wide side menu ${viewport.name}`)
+        if (viewport.width < 900) {
+            await expect(getDockedRuntimeNavigation(page)).toBeHidden()
+            await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
+        } else {
+            await expect(page.getByRole('button', { name: 'Use overlay menu' })).toBeVisible()
+        }
+        await expectNoPageHorizontalOverflow(page, `Interpretation Network wide side menu ${viewport.name}`)
+        await attachRuntimeScreenshot(page, testInfo, `side-menu-wide-${viewport.name}`)
+    }
+
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    const wideNavigation = getDockedRuntimeNavigation(page)
+    await expect(getRuntimeNavigationItem(wideNavigation, 'Start')).toBeVisible()
+    await expect(getRuntimeNavigationItem(wideNavigation, 'Structures')).toBeVisible()
+    await expect(wideNavigation).toContainText('Structures')
+    expect(await readNavigationDrawerWidth(wideNavigation), 'wide side menu width').toBeGreaterThanOrEqual(220)
+    await expectToolbarAlignedWithContent(page, 'Interpretation Network desktop toolbar 1920')
+
+    await page.getByRole('button', { name: 'Enable compact menu' }).click()
+    const compactNavigation = getDockedRuntimeNavigation(page)
+    await expect(page.getByRole('button', { name: 'Enable wide menu' })).toBeVisible()
+    await expect(getRuntimeNavigationItem(compactNavigation, 'Structures')).toBeVisible()
+    await expect(compactNavigation).not.toContainText('Structures')
+    expect(await readNavigationDrawerWidth(compactNavigation), 'compact side menu width').toBeLessThan(100)
+    await expect(page.getByRole('button', { name: 'Use overlay menu' })).toBeVisible()
+    await expectNoPageHorizontalOverflow(page, 'Interpretation Network compact side menu')
+    await attachRuntimeScreenshot(page, testInfo, 'side-menu-compact-desktop-1280')
+
+    for (const viewport of viewports) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        await expect(page.getByRole('button', { name: 'Enable wide menu' })).toBeVisible({ timeout: 30_000 })
+        await expectColorModeButtonVisible(page, `Interpretation Network compact side menu ${viewport.name}`)
+        if (viewport.width < 900) {
+            await expect(getDockedRuntimeNavigation(page)).toBeHidden()
+            await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
+        } else {
+            await expect(page.getByRole('button', { name: 'Use overlay menu' })).toBeVisible()
+        }
+        await expectNoPageHorizontalOverflow(page, `Interpretation Network compact side menu ${viewport.name}`)
+        await attachRuntimeScreenshot(page, testInfo, `side-menu-compact-${viewport.name}`)
+    }
+
+    await page.setViewportSize({ width: 1920, height: 1080 })
+
+    await page.getByRole('button', { name: 'Enable wide menu' }).click()
+    await expect(page.getByRole('button', { name: 'Enable compact menu' })).toBeVisible()
+    await page.getByRole('button', { name: 'Use overlay menu' }).click()
+    const dockedNavigation = getDockedRuntimeNavigation(page)
+    const overlayNavigation = getOverlayRuntimeNavigation(page)
+    await expect(dockedNavigation).toBeHidden()
+    await expect(overlayNavigation).toBeVisible()
+    await expect(getRuntimeNavigationItem(overlayNavigation, 'Structures')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Use docked menu' })).toBeVisible()
+    expect(await readNavigationDrawerWidth(overlayNavigation), 'overlay side menu width').toBeGreaterThanOrEqual(220)
+    await expectOverlayContentUsesFullRail(page, 'Interpretation Network overlay side menu 1920')
+    await expectToolbarAlignedWithContent(page, 'Interpretation Network overlay toolbar 1920')
+    await expectNoPageHorizontalOverflow(page, 'Interpretation Network overlay side menu')
+    await attachRuntimeScreenshot(page, testInfo, 'side-menu-overlay-desktop-1920')
+    await page.keyboard.press('Escape')
+    await expect(overlayNavigation).toBeHidden()
+    await expect(page.getByTestId('runtime-overlay-menu-edge-control')).toBeVisible()
+    await expectOverlayContentUsesFullRail(page, 'Interpretation Network closed overlay side menu 1920')
+    await expectToolbarAlignedWithContent(page, 'Interpretation Network closed overlay toolbar 1920')
+    await expectNoPageHorizontalOverflow(page, 'Interpretation Network closed overlay side menu')
+    await attachRuntimeScreenshot(page, testInfo, 'side-menu-overlay-closed-desktop-1920')
+    await page.getByTestId('runtime-overlay-menu-edge-control').click()
+    await expect(overlayNavigation).toBeVisible()
+    await page.getByRole('button', { name: 'Use docked menu' }).click()
+    await expect(overlayNavigation).toBeHidden()
+    await expect(dockedNavigation).toBeVisible()
+
+    for (const viewport of viewports) {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        await expectColorModeButtonVisible(page, `Interpretation Network overlay-mode viewport ${viewport.name}`)
+        if (viewport.width < 900) {
+            await page.getByRole('button', { name: 'Open menu' }).click()
+            const mobileNavigation = getVisibleRuntimeNavigation(page)
+            await expect(getRuntimeNavigationItem(mobileNavigation, 'Structures')).toBeVisible({ timeout: 30_000 })
+            await expectNoPageHorizontalOverflow(page, `Interpretation Network mobile menu ${viewport.name}`)
+            await attachRuntimeScreenshot(page, testInfo, `side-menu-mobile-${viewport.name}`)
+            await page.keyboard.press('Escape')
+            await expect(mobileNavigation).toBeHidden()
+            continue
+        }
+
+        await page.getByRole('button', { name: 'Use overlay menu' }).click()
+        const viewportOverlayNavigation = getOverlayRuntimeNavigation(page)
+        await expect(getDockedRuntimeNavigation(page)).toBeHidden()
+        await expect(getRuntimeNavigationItem(viewportOverlayNavigation, 'Structures')).toBeVisible({ timeout: 30_000 })
+        await expectNoPageHorizontalOverflow(page, `Interpretation Network overlay side menu ${viewport.name}`)
+        await attachRuntimeScreenshot(page, testInfo, `side-menu-overlay-${viewport.name}`)
+        await page.getByRole('button', { name: 'Use docked menu' }).click()
+        await expect(viewportOverlayNavigation).toBeHidden()
+    }
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await expect(page.getByRole('button', { name: 'Enable compact menu' })).toBeVisible()
+}
+
+const expectStructuresOverlayUsesFullRail = async (page: Page, testInfo: TestInfo): Promise<void> => {
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    await expectEmptyStructuresWorkspace(page)
+    await expectStructuresVisualRails(page, 'Interpretation Network Structures wide side menu 1920', { left: 264, rightInset: 24 })
+    await expect(page.getByRole('button', { name: 'Enable compact menu' })).toBeVisible()
+    await page.getByRole('button', { name: 'Enable compact menu' }).click()
+    await expect(page.getByRole('button', { name: 'Enable wide menu' })).toBeVisible()
+    await expectEmptyStructuresWorkspace(page)
+    await expectStructuresVisualRails(page, 'Interpretation Network Structures compact side menu 1920', { left: 96, rightInset: 24 })
+    await attachRuntimeScreenshot(page, testInfo, 'side-menu-compact-structures-desktop-1920')
+    await page.getByRole('button', { name: 'Enable wide menu' }).click()
+    await expect(page.getByRole('button', { name: 'Enable compact menu' })).toBeVisible()
+    await expectEmptyStructuresWorkspace(page)
+    await expect(page.getByRole('button', { name: 'Use overlay menu' })).toBeVisible()
+    await page.getByRole('button', { name: 'Use overlay menu' }).click()
+
+    const overlayNavigation = getOverlayRuntimeNavigation(page)
+    await expect(getDockedRuntimeNavigation(page)).toBeHidden()
+    await expect(getRuntimeNavigationItem(overlayNavigation, 'Structures')).toBeVisible({ timeout: 30_000 })
+    await expectOverlayContentUsesFullRail(page, 'Interpretation Network Structures overlay 1920')
+    await expectStructuresVisualRails(page, 'Interpretation Network Structures overlay 1920', { left: 24, rightInset: 24 })
+    await expectToolbarAlignedWithContent(page, 'Interpretation Network Structures overlay toolbar 1920')
+    await expectNoPageHorizontalOverflow(page, 'Interpretation Network Structures overlay side menu')
+    await attachRuntimeScreenshot(page, testInfo, 'side-menu-overlay-structures-desktop-1920')
+
+    await page.keyboard.press('Escape')
+    await expect(overlayNavigation).toBeHidden()
+    await expect(page.getByTestId('runtime-overlay-menu-edge-control')).toBeVisible()
+    await expectEmptyStructuresWorkspace(page)
+    await expectOverlayContentUsesFullRail(page, 'Interpretation Network Structures closed overlay 1920')
+    await expectStructuresVisualRails(page, 'Interpretation Network Structures closed overlay 1920', { left: 24, rightInset: 24 })
+    await expectToolbarAlignedWithContent(page, 'Interpretation Network Structures closed overlay toolbar 1920')
+    await expectNoPageHorizontalOverflow(page, 'Interpretation Network Structures closed overlay side menu')
+    await attachRuntimeScreenshot(page, testInfo, 'side-menu-overlay-structures-closed-desktop-1920')
+
+    await page.getByTestId('runtime-overlay-menu-edge-control').click()
+    await expect(overlayNavigation).toBeVisible()
+    await page.getByRole('button', { name: 'Use docked menu' }).click()
+    await expect(overlayNavigation).toBeHidden()
+    await expect(getDockedRuntimeNavigation(page)).toBeVisible()
+    await expectEmptyStructuresWorkspace(page)
+}
+
+const fillOptionalStructureDialogFields = async (dialog: Locator, values: { name: string; description: string }): Promise<void> => {
+    const nameField = dialog.getByRole('textbox', { name: 'Name', exact: true })
+    if ((await nameField.count()) > 0) {
+        await nameField.first().fill(values.name)
     }
 
     const descriptionField = dialog.getByRole('textbox', { name: 'Description', exact: true })
     if ((await descriptionField.count()) > 0) {
         await descriptionField.first().fill(values.description)
     }
+}
+
+const readMatrixRowCellTexts = async (page: Page): Promise<string[][]> =>
+    page
+        .getByTestId('interpretation-network-matrix-row')
+        .evaluateAll((rows) =>
+            rows.map((row) =>
+                Array.from(row.querySelectorAll('[data-testid="interpretation-network-cell"]')).map((cell) =>
+                    (cell as HTMLElement).innerText.replace(/\s+/g, ' ').trim()
+                )
+            )
+        )
+
+const dragMatrixCellByPointer = async (source: Locator, target: Locator): Promise<void> => {
+    const sourceHandle = source.getByLabel('Drag cell')
+    await expect(sourceHandle).toBeVisible()
+    const sourceBox = await sourceHandle.boundingBox()
+    const targetBox = await target.boundingBox()
+    expect(sourceBox, 'matrix drag source handle box').toBeTruthy()
+    expect(targetBox, 'matrix drag target cell box').toBeTruthy()
+    if (!sourceBox || !targetBox) return
+
+    await sourceHandle.hover()
+    await source.page().mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2)
+    await source.page().mouse.down()
+    await source.page().mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 })
+    await source.page().mouse.up()
+}
+
+const waitForMatrixMoveResponse = (page: Page, applicationId: string, timeout = 15_000) =>
+    waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+            response.url().includes('/tabular/') &&
+            response.url().includes('/batch'),
+        { label: 'Moving matrix cell by drag and drop', timeout }
+    )
+
+const expectMatrixCellMoveNotSwap = async (page: Page, applicationId: string): Promise<void> => {
+    await page.getByTestId('interpretation-network-cell').first().click()
+    await page.getByRole('button', { name: 'Add row' }).click()
+    const addRowDialog = page.getByRole('dialog', { name: 'Add cell' })
+    await expect(addRowDialog).toBeVisible({ timeout: 30_000 })
+    await addRowDialog.getByRole('textbox', { name: 'Title' }).fill('E2E second row cell')
+    const addRowRequest = waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+            response.url().includes('/tabular/'),
+        { label: 'Creating second matrix row cell' }
+    )
+    await addRowDialog.getByRole('button', { name: 'Create' }).click()
+    expect((await addRowRequest).ok()).toBe(true)
+    await expect(addRowDialog).toHaveCount(0)
+    await expect(page.getByTestId('interpretation-network-matrix-row')).toHaveCount(2, { timeout: 30_000 })
+
+    const beforeRows = await readMatrixRowCellTexts(page)
+    expect(beforeRows[0]?.length, 'matrix source row before drag').toBe(1)
+    expect(beforeRows[1]?.length, 'matrix target row before drag').toBe(1)
+    const movedCellText = beforeRows[0]?.[0] ?? ''
+    expect(movedCellText, 'matrix drag source cell title').toBeTruthy()
+
+    const sourceCell = page.getByTestId('interpretation-network-matrix-row').nth(0).getByTestId('interpretation-network-cell').first()
+    const targetCell = page.getByTestId('interpretation-network-matrix-row').nth(1).getByTestId('interpretation-network-cell').first()
+    await expect(sourceCell).toHaveAttribute('data-cell-id', /.+/)
+    await expect(targetCell).toHaveAttribute('data-cell-id', /.+/)
+    const moveRequest = waitForMatrixMoveResponse(page, applicationId, 30_000)
+    await dragMatrixCellByPointer(sourceCell, targetCell)
+    const moveResponse = await moveRequest
+    expect(moveResponse.ok()).toBe(true)
+    const movePayload = moveResponse.request().postDataJSON() as { updates?: unknown[] }
+    expect(
+        Array.isArray(movePayload.updates) ? movePayload.updates.length : 0,
+        'drag/drop move must update moved cell without swapping'
+    ).toBeGreaterThanOrEqual(1)
+
+    await expect
+        .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
+        .toEqual([expect.arrayContaining([expect.stringContaining(movedCellText), expect.stringContaining('E2E second row cell')])])
+
+    await page.reload()
+    await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
+    await expect
+        .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
+        .toEqual([expect.arrayContaining([expect.stringContaining(movedCellText), expect.stringContaining('E2E second row cell')])])
 }
 
 async function fillMaterialDialogFields(dialog: Locator, values: { title: string; description: string }) {
@@ -163,7 +537,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         }
     })
 
-    test('imported interpretation-network snapshot renders the interpretation workspace', async ({ page, runManifest }) => {
+    test('imported interpretation-network snapshot renders the interpretation workspace', async ({ page, runManifest }, testInfo) => {
         const browserIssues = watchInterpretationNetworkBrowserRegressionIssues(page)
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
@@ -178,27 +552,38 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             name: 'Interpretation Network flow',
             codename: 'interpretation-network-flow'
         })
+        await updateMetahub(api, metahub.id, {
+            name: { en: 'Renamed Interpretation Network flow' },
+            description: {
+                en: 'Renamed during E2E to verify runtime menu targets are UUID-backed.'
+            },
+            namePrimaryLocale: 'en',
+            descriptionPrimaryLocale: 'en',
+            codename: codenameVlc('RenamedInterpretationNetworkFlow')
+        })
 
         await page.goto(`/metahub/${metahub.id}`)
-        await expect(page.getByText(INTERPRETATION_NETWORK_CANONICAL_METAHUB.name.en, { exact: true }).first()).toBeVisible({
+        await expect(page.getByText('Renamed Interpretation Network flow', { exact: true }).first()).toBeVisible({
             timeout: 30_000
         })
 
         await page.goto(`/a/${applicationId}`)
-        await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
+        await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
         await expectInterpretationNetworkStartPage(page)
         await expect(page.getByRole('main')).not.toContainText('Users')
         await expect(page.getByRole('main')).not.toContainText('Conversions')
         await expect(page.getByRole('main')).not.toContainText('Event count')
+        await expectRuntimeSideMenuModes(page, testInfo)
 
-        const menu = page.getByRole('navigation').first()
+        const menu = getDockedRuntimeNavigation(page)
         await menu.getByRole('link', { name: 'Workspaces' }).click()
         await expect(page.getByRole('heading', { name: 'Workspaces' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('interpretation-network-workspace')).toHaveCount(0)
-        const workspaceMenu = page.getByRole('navigation').first()
+        const workspaceMenu = getVisibleRuntimeNavigation(page)
         await expect(workspaceMenu.getByRole('link', { name: 'Structures' })).toBeVisible()
         await workspaceMenu.getByRole('link', { name: 'Structures' }).click()
         await expectEmptyStructuresWorkspace(page)
+        await expectStructuresOverlayUsesFullRail(page, testInfo)
         await expectNoPageHorizontalOverflow(page, 'Interpretation Network workspace shell')
         await expectRuntimeUxViewportMatrix(page, 'Interpretation Network workspace shell', {
             beforeEachViewport: async () => {
@@ -224,7 +609,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await applyBrowserPreferences(page, { language: 'en' })
         await page.reload()
         await expectEmptyStructuresWorkspace(page)
-        const activeWorkspaceId = await page.getByTestId('runtime-workspace-switcher').locator('input').first().inputValue()
+        const activeWorkspaceId = await getVisibleWorkspaceSwitcher(page).locator('input').inputValue()
         expect(activeWorkspaceId, 'Interpretation Network workspace mutation checks need the active workspace id').toMatch(
             /^[0-9a-f-]{36}$/i
         )
@@ -235,7 +620,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             await expectSemanticFieldControls(structureDialog, { longTextLabels: ['Description'] })
         }
         await fillOptionalStructureDialogFields(structureDialog, {
-            term: createdStructureTerm,
+            name: createdStructureName,
             description: createdStructureDescription
         })
         const createStructureRequest = waitForSettledMutationResponse(
@@ -249,11 +634,12 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         const createdStructure = (await createStructureResponse.json()) as { id?: string }
         expect(createdStructure.id, 'created structure id must be returned by runtime create').toMatch(/^[0-9a-f-]{36}$/i)
         await expect(structureDialog).toHaveCount(0)
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureTerm, { timeout: 30_000 })
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText('Matrix')
+        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName, { timeout: 30_000 })
+        await expect(page.getByRole('tab', { name: 'Matrix' })).toBeVisible()
+        await expect(page.getByRole('tabpanel', { name: 'Matrix' })).toBeVisible()
         await expect(page).toHaveURL(
             new RegExp(
-                `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.conceptSectionId)}/${escapeRegExp(
+                `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.structureSectionId)}/${escapeRegExp(
                     createdStructure.id ?? ''
                 )}$`
             )
@@ -265,15 +651,17 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await page.reload()
         await expect(page).toHaveURL(
             new RegExp(
-                `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.conceptSectionId)}/${escapeRegExp(
+                `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.structureSectionId)}/${escapeRegExp(
                     createdStructure.id ?? ''
                 )}$`
             )
         )
         await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureTerm, { timeout: 30_000 })
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText('Matrix')
+        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName, { timeout: 30_000 })
+        await expect(page.getByRole('tab', { name: 'Matrix' })).toBeVisible()
+        await expect(page.getByRole('tabpanel', { name: 'Matrix' })).toBeVisible()
         await expect(page.getByTestId('interpretation-network-cell').first()).toBeVisible({ timeout: 30_000 })
+        await expectMatrixCellMoveNotSwap(page, applicationId)
         await cells.first().click()
         await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toBeVisible()
         await expect(
@@ -398,7 +786,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expectRuntimeUxViewportMatrix(page, 'Interpretation Network created structure runtime', {
             beforeEachViewport: async () => {
                 await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-                await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureTerm)
+                await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName)
                 await page.getByTestId('interpretation-network-cell').first().click()
                 await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toBeVisible()
                 await page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Table view' }).click()

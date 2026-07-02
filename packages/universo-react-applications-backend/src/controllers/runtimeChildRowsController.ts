@@ -166,7 +166,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         )
 
         const safeChildAttrs = tc.childAttrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
-        const selectCols = ['id', '_tp_sort_order', ...safeChildAttrs.map((a) => quoteIdentifier(a.column_name))]
+        const selectCols = ['id', '_tp_sort_order', '_upl_version', ...safeChildAttrs.map((a) => quoteIdentifier(a.column_name))]
 
         const countResult = (await ctx.manager.query(
             `
@@ -194,6 +194,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         const items = rows.map((row) => {
             const mapped: Record<string, unknown> & { id: string } = { id: String(row.id) }
             mapped._tp_sort_order = row._tp_sort_order ?? 0
+            mapped._upl_version = Number(row._upl_version ?? 1)
             for (const attr of safeChildAttrs) {
                 const raw = row[attr.column_name] ?? null
                 mapped[attr.column_name] = attr.data_type === 'NUMBER' && raw !== null ? pgNumericToNumber(raw) : raw

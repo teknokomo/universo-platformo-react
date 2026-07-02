@@ -6,9 +6,9 @@ The Interpretation Network data model encodes a generic interpretation network: 
 
 Stage 1 ships the runtime model directly in the product fixture and in the workspace widget:
 
--   `Concept` objects are exposed to users as Structures.
+-   `Structure` objects are exposed to users as Structures and use `Name` plus optional `Description` in the create/edit form.
 -   `Interpretation` objects hold each structure's matrix.
--   `Relation` objects remain available for typed links between concepts, interpretations, and cells.
+-   `Relation` objects remain available for typed links between structures, interpretations, and cells.
 -   `Material` objects use Page-like fields and hold Editor.js content attached to cells.
 -   `Context`, `RelationType`, and `CellColor` enumerations drive display and relation labeling.
 -   `TableTemplate` workspace records let users create or copy reusable matrix structures inside the published app.
@@ -27,7 +27,7 @@ Each Interpretation Matrix cell uses flat fields rather than nested JSON:
 
 ## UI contract
 
-The runtime widget renders the structure list and opened structure matrix on the left. The right pane is reserved for materials attached to the selected matrix cell. Users see labels, material titles, descriptions, and Editor.js content; they do not see raw UUIDs, raw JSON, or internal field names on normal surfaces.
+The runtime widget renders the structure list on the left. After a structure is opened, the matrix is displayed inside the `Matrix` tab so later stages can add more structure-level tabs without changing the route contract. The right pane is reserved for materials attached to the selected matrix cell. Users see labels, material titles, descriptions, and Editor.js content; they do not see raw UUIDs, raw JSON, or internal field names on normal surfaces.
 
 ## Workspace templates
 

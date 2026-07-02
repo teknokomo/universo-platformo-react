@@ -6,13 +6,9 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { MatrixCell } from './model'
-
-const DRAG_CELL_PREFIX = 'interpretation-cell:'
-
-const toDragCellId = (cellId: string): string => `${DRAG_CELL_PREFIX}${cellId}`
-const fromDragCellId = (value: unknown): string | null =>
-    typeof value === 'string' && value.startsWith(DRAG_CELL_PREFIX) ? value.slice(DRAG_CELL_PREFIX.length) : null
 
 export function MatrixCellButton({
     cell,
@@ -22,7 +18,7 @@ export function MatrixCellButton({
     dragLabel,
     menuLabel,
     onOpenMenu,
-    onMoveCell
+    disabled = false
 }: {
     cell: MatrixCell
     selected: boolean
@@ -31,15 +27,22 @@ export function MatrixCellButton({
     dragLabel: string
     menuLabel: string
     onOpenMenu: (event: React.MouseEvent<HTMLElement>) => void
-    onMoveCell: (sourceCellId: string, targetCellId: string) => void
+    disabled?: boolean
 }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cell.id, disabled })
+
     return (
         <Box
+            ref={setNodeRef}
             data-testid='interpretation-network-cell'
-            draggable
+            data-cell-id={cell.id}
             onClick={onSelect}
             sx={{
                 position: 'relative',
+                zIndex: isDragging ? 1 : 'auto',
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.55 : 1,
                 minHeight: 64,
                 borderRadius: 1,
                 bgcolor: cell.style.fill ?? 'background.paper',
@@ -63,21 +66,6 @@ export function MatrixCellButton({
                     outlineOffset: 2
                 }
             }}
-            onDragStart={(event) => {
-                event.dataTransfer?.setData('text/plain', toDragCellId(cell.id))
-                if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-            }}
-            onDragOver={(event) => {
-                event.preventDefault()
-                if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-            }}
-            onDrop={(event) => {
-                event.preventDefault()
-                const sourceCellId = fromDragCellId(event.dataTransfer?.getData('text/plain'))
-                if (sourceCellId && sourceCellId !== cell.id) {
-                    onMoveCell(sourceCellId, cell.id)
-                }
-            }}
         >
             <Stack direction='row' spacing={0} alignItems='stretch' sx={{ minHeight: 64, minWidth: 0 }}>
                 <Tooltip title={dragLabel}>
@@ -94,6 +82,8 @@ export function MatrixCellButton({
                             flexShrink: 0,
                             cursor: 'grab'
                         }}
+                        {...attributes}
+                        {...listeners}
                     >
                         <DragIndicatorRoundedIcon fontSize='small' />
                     </Box>

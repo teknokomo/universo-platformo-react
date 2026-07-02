@@ -10,6 +10,10 @@ import type {
 export type RuntimeEntityKind = EntityKind | 'enumeration' | 'relation' | 'settings'
 
 export interface Component extends Omit<MetaComponentDefinition, 'targetEntityKind' | 'childFields'> {
+    id: string
+    codename: string
+    dataType: ComponentDefinitionDataType
+    isRequired: boolean
     targetEntityKind?: RuntimeEntityKind | null
     childFields?: Component[]
     physicalColumnName?: string | null
@@ -18,6 +22,8 @@ export interface Component extends Omit<MetaComponentDefinition, 'targetEntityKi
 }
 
 export interface EntityDefinition extends Omit<MetaEntityDefinition, 'kind' | 'fields'> {
+    id: string
+    codename: string
     kind: RuntimeEntityKind
     fields: Component[]
     physicalTableEnabled?: boolean

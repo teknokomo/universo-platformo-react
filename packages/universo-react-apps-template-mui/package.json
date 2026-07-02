@@ -27,6 +27,9 @@
     "dependencies": {
         "@emotion/react": "catalog:",
         "@emotion/styled": "catalog:",
+        "@dnd-kit/core": "catalog:",
+        "@dnd-kit/sortable": "catalog:",
+        "@dnd-kit/utilities": "catalog:",
         "@mui/icons-material": "catalog:",
         "@mui/material": "catalog:",
         "@mui/x-charts": "catalog:",

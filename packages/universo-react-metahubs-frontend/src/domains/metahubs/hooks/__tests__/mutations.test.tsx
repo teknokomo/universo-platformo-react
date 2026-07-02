@@ -144,6 +144,91 @@ describe('metahubs mutation hooks', () => {
         expect(mocks.enqueueSnackbar).toHaveBeenCalled()
     })
 
+    it('keeps metahub detail permissions when update returns a partial DTO', async () => {
+        mocks.metahubsApi.updateMetahub.mockResolvedValue({
+            data: {
+                id: 'm1',
+                name: { en: 'Renamed' },
+                codename: 'renamed',
+                updatedAt: '2026-06-30T10:00:00.000Z'
+            }
+        })
+
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(metahubsQueryKeys.detail('m1'), {
+            id: 'm1',
+            name: { en: 'Original' },
+            codename: 'original',
+            permissions: {
+                manageMetahub: true,
+                manageMembers: true
+            },
+            role: 'owner',
+            accessType: 'member'
+        })
+
+        let updateMetahub: ReturnType<typeof hooks.useUpdateMetahub> | undefined
+
+        function Probe() {
+            updateMetahub = hooks.useUpdateMetahub()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await updateMetahub!.mutateAsync({ id: 'm1', data: { name: 'Renamed' } })
+        })
+
+        expect(queryClient.getQueryData(metahubsQueryKeys.detail('m1'))).toMatchObject({
+            id: 'm1',
+            name: { en: 'Renamed' },
+            codename: 'renamed',
+            permissions: {
+                manageMetahub: true,
+                manageMembers: true
+            },
+            role: 'owner',
+            accessType: 'member'
+        })
+    })
+
+    it('does not create a fresh partial detail cache when update returns a partial DTO', async () => {
+        mocks.metahubsApi.updateMetahub.mockResolvedValue({
+            data: {
+                id: 'm1',
+                name: { en: 'Renamed' },
+                codename: 'renamed',
+                updatedAt: '2026-06-30T10:00:00.000Z'
+            }
+        })
+
+        const queryClient = createTestQueryClient()
+
+        let updateMetahub: ReturnType<typeof hooks.useUpdateMetahub> | undefined
+
+        function Probe() {
+            updateMetahub = hooks.useUpdateMetahub()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await updateMetahub!.mutateAsync({ id: 'm1', data: { name: 'Renamed' } })
+        })
+
+        expect(queryClient.getQueryData(metahubsQueryKeys.detail('m1'))).toBeUndefined()
+    })
+
     it('runs error flow: enqueues error snackbar using error.message', async () => {
         mocks.metahubsApi.createMetahub.mockRejectedValue(new Error('boom'))
 

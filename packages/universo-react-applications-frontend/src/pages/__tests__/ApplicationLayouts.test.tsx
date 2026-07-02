@@ -330,6 +330,42 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Clean')).toBeInTheDocument()
     })
 
+    it('does not expose raw source layout ids in the details alert', async () => {
+        const sourceLayoutId = '018f7b63-8e46-7cc2-8eb8-1f48b5087b7b'
+        apiMocks.getApplicationLayout.mockResolvedValueOnce({
+            item: {
+                id: 'layout-1',
+                scopeId: 'global',
+                scopeKind: 'global',
+                scopeEntityId: null,
+                templateKey: 'dashboard',
+                name: { en: 'Homepage' },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0,
+                sourceKind: 'metahub',
+                sourceLayoutId,
+                sourceSnapshotHash: null,
+                sourceContentHash: null,
+                localContentHash: null,
+                syncState: 'source_updated',
+                isSourceExcluded: false,
+                version: 1
+            },
+            widgets: []
+        })
+
+        renderPage()
+
+        await waitFor(() => {
+            expect(screen.getByText('Linked to source layout')).toBeInTheDocument()
+        })
+        expect(screen.queryByText(sourceLayoutId)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Source layout id/i)).not.toBeInTheDocument()
+    })
+
     it('rolls back optimistic widget config updates when the save mutation fails', async () => {
         const user = userEvent.setup()
         apiMocks.updateApplicationLayoutWidgetConfig.mockRejectedValueOnce(new Error('save failed'))

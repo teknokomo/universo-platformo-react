@@ -145,17 +145,18 @@ function createAdapter(overrides: Partial<CrudDataAdapter> = {}): CrudDataAdapte
 function renderCrudDashboard(adapter: CrudDataAdapter, options: Partial<Omit<UseCrudDashboardOptions, 'adapter' | 'locale'>> = {}) {
     const queryClient = createTestQueryClient()
     let latestState: CrudDashboardState | undefined
+    let currentOptions = options
 
     function Probe() {
         latestState = useCrudDashboard({
             adapter,
             locale: 'en',
-            ...options
+            ...currentOptions
         })
         return null
     }
 
-    render(
+    const rendered = render(
         <QueryClientProvider client={queryClient}>
             <Probe />
         </QueryClientProvider>
@@ -163,6 +164,14 @@ function renderCrudDashboard(adapter: CrudDataAdapter, options: Partial<Omit<Use
 
     return {
         queryClient,
+        rerender: (nextOptions: Partial<Omit<UseCrudDashboardOptions, 'adapter' | 'locale'>>) => {
+            currentOptions = nextOptions
+            rendered.rerender(
+                <QueryClientProvider client={queryClient}>
+                    <Probe />
+                </QueryClientProvider>
+            )
+        },
         getState: () => {
             if (!latestState) {
                 throw new Error('Crud dashboard state is not ready yet')
@@ -173,6 +182,29 @@ function renderCrudDashboard(adapter: CrudDataAdapter, options: Partial<Omit<Use
 }
 
 describe('useCrudDashboard optimistic mutations', () => {
+    it('gives the route section precedence over a stale object collection query parameter', async () => {
+        const previousUrl = window.location.href
+        window.history.replaceState({}, '', '/a/app-1/route-section?objectCollectionId=stale-section')
+        const fetchList = vi.fn().mockResolvedValue(createAppData())
+        const adapter = createAdapter({ fetchList })
+
+        try {
+            renderCrudDashboard(adapter, { initialSectionId: 'route-section' })
+
+            await waitFor(() => {
+                expect(fetchList).toHaveBeenCalled()
+            })
+            expect(fetchList.mock.calls[0]?.[0]).toEqual(
+                expect.objectContaining({
+                    sectionId: 'route-section',
+                    objectCollectionId: undefined
+                })
+            )
+        } finally {
+            window.history.replaceState({}, '', previousUrl)
+        }
+    })
+
     it('applies create-target defaults only to safe writable create fields', async () => {
         const adapter = createAdapter({
             fetchList: vi.fn().mockResolvedValue({
@@ -329,7 +361,13 @@ describe('useCrudDashboard optimistic mutations', () => {
 
     it('suppresses stale fallback section data while resolving the menu start section', async () => {
         const accessLinksSection = createRuntimeSection('access-links', 'Access Links')
-        const welcomeSection = createRuntimeSection('welcome-page', 'Welcome')
+        const welcomeSection = {
+            id: 'welcome-page',
+            codename: 'welcome-page',
+            tableName: null,
+            name: 'Welcome',
+            pageBlocks: []
+        }
         const secondList = createDeferred<AppDataResponse>()
         const fetchList = vi
             .fn()
@@ -338,7 +376,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                 section: accessLinksSection,
                 objectCollection: accessLinksSection,
                 sections: [accessLinksSection, welcomeSection],
-                objectCollections: [accessLinksSection, welcomeSection],
+                objectCollections: [accessLinksSection],
                 activeSectionId: 'access-links',
                 activeObjectCollectionId: 'access-links',
                 columns: [
@@ -367,7 +405,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 id: 'home',
                                 kind: 'section',
                                 title: 'Home',
-                                objectCollectionId: 'welcome-page',
+                                objectCollectionId: null,
                                 sectionId: 'welcome-page',
                                 isActive: true
                             },
@@ -396,7 +434,7 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         expect(fetchList).toHaveBeenLastCalledWith(
             expect.objectContaining({
-                objectCollectionId: 'welcome-page',
+                objectCollectionId: undefined,
                 sectionId: 'welcome-page'
             })
         )
@@ -408,11 +446,11 @@ describe('useCrudDashboard optimistic mutations', () => {
             secondList.resolve({
                 ...createAppData(),
                 section: welcomeSection,
-                objectCollection: welcomeSection,
+                objectCollection: accessLinksSection,
                 sections: [accessLinksSection, welcomeSection],
-                objectCollections: [accessLinksSection, welcomeSection],
+                objectCollections: [accessLinksSection],
                 activeSectionId: 'welcome-page',
-                activeObjectCollectionId: 'welcome-page',
+                activeObjectCollectionId: undefined,
                 columns: [],
                 rows: [],
                 pagination: { total: 0, limit: 20, offset: 0 },
@@ -428,7 +466,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 id: 'home',
                                 kind: 'section',
                                 title: 'Home',
-                                objectCollectionId: 'welcome-page',
+                                objectCollectionId: null,
                                 sectionId: 'welcome-page',
                                 isActive: true
                             }
@@ -443,7 +481,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         await waitFor(() => {
             expect(getState().isLoading).toBe(false)
             expect(getState().appData?.activeSectionId).toBe('welcome-page')
-            expect(getState().selectedObjectCollectionId).toBe('welcome-page')
+            expect(getState().selectedObjectCollectionId).toBeUndefined()
         })
     })
 
@@ -586,6 +624,239 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
         expect(getState().sortModel).toEqual([])
         expect(getState().filterModel).toEqual({ items: [] })
+    })
+
+    it('passes page-backed menu sections as sectionId without objectCollectionId', async () => {
+        const fetchList = vi.fn().mockImplementation(async ({ sectionId, objectCollectionId }) => ({
+            ...createAppData(),
+            section: createRuntimeSection(sectionId === 'page-intro' ? 'page-intro' : 'object-1', 'Current'),
+            objectCollection: createRuntimeSection('object-1', 'Products'),
+            sections: [createRuntimeSection('page-intro', 'Intro'), createRuntimeSection('object-1', 'Products')],
+            objectCollections: [createRuntimeSection('object-1', 'Products')],
+            activeSectionId: sectionId ?? 'object-1',
+            activeObjectCollectionId: objectCollectionId ?? 'object-1',
+            menus: [
+                {
+                    id: 'menu-1',
+                    widgetId: 'menu-widget',
+                    title: 'Menu',
+                    showTitle: false,
+                    startSectionId: 'page-intro',
+                    overflowLabelKey: 'runtime.menu.more',
+                    items: [
+                        {
+                            id: 'intro',
+                            title: 'Intro',
+                            icon: null,
+                            kind: 'section',
+                            sectionId: 'page-intro',
+                            objectCollectionId: null,
+                            isActive: true
+                        },
+                        {
+                            id: 'structures',
+                            title: 'Structures',
+                            icon: null,
+                            kind: 'section',
+                            sectionId: 'object-1',
+                            objectCollectionId: 'object-1',
+                            isActive: true
+                        }
+                    ],
+                    overflowItems: []
+                }
+            ],
+            activeMenuId: 'menu-1'
+        }))
+        const adapter = createAdapter({ fetchList })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().menuSlot).toBeDefined()
+        })
+
+        await act(async () => {
+            getState().menuSlot?.onSelectObjectCollection?.('object-1')
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    sectionId: 'object-1',
+                    objectCollectionId: 'object-1'
+                })
+            )
+        })
+
+        await act(async () => {
+            getState().menuSlot?.onSelectSection?.('page-intro')
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    sectionId: 'page-intro',
+                    objectCollectionId: undefined
+                })
+            )
+        })
+    })
+
+    it('does not carry the previous object collection target into page-backed sections', async () => {
+        const fetchRow = vi.fn().mockResolvedValue({ id: 'row-1', title: 'Intro row' })
+        const fetchList = vi.fn().mockImplementation(async ({ sectionId, objectCollectionId }) => {
+            const activeId = sectionId ?? objectCollectionId ?? 'object-1'
+            const introPage = {
+                id: 'page-intro',
+                codename: 'intro',
+                tableName: null,
+                name: 'Intro',
+                pageBlocks: []
+            }
+            return {
+                ...createAppData(),
+                section: activeId === 'page-intro' ? introPage : createRuntimeSection('object-1', 'Products'),
+                objectCollection: createRuntimeSection('object-1', 'Products'),
+                sections: [createRuntimeSection('object-1', 'Products'), introPage],
+                objectCollections: [createRuntimeSection('object-1', 'Products')],
+                activeSectionId: activeId,
+                activeObjectCollectionId: objectCollectionId,
+                menus: [
+                    {
+                        id: 'menu-1',
+                        widgetId: 'widget-1',
+                        showTitle: false,
+                        title: null,
+                        items: [
+                            {
+                                id: 'object-item',
+                                kind: 'section',
+                                title: 'Products',
+                                sectionId: 'object-1',
+                                objectCollectionId: 'object-1',
+                                isActive: true
+                            },
+                            {
+                                id: 'page-item',
+                                kind: 'section',
+                                title: 'Intro',
+                                sectionId: 'page-intro',
+                                objectCollectionId: 'page-intro',
+                                isActive: true
+                            }
+                        ],
+                        overflowItems: []
+                    }
+                ],
+                activeMenuId: 'menu-1'
+            } satisfies AppDataResponse
+        })
+        const adapter = createAdapter({ fetchList, fetchRow })
+        const { getState } = renderCrudDashboard(adapter, { initialSectionId: 'object-1' })
+
+        await waitFor(() => {
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
+        })
+
+        await act(async () => {
+            getState().menuSlot?.onSelectSection?.('page-intro')
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(expect.objectContaining({ sectionId: 'page-intro', objectCollectionId: undefined }))
+        })
+        await waitFor(() => {
+            expect(getState().activeSectionId).toBe('page-intro')
+            expect(getState().activeObjectCollectionId).toBeUndefined()
+            expect(getState().selectedObjectCollectionId).toBeUndefined()
+        })
+        fetchRow.mockClear()
+
+        await act(async () => {
+            getState().handleOpenEdit('row-1')
+        })
+
+        await waitFor(() => {
+            expect(fetchRow).toHaveBeenCalledWith('row-1', { sectionId: 'page-intro', objectCollectionId: undefined })
+        })
+    })
+
+    it('retargets list and mutations when the route section changes while mounted', async () => {
+        const secondarySection = createRuntimeSection('object-2', 'Services')
+        const fetchList = vi.fn().mockImplementation(async ({ sectionId, objectCollectionId }) => {
+            const activeId = sectionId ?? objectCollectionId ?? 'object-1'
+
+            return {
+                ...createAppData(),
+                section: activeId === 'object-2' ? secondarySection : createRuntimeSection('object-1', 'Products'),
+                objectCollection: activeId === 'object-2' ? secondarySection : createRuntimeSection('object-1', 'Products'),
+                sections: [createRuntimeSection('object-1', 'Products'), secondarySection],
+                objectCollections: [createRuntimeSection('object-1', 'Products'), secondarySection],
+                activeSectionId: activeId,
+                activeObjectCollectionId: objectCollectionId ?? activeId,
+                rows: [{ id: activeId === 'object-2' ? 'row-2' : 'row-1', name: activeId }]
+            } satisfies AppDataResponse
+        })
+        const createRow = vi.fn().mockResolvedValue({ id: 'created-row', name: 'Created' })
+        const updateRow = vi.fn().mockResolvedValue({ id: 'row-2', name: 'Updated' })
+        const deleteRow = vi.fn().mockResolvedValue(undefined)
+        const copyRow = vi.fn().mockResolvedValue({ id: 'copied-row', name: 'Copied' })
+        const adapter = createAdapter({ fetchList, createRow, updateRow, deleteRow, copyRow })
+        const { getState, rerender } = renderCrudDashboard(adapter, { initialSectionId: 'object-1' })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(expect.objectContaining({ sectionId: 'object-1', objectCollectionId: 'object-1' }))
+        })
+
+        await act(async () => {
+            rerender({ initialSectionId: 'object-2' })
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(expect.objectContaining({ sectionId: 'object-2', objectCollectionId: 'object-2' }))
+        })
+        expect(getState().selectedSectionId).toBe('object-2')
+        expect(getState().selectedObjectCollectionId).toBe('object-2')
+
+        await act(async () => {
+            getState().handleOpenCreate()
+        })
+        await act(async () => {
+            await getState().handleFormSubmit({ name: 'Created' })
+        })
+        expect(createRow).toHaveBeenCalledWith({ name: 'Created' }, { objectCollectionId: 'object-2', sectionId: 'object-2' })
+
+        await act(async () => {
+            getState().handleOpenCopy('row-2')
+        })
+        await act(async () => {
+            await getState().handleFormSubmit({ name: 'Copied' })
+        })
+        expect(copyRow).toHaveBeenCalledWith(
+            'row-2',
+            expect.objectContaining({ objectCollectionId: 'object-2', sectionId: 'object-2', data: { name: 'Copied' } })
+        )
+
+        await act(async () => {
+            getState().handleOpenEdit('row-2')
+        })
+        await act(async () => {
+            await getState().handleFormSubmit({ name: 'Updated' })
+        })
+        expect(updateRow).toHaveBeenCalledWith(
+            'row-2',
+            { name: 'Updated' },
+            { objectCollectionId: 'object-2', sectionId: 'object-2' },
+            undefined
+        )
+
+        await act(async () => {
+            getState().handleOpenDelete('row-2')
+        })
+        await act(async () => {
+            await getState().handleConfirmDelete()
+        })
+        expect(deleteRow).toHaveBeenCalledWith('row-2', { objectCollectionId: 'object-2', sectionId: 'object-2' }, undefined)
     })
 
     it('omits row action columns when runtime permissions make the section read-only', async () => {
@@ -750,7 +1021,7 @@ describe('useCrudDashboard optimistic mutations', () => {
             await getState().handleFormSubmit({ name: 'Updated' })
         })
 
-        expect(updateRow).toHaveBeenCalledWith('row-1', { name: 'Updated' }, 'object-1', 6)
+        expect(updateRow).toHaveBeenCalledWith('row-1', { name: 'Updated' }, { objectCollectionId: 'object-1', sectionId: 'object-1' }, 6)
     })
 
     it('marks updated rows as pending before the server responds and closes the form right away', async () => {
@@ -859,7 +1130,7 @@ describe('useCrudDashboard optimistic mutations', () => {
             await getState().handleConfirmDelete()
         })
 
-        expect(deleteRow).toHaveBeenCalledWith('row-1', 'object-1', 7)
+        expect(deleteRow).toHaveBeenCalledWith('row-1', { objectCollectionId: 'object-1', sectionId: 'object-1' }, 7)
     })
 
     it('passes runtime row version maps to reorder mutations', async () => {

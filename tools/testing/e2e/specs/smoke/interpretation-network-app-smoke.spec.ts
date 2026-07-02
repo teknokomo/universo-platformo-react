@@ -18,8 +18,15 @@ import {
     expectInterpretationNetworkRuntimeDataReady,
     watchInterpretationNetworkBrowserRegressionIssues
 } from '../../support/interpretationNetworkRuntime'
+import type { Locator, Page } from '@playwright/test'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
+
+const getVisibleWorkspaceSwitcher = (page: Page): Locator =>
+    page.getByTestId('runtime-workspace-switcher').filter({ visible: true }).first()
+
+const getDockedRuntimeNavigation = (page: Page): Locator =>
+    page.getByTestId('runtime-side-menu-docked').locator('nav[aria-label="Interpretation Network"]')
 
 test.describe('Interpretation Network published application @smoke', () => {
     let api: ApiContext
@@ -53,8 +60,8 @@ test.describe('Interpretation Network published application @smoke', () => {
             timeout: 30_000
         })
         await page.goto(`/a/${applicationId}`)
-        await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
-        const menu = page.getByRole('navigation').first()
+        await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
+        const menu = getDockedRuntimeNavigation(page)
         await expect(menu).toBeVisible()
         await expect(menu.getByRole('link', { name: 'Start' })).toBeVisible()
         await expect(menu.getByRole('link', { name: 'Structures' })).toBeVisible()

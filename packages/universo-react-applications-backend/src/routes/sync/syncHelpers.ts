@@ -18,12 +18,14 @@ import {
     type ApplicationLifecycleContract,
     type ApplicationLayoutWidget,
     type ComponentDefinitionValidationRules,
+    type MenuWidgetConfig,
     type VersionedLocalizedContent
 } from '@universo-react/types'
 import {
     createCodenameVLC,
     getCodenamePrimary,
     normalizeDashboardLayoutConfig,
+    normalizeMenuWidgetConfigTargets,
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig,
     validateNumberOrThrow
@@ -263,6 +265,145 @@ export const remapSnapshotLayoutScopeEntityIds = (
         ...snapshot,
         layouts: nextLayouts as PublishedApplicationSnapshot['layouts'],
         scopedLayouts: nextScopedLayouts as PublishedApplicationSnapshot['scopedLayouts']
+    }
+}
+
+type RuntimeMenuSectionTargetRecord = { id: string; kind: 'section' | 'objectCollection' }
+type RuntimeMenuHubTargetRecord = { id: string; kind: 'hub' | 'treeEntity' }
+type RuntimeMenuTargetRecord = RuntimeMenuSectionTargetRecord | RuntimeMenuHubTargetRecord
+
+const NON_OBJECT_RUNTIME_KINDS = new Set(['hub', 'set', 'enumeration', 'page', 'ledger'])
+
+const isRuntimeObjectCollectionKind = (kind: unknown): boolean =>
+    typeof kind === 'string' && kind.length > 0 && !NON_OBJECT_RUNTIME_KINDS.has(kind)
+
+const resolveSnapshotRuntimeTargetKind = (entity: unknown): RuntimeMenuTargetRecord['kind'] | null => {
+    if (!isRecord(entity)) return null
+    const kind = typeof entity.kind === 'string' ? entity.kind : null
+    if (kind === 'page') return 'section'
+    if (kind === 'hub') return 'hub'
+    if (kind === 'tree-entity') return 'treeEntity'
+    if (isRuntimeObjectCollectionKind(kind)) return 'objectCollection'
+    return null
+}
+
+const resolveEntityRuntimeTargetKind = (entity: EntityDefinition): RuntimeMenuTargetRecord['kind'] | null => {
+    if (entity.kind === 'page') return 'section'
+    if (entity.kind === 'hub') return 'hub'
+    if (entity.kind === 'tree-entity') return 'treeEntity'
+    if (isRuntimeObjectCollectionKind(entity.kind)) return 'objectCollection'
+    return null
+}
+
+const addMenuTargetToken = <TTarget extends RuntimeMenuTargetRecord>(map: Map<string, TTarget>, token: unknown, target: TTarget): void => {
+    if (typeof token !== 'string') return
+    const trimmed = token.trim()
+    if (trimmed.length === 0) return
+    map.set(trimmed, target)
+}
+
+const isHubTargetRecord = (target: RuntimeMenuTargetRecord): target is RuntimeMenuHubTargetRecord =>
+    target.kind === 'hub' || target.kind === 'treeEntity'
+
+const addTargetToTypedMap = (
+    sectionByToken: Map<string, RuntimeMenuSectionTargetRecord>,
+    hubByToken: Map<string, RuntimeMenuHubTargetRecord>,
+    token: unknown,
+    target: RuntimeMenuTargetRecord
+): void => {
+    if (isHubTargetRecord(target)) {
+        addMenuTargetToken(hubByToken, token, target)
+        return
+    }
+    addMenuTargetToken(sectionByToken, token, target)
+}
+
+const buildRuntimeMenuTargetMaps = (snapshot: PublishedApplicationSnapshot, entities: EntityDefinition[]) => {
+    const sectionByToken = new Map<string, RuntimeMenuSectionTargetRecord>()
+    const hubByToken = new Map<string, RuntimeMenuHubTargetRecord>()
+    const runtimeByCodename = new Map<string, RuntimeMenuTargetRecord>()
+
+    for (const entity of entities) {
+        if (typeof entity.id !== 'string' || entity.id.length === 0) continue
+        const targetKind = resolveEntityRuntimeTargetKind(entity)
+        if (!targetKind) continue
+        const target: RuntimeMenuTargetRecord = { id: entity.id, kind: targetKind }
+        const codename = resolveEntityDefinitionCodenameText(entity)
+        addTargetToTypedMap(sectionByToken, hubByToken, entity.id, target)
+        if (codename) {
+            runtimeByCodename.set(codename, target)
+            addTargetToTypedMap(sectionByToken, hubByToken, codename, target)
+        }
+    }
+
+    const snapshotEntities = isRecord(snapshot.entities) ? snapshot.entities : {}
+    for (const [snapshotId, snapshotEntity] of Object.entries(snapshotEntities)) {
+        const snapshotKind = resolveSnapshotRuntimeTargetKind(snapshotEntity)
+        const codename = resolveSnapshotEntityCodenameText(snapshotEntity)
+        const runtimeTarget = codename ? runtimeByCodename.get(codename) : undefined
+        if (!runtimeTarget || (snapshotKind && snapshotKind !== runtimeTarget.kind)) continue
+        addTargetToTypedMap(sectionByToken, hubByToken, snapshotId, runtimeTarget)
+        if (codename) {
+            addTargetToTypedMap(sectionByToken, hubByToken, codename, runtimeTarget)
+        }
+    }
+
+    return { sectionByToken, hubByToken }
+}
+
+export const remapSnapshotMenuWidgetTargets = (
+    snapshot: PublishedApplicationSnapshot,
+    entities: EntityDefinition[]
+): PublishedApplicationSnapshot => {
+    const targetMaps = buildRuntimeMenuTargetMaps(snapshot, entities)
+    if (targetMaps.sectionByToken.size === 0 && targetMaps.hubByToken.size === 0) {
+        return snapshot
+    }
+
+    const remapWidgets = (rows: unknown): unknown => {
+        if (!Array.isArray(rows)) return rows
+        let changed = false
+        const nextRows = rows.map((row) => {
+            if (!isRecord(row) || row.widgetKey !== 'menuWidget' || !isRecord(row.config)) return row
+            const normalizedConfig = normalizeMenuWidgetConfigTargets(row.config as unknown as MenuWidgetConfig, targetMaps)
+            if (compareStableValues(normalizedConfig, row.config)) return row
+            changed = true
+            return { ...row, config: normalizedConfig }
+        })
+        return changed ? nextRows : rows
+    }
+
+    const menuWidgetIds = new Set(
+        (Array.isArray(snapshot.layoutZoneWidgets) ? snapshot.layoutZoneWidgets : [])
+            .filter((row) => isRecord(row) && row.widgetKey === 'menuWidget' && typeof row.id === 'string' && row.id.length > 0)
+            .map((row) => (row as { id: string }).id)
+    )
+
+    const remapWidgetOverrides = (rows: unknown): unknown => {
+        if (!Array.isArray(rows)) return rows
+        let changed = false
+        const nextRows = rows.map((row) => {
+            if (!isRecord(row) || typeof row.baseWidgetId !== 'string' || !menuWidgetIds.has(row.baseWidgetId) || !isRecord(row.config)) {
+                return row
+            }
+            const normalizedConfig = normalizeMenuWidgetConfigTargets(row.config as unknown as MenuWidgetConfig, targetMaps)
+            if (compareStableValues(normalizedConfig, row.config)) return row
+            changed = true
+            return { ...row, config: normalizedConfig }
+        })
+        return changed ? nextRows : rows
+    }
+
+    const nextLayoutZoneWidgets = remapWidgets(snapshot.layoutZoneWidgets)
+    const nextLayoutWidgetOverrides = remapWidgetOverrides(snapshot.layoutWidgetOverrides)
+    if (nextLayoutZoneWidgets === snapshot.layoutZoneWidgets && nextLayoutWidgetOverrides === snapshot.layoutWidgetOverrides) {
+        return snapshot
+    }
+
+    return {
+        ...snapshot,
+        layoutZoneWidgets: nextLayoutZoneWidgets as PublishedApplicationSnapshot['layoutZoneWidgets'],
+        layoutWidgetOverrides: nextLayoutWidgetOverrides as PublishedApplicationSnapshot['layoutWidgetOverrides']
     }
 }
 

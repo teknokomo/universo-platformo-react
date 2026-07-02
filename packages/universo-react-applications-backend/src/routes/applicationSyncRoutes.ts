@@ -48,6 +48,7 @@ export {
     persistSeedWarnings
 } from './sync/syncLayoutPersistence'
 export {
+    buildRuntimeSnapshotForApplicationSync,
     syncApplicationSchemaFromSource,
     runPublishedApplicationRuntimeSync,
     buildCreateTableDetails,

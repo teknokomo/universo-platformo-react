@@ -14,8 +14,8 @@ The control panel now reuses the same shared layout authoring surface as metahub
 
 Each layout has a source:
 
-- Metahub: created during connector schema synchronization from a publication snapshot.
-- Application: created or copied directly inside the application control panel.
+-   Metahub: created during connector schema synchronization from a publication snapshot.
+-   Application: created or copied directly inside the application control panel.
 
 The source is shown in both card and list-style views so administrators can distinguish inherited configuration from local application configuration.
 
@@ -23,11 +23,11 @@ The source is shown in both card and list-style views so administrators can dist
 
 Administrators can:
 
-- create application-owned global or entity-scoped layouts;
-- copy a metahub layout into an application-owned layout;
-- make a layout default for its scope;
-- activate or deactivate layouts;
-- deactivate, add, or configure layout widgets.
+-   create application-owned global or entity-scoped layouts;
+-   copy a metahub layout into an application-owned layout;
+-   make a layout default for its scope;
+-   activate or deactivate layouts;
+-   deactivate, add, or configure layout widgets.
 
 Deleting a metahub layout in the application does not hard-delete it. The application marks it as excluded, inactive, and non-default so the next synchronization does not silently restore it.
 Deleting an application-owned layout uses the standard application soft-delete path.
@@ -36,11 +36,11 @@ Deleting an application-owned layout uses the standard application soft-delete p
 
 When a connector synchronization imports a newer metahub publication:
 
-- clean metahub layouts are overwritten by the new source content;
-- locally modified metahub layouts are marked as conflict instead of being overwritten;
-- metahub layouts removed from the publication are marked as source removed;
-- application-owned layouts are preserved;
-- source defaults do not replace an application-owned or locally modified default in the same scope.
+-   clean metahub layouts are overwritten by the new source content;
+-   locally modified metahub layouts are marked as conflict instead of being overwritten;
+-   metahub layouts removed from the publication are marked as source removed;
+-   application-owned layouts are preserved;
+-   source defaults do not replace an application-owned or locally modified default in the same scope.
 
 The default conflict model is fail-closed: it preserves local work and exposes sync state for follow-up resolution.
 The connector diff dialog also allows an explicit overwrite policy for administrators who want metahub layout content to replace local metahub-derived customizations during that synchronization.
@@ -50,8 +50,20 @@ The connector diff dialog also allows an explicit overwrite policy for administr
 Only active layouts and active widgets are used by the application runtime.
 Inactive layouts remain available in the control panel and can be reactivated later.
 
+## Side Menu Modes
+
+The layout configuration includes side-menu behavior for published applications. Administrators can enable any combination of:
+
+-   Wide menu: the full permanent left navigation.
+-   Compact menu: the permanent icon-only navigation with accessible labels.
+-   Overlay menu: a drawer opened from the top navigation button.
+
+At least one mode is always stored. The primary mode must be one of the enabled modes. By default all three modes are available, the wide menu is primary, and the runtime remembers the user's last selected mode per application.
+
+Menu widget targets are selected from runtime sections by human-readable labels. During application synchronization they are materialized to UUID-backed section targets, so renaming a metahub or changing its codename must not break the published application menu.
+
 ## Related Reading
 
-- [Entity-Scoped Layouts](entity-scoped-layouts.md)
-- [Applications](../platform/applications.md)
-- [Updating System App Schemas](updating-system-app-schemas.md)
+-   [Entity-Scoped Layouts](entity-scoped-layouts.md)
+-   [Applications](../platform/applications.md)
+-   [Updating System App Schemas](updating-system-app-schemas.md)

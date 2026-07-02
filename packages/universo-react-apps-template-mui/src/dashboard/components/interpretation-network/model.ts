@@ -43,6 +43,8 @@ export type InterpretationNetworkWorkspaceConfig = {
 
 export type MatrixCell = {
     id: string
+    rawRowId: string
+    sortOrder: number
     rowKey: string
     rowLabel: string
     colKey: string
@@ -60,17 +62,17 @@ export type MatrixCell = {
 }
 
 const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
-    conceptCodename: 'Concept',
+    conceptCodename: 'Structure',
     interpretationCodename: 'Interpretation',
     relationCodename: 'Relation',
     materialCodename: 'Material',
     tableTemplateCodename: 'TableTemplate',
     matrixField: 'InterpretationMatrix',
     materialTitleField: 'Title',
-    conceptNameField: 'Term',
+    conceptNameField: 'Name',
     conceptDescriptionField: 'Description',
     interpretationTitleField: 'Title',
-    interpretationParentField: 'ParentConcept',
+    interpretationParentField: 'ParentStructure',
     tableTemplateNameField: 'Name',
     tableTemplateDescriptionField: 'Description',
     tableTemplateMatrixField: 'TemplateMatrix'
@@ -131,6 +133,15 @@ export const readColumnText = (
     locale: string
 ): string => readText(readColumnValue(row, columns, codename), locale)
 
+export const resolveMatrixCellId = (
+    rawCell: Record<string, unknown>,
+    childColumns: RuntimeColumnLike[] | undefined,
+    index: number
+): string => {
+    const rawCellId = readColumnValue(rawCell, childColumns, 'CellId')
+    return typeof rawCellId === 'string' && rawCellId.trim() ? rawCellId.trim() : `cell-${index}`
+}
+
 export const findOptionIdByCodename = (field: RuntimeColumnLike | undefined, codename: string): string | null =>
     [...(field?.refOptions ?? []), ...(field?.enumOptions ?? [])].find((option) => option.codename === codename || option.id === codename)
         ?.id ?? null
@@ -164,15 +175,17 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
 
     return rawMatrixRows.flatMap((rawCell, index) => {
         if (!isRecord(rawCell)) return []
-        const rawCellId = readCellValue(rawCell, 'CellId')
         const rawRowKey = readCellValue(rawCell, 'RowKey')
         const rawColKey = readCellValue(rawCell, 'ColKey')
         const rawMaterialRef = readCellValue(rawCell, 'MaterialRef')
-        const cellId = typeof rawCellId === 'string' && rawCellId.trim() ? rawCellId.trim() : `cell-${index}`
+        const cellId = resolveMatrixCellId(rawCell, childColumns, index)
+        const rawSortOrder = readRowValue(rawCell, '_tp_sort_order')
         const fillCodename = getOptionCodename(colorField('CellFillColor'), readCellValue(rawCell, 'CellFillColor'))
         return [
             {
                 id: cellId,
+                rawRowId: typeof rawCell.id === 'string' ? rawCell.id : cellId,
+                sortOrder: typeof rawSortOrder === 'number' && Number.isFinite(rawSortOrder) ? rawSortOrder : index,
                 rowKey: typeof rawRowKey === 'string' && rawRowKey.trim() ? rawRowKey.trim() : `row-${index}`,
                 rowLabel: readCellText(rawCell, 'RowLabel') || `Row ${index + 1}`,
                 colKey: typeof rawColKey === 'string' && rawColKey.trim() ? rawColKey.trim() : `col-${index}`,

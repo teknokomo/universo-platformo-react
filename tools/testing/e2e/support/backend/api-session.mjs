@@ -800,6 +800,15 @@ export async function getMetahub(api, metahubId) {
     return response.json()
 }
 
+export async function updateMetahub(api, metahubId, payload) {
+    const response = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Updating metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function listMetahubBranches(api, metahubId, params = {}) {
     const query = new URLSearchParams()
 

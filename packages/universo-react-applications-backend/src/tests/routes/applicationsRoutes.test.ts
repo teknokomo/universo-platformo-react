@@ -413,6 +413,286 @@ describe('Applications Routes', () => {
             })
         })
 
+        it('returns 404 when an explicit runtime section id is stale', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344b0'
+            const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-2222333344b1'
+            const staleSectionId = '018f8a78-7b8f-7c1d-a111-2222333344b2'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'object',
+                            codename: 'orders',
+                            table_name: 'orders',
+                            presentation: null,
+                            config: null
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL after explicit runtime selector miss: ${sql}`)
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime`)
+                .query({ sectionId: staleSectionId })
+                .expect(404)
+
+            expect(response.body).toEqual({
+                error: 'Requested object not found in runtime schema',
+                details: {
+                    sectionId: staleSectionId,
+                    objectCollectionId: staleSectionId,
+                    objectCollectionCodename: null
+                }
+            })
+        })
+
+        it('keeps materialized page-backed menu items in runtime navigation', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344a0'
+            const runtimePageId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+            const runtimeObjectId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
+            const runtimeLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344a3'
+            const runtimeMenuWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a4'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimePageId,
+                            kind: 'page',
+                            codename: 'InterpretationNetworkIntro',
+                            table_name: null,
+                            presentation: { name: { en: 'Start' } },
+                            config: { blockContent: { blocks: [] } }
+                        },
+                        {
+                            id: runtimeObjectId,
+                            kind: 'object',
+                            codename: 'Structures',
+                            table_name: 'structures',
+                            presentation: { name: { en: 'Structures' } },
+                            config: null
+                        }
+                    ]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                    return []
+                }
+
+                if (sql.includes('COUNT(*)::int AS total')) {
+                    return [{ total: 0 }]
+                }
+
+                if (sql.includes('information_schema.tables') && sql.includes('"layoutsExists"')) {
+                    return [{ layoutsExists: true, widgetsExists: true }]
+                }
+
+                if (sql.includes('information_schema.tables') && sql.includes('"zoneWidgetsExists"')) {
+                    return [{ zoneWidgetsExists: true }]
+                }
+
+                if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_layouts') {
+                    return [{ exists: true }]
+                }
+
+                if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_widgets') {
+                    return [{ exists: true }]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                    return [{ id: runtimeLayoutId, config: {} }]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_widgets')) {
+                    return [
+                        {
+                            id: runtimeMenuWidgetId,
+                            widget_key: 'menuWidget',
+                            sort_order: 0,
+                            zone: 'left',
+                            config: {
+                                sideMenu: {
+                                    availableModes: ['compact', 'overlay'],
+                                    primaryMode: 'compact',
+                                    rememberUserChoice: false
+                                },
+                                startPage: runtimePageId,
+                                startTarget: { kind: 'section', sectionId: runtimePageId },
+                                items: [
+                                    {
+                                        id: 'start-page',
+                                        kind: 'section',
+                                        title: { en: 'Start' },
+                                        sectionId: runtimePageId,
+                                        objectCollectionId: runtimePageId,
+                                        sortOrder: 0,
+                                        isActive: true
+                                    },
+                                    {
+                                        id: 'structures',
+                                        kind: 'section',
+                                        title: { en: 'Structures' },
+                                        sectionId: runtimeObjectId,
+                                        objectCollectionId: runtimeObjectId,
+                                        sortOrder: 1,
+                                        isActive: true
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+
+                if (sql.includes('SELECT *') && sql.includes('"app_runtime_test"."structures"')) {
+                    return []
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`).expect(200)
+
+            expect(response.body.activeSectionId).toBe(runtimePageId)
+            expect(response.body.activeObjectCollectionId).toBeNull()
+            expect(response.body.layoutConfig.sideMenu).toEqual({
+                availableModes: ['compact', 'overlay'],
+                primaryMode: 'compact',
+                rememberUserChoice: false
+            })
+            expect(response.body.menus[0]).toMatchObject({
+                startPage: runtimePageId,
+                startSectionId: runtimePageId,
+                items: [
+                    expect.objectContaining({
+                        id: 'start-page',
+                        sectionId: runtimePageId,
+                        objectCollectionId: null
+                    }),
+                    expect.objectContaining({
+                        id: 'structures',
+                        sectionId: runtimeObjectId,
+                        objectCollectionId: runtimeObjectId
+                    })
+                ]
+            })
+        })
+
+        it('keeps application layout side-menu settings ahead of menu widget defaults', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-22223333446f'
+            const runtimeLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344ff'
+            const runtimePageId = '018f8a78-7b8f-7c1d-a111-222233334471'
+            const runtimeMenuWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344aa'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimePageId,
+                            kind: 'page',
+                            codename: 'Intro',
+                            table_name: null,
+                            presentation: { name: { en: 'Start' } },
+                            config: { blockContent: { blocks: [] } }
+                        }
+                    ]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_components')) return []
+                if (sql.includes('COUNT(*)::int AS total')) return [{ total: 0 }]
+                if (sql.includes('information_schema.tables') && sql.includes('"layoutsExists"')) {
+                    return [{ layoutsExists: true, widgetsExists: true }]
+                }
+                if (sql.includes('information_schema.tables') && sql.includes('"zoneWidgetsExists"')) {
+                    return [{ zoneWidgetsExists: true }]
+                }
+                if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_layouts') return [{ exists: true }]
+                if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_widgets') return [{ exists: true }]
+                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                    return [
+                        {
+                            id: runtimeLayoutId,
+                            config: {
+                                sideMenu: {
+                                    availableModes: ['overlay'],
+                                    primaryMode: 'overlay',
+                                    rememberUserChoice: false
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_widgets')) {
+                    return [
+                        {
+                            id: runtimeMenuWidgetId,
+                            widget_key: 'menuWidget',
+                            sort_order: 0,
+                            zone: 'left',
+                            config: {
+                                sideMenu: {
+                                    availableModes: ['compact', 'overlay'],
+                                    primaryMode: 'compact',
+                                    rememberUserChoice: true
+                                }
+                            }
+                        }
+                    ]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`).expect(200)
+
+            expect(response.body.layoutConfig.sideMenu).toEqual({
+                availableModes: ['overlay'],
+                primaryMode: 'overlay',
+                rememberUserChoice: false
+            })
+        })
+
         it('applies runtime search, sort, and filters only through declared components', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334472'
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334473'
@@ -5861,6 +6141,94 @@ describe('Applications Routes', () => {
                 .expect(403)
 
             expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+        })
+
+        it('allows an editor to compensate only its own fresh version-one create', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: {
+                                systemFields: {
+                                    lifecycleContract: {
+                                        delete: { mode: 'hard' }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                    return []
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                    expect(sql).toContain('_upl_created_by = $2')
+                    expect(sql).toContain("NOW() - INTERVAL '10 minutes'")
+                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1, _upl_created_by: 'test-user-id' }]
+                }
+                if (sql.includes('DELETE FROM "app_runtime_test"."orders"')) {
+                    expect(sql).toContain('_upl_created_by = $2')
+                    expect(sql).toContain('COALESCE(_upl_version, 1) = 1')
+                    expect(sql).toContain('COALESCE(_upl_version, 1) = $3')
+                    return [{ id: runtimeRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/compensate-create`)
+                .send({
+                    objectCollectionId: runtimeLinkedCollectionId,
+                    expectedVersion: 1
+                })
+                .expect(200)
+
+            expect(response.body).toEqual({ status: 'deleted' })
+            const deleteCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('DELETE FROM "app_runtime_test"."orders"')
+            )
+            expect(deleteCall?.[1]).toEqual([runtimeRowId, 'test-user-id', 1])
+        })
+
+        it('rejects create compensation without expected version one', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test'
+            })
+
+            const app = buildApp(dataSource)
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/compensate-create`)
+                .send({
+                    objectCollectionId: runtimeLinkedCollectionId,
+                    expectedVersion: 2
+                })
+                .expect(400)
+
+            expect(dataSource.manager.query).not.toHaveBeenCalled()
         })
 
         it('uses physical DELETE when lifecycle contract is hard delete', async () => {
@@ -11644,7 +12012,7 @@ describe('Applications Routes', () => {
                     return [{ total: 1 }]
                 }
                 if (sql.includes('FROM "app_runtime_test"."items"')) {
-                    return [{ id: runtimeChildRowId, _tp_sort_order: 0, title: 'Visible child row' }]
+                    return [{ id: runtimeChildRowId, _tp_sort_order: 0, _upl_version: 7, title: 'Visible child row' }]
                 }
                 return []
             })
@@ -11656,7 +12024,7 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             expect(response.body).toEqual({
-                items: [{ id: runtimeChildRowId, _tp_sort_order: 0, title: 'Visible child row' }],
+                items: [{ id: runtimeChildRowId, _tp_sort_order: 0, _upl_version: 7, title: 'Visible child row' }],
                 total: 1
             })
         })

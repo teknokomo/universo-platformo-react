@@ -49,11 +49,11 @@ export default function LayoutWidgetSharedBehaviorFields({ value, onChange, disa
     return (
         <Stack spacing={1.25}>
             <Stack spacing={0.5}>
-                <Typography variant='subtitle2'>{t('shared.behavior.title', 'Shared behavior')}</Typography>
+                <Typography variant='subtitle2'>{t('layouts.sharedBehavior.title', 'Shared behavior')}</Typography>
                 <Typography variant='body2' color='text.secondary'>
                     {t(
                         'layouts.sharedBehavior.description',
-                        'Control how inherited scoped layouts can exclude, deactivate, or move this widget.'
+                        'Controls whether inherited layouts can deactivate, exclude, or move this widget.'
                     )}
                 </Typography>
             </Stack>
@@ -66,7 +66,7 @@ export default function LayoutWidgetSharedBehaviorFields({ value, onChange, disa
                             disabled={disabled}
                         />
                     }
-                    label={t('shared.behavior.canDeactivate', 'Can be deactivated')}
+                    label={t('layouts.sharedBehavior.canDeactivate', 'Can be deactivated')}
                 />
                 <FormControlLabel
                     control={
@@ -76,7 +76,7 @@ export default function LayoutWidgetSharedBehaviorFields({ value, onChange, disa
                             disabled={disabled}
                         />
                     }
-                    label={t('shared.behavior.canExclude', 'Can be excluded')}
+                    label={t('layouts.sharedBehavior.canExclude', 'Can be excluded')}
                 />
                 <FormControlLabel
                     control={
@@ -86,7 +86,7 @@ export default function LayoutWidgetSharedBehaviorFields({ value, onChange, disa
                             disabled={disabled}
                         />
                     }
-                    label={t('shared.behavior.positionLocked', 'Position locked')}
+                    label={t('layouts.sharedBehavior.positionLocked', 'Position locked')}
                 />
             </FormGroup>
         </Stack>

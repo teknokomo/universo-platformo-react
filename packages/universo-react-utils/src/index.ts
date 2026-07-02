@@ -200,7 +200,8 @@ export {
     setObjectCollectionLayoutBehaviorConfig,
     resolveObjectCollectionRuntimeDashboardLayoutConfig
 } from './validation/objectCollectionRuntimeConfig'
-export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'
+export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './validation/dashboardLayout'
+export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './validation/menuWidgetTargets'
 
 export {
     validateNumber,

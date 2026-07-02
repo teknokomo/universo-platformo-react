@@ -374,7 +374,17 @@
             "rowHeight": "Высота строки",
             "rowHeightCompact": "Компактная (по умолчанию)",
             "rowHeightNormal": "Обычная (52px)",
-            "rowHeightAuto": "Авто (многострочная)"
+            "rowHeightAuto": "Авто (многострочная)",
+            "sideMenu": {
+                "title": "Отображение бокового меню",
+                "primaryMode": "Основной режим отображения",
+                "rememberUserChoice": "Запоминать выбор пользователя",
+                "modes": {
+                    "wide": "Широкое",
+                    "compact": "Компактное с иконками",
+                    "overlay": "Шторка поверх контента"
+                }
+            }
         },
         "menuEditor": {
             "title": "Настройка меню",
@@ -392,18 +402,31 @@
             "maxPrimaryItems": "Лимит основных пунктов меню",
             "maxPrimaryItemsHint": "Дополнительные активные пункты будут перенесены в меню «Ещё».",
             "overflowLabelKey": "i18n-ключ пункта «Ещё»",
-            "startPage": "Код стартовой страницы",
-            "startPageHint": "Используйте id или codename хаба или раздела сущности, который должен открываться первым.",
+            "startPage": "Стартовая страница",
+            "startPageHint": "Выберите хаб или раздел сущности, который должен открываться первым.",
             "workspacePlacement": "Размещение рабочих пространств",
             "workspacePlacements": {
                 "primary": "Основное меню",
                 "overflow": "Меню «Ещё»",
                 "hidden": "Скрыто"
             },
+            "sideMenu": {
+                "title": "Отображение бокового меню",
+                "primaryMode": "Основной режим отображения",
+                "rememberUserChoice": "Запоминать выбор пользователя",
+                "modes": {
+                    "wide": "Широкое",
+                    "compact": "Компактное с иконками",
+                    "overlay": "Шторка поверх контента"
+                }
+            },
             "items": "Пункты меню",
             "itemsEmpty": "Пунктов меню пока нет. Добавьте первый пункт.",
             "addItem": "Добавить пункт",
             "editItem": "Редактировать пункт",
+            "editItemNamed": "Редактировать пункт меню: {{label}}",
+            "removeItemNamed": "Удалить пункт меню: {{label}}",
+            "reorderItem": "Изменить порядок пункта меню: {{label}}",
             "deleteItem": "Удалить пункт?",
             "deleteItemDescription": "Этот пункт будет удалён из меню.",
             "itemKind": "Тип пункта",
@@ -411,7 +434,8 @@
             "itemIcon": "Иконка",
             "itemHref": "URL ссылки",
             "itemSection": "Раздел сущности",
-            "itemSectionHint": "Выберите экземпляр сущности с поддержкой макетов или введите id/codename вручную.",
+            "itemSectionHint": "Выберите экземпляр сущности с поддержкой макетов.",
+            "unnamedSection": "Раздел без названия",
             "itemHub": "Хаб",
             "itemActive": "Активен",
             "noHubs": "Нет доступных хабов",
@@ -456,14 +480,27 @@
             "pageViewsChart": "График просмотров",
             "detailsTitle": "Заголовок деталей",
             "detailsTable": "Таблица деталей",
+            "workspaceSwitcher": "Переключатель рабочих пространств",
+            "relationBuilder": "Конструктор связей",
+            "detailsTabs": "Вкладки деталей",
+            "interpretationNetworkWorkspace": "Рабочая область трактовочной сети",
             "quizWidget": "Виджет квиза",
-            "playcanvasCanvas": "Canvas PlayCanvas",
+            "playcanvasCanvas": "Холст PlayCanvas",
             "detailsSidePanel": "Боковая панель деталей",
             "productTree": "Дерево продуктов",
             "usersByCountryChart": "График пользователей по странам",
             "columnsContainer": "Контейнер колонок",
+            "resourcePreview": "Превью ресурса",
+            "learnerPlayer": "Плеер обучения",
             "languageSwitcher": "Переключатель языка",
             "footer": "Футер"
+        },
+        "sharedBehavior": {
+            "title": "Общее поведение",
+            "description": "Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.",
+            "canDeactivate": "Можно деактивировать",
+            "canExclude": "Можно исключать",
+            "positionLocked": "Позиция зафиксирована"
         },
         "widgetBehaviorEditor": {
             "title": "Поведение виджета",

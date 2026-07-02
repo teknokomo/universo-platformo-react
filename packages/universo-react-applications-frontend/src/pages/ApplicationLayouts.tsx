@@ -46,9 +46,11 @@ import type {
     ColumnsContainerConfig,
     DashboardLayoutZone,
     ObjectCollectionRuntimeViewConfig,
-    MenuWidgetConfig
+    MenuWidgetConfig,
+    DashboardSideMenuConfig,
+    DashboardSideMenuMode
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES } from '@universo-react/types'
+import { DASHBOARD_LAYOUT_ZONES, DASHBOARD_SIDE_MENU_MODES, defaultDashboardLayoutConfig } from '@universo-react/types'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
     normalizeObjectCollectionRuntimeViewConfig,
@@ -118,6 +120,32 @@ const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set([
     'pageViewsChart',
     'resourcePreview'
 ])
+const EDITABLE_SIDE_MENU_MODES: DashboardSideMenuMode[] = Array.isArray(DASHBOARD_SIDE_MENU_MODES)
+    ? [...DASHBOARD_SIDE_MENU_MODES]
+    : ['wide', 'compact', 'overlay']
+
+const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
+    const fallback = defaultDashboardLayoutConfig?.sideMenu ?? {
+        availableModes: ['wide', 'compact', 'overlay'] as DashboardSideMenuMode[],
+        primaryMode: 'wide' as DashboardSideMenuMode,
+        rememberUserChoice: true
+    }
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? (value as Partial<DashboardSideMenuConfig>) : {}
+    const availableModes = Array.isArray(source.availableModes)
+        ? source.availableModes.filter((mode): mode is DashboardSideMenuMode =>
+              (EDITABLE_SIDE_MENU_MODES as readonly string[]).includes(String(mode))
+          )
+        : fallback.availableModes
+    const uniqueModes = availableModes.filter((mode, index, modes) => modes.indexOf(mode) === index)
+    const nextAvailableModes = uniqueModes.length > 0 ? uniqueModes : fallback.availableModes
+    const primaryMode = source.primaryMode && nextAvailableModes.includes(source.primaryMode) ? source.primaryMode : nextAvailableModes[0]
+
+    return {
+        availableModes: nextAvailableModes,
+        primaryMode,
+        rememberUserChoice: typeof source.rememberUserChoice === 'boolean' ? source.rememberUserChoice : fallback.rememberUserChoice
+    }
+}
 
 type LayoutMenuState = {
     anchorEl: HTMLElement | null
@@ -446,6 +474,7 @@ const ApplicationLayouts = () => {
         }, {} as Record<DashboardLayoutZone, ApplicationLayoutWidget[]>)
 
         const objectBehaviorConfig = normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout.config))
+        const sideMenuConfig = normalizeEditableSideMenuConfig(layout.config?.sideMenu)
         const allAssignedWidgetKeys = new Set(widgets.map((item) => item.widgetKey))
         const zoneLabels: Record<DashboardLayoutZone, string> = {
             top: t('layouts.zones.top', 'Top'),
@@ -464,6 +493,11 @@ const ApplicationLayouts = () => {
 
         const handleViewSettingChange = async (key: string, value: unknown) => {
             await handleLayoutConfigUpdate({ ...(layout.config ?? {}), [key]: value })
+        }
+
+        const handleSideMenuConfigChange = async (patch: Partial<DashboardSideMenuConfig>) => {
+            const nextSideMenuConfig = normalizeEditableSideMenuConfig({ ...sideMenuConfig, ...patch })
+            await handleViewSettingChange('sideMenu', nextSideMenuConfig)
         }
 
         const handleObjectBehaviorChange = async (patch: Partial<ObjectCollectionRuntimeViewConfig>) => {
@@ -616,9 +650,7 @@ const ApplicationLayouts = () => {
                             {t('layouts.detailSyncState', 'Sync state: {{state}}', { state: t(`layouts.state.${layout.syncState}`) })}
                         </Typography>
                         {layout.sourceLayoutId ? (
-                            <Typography variant='body2'>
-                                {t('layouts.detailSourceLayout', 'Source layout id: {{id}}', { id: layout.sourceLayoutId })}
-                            </Typography>
+                            <Typography variant='body2'>{t('layouts.detailSourceLayout', 'Linked to source layout')}</Typography>
                         ) : null}
                     </Stack>
                 </Alert>
@@ -809,6 +841,68 @@ const ApplicationLayouts = () => {
                                                 <MenuItem value='auto'>{t('layouts.rowHeightAuto', 'Auto (multi-line)')}</MenuItem>
                                             </Select>
                                         </FormControl>
+                                        <Box sx={{ width: '100%' }}>
+                                            <Divider sx={{ mb: 1.5 }} />
+                                            <Typography variant='subtitle2' sx={{ mb: 1 }}>
+                                                {t('layouts.sideMenu.title', 'Side menu display')}
+                                            </Typography>
+                                            <Stack spacing={1}>
+                                                {EDITABLE_SIDE_MENU_MODES.map((mode) => {
+                                                    const isChecked = sideMenuConfig.availableModes.includes(mode)
+                                                    const isLastAvailableMode = isChecked && sideMenuConfig.availableModes.length === 1
+
+                                                    return (
+                                                        <FormControlLabel
+                                                            key={mode}
+                                                            control={
+                                                                <Switch
+                                                                    checked={isChecked}
+                                                                    disabled={isLastAvailableMode}
+                                                                    onChange={(_, checked) => {
+                                                                        const nextModes = checked
+                                                                            ? [...sideMenuConfig.availableModes, mode]
+                                                                            : sideMenuConfig.availableModes.filter(
+                                                                                  (value) => value !== mode
+                                                                              )
+                                                                        void handleSideMenuConfigChange({ availableModes: nextModes })
+                                                                    }}
+                                                                />
+                                                            }
+                                                            label={t(`layouts.sideMenu.modes.${mode}`, mode)}
+                                                        />
+                                                    )
+                                                })}
+                                                <FormControl size='small' sx={{ minWidth: 180 }}>
+                                                    <InputLabel>{t('layouts.sideMenu.primaryMode', 'Primary display mode')}</InputLabel>
+                                                    <Select
+                                                        value={sideMenuConfig.primaryMode}
+                                                        label={t('layouts.sideMenu.primaryMode', 'Primary display mode')}
+                                                        onChange={(event) =>
+                                                            void handleSideMenuConfigChange({
+                                                                primaryMode: event.target.value as DashboardSideMenuMode
+                                                            })
+                                                        }
+                                                    >
+                                                        {sideMenuConfig.availableModes.map((mode) => (
+                                                            <MenuItem key={mode} value={mode}>
+                                                                {t(`layouts.sideMenu.modes.${mode}`, mode)}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Switch
+                                                            checked={sideMenuConfig.rememberUserChoice ?? true}
+                                                            onChange={(_, checked) =>
+                                                                void handleSideMenuConfigChange({ rememberUserChoice: checked })
+                                                            }
+                                                        />
+                                                    }
+                                                    label={t('layouts.sideMenu.rememberUserChoice', 'Remember user choice')}
+                                                />
+                                            </Stack>
+                                        </Box>
                                     </Stack>
                                 </PaperSection>
                             </Stack>

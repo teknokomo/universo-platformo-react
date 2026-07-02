@@ -3264,7 +3264,13 @@ function DetailsTabsWidget({
  *
  * @param depth - Current nesting depth for columnsContainer (0 = top level). Used internally for recursion guard.
  */
-export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, fallbackMenu?: DashboardMenuSlot, depth = 0): ReactNode {
+export function renderWidget(
+    widget: ZoneWidgetItem,
+    menus?: DashboardMenusMap,
+    fallbackMenu?: DashboardMenuSlot,
+    depth = 0,
+    menuVariant: 'wide' | 'compact' = 'wide'
+): ReactNode {
     switch (widget.widgetKey) {
         case 'brandSelector':
             return (
@@ -3276,7 +3282,7 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             return <Divider key={widget.id} />
         case 'menuWidget': {
             const resolved = resolveMenuForWidget(widget, menus, fallbackMenu)
-            return <MenuContent key={widget.id} menu={resolved} />
+            return <MenuContent key={widget.id} menu={resolved} variant={menuVariant} />
         }
         case 'workspaceSwitcher':
             return (

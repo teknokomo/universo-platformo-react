@@ -400,8 +400,21 @@
         "shareUntitledMember": "Участник рабочего пространства",
         "shareSubmit": "Поделиться",
         "menu": {
+            "changeMode": "Сменить режим бокового меню: {{mode}}",
+            "enableCompactMenu": "Включить компактное меню",
+            "enableWideMenu": "Включить широкое меню",
+            "contextPanel": "Контекстная панель",
+            "openOverlay": "Открыть меню-шторку",
+            "useDockedMenu": "Включить обычное меню",
+            "useOverlayMenu": "Включить меню-шторку",
+            "modes": {
+                "wide": "Широкое",
+                "compact": "Компактное",
+                "overlay": "Шторка"
+            },
             "more": "Ещё",
-            "navigation": "Навигация приложения"
+            "navigation": "Навигация приложения",
+            "open": "Открыть меню"
         }
     },
     "trash": {

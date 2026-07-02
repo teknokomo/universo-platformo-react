@@ -381,7 +381,7 @@ export function FlowListTable<T extends FlowListTableData>({
                         <TableRow>
                             <StyledTableCell colSpan={columns.length + (renderActions ? 1 : 0) + (sortableRows ? 1 : 0)} align='center'>
                                 <Typography variant='body2' color='text.secondary'>
-                                    {t('runtime.table.noRecords')}
+                                    {t('runtime.table.noRecords', 'No records')}
                                 </Typography>
                             </StyledTableCell>
                         </TableRow>

@@ -1,47 +1,71 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { styled } from '@mui/material/styles'
 import AppBar from '@mui/material/AppBar'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import MuiToolbar from '@mui/material/Toolbar'
 import { tabsClasses } from '@mui/material/Tabs'
-import Typography from '@mui/material/Typography'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import WidgetsRoundedIcon from '@mui/icons-material/WidgetsRounded'
-import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
+import ViewSidebarRoundedIcon from '@mui/icons-material/ViewSidebarRounded'
 import SideMenuMobile from './SideMenuMobile'
 import SideMenuMobileRight from './SideMenuMobileRight'
 import MenuButton from './MenuButton'
 import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
+import i18n from '@universo-react/i18n'
+import type { DashboardSideMenuMode } from '@universo-react/types'
 import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem, ZoneWidgets } from '../Dashboard'
 
-const Toolbar = styled(MuiToolbar)({
+const drawerWidth = 240
+const compactDrawerWidth = 72
+
+const Toolbar = styled(MuiToolbar)(({ theme }) => ({
     width: '100%',
-    padding: '12px',
+    minHeight: 56,
+    padding: '12px 24px',
     display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'start',
-    justifyContent: 'center',
-    gap: '12px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
     flexShrink: 0,
     [`& ${tabsClasses.flexContainer}`]: {
         gap: '8px',
         p: '8px',
         pb: 0
+    },
+    [theme.breakpoints.down('sm')]: {
+        padding: '12px 16px'
     }
-})
+}))
 
 interface AppNavbarProps {
     menu?: DashboardMenuSlot
     menus?: DashboardMenusMap
     rightWidgets?: ZoneWidgetItem[]
     zoneWidgets?: ZoneWidgets
+    sideMenuMode?: DashboardSideMenuMode
+    availableSideMenuModes?: DashboardSideMenuMode[]
+    reserveDockedSideMenuWidth?: boolean
+    onToggleDockedSideMenuMode?: () => void
+    onOpenSideMenu?: () => void
 }
 
-export default function AppNavbar({ menu, menus, rightWidgets = [], zoneWidgets }: AppNavbarProps) {
+export default function AppNavbar({
+    menu,
+    menus,
+    rightWidgets = [],
+    zoneWidgets,
+    sideMenuMode = 'wide',
+    availableSideMenuModes = ['wide'],
+    reserveDockedSideMenuWidth = true,
+    onToggleDockedSideMenuMode,
+    onOpenSideMenu
+}: AppNavbarProps) {
     const [leftOpen, setLeftOpen] = React.useState(false)
     const [rightOpen, setRightOpen] = React.useState(false)
+    const { t } = useTranslation('apps', { i18n })
 
     const toggleLeftDrawer = (newOpen: boolean) => () => {
         setLeftOpen(newOpen)
@@ -53,48 +77,119 @@ export default function AppNavbar({ menu, menus, rightWidgets = [], zoneWidgets 
         if (newOpen) setLeftOpen(false)
     }
 
-    const title = menu?.showTitle && menu?.title ? menu.title : 'Dashboard'
     const hasRightWidgets = rightWidgets.length > 0
+    const canToggleDockedMode =
+        availableSideMenuModes.includes('wide') &&
+        availableSideMenuModes.includes('compact') &&
+        typeof onToggleDockedSideMenuMode === 'function'
+    const showModeSwitcher = canToggleDockedMode
+    const dockedModeToggleLabel =
+        sideMenuMode === 'compact'
+            ? t('runtime.menu.enableWideMenu', 'Enable wide menu')
+            : t('runtime.menu.enableCompactMenu', 'Enable compact menu')
+    const canOpenOverlayMenu = availableSideMenuModes.includes('overlay') && typeof onOpenSideMenu === 'function'
+    const appBarLeft = reserveDockedSideMenuWidth
+        ? sideMenuMode === 'compact'
+            ? compactDrawerWidth
+            : sideMenuMode === 'wide'
+            ? drawerWidth
+            : 0
+        : 0
+    const handleOpenLeftMenu = () => {
+        if (sideMenuMode === 'overlay' && canOpenOverlayMenu) {
+            onOpenSideMenu?.()
+            return
+        }
+        toggleLeftDrawer(true)()
+    }
 
     return (
         <AppBar
             position='fixed'
             sx={{
-                display: { xs: 'auto', md: 'none' },
+                display: { xs: 'block', md: sideMenuMode === 'overlay' || showModeSwitcher ? 'block' : 'none' },
+                right: 0,
+                left: { xs: 0, md: appBarLeft },
                 boxShadow: 0,
-                bgcolor: 'background.paper',
+                bgcolor: 'transparent',
                 backgroundImage: 'none',
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                top: 'var(--template-frame-height, 0px)'
+                borderBottom: 0,
+                pointerEvents: 'none',
+                top: 'var(--template-frame-height, 0px)',
+                width: 'auto'
             }}
         >
-            <Toolbar variant='regular'>
+            {sideMenuMode === 'overlay' && canOpenOverlayMenu ? (
+                <Box
+                    data-testid='runtime-overlay-menu-edge-control'
+                    sx={{
+                        position: 'fixed',
+                        top: 'calc(var(--template-frame-height, 0px) + 12px)',
+                        left: { xs: '16px', sm: '24px' },
+                        pointerEvents: 'auto'
+                    }}
+                >
+                    <MenuButton aria-label={t('runtime.menu.open', 'Open menu')} onClick={handleOpenLeftMenu}>
+                        <MenuRoundedIcon />
+                    </MenuButton>
+                </Box>
+            ) : null}
+            <Toolbar
+                variant='regular'
+                data-testid='runtime-app-toolbar'
+                sx={{
+                    maxWidth: '100%',
+                    mx: 'auto'
+                }}
+            >
                 <Stack
                     direction='row'
                     sx={{
                         alignItems: 'center',
                         flexGrow: 1,
                         width: '100%',
-                        gap: 1
+                        gap: 1,
+                        justifyContent: 'flex-end'
                     }}
                 >
-                    <Stack direction='row' spacing={1} sx={{ justifyContent: 'center', mr: 'auto' }}>
-                        <CustomIcon />
-                        <Typography variant='h4' component='h1' sx={{ color: 'text.primary' }}>
-                            {title}
-                        </Typography>
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        useFlexGap
+                        data-testid='runtime-app-toolbar-actions'
+                        sx={{ alignItems: 'center', pointerEvents: 'auto' }}
+                    >
+                        <LanguageSwitcher />
+                        <ColorModeIconDropdown data-testid='runtime-color-mode-button' />
+                        {showModeSwitcher && sideMenuMode !== 'overlay' && (
+                            <Box sx={{ display: { xs: 'inline-flex', md: 'none' } }}>
+                                <MenuButton
+                                    aria-label={dockedModeToggleLabel}
+                                    title={dockedModeToggleLabel}
+                                    onClick={onToggleDockedSideMenuMode}
+                                >
+                                    <ViewSidebarRoundedIcon />
+                                </MenuButton>
+                            </Box>
+                        )}
+                        {hasRightWidgets && (
+                            <MenuButton aria-label={t('runtime.menu.contextPanel', 'Context panel')} onClick={toggleRightDrawer(true)}>
+                                <WidgetsRoundedIcon />
+                            </MenuButton>
+                        )}
+                        <Box
+                            sx={{
+                                display: {
+                                    xs: sideMenuMode === 'overlay' && canOpenOverlayMenu ? 'none' : 'inline-flex',
+                                    md: 'none'
+                                }
+                            }}
+                        >
+                            <MenuButton aria-label={t('runtime.menu.open', 'Open menu')} onClick={handleOpenLeftMenu}>
+                                <MenuRoundedIcon />
+                            </MenuButton>
+                        </Box>
                     </Stack>
-                    <LanguageSwitcher />
-                    <ColorModeIconDropdown />
-                    {hasRightWidgets && (
-                        <MenuButton aria-label='context panel' onClick={toggleRightDrawer(true)}>
-                            <WidgetsRoundedIcon />
-                        </MenuButton>
-                    )}
-                    <MenuButton aria-label='menu' onClick={toggleLeftDrawer(true)}>
-                        <MenuRoundedIcon />
-                    </MenuButton>
                     <SideMenuMobile open={leftOpen} toggleDrawer={toggleLeftDrawer} menu={menu} menus={menus} zoneWidgets={zoneWidgets} />
                     {hasRightWidgets && (
                         <SideMenuMobileRight
@@ -108,29 +203,5 @@ export default function AppNavbar({ menu, menus, rightWidgets = [], zoneWidgets 
                 </Stack>
             </Toolbar>
         </AppBar>
-    )
-}
-
-export function CustomIcon() {
-    return (
-        <Box
-            sx={{
-                width: '1.5rem',
-                height: '1.5rem',
-                bgcolor: 'black',
-                borderRadius: '999px',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                alignSelf: 'center',
-                backgroundImage: 'linear-gradient(135deg, hsl(210, 98%, 60%) 0%, hsl(210, 100%, 35%) 100%)',
-                color: 'hsla(210, 100%, 95%, 0.9)',
-                border: '1px solid',
-                borderColor: 'hsl(210, 100%, 55%)',
-                boxShadow: 'inset 0 2px 5px rgba(255, 255, 255, 0.3)'
-            }}
-        >
-            <DashboardRoundedIcon color='inherit' sx={{ fontSize: '1rem' }} />
-        </Box>
     )
 }

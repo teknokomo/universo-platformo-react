@@ -2,7 +2,7 @@
 
 The **Interpretation Network** template adds a real interpretation-network workspace to the Universo Platformo metahub catalog. It is the Stage-1 delivery for generic interpretation-network applications and ships:
 
--   A pre-defined **Concept / Interpretation / Relation / Material** runtime model on top of the base `object`, `page`, and `enumeration` presets.
+-   A pre-defined **Structure / Interpretation / Relation / Material** runtime model on top of the base `object`, `page`, and `enumeration` presets.
 -   Three closed enumerations — **Context**, **RelationType**, and **CellColor** — that drive per-cell styling and graph edges.
 -   A reusable **interpretationNetworkWorkspace** runtime widget in `packages/universo-react-apps-template-mui` that renders the two-pane workspace without reviving generic dashboard clutter.
 -   A dedicated `cellStylePicker` field widget for the Interpretation Matrix color and border controls.
@@ -10,7 +10,7 @@ The **Interpretation Network** template adds a real interpretation-network works
 
 ## When to use it
 
--   You need a multi-context knowledge graph: terms that have several interpretations depending on the domain.
+-   You need a multi-context knowledge graph: structures that have several interpretations depending on the domain.
 -   You need cell-level styling (background color + per-side border) that round-trips through the snapshot envelope.
 -   You need typed edges between concepts, interpretations, and individual cells.
 -   You need a workspace-scoped table-template flow so users can create or copy reusable matrix structures inside the published app.
@@ -19,7 +19,7 @@ The **Interpretation Network** template adds a real interpretation-network works
 
 The published app keeps the normal left application navigation. The central workspace uses the new interpretation-network widget and shows:
 
--   left pane: structure tree + matrix;
+-   left pane: structure list and the opened structure's Matrix tab;
 -   right pane: materials attached to the selected matrix cell.
 
 The workspace is intentionally operational, not decorative. It reuses shared runtime primitives and generic CRUD/dialog/material controls instead of introducing a one-off dashboard shell.
@@ -45,7 +45,7 @@ The published application renders:
 -   left application menu: the normal workspace/navigation shell;
 -   interpretation workspace: the new `interpretationNetworkWorkspace` widget;
 -   left pane before opening a structure: the structure list and Create structure action;
--   left pane after opening a structure: that structure's internal matrix and matrix actions;
+-   left pane after opening a structure: the structure title and a `Matrix` tab with matrix actions;
 -   right pane: materials attached to the selected matrix cell.
 
 ## Cell styling
@@ -54,7 +54,7 @@ Each matrix cell carries a stable `CellId` (UUID v7) plus flat color and border 
 
 ## Material attachment
 
-Materials use the Page-like object contract with title, description, and Editor.js block content. In the application UI they are shown as Materials, scoped to the selected matrix cell, with table/card modes and title filtering.
+Materials use the Page-like object contract with title, description, and Editor.js block content. In the application UI they are shown as Materials, scoped to the selected matrix cell, with table/card modes and title filtering. Structure creation exposes only `Name` and `Description`; Context remains part of interpretations, not a required Structure form field.
 
 ## Workspace table templates
 

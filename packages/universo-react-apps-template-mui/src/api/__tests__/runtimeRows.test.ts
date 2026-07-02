@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     batchUpdateTabularRows,
+    compensateCreatedAppRow,
     copyAppRow,
     createAppRow,
     deleteAppRow,
@@ -12,6 +13,7 @@ import {
     restoreAppRow,
     setRuntimeLibraryRelation,
     updateAppRow,
+    updateTabularRow,
     updateLearningContentProgress
 } from '../api'
 
@@ -97,6 +99,57 @@ describe('runtime row API helpers', () => {
             offset: 0,
             locale: 'en',
             libraryView: 'shared'
+        })
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('passes page-backed runtime section ids without coercing them to object collections', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            expect(url.pathname).toBe('/api/v1/applications/app-1/runtime')
+            expect(url.searchParams.get('sectionId')).toBe('page-section-1')
+            expect(url.searchParams.get('objectCollectionId')).toBeNull()
+            return new Response(JSON.stringify(runtimeListResponse), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await fetchAppData({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            sectionId: 'page-section-1',
+            limit: 20,
+            offset: 0,
+            locale: 'en'
+        })
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps explicit object collection ids when a runtime section also resolves to one', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            expect(url.pathname).toBe('/api/v1/applications/app-1/runtime')
+            expect(url.searchParams.get('sectionId')).toBe('section-1')
+            expect(url.searchParams.get('objectCollectionId')).toBe('collection-1')
+            return new Response(JSON.stringify(runtimeListResponse), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await fetchAppData({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            sectionId: 'section-1',
+            objectCollectionId: 'collection-1',
+            limit: 20,
+            offset: 0,
+            locale: 'en'
         })
 
         expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -455,6 +508,35 @@ describe('runtime row API helpers', () => {
         expect(new Headers(deleteRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 
+    it('uses the dedicated create-compensation endpoint with fixed expected version one', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/rows/row-1/compensate-create?workspaceId=workspace-1')
+            return new Response(null, { status: 204 })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await compensateCreatedAppRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1'
+        })
+
+        const request = fetchMock.mock.calls[1]?.[1] as RequestInit
+        expect(request.method).toBe('POST')
+        expect(request.body).toBe(JSON.stringify({ expectedVersion: 1, objectCollectionId: 'collection-1' }))
+        expect(new Headers(request.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    })
+
     it('copies a runtime row through the generic copy endpoint with overrides and optimistic version', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input)
@@ -717,5 +799,43 @@ describe('runtime row API helpers', () => {
             })
         )
         expect(new Headers(batchRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    })
+
+    it('persists tabular row optimistic version in the update body', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            expect(url).toBe(
+                'http://localhost:3000/api/v1/applications/app-1/runtime/rows/row-1/tabular/component-1/child-1?objectCollectionId=collection-1&workspaceId=workspace-1'
+            )
+            return new Response(JSON.stringify({ id: 'child-1' }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await updateTabularRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            parentRecordId: 'row-1',
+            componentId: 'component-1',
+            objectCollectionId: 'collection-1',
+            workspaceId: 'workspace-1',
+            childRowId: 'child-1',
+            data: { Title: 'Updated child' },
+            expectedVersion: 6
+        })
+
+        const updateRequest = fetchMock.mock.calls[1]?.[1] as RequestInit
+        expect(updateRequest.method).toBe('PATCH')
+        expect(updateRequest.body).toBe(JSON.stringify({ data: { Title: 'Updated child' }, expectedVersion: 6 }))
+        expect(new Headers(updateRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 })

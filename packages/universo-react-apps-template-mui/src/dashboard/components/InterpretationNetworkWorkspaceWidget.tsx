@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -13,6 +15,8 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -23,13 +27,13 @@ import KeyboardArrowLeftRoundedIcon from '@mui/icons-material/KeyboardArrowLeftR
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded'
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded'
 import type { GridColDef } from '@mui/x-data-grid'
-import { createLocalizedContent, normalizeLocale } from '@universo-react/utils'
+import { createLocalizedContent, generateUuidV7, normalizeLocale } from '@universo-react/utils'
 import {
     type AppDataResponse,
     batchUpdateTabularRows,
+    compensateCreatedAppRow,
     createAppRow,
     createTabularRow,
-    deleteAppRow,
     deleteTabularRow,
     fetchAppData,
     fetchTabularRows,
@@ -57,6 +61,7 @@ import {
     isStyleColumn,
     readColumnText,
     readColumnValue,
+    resolveMatrixCellId,
     summarizeEditorJsContent,
     toConfig,
     toFieldConfig,
@@ -111,6 +116,24 @@ const readSubmittedTextByConfiguredField = (
         if (value) return value
     }
     return readSubmittedTextByField(data, locale, lookupKeys)
+}
+
+const readRuntimeRowVersion = (row: RuntimeRow | null | undefined): number | undefined => {
+    const rawValue = row?._upl_version
+    const value =
+        typeof rawValue === 'number' ? rawValue : typeof rawValue === 'string' && rawValue.trim().length > 0 ? Number(rawValue) : Number.NaN
+    return Number.isInteger(value) && value > 0 ? value : undefined
+}
+
+const makeAdjacentMatrixColumnLabel = (targetLabel: string, sameRowLabels: Set<string>): string => {
+    const baseLabel = targetLabel.trim() || 'Column'
+    let index = 2
+    let candidate = `${baseLabel} ${index}`
+    while (sameRowLabels.has(candidate)) {
+        index += 1
+        candidate = `${baseLabel} ${index}`
+    }
+    return candidate
 }
 
 const fetchAllWorkspaceData = async (base: Omit<WorkspaceDataRequest, 'limit' | 'offset'>): Promise<AppDataResponse> => {
@@ -279,9 +302,7 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
         () =>
             (query.data?.concepts.columns ?? [])
                 .filter((column) =>
-                    [widgetConfig.conceptNameField, widgetConfig.conceptDescriptionField, 'Context'].includes(
-                        column.codename ?? column.field ?? ''
-                    )
+                    [widgetConfig.conceptNameField, widgetConfig.conceptDescriptionField].includes(column.codename ?? column.field ?? '')
                 )
                 .map(toFieldConfig)
                 .filter((field) => field.id),
@@ -340,12 +361,22 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
     const rawMatrixRowsByCellId = useMemo(() => {
         const childColumns = matrixColumn?.childColumns ?? []
         return new Map(
-            (matrixRowsQuery.data?.items ?? []).flatMap((row) => {
-                const rawCellId = readColumnValue(row, childColumns, 'CellId')
-                return typeof rawCellId === 'string' && rawCellId.trim() ? [[rawCellId, row] as const] : []
+            (matrixRowsQuery.data?.items ?? []).flatMap((row, index) => {
+                if (!row || typeof row !== 'object' || Array.isArray(row)) return []
+                return [[resolveMatrixCellId(row as Record<string, unknown>, childColumns, index), row] as const]
             })
         )
     }, [matrixColumn?.childColumns, matrixRowsQuery.data?.items])
+    const matrixRowsSnapshotRef = useRef<{ cells: typeof matrixCells; rawRowsByCellId: typeof rawMatrixRowsByCellId }>({
+        cells: [],
+        rawRowsByCellId: new Map()
+    })
+    useEffect(() => {
+        matrixRowsSnapshotRef.current = {
+            cells: matrixCells,
+            rawRowsByCellId: rawMatrixRowsByCellId
+        }
+    }, [matrixCells, rawMatrixRowsByCellId])
     const selectedCell = selectedInterpretation ? matrixCells.find((cell) => cell.id === selectedCellId) : undefined
     const selectedRawCell = selectedCell ? rawMatrixRowsByCellId.get(selectedCell.id) : undefined
     const menuCell = selectedInterpretation ? matrixCells.find((cell) => cell.id === cellMenuCellId) : undefined
@@ -393,12 +424,16 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
     const interpretationsByConcept = useMemo(() => {
         const byConcept = new Map<string, RuntimeRow[]>()
         for (const interpretation of interpretations) {
-            const parentConcept = readColumnValue(interpretation, query.data?.interpretations.columns, 'ParentConcept')
-            const conceptId = typeof parentConcept === 'string' ? parentConcept : ''
+            const parentStructure = readColumnValue(
+                interpretation,
+                query.data?.interpretations.columns,
+                widgetConfig.interpretationParentField
+            )
+            const conceptId = typeof parentStructure === 'string' ? parentStructure : ''
             byConcept.set(conceptId, [...(byConcept.get(conceptId) ?? []), interpretation])
         }
         return byConcept
-    }, [interpretations, query.data?.interpretations.columns])
+    }, [interpretations, query.data?.interpretations.columns, widgetConfig.interpretationParentField])
     const structureSummaries = useMemo<StructureSummary[]>(
         () =>
             concepts.map((concept) => {
@@ -441,7 +476,12 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
             })),
         [matrixCells, rows]
     )
+    const matrixCellIds = useMemo(() => matrixCells.map((cell) => cell.id), [matrixCells])
     const pendingMoveKeyRef = useRef<string | null>(null)
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    )
 
     useEffect(() => {
         if (selectedInterpretationId && !interpretations.some((row) => row.id === selectedInterpretationId)) {
@@ -528,7 +568,6 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
             const normalizedLocale = normalizeLocale(locale)
             const structureName =
                 readSubmittedTextByConfiguredField(data, normalizedLocale, widgetConfig.conceptNameField, structureFields, [
-                    'Term',
                     'Name',
                     'Title'
                 ]) || t('workspace.structure.newName', 'New structure')
@@ -542,23 +581,32 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
             if (typeof concept.id !== 'string') return { concept, interpretation: null }
             const conceptId = concept.id
 
+            const interpretationData: Record<string, unknown> = {
+                [widgetConfig.interpretationTitleField]: createLocalizedContent(
+                    normalizedLocale,
+                    t('workspace.structure.newInterpretationTitle', {
+                        defaultValue: '{{name}} matrix',
+                        name: structureName
+                    })
+                ),
+                [widgetConfig.interpretationParentField]: conceptId
+            }
+            if (matrixColumn) {
+                interpretationData[widgetConfig.matrixField] = [
+                    buildDefaultMatrixCellData(matrixColumn.childColumns, normalizedLocale, {
+                        row: t('workspace.defaults.definition', 'Definition'),
+                        column: t('workspace.defaults.meaning', 'Meaning')
+                    })
+                ]
+            }
             const created = await createAppRow({
                 apiBaseUrl: details.apiBaseUrl,
                 applicationId: details.applicationId,
                 workspaceId: details.currentWorkspaceId,
                 objectCollectionId: interpretationSectionId,
-                data: {
-                    [widgetConfig.interpretationTitleField]: createLocalizedContent(
-                        normalizedLocale,
-                        t('workspace.structure.newInterpretationTitle', {
-                            defaultValue: '{{name}} matrix',
-                            name: structureName
-                        })
-                    ),
-                    [widgetConfig.interpretationParentField]: conceptId
-                }
+                data: interpretationData
             }).catch(async (error) => {
-                await deleteAppRow({
+                await compensateCreatedAppRow({
                     apiBaseUrl: details.apiBaseUrl!,
                     applicationId: details.applicationId!,
                     workspaceId: details.currentWorkspaceId,
@@ -567,38 +615,6 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
                 }).catch(() => undefined)
                 throw error
             })
-            if (typeof created.id === 'string' && matrixColumn?.id) {
-                try {
-                    await createTabularRow({
-                        apiBaseUrl: details.apiBaseUrl,
-                        applicationId: details.applicationId,
-                        workspaceId: details.currentWorkspaceId,
-                        parentRecordId: created.id,
-                        componentId: matrixColumn.id,
-                        objectCollectionId: interpretationSectionId,
-                        data: buildDefaultMatrixCellData(matrixColumn.childColumns, normalizedLocale, {
-                            row: t('workspace.defaults.definition', 'Definition'),
-                            column: t('workspace.defaults.meaning', 'Meaning')
-                        })
-                    })
-                } catch (error) {
-                    await deleteAppRow({
-                        apiBaseUrl: details.apiBaseUrl,
-                        applicationId: details.applicationId,
-                        workspaceId: details.currentWorkspaceId,
-                        rowId: created.id,
-                        objectCollectionId: interpretationSectionId
-                    }).catch(() => undefined)
-                    await deleteAppRow({
-                        apiBaseUrl: details.apiBaseUrl,
-                        applicationId: details.applicationId,
-                        workspaceId: details.currentWorkspaceId,
-                        rowId: conceptId,
-                        objectCollectionId: conceptSectionId
-                    }).catch(() => undefined)
-                    throw error
-                }
-            }
             return { concept, interpretation: created }
         },
         onSuccess: async (created) => {
@@ -647,7 +663,8 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
                     componentId: matrixColumn.id,
                     objectCollectionId: interpretationSectionId,
                     childRowId: selectedRawCell.id,
-                    data
+                    data,
+                    expectedVersion: readRuntimeRowVersion(selectedRawCell)
                 })
             }
 
@@ -696,7 +713,15 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
         !canEditContent || !selectedInterpretation || !matrixColumn?.id || matrixRowsQuery.isError || matrixRowsQuery.isFetching
 
     const moveCellMutation = useMutation({
-        mutationFn: async ({ sourceCellId, targetCellId }: { sourceCellId: string; targetCellId: string }) => {
+        mutationFn: async ({
+            sourceCellId,
+            targetCellId,
+            placement = 'after'
+        }: {
+            sourceCellId: string
+            targetCellId: string
+            placement?: 'before' | 'after'
+        }) => {
             if (!canEditContent) throw new Error('permission-denied')
             if (
                 !details?.apiBaseUrl ||
@@ -708,27 +733,35 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
             ) {
                 return null
             }
-            const source = matrixCells.find((cell) => cell.id === sourceCellId)
-            const target = matrixCells.find((cell) => cell.id === targetCellId)
-            const sourceRaw = rawMatrixRowsByCellId.get(sourceCellId)
-            const targetRaw = rawMatrixRowsByCellId.get(targetCellId)
+            const { cells: currentMatrixCells, rawRowsByCellId: currentRawMatrixRowsByCellId } = matrixRowsSnapshotRef.current
+            const source = currentMatrixCells.find((cell) => cell.id === sourceCellId)
+            const target = currentMatrixCells.find((cell) => cell.id === targetCellId)
+            const sourceRaw = currentRawMatrixRowsByCellId.get(sourceCellId)
+            const targetRaw = currentRawMatrixRowsByCellId.get(targetCellId)
             if (!source || !target || !sourceRaw || !targetRaw) return null
 
-            const sourceSlot = {
-                RowKey: source.rowKey,
-                RowLabel: readColumnValue(sourceRaw, matrixColumn.childColumns, 'RowLabel'),
-                ColKey: source.colKey,
-                ColLabel: readColumnValue(sourceRaw, matrixColumn.childColumns, 'ColLabel')
-            }
             const targetSlot = {
                 RowKey: target.rowKey,
                 RowLabel: readColumnValue(targetRaw, matrixColumn.childColumns, 'RowLabel'),
-                ColKey: target.colKey,
-                ColLabel: readColumnValue(targetRaw, matrixColumn.childColumns, 'ColLabel')
+                ColKey: source.rowKey === target.rowKey ? source.colKey : `column-${generateUuidV7()}`,
+                ColLabel:
+                    source.rowKey === target.rowKey
+                        ? readColumnValue(sourceRaw, matrixColumn.childColumns, 'ColLabel')
+                        : createLocalizedContent(
+                              normalizeLocale(locale),
+                              makeAdjacentMatrixColumnLabel(
+                                  target.colLabel,
+                                  new Set(
+                                      currentMatrixCells
+                                          .filter((cell) => cell.rowKey === target.rowKey && cell.id !== source.id)
+                                          .map((cell) => cell.colLabel)
+                                  )
+                              )
+                          )
             }
             const buildMovedCellData = (
                 rawCell: RuntimeRow,
-                slot: { RowKey: string; RowLabel: unknown; ColKey: string; ColLabel: unknown }
+                slot: { RowKey: string; RowLabel: unknown; ColKey: string; ColLabel: unknown; _tp_sort_order?: number }
             ) => {
                 const data: Record<string, unknown> = {}
                 for (const column of matrixColumn.childColumns ?? []) {
@@ -741,6 +774,49 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
                 }
                 return { ...data, ...slot }
             }
+            const rowOrder = Array.from(new Set(currentMatrixCells.map((cell) => cell.rowKey)))
+            const cellsByRow = new Map(rowOrder.map((rowKey) => [rowKey, currentMatrixCells.filter((cell) => cell.rowKey === rowKey)]))
+            if (source.rowKey === target.rowKey) {
+                const rowCells = cellsByRow.get(source.rowKey) ?? []
+                const sourceIndex = rowCells.findIndex((cell) => cell.id === sourceCellId)
+                const targetIndex = rowCells.findIndex((cell) => cell.id === targetCellId)
+                const insertionIndex = placement === 'before' ? targetIndex : targetIndex + 1
+                cellsByRow.set(
+                    source.rowKey,
+                    arrayMove(rowCells, sourceIndex, sourceIndex < insertionIndex ? insertionIndex - 1 : insertionIndex)
+                )
+            } else {
+                const sourceRowCells = (cellsByRow.get(source.rowKey) ?? []).filter((cell) => cell.id !== sourceCellId)
+                const targetRowCells = (cellsByRow.get(target.rowKey) ?? []).filter((cell) => cell.id !== sourceCellId)
+                const targetIndex = targetRowCells.findIndex((cell) => cell.id === targetCellId)
+                const insertionIndex = Math.max(0, placement === 'before' ? targetIndex : targetIndex + 1)
+                targetRowCells.splice(insertionIndex, 0, {
+                    ...source,
+                    rowKey: targetSlot.RowKey,
+                    rowLabel: target.rowLabel,
+                    colKey: targetSlot.ColKey,
+                    colLabel: readSubmittedText(targetSlot.ColLabel, normalizeLocale(locale)) || source.colLabel
+                })
+                cellsByRow.set(source.rowKey, sourceRowCells)
+                cellsByRow.set(target.rowKey, targetRowCells)
+            }
+            const reordered = rowOrder.flatMap((rowKey) => cellsByRow.get(rowKey) ?? [])
+            const desiredSortOrderByCellId = new Map(reordered.map((cell, index) => [cell.id, index]))
+            const orderUpdates = reordered
+                .filter((cell) => cell.id !== sourceCellId && cell.sortOrder !== desiredSortOrderByCellId.get(cell.id))
+                .flatMap((cell) => {
+                    const rawCell = currentRawMatrixRowsByCellId.get(cell.id)
+                    const nextSortOrder = desiredSortOrderByCellId.get(cell.id)
+                    if (!rawCell || typeof rawCell.id !== 'string' || nextSortOrder == null) return []
+                    return [
+                        {
+                            childRowId: rawCell.id,
+                            data: { _tp_sort_order: nextSortOrder },
+                            expectedVersion: readRuntimeRowVersion(rawCell)
+                        }
+                    ]
+                })
+            const sourceSortOrder = desiredSortOrderByCellId.get(sourceCellId) ?? target.sortOrder
 
             await batchUpdateTabularRows({
                 apiBaseUrl: details.apiBaseUrl,
@@ -752,12 +828,10 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
                 updates: [
                     {
                         childRowId: sourceRaw.id,
-                        data: buildMovedCellData(targetRaw, sourceSlot)
+                        data: buildMovedCellData(sourceRaw, { ...targetSlot, _tp_sort_order: sourceSortOrder }),
+                        expectedVersion: readRuntimeRowVersion(sourceRaw)
                     },
-                    {
-                        childRowId: targetRaw.id,
-                        data: buildMovedCellData(sourceRaw, targetSlot)
-                    }
+                    ...orderUpdates
                 ]
             })
             return { selectedCellIdAfterMove: sourceCellId }
@@ -775,21 +849,33 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
     })
 
     const handleMoveCell = useCallback(
-        (sourceCellId: string, targetCellId: string) => {
+        (sourceCellId: string, targetCellId: string, placement: 'before' | 'after' = 'after') => {
             if (!sourceCellId || !targetCellId || sourceCellId === targetCellId) return
             if (matrixMutationsDisabled || moveCellMutation.isPending) return
-            const moveKey = `${sourceCellId}:${targetCellId}`
+            const moveKey = `${sourceCellId}:${targetCellId}:${placement}`
             if (pendingMoveKeyRef.current === moveKey) return
             pendingMoveKeyRef.current = moveKey
-            moveCellMutation.mutate({ sourceCellId, targetCellId })
+            moveCellMutation.mutate({ sourceCellId, targetCellId, placement })
         },
         [matrixMutationsDisabled, moveCellMutation]
+    )
+    const handleMatrixDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            const sourceCellId = typeof event.active.id === 'string' ? event.active.id : String(event.active.id)
+            const targetCellId = event.over ? (typeof event.over.id === 'string' ? event.over.id : String(event.over.id)) : null
+            if (!targetCellId || sourceCellId === targetCellId) return
+            const sourceIndex = matrixCellIds.indexOf(sourceCellId)
+            const targetIndex = matrixCellIds.indexOf(targetCellId)
+            const placement = sourceIndex >= 0 && targetIndex >= 0 && sourceIndex > targetIndex ? 'before' : 'after'
+            handleMoveCell(sourceCellId, targetCellId, placement)
+        },
+        [handleMoveCell, matrixCellIds]
     )
 
     const saveMaterialMetadataMutation = useMutation({
         mutationFn: async (data: Record<string, unknown>) => {
             if (!details?.apiBaseUrl || !details.applicationId || !materialSectionId) return null
-            if (!selectedInterpretation?.id || !matrixColumn?.id || !selectedRawCell?.id) {
+            if (!selectedInterpretation?.id || !matrixColumn?.id || !selectedRawCell?.id || !interpretationSectionId) {
                 throw new Error('cell-not-selected')
             }
 
@@ -807,26 +893,36 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
             }
 
             if (!canCreateContent || !canEditContent) throw new Error('permission-denied')
-            const created = await createAppRow({
+            const material = await createAppRow({
                 apiBaseUrl: details.apiBaseUrl,
                 applicationId: details.applicationId,
                 workspaceId: details.currentWorkspaceId,
                 objectCollectionId: materialSectionId,
                 data: { ...data, CellId: selectedCell?.id ?? null }
             })
-            if (typeof created.id === 'string') {
+            if (typeof material.id === 'string') {
                 await updateTabularRow({
                     apiBaseUrl: details.apiBaseUrl,
                     applicationId: details.applicationId,
                     workspaceId: details.currentWorkspaceId,
                     parentRecordId: selectedInterpretation.id,
                     componentId: matrixColumn.id,
-                    objectCollectionId: interpretationSectionId!,
+                    objectCollectionId: interpretationSectionId,
                     childRowId: selectedRawCell.id,
-                    data: { MaterialRef: created.id }
+                    data: { MaterialRef: material.id },
+                    expectedVersion: readRuntimeRowVersion(selectedRawCell)
+                }).catch(async (error) => {
+                    await compensateCreatedAppRow({
+                        apiBaseUrl: details.apiBaseUrl!,
+                        applicationId: details.applicationId!,
+                        workspaceId: details.currentWorkspaceId,
+                        rowId: material.id as string,
+                        objectCollectionId: materialSectionId
+                    }).catch(() => undefined)
+                    throw error
                 })
             }
-            return created
+            return material
         },
         onSuccess: async (saved) => {
             setMaterialDialogMode(null)
@@ -963,7 +1059,7 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
         if (!menuCell) return
         const target = getMoveTargetForCell(menuCell, deltaRow, deltaColumn)
         closeCellMenu()
-        if (target) handleMoveCell(menuCell.id, target.id)
+        if (target) handleMoveCell(menuCell.id, target.id, deltaColumn < 0 || deltaRow < 0 ? 'before' : 'after')
     }
     const structureColumns: GridColDef[] = [
         {
@@ -1089,39 +1185,43 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
                     p: 0.5
                 }}
             >
-                {matrixRows.map((row) => (
-                    <Box
-                        key={row.rowKey}
-                        data-testid='interpretation-network-matrix-row'
-                        sx={{
-                            display: 'grid',
-                            gridTemplateColumns: `repeat(${Math.max(row.cells.length, 1)}, minmax(0, 1fr))`,
-                            gap: 1,
-                            minWidth: 0
-                        }}
-                    >
-                        {row.cells.map((cell) => (
-                            <MatrixCellButton
-                                key={cell.id}
-                                cell={cell}
-                                selected={cell.id === selectedCell?.id}
-                                onSelect={() => setSelectedCellId(cell.id)}
-                                dragLabel={t('workspace.cell.drag', 'Drag cell')}
-                                menuLabel={t('workspace.cell.actionsFor', {
-                                    defaultValue: 'Cell actions: {{title}}',
-                                    title: cell.title || t('workspace.emptyCell', 'Empty cell')
-                                })}
-                                onOpenMenu={(event) => {
-                                    setCellMenuAnchor(event.currentTarget)
-                                    setCellMenuCellId(cell.id)
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMatrixDragEnd}>
+                    <SortableContext items={matrixCellIds} strategy={rectSortingStrategy}>
+                        {matrixRows.map((row) => (
+                            <Box
+                                key={row.rowKey}
+                                data-testid='interpretation-network-matrix-row'
+                                sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns: `repeat(${Math.max(row.cells.length, 1)}, minmax(0, 1fr))`,
+                                    gap: 1,
+                                    minWidth: 0
                                 }}
-                                onMoveCell={handleMoveCell}
                             >
-                                {cell.title || t('workspace.emptyCell', 'Empty cell')}
-                            </MatrixCellButton>
+                                {row.cells.map((cell) => (
+                                    <MatrixCellButton
+                                        key={cell.id}
+                                        cell={cell}
+                                        selected={cell.id === selectedCell?.id}
+                                        onSelect={() => setSelectedCellId(cell.id)}
+                                        dragLabel={t('workspace.cell.drag', 'Drag cell')}
+                                        menuLabel={t('workspace.cell.actionsFor', {
+                                            defaultValue: 'Cell actions: {{title}}',
+                                            title: cell.title || t('workspace.emptyCell', 'Empty cell')
+                                        })}
+                                        onOpenMenu={(event) => {
+                                            setCellMenuAnchor(event.currentTarget)
+                                            setCellMenuCellId(cell.id)
+                                        }}
+                                        disabled={matrixMutationsDisabled || moveCellMutation.isPending}
+                                    >
+                                        {cell.title || t('workspace.emptyCell', 'Empty cell')}
+                                    </MatrixCellButton>
+                                ))}
+                            </Box>
                         ))}
-                    </Box>
-                ))}
+                    </SortableContext>
+                </DndContext>
             </Box>
             <Menu anchorEl={cellMenuAnchor} open={Boolean(cellMenuAnchor)} onClose={closeCellMenu}>
                 <MenuItem
@@ -1304,7 +1404,7 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
                                 >
                                     <ArrowBackRoundedIcon fontSize='small' />
                                 </IconButton>
-                                <Box sx={{ minWidth: 0 }}>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
                                     <Typography variant='subtitle1' sx={{ fontWeight: 700 }} noWrap>
                                         {readColumnText(
                                             selectedConcept,
@@ -1313,12 +1413,31 @@ export function InterpretationNetworkWorkspaceWidget({ config }: { config?: Reco
                                             locale
                                         ) || t('workspace.untitledConcept', 'Untitled concept')}
                                     </Typography>
-                                    <Typography variant='caption' color='text.secondary'>
-                                        {t('workspace.matrix', 'Matrix')}
-                                    </Typography>
                                 </Box>
                             </Stack>
-                            {matrixWorkspace}
+                            <Box>
+                                <Tabs
+                                    value='matrix'
+                                    aria-label={t('workspace.structure.tabs', 'Structure sections')}
+                                    sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 40 }}
+                                >
+                                    <Tab
+                                        value='matrix'
+                                        label={t('workspace.matrix', 'Matrix')}
+                                        id='interpretation-network-matrix-tab'
+                                        aria-controls='interpretation-network-matrix-tabpanel'
+                                        sx={{ minHeight: 40 }}
+                                    />
+                                </Tabs>
+                                <Box
+                                    role='tabpanel'
+                                    id='interpretation-network-matrix-tabpanel'
+                                    aria-labelledby='interpretation-network-matrix-tab'
+                                    sx={{ pt: 1.5 }}
+                                >
+                                    {matrixWorkspace}
+                                </Box>
+                            </Box>
                         </Stack>
                     )}
                 </Box>

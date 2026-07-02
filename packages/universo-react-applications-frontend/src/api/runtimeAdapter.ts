@@ -14,6 +14,11 @@ import {
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
 
+const resolveRuntimeTarget = (target?: { objectCollectionId?: string; sectionId?: string }) => ({
+    objectCollectionId: target?.objectCollectionId,
+    sectionId: target?.sectionId ?? target?.objectCollectionId
+})
+
 /**
  * Create a `CrudDataAdapter` for the production (auth'd apiClient) mode.
  *
@@ -36,8 +41,12 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 filters
             }) as Promise<AppDataResponse>,
 
-        fetchRow: (rowId, objectCollectionId) =>
-            getApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
+        fetchRow: (rowId, target) =>
+            getApplicationRuntimeRow({
+                applicationId,
+                rowId,
+                ...resolveRuntimeTarget(target)
+            }),
 
         fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId }) => {
             const resolvedSectionId = sectionId ?? objectCollectionId
@@ -51,21 +60,35 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
             })
         },
 
-        createRow: (data, objectCollectionId) =>
-            createApplicationRuntimeRow({ applicationId, data, objectCollectionId, sectionId: objectCollectionId }),
+        createRow: (data, target) =>
+            createApplicationRuntimeRow({
+                applicationId,
+                data,
+                ...resolveRuntimeTarget(target)
+            }),
 
-        updateRow: (rowId, data, objectCollectionId, expectedVersion) =>
-            updateApplicationRuntimeRow({ applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
+        updateRow: (rowId, data, target, expectedVersion) =>
+            updateApplicationRuntimeRow({
+                applicationId,
+                rowId,
+                data,
+                ...resolveRuntimeTarget(target),
+                expectedVersion
+            }),
 
-        deleteRow: (rowId, objectCollectionId, expectedVersion) =>
-            deleteApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
+        deleteRow: (rowId, target, expectedVersion) =>
+            deleteApplicationRuntimeRow({
+                applicationId,
+                rowId,
+                ...resolveRuntimeTarget(target),
+                expectedVersion
+            }),
 
-        restoreRow: (rowId, objectCollectionId, expectedVersion, restoreTarget) =>
+        restoreRow: (rowId, target, expectedVersion, restoreTarget) =>
             restoreApplicationRuntimeRow({
                 applicationId,
                 rowId,
-                objectCollectionId,
-                sectionId: objectCollectionId,
+                ...resolveRuntimeTarget(target),
                 expectedVersion,
                 restoreTarget
             }),
@@ -105,7 +128,7 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
             reorderApplicationRuntimeRows({
                 applicationId,
                 objectCollectionId,
-                sectionId,
+                sectionId: sectionId ?? objectCollectionId,
                 orderedRowIds,
                 expectedVersionsByRowId
             })

@@ -49,7 +49,8 @@ export {
     setObjectCollectionLayoutBehaviorConfig,
     resolveObjectCollectionRuntimeDashboardLayoutConfig
 } from './objectCollectionRuntimeConfig'
-export { normalizeDashboardLayoutConfig } from './dashboardLayout'
+export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './dashboardLayout'
+export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './menuWidgetTargets'
 export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './menuHref'
 export {
     validateNumber,

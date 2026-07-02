@@ -15,8 +15,8 @@ export const INTERPRETATION_NETWORK_CANONICAL_METAHUB = {
     name: { en: 'Interpretation Network', ru: 'Трактовочная сеть' },
     codename: { en: 'InterpretationNetwork' },
     description: {
-        en: 'Interpretation network configuration with Concepts, Interpretations, typed Relations, Editor.js Materials, and matrix cell styling.',
-        ru: 'Конфигурация трактовочной сети с понятиями, трактовками, типизированными связями, материалами Editor.js и стилями ячеек матрицы.'
+        en: 'Interpretation network configuration with Structures, Interpretations, typed Relations, Editor.js Materials, and matrix cell styling.',
+        ru: 'Конфигурация трактовочной сети со структурами, трактовками, типизированными связями, материалами Editor.js и стилями ячеек матрицы.'
     },
     codenameStyle: 'pascal-case' as const,
     codenameAlphabet: 'en' as const,
@@ -125,9 +125,9 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
             : {}
     const sectionCodenames = Array.isArray(visibleFor.sectionCodenames) ? visibleFor.sectionCodenames : []
     const objectCollectionCodenames = Array.isArray(visibleFor.objectCollectionCodenames) ? visibleFor.objectCollectionCodenames : []
-    if (!sectionCodenames.includes('Concept') || !objectCollectionCodenames.includes('Concept')) {
+    if (!sectionCodenames.includes('Structure') || !objectCollectionCodenames.includes('Structure')) {
         throw new Error(
-            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must be visible only on Structures/Concept'
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must be visible only on Structure entities'
         )
     }
     const menuWidget = layoutZoneWidgets.find((widget) => widget.widgetKey === 'menuWidget')
@@ -156,7 +156,8 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
         (item) =>
             item.id === 'interpretationNetwork-nav-structures' &&
             item.kind === 'section' &&
-            item.sectionId === 'Concept' &&
+            item.sectionId === 'Structure' &&
+            item.objectCollectionId === 'Structure' &&
             readRuntimeLabel(item.title) === 'Structures'
     )
     if (!structuresItem) {
@@ -164,9 +165,6 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     }
 
     const forbiddenWidgetKeys = new Set([
-        'columnsContainer',
-        'detailsTabs',
-        'detailsTable',
         'overviewCards',
         'sessionsChart',
         'pageViewsChart',
@@ -284,13 +282,13 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         throw new Error('Interpretation Network fixture contract failed: snapshot has no entities')
     }
 
-    const requiredObjectTypes = ['Concept', 'Interpretation', 'Relation', 'TableTemplate']
+    const requiredObjectTypes = ['Structure', 'Interpretation', 'Relation', 'TableTemplate']
     for (const typeName of requiredObjectTypes) {
         if (!findEntityByCodename(entityList, typeName)) {
             throw new Error(`Interpretation Network fixture contract failed: missing object type "${typeName}"`)
         }
     }
-    const conceptEntity = findEntityByCodename(entityList, 'Concept')
+    const structureEntity = findEntityByCodename(entityList, 'Structure')
     const interpretationEntity = findEntityByCodename(entityList, 'Interpretation')
     const relationEntity = findEntityByCodename(entityList, 'Relation')
     const materialEntity = findEntityByCodename(entityList, 'Material')
@@ -327,18 +325,23 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         }
     }
 
-    const conceptRows = getEntityRows(snapshot, conceptEntity)
+    const structureRows = getEntityRows(snapshot, structureEntity)
     const interpRows = getEntityRows(snapshot, interpretationEntity)
     const relationRows = getEntityRows(snapshot, relationEntity)
     const materialRows = getEntityRows(snapshot, materialEntity)
     const tableTemplateRows = getEntityRows(snapshot, tableTemplateEntity)
-    const conceptFields = getEntityFields(conceptEntity)
+    const structureFields = getEntityFields(structureEntity)
     const interpretationFields = getEntityFields(interpretationEntity)
     const relationFields = getEntityFields(relationEntity)
     const materialFields = getEntityFields(materialEntity)
     const tableTemplateFields = getEntityFields(tableTemplateEntity)
-    for (const fieldCodename of ['Term', 'Description', 'Context']) {
-        requireFieldByCodename(conceptFields, fieldCodename, 'Concept')
+    for (const fieldCodename of ['Name', 'Description']) {
+        requireFieldByCodename(structureFields, fieldCodename, 'Structure')
+    }
+    assertLocalizedVersionedField(requireFieldByCodename(structureFields, 'Name', 'Structure'), 'Structure.Name')
+    assertLocalizedVersionedField(requireFieldByCodename(structureFields, 'Description', 'Structure'), 'Structure.Description')
+    if (findFieldByCodename(structureFields, 'Context')) {
+        throw new Error('Interpretation Network fixture contract failed: Structure.Context must not be present in create fields')
     }
     const interpretationMatrixField = requireFieldByCodename(interpretationFields, 'InterpretationMatrix', 'Interpretation')
     if (interpretationMatrixField.dataType !== 'TABLE') {
@@ -400,7 +403,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     }
     assertTabularMaxChildComponents(templateMatrixField, 'TableTemplate.TemplateMatrix')
 
-    assertNoSeededRuntimeRows(conceptRows, 'Concept', /Gravity|Meaning/i)
+    assertNoSeededRuntimeRows(structureRows, 'Structure', /Gravity|Meaning/i)
     assertNoSeededRuntimeRows(interpRows, 'Interpretation', /Gravity|Attraction between masses|Falling apple/i)
     assertNoSeededRuntimeRows(relationRows, 'Relation', /Gravity|Mass/i)
     assertNoSeededRuntimeRows(materialRows, 'Material', /Gravity material|Meaning material/i)
