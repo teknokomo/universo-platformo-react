@@ -179,7 +179,7 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
         const rawColKey = readCellValue(rawCell, 'ColKey')
         const rawMaterialRef = readCellValue(rawCell, 'MaterialRef')
         const cellId = resolveMatrixCellId(rawCell, childColumns, index)
-        const rawSortOrder = readRowValue(rawCell, '_tp_sort_order')
+        const rawSortOrder = readCellValue(rawCell, '_tp_sort_order')
         const fillCodename = getOptionCodename(colorField('CellFillColor'), readCellValue(rawCell, 'CellFillColor'))
         return [
             {

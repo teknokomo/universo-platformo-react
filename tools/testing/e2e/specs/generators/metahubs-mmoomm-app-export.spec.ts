@@ -226,7 +226,9 @@ const createMetahubThroughBrowser = async (page: Page) => {
         (response) => response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs'),
         { label: 'Creating MMOOMM metahub through UI', timeout: 90_000 }
     )
-    await dialog.getByTestId(entityDialogSelectors.submitButton).click()
+    const createButton = dialog.getByTestId(entityDialogSelectors.submitButton)
+    await expect(createButton).toBeEnabled({ timeout: 15_000 })
+    await createButton.click()
     const created = await parseJsonResponse<CreatedEntityResponse>(await createResponse, 'Creating MMOOMM metahub through UI')
     await expect(dialog).toHaveCount(0)
 
@@ -904,10 +906,7 @@ const removeDefaultLayoutWidgetsThroughBrowser = async (page: Page, api: ApiCont
     }
 }
 
-const addMenuItemThroughBrowser = async (
-    page: Page,
-    item: { title: { en: string; ru: string }; icon: string; sectionCodename: string }
-) => {
+const addMenuItemThroughBrowser = async (page: Page, item: { title: { en: string; ru: string }; icon: string; sectionName: string }) => {
     const menuDialog = page.getByRole('dialog', { name: 'Create menu' })
     await menuDialog.getByRole('button', { name: 'Add item' }).click()
     const itemDialog = page.getByRole('dialog', { name: 'Add item' })
@@ -917,8 +916,9 @@ const addMenuItemThroughBrowser = async (
     await itemType.click()
     await page.getByRole('option', { name: 'Entity section' }).click()
     await itemDialog.getByLabel('Icon').fill(item.icon)
-    await itemDialog.getByLabel('Entity section').fill(item.sectionCodename)
-    await page.keyboard.press('Escape')
+    const entitySection = itemDialog.getByLabel('Entity section')
+    await entitySection.fill(item.sectionName)
+    await page.getByRole('option', { name: new RegExp(`^${escapeRegExp(item.sectionName)}\\s+·`) }).click()
     await itemDialog.getByRole('button', { name: 'Save' }).click()
     await expect(itemDialog).toHaveCount(0)
     await expect(menuDialog.getByText(item.title.en, { exact: true })).toBeVisible()
@@ -932,7 +932,6 @@ const configureMenuWidgetThroughBrowser = async (page: Page) => {
     await expect(dialog).toBeVisible()
     await fillLocalizedInlineField(page, dialog, 'Name', { en: 'Navigation', ru: 'Навигация' })
     await setLayoutSwitchThroughBrowser(dialog, 'Automatically show all sections', false)
-    await dialog.getByLabel('Start page code').fill(WELCOME_SECTION_CODENAME)
     const workspacePlacement = getDialogComboboxByVisibleLabel(dialog, 'Workspace menu placement')
     await workspacePlacement.scrollIntoViewIfNeeded()
     await workspacePlacement.click()
@@ -940,14 +939,18 @@ const configureMenuWidgetThroughBrowser = async (page: Page) => {
     await addMenuItemThroughBrowser(page, {
         title: { en: 'Welcome', ru: 'Добро пожаловать' },
         icon: 'home',
-        sectionCodename: WELCOME_SECTION_CODENAME
+        sectionName: 'Welcome'
     })
-    await addMenuItemThroughBrowser(page, { title: { en: 'Space', ru: 'Космос' }, icon: 'rocket', sectionCodename: SPACE_SECTION_CODENAME })
+    await addMenuItemThroughBrowser(page, { title: { en: 'Space', ru: 'Космос' }, icon: 'rocket', sectionName: 'Space' })
     await addMenuItemThroughBrowser(page, {
         title: { en: 'Visual Linkup Lab', ru: 'Визуальная лаборатория' },
         icon: 'visibility',
-        sectionCodename: VISUAL_LINKUP_LAB_SECTION_CODENAME
+        sectionName: 'Visual Linkup Lab'
     })
+    const startPage = getDialogComboboxByVisibleLabel(dialog, 'Start page')
+    await startPage.scrollIntoViewIfNeeded()
+    await startPage.click()
+    await page.getByRole('option', { name: new RegExp(`^${escapeRegExp('Welcome')}\\s+·`) }).click()
     await dialog.getByRole('button', { name: 'Save' }).click()
     await expect(dialog).toHaveCount(0)
     await expect(leftZone.getByText(/Menu: Navigation/)).toBeVisible()

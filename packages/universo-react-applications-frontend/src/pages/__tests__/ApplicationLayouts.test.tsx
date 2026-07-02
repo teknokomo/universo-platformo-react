@@ -41,6 +41,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@universo-react/template-mui', () => ({
+    EDITABLE_SIDE_MENU_MODES: ['wide', 'compact', 'overlay'],
     ViewHeaderMUI: ({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) => (
         <div>
             <h1>{title}</h1>
@@ -111,6 +112,12 @@ vi.mock('@universo-react/template-mui', () => ({
             {syncState ? <span>{labels.syncState?.[syncState]}</span> : null}
         </div>
     ),
+    normalizeSideMenuConfig: (value: any) => ({
+        availableModes:
+            Array.isArray(value?.availableModes) && value.availableModes.length > 0 ? value.availableModes : ['wide', 'compact', 'overlay'],
+        primaryMode: typeof value?.primaryMode === 'string' ? value.primaryMode : 'wide',
+        rememberUserChoice: typeof value?.rememberUserChoice === 'boolean' ? value.rememberUserChoice : true
+    }),
     EntityFormDialog: ({ open, title, extraFields, onSave }: any) =>
         open ? (
             <div data-testid='entity-form-dialog'>

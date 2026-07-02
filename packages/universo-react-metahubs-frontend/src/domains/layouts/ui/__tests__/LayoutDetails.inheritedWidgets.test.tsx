@@ -19,6 +19,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@universo-react/template-mui', () => ({
+    EDITABLE_SIDE_MENU_MODES: ['wide', 'compact', 'overlay'],
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ViewHeaderMUI: ({ children, title }: { children?: ReactNode; title?: string }) => (
         <div>
@@ -68,6 +69,12 @@ vi.mock('@universo-react/template-mui', () => ({
         </div>
     ),
     notifyError: vi.fn(),
+    normalizeSideMenuConfig: (value: any) => ({
+        availableModes:
+            Array.isArray(value?.availableModes) && value.availableModes.length > 0 ? value.availableModes : ['wide', 'compact', 'overlay'],
+        primaryMode: typeof value?.primaryMode === 'string' ? value.primaryMode : 'wide',
+        rememberUserChoice: typeof value?.rememberUserChoice === 'boolean' ? value.rememberUserChoice : true
+    }),
     PAGE_CONTENT_GUTTER_MX: 0
 }))
 

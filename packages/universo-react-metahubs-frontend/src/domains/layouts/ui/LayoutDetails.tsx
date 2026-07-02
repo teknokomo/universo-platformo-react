@@ -29,12 +29,14 @@ import type {
     DashboardSideMenuMode,
     DashboardSideMenuConfig
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES, DASHBOARD_SIDE_MENU_MODES, defaultDashboardLayoutConfig } from '@universo-react/types'
+import { DASHBOARD_LAYOUT_ZONES, defaultDashboardLayoutConfig } from '@universo-react/types'
 import {
     LayoutAuthoringDetails,
     TemplateMainCard as MainCard,
     ViewHeaderMUI as ViewHeader,
-    notifyError
+    EDITABLE_SIDE_MENU_MODES,
+    notifyError,
+    normalizeSideMenuConfig
 } from '@universo-react/template-mui'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
@@ -103,31 +105,11 @@ const DASHBOARD_CHROME_SETTING_KEYS = [
 ] as const
 
 type DashboardChromeSettingKey = (typeof DASHBOARD_CHROME_SETTING_KEYS)[number]
-const EDITABLE_SIDE_MENU_MODES: DashboardSideMenuMode[] = Array.isArray(DASHBOARD_SIDE_MENU_MODES)
-    ? [...DASHBOARD_SIDE_MENU_MODES]
-    : ['wide', 'compact', 'overlay']
 
 const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
-    const fallback = defaultDashboardLayoutConfig?.sideMenu ?? {
-        availableModes: ['wide', 'compact', 'overlay'] as DashboardSideMenuMode[],
-        primaryMode: 'wide' as DashboardSideMenuMode,
-        rememberUserChoice: true
-    }
-    const source = value && typeof value === 'object' && !Array.isArray(value) ? (value as Partial<DashboardSideMenuConfig>) : {}
-    const availableModes = Array.isArray(source.availableModes)
-        ? source.availableModes.filter((mode): mode is DashboardSideMenuMode =>
-              (EDITABLE_SIDE_MENU_MODES as readonly string[]).includes(String(mode))
-          )
-        : fallback.availableModes
-    const uniqueModes = availableModes.filter((mode, index, modes) => modes.indexOf(mode) === index)
-    const nextAvailableModes = uniqueModes.length > 0 ? uniqueModes : fallback.availableModes
-    const primaryMode = source.primaryMode && nextAvailableModes.includes(source.primaryMode) ? source.primaryMode : nextAvailableModes[0]
-
-    return {
-        availableModes: nextAvailableModes,
-        primaryMode,
-        rememberUserChoice: typeof source.rememberUserChoice === 'boolean' ? source.rememberUserChoice : fallback.rememberUserChoice
-    }
+    return normalizeSideMenuConfig(
+        (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined) as MenuWidgetConfig['sideMenu']
+    )
 }
 
 export default function LayoutDetails() {

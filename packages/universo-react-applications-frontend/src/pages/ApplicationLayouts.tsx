@@ -36,7 +36,14 @@ import ToggleOffRoundedIcon from '@mui/icons-material/ToggleOffRounded'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo-react/i18n'
-import { LayoutAuthoringList, LayoutAuthoringDetails, LayoutStateChips, ViewHeaderMUI as ViewHeader } from '@universo-react/template-mui'
+import {
+    LayoutAuthoringList,
+    LayoutAuthoringDetails,
+    LayoutStateChips,
+    ViewHeaderMUI as ViewHeader,
+    EDITABLE_SIDE_MENU_MODES,
+    normalizeSideMenuConfig
+} from '@universo-react/template-mui'
 import type {
     ApplicationLayout,
     ApplicationLayoutCreate,
@@ -47,10 +54,10 @@ import type {
     DashboardLayoutZone,
     ObjectCollectionRuntimeViewConfig,
     MenuWidgetConfig,
-    DashboardSideMenuConfig,
-    DashboardSideMenuMode
+    DashboardSideMenuMode,
+    DashboardSideMenuConfig
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES, DASHBOARD_SIDE_MENU_MODES, defaultDashboardLayoutConfig } from '@universo-react/types'
+import { DASHBOARD_LAYOUT_ZONES } from '@universo-react/types'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
     normalizeObjectCollectionRuntimeViewConfig,
@@ -120,31 +127,10 @@ const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set([
     'pageViewsChart',
     'resourcePreview'
 ])
-const EDITABLE_SIDE_MENU_MODES: DashboardSideMenuMode[] = Array.isArray(DASHBOARD_SIDE_MENU_MODES)
-    ? [...DASHBOARD_SIDE_MENU_MODES]
-    : ['wide', 'compact', 'overlay']
-
 const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
-    const fallback = defaultDashboardLayoutConfig?.sideMenu ?? {
-        availableModes: ['wide', 'compact', 'overlay'] as DashboardSideMenuMode[],
-        primaryMode: 'wide' as DashboardSideMenuMode,
-        rememberUserChoice: true
-    }
-    const source = value && typeof value === 'object' && !Array.isArray(value) ? (value as Partial<DashboardSideMenuConfig>) : {}
-    const availableModes = Array.isArray(source.availableModes)
-        ? source.availableModes.filter((mode): mode is DashboardSideMenuMode =>
-              (EDITABLE_SIDE_MENU_MODES as readonly string[]).includes(String(mode))
-          )
-        : fallback.availableModes
-    const uniqueModes = availableModes.filter((mode, index, modes) => modes.indexOf(mode) === index)
-    const nextAvailableModes = uniqueModes.length > 0 ? uniqueModes : fallback.availableModes
-    const primaryMode = source.primaryMode && nextAvailableModes.includes(source.primaryMode) ? source.primaryMode : nextAvailableModes[0]
-
-    return {
-        availableModes: nextAvailableModes,
-        primaryMode,
-        rememberUserChoice: typeof source.rememberUserChoice === 'boolean' ? source.rememberUserChoice : fallback.rememberUserChoice
-    }
+    return normalizeSideMenuConfig(
+        (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined) as MenuWidgetConfig['sideMenu']
+    )
 }
 
 type LayoutMenuState = {

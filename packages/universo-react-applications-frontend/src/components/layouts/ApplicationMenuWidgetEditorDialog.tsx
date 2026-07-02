@@ -190,7 +190,7 @@ export default function ApplicationMenuWidgetEditorDialog({
     )
     const startPageOptions = useMemo(() => {
         const normalizedStartPage = normalizeConfiguredStartPage(draft.startPage)
-        const selectableOptions = sectionOptions
+        const selectableOptions = sectionOptions ?? []
         if (!normalizedStartPage || selectableOptions.some((option) => option.id === normalizedStartPage)) return selectableOptions
         return [
             {

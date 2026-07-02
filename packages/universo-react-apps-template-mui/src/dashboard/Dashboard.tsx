@@ -190,7 +190,7 @@ const isSideMenuMode = (value: unknown): value is DashboardSideMenuMode =>
 
 const readSideMenuConfig = (config: DashboardLayoutConfig | undefined) => {
     const source =
-        config?.sideMenu && typeof config.sideMenu === 'object' && !Array.isArray(config.sideMenu)
+        config?.sideMenu && typeof config?.sideMenu === 'object' && !Array.isArray(config?.sideMenu)
             ? (config.sideMenu as unknown as Record<string, unknown>)
             : {}
     const availableModes = Array.isArray(source.availableModes)
