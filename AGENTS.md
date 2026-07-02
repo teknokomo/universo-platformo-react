@@ -133,7 +133,7 @@ Issues found are graded as CRITICAL (blocker), HIGH (fix before merge), MEDIUM (
 <!-- ontoindex:start -->
 # OntoIndex — Code Intelligence
 
-This project is indexed by OntoIndex as **universo-platformo-react** (61600 symbols, 102095 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by OntoIndex as **universo-platformo-react** (61815 symbols, 102523 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
 
 > If any OntoIndex tool warns the index is stale, coordinate first; exactly one process should run `ontoindex analyze`.
 

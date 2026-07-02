@@ -1476,6 +1476,111 @@ describe('PlayCanvasProjectsService', () => {
         })
     })
 
+    it('returns the persisted scene-local asset revision after a transient metadata update failure', async () => {
+        const materialData = { diffuse: [1, 1, 1], opacity: 0.42, blendType: 2, depthWrite: false, useFog: true, shader: 'blinn' }
+        const nextMaterialData = { ...materialData, opacity: 0.22 }
+        const sceneBefore = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'scene'),
+            displayName: createLocalizedContent('en', 'Scene'),
+            payloadSchemaVersion: '1',
+            payloadFile: null,
+            checksum: 'a'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 7
+        }
+        const sceneAfter = { ...sceneBefore, checksum: 'b'.repeat(64), version: 8 }
+        const sceneLocalMaterial = {
+            id: '920000001',
+            stableAssetId: 'mmoomm-visual-linkup-920000001',
+            name: 'Scene Local Material',
+            type: 'material',
+            data: materialData,
+            metadata: { data: materialData }
+        }
+        const sceneLocalMaterialAfter = {
+            ...sceneLocalMaterial,
+            data: nextMaterialData,
+            metadata: { data: nextMaterialData, editorDocument: { data: nextMaterialData, tags: [], preload: true, source: false } }
+        }
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([sceneBefore])
+        jest.spyOn(service, 'readEditorScene')
+            .mockResolvedValueOnce({
+                scene: sceneBefore,
+                payload: { schemaVersion: '1', entities: [], assets: [sceneLocalMaterial] },
+                checksum: sceneBefore.checksum
+            })
+            .mockResolvedValueOnce({
+                scene: sceneBefore,
+                payload: { schemaVersion: '1', entities: [], assets: [sceneLocalMaterial] },
+                checksum: sceneBefore.checksum
+            })
+            .mockResolvedValueOnce({
+                scene: sceneAfter,
+                payload: { schemaVersion: '1', entities: [], assets: [sceneLocalMaterialAfter] },
+                checksum: sceneAfter.checksum
+            })
+        const saveEditorScene = jest.spyOn(service, 'saveEditorScene').mockRejectedValueOnce(
+            new MetahubValidationError('PlayCanvas project file metadata reference was not updated', {
+                messageCode: 'playcanvas.files.metadataUpdateFailed',
+                projectId: PROJECT_ID,
+                sourcePath: `playcanvas-projects/${PROJECT_ID}/scenes/${SCENE_ID}.json`
+            })
+        )
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '920000001',
+                data: {
+                    item_id: 920000001,
+                    name: 'Scene Local Material',
+                    type: 'material',
+                    file: null,
+                    path: [],
+                    tags: [],
+                    data: nextMaterialData,
+                    meta: null,
+                    preload: true,
+                    source: false
+                },
+                version: 8,
+                revision: '7'
+            })
+        ).resolves.toEqual({ revision: '8' })
+
+        expect(saveEditorScene).toHaveBeenCalledTimes(1)
+        expect(saveEditorScene).toHaveBeenCalledWith(
+            'metahub-1',
+            PROJECT_ID,
+            SCENE_ID,
+            expect.objectContaining({
+                expectedCurrentChecksum: sceneBefore.checksum,
+                payload: expect.objectContaining({
+                    assets: [
+                        expect.objectContaining({
+                            id: '920000001',
+                            data: nextMaterialData,
+                            metadata: expect.objectContaining({
+                                editorDocument: expect.objectContaining({ data: nextMaterialData })
+                            })
+                        })
+                    ]
+                })
+            }),
+            'user-2'
+        )
+    })
+
     it('scopes duplicate scene-local material document ids to the owning scene', async () => {
         const firstMaterialData = { diffuse: [1, 1, 1], opacity: 0.42, useFog: true, shader: 'blinn' }
         const secondMaterialData = { diffuse: [0.25, 0.75, 1], opacity: 0.7, useFog: true, shader: 'blinn' }

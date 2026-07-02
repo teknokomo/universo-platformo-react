@@ -86,16 +86,22 @@ const normalizeString = (value: string, maps: NormalizerMaps): string =>
         .replace(/\bproject_\d+\b/g, 'project_<number>')
         .replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\b/g, '<timestamp>')
 
-const normalizeJsonBase64String = (value: string, maps: NormalizerMaps): string | null => {
+const normalizeJsonBase64String = (value: string, maps: NormalizerMaps): unknown | null => {
     const dataUrlPrefix = 'data:application/json;base64,'
     if (value.startsWith(dataUrlPrefix)) {
         const normalizedPayload = normalizeJsonBase64Payload(value.slice(dataUrlPrefix.length), maps)
-        return normalizedPayload ? `${dataUrlPrefix}${normalizedPayload}` : null
+        return normalizedPayload
+            ? {
+                  __type: 'normalized-json-data-url',
+                  prefix: dataUrlPrefix,
+                  payload: normalizedPayload
+              }
+            : null
     }
     return normalizeJsonBase64Payload(value, maps)
 }
 
-const normalizeJsonBase64Payload = (value: string, maps: NormalizerMaps): string | null => {
+const normalizeJsonBase64Payload = (value: string, maps: NormalizerMaps): unknown | null => {
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value) || value.length < 64) {
         return null
     }
@@ -105,7 +111,7 @@ const normalizeJsonBase64Payload = (value: string, maps: NormalizerMaps): string
             return null
         }
         const parsed = JSON.parse(decoded) as unknown
-        return `normalized-json:${stableStringify(normalizeVolatileValues(parsed, maps))}`
+        return normalizeVolatileValues(parsed, maps)
     } catch {
         return null
     }
