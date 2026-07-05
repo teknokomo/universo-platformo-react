@@ -32,7 +32,7 @@ import {
     type InterpretationNetworkMatrixSettings,
     type InterpretationNetworkMatrixMode
 } from './application-settings/SettingsPanels'
-import { LearningContentSettingsPanel } from './application-settings/LearningContentSettingsPanel'
+import { ContentSettingsPanel } from './application-settings/ContentSettingsPanel'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import {
@@ -686,7 +686,7 @@ const ApplicationSettings = () => {
                         onSave={(settings) => saveMatrixMutation.mutate(settings)}
                     />
                 ) : activeTab === 'learningContent' && hasLearningContentCapability ? (
-                    <LearningContentSettingsPanel
+                    <ContentSettingsPanel
                         t={t}
                         settings={sanitizeApplicationLearningContentSettings(effectiveGeneralSettings.learningContent)}
                         hasChanges={hasGeneralChanges}

@@ -157,19 +157,25 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             proposedParentByIdentity.set(identity, parentIdentity)
         }
 
+        const verified = new Set<string>()
         for (const [identity, parentIdentity] of proposedParentByIdentity) {
             if (parentIdentity === null) continue
             if (!proposedParentByIdentity.has(parentIdentity)) {
                 throw new UpdateFailure(400, { error: 'Hierarchy parent does not exist' })
             }
+            if (verified.has(identity)) continue
             const visited = new Set<string>([identity])
             let current: string | null = parentIdentity
             while (current) {
+                if (verified.has(current)) break
                 if (visited.has(current)) {
                     throw new UpdateFailure(400, { error: 'Hierarchy cycle is not allowed' })
                 }
                 visited.add(current)
                 current = proposedParentByIdentity.get(current) ?? null
+            }
+            for (const id of visited) {
+                verified.add(id)
             }
         }
     }

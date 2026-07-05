@@ -23,7 +23,7 @@ const LEARNING_CONTENT_COLUMN_FIELDS = [
 type Translate = TFunction<'applications'>
 type SaveHandler = () => void
 
-export const LearningContentSettingsPanel = ({
+export const ContentSettingsPanel = ({
     t,
     settings,
     hasChanges,
