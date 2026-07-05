@@ -50,6 +50,8 @@ The connector diff dialog also allows an explicit overwrite policy for administr
 Only active layouts and active widgets are used by the application runtime.
 Inactive layouts remain available in the control panel and can be reactivated later.
 
+Application Settings derive feature-specific tabs from this active materialized runtime state. For example, the Interpretation Network Matrix tab appears only when an active `interpretationNetworkWorkspace` widget exists, and changes are saved to that widget's config. LMS Learning Content settings are not shown or saved for unrelated application configurations unless the materialized runtime state contains matching LMS configuration.
+
 ## Side Menu Modes
 
 The layout configuration includes side-menu behavior for published applications. Administrators can enable any combination of:

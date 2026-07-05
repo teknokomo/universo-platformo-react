@@ -18,7 +18,15 @@ export function MatrixCellButton({
     dragLabel,
     menuLabel,
     onOpenMenu,
-    disabled = false
+    disabled = false,
+    depth = 0,
+    positionLabel,
+    isOriginMuted = false,
+    dropPlacement = null,
+    dropIndicatorAxis = 'horizontal',
+    isInvalidDropTarget = false,
+    isOverlay = false,
+    freezeSortableTransform = false
 }: {
     cell: MatrixCell
     selected: boolean
@@ -28,34 +36,51 @@ export function MatrixCellButton({
     menuLabel: string
     onOpenMenu: (event: React.MouseEvent<HTMLElement>) => void
     disabled?: boolean
+    depth?: number
+    positionLabel?: string
+    isOriginMuted?: boolean
+    dropPlacement?: 'before' | 'after' | 'child' | null
+    dropIndicatorAxis?: 'horizontal' | 'vertical'
+    isInvalidDropTarget?: boolean
+    isOverlay?: boolean
+    freezeSortableTransform?: boolean
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cell.id, disabled })
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: cell.id,
+        disabled: disabled || isOverlay
+    })
+    const showDropIndicator = Boolean(dropPlacement)
 
     return (
         <Box
-            ref={setNodeRef}
-            data-testid='interpretation-network-cell'
+            ref={isOverlay ? undefined : setNodeRef}
+            data-testid={isOverlay ? 'interpretation-network-cell-drag-overlay' : 'interpretation-network-cell'}
             data-cell-id={cell.id}
+            data-selected={!isOverlay && selected ? 'true' : undefined}
+            data-drop-placement={dropPlacement ?? undefined}
+            data-invalid-drop-target={isInvalidDropTarget ? 'true' : undefined}
             onClick={onSelect}
             sx={{
                 position: 'relative',
-                zIndex: isDragging ? 1 : 'auto',
-                transform: CSS.Transform.toString(transform),
-                transition,
-                opacity: isDragging ? 0.55 : 1,
+                zIndex: isDragging || isOverlay ? 2 : 'auto',
+                transform: isOverlay || freezeSortableTransform ? undefined : CSS.Transform.toString(transform),
+                transition: freezeSortableTransform ? undefined : transition,
+                opacity: isDragging || isOriginMuted ? 0.48 : 1,
                 minHeight: 64,
                 borderRadius: 1,
                 bgcolor: cell.style.fill ?? 'background.paper',
                 color: 'text.primary',
-                borderTop: cell.style.borderTop,
-                borderRight: cell.style.borderRight,
-                borderBottom: cell.style.borderBottom,
-                borderLeft: cell.style.borderLeft,
+                borderTop: isInvalidDropTarget ? '1px dashed' : cell.style.borderTop,
+                borderRight: isInvalidDropTarget ? '1px dashed' : cell.style.borderRight,
+                borderBottom: isInvalidDropTarget ? '1px dashed' : cell.style.borderBottom,
+                borderLeft: isInvalidDropTarget ? '1px dashed' : cell.style.borderLeft,
+                borderColor: isInvalidDropTarget ? 'error.main' : undefined,
                 outline: selected ? 2 : 0,
                 outlineColor: 'primary.main',
                 outlineOffset: selected ? 2 : 0,
-                boxShadow: selected ? 3 : 0,
+                boxShadow: isOverlay ? 6 : selected ? 3 : 0,
                 overflow: 'hidden',
+                ml: depth > 0 ? Math.min(depth * 3, 12) : 0,
                 '&:hover': {
                     bgcolor: cell.style.fill ?? 'action.hover',
                     boxShadow: selected ? 4 : 1
@@ -64,9 +89,59 @@ export function MatrixCellButton({
                     outline: 2,
                     outlineColor: 'primary.main',
                     outlineOffset: 2
-                }
+                },
+                ...(showDropIndicator
+                    ? {
+                          '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              zIndex: 3,
+                              pointerEvents: 'none',
+                              borderColor: isInvalidDropTarget ? 'error.main' : 'primary.main',
+                              ...(dropPlacement === 'before'
+                                  ? dropIndicatorAxis === 'vertical'
+                                      ? {
+                                            top: 0,
+                                            right: 0,
+                                            left: 0,
+                                            borderTop: 3,
+                                            borderTopStyle: 'dashed'
+                                        }
+                                      : {
+                                            top: 0,
+                                            bottom: 0,
+                                            left: 0,
+                                            borderLeft: 3,
+                                            borderLeftStyle: 'dashed'
+                                        }
+                                  : dropPlacement === 'after'
+                                  ? dropIndicatorAxis === 'vertical'
+                                      ? {
+                                            right: 0,
+                                            bottom: 0,
+                                            left: 0,
+                                            borderBottom: 3,
+                                            borderBottomStyle: 'dashed'
+                                        }
+                                      : {
+                                            top: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            borderRight: 3,
+                                            borderRightStyle: 'dashed'
+                                        }
+                                  : {
+                                        inset: 4,
+                                        border: 2,
+                                        borderStyle: 'dashed',
+                                        borderRadius: 1
+                                    })
+                          }
+                      }
+                    : {})
             }}
         >
+            {showDropIndicator ? <Box data-testid='interpretation-network-drop-indicator' sx={{ position: 'absolute', inset: 0 }} /> : null}
             <Stack direction='row' spacing={0} alignItems='stretch' sx={{ minHeight: 64, minWidth: 0 }}>
                 <Tooltip title={dragLabel}>
                     <Box
@@ -82,8 +157,8 @@ export function MatrixCellButton({
                             flexShrink: 0,
                             cursor: 'grab'
                         }}
-                        {...attributes}
-                        {...listeners}
+                        {...(isOverlay ? {} : attributes)}
+                        {...(isOverlay ? {} : listeners)}
                     >
                         <DragIndicatorRoundedIcon fontSize='small' />
                     </Box>
@@ -91,6 +166,8 @@ export function MatrixCellButton({
                 <Button
                     type='button'
                     variant='text'
+                    data-testid='interpretation-network-cell-title'
+                    data-position-label-overlay={positionLabel ? 'true' : undefined}
                     onClick={onSelect}
                     sx={{
                         flex: '1 1 auto',
@@ -104,19 +181,57 @@ export function MatrixCellButton({
                         borderRadius: 0,
                         color: 'text.primary',
                         px: 1.5,
+                        py: 0.75,
                         pr: 4.5,
                         '&:hover': {
                             bgcolor: 'transparent'
                         }
                     }}
                 >
-                    {children}
+                    <Box
+                        component='span'
+                        sx={{
+                            display: 'block',
+                            width: 'fit-content',
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            mx: 'auto',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'left'
+                        }}
+                    >
+                        {children}
+                    </Box>
                 </Button>
             </Stack>
+            {positionLabel ? (
+                <Box
+                    component='span'
+                    data-testid='interpretation-network-cell-position'
+                    sx={{
+                        position: 'absolute',
+                        top: 4,
+                        left: 32,
+                        px: 0.75,
+                        py: 0.125,
+                        borderRadius: 1,
+                        typography: 'caption',
+                        lineHeight: 1.4,
+                        color: 'text.secondary',
+                        bgcolor: 'action.hover',
+                        pointerEvents: 'none'
+                    }}
+                >
+                    {positionLabel}
+                </Box>
+            ) : null}
             <IconButton
                 type='button'
                 size='small'
                 aria-label={menuLabel}
+                disabled={isOverlay}
                 onClick={(event) => {
                     event.stopPropagation()
                     onOpenMenu(event)

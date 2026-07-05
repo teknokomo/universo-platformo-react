@@ -1,26 +1,29 @@
-# Interpretation Network Runtime Toolbar Button Rail Follow-up Tasks (2026-07-02)
+# Interpretation Network Runtime Structures And Focused Matrix Follow-up (2026-07-05)
 
-> Status: IMPLEMENT complete
-> Scope: align the visible color-mode button itself with the published app content rail without legacy retention or schema/template version bumps.
+> Status: IMPLEMENT in progress
+> Scope: published Interpretation Network structures actions, table/card alignment, focused horizontal hierarchy rendering, and horizontal-row drag thresholds.
 
 ## Checklist
 
--   [x] 1. Reproduce the visual mismatch from the supplied screenshots and inspect the rendered toolbar component structure.
--   [x] 2. Run the available OntoIndex impact lookup and identify the isolated apps-template `AppNavbar` symbol.
--   [x] 3. Remove spacing contributed by desktop-hidden mobile toolbar controls so the visible theme button owns the right edge.
--   [x] 4. Replace the container-edge Playwright oracle with a visible color-mode button edge oracle for wide, compact, and overlay modes.
--   [x] 5. Run formatting, focused tests/build/lint/isolation checks, local-Supabase Chromium evidence, screenshots, and closeout review.
+-   [x] S1. Inspect current Structures list/table/card, Matrix hierarchy rows, DnD threshold code, tests, and E2E flow.
+-   [x] S2. Restore standard Structures action menus in table and card views with Edit/Delete actions and no raw technical fields.
+-   [x] S3. Align Structures table description cells vertically with title cells.
+-   [x] S4. Add focused horizontal hierarchy rendering so lower rows show only the selected path/selected cell children by default, while keeping full-level rendering configurable.
+-   [x] S5. Fix horizontal-row DnD thresholds: no-op below 10%, child insertion from 10-50%, sibling reorder after the leading edge crosses 50%, and origin return without mutation.
+-   [x] S6. Update focused Vitest/component and Playwright coverage, including runtime screenshots/overflow assertions on minimal local Supabase.
+-   [x] S7. Run the previous slice's focused package tests/builds and fixture/isolation gates.
+-   [x] S8. Preserve the selected hierarchy path after creating a nested child so the parent remains expanded and the new cell appears without reopening ancestors.
+-   [x] S9. Add cross-level horizontal drop zones: left 25% inserts before, center 50% reparents as a child, and right 25% inserts after, at any higher hierarchy level.
+-   [x] S10. Add focused unit/component regression coverage for nested creation and cross-level drop boundaries while preserving same-row 10/50 behavior and cycle rejection.
+-   [x] S11. Run Prettier, focused test/build/fixture/isolation gates, browser evidence if required, OntoIndex diff verification, and Thermos/autoreview closeout.
 
 ## UI Contract
 
--   The visible color-mode button and the visible runtime content cards share the same right rail; their right edges must differ by no more than 2 px at desktop widths.
--   The side-menu wide/compact button tooltip describes the next action, not the current state.
--   In overlay mode, the docked menu is absent and the drawer toggle remains on the drawer side so users can reopen/close it from the same edge.
--   Compact and overlay modes give the active runtime page the full content width available in the application shell without large side gutters.
--   No page-level horizontal overflow is allowed at desktop, tablet, or mobile widths.
-
-## Closeout Notes
-
--   Root cause: responsive `display: none` was applied to inner `IconButton` elements while their outer `Badge` wrappers remained flex children; the toolbar therefore retained 16 px in wide/compact mode and 8 px in overlay mode after the visible theme button.
--   Previous tests compared the right edge of `runtime-app-toolbar-actions`, so they validated the wrapper containing those margins instead of the visible theme button.
--   The corrected Playwright oracle compares `[data-testid="runtime-color-mode-button"]` directly with the visible content rail and allows at most a 2 px difference.
+-   Structures table/card views expose the same user-facing actions pattern as existing Material cards/tables: a three-dot icon opens Edit/Delete actions, with destructive delete confirmation.
+-   Structure title and description cells are vertically centered in table view and preserve the existing app-template density and typography.
+-   Horizontal hierarchy rows render a focused path by default: no child row is shown until a cell in the current row is selected; then only that selected cell's children fill the next row, recursively by selected path.
+-   A full-level horizontal hierarchy remains available as widget config for future/alternate layouts, but the Interpretation Network default is focused horizontal rows.
+-   Horizontal drag detection has a stable dead-zone before 10% overlap, child placement from 10% through 50% leading-edge overlap, sibling placement after 50%, and no mutation when released back in the dead-zone/origin slot.
+-   Saving a newly created child keeps its parent selected, preserving every already expanded ancestor row while the refreshed data adds the child to the visible next row.
+-   Dragging a cell onto any higher horizontal row uses the hovered target's width: the left quarter inserts before it, the middle half reparents into it, and the right quarter inserts after it. Existing same-row overlap rules remain unchanged.
+-   No page-level horizontal overflow, raw UUIDs, raw JSON, or untranslated action/drag labels are introduced.

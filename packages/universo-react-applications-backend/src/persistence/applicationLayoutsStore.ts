@@ -284,8 +284,12 @@ export async function listApplicationLayouts(
     const params: unknown[] = []
     const conditions = [`_upl_deleted = false`, `_app_deleted = false`]
     if (options.scopeEntityId !== undefined) {
-        params.push(options.scopeEntityId)
-        conditions.push(options.scopeEntityId === null ? `scope_entity_id IS NULL` : `scope_entity_id = $${params.length}`)
+        if (options.scopeEntityId === null) {
+            conditions.push(`scope_entity_id IS NULL`)
+        } else {
+            params.push(options.scopeEntityId)
+            conditions.push(`scope_entity_id = $${params.length}`)
+        }
     }
     params.push(options.limit, options.offset)
     const rows = await executor.query<LayoutRow & { total: string }>(

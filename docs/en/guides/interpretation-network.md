@@ -6,6 +6,7 @@ The **Interpretation Network** template adds a real interpretation-network works
 -   Three closed enumerations — **Context**, **RelationType**, and **CellColor** — that drive per-cell styling and graph edges.
 -   A reusable **interpretationNetworkWorkspace** runtime widget in `packages/universo-react-apps-template-mui` that renders the two-pane workspace without reviving generic dashboard clutter.
 -   A dedicated `cellStylePicker` field widget for the Interpretation Matrix color and border controls.
+-   A hierarchy-first Matrix mode where each new cell is created as a child of an existing cell, starting from the root **Universe** cell.
 -   A product Playwright generator that emits `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` and a strict fixture contract that rejects unrelated dashboard widgets.
 
 ## When to use it
@@ -38,6 +39,13 @@ pnpm run check:interpretation-network-fixture-contract
 
 The fixture does not seed user-authored structures, matrix cells, or materials. It provides the generic object model, the startup Page, the runtime widget configuration, and the style enumerations needed for users to create their own structures inside the published app.
 
+The Matrix behavior is configured on the materialized `interpretationNetworkWorkspace` layout widget, not in generic application settings. The supported modes are:
+
+-   `hierarchicalCells` — the default product mode. A newly created Structure receives one root matrix cell named `Universe` / `Вселенная`; users select an existing cell and use **Add child** to create child cells below it.
+-   `independentRows` — the compatibility mode. Users can create independent rows and sibling cells with **Add row** and **Add cell in row**.
+
+The application settings page derives the Matrix tab from the active materialized widget. LMS-only settings such as Learning Content are not shown for the Interpretation Network unless the connected metahub publication actually materializes matching runtime configuration.
+
 ## Two-pane workspace tour
 
 The published application renders:
@@ -47,6 +55,8 @@ The published application renders:
 -   left pane before opening a structure: the structure list and Create structure action;
 -   left pane after opening a structure: the structure title and a `Matrix` tab with matrix actions;
 -   right pane: materials attached to the selected matrix cell.
+
+Matrix actions are right-aligned and use the same contained MUI action style as other Create actions in the runtime template. Dragging a cell shows a stable drag overlay, mutes the origin cell, and renders a dashed drop indicator on the target before the move is saved.
 
 ## Cell styling
 

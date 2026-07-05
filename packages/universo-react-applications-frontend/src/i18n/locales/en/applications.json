@@ -64,6 +64,7 @@
             "title": "Application Settings",
             "tabs": {
                 "general": "General",
+                "matrix": "Matrix",
                 "learningContent": "Learning Content",
                 "connectors": "Connectors",
                 "access": "Access",
@@ -151,6 +152,32 @@
             "limitsLoadError": "Failed to load limits",
             "limitsSaved": "Limits saved",
             "limitsSaveError": "Failed to save limits",
+            "matrixHint": "Configure the interpretation matrix workspace installed in this application layout.",
+            "matrix": {
+                "mode": "Matrix mode",
+                "modeDescription": "Choose whether matrix cells use hierarchical parent-child grouping or independent row cells.",
+                "modes": {
+                    "hierarchicalCells": "Hierarchical cells",
+                    "independentRows": "Independent rows"
+                },
+                "hierarchyLayout": "Default hierarchy view",
+                "hierarchyLayoutDescription": "Choose how child cells are displayed when users open the matrix.",
+                "hierarchyLayouts": {
+                    "horizontalRows": "Horizontal rows",
+                    "verticalTree": "Vertical tree"
+                },
+                "positionNumbering": "Position numbering",
+                "positionNumberingDescription": "Show derived position paths such as 1/2/2 on matrix cells without storing them on records.",
+                "enabled": "Enabled",
+                "includeRootNumber": "Include root number",
+                "includeRootNumberDescription": "When disabled, numbering starts from the first child level instead of the root cell.",
+                "includeRoot": "Include root",
+                "startIndex": "Start number",
+                "startIndexDescription": "Choose the first number used for each sibling group.",
+                "saved": "Matrix settings saved",
+                "saveError": "Failed to save matrix settings",
+                "widgetMissing": "Matrix workspace widget is not installed in this application."
+            },
             "learningContentHint": "Configure default Learning Content behavior for published workspaces. Workspace authors can still tune individual records where permissions allow it.",
             "learningContent": {
                 "defaultView": "Default content view",

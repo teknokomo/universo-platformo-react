@@ -273,7 +273,7 @@ export function InterpretationNetworkDetailsPane({
                     viewModeLabel={t('workspace.material.viewMode', 'Material view mode')}
                     tableViewLabel={t('workspace.material.tableView', 'Table view')}
                     cardViewLabel={t('workspace.material.cardView', 'Card view')}
-                    createLabel={t('workspace.actions.create', 'Create')}
+                    createLabel={t('workspace.material.create', 'Add material')}
                     createDisabled={!canCreateContent || !canEditContent || !materialSectionId || isSavingMaterial}
                     onFilterChange={setFilter}
                     onViewModeChange={setViewMode}

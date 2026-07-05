@@ -1,36 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-    Alert,
-    Box,
-    Button,
-    CircularProgress,
-    Divider,
-    FormControl,
-    FormControlLabel,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    Switch,
-    Tab,
-    Tabs,
-    TextField,
-    Typography
-} from '@mui/material'
-import SaveIcon from '@mui/icons-material/Save'
-import {
-    COURSE_COMPLETION_CONDITIONS,
-    COURSE_NAVIGATION_MODES,
-    COURSE_STATUS_FORMATS,
-    RESOURCE_TYPES,
-    TRACK_ORDER_MODES,
-    collectUnsupportedActiveCapabilityRules,
-    sanitizeApplicationLearningContentSettings
-} from '@universo-react/types'
+import { Alert, Box, CircularProgress, Tab, Tabs } from '@mui/material'
+import { RESOURCE_TYPES, collectUnsupportedActiveCapabilityRules, sanitizeApplicationLearningContentSettings } from '@universo-react/types'
 import type {
     ApplicationLearningContentSettings,
+    ApplicationLayout,
+    ApplicationLayoutWidget,
     ApplicationRolePolicySettings,
     ResourceType,
     RoleCapabilityRule
@@ -43,9 +19,31 @@ import {
     PAGE_CONTENT_GUTTER_MX,
     PAGE_TAB_BAR_SX
 } from '@universo-react/template-mui'
+import {
+    AccessSettingsPanel,
+    APPLICATION_CAPABILITIES,
+    APPLICATION_ROLE_ORDER,
+    ConnectorsSettingsPanel,
+    GeneralSettingsPanel,
+    LimitsSettingsPanel,
+    MatrixSettingsPanel,
+    type ApplicationCapabilityKey,
+    type InterpretationNetworkHierarchyLayout,
+    type InterpretationNetworkMatrixSettings,
+    type InterpretationNetworkMatrixMode
+} from './application-settings/SettingsPanels'
+import { LearningContentSettingsPanel } from './application-settings/LearningContentSettingsPanel'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
-import { getApplicationWorkspaceLimits, updateApplication, updateApplicationWorkspaceLimits } from '../api/applications'
+import {
+    getApplicationWorkspaceLimits,
+    listApplicationLayoutScopes,
+    listApplicationLayouts,
+    listApplicationLayoutWidgets,
+    updateApplication,
+    updateApplicationLayoutWidgetConfig,
+    updateApplicationWorkspaceLimits
+} from '../api/applications'
 import { DEFAULT_APPLICATION_DIALOG_SETTINGS, sanitizeApplicationDialogSettingsForSave } from '../settings/dialogSettings'
 import {
     toApplicationDisplay,
@@ -55,61 +53,13 @@ import {
     type SchemaStatus
 } from '../types'
 
-type SettingsTab = 'general' | 'learningContent' | 'connectors' | 'access' | 'limits'
-type ApplicationCapabilityKey = 'manageMembers' | 'manageApplication' | 'createContent' | 'editContent' | 'deleteContent' | 'readReports'
+type SettingsTab = 'general' | 'matrix' | 'learningContent' | 'connectors' | 'access' | 'limits'
+type MaterializedApplicationLayoutState = {
+    layouts: ApplicationLayout[]
+    widgets: Array<ApplicationLayoutWidget & { layout: ApplicationLayout }>
+}
 
-const APPLICATION_ROLE_ORDER: ApplicationRole[] = ['owner', 'admin', 'editor', 'member']
-
-const APPLICATION_CAPABILITIES: Array<{
-    key: ApplicationCapabilityKey
-    capability: string
-    aliases: readonly string[]
-    labelKey: string
-    fallback: string
-}> = [
-    {
-        key: 'manageMembers',
-        capability: 'manageMembers',
-        aliases: ['manageMembers', 'members.manage', 'workspace.members.manage'],
-        labelKey: 'settings.capabilities.manageMembers',
-        fallback: 'Manage members'
-    },
-    {
-        key: 'manageApplication',
-        capability: 'manageApplication',
-        aliases: ['manageApplication', 'application.manage', 'settings.manage'],
-        labelKey: 'settings.capabilities.manageApplication',
-        fallback: 'Manage application'
-    },
-    {
-        key: 'createContent',
-        capability: 'createContent',
-        aliases: ['createContent', 'content.create', 'records.create'],
-        labelKey: 'settings.capabilities.createContent',
-        fallback: 'Create content'
-    },
-    {
-        key: 'editContent',
-        capability: 'editContent',
-        aliases: ['editContent', 'content.edit', 'records.edit'],
-        labelKey: 'settings.capabilities.editContent',
-        fallback: 'Edit content'
-    },
-    {
-        key: 'deleteContent',
-        capability: 'deleteContent',
-        aliases: ['deleteContent', 'content.delete', 'records.delete'],
-        labelKey: 'settings.capabilities.deleteContent',
-        fallback: 'Delete content'
-    },
-    {
-        key: 'readReports',
-        capability: 'readReports',
-        aliases: ['readReports', 'reports.read', 'report.read'],
-        labelKey: 'settings.capabilities.readReports',
-        fallback: 'Read reports'
-    }
-]
+type LayoutScopeFilter = string | null | undefined
 
 const BASE_ROLE_PERMISSIONS: Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>> = {
     owner: {
@@ -145,16 +95,6 @@ const BASE_ROLE_PERMISSIONS: Record<ApplicationRole, Record<ApplicationCapabilit
         readReports: false
     }
 }
-
-const LEARNING_CONTENT_COLUMN_FIELDS = [
-    'Title',
-    'ResourceType',
-    'PublicationStatus',
-    'Instructor',
-    'ProjectId',
-    'UpdatedAt',
-    'CreatedBy'
-] as const
 
 const cloneRoleMatrix = (): Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>> =>
     Object.fromEntries(
@@ -209,8 +149,8 @@ const buildRolePoliciesFromMatrix = (
             ...preservedRules,
             ...APPLICATION_CAPABILITIES.map((capability) => ({
                 capability: capability.capability,
-                effect: matrix[role][capability.key] ? 'allow' : 'deny',
-                scope: 'workspace'
+                effect: matrix[role][capability.key] ? ('allow' as const) : ('deny' as const),
+                scope: 'workspace' as const
             }))
         ]
 
@@ -246,6 +186,122 @@ const hasInitializedRuntimeSchema = (schemaName?: string | null, schemaStatus?: 
     return RUNTIME_SCHEMA_READY_STATUSES.has(schemaStatus as SchemaStatus | 'ready')
 }
 
+const isActiveMaterializedLayout = (layout: ApplicationLayout): boolean => layout.isActive && !layout.isSourceExcluded
+
+const isActiveMaterializedWidget = (widget: ApplicationLayoutWidget & { layout: ApplicationLayout }): boolean =>
+    widget.isActive && isActiveMaterializedLayout(widget.layout)
+
+const hasNestedLearningContentWidget = (value: unknown): boolean => {
+    if (!value || typeof value !== 'object') return false
+    if (Array.isArray(value)) return value.some(hasNestedLearningContentWidget)
+
+    const record = value as Record<string, unknown>
+    if (record.isActive !== false && record.widgetKey === 'learnerPlayer') return true
+    if (record.learningContent !== undefined || record.sharedBehavior === 'learningContent') return true
+    return Object.values(record).some(hasNestedLearningContentWidget)
+}
+
+const hasLearningContentMaterializedState = (state?: MaterializedApplicationLayoutState): boolean =>
+    (state?.widgets ?? []).some(
+        (widget) =>
+            isActiveMaterializedWidget(widget) &&
+            (widget.widgetKey === 'learnerPlayer' ||
+                widget.config?.learningContent !== undefined ||
+                widget.config?.sharedBehavior === 'learningContent' ||
+                hasNestedLearningContentWidget(widget.config))
+    )
+
+const hasMatrixMaterializedState = (state?: MaterializedApplicationLayoutState): boolean =>
+    (state?.widgets ?? []).some((widget) => isActiveMaterializedWidget(widget) && widget.widgetKey === 'interpretationNetworkWorkspace')
+
+const listInterpretationNetworkWidgets = (
+    state?: MaterializedApplicationLayoutState
+): Array<ApplicationLayoutWidget & { layout: ApplicationLayout }> =>
+    (state?.widgets ?? []).filter((widget) => isActiveMaterializedWidget(widget) && widget.widgetKey === 'interpretationNetworkWorkspace')
+
+const listWritableInterpretationNetworkWidgets = (
+    state?: MaterializedApplicationLayoutState
+): Array<ApplicationLayoutWidget & { layout: ApplicationLayout }> => listInterpretationNetworkWidgets(state)
+
+const parseMatrixMode = (value: unknown): InterpretationNetworkMatrixMode =>
+    value === 'independentRows' || value === 'hierarchicalCells' ? value : 'hierarchicalCells'
+
+const parseHierarchyLayout = (value: unknown): InterpretationNetworkHierarchyLayout =>
+    value === 'verticalTree' || value === 'horizontalRows' ? value : 'horizontalRows'
+
+const parseHierarchyRowMode = (value: unknown): InterpretationNetworkMatrixSettings['hierarchyRowMode'] =>
+    value === 'allNodes' || value === 'focusedPath' ? value : 'focusedPath'
+
+const parsePositionNumbering = (value: unknown): InterpretationNetworkMatrixSettings['positionNumbering'] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { enabled: true, includeRoot: true, startIndex: 1 }
+    }
+    const record = value as Record<string, unknown>
+    const startIndex = record.startIndex
+    return {
+        enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+        includeRoot: typeof record.includeRoot === 'boolean' ? record.includeRoot : true,
+        startIndex: typeof startIndex === 'number' && Number.isInteger(startIndex) && startIndex >= 0 ? startIndex : 1
+    }
+}
+
+const parseMatrixSettings = (config: Record<string, unknown> | null | undefined): InterpretationNetworkMatrixSettings => ({
+    matrixMode: parseMatrixMode(config?.matrixMode),
+    hierarchyLayout: parseHierarchyLayout(config?.hierarchyLayout),
+    hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
+    positionNumbering: parsePositionNumbering(config?.positionNumbering)
+})
+
+const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
+    'moduleCodename',
+    'attachedToKind',
+    'mountMethodName',
+    'emptyStateTitle',
+    'emptyStateDescription',
+    'visibleFor',
+    'sharedBehavior',
+    'serverModuleCodename',
+    'matrixMode',
+    'hierarchyLayout',
+    'hierarchyRowMode',
+    'positionNumbering',
+    'conceptCodename',
+    'conceptNameField',
+    'conceptDescriptionField',
+    'interpretationCodename',
+    'interpretationParentField',
+    'matrixField',
+    'relationCodename',
+    'materialCodename',
+    'materialTitleField',
+    'interpretationTitleField',
+    'tableTemplateCodename',
+    'tableTemplateNameField',
+    'tableTemplateDescriptionField',
+    'tableTemplateMatrixField'
+])
+
+const sanitizeWidgetConfigForSave = (config: Record<string, unknown> | null | undefined): Record<string, unknown> => {
+    return Object.fromEntries(
+        Object.entries(config ?? {}).filter(([key, value]) => value !== undefined && INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS.has(key))
+    )
+}
+
+const loadLayoutsForScope = async (applicationId: string, scopeEntityId: LayoutScopeFilter): Promise<ApplicationLayout[]> => {
+    const layouts: ApplicationLayout[] = []
+    const limit = 100
+    let offset = 0
+    let hasMore = true
+    while (hasMore) {
+        const layoutsResponse = await listApplicationLayouts(applicationId, { limit, offset, scopeEntityId })
+        layouts.push(...layoutsResponse.items)
+        hasMore = layoutsResponse.pagination.hasMore
+        offset += layoutsResponse.items.length
+        if (layoutsResponse.items.length === 0) break
+    }
+    return layouts
+}
+
 const ApplicationSettings = () => {
     const { applicationId } = useParams<{ applicationId: string }>()
     const { t, i18n } = useTranslation('applications')
@@ -255,6 +311,10 @@ const ApplicationSettings = () => {
     const [generalChanges, setGeneralChanges] = useState<Partial<ApplicationDialogSettings>>({})
     const [visibilityChange, setVisibilityChange] = useState<boolean | undefined>(undefined)
     const [localLimits, setLocalLimits] = useState<Record<string, string>>({})
+    const [matrixSettingsOverride, setMatrixSettingsOverride] = useState<InterpretationNetworkMatrixSettings | null>(null)
+    const [lastMaterializedLayoutState, setLastMaterializedLayoutState] = useState<MaterializedApplicationLayoutState | undefined>(
+        undefined
+    )
 
     const applicationQuery = useApplicationDetails(applicationId || '', {
         enabled: Boolean(applicationId)
@@ -262,6 +322,40 @@ const ApplicationSettings = () => {
     const applicationDisplay = applicationQuery.data ? toApplicationDisplay(applicationQuery.data, i18n.language) : null
     const runtimeSchemaReady = hasInitializedRuntimeSchema(applicationQuery.data?.schemaName, applicationQuery.data?.schemaStatus)
     const supportsWorkspaceLimits = runtimeSchemaReady && applicationQuery.data?.workspacesEnabled === true
+
+    const materializedLayoutsQuery = useQuery({
+        queryKey: applicationId
+            ? ['applications', applicationId, 'settings', 'materialized-layouts']
+            : ['applications', 'settings', 'missing'],
+        queryFn: async (): Promise<MaterializedApplicationLayoutState> => {
+            const scopes = await listApplicationLayoutScopes(applicationId!, i18n.language)
+            const scopeFilters: LayoutScopeFilter[] = [
+                null,
+                ...scopes
+                    .map((scope) => scope.scopeEntityId)
+                    .filter((scopeEntityId): scopeEntityId is string => typeof scopeEntityId === 'string' && scopeEntityId.length > 0)
+            ]
+            const layoutPages = await Promise.all(scopeFilters.map((scopeEntityId) => loadLayoutsForScope(applicationId!, scopeEntityId)))
+            const layouts = [...new Map(layoutPages.flat().map((layout) => [layout.id, layout])).values()]
+            const activeLayouts = layouts.filter(isActiveMaterializedLayout)
+            const widgetGroups = await Promise.all(
+                activeLayouts.map(async (layout) => {
+                    const widgets = await listApplicationLayoutWidgets(applicationId!, layout.id)
+                    return widgets.map((widget) => ({ ...widget, layout }))
+                })
+            )
+            return {
+                layouts,
+                widgets: widgetGroups.flat()
+            }
+        },
+        placeholderData: (previous) => previous,
+        enabled: Boolean(applicationId) && runtimeSchemaReady
+    })
+    const layoutCapabilitiesLoading =
+        runtimeSchemaReady &&
+        (materializedLayoutsQuery.isLoading || materializedLayoutsQuery.isFetching || materializedLayoutsQuery.isPending)
+    const materializedLayoutState = materializedLayoutsQuery.data ?? (layoutCapabilitiesLoading ? lastMaterializedLayoutState : undefined)
 
     const limitsQuery = useQuery({
         queryKey: applicationId
@@ -297,6 +391,76 @@ const ApplicationSettings = () => {
         }
     })
 
+    const saveMatrixMutation = useMutation({
+        mutationKey: ['applications', 'settings', 'matrix', 'update'],
+        mutationFn: async (settings: InterpretationNetworkMatrixSettings) => {
+            const widgets = listWritableInterpretationNetworkWidgets(materializedLayoutState)
+            if (widgets.length === 0) {
+                throw new Error(t('settings.matrix.widgetMissing', 'Matrix workspace widget is not installed in this application.'))
+            }
+            return Promise.all(
+                widgets.map(async (widget) => ({
+                    layoutId: widget.layout.id,
+                    widgetId: widget.id,
+                    savedWidget: await updateApplicationLayoutWidgetConfig(applicationId!, widget.layout.id, widget.id, {
+                        config: {
+                            ...sanitizeWidgetConfigForSave(widget.config),
+                            matrixMode: settings.matrixMode,
+                            hierarchyLayout: settings.hierarchyLayout,
+                            hierarchyRowMode: settings.hierarchyRowMode,
+                            positionNumbering: settings.positionNumbering
+                        },
+                        ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
+                    })
+                }))
+            )
+        },
+        onSuccess: async (savedWidgets, savedSettings) => {
+            if (!applicationId) return
+            setMatrixSettingsOverride(savedSettings)
+            const savedWidgetsByIdentity = new Map(
+                savedWidgets.map(({ layoutId, widgetId, savedWidget }) => [
+                    `${savedWidget.layoutId ?? layoutId}:${savedWidget.id ?? widgetId}`,
+                    savedWidget
+                ])
+            )
+            queryClient.setQueryData<MaterializedApplicationLayoutState>(
+                ['applications', applicationId, 'settings', 'materialized-layouts'],
+                (current) =>
+                    current
+                        ? {
+                              ...current,
+                              widgets: current.widgets.map((widget) => {
+                                  const savedWidget = savedWidgetsByIdentity.get(`${widget.layout.id}:${widget.id}`)
+                                  return savedWidget
+                                      ? {
+                                            ...widget,
+                                            ...savedWidget,
+                                            config: {
+                                                ...widget.config,
+                                                ...(savedWidget.config ?? {}),
+                                                matrixMode: savedSettings.matrixMode,
+                                                hierarchyLayout: savedSettings.hierarchyLayout,
+                                                hierarchyRowMode: savedSettings.hierarchyRowMode,
+                                                positionNumbering: savedSettings.positionNumbering
+                                            },
+                                            layout: widget.layout
+                                        }
+                                      : widget
+                              })
+                          }
+                        : current
+            )
+            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(applicationId) })
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
+            enqueueSnackbar(t('settings.matrix.saved', 'Matrix settings saved'), { variant: 'success' })
+        },
+        onError: (error: Error) => {
+            enqueueSnackbar(error.message || t('settings.matrix.saveError', 'Failed to save matrix settings'), { variant: 'error' })
+        }
+    })
+
     const effectiveGeneralSettings = useMemo<ApplicationDialogSettings>(
         () => ({
             ...DEFAULT_APPLICATION_DIALOG_SETTINGS,
@@ -315,6 +479,43 @@ const ApplicationSettings = () => {
         () => collectUnsupportedActiveCapabilityRules(effectiveGeneralSettings.rolePolicies),
         [effectiveGeneralSettings.rolePolicies]
     )
+    const hasLearningContentCapability = hasLearningContentMaterializedState(materializedLayoutState)
+    const hasMatrixCapability = hasMatrixMaterializedState(materializedLayoutState)
+    const hasLearningContentTab = hasLearningContentCapability || (layoutCapabilitiesLoading && activeTab === 'learningContent')
+    const hasMatrixTab = hasMatrixCapability || (layoutCapabilitiesLoading && activeTab === 'matrix')
+    const matrixWidget = listInterpretationNetworkWidgets(materializedLayoutState)[0]
+    const matrixWidgetSettings = parseMatrixSettings(matrixWidget?.config)
+    const matrixWidgetIdentity = matrixWidget ? `${matrixWidget.layout.id}:${matrixWidget.id}:${matrixWidget.version ?? 'unknown'}` : null
+    const matrixSettings = matrixSettingsOverride ?? matrixWidgetSettings
+    const shouldStripHiddenLearningContent = materializedLayoutsQuery.isSuccess && !hasLearningContentCapability
+    const buildGeneralSettingsSavePayload = (settings: ApplicationDialogSettings): ApplicationDialogSettings => {
+        const sanitized = sanitizeApplicationDialogSettingsForSave(settings)
+        if (!shouldStripHiddenLearningContent) return sanitized
+
+        const { learningContent: _hiddenLearningContent, ...withoutHiddenLearningContent } = sanitized
+        return withoutHiddenLearningContent
+    }
+
+    useEffect(() => {
+        if (layoutCapabilitiesLoading) return
+        if (
+            (activeTab === 'learningContent' && !hasLearningContentTab) ||
+            (activeTab === 'matrix' && !hasMatrixTab) ||
+            (activeTab === 'limits' && !supportsWorkspaceLimits)
+        ) {
+            setActiveTab('general')
+        }
+    }, [activeTab, hasLearningContentTab, hasMatrixTab, layoutCapabilitiesLoading, supportsWorkspaceLimits])
+
+    useEffect(() => {
+        if (materializedLayoutsQuery.data) {
+            setLastMaterializedLayoutState(materializedLayoutsQuery.data)
+        }
+    }, [materializedLayoutsQuery.data])
+
+    useEffect(() => {
+        setMatrixSettingsOverride(null)
+    }, [matrixWidgetIdentity])
 
     const updateRoleCapability = (role: ApplicationRole, capability: ApplicationCapabilityKey, checked: boolean) => {
         const nextMatrix = resolveRolePolicyMatrix(effectiveGeneralSettings.rolePolicies)
@@ -363,7 +564,7 @@ const ApplicationSettings = () => {
     const saveGeneralMutation = useMutation({
         mutationKey: ['applications', 'settings', 'general', 'update'],
         mutationFn: async (input: { settings: ApplicationDialogSettings; isPublic?: boolean }) => {
-            const settings = sanitizeApplicationDialogSettingsForSave(input.settings)
+            const settings = buildGeneralSettingsSavePayload(input.settings)
             const response = await updateApplication(applicationId!, {
                 settings,
                 ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
@@ -379,7 +580,7 @@ const ApplicationSettings = () => {
             if (previousApplication && typeof previousApplication === 'object') {
                 queryClient.setQueryData(applicationsQueryKeys.detail(applicationId), {
                     ...previousApplication,
-                    settings: sanitizeApplicationDialogSettingsForSave(input.settings),
+                    settings: buildGeneralSettingsSavePayload(input.settings),
                     ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {})
                 })
             }
@@ -433,7 +634,6 @@ const ApplicationSettings = () => {
         return <Alert severity='error'>{t('settings.loadError', 'Failed to load application settings')}</Alert>
     }
 
-    const learningContentSettings = sanitizeApplicationLearningContentSettings(effectiveGeneralSettings.learningContent)
     const hasGeneralChanges = Object.keys(generalChanges).length > 0 || hasVisibilityChange
 
     return (
@@ -443,1049 +643,109 @@ const ApplicationSettings = () => {
             <Box data-testid='application-settings-tabs' sx={PAGE_TAB_BAR_SX}>
                 <Tabs value={activeTab} onChange={(_, value: SettingsTab) => setActiveTab(value)}>
                     <Tab value='general' label={t('settings.tabs.general', 'General')} />
-                    <Tab value='learningContent' label={t('settings.tabs.learningContent', 'Learning Content')} />
+                    {hasMatrixTab ? (
+                        <Tab value='matrix' label={t('settings.tabs.matrix', 'Matrix')} disabled={layoutCapabilitiesLoading} />
+                    ) : null}
+                    {hasLearningContentTab ? (
+                        <Tab
+                            value='learningContent'
+                            label={t('settings.tabs.learningContent', 'Learning Content')}
+                            disabled={layoutCapabilitiesLoading}
+                        />
+                    ) : null}
                     <Tab value='connectors' label={t('settings.tabs.connectors', 'Connectors')} />
                     <Tab value='access' label={t('settings.tabs.access', 'Access')} />
-                    <Tab value='limits' label={t('settings.tabs.limits', 'Limits')} />
+                    {supportsWorkspaceLimits ? <Tab value='limits' label={t('settings.tabs.limits', 'Limits')} /> : null}
                 </Tabs>
             </Box>
 
             <Box data-testid='application-settings-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
                 {activeTab === 'general' ? (
-                    <>
-                        <Stack spacing={0} divider={<Divider />}>
-                            <Box
-                                data-testid='application-setting-visibility'
-                                sx={{
-                                    py: 2,
-                                    display: 'grid',
-                                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
-                                    gap: 3,
-                                    alignItems: 'center'
-                                }}
-                            >
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>{t('settings.visibilityTitle', 'Application visibility')}</Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {effectiveVisibility
-                                            ? t(
-                                                  'settings.visibilityPublicDescription',
-                                                  'Public applications can be discovered and joined directly by authenticated users.'
-                                              )
-                                            : t(
-                                                  'settings.visibilityClosedDescription',
-                                                  'Closed applications are visible only to current members and users with global application access.'
-                                              )}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
-                                        {t('settings.workspaceModeLabel', 'Workspace mode')}:{' '}
-                                        <Box component='span' sx={{ fontWeight: 600 }}>
-                                            {applicationQuery.data?.workspacesEnabled
-                                                ? t('settings.workspaceModeEnabled', 'Enabled')
-                                                : t('settings.workspaceModeDisabled', 'Disabled')}
-                                        </Box>
-                                    </Typography>
-                                    <Typography variant='caption' color='text.secondary'>
-                                        {t(
-                                            'settings.workspaceModeReadOnly',
-                                            'Workspace mode is selected during application creation and cannot be changed after the runtime structure is defined.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControlLabel
-                                    data-testid='application-settings-visibility-toggle'
-                                    control={
-                                        <Switch
-                                            checked={effectiveVisibility}
-                                            onChange={(event) => {
-                                                const nextValue = event.target.checked
-                                                setVisibilityChange(nextValue === applicationQuery.data?.isPublic ? undefined : nextValue)
-                                            }}
-                                            inputProps={{ 'data-testid': 'application-settings-visibility-switch' }}
-                                        />
-                                    }
-                                    label={
-                                        effectiveVisibility
-                                            ? t('settings.visibilityPublic', 'Public')
-                                            : t('settings.visibilityClosed', 'Closed')
-                                    }
-                                />
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-dialogSizePreset'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>{t('settings.dialogSizePreset', 'Popup window size')}</Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.dialogSizePresetDescription',
-                                            'Default size for popup windows in this application control panel.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControl size='small' sx={{ minWidth: 250 }}>
-                                    <InputLabel>{t('settings.dialogSizePreset', 'Popup window size')}</InputLabel>
-                                    <Select
-                                        value={effectiveGeneralSettings.dialogSizePreset}
-                                        label={t('settings.dialogSizePreset', 'Popup window size')}
-                                        onChange={(event) =>
-                                            setGeneralChanges((prev) => ({
-                                                ...prev,
-                                                dialogSizePreset: event.target.value as ApplicationDialogSettings['dialogSizePreset']
-                                            }))
-                                        }
-                                    >
-                                        <MenuItem value='small'>{t('settings.dialogSizePresets.small', 'Small (about 480 px)')}</MenuItem>
-                                        <MenuItem value='medium'>
-                                            {t('settings.dialogSizePresets.medium', 'Medium (about 600 px)')}
-                                        </MenuItem>
-                                        <MenuItem value='large'>{t('settings.dialogSizePresets.large', 'Large (about 800 px)')}</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-dialogAllowFullscreen'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.dialogAllowFullscreen', 'Allow fullscreen expansion')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.dialogAllowFullscreenDescription',
-                                            'Show a header action that expands application popup windows almost to the full viewport.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={effectiveGeneralSettings.dialogAllowFullscreen}
-                                            onChange={(event) =>
-                                                setGeneralChanges((prev) => ({
-                                                    ...prev,
-                                                    dialogAllowFullscreen: event.target.checked
-                                                }))
-                                            }
-                                        />
-                                    }
-                                    label=''
-                                />
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-dialogAllowResize'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>{t('settings.dialogAllowResize', 'Allow popup resize')}</Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.dialogAllowResizeDescription',
-                                            'Show a resize handle and remember the custom popup size in this browser for this application.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={effectiveGeneralSettings.dialogAllowResize}
-                                            onChange={(event) =>
-                                                setGeneralChanges((prev) => ({
-                                                    ...prev,
-                                                    dialogAllowResize: event.target.checked
-                                                }))
-                                            }
-                                        />
-                                    }
-                                    label=''
-                                />
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-sectionLinksEnabled'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.sectionLinksEnabled', 'Section-specific links')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.sectionLinksEnabledDescription',
-                                            'Give every application menu section its own browser URL based on the section identifier.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={effectiveGeneralSettings.sectionLinksEnabled}
-                                            onChange={(event) =>
-                                                setGeneralChanges((prev) => ({
-                                                    ...prev,
-                                                    sectionLinksEnabled: event.target.checked
-                                                }))
-                                            }
-                                            inputProps={{ 'data-testid': 'application-settings-section-links-switch' }}
-                                        />
-                                    }
-                                    label=''
-                                />
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-dialogCloseBehavior'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>{t('settings.dialogCloseBehavior', 'Popup window type')}</Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.dialogCloseBehaviorDescription',
-                                            'Choose whether application popup windows stay modal or can close when the user clicks outside the window.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControl size='small' sx={{ minWidth: 250 }}>
-                                    <InputLabel>{t('settings.dialogCloseBehavior', 'Popup window type')}</InputLabel>
-                                    <Select
-                                        value={effectiveGeneralSettings.dialogCloseBehavior}
-                                        label={t('settings.dialogCloseBehavior', 'Popup window type')}
-                                        onChange={(event) =>
-                                            setGeneralChanges((prev) => ({
-                                                ...prev,
-                                                dialogCloseBehavior: event.target.value as ApplicationDialogSettings['dialogCloseBehavior']
-                                            }))
-                                        }
-                                    >
-                                        <MenuItem value='strict-modal'>
-                                            {t('settings.dialogCloseBehaviors.strict-modal', 'Modal windows')}
-                                        </MenuItem>
-                                        <MenuItem value='backdrop-close'>
-                                            {t('settings.dialogCloseBehaviors.backdrop-close', 'Non-modal windows')}
-                                        </MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-dashboardDefaultMode'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.dashboardDefaultMode', 'Runtime dashboard default')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.dashboardDefaultModeDescription',
-                                            'Choose how the published application resolves the initial dashboard section.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControl size='small' sx={{ minWidth: 250 }}>
-                                    <InputLabel>{t('settings.dashboardDefaultMode', 'Runtime dashboard default')}</InputLabel>
-                                    <Select
-                                        value={effectiveGeneralSettings.dashboardDefaultMode}
-                                        label={t('settings.dashboardDefaultMode', 'Runtime dashboard default')}
-                                        onChange={(event) =>
-                                            setGeneralChanges((prev) => ({
-                                                ...prev,
-                                                dashboardDefaultMode: event.target
-                                                    .value as ApplicationDialogSettings['dashboardDefaultMode']
-                                            }))
-                                        }
-                                    >
-                                        <MenuItem value='layout-default'>
-                                            {t('settings.dashboardDefaultModes.layout-default', 'Layout default')}
-                                        </MenuItem>
-                                        <MenuItem value='first-menu-item'>
-                                            {t('settings.dashboardDefaultModes.first-menu-item', 'First menu item')}
-                                        </MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-datasourceExecutionPolicy'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.datasourceExecutionPolicy', 'Datasource execution')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.datasourceExecutionPolicyDescription',
-                                            'Control whether layout datasources are always scoped to the active runtime workspace.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControl size='small' sx={{ minWidth: 250 }}>
-                                    <InputLabel>{t('settings.datasourceExecutionPolicy', 'Datasource execution')}</InputLabel>
-                                    <Select
-                                        value={effectiveGeneralSettings.datasourceExecutionPolicy}
-                                        label={t('settings.datasourceExecutionPolicy', 'Datasource execution')}
-                                        onChange={(event) =>
-                                            setGeneralChanges((prev) => ({
-                                                ...prev,
-                                                datasourceExecutionPolicy: event.target
-                                                    .value as ApplicationDialogSettings['datasourceExecutionPolicy']
-                                            }))
-                                        }
-                                    >
-                                        <MenuItem value='workspace-scoped'>
-                                            {t('settings.datasourceExecutionPolicies.workspace-scoped', 'Workspace scoped')}
-                                        </MenuItem>
-                                        <MenuItem value='layout-only'>
-                                            {t('settings.datasourceExecutionPolicies.layout-only', 'Layout only')}
-                                        </MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-workspaceOpenBehavior'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>{t('settings.workspaceOpenBehavior', 'Workspace opening')}</Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.workspaceOpenBehaviorDescription',
-                                            'Choose which workspace should open first when users enter the published application.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControl size='small' sx={{ minWidth: 250 }}>
-                                    <InputLabel>{t('settings.workspaceOpenBehavior', 'Workspace opening')}</InputLabel>
-                                    <Select
-                                        value={effectiveGeneralSettings.workspaceOpenBehavior}
-                                        label={t('settings.workspaceOpenBehavior', 'Workspace opening')}
-                                        onChange={(event) =>
-                                            setGeneralChanges((prev) => ({
-                                                ...prev,
-                                                workspaceOpenBehavior: event.target
-                                                    .value as ApplicationDialogSettings['workspaceOpenBehavior']
-                                            }))
-                                        }
-                                    >
-                                        <MenuItem value='last-used'>
-                                            {t('settings.workspaceOpenBehaviors.last-used', 'Last used workspace')}
-                                        </MenuItem>
-                                        <MenuItem value='default-workspace'>
-                                            {t('settings.workspaceOpenBehaviors.default-workspace', 'Default workspace')}
-                                        </MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                        </Stack>
-
-                        {hasGeneralChanges ? (
-                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button
-                                    data-testid='application-settings-general-save'
-                                    variant='contained'
-                                    startIcon={<SaveIcon />}
-                                    onClick={() =>
-                                        saveGeneralMutation.mutate({
-                                            settings: effectiveGeneralSettings,
-                                            ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
-                                        })
-                                    }
-                                    disabled={saveGeneralMutation.isPending}
-                                >
-                                    {t('settings.save', 'Save')}
-                                </Button>
-                            </Box>
-                        ) : null}
-                    </>
-                ) : activeTab === 'learningContent' ? (
-                    <Stack spacing={2}>
-                        <Alert severity='info'>
-                            {t(
-                                'settings.learningContentHint',
-                                'Configure default Learning Content behavior for published workspaces. Workspace authors can still tune individual records where permissions allow it.'
-                            )}
-                        </Alert>
-
-                        <Stack spacing={0} divider={<Divider />}>
-                            <Box
-                                data-testid='application-setting-learning-content-default-view'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.learningContent.defaultView', 'Default content view')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.learningContent.defaultViewDescription',
-                                            'Choose the first view mode for Learning Content project libraries.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControl size='small' sx={{ minWidth: 220 }}>
-                                    <InputLabel>{t('settings.learningContent.defaultView', 'Default content view')}</InputLabel>
-                                    <Select
-                                        value={learningContentSettings.defaultView}
-                                        label={t('settings.learningContent.defaultView', 'Default content view')}
-                                        onChange={(event) =>
-                                            updateLearningContentSettings((current) => ({
-                                                ...current,
-                                                defaultView: event.target.value as ApplicationLearningContentSettings['defaultView']
-                                            }))
-                                        }
-                                    >
-                                        <MenuItem value='table'>{t('settings.learningContent.views.table', 'Table')}</MenuItem>
-                                        <MenuItem value='cards'>{t('settings.learningContent.views.cards', 'Cards')}</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-
-                            <Box data-testid='application-setting-learning-content-resource-types' sx={{ py: 2 }}>
-                                <Typography variant='subtitle2'>{t('settings.learningContent.resourceTypes', 'Resource types')}</Typography>
-                                <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-                                    {t(
-                                        'settings.learningContent.resourceTypesDescription',
-                                        'Enable only resource types that have safe runtime behavior. Deferred types stay visible as unsupported placeholders.'
-                                    )}
-                                </Typography>
-                                <Box
-                                    sx={{
-                                        display: 'grid',
-                                        gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
-                                        gap: 1.5
-                                    }}
-                                >
-                                    {RESOURCE_TYPES.map((resourceType) => {
-                                        const item = learningContentSettings.supportedResourceTypes.find(
-                                            (candidate) => candidate.resourceType === resourceType
-                                        ) ?? {
-                                            resourceType,
-                                            enabled: true,
-                                            deferred: resourceType === 'scorm' || resourceType === 'xapi' || resourceType === 'file'
-                                        }
-
-                                        return (
-                                            <Box
-                                                key={resourceType}
-                                                sx={{
-                                                    border: 1,
-                                                    borderColor: 'divider',
-                                                    borderRadius: 2,
-                                                    px: 1.5,
-                                                    py: 1,
-                                                    display: 'grid',
-                                                    gridTemplateColumns: 'minmax(0, 1fr) auto auto',
-                                                    alignItems: 'center',
-                                                    gap: 1
-                                                }}
-                                            >
-                                                <Typography variant='body2' sx={{ textTransform: 'capitalize' }}>
-                                                    {t(`settings.learningContent.resourceTypeLabels.${resourceType}`, resourceType)}
-                                                </Typography>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            size='small'
-                                                            checked={item.enabled}
-                                                            onChange={(event) =>
-                                                                updateLearningContentResourceType(resourceType, {
-                                                                    enabled: event.target.checked
-                                                                })
-                                                            }
-                                                            slotProps={{
-                                                                input: {
-                                                                    'data-testid': `application-settings-learning-content-resource-${resourceType}-enabled`
-                                                                }
-                                                            }}
-                                                        />
-                                                    }
-                                                    label={t('settings.learningContent.enabled', 'Enabled')}
-                                                />
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            size='small'
-                                                            checked={item.deferred}
-                                                            onChange={(event) =>
-                                                                updateLearningContentResourceType(resourceType, {
-                                                                    deferred: event.target.checked
-                                                                })
-                                                            }
-                                                            slotProps={{
-                                                                input: {
-                                                                    'data-testid': `application-settings-learning-content-resource-${resourceType}-deferred`
-                                                                }
-                                                            }}
-                                                        />
-                                                    }
-                                                    label={t('settings.learningContent.deferred', 'Deferred')}
-                                                />
-                                            </Box>
-                                        )
-                                    })}
-                                </Box>
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-learning-content-course-policy'
-                                sx={{
-                                    py: 2,
-                                    display: 'grid',
-                                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) repeat(3, minmax(170px, 0.35fr))' },
-                                    gap: 2,
-                                    alignItems: 'center'
-                                }}
-                            >
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.learningContent.coursePolicy', 'Course completion policy')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.learningContent.coursePolicyDescription',
-                                            'Defaults for course navigation, completion calculation, and status display.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControl size='small'>
-                                    <InputLabel>{t('settings.learningContent.navigationMode', 'Navigation')}</InputLabel>
-                                    <Select
-                                        value={learningContentSettings.courseCompletionPolicy.navigationMode}
-                                        label={t('settings.learningContent.navigationMode', 'Navigation')}
-                                        onChange={(event) =>
-                                            updateLearningContentSettings((current) => ({
-                                                ...current,
-                                                courseCompletionPolicy: {
-                                                    ...current.courseCompletionPolicy,
-                                                    navigationMode: event.target
-                                                        .value as ApplicationLearningContentSettings['courseCompletionPolicy']['navigationMode']
-                                                }
-                                            }))
-                                        }
-                                    >
-                                        {COURSE_NAVIGATION_MODES.map((mode) => (
-                                            <MenuItem key={mode} value={mode}>
-                                                {t(`settings.learningContent.navigationModes.${mode}`, mode)}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                                <FormControl size='small'>
-                                    <InputLabel>{t('settings.learningContent.completionCondition', 'Completion')}</InputLabel>
-                                    <Select
-                                        value={learningContentSettings.courseCompletionPolicy.completionCondition}
-                                        label={t('settings.learningContent.completionCondition', 'Completion')}
-                                        onChange={(event) =>
-                                            updateLearningContentSettings((current) => ({
-                                                ...current,
-                                                courseCompletionPolicy: {
-                                                    ...current.courseCompletionPolicy,
-                                                    completionCondition: event.target
-                                                        .value as ApplicationLearningContentSettings['courseCompletionPolicy']['completionCondition']
-                                                }
-                                            }))
-                                        }
-                                    >
-                                        {COURSE_COMPLETION_CONDITIONS.map((condition) => (
-                                            <MenuItem key={condition} value={condition}>
-                                                {t(`settings.learningContent.completionConditions.${condition}`, condition)}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                                <FormControl size='small'>
-                                    <InputLabel>{t('settings.learningContent.statusFormat', 'Status')}</InputLabel>
-                                    <Select
-                                        value={learningContentSettings.courseCompletionPolicy.statusFormat}
-                                        label={t('settings.learningContent.statusFormat', 'Status')}
-                                        onChange={(event) =>
-                                            updateLearningContentSettings((current) => ({
-                                                ...current,
-                                                courseCompletionPolicy: {
-                                                    ...current.courseCompletionPolicy,
-                                                    statusFormat: event.target
-                                                        .value as ApplicationLearningContentSettings['courseCompletionPolicy']['statusFormat']
-                                                }
-                                            }))
-                                        }
-                                    >
-                                        {COURSE_STATUS_FORMATS.map((format) => (
-                                            <MenuItem key={format} value={format}>
-                                                {t(`settings.learningContent.statusFormats.${format}`, format)}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-learning-content-track-policy'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.learningContent.trackPolicy', 'Learning track order')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.learningContent.trackPolicyDescription',
-                                            'Default order behavior used when a new learning track is created.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={learningContentSettings.trackOrderPolicy.restrictAfterDueDate}
-                                            onChange={(event) =>
-                                                updateLearningContentSettings((current) => ({
-                                                    ...current,
-                                                    trackOrderPolicy: {
-                                                        ...current.trackOrderPolicy,
-                                                        restrictAfterDueDate: event.target.checked
-                                                    }
-                                                }))
-                                            }
-                                            slotProps={{
-                                                input: {
-                                                    'data-testid': 'application-settings-learning-content-track-restrict-after-due-date'
-                                                }
-                                            }}
-                                        />
-                                    }
-                                    label={t('settings.learningContent.restrictAfterDueDate', 'Restrict after due date')}
-                                />
-                                <FormControl size='small' sx={{ minWidth: 200 }}>
-                                    <InputLabel>{t('settings.learningContent.orderMode', 'Order')}</InputLabel>
-                                    <Select
-                                        value={learningContentSettings.trackOrderPolicy.orderMode}
-                                        label={t('settings.learningContent.orderMode', 'Order')}
-                                        onChange={(event) =>
-                                            updateLearningContentSettings((current) => ({
-                                                ...current,
-                                                trackOrderPolicy: {
-                                                    ...current.trackOrderPolicy,
-                                                    orderMode: event.target
-                                                        .value as ApplicationLearningContentSettings['trackOrderPolicy']['orderMode']
-                                                }
-                                            }))
-                                        }
-                                    >
-                                        {TRACK_ORDER_MODES.map((mode) => (
-                                            <MenuItem key={mode} value={mode}>
-                                                {t(`settings.learningContent.orderModes.${mode}`, mode)}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Box>
-
-                            <Box
-                                data-testid='application-setting-learning-content-player'
-                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
-                            >
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>{t('settings.learningContent.player', 'Player preset')}</Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.learningContent.playerDescription',
-                                            'Controls the default learner player chrome for pages, links, courses, and tracks.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={learningContentSettings.playerPreset?.showOutline !== false}
-                                            onChange={(event) =>
-                                                updateLearningContentSettings((current) => ({
-                                                    ...current,
-                                                    playerPreset: {
-                                                        ...current.playerPreset!,
-                                                        showOutline: event.target.checked
-                                                    }
-                                                }))
-                                            }
-                                        />
-                                    }
-                                    label={t('settings.learningContent.showOutline', 'Outline')}
-                                />
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={learningContentSettings.playerPreset?.showProgressHeader !== false}
-                                            onChange={(event) =>
-                                                updateLearningContentSettings((current) => ({
-                                                    ...current,
-                                                    playerPreset: {
-                                                        ...current.playerPreset!,
-                                                        showProgressHeader: event.target.checked
-                                                    }
-                                                }))
-                                            }
-                                        />
-                                    }
-                                    label={t('settings.learningContent.showProgressHeader', 'Progress')}
-                                />
-                            </Box>
-
-                            <Box data-testid='application-setting-learning-content-columns' sx={{ py: 2 }}>
-                                <Typography variant='subtitle2'>{t('settings.learningContent.columns', 'Default columns')}</Typography>
-                                <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
-                                    {t(
-                                        'settings.learningContent.columnsDescription',
-                                        'Choose the default visible columns for Learning Content library tables.'
-                                    )}
-                                </Typography>
-                                <Stack direction='row' flexWrap='wrap' gap={1}>
-                                    {LEARNING_CONTENT_COLUMN_FIELDS.map((field) => {
-                                        const column = learningContentSettings.columnPreset?.columns.find((item) => item.field === field)
-                                        const visible = column?.visible !== false
-                                        return (
-                                            <FormControlLabel
-                                                key={field}
-                                                control={
-                                                    <Switch
-                                                        size='small'
-                                                        checked={visible}
-                                                        onChange={(event) =>
-                                                            updateLearningContentSettings((current) => {
-                                                                const existingColumns = current.columnPreset?.columns ?? []
-                                                                const columns = LEARNING_CONTENT_COLUMN_FIELDS.map((candidate) => {
-                                                                    const existing = existingColumns.find(
-                                                                        (item) => item.field === candidate
-                                                                    )
-                                                                    return {
-                                                                        field: candidate,
-                                                                        visible:
-                                                                            candidate === field
-                                                                                ? event.target.checked
-                                                                                : existing?.visible !== false,
-                                                                        ...(existing?.width ? { width: existing.width } : {}),
-                                                                        ...(existing?.flex ? { flex: existing.flex } : {})
-                                                                    }
-                                                                })
-                                                                return {
-                                                                    ...current,
-                                                                    columnPreset: {
-                                                                        ...(current.columnPreset ?? {
-                                                                            codename: 'learningContentDefault',
-                                                                            title: 'Learning Content default'
-                                                                        }),
-                                                                        columns
-                                                                    }
-                                                                }
-                                                            })
-                                                        }
-                                                        slotProps={{
-                                                            input: {
-                                                                'data-testid': `application-settings-learning-content-column-${field}`
-                                                            }
-                                                        }}
-                                                    />
-                                                }
-                                                label={t(`settings.learningContent.columnLabels.${field}`, field)}
-                                            />
-                                        )
-                                    })}
-                                </Stack>
-                            </Box>
-                        </Stack>
-
-                        {hasGeneralChanges ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button
-                                    data-testid='application-settings-learning-content-save'
-                                    variant='contained'
-                                    startIcon={<SaveIcon />}
-                                    onClick={() =>
-                                        saveGeneralMutation.mutate({
-                                            settings: effectiveGeneralSettings,
-                                            ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
-                                        })
-                                    }
-                                    disabled={saveGeneralMutation.isPending}
-                                >
-                                    {t('settings.save', 'Save')}
-                                </Button>
-                            </Box>
-                        ) : null}
-                    </Stack>
+                    <GeneralSettingsPanel
+                        t={t}
+                        effectiveVisibility={effectiveVisibility}
+                        currentVisibility={applicationQuery.data?.isPublic}
+                        workspacesEnabled={applicationQuery.data?.workspacesEnabled}
+                        settings={effectiveGeneralSettings}
+                        hasChanges={hasGeneralChanges}
+                        isSaving={saveGeneralMutation.isPending}
+                        onVisibilityChange={setVisibilityChange}
+                        onSettingsChange={(patch) => setGeneralChanges((prev) => ({ ...prev, ...patch }))}
+                        onSave={() =>
+                            saveGeneralMutation.mutate({
+                                settings: effectiveGeneralSettings,
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                            })
+                        }
+                    />
+                ) : activeTab === 'matrix' && hasMatrixCapability ? (
+                    <MatrixSettingsPanel
+                        t={t}
+                        settings={matrixSettings}
+                        isSaving={saveMatrixMutation.isPending}
+                        onSave={(settings) => saveMatrixMutation.mutate(settings)}
+                    />
+                ) : activeTab === 'learningContent' && hasLearningContentCapability ? (
+                    <LearningContentSettingsPanel
+                        t={t}
+                        settings={sanitizeApplicationLearningContentSettings(effectiveGeneralSettings.learningContent)}
+                        hasChanges={hasGeneralChanges}
+                        isSaving={saveGeneralMutation.isPending}
+                        onUpdateSettings={updateLearningContentSettings}
+                        onUpdateResourceType={updateLearningContentResourceType}
+                        onSave={() =>
+                            saveGeneralMutation.mutate({
+                                settings: effectiveGeneralSettings,
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                            })
+                        }
+                    />
+                ) : (activeTab === 'matrix' || activeTab === 'learningContent') && layoutCapabilitiesLoading ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
+                        <CircularProgress size={28} />
+                    </Box>
                 ) : activeTab === 'connectors' ? (
-                    <Stack spacing={2}>
-                        <Alert severity='info'>
-                            {t(
-                                'settings.connectorsHint',
-                                'Configure how application connectors present source metahub changes before schema synchronization.'
-                            )}
-                        </Alert>
-
-                        <Stack spacing={0} divider={<Divider />}>
-                            <Box
-                                data-testid='application-setting-schemaDiffLocalizedLabels'
-                                sx={{
-                                    py: 2,
-                                    display: 'grid',
-                                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
-                                    gap: 3,
-                                    alignItems: 'center'
-                                }}
-                            >
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.schemaDiffLocalizedLabels', 'Localized schema change labels')}
-                                    </Typography>
-                                    <Typography variant='body2' color='text.secondary'>
-                                        {t(
-                                            'settings.schemaDiffLocalizedLabelsDescription',
-                                            'Show entity type, entity, and field labels in the current interface language when the source metahub provides localized values.'
-                                        )}
-                                    </Typography>
-                                </Box>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={effectiveGeneralSettings.schemaDiffLocalizedLabels !== false}
-                                            onChange={(event) =>
-                                                setGeneralChanges((prev) => ({
-                                                    ...prev,
-                                                    schemaDiffLocalizedLabels: event.target.checked
-                                                }))
-                                            }
-                                            slotProps={{
-                                                input: {
-                                                    'data-testid': 'application-settings-schema-diff-localized-labels-switch'
-                                                }
-                                            }}
-                                        />
-                                    }
-                                    label=''
-                                />
-                            </Box>
-                        </Stack>
-
-                        {hasGeneralChanges ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button
-                                    data-testid='application-settings-connectors-save'
-                                    variant='contained'
-                                    startIcon={<SaveIcon />}
-                                    onClick={() =>
-                                        saveGeneralMutation.mutate({
-                                            settings: effectiveGeneralSettings,
-                                            ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
-                                        })
-                                    }
-                                    disabled={saveGeneralMutation.isPending}
-                                >
-                                    {t('settings.save', 'Save')}
-                                </Button>
-                            </Box>
-                        ) : null}
-                    </Stack>
+                    <ConnectorsSettingsPanel
+                        t={t}
+                        settings={effectiveGeneralSettings}
+                        hasChanges={hasGeneralChanges}
+                        isSaving={saveGeneralMutation.isPending}
+                        onSettingsChange={(patch) => setGeneralChanges((prev) => ({ ...prev, ...patch }))}
+                        onSave={() =>
+                            saveGeneralMutation.mutate({
+                                settings: effectiveGeneralSettings,
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                            })
+                        }
+                    />
                 ) : activeTab === 'access' ? (
-                    <Stack spacing={2}>
-                        <Alert severity='info'>
-                            {t(
-                                'settings.accessHint',
-                                'Configure generic application and workspace capabilities for each application role. These rules are enforced by the runtime API.'
-                            )}
-                        </Alert>
-                        {unsupportedActiveRoleRules.length > 0 ? (
-                            <Alert severity='warning' data-testid='application-settings-unsupported-scope-warning'>
-                                {t(
-                                    'settings.unsupportedScopeWarning',
-                                    'Some imported role policy grants use scopes that are not implemented yet. They will be saved as deny rules until scoped predicates are available.'
-                                )}
-                            </Alert>
-                        ) : null}
-
-                        <Box sx={{ overflowX: 'auto' }}>
-                            <Box
-                                data-testid='application-settings-role-policy-grid'
-                                sx={{
-                                    minWidth: 760,
-                                    display: 'grid',
-                                    gridTemplateColumns: `minmax(220px, 1.25fr) repeat(${APPLICATION_ROLE_ORDER.length}, minmax(120px, 1fr))`,
-                                    border: 1,
-                                    borderColor: 'divider',
-                                    borderRadius: 2,
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                <Box sx={{ p: 1.5, bgcolor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
-                                    <Typography variant='subtitle2'>{t('settings.capabilityColumn', 'Capability')}</Typography>
-                                </Box>
-                                {APPLICATION_ROLE_ORDER.map((role) => (
-                                    <Box
-                                        key={role}
-                                        sx={{
-                                            p: 1.5,
-                                            bgcolor: 'background.default',
-                                            borderBottom: 1,
-                                            borderLeft: 1,
-                                            borderColor: 'divider',
-                                            textAlign: 'center'
-                                        }}
-                                    >
-                                        <Typography variant='subtitle2'>
-                                            {t(`settings.roles.${role}`, role.charAt(0).toUpperCase() + role.slice(1))}
-                                        </Typography>
-                                    </Box>
-                                ))}
-
-                                {APPLICATION_CAPABILITIES.map((capability) => (
-                                    <Box key={capability.key} sx={{ display: 'contents' }}>
-                                        <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider' }}>
-                                            <Typography variant='body2' sx={{ fontWeight: 600 }}>
-                                                {t(capability.labelKey, capability.fallback)}
-                                            </Typography>
-                                            <Typography variant='caption' color='text.secondary'>
-                                                {capability.capability}
-                                            </Typography>
-                                        </Box>
-                                        {APPLICATION_ROLE_ORDER.map((role) => (
-                                            <Box
-                                                key={`${role}-${capability.key}`}
-                                                sx={{
-                                                    p: 1,
-                                                    borderTop: 1,
-                                                    borderLeft: 1,
-                                                    borderColor: 'divider',
-                                                    display: 'flex',
-                                                    justifyContent: 'center'
-                                                }}
-                                            >
-                                                <Switch
-                                                    data-testid={`application-settings-role-policy-${role}-${capability.key}`}
-                                                    checked={rolePolicyMatrix[role][capability.key]}
-                                                    onChange={(event) => updateRoleCapability(role, capability.key, event.target.checked)}
-                                                    slotProps={{
-                                                        input: {
-                                                            'aria-label': `${role} ${capability.capability}`
-                                                        }
-                                                    }}
-                                                />
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                ))}
-                            </Box>
-                        </Box>
-
-                        {hasGeneralChanges ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button
-                                    data-testid='application-settings-access-save'
-                                    variant='contained'
-                                    startIcon={<SaveIcon />}
-                                    onClick={() =>
-                                        saveGeneralMutation.mutate({
-                                            settings: effectiveGeneralSettings,
-                                            ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
-                                        })
-                                    }
-                                    disabled={saveGeneralMutation.isPending}
-                                >
-                                    {t('settings.save', 'Save')}
-                                </Button>
-                            </Box>
-                        ) : null}
-                    </Stack>
-                ) : (
-                    <Stack spacing={2}>
-                        <Alert severity='info'>
-                            {t(
-                                'settings.limitsHint',
-                                'Set row limits per object for every workspace. When the limit is reached, users will not be able to create more records in that object.'
-                            )}
-                        </Alert>
-
-                        {!runtimeSchemaReady ? (
-                            <Alert severity='info'>
-                                {t(
-                                    'settings.limitsRequiresSchema',
-                                    'Limits settings will become available after the application schema is created.'
-                                )}
-                            </Alert>
-                        ) : applicationQuery.data?.workspacesEnabled !== true ? (
-                            <Alert severity='info'>
-                                {t(
-                                    'settings.limitsRequiresWorkspaces',
-                                    'Limits are available only for applications created with workspace mode enabled.'
-                                )}
-                            </Alert>
-                        ) : limitsQuery.isLoading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                                <CircularProgress size={28} />
-                            </Box>
-                        ) : limitsQuery.isError ? (
-                            <Alert severity='error'>{t('settings.limitsLoadError', 'Failed to load limits')}</Alert>
-                        ) : (
-                            <Stack spacing={2}>
-                                {effectiveLimits.map((item) => (
-                                    <Box
-                                        key={item.objectId}
-                                        data-testid={`application-settings-limit-card-${item.objectId}`}
-                                        sx={{
-                                            display: 'grid',
-                                            gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 180px' },
-                                            gap: 2,
-                                            alignItems: 'center',
-                                            border: 1,
-                                            borderColor: 'divider',
-                                            borderRadius: 2,
-                                            p: 2
-                                        }}
-                                    >
-                                        <Box>
-                                            <Typography variant='subtitle2'>{item.name || item.codename}</Typography>
-                                            <Typography variant='body2' color='text.secondary'>
-                                                {item.codenameDisplay || item.codename}
-                                            </Typography>
-                                        </Box>
-                                        <TextField
-                                            type='number'
-                                            label={t('settings.maxRows', 'Max rows')}
-                                            value={item.inputValue}
-                                            onChange={(event) =>
-                                                setLocalLimits((prev) => ({
-                                                    ...prev,
-                                                    [item.objectId]: event.target.value
-                                                }))
-                                            }
-                                            inputProps={{
-                                                min: 1,
-                                                'data-testid': `application-settings-limit-input-${item.objectId}`
-                                            }}
-                                            helperText={t('settings.emptyMeansUnlimited', 'Leave empty for unlimited')}
-                                        />
-                                    </Box>
-                                ))}
-
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    <Button
-                                        data-testid='application-settings-limits-save'
-                                        variant='contained'
-                                        startIcon={<SaveIcon />}
-                                        onClick={() => saveLimitsMutation.mutate(limitsQuery.data ?? [])}
-                                        disabled={saveLimitsMutation.isPending}
-                                    >
-                                        {t('settings.save', 'Save')}
-                                    </Button>
-                                </Box>
-                            </Stack>
-                        )}
-                    </Stack>
-                )}
+                    <AccessSettingsPanel
+                        t={t}
+                        unsupportedActiveRoleRulesCount={unsupportedActiveRoleRules.length}
+                        rolePolicyMatrix={rolePolicyMatrix}
+                        hasChanges={hasGeneralChanges}
+                        isSaving={saveGeneralMutation.isPending}
+                        onUpdateRoleCapability={updateRoleCapability}
+                        onSave={() =>
+                            saveGeneralMutation.mutate({
+                                settings: effectiveGeneralSettings,
+                                ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                            })
+                        }
+                    />
+                ) : activeTab === 'limits' && supportsWorkspaceLimits ? (
+                    <LimitsSettingsPanel
+                        t={t}
+                        runtimeSchemaReady={runtimeSchemaReady}
+                        workspacesEnabled={applicationQuery.data?.workspacesEnabled}
+                        isLoading={limitsQuery.isLoading}
+                        isError={limitsQuery.isError}
+                        limits={effectiveLimits}
+                        isSaving={saveLimitsMutation.isPending}
+                        onLimitChange={(objectId, value) => setLocalLimits((prev) => ({ ...prev, [objectId]: value }))}
+                        onSave={() => saveLimitsMutation.mutate(limitsQuery.data ?? [])}
+                    />
+                ) : null}
             </Box>
         </MainCard>
     )

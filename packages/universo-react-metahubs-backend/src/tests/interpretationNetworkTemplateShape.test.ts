@@ -31,15 +31,32 @@ describe('interpretation-network template shape', () => {
         const left = widgets.filter((w) => w.zone === 'left')
         const center = widgets.filter((w) => w.zone === 'center')
         const workspace = findWidget(center, 'interpretationNetworkWorkspace') as
-            | { config?: { conceptCodename?: string; interpretationCodename?: string; tableTemplateCodename?: string } }
+            | {
+                  config?: {
+                      conceptCodename?: string
+                      interpretationCodename?: string
+                      interpretationTitleField?: string
+                      materialTitleField?: string
+                      tableTemplateCodename?: string
+                  }
+              }
             | undefined
 
         expect(top).toEqual([])
         expect(findWidget(left, 'menuWidget')).toBeDefined()
         expect(findWidget(left, 'workspaceSwitcher')).toBeDefined()
         expect(workspace?.config).toMatchObject({
+            matrixMode: 'hierarchicalCells',
+            hierarchyLayout: 'horizontalRows',
+            positionNumbering: {
+                enabled: true,
+                includeRoot: true,
+                startIndex: 1
+            },
             conceptCodename: 'Structure',
             interpretationCodename: 'Interpretation',
+            interpretationTitleField: 'Title',
+            materialTitleField: 'Title',
             tableTemplateCodename: 'TableTemplate',
             conceptNameField: 'Name',
             conceptDescriptionField: 'Description',
@@ -106,7 +123,7 @@ describe('interpretation-network template shape', () => {
         const matrix = tableTemplate?.components?.find((c) => c.codename === 'TemplateMatrix')
         expect(matrix?.dataType).toBe('TABLE')
         expect(matrix?.childComponents?.map((c) => c.codename)).toEqual(
-            expect.arrayContaining(['CellId', 'RowLabel', 'ColLabel', 'CellValue', 'CellFillColor', 'MaterialRef'])
+            expect.arrayContaining(['CellId', 'ParentCellId', 'RowLabel', 'ColLabel', 'CellValue', 'CellFillColor', 'MaterialRef'])
         )
         expect(Number(matrix?.validationRules?.maxChildComponents ?? 0)).toBe(matrix?.childComponents?.length ?? 0)
     })
@@ -133,15 +150,16 @@ describe('interpretation-network template shape', () => {
         expect(body?.uiConfig).toMatchObject({ widget: 'editorjsBlockContent', gridHidden: true })
     })
 
-    it('Interpretation entity specifies the TABLE InterpretationMatrix with 21 child components', () => {
+    it('Interpretation entity specifies the TABLE InterpretationMatrix with 22 child components', () => {
         const interp = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Interpretation')
         expect(interp).toBeDefined()
         const matrix = interp?.components?.find((c) => c.codename === 'InterpretationMatrix')
         expect(matrix?.dataType).toBe('TABLE')
-        expect(matrix?.childComponents?.length).toBe(21)
+        expect(matrix?.childComponents?.length).toBe(22)
         expect(Number(matrix?.validationRules?.maxChildComponents ?? 0)).toBe(matrix?.childComponents?.length ?? 0)
         const codenames = matrix?.childComponents?.map((c) => c.codename) ?? []
         expect(codenames).toContain('CellId')
+        expect(codenames).toContain('ParentCellId')
         expect(codenames).toContain('CellDescription')
         expect(codenames).toContain('CellFillColor')
         expect(codenames).toContain('MaterialRef')
@@ -231,7 +249,7 @@ describe('interpretation-network template shape', () => {
                 versioned: true
             })
         }
-        for (const codename of ['CellId', 'ColKey', 'RowKey']) {
+        for (const codename of ['CellId', 'ParentCellId', 'ColKey', 'RowKey']) {
             expect(matrix?.childComponents?.find((c) => c.codename === codename)?.uiConfig).toMatchObject({
                 hidden: true,
                 gridHidden: true,

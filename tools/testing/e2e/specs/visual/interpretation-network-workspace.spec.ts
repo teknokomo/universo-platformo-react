@@ -74,7 +74,7 @@ test.describe('Interpretation Network workspace @visual', () => {
             'Create or select a structure on the left. After you open a structure, select a matrix cell to manage its materials here.'
         )
         await expect(page.getByTestId('interpretation-network-details-pane')).not.toContainText('Materials')
-        await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Add material' })).toHaveCount(0)
+        await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toHaveCount(0)
         await expect(page.getByRole('main').getByRole('button', { name: 'Add page' })).toHaveCount(0)
         await expect(page.getByRole('main').getByText('Gravity', { exact: false })).toHaveCount(0)
         await expect(page.getByRole('main').getByText('Gravity material', { exact: false })).toHaveCount(0)

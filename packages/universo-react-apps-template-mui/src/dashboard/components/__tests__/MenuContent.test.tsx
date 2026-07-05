@@ -35,6 +35,7 @@ describe('MenuContent sanitizeHref', () => {
         const reportsButton = screen.getByRole('button', { name: 'Reports' })
         expect(reportsButton).toHaveAttribute('aria-current', 'page')
         expect(reportsButton).toHaveClass('Mui-selected')
+        expect(reportsButton.querySelector('.MuiListItemIcon-root')).toHaveStyle({ minWidth: '0' })
     })
 
     it('keeps page-backed section clicks separate from object collection clicks', () => {

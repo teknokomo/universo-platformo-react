@@ -3,7 +3,7 @@
         "title": "Interpretation network",
         "structureTitle": "Structure",
         "matrix": "Matrix",
-        "matrixEmpty": "Add a cell to start the structure matrix.",
+        "matrixEmpty": "Create a structure again to restore its root matrix cell.",
         "matrixError": "Failed to load matrix cells",
         "loading": "Loading interpretation network",
         "error": "Failed to load interpretation workspace",
@@ -18,6 +18,7 @@
         "noMaterial": "The selected cell has no attached material yet.",
         "actions": {
             "create": "Create",
+            "edit": "Edit",
             "save": "Save",
             "cancel": "Cancel",
             "delete": "Delete",
@@ -31,6 +32,7 @@
             "noCell": "Create or select a structure on the left. After you open a structure, select a matrix cell to manage its materials here."
         },
         "defaults": {
+            "universe": "Universe",
             "meaning": "Meaning",
             "definition": "Definition",
             "newRow": "New row",
@@ -49,15 +51,27 @@
             "viewMode": "Structure view mode",
             "tableView": "Table view",
             "cardView": "Card view",
+            "actionsFor": "Structure actions: {{title}}",
+            "editTitle": "Edit structure",
+            "deleteTitle": "Delete structure?",
+            "deleteDescription": "Delete the structure “{{title}}”? Its matrix cells and linked materials will also be removed.",
             "noDescription": "No description",
             "noFilterResults": "No structures match the current filter.",
             "columns": {
                 "title": "Title",
-                "description": "Description"
+                "description": "Description",
+                "actions": "Actions"
             }
         },
         "cell": {
-            "addSibling": "Add cell",
+            "add": "Add",
+            "addChild": "Add child",
+            "addChildDisabled": "Select a cell before adding a child.",
+            "hierarchyLayout": "Matrix view",
+            "horizontalRows": "Horizontal rows",
+            "verticalTree": "Vertical tree",
+            "addSibling": "Add cell in row",
+            "addSiblingDisabled": "Select a row cell before adding another cell.",
             "addSiblingHint": "Add a cell to the selected row",
             "addRow": "Add row",
             "drag": "Drag cell",
@@ -83,6 +97,8 @@
             "delete": "Delete",
             "deleteTitle": "Delete cell?",
             "deleteDescription": "Delete the cell “{{title}}”? Materials attached to the cell will stay in the workspace.",
+            "deleteHasChildren": "Move or delete child cells before deleting this cell.",
+            "deleteRoot": "The root cell cannot be deleted.",
             "deleteError": "Failed to delete cell",
             "error": "Failed to update matrix cells"
         },
@@ -95,7 +111,7 @@
         },
         "material": {
             "title": "Materials",
-            "create": "Add material",
+            "create": "Create",
             "edit": "Edit material",
             "createTitle": "Add material",
             "editTitle": "Edit material",

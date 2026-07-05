@@ -84,8 +84,10 @@ Runtime dashboard template for published applications in the Universo Platformo 
 ## Stage-1 Additions (Interpretation Network interpretation network)
 
 -   **Structure-first runtime**: the Interpretation Network app opens on the localized `InterpretationNetworkIntro` Page; the `interpretationNetworkWorkspace` center widget is scoped to the `Structures` (`Concept`) section so the empty left pane only exposes `Create structure`, while the right pane owns the start memo and selected-cell `Add material` flow.
+-   **Hierarchy-first Matrix**: `interpretationNetworkWorkspace.config.matrixMode` defaults to `hierarchicalCells`. New Structures seed one root cell named `Universe` / `Вселенная`, and users create further cells with the right-aligned `Add child` action. `independentRows` remains available for row/column compatibility.
+-   **Matrix drag/drop UX**: cells use dnd-kit sortable primitives with a drag overlay, muted origin slot, dashed drop indicator, invalid target state, and menu/keyboard fallback through the existing card action menu.
 -   **`CellStyleDialogField`**: `uiConfig.widget: 'cellStylePicker'` extension of the standard `FormDialog` for the Interpretation Matrix cell color/border attributes (12-color chip grid + per-side width/style + current-field preview).
--   **Cell ID defaults**: `buildInitialTabularRowValues` creates RFC 9562 UUID v7 values for hidden `CellId` matrix fields, and the Playwright generator preserves those server-owned IDs in the exported fixture.
+-   **Cell ID and hierarchy defaults**: `buildInitialTabularRowValues` creates RFC 9562 UUID v7 values for hidden `CellId` matrix fields. `ParentCellId` is hidden/system-owned, `_tp_sort_order` stores sibling order, and `Depth` is derived at runtime.
 -   **`INTERPRETATION_NETWORK_CELL_*` types**: `INTERPRETATION_NETWORK_CELL_COLOR_PRESET_CODENAMES`, `INTERPRETATION_NETWORK_CELL_STYLE_SIDES`, `INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS`, `INTERPRETATION_NETWORK_CELL_STYLE_STYLES` from `@universo-react/types`, plus `InterpretationNetworkCellStyleState` and `InterpretationNetworkCellStyleBorder`.
 
 ## Installation

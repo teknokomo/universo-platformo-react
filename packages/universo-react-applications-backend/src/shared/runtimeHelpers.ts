@@ -850,7 +850,7 @@ export const resolveTabularContext = async (
 
     const objects = (await manager.query(
         `
-        SELECT id, codename, table_name, config
+        SELECT id, ${runtimeCodenameTextSql('codename')} AS codename, table_name, config
         FROM ${schemaIdent}._app_objects
         WHERE id = $1 AND kind = 'object'
           AND _upl_deleted = false
@@ -872,7 +872,7 @@ export const resolveTabularContext = async (
 
     const tableAttrs = (await manager.query(
         `
-        SELECT id, codename, column_name, data_type, validation_rules
+        SELECT id, ${runtimeCodenameTextSql('codename')} AS codename, column_name, data_type, validation_rules
         FROM ${schemaIdent}._app_components
         WHERE id = $1 AND object_id = $2 AND data_type = 'TABLE'
           AND parent_component_id IS NULL
@@ -901,7 +901,7 @@ export const resolveTabularContext = async (
 
     const childAttrs = (await manager.query(
         `
-        SELECT id, codename, column_name, data_type, is_required, validation_rules,
+        SELECT id, ${runtimeCodenameTextSql('codename')} AS codename, column_name, data_type, is_required, validation_rules,
                target_object_id, target_object_kind, ui_config
         FROM ${schemaIdent}._app_components
         WHERE parent_component_id = $1

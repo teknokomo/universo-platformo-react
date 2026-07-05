@@ -115,10 +115,20 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
                 sectionCodenames: ['Structure'],
                 objectCollectionCodenames: ['Structure']
             },
+            matrixMode: 'hierarchicalCells',
+            hierarchyLayout: 'horizontalRows',
+            hierarchyRowMode: 'focusedPath',
+            positionNumbering: {
+                enabled: true,
+                includeRoot: true,
+                startIndex: 1
+            },
             conceptCodename: 'Structure',
             interpretationCodename: 'Interpretation',
             relationCodename: 'Relation',
             materialCodename: 'Material',
+            materialTitleField: 'Title',
+            interpretationTitleField: 'Title',
             tableTemplateCodename: 'TableTemplate',
             matrixField: 'InterpretationMatrix',
             tableTemplateMatrixField: 'TemplateMatrix',
