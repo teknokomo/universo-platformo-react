@@ -105,7 +105,7 @@ const expectEmptyStructuresWorkspace = async (page: Page): Promise<void> => {
         'Create or select a structure on the left. After you open a structure, select a matrix cell to manage its materials here.'
     )
     await expect(page.getByTestId('interpretation-network-details-pane')).not.toContainText('Materials')
-    await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Add material' })).toHaveCount(0)
+    await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toHaveCount(0)
     await expect(main.getByRole('button', { name: 'Create' })).toBeVisible()
     await expect(main.getByRole('button', { name: 'Add page' })).toHaveCount(0)
     await expect(main.getByText('Gravity', { exact: false })).toHaveCount(0)
@@ -426,19 +426,79 @@ const readMatrixRowCellTexts = async (page: Page): Promise<string[][]> =>
             )
         )
 
-const dragMatrixCellByPointer = async (source: Locator, target: Locator): Promise<void> => {
+const dragMatrixCellByPointer = async (
+    source: Locator,
+    target: Locator,
+    placement: 'before' | 'child' | 'after',
+    options: { targetIsHigherLevel?: boolean } = {}
+): Promise<void> => {
     const sourceHandle = source.getByLabel('Drag cell')
     await expect(sourceHandle).toBeVisible()
+    const sourceCellBox = await source.boundingBox()
     const sourceBox = await sourceHandle.boundingBox()
     const targetBox = await target.boundingBox()
+    expect(sourceCellBox, 'matrix drag source cell box').toBeTruthy()
     expect(sourceBox, 'matrix drag source handle box').toBeTruthy()
     expect(targetBox, 'matrix drag target cell box').toBeTruthy()
-    if (!sourceBox || !targetBox) return
+    if (!sourceCellBox || !sourceBox || !targetBox) return
+    const targetCellId = await target.getAttribute('data-cell-id')
+    expect(targetCellId, 'matrix drag target stable cell id').toBeTruthy()
+    if (!targetCellId) return
 
+    const sourceStartX = sourceBox.x + sourceBox.width / 2
+    const sourceStartY = sourceBox.y + sourceBox.height / 2
+    const sourceHandleToCellCenterX = sourceCellBox.x + sourceCellBox.width / 2 - sourceStartX
+    const sourceHandleToCellCenterY = sourceCellBox.y + sourceCellBox.height / 2 - sourceStartY
     await sourceHandle.hover()
-    await source.page().mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2)
+    await source.page().mouse.move(sourceStartX, sourceStartY)
     await source.page().mouse.down()
-    await source.page().mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 })
+    const sourceApproachesFromRight = sourceCellBox.x >= targetBox.x
+    const moveSourceCenterTo = async (sourceCenterX: number, sourceCenterY = targetBox.y + targetBox.height / 2) => {
+        await source.page().mouse.move(sourceCenterX - sourceHandleToCellCenterX, sourceCenterY - sourceHandleToCellCenterY, { steps: 12 })
+    }
+    const currentTarget = source.page().locator(`[data-testid="interpretation-network-cell"][data-cell-id="${targetCellId}"]`)
+
+    if (options.targetIsHigherLevel) {
+        const targetProgress = placement === 'before' ? 0.125 : placement === 'after' ? 0.875 : 0.5
+        await moveSourceCenterTo(targetBox.x + targetBox.width * targetProgress)
+        await expect(source.page().getByTestId('interpretation-network-cell-drag-overlay')).toBeVisible({ timeout: 10_000 })
+    } else if (placement === 'child') {
+        const overlapBaseWidth = Math.min(sourceCellBox.width, targetBox.width)
+        for (const overlapRatio of [0.45, 0.35, 0.25, 0.15]) {
+            const childOverlapWidth = overlapBaseWidth * overlapRatio
+            await moveSourceCenterTo(
+                sourceApproachesFromRight
+                    ? targetBox.x + targetBox.width - childOverlapWidth + sourceCellBox.width / 2
+                    : targetBox.x + childOverlapWidth - sourceCellBox.width / 2,
+                targetBox.y + targetBox.height * 0.72
+            )
+            await expect(source.page().getByTestId('interpretation-network-cell-drag-overlay')).toBeVisible({ timeout: 10_000 })
+            const matchedChildPlacement = await expect
+                .poll(async () => currentTarget.first().getAttribute('data-drop-placement'), {
+                    timeout: 1_500
+                })
+                .toBe('child')
+                .then(
+                    () => true,
+                    () => false
+                )
+            if (matchedChildPlacement) break
+        }
+    } else {
+        await moveSourceCenterTo(targetBox.x + targetBox.width * (placement === 'before' ? 0.25 : 0.75))
+        await expect(source.page().getByTestId('interpretation-network-cell-drag-overlay')).toBeVisible({ timeout: 10_000 })
+    }
+    await expect
+        .poll(async () => currentTarget.first().getAttribute('data-drop-placement'), {
+            message: `matrix drop placement should be ${placement}`
+        })
+        .toBe(placement)
+    await expect(currentTarget.first().getByTestId('interpretation-network-drop-indicator')).toBeVisible({ timeout: 10_000 })
+    if (placement === 'child' || placement === 'before' || placement === 'after') {
+        const placeholder = source.page().getByTestId('interpretation-network-drop-placeholder')
+        await expect(placeholder).toBeVisible({ timeout: 10_000 })
+        await expect(placeholder).toHaveAttribute('data-drop-placement', placement)
+    }
     await source.page().mouse.up()
 }
 
@@ -454,53 +514,201 @@ const waitForMatrixMoveResponse = (page: Page, applicationId: string, timeout = 
     )
 
 const expectMatrixCellMoveNotSwap = async (page: Page, applicationId: string): Promise<void> => {
-    await page.getByTestId('interpretation-network-cell').first().click()
-    await page.getByRole('button', { name: 'Add row' }).click()
-    const addRowDialog = page.getByRole('dialog', { name: 'Add cell' })
-    await expect(addRowDialog).toBeVisible({ timeout: 30_000 })
-    await addRowDialog.getByRole('textbox', { name: 'Title' }).fill('E2E second row cell')
-    const addRowRequest = waitForSettledMutationResponse(
+    const rootCell = page.getByTestId('interpretation-network-cell').first()
+    await expect(rootCell).toHaveAttribute('data-cell-id', /.+/)
+    const rootCellId = await rootCell.getAttribute('data-cell-id')
+    expect(rootCellId, 'root Universe cell must expose its stable CellId for hierarchy assertions').toBeTruthy()
+    await rootCell.click()
+    await expect(page.getByRole('button', { name: 'Add' })).toBeEnabled({ timeout: 30_000 })
+
+    await page.getByRole('button', { name: 'Add' }).click()
+    const firstChildDialog = page.getByRole('dialog', { name: 'Add cell' })
+    await expect(firstChildDialog).toBeVisible({ timeout: 30_000 })
+    await firstChildDialog.getByRole('textbox', { name: 'Title' }).fill('E2E first child cell')
+    const addFirstChildRequest = waitForSettledMutationResponse(
         page,
         (response) =>
             response.request().method() === 'POST' &&
             response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
             response.url().includes('/tabular/'),
-        { label: 'Creating second matrix row cell' }
+        { label: 'Creating first hierarchical matrix child' }
     )
-    await addRowDialog.getByRole('button', { name: 'Create' }).click()
-    expect((await addRowRequest).ok()).toBe(true)
-    await expect(addRowDialog).toHaveCount(0)
+    await firstChildDialog.getByRole('button', { name: 'Create' }).click()
+    expect((await addFirstChildRequest).ok()).toBe(true)
+    await expect(firstChildDialog).toHaveCount(0)
+    await expect(page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E first child cell' })).toBeVisible({
+        timeout: 30_000
+    })
+
+    await rootCell.click()
+    await page.getByRole('button', { name: 'Add' }).click()
+    const secondChildDialog = page.getByRole('dialog', { name: 'Add cell' })
+    await expect(secondChildDialog).toBeVisible({ timeout: 30_000 })
+    await secondChildDialog.getByRole('textbox', { name: 'Title' }).fill('E2E second child cell')
+    const addSecondChildRequest = waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+            response.url().includes('/tabular/'),
+        { label: 'Creating second hierarchical matrix child' }
+    )
+    await secondChildDialog.getByRole('button', { name: 'Create' }).click()
+    expect((await addSecondChildRequest).ok()).toBe(true)
+    await expect(secondChildDialog).toHaveCount(0)
     await expect(page.getByTestId('interpretation-network-matrix-row')).toHaveCount(2, { timeout: 30_000 })
 
     const beforeRows = await readMatrixRowCellTexts(page)
-    expect(beforeRows[0]?.length, 'matrix source row before drag').toBe(1)
-    expect(beforeRows[1]?.length, 'matrix target row before drag').toBe(1)
-    const movedCellText = beforeRows[0]?.[0] ?? ''
-    expect(movedCellText, 'matrix drag source cell title').toBeTruthy()
+    expect(beforeRows).toEqual([
+        [expect.stringContaining('Universe')],
+        [expect.stringContaining('E2E first child cell'), expect.stringContaining('E2E second child cell')]
+    ])
 
-    const sourceCell = page.getByTestId('interpretation-network-matrix-row').nth(0).getByTestId('interpretation-network-cell').first()
-    const targetCell = page.getByTestId('interpretation-network-matrix-row').nth(1).getByTestId('interpretation-network-cell').first()
+    const sourceCell = page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E second child cell' }).first()
+    const targetCell = page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E first child cell' }).first()
     await expect(sourceCell).toHaveAttribute('data-cell-id', /.+/)
     await expect(targetCell).toHaveAttribute('data-cell-id', /.+/)
     const moveRequest = waitForMatrixMoveResponse(page, applicationId, 30_000)
-    await dragMatrixCellByPointer(sourceCell, targetCell)
+    await dragMatrixCellByPointer(sourceCell, targetCell, 'before')
     const moveResponse = await moveRequest
     expect(moveResponse.ok()).toBe(true)
-    const movePayload = moveResponse.request().postDataJSON() as { updates?: unknown[] }
+    const movePayload = moveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
     expect(
         Array.isArray(movePayload.updates) ? movePayload.updates.length : 0,
         'drag/drop move must update moved cell without swapping'
     ).toBeGreaterThanOrEqual(1)
+    expect(movePayload.updates?.[0]?.data, 'dragged sibling reorder must not reparent the moved cell').not.toHaveProperty('ParentCellId')
+    expect(movePayload.updates?.[0]?.data?._tp_sort_order, 'dragged sibling reorder must persist the new sibling order').toBe(0)
 
     await expect
         .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
-        .toEqual([expect.arrayContaining([expect.stringContaining(movedCellText), expect.stringContaining('E2E second row cell')])])
+        .toEqual([
+            [expect.stringContaining('Universe')],
+            [expect.stringContaining('E2E second child cell'), expect.stringContaining('E2E first child cell')]
+        ])
+
+    const keyboardMoveRequest = waitForMatrixMoveResponse(page, applicationId, 30_000)
+    await page.getByRole('button', { name: 'Cell actions: E2E first child cell' }).click()
+    await page.getByRole('menuitem', { name: 'Up' }).click()
+    const keyboardMoveResponse = await keyboardMoveRequest
+    expect(keyboardMoveResponse.ok()).toBe(true)
+    const keyboardMovePayload = keyboardMoveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
+    expect(keyboardMovePayload.updates?.[0]?.data, 'menu move must not reparent the moved cell').not.toHaveProperty('ParentCellId')
+
+    await expect
+        .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
+        .toEqual([
+            [expect.stringContaining('Universe')],
+            [expect.stringContaining('E2E first child cell'), expect.stringContaining('E2E second child cell')]
+        ])
+
+    const childMoveRequest = waitForMatrixMoveResponse(page, applicationId, 30_000)
+    await dragMatrixCellByPointer(
+        page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E first child cell' }).first(),
+        page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E second child cell' }).first(),
+        'child'
+    )
+    const childMoveResponse = await childMoveRequest
+    expect(childMoveResponse.ok()).toBe(true)
+    const childMovePayload = childMoveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
+    const secondChildId = await page
+        .getByTestId('interpretation-network-cell')
+        .filter({ hasText: 'E2E second child cell' })
+        .first()
+        .getAttribute('data-cell-id')
+    expect(secondChildId, 'child drop target must expose its stable CellId').toBeTruthy()
+    expect(childMovePayload.updates?.[0]?.data?.ParentCellId, 'center drop must reparent the moved cell').toBe(secondChildId)
+    expect(childMovePayload.updates?.[0]?.data?._tp_sort_order, 'first child under a new parent must start at sibling order zero').toBe(0)
+
+    await expect
+        .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
+        .toEqual([
+            expect.arrayContaining([expect.stringContaining('Universe')]),
+            expect.arrayContaining([expect.stringContaining('E2E second child cell')]),
+            expect.arrayContaining([expect.stringContaining('E2E first child cell')])
+        ])
+
+    const universeCell = page.getByTestId('interpretation-network-cell').filter({ hasText: 'Universe' }).first()
+    await universeCell.click()
+    await page.getByRole('button', { name: 'Add' }).click()
+    const higherLevelTargetDialog = page.getByRole('dialog', { name: 'Add cell' })
+    await expect(higherLevelTargetDialog).toBeVisible({ timeout: 30_000 })
+    await higherLevelTargetDialog.getByRole('textbox', { name: 'Title' }).fill('E2E higher-level target')
+    const addHigherLevelTargetRequest = waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+            response.url().includes('/tabular/'),
+        { label: 'Creating higher-level matrix drop target' }
+    )
+    await higherLevelTargetDialog.getByRole('button', { name: 'Create' }).click()
+    expect((await addHigherLevelTargetRequest).ok()).toBe(true)
+    await expect(higherLevelTargetDialog).toHaveCount(0)
+
+    const higherLevelTarget = page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E higher-level target' }).first()
+    await expect(higherLevelTarget).toBeVisible({ timeout: 30_000 })
+    await page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E second child cell' }).first().click()
+    const deeplyNestedSource = page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E first child cell' }).first()
+    await expect(deeplyNestedSource).toBeVisible({ timeout: 30_000 })
+    const higherLevelTargetId = await higherLevelTarget.getAttribute('data-cell-id')
+    expect(higherLevelTargetId, 'higher-level target must expose its stable CellId').toBeTruthy()
+
+    const crossLevelMoveRequest = waitForMatrixMoveResponse(page, applicationId, 30_000)
+    await dragMatrixCellByPointer(deeplyNestedSource, higherLevelTarget, 'child', { targetIsHigherLevel: true })
+    const crossLevelMoveResponse = await crossLevelMoveRequest
+    expect(crossLevelMoveResponse.ok()).toBe(true)
+    const crossLevelMovePayload = crossLevelMoveResponse.request().postDataJSON() as {
+        updates?: Array<{ data?: Record<string, unknown> }>
+    }
+    expect(
+        crossLevelMovePayload.updates?.[0]?.data?.ParentCellId,
+        'center 50% of a higher-level target must reparent the dragged cell'
+    ).toBe(higherLevelTargetId)
+    expect(crossLevelMovePayload.updates?.[0]?.data?._tp_sort_order).toBe(0)
+
+    await expect
+        .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
+        .toEqual([
+            expect.arrayContaining([expect.stringContaining('Universe')]),
+            expect.arrayContaining([expect.stringContaining('E2E second child cell'), expect.stringContaining('E2E higher-level target')]),
+            expect.arrayContaining([expect.stringContaining('E2E first child cell')])
+        ])
 
     await page.reload()
     await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
     await expect
         .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
-        .toEqual([expect.arrayContaining([expect.stringContaining(movedCellText), expect.stringContaining('E2E second row cell')])])
+        .toEqual([
+            expect.arrayContaining([expect.stringContaining('Universe')]),
+            expect.arrayContaining([expect.stringContaining('E2E second child cell')]),
+            expect.arrayContaining([expect.stringContaining('E2E first child cell')])
+        ])
+}
+
+const expectInterpretationNetworkMatrixSettings = async (page: Page, applicationId: string, testInfo: TestInfo): Promise<void> => {
+    await page.goto(`/a/${applicationId}/admin/settings`)
+    await expect(page.getByRole('heading', { name: 'Application Settings' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('tab', { name: 'Matrix' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Learning Content' })).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Matrix' }).click()
+    await expect(page.getByRole('tab', { name: 'Matrix' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('combobox', { name: 'Matrix mode' })).toBeVisible()
+    await expect(page.getByRole('option', { name: 'Hierarchical cells' })).toHaveCount(0)
+    await expectNoTechnicalLeakage(page.getByRole('main'), {
+        label: 'Interpretation Network application Matrix settings',
+        checkUuidSubstrings: true
+    })
+    await expectNoPageHorizontalOverflow(page, 'Interpretation Network application Matrix settings')
+    await attachRuntimeScreenshot(page, testInfo, 'application-settings-matrix-desktop-1280')
+    await expectRuntimeUxViewportMatrix(page, 'Interpretation Network application Matrix settings', {
+        beforeEachViewport: async () => {
+            await page.goto(`/a/${applicationId}/admin/settings`)
+            await expect(page.getByRole('heading', { name: 'Application Settings' })).toBeVisible({ timeout: 30_000 })
+            await page.getByRole('tab', { name: 'Matrix' }).click()
+            await expect(page.getByRole('combobox', { name: 'Matrix mode' })).toBeVisible({ timeout: 30_000 })
+        }
+    })
 }
 
 async function fillMaterialDialogFields(dialog: Locator, values: { title: string; description: string }) {
@@ -574,6 +782,10 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expect(page.getByRole('main')).not.toContainText('Conversions')
         await expect(page.getByRole('main')).not.toContainText('Event count')
         await expectRuntimeSideMenuModes(page, testInfo)
+        await expectInterpretationNetworkMatrixSettings(page, applicationId, testInfo)
+        await page.goto(`/a/${applicationId}`)
+        await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
+        await expectInterpretationNetworkStartPage(page)
 
         const menu = getDockedRuntimeNavigation(page)
         await menu.getByRole('link', { name: 'Workspaces' }).click()
@@ -646,8 +858,23 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         )
         const cells = page.getByTestId('interpretation-network-cell')
         await expect(cells.first()).toBeVisible({ timeout: 30_000 })
-        await expect(cells.first()).toContainText('Meaning')
+        await expect(cells.first()).toContainText('Universe')
         await expect(cells.first()).not.toContainText('Empty cell')
+        const matrixHorizontalToggle = page.getByRole('button', { name: 'Horizontal rows' })
+        await expect(matrixHorizontalToggle).toHaveAttribute('aria-pressed', 'true')
+        const matrixToggleBox = await matrixHorizontalToggle.boundingBox()
+        expect(matrixToggleBox?.width, 'Matrix view toggle width').toBeCloseTo(40, 0)
+        expect(matrixToggleBox?.height, 'Matrix view toggle height').toBeCloseTo(40, 0)
+
+        const firstMenuLink = getDockedRuntimeNavigation(page).getByRole('link').first()
+        const menuGap = await firstMenuLink.evaluate((link) => {
+            const icon = link.querySelector('.MuiListItemIcon-root')?.getBoundingClientRect()
+            const label = link.querySelector('.MuiListItemText-root')?.getBoundingClientRect()
+            return icon && label ? label.left - icon.right : null
+        })
+        expect(menuGap, 'published SideMenu icon-label gap').not.toBeNull()
+        expect(menuGap ?? 0).toBeGreaterThanOrEqual(7)
+        expect(menuGap ?? 0).toBeLessThanOrEqual(9)
         await page.reload()
         await expect(page).toHaveURL(
             new RegExp(
@@ -664,6 +891,16 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expectMatrixCellMoveNotSwap(page, applicationId)
         await cells.first().click()
         await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toBeVisible()
+        const materialTableToggle = page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Table view' })
+        const [matrixToggleColors, materialToggleColors] = await Promise.all(
+            [matrixHorizontalToggle, materialTableToggle].map((toggle) =>
+                toggle.evaluate((element) => {
+                    const style = getComputedStyle(element)
+                    return { color: style.color, backgroundColor: style.backgroundColor }
+                })
+            )
+        )
+        expect(matrixToggleColors, 'Matrix selected toggle must reuse the Material selected theme state').toEqual(materialToggleColors)
         await expect(
             page.getByTestId('interpretation-network-details-pane').getByRole('textbox', { name: 'Filter by title' })
         ).toBeVisible()
@@ -798,6 +1035,13 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toBeVisible()
         await expect(getMaterialOpenButton(page.getByTestId('interpretation-network-details-pane'), updatedMaterialTitle)).toBeVisible()
+        const matrixScreenshot = await page.getByTestId('interpretation-network-matrix-workspace').screenshot({
+            animations: 'disabled'
+        })
+        await testInfo.attach('interpretation-network-matrix-runtime-polish', {
+            body: matrixScreenshot,
+            contentType: 'image/png'
+        })
         await expectNoTechnicalLeakage(page.getByRole('main'), {
             label: 'Interpretation Network Materials workspace tab',
             checkUuidSubstrings: true

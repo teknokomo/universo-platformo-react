@@ -74,17 +74,35 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
     },
     {
+        codename: 'ParentCellId',
+        dataType: 'STRING',
+        name: vlc('Parent Cell ID', 'ID родительской ячейки'),
+        description: vlc(
+            'Stable CellId of the parent matrix cell in hierarchical matrix mode.',
+            'Стабильный CellId родительской ячейки в иерархическом режиме матрицы.'
+        ),
+        sortOrder: 2,
+        validationRules: { maxLength: 64 },
+        uiConfig: {
+            hidden: true,
+            gridHidden: true,
+            formHidden: true,
+            serverOwned: true,
+            hierarchyIdentityField: 'CellId'
+        }
+    },
+    {
         codename: 'ColKey',
         dataType: 'STRING',
         name: vlc('Column Key', 'Ключ колонки'),
-        sortOrder: 2,
+        sortOrder: 3,
         uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
     },
     {
         codename: 'ColLabel',
         dataType: 'STRING',
         name: vlc('Column Label', 'Метка колонки'),
-        sortOrder: 3,
+        sortOrder: 4,
         validationRules: { localized: true, versioned: true },
         uiConfig: { widget: 'textarea', rows: 1 }
     },
@@ -92,21 +110,21 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'RowKey',
         dataType: 'STRING',
         name: vlc('Row Key', 'Ключ строки'),
-        sortOrder: 4,
+        sortOrder: 5,
         uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
     },
     {
         codename: 'RowLabel',
         dataType: 'STRING',
         name: vlc('Row Label', 'Метка строки'),
-        sortOrder: 5,
+        sortOrder: 6,
         validationRules: { localized: true, versioned: true }
     },
     {
         codename: 'CellValue',
         dataType: 'STRING',
         name: vlc('Cell Title', 'Название ячейки'),
-        sortOrder: 6,
+        sortOrder: 7,
         validationRules: { localized: true, versioned: true },
         uiConfig: {
             widget: 'textarea',
@@ -132,7 +150,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'CellDescription',
         dataType: 'STRING',
         name: vlc('Cell Description', 'Описание ячейки'),
-        sortOrder: 7,
+        sortOrder: 8,
         validationRules: { localized: true, versioned: true },
         uiConfig: { widget: 'textarea', rows: 4, gridHidden: true }
     },
@@ -140,7 +158,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'CellFillColor',
         dataType: 'REF',
         name: vlc('Fill Color', 'Цвет заливки'),
-        sortOrder: 8,
+        sortOrder: 9,
         targetEntityCodename: 'CellColor',
         targetEntityKind: 'enumeration',
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'fill', cellStyleValue: 'color' }
@@ -149,7 +167,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderTopColor',
         dataType: 'REF',
         name: vlc('Top Border Color', 'Цвет верхней границы'),
-        sortOrder: 9,
+        sortOrder: 10,
         targetEntityCodename: 'CellColor',
         targetEntityKind: 'enumeration',
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'color' }
@@ -158,7 +176,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderRightColor',
         dataType: 'REF',
         name: vlc('Right Border Color', 'Цвет правой границы'),
-        sortOrder: 10,
+        sortOrder: 11,
         targetEntityCodename: 'CellColor',
         targetEntityKind: 'enumeration',
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'right', cellStyleValue: 'color' }
@@ -167,7 +185,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderBottomColor',
         dataType: 'REF',
         name: vlc('Bottom Border Color', 'Цвет нижней границы'),
-        sortOrder: 11,
+        sortOrder: 12,
         targetEntityCodename: 'CellColor',
         targetEntityKind: 'enumeration',
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'bottom', cellStyleValue: 'color' }
@@ -176,7 +194,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderLeftColor',
         dataType: 'REF',
         name: vlc('Left Border Color', 'Цвет левой границы'),
-        sortOrder: 12,
+        sortOrder: 13,
         targetEntityCodename: 'CellColor',
         targetEntityKind: 'enumeration',
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'left', cellStyleValue: 'color' }
@@ -185,7 +203,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderTopWidth',
         dataType: 'STRING',
         name: vlc('Top Border Width', 'Толщина верхней границы'),
-        sortOrder: 13,
+        sortOrder: 14,
         validationRules: { maxLength: 8 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'width' }
     },
@@ -193,7 +211,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderRightWidth',
         dataType: 'STRING',
         name: vlc('Right Border Width', 'Толщина правой границы'),
-        sortOrder: 14,
+        sortOrder: 15,
         validationRules: { maxLength: 8 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'right', cellStyleValue: 'width' }
     },
@@ -201,7 +219,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderBottomWidth',
         dataType: 'STRING',
         name: vlc('Bottom Border Width', 'Толщина нижней границы'),
-        sortOrder: 15,
+        sortOrder: 16,
         validationRules: { maxLength: 8 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'bottom', cellStyleValue: 'width' }
     },
@@ -209,7 +227,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderLeftWidth',
         dataType: 'STRING',
         name: vlc('Left Border Width', 'Толщина левой границы'),
-        sortOrder: 16,
+        sortOrder: 17,
         validationRules: { maxLength: 8 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'left', cellStyleValue: 'width' }
     },
@@ -217,7 +235,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderTopStyle',
         dataType: 'STRING',
         name: vlc('Top Border Style', 'Стиль верхней границы'),
-        sortOrder: 17,
+        sortOrder: 18,
         validationRules: { maxLength: 16 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'lineStyle' }
     },
@@ -225,7 +243,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderRightStyle',
         dataType: 'STRING',
         name: vlc('Right Border Style', 'Стиль правой границы'),
-        sortOrder: 18,
+        sortOrder: 19,
         validationRules: { maxLength: 16 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'right', cellStyleValue: 'lineStyle' }
     },
@@ -233,7 +251,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderBottomStyle',
         dataType: 'STRING',
         name: vlc('Bottom Border Style', 'Стиль нижней границы'),
-        sortOrder: 19,
+        sortOrder: 20,
         validationRules: { maxLength: 16 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'bottom', cellStyleValue: 'lineStyle' }
     },
@@ -241,7 +259,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'BorderLeftStyle',
         dataType: 'STRING',
         name: vlc('Left Border Style', 'Стиль левой границы'),
-        sortOrder: 20,
+        sortOrder: 21,
         validationRules: { maxLength: 16 },
         uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'left', cellStyleValue: 'lineStyle' }
     },
@@ -249,7 +267,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         codename: 'MaterialRef',
         dataType: 'REF',
         name: vlc('Attached Material', 'Прикреплённый материал'),
-        sortOrder: 21,
+        sortOrder: 22,
         targetEntityCodename: 'Material',
         targetEntityKind: 'object',
         uiConfig: { enumPresentationMode: 'label' }
@@ -311,7 +329,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS: TemplateSeedCompo
             'Табличная часть с одной строкой на ячейку. В каждой строке — значение, цвет и атрибуты границ по сторонам.'
         ),
         sortOrder: 4,
-        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 21 },
+        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22 },
         childComponents: INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS
     }
 ]
@@ -343,7 +361,7 @@ const INTERPRETATION_NETWORK_TABLE_TEMPLATE_OBJECT_COMPONENTS: TemplateSeedCompo
             'Переиспользуемая структура матрицы, создаваемая в рабочем пространстве. Пользователи могут копировать её и использовать как основу матриц трактовок.'
         ),
         sortOrder: 3,
-        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 21 },
+        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22 },
         childComponents: INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS
     }
 ]

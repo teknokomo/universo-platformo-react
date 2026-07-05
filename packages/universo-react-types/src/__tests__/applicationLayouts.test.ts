@@ -3,6 +3,104 @@ import { describe, expect, it } from 'vitest'
 import { parseApplicationLayoutWidgetConfig } from '../common/applicationLayouts'
 
 describe('application layout widget config contracts', () => {
+    it('accepts typed Interpretation Network workspace matrix mode configuration', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                visibleFor: {
+                    sectionCodenames: ['Structure'],
+                    objectCollectionCodenames: ['Structure']
+                },
+                matrixMode: 'hierarchicalCells',
+                hierarchyLayout: 'horizontalRows',
+                hierarchyRowMode: 'focusedPath',
+                positionNumbering: {
+                    enabled: true,
+                    includeRoot: true,
+                    startIndex: 1
+                },
+                serverModuleCodename: 'interpretation-runtime',
+                conceptCodename: 'Structure',
+                conceptNameField: 'Name',
+                conceptDescriptionField: 'Description',
+                interpretationCodename: 'Interpretation',
+                interpretationParentField: 'ParentStructure',
+                matrixField: 'InterpretationMatrix',
+                relationCodename: 'Relation',
+                materialCodename: 'Material',
+                materialTitleField: 'Title',
+                interpretationTitleField: 'Title',
+                tableTemplateCodename: 'TableTemplate',
+                tableTemplateNameField: 'Name',
+                tableTemplateDescriptionField: 'Description',
+                tableTemplateMatrixField: 'TemplateMatrix'
+            })
+        ).toMatchObject({
+            matrixMode: 'hierarchicalCells',
+            hierarchyLayout: 'horizontalRows',
+            hierarchyRowMode: 'focusedPath',
+            positionNumbering: {
+                enabled: true,
+                includeRoot: true,
+                startIndex: 1
+            },
+            conceptCodename: 'Structure',
+            serverModuleCodename: 'interpretation-runtime',
+            matrixField: 'InterpretationMatrix',
+            materialTitleField: 'Title',
+            interpretationTitleField: 'Title',
+            tableTemplateNameField: 'Name',
+            tableTemplateDescriptionField: 'Description',
+            visibleFor: {
+                sectionCodenames: ['Structure'],
+                objectCollectionCodenames: ['Structure']
+            }
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'legacyGrid'
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                hierarchyLayout: 'diagonal',
+                positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                hierarchyLayout: 'horizontalRows',
+                hierarchyRowMode: 'allBranches'
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                hierarchyLayout: 'horizontalRows',
+                positionNumbering: { enabled: true, includeRoot: true, startIndex: -1 }
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'independentRows',
+                unexpectedFlag: true
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                defaultRootTitleField: 'CellValue'
+            })
+        ).toThrow()
+    })
+
     it('accepts generic PlayCanvas canvas widget configuration', () => {
         expect(
             parseApplicationLayoutWidgetConfig('playcanvasCanvas', {

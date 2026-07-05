@@ -119,6 +119,30 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     }
     const workspaceConfig =
         workspaceWidget.config && typeof workspaceWidget.config === 'object' ? (workspaceWidget.config as Record<string, unknown>) : {}
+    if (workspaceConfig.matrixMode !== 'hierarchicalCells') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.matrixMode must be "hierarchicalCells"'
+        )
+    }
+    if (workspaceConfig.hierarchyLayout !== 'horizontalRows') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.hierarchyLayout must be "horizontalRows"'
+        )
+    }
+    if (workspaceConfig.hierarchyRowMode !== 'focusedPath') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.hierarchyRowMode must be "focusedPath"'
+        )
+    }
+    const positionNumbering =
+        workspaceConfig.positionNumbering && typeof workspaceConfig.positionNumbering === 'object'
+            ? (workspaceConfig.positionNumbering as Record<string, unknown>)
+            : {}
+    if (positionNumbering.enabled !== true || positionNumbering.includeRoot !== true || positionNumbering.startIndex !== 1) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.positionNumbering must enable root-inclusive numbering from 1'
+        )
+    }
     const visibleFor =
         workspaceConfig.visibleFor && typeof workspaceConfig.visibleFor === 'object'
             ? (workspaceConfig.visibleFor as Record<string, unknown>)
@@ -205,6 +229,13 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     }
 
     layoutZoneWidgets.forEach((widget, index) => visitWidget(widget, `layoutZoneWidgets[${index}]`))
+
+    const serializedLayouts = JSON.stringify(layoutZoneWidgets)
+    for (const forbiddenText of ['learningContent', 'learnerPlayer', 'lms-module-viewer', 'lms-stats-viewer']) {
+        if (serializedLayouts.includes(forbiddenText)) {
+            throw new Error(`Interpretation Network fixture contract failed: layout widgets must not leak LMS config "${forbiddenText}"`)
+        }
+    }
 }
 
 const assertIntroPageContract = (entityList: Array<Record<string, unknown>>): void => {
@@ -353,6 +384,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         : []
     for (const fieldCodename of [
         'CellId',
+        'ParentCellId',
         'CellValue',
         'CellFillColor',
         'BorderTopColor',
@@ -372,6 +404,18 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         requireFieldByCodename(matrixFields, fieldCodename, 'Interpretation.InterpretationMatrix')
     }
     assertHiddenSystemFieldUiConfig(requireFieldByCodename(matrixFields, 'CellId', 'Interpretation.InterpretationMatrix'), 'CellId')
+    assertHiddenSystemFieldUiConfig(
+        requireFieldByCodename(matrixFields, 'ParentCellId', 'Interpretation.InterpretationMatrix'),
+        'ParentCellId'
+    )
+    if (findFieldByCodename(matrixFields, 'Depth')) {
+        throw new Error('Interpretation Network fixture contract failed: Interpretation.InterpretationMatrix.Depth must remain derived')
+    }
+    if (findFieldByCodename(matrixFields, 'SiblingSortOrder')) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: Interpretation.InterpretationMatrix.SiblingSortOrder must not be present'
+        )
+    }
 
     for (const fieldCodename of [
         'SourceLabel',
@@ -402,6 +446,19 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         throw new Error('Interpretation Network fixture contract failed: TableTemplate.TemplateMatrix must be a TABLE component')
     }
     assertTabularMaxChildComponents(templateMatrixField, 'TableTemplate.TemplateMatrix')
+    const templateMatrixFields = Array.isArray(templateMatrixField.childFields)
+        ? (templateMatrixField.childFields as Array<Record<string, unknown>>)
+        : []
+    assertHiddenSystemFieldUiConfig(
+        requireFieldByCodename(templateMatrixFields, 'ParentCellId', 'TableTemplate.TemplateMatrix'),
+        'TableTemplate.TemplateMatrix.ParentCellId'
+    )
+    if (findFieldByCodename(templateMatrixFields, 'Depth')) {
+        throw new Error('Interpretation Network fixture contract failed: TableTemplate.TemplateMatrix.Depth must remain derived')
+    }
+    if (findFieldByCodename(templateMatrixFields, 'SiblingSortOrder')) {
+        throw new Error('Interpretation Network fixture contract failed: TableTemplate.TemplateMatrix.SiblingSortOrder must not be present')
+    }
 
     assertNoSeededRuntimeRows(structureRows, 'Structure', /Gravity|Meaning/i)
     assertNoSeededRuntimeRows(interpRows, 'Interpretation', /Gravity|Attraction between masses|Falling apple/i)

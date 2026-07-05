@@ -45,7 +45,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Table & Grid Views**: Flexible data presentation with pagination and search
 -   **Dialog Forms**: Modal forms for creating and editing entities
 -   **Tabbed Application Forms**: Create, edit, and copy dialogs reuse the shared `General / Parameters` pattern
--   **Settings Surface**: Applications with runtime schema now expose `General` and `Limits` settings tabs
+-   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. Interpretation Network Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
 
 ### 🔧 Technical Features
 

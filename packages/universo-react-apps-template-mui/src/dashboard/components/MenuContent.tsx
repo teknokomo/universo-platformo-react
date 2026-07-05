@@ -218,7 +218,7 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                                         }
                                     }}
                                 >
-                                    <ListItemIcon sx={{ minWidth: isCompact ? 0 : 40 }}>{resolveIcon(item.icon)}</ListItemIcon>
+                                    <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon(item.icon)}</ListItemIcon>
                                     {renderText(item.label)}
                                 </ListItemButton>
                             )}
@@ -235,7 +235,7 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                             onClick={(event) => setOverflowAnchor(event.currentTarget)}
                             sx={{ justifyContent: isCompact ? 'center' : 'flex-start', px: isCompact ? 1 : undefined }}
                         >
-                            <ListItemIcon sx={{ minWidth: isCompact ? 0 : 40 }}>{resolveIcon('more')}</ListItemIcon>
+                            <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon('more')}</ListItemIcon>
                             {renderText(overflowLabel)}
                         </ListItemButton>
                     )}

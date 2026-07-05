@@ -52,7 +52,9 @@ const sharedBehaviorSchema = z
 const widgetVisibilitySchema = z
     .object({
         sectionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(32).optional(),
-        sectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(32).optional()
+        sectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(32).optional(),
+        objectCollectionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(32).optional(),
+        objectCollectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(32).optional()
     })
     .strict()
 
@@ -270,6 +272,7 @@ const moduleBackedWidgetConfigSchema = z
         mountMethodName: z.string().nullable().optional(),
         emptyStateTitle: z.string().nullable().optional(),
         emptyStateDescription: z.string().nullable().optional(),
+        serverModuleCodename: z.string().trim().min(1).max(128).nullable().optional(),
         visibleFor: widgetVisibilitySchema.optional(),
         sharedBehavior: sharedBehaviorSchema.optional()
     })
@@ -316,7 +319,6 @@ const playcanvasRuntimeManifestBindingSchema = z
 export const playcanvasCanvasWidgetConfigSchema = moduleBackedWidgetConfigSchema
     .extend({
         title: localizedWidgetTextSchema.optional(),
-        serverModuleCodename: z.string().trim().min(1).max(128).nullable().optional(),
         runtimeManifest: playcanvasRuntimeManifestBindingSchema.optional(),
         minHeight: z.number().int().min(320).max(1200).optional(),
         heightMode: z.enum(['fixed', 'fitViewport']).optional(),
@@ -652,6 +654,48 @@ export const learnerPlayerWidgetConfigSchema = z
 
 export type LearnerPlayerWidgetConfig = z.infer<typeof learnerPlayerWidgetConfigSchema>
 
+export const interpretationNetworkMatrixModes = ['hierarchicalCells', 'independentRows'] as const
+export type InterpretationNetworkMatrixMode = (typeof interpretationNetworkMatrixModes)[number]
+
+export const interpretationNetworkHierarchyLayouts = ['horizontalRows', 'verticalTree'] as const
+export type InterpretationNetworkHierarchyLayout = (typeof interpretationNetworkHierarchyLayouts)[number]
+
+export const interpretationNetworkHierarchyRowModes = ['focusedPath', 'allNodes'] as const
+export type InterpretationNetworkHierarchyRowMode = (typeof interpretationNetworkHierarchyRowModes)[number]
+
+export const interpretationNetworkPositionNumberingSchema = z
+    .object({
+        enabled: z.boolean().optional(),
+        includeRoot: z.boolean().optional(),
+        startIndex: z.number().int().min(0).max(999).optional()
+    })
+    .strict()
+
+export const interpretationNetworkWorkspaceWidgetConfigSchema = moduleBackedWidgetConfigSchema
+    .extend({
+        matrixMode: z.enum(interpretationNetworkMatrixModes).optional(),
+        hierarchyLayout: z.enum(interpretationNetworkHierarchyLayouts).optional(),
+        hierarchyRowMode: z.enum(interpretationNetworkHierarchyRowModes).optional(),
+        positionNumbering: interpretationNetworkPositionNumberingSchema.optional(),
+        conceptCodename: z.string().trim().min(1).max(128).optional(),
+        conceptNameField: z.string().trim().min(1).max(128).optional(),
+        conceptDescriptionField: z.string().trim().min(1).max(128).optional(),
+        interpretationCodename: z.string().trim().min(1).max(128).optional(),
+        interpretationParentField: z.string().trim().min(1).max(128).optional(),
+        matrixField: z.string().trim().min(1).max(128).optional(),
+        relationCodename: z.string().trim().min(1).max(128).optional(),
+        materialCodename: z.string().trim().min(1).max(128).optional(),
+        materialTitleField: z.string().trim().min(1).max(128).optional(),
+        interpretationTitleField: z.string().trim().min(1).max(128).optional(),
+        tableTemplateCodename: z.string().trim().min(1).max(128).optional(),
+        tableTemplateNameField: z.string().trim().min(1).max(128).optional(),
+        tableTemplateDescriptionField: z.string().trim().min(1).max(128).optional(),
+        tableTemplateMatrixField: z.string().trim().min(1).max(128).optional()
+    })
+    .strict()
+
+export type InterpretationNetworkWorkspaceWidgetConfig = z.infer<typeof interpretationNetworkWorkspaceWidgetConfigSchema>
+
 const widgetConfigSchemaByKey = {
     menuWidget: menuWidgetConfigSchema,
     columnsContainer: columnsContainerWidgetConfigSchema,
@@ -664,7 +708,8 @@ const widgetConfigSchemaByKey = {
     pageViewsChart: recordsSeriesChartWidgetConfigSchema,
     detailsTabs: detailsTabsWidgetConfigSchema,
     resourcePreview: resourcePreviewWidgetConfigSchema,
-    learnerPlayer: learnerPlayerWidgetConfigSchema
+    learnerPlayer: learnerPlayerWidgetConfigSchema,
+    interpretationNetworkWorkspace: interpretationNetworkWorkspaceWidgetConfigSchema
 } as const
 
 export const applicationLayoutWidgetConfigSchema = genericWidgetConfigSchema

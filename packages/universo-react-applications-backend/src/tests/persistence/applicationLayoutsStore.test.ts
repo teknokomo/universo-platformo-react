@@ -1,11 +1,30 @@
 import {
     deleteApplicationLayout,
+    listApplicationLayouts,
     moveApplicationLayoutWidget,
     upsertApplicationLayoutWidget
 } from '../../persistence/applicationLayoutsStore'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationLayoutsStore', () => {
+    it('does not bind an unused scope parameter when listing global layouts', async () => {
+        const { executor } = createMockDbExecutor()
+
+        executor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: '0' }])
+
+        await listApplicationLayouts(executor, 'app_018f8a787b8f7c1da111222233334444', {
+            limit: 100,
+            offset: 0,
+            scopeEntityId: null
+        })
+
+        expect(executor.query).toHaveBeenCalledTimes(2)
+        expect(executor.query.mock.calls[0]?.[0]).toContain('scope_entity_id IS NULL')
+        expect(executor.query.mock.calls[0]?.[1]).toEqual([100, 0])
+        expect(executor.query.mock.calls[1]?.[0]).toContain('scope_entity_id IS NULL')
+        expect(executor.query.mock.calls[1]?.[1]).toEqual([])
+    })
+
     it('reassigns the default layout when deleting the current default layout', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
 

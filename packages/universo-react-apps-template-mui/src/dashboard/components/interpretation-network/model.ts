@@ -1,4 +1,4 @@
-import { createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
+import { buildVLC, createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
 import type { AppDataResponse } from '../../../api/api'
 import type { FieldConfig, FieldType } from '../../../components/dialogs/FormDialog'
 import { formatRuntimeSafeValue } from '../../../utils/displayValue'
@@ -39,12 +39,18 @@ export type InterpretationNetworkWorkspaceConfig = {
     tableTemplateNameField?: string
     tableTemplateDescriptionField?: string
     tableTemplateMatrixField?: string
+    matrixMode?: MatrixMode
+    hierarchyLayout?: MatrixHierarchyLayout
+    hierarchyRowMode?: MatrixHierarchyRowMode
+    positionNumbering?: MatrixPositionNumberingConfig
 }
 
 export type MatrixCell = {
     id: string
     rawRowId: string
     sortOrder: number
+    parentCellId: string | null
+    depth: number
     rowKey: string
     rowLabel: string
     colKey: string
@@ -58,6 +64,43 @@ export type MatrixCell = {
         borderRight: string
         borderBottom: string
         borderLeft: string
+    }
+}
+
+export const MATRIX_MODES = ['hierarchicalCells', 'independentRows'] as const
+export type MatrixMode = (typeof MATRIX_MODES)[number]
+
+export const MATRIX_HIERARCHY_LAYOUTS = ['horizontalRows', 'verticalTree'] as const
+export type MatrixHierarchyLayout = (typeof MATRIX_HIERARCHY_LAYOUTS)[number]
+
+export const MATRIX_HIERARCHY_ROW_MODES = ['focusedPath', 'allNodes'] as const
+export type MatrixHierarchyRowMode = (typeof MATRIX_HIERARCHY_ROW_MODES)[number]
+
+export type MatrixPositionNumberingConfig = {
+    enabled: boolean
+    includeRoot: boolean
+    startIndex: number
+}
+
+export const parseMatrixMode = (value: unknown): MatrixMode =>
+    value === 'independentRows' || value === 'hierarchicalCells' ? value : 'hierarchicalCells'
+
+export const parseMatrixHierarchyLayout = (value: unknown): MatrixHierarchyLayout =>
+    value === 'verticalTree' || value === 'horizontalRows' ? value : 'horizontalRows'
+
+export const parseMatrixHierarchyRowMode = (value: unknown): MatrixHierarchyRowMode =>
+    value === 'allNodes' || value === 'focusedPath' ? value : 'focusedPath'
+
+export const parseMatrixPositionNumbering = (value: unknown): MatrixPositionNumberingConfig => {
+    if (!isRecord(value)) {
+        return { enabled: true, includeRoot: true, startIndex: 1 }
+    }
+
+    const rawStartIndex = value.startIndex
+    return {
+        enabled: typeof value.enabled === 'boolean' ? value.enabled : true,
+        includeRoot: typeof value.includeRoot === 'boolean' ? value.includeRoot : true,
+        startIndex: typeof rawStartIndex === 'number' && Number.isInteger(rawStartIndex) && rawStartIndex >= 0 ? rawStartIndex : 1
     }
 }
 
@@ -75,7 +118,11 @@ const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
     interpretationParentField: 'ParentStructure',
     tableTemplateNameField: 'Name',
     tableTemplateDescriptionField: 'Description',
-    tableTemplateMatrixField: 'TemplateMatrix'
+    tableTemplateMatrixField: 'TemplateMatrix',
+    matrixMode: 'hierarchicalCells',
+    hierarchyLayout: 'horizontalRows',
+    hierarchyRowMode: 'focusedPath',
+    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
 }
 
 const CELL_COLOR_HEX: Record<string, string | null> = {
@@ -101,7 +148,21 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 export const toConfig = (config: Record<string, unknown> | undefined): Required<InterpretationNetworkWorkspaceConfig> => ({
     ...DEFAULT_CONFIG,
-    ...Object.fromEntries(Object.entries(config ?? {}).filter(([, value]) => typeof value === 'string' && value.trim().length > 0))
+    ...Object.fromEntries(
+        Object.entries(config ?? {}).filter(
+            ([key, value]) =>
+                key !== 'matrixMode' &&
+                key !== 'hierarchyLayout' &&
+                key !== 'hierarchyRowMode' &&
+                key !== 'positionNumbering' &&
+                typeof value === 'string' &&
+                value.trim().length > 0
+        )
+    ),
+    matrixMode: parseMatrixMode(config?.matrixMode),
+    hierarchyLayout: parseMatrixHierarchyLayout(config?.hierarchyLayout),
+    hierarchyRowMode: parseMatrixHierarchyRowMode(config?.hierarchyRowMode),
+    positionNumbering: parseMatrixPositionNumbering(config?.positionNumbering)
 })
 
 const readRowValue = (row: Record<string, unknown> | undefined, field: string): unknown => {
@@ -178,6 +239,7 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
         const rawRowKey = readCellValue(rawCell, 'RowKey')
         const rawColKey = readCellValue(rawCell, 'ColKey')
         const rawMaterialRef = readCellValue(rawCell, 'MaterialRef')
+        const rawParentCellId = readCellValue(rawCell, 'ParentCellId')
         const cellId = resolveMatrixCellId(rawCell, childColumns, index)
         const rawSortOrder = readCellValue(rawCell, '_tp_sort_order')
         const fillCodename = getOptionCodename(colorField('CellFillColor'), readCellValue(rawCell, 'CellFillColor'))
@@ -186,6 +248,8 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
                 id: cellId,
                 rawRowId: typeof rawCell.id === 'string' ? rawCell.id : cellId,
                 sortOrder: typeof rawSortOrder === 'number' && Number.isFinite(rawSortOrder) ? rawSortOrder : index,
+                parentCellId: typeof rawParentCellId === 'string' && rawParentCellId.trim() ? rawParentCellId.trim() : null,
+                depth: 0,
                 rowKey: typeof rawRowKey === 'string' && rawRowKey.trim() ? rawRowKey.trim() : `row-${index}`,
                 rowLabel: readCellText(rawCell, 'RowLabel') || `Row ${index + 1}`,
                 colKey: typeof rawColKey === 'string' && rawColKey.trim() ? rawColKey.trim() : `col-${index}`,
@@ -228,17 +292,25 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
 export const buildDefaultMatrixCellData = (
     childColumns: RuntimeColumnLike[] | undefined,
     locale: string,
-    labels: { row: string; column: string; value?: string; rowKey?: string; colKey?: string }
+    labels: {
+        row: string
+        column: string
+        value?: string
+        rowKey?: string
+        colKey?: string
+        localizedValue?: ReturnType<typeof buildVLC>
+        parentCellId?: string | null
+    }
 ): Record<string, unknown> => {
     const colorField = (field: string) => findColumn(childColumns, field)
     const noneColorId = findOptionIdByCodename(colorField('CellFillColor'), 'none') ?? null
-    return {
+    const data: Record<string, unknown> = {
         CellId: generateUuidV7(),
         ColKey: labels.colKey ?? `column-${generateUuidV7()}`,
-        ColLabel: createLocalizedContent(locale, labels.column),
+        ColLabel: labels.localizedValue ?? createLocalizedContent(locale, labels.column),
         RowKey: labels.rowKey ?? `row-${generateUuidV7()}`,
-        RowLabel: createLocalizedContent(locale, labels.row),
-        CellValue: createLocalizedContent(locale, labels.value ?? labels.column),
+        RowLabel: labels.localizedValue ?? createLocalizedContent(locale, labels.row),
+        CellValue: labels.localizedValue ?? createLocalizedContent(locale, labels.value ?? labels.column),
         CellDescription: createLocalizedContent(locale, ''),
         CellFillColor: noneColorId,
         BorderTopColor: noneColorId,
@@ -253,8 +325,136 @@ export const buildDefaultMatrixCellData = (
         BorderRightStyle: 'solid',
         BorderBottomStyle: 'solid',
         BorderLeftStyle: 'solid',
-        MaterialRef: null
+        MaterialRef: null,
+        ParentCellId: labels.parentCellId ?? null
     }
+    return data
+}
+
+export const buildRootUniverseMatrixCellData = (childColumns: RuntimeColumnLike[] | undefined, locale: string): Record<string, unknown> =>
+    buildDefaultMatrixCellData(childColumns, locale, {
+        row: 'Universe',
+        column: 'Universe',
+        value: 'Universe',
+        localizedValue: buildVLC('Universe', 'Вселенная')
+    })
+
+export type MatrixTreeNode = MatrixCell & { children: MatrixTreeNode[] }
+
+export const buildMatrixTree = (cells: MatrixCell[]): MatrixTreeNode[] => {
+    const nodesById = new Map<string, MatrixTreeNode>(cells.map((cell) => [cell.id, { ...cell, children: [] }]))
+    const roots: MatrixTreeNode[] = []
+    const hasParentCycle = (cell: MatrixCell): boolean => {
+        const visited = new Set<string>([cell.id])
+        let currentParentId = cell.parentCellId
+        while (currentParentId) {
+            if (visited.has(currentParentId)) return true
+            visited.add(currentParentId)
+            currentParentId = nodesById.get(currentParentId)?.parentCellId ?? null
+        }
+        return false
+    }
+
+    for (const cell of cells) {
+        const node = nodesById.get(cell.id)
+        if (!node) continue
+        const parent = cell.parentCellId ? nodesById.get(cell.parentCellId) : undefined
+        if (parent && parent.id !== node.id && !hasParentCycle(cell)) {
+            parent.children.push(node)
+        } else {
+            roots.push(node)
+        }
+    }
+
+    const sortNodes = (nodes: MatrixTreeNode[]) => {
+        nodes.sort((left, right) => left.sortOrder - right.sortOrder)
+        nodes.forEach((node) => sortNodes(node.children))
+    }
+    sortNodes(roots)
+    return roots
+}
+
+export const flattenMatrixTree = (nodes: MatrixTreeNode[], depth = 0, visited = new Set<string>()): MatrixCell[] =>
+    nodes.flatMap((node) => {
+        if (visited.has(node.id)) return []
+        visited.add(node.id)
+        const { children, ...cell } = node
+        return [{ ...cell, depth }, ...flattenMatrixTree(children, depth + 1, visited)]
+    })
+
+export const toMatrixHierarchyRows = (cells: MatrixCell[]): MatrixCell[][] => {
+    const rows: MatrixCell[][] = []
+    for (const cell of cells) {
+        const depth = Math.max(0, cell.depth)
+        rows[depth] = rows[depth] ?? []
+        rows[depth].push(cell)
+    }
+    return rows.filter((row) => row.length > 0)
+}
+
+export const toFocusedMatrixHierarchyRows = (nodes: MatrixTreeNode[], selectedCellId: string | null | undefined): MatrixCell[][] => {
+    if (nodes.length === 0) return []
+
+    const rows: MatrixCell[][] = []
+    const pathByDepth: string[] = []
+    const findPath = (items: MatrixTreeNode[], targetId: string, path: string[] = []): boolean => {
+        for (const node of items) {
+            const nextPath = [...path, node.id]
+            if (node.id === targetId) {
+                pathByDepth.splice(0, pathByDepth.length, ...nextPath)
+                return true
+            }
+            if (findPath(node.children, targetId, nextPath)) return true
+        }
+        return false
+    }
+    if (selectedCellId) findPath(nodes, selectedCellId)
+
+    let currentRow = nodes
+    let depth = 0
+    while (currentRow.length > 0) {
+        rows.push(currentRow.map(({ children: _children, ...cell }) => cell))
+        const focusedCellId = pathByDepth[depth]
+        if (!focusedCellId) break
+        const selectedNode = currentRow.find((node) => node.id === focusedCellId)
+        if (!selectedNode || selectedNode.children.length === 0) break
+        currentRow = selectedNode.children
+        depth += 1
+    }
+
+    return rows
+}
+
+export const buildMatrixPositionLabels = (nodes: MatrixTreeNode[], config: MatrixPositionNumberingConfig): Map<string, string> => {
+    const labels = new Map<string, string>()
+    if (!config.enabled) return labels
+
+    const startIndex = Math.max(0, Math.trunc(config.startIndex))
+    const visit = (items: MatrixTreeNode[], parentPath: number[], depth: number) => {
+        items.forEach((node, index) => {
+            const currentNumber = startIndex + index
+            const effectivePath = !config.includeRoot && depth === 0 ? [] : [...parentPath, currentNumber]
+            if (effectivePath.length > 0) {
+                labels.set(node.id, effectivePath.join('/'))
+            }
+            visit(node.children, effectivePath, depth + 1)
+        })
+    }
+
+    visit(nodes, [], 0)
+    return labels
+}
+
+export const isDescendantCell = (cells: MatrixCell[], maybeDescendantId: string, ancestorId: string): boolean => {
+    let current = cells.find((cell) => cell.id === maybeDescendantId)
+    const visited = new Set<string>()
+    while (current?.parentCellId) {
+        if (current.parentCellId === ancestorId) return true
+        if (visited.has(current.parentCellId)) return false
+        visited.add(current.parentCellId)
+        current = cells.find((cell) => cell.id === current?.parentCellId)
+    }
+    return false
 }
 
 export const uniqueByKey = (cells: MatrixCell[], key: 'rowKey' | 'colKey'): MatrixCell[] => {

@@ -12027,6 +12027,19 @@ describe('Applications Routes', () => {
                 items: [{ id: runtimeChildRowId, _tp_sort_order: 0, _upl_version: 7, title: 'Visible child row' }],
                 total: 1
             })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(
+                    ([sql]) =>
+                        String(sql).includes("COALESCE(codename->'locales'") && String(sql).includes('FROM "app_runtime_test"._app_objects')
+                )
+            ).toBe(true)
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.filter(
+                    ([sql]) =>
+                        String(sql).includes("COALESCE(codename->'locales'") &&
+                        String(sql).includes('FROM "app_runtime_test"._app_components')
+                )
+            ).toHaveLength(2)
         })
 
         it('keeps member role read-only for child-row mutations before touching runtime tables', async () => {
@@ -12082,6 +12095,27 @@ describe('Applications Routes', () => {
                 .expect(400)
 
             expect(response.body).toMatchObject({ error: 'Invalid body' })
+            expect(executor.transaction).not.toHaveBeenCalled()
+            expect(dataSource.manager.query).not.toHaveBeenCalled()
+        })
+
+        it('rejects duplicate batch child row ids before opening a runtime transaction', async () => {
+            const { dataSource, executor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [
+                        { childRowId: runtimeChildRowId, data: { title: 'Updated' } },
+                        { childRowId: runtimeChildRowId, data: { _tp_sort_order: 1 } }
+                    ]
+                })
+                .expect(400)
+
+            expect(response.body).toEqual({ error: 'Duplicate childRowId in batch update' })
             expect(executor.transaction).not.toHaveBeenCalled()
             expect(dataSource.manager.query).not.toHaveBeenCalled()
         })
@@ -12200,6 +12234,1219 @@ describe('Applications Routes', () => {
             expect(updateCalls).toHaveLength(2)
             expect(updateCalls[0][1]).toEqual(['Second title', 'material-2', 'test-user-id', sourceChildRowId, runtimeRecordId])
             expect(updateCalls[1][1]).toEqual(['First title', 'material-1', 'test-user-id', secondChildRowId, runtimeRecordId])
+        })
+
+        it('reorders more than 25 child rows with one atomic bulk update', async () => {
+            const childRowIds = Array.from(
+                { length: 26 },
+                (_, index) => `018f8a78-7b8f-7c1d-a111-${String(222233334600 + index).padStart(12, '0')}`
+            )
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) return []
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) return []
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                    expect(params).toEqual([childRowIds, runtimeRecordId])
+                    return childRowIds.map((id) => ({ id, _upl_version: 1 }))
+                }
+                if (sql.includes('FROM UNNEST($1::uuid[], $2::integer[], $3::integer[])')) {
+                    expect(params).toEqual([
+                        childRowIds,
+                        childRowIds.map((_, index) => index),
+                        childRowIds.map(() => 1),
+                        'test-user-id',
+                        runtimeRecordId
+                    ])
+                    return childRowIds.map((id) => ({ id }))
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: childRowIds.map((childRowId, index) => ({
+                        childRowId,
+                        data: { _tp_sort_order: index },
+                        expectedVersion: 1
+                    }))
+                })
+
+            expect(response.status).toBe(200)
+            expect(response.body).toEqual({ status: 'ok', updated: childRowIds })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.filter(([sql]) =>
+                    String(sql).includes('FROM UNNEST($1::uuid[], $2::integer[], $3::integer[])')
+                )
+            ).toHaveLength(1)
+        })
+
+        it('reorders more than 25 child rows without optional expected versions', async () => {
+            const childRowIds = Array.from(
+                { length: 26 },
+                (_, index) => `018f8a78-7b8f-7c1d-a111-${String(222233334650 + index).padStart(12, '0')}`
+            )
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) return []
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) return []
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                    expect(params).toEqual([childRowIds, runtimeRecordId])
+                    return childRowIds.map((id) => ({ id, _upl_version: 1 }))
+                }
+                if (sql.includes('FROM UNNEST($1::uuid[], $2::integer[])')) {
+                    expect(params).toEqual([childRowIds, childRowIds.map((_, index) => index), 'test-user-id', runtimeRecordId])
+                    return childRowIds.map((id) => ({ id }))
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: childRowIds.map((childRowId, index) => ({
+                        childRowId,
+                        data: { _tp_sort_order: index }
+                    }))
+                })
+
+            expect(response.status).toBe(200)
+            expect(response.body).toEqual({ status: 'ok', updated: childRowIds })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.filter(([sql]) => String(sql).includes('FROM UNNEST($1::uuid[], $2::integer[])'))
+            ).toHaveLength(1)
+        })
+
+        it('rejects creating a hierarchical child row for a missing parent cell identity', async () => {
+            const rootCellId = '018f8a78-7b8f-7c1d-a111-222233334570'
+            const childCellId = '018f8a78-7b8f-7c1d-a111-222233334571'
+            const missingParentCellId = '018f8a78-7b8f-7c1d-a111-222233334572'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return [{ id: runtimeChildRowId, identity: rootCellId, parent_identity: null }]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                    throw new Error('invalid hierarchy create must not insert a child row')
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { CellId: childCellId, ParentCellId: missingParentCellId } })
+
+            expect(response.status).toBe(400)
+            expect(response.body).toEqual({ error: 'Hierarchy parent does not exist' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_runtime_test"."items"'))
+            ).toBe(false)
+        })
+
+        it('overwrites user-provided hierarchy identity when creating a root child row', async () => {
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            let generatedCellId: unknown
+            const forgedCellId = '018f8a78-7b8f-7c1d-a111-222233334590'
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        },
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        },
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return []
+                }
+                if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 0 }]
+                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                    generatedCellId = params?.[3]
+                    expect(params).toEqual([runtimeRecordId, 0, 'test-user-id', generatedCellId, 'Root'])
+                    return [
+                        {
+                            id: runtimeChildRowId,
+                            _tp_sort_order: 0,
+                            _upl_version: 1,
+                            cell_id: generatedCellId,
+                            parent_cell_id: null,
+                            title: 'Root'
+                        }
+                    ]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { CellId: forgedCellId, ParentCellId: null, title: 'Root' } })
+
+            expect(response.status).toBe(201)
+            expect(response.body).toEqual({
+                id: runtimeChildRowId,
+                status: 'created',
+                item: {
+                    id: runtimeChildRowId,
+                    _tp_sort_order: 0,
+                    _upl_version: 1,
+                    cell_id: generatedCellId,
+                    CellId: generatedCellId,
+                    parent_cell_id: null,
+                    ParentCellId: null,
+                    title: 'Root'
+                }
+            })
+            expect(generatedCellId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
+            expect(generatedCellId).not.toBe(forgedCellId)
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+        })
+
+        it('rejects non-string hierarchy identity inputs without reporting a false identity change', async () => {
+            const existingCellId = '018f8a78-7b8f-7c1d-a111-222233334575'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return [{ id: runtimeChildRowId, identity: existingCellId, parent_identity: null }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                    throw new Error('invalid hierarchy batch must not update child rows')
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [
+                        {
+                            childRowId: runtimeChildRowId,
+                            data: { CellId: { locales: { en: { content: existingCellId } } }, _tp_sort_order: 0 },
+                            expectedVersion: 1
+                        }
+                    ]
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body).toEqual({ error: 'Invalid hierarchy identity' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_runtime_test"."items"'))
+            ).toBe(false)
+        })
+
+        it('rejects batch hierarchy updates that create a cycle', async () => {
+            const firstChildRowId = '018f8a78-7b8f-7c1d-a111-222233334573'
+            const secondChildRowId = '018f8a78-7b8f-7c1d-a111-222233334574'
+            const firstCellId = '018f8a78-7b8f-7c1d-a111-222233334575'
+            const secondCellId = '018f8a78-7b8f-7c1d-a111-222233334576'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return [
+                        { id: firstChildRowId, identity: firstCellId, parent_identity: null },
+                        { id: secondChildRowId, identity: secondCellId, parent_identity: firstCellId }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('id = ANY($1)')) {
+                    expect(params).toEqual([[firstChildRowId, secondChildRowId], runtimeRecordId])
+                    return [
+                        { id: firstChildRowId, _upl_version: 1 },
+                        { id: secondChildRowId, _upl_version: 1 }
+                    ]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                    throw new Error('invalid hierarchy batch must not update child rows')
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [
+                        { childRowId: firstChildRowId, data: { CellId: firstCellId, ParentCellId: secondCellId }, expectedVersion: 1 },
+                        { childRowId: secondChildRowId, data: { CellId: secondCellId, ParentCellId: firstCellId }, expectedVersion: 1 }
+                    ]
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body).toEqual({ error: 'Hierarchy cycle is not allowed' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_runtime_test"."items"'))
+            ).toBe(false)
+        })
+
+        it('returns not found when a hierarchical child row update targets a missing row', async () => {
+            const existingChildRowId = '018f8a78-7b8f-7c1d-a111-222233334584'
+            const existingCellId = '018f8a78-7b8f-7c1d-a111-222233334585'
+            const missingChildRowId = '018f8a78-7b8f-7c1d-a111-222233334586'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        },
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return [{ id: existingChildRowId, identity: existingCellId, parent_identity: null }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"')) return []
+                if (sql.includes('SELECT id, _upl_version') && sql.includes('FROM "app_runtime_test"."items"')) return []
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .patch(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${missingChildRowId}`
+                )
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { title: 'Missing' }, expectedVersion: 1 })
+
+            expect(response.status).toBe(404)
+            expect(response.body).toEqual({ error: 'Child row not found' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+        })
+
+        it('returns not found when a hierarchical batch targets a missing child row', async () => {
+            const existingChildRowId = '018f8a78-7b8f-7c1d-a111-222233334587'
+            const existingCellId = '018f8a78-7b8f-7c1d-a111-222233334588'
+            const missingChildRowId = '018f8a78-7b8f-7c1d-a111-222233334589'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return [{ id: existingChildRowId, identity: existingCellId, parent_identity: null }]
+                }
+                if (sql.includes('SELECT id, _upl_version') && sql.includes('id = ANY($1)')) return []
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [{ childRowId: missingChildRowId, data: { _tp_sort_order: 1 }, expectedVersion: 1 }]
+                })
+
+            expect(response.status).toBe(404)
+            expect(response.body).toEqual({ error: 'Child row not found', childRowId: missingChildRowId })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+        })
+
+        it('applies hierarchical parent moves before sibling sort-only updates in a mixed batch', async () => {
+            const movedChildRowId = '018f8a78-7b8f-7c1d-a111-222233334577'
+            const siblingChildRowId = '018f8a78-7b8f-7c1d-a111-222233334578'
+            const movedCellId = '018f8a78-7b8f-7c1d-a111-222233334579'
+            const parentCellId = '018f8a78-7b8f-7c1d-a111-222233334580'
+            const siblingCellId = '018f8a78-7b8f-7c1d-a111-222233334581'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return [
+                        { id: '018f8a78-7b8f-7c1d-a111-222233334582', identity: parentCellId, parent_identity: null },
+                        { id: movedChildRowId, identity: movedCellId, parent_identity: null },
+                        { id: siblingChildRowId, identity: siblingCellId, parent_identity: parentCellId }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('id = ANY($1)')) {
+                    expect(params).toEqual([[movedChildRowId, siblingChildRowId], runtimeRecordId])
+                    return [
+                        { id: movedChildRowId, _upl_version: 1 },
+                        { id: siblingChildRowId, _upl_version: 2 }
+                    ]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"') && !sql.includes('FROM UNNEST')) {
+                    expect(params).toEqual([parentCellId, 0, 'test-user-id', movedChildRowId, runtimeRecordId, 1])
+                    return [{ id: movedChildRowId }]
+                }
+                if (sql.includes('FROM UNNEST($1::uuid[], $2::integer[], $3::integer[])')) {
+                    expect(params).toEqual([[siblingChildRowId], [1], [2], 'test-user-id', runtimeRecordId])
+                    return [{ id: siblingChildRowId }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [
+                        {
+                            childRowId: movedChildRowId,
+                            data: { ParentCellId: parentCellId, _tp_sort_order: 0 },
+                            expectedVersion: 1
+                        },
+                        { childRowId: siblingChildRowId, data: { _tp_sort_order: 1 }, expectedVersion: 2 }
+                    ]
+                })
+
+            expect(response.status).toBe(200)
+            expect(response.body).toEqual({ status: 'ok', updated: [movedChildRowId, siblingChildRowId] })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            const mutationCalls = (txExecutor.query as jest.Mock).mock.calls
+                .map(([sql]) => String(sql))
+                .filter((sql) => sql.includes('UPDATE "app_runtime_test"."items"'))
+            expect(mutationCalls[0]).not.toContain('FROM UNNEST')
+            expect(mutationCalls[1]).toContain('FROM UNNEST($1::uuid[], $2::integer[], $3::integer[])')
+        })
+
+        it('reports stale bulk sort-only updates as version conflicts', async () => {
+            const staleChildRowId = '018f8a78-7b8f-7c1d-a111-222233334583'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            let childRowsReadCount = 0
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) return []
+                return []
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) return []
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('id = ANY($1)')) {
+                    expect(params).toEqual([[staleChildRowId], runtimeRecordId])
+                    childRowsReadCount += 1
+                    return [{ id: staleChildRowId, _upl_version: childRowsReadCount === 1 ? 1 : 2 }]
+                }
+                if (sql.includes('FROM UNNEST($1::uuid[], $2::integer[], $3::integer[])')) {
+                    expect(params).toEqual([[staleChildRowId], [3], [1], 'test-user-id', runtimeRecordId])
+                    return []
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({
+                    updates: [{ childRowId: staleChildRowId, data: { _tp_sort_order: 3 }, expectedVersion: 1 }]
+                })
+
+            expect(response.status).toBe(409)
+            expect(response.body).toEqual({
+                error: 'Version mismatch',
+                childRowId: staleChildRowId,
+                expectedVersion: 1,
+                actualVersion: 2
+            })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+        })
+
+        it('copies a hierarchical child row with a fresh UUID v7 identity and the same parent', async () => {
+            const rootChildRowId = '018f8a78-7b8f-7c1d-a111-222233334590'
+            const rootCellId = '018f8a78-7b8f-7c1d-a111-222233334591'
+            const sourceCellId = '018f8a78-7b8f-7c1d-a111-222233334592'
+            const { dataSource, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            let copiedCellId: unknown
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        },
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."items"')) {
+                    return [
+                        {
+                            id: runtimeChildRowId,
+                            _tp_sort_order: 2,
+                            cell_id: sourceCellId,
+                            parent_cell_id: rootCellId,
+                            title: 'Child'
+                        }
+                    ]
+                }
+                if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 2 }]
+                if (
+                    sql.includes('SELECT id,') &&
+                    sql.includes('"cell_id" AS identity') &&
+                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FOR UPDATE')
+                ) {
+                    return [
+                        { id: rootChildRowId, identity: rootCellId, parent_identity: null },
+                        { id: runtimeChildRowId, identity: sourceCellId, parent_identity: rootCellId }
+                    ]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                    expect(sql).toContain('"parent_cell_id" IS NOT DISTINCT FROM $3')
+                    expect(params).toEqual([runtimeRecordId, 2, rootCellId])
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                    copiedCellId = params?.[3]
+                    expect(params).toEqual([runtimeRecordId, 3, 'test-user-id', copiedCellId, rootCellId, 'Child'])
+                    return [{ id: copiedChildRowId }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}/copy`
+                )
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+
+            expect(response.status).toBe(201)
+            expect(response.body).toEqual({ id: copiedChildRowId, status: 'created' })
+            expect(copiedCellId).not.toBe(sourceCellId)
+            expect(copiedCellId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
+        })
+
+        it('rejects deleting a hierarchical cell while active child cells reference it', async () => {
+            const parentCellId = '018f8a78-7b8f-7c1d-a111-222233334593'
+            const childRowId = '018f8a78-7b8f-7c1d-a111-222233334594'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true }
+                        },
+                        {
+                            id: 'child-parent-cell-id',
+                            codename: 'ParentCellId',
+                            column_name: 'parent_cell_id',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('"cell_id" AS hierarchy_identity')) {
+                    expect(params).toEqual([runtimeChildRowId, runtimeRecordId])
+                    return [{ id: runtimeChildRowId, hierarchy_identity: parentCellId }]
+                }
+                if (sql.includes('"parent_cell_id" = $2')) {
+                    expect(params).toEqual([runtimeRecordId, parentCellId])
+                    return [{ id: childRowId }]
+                }
+                if (sql.includes('DELETE FROM "app_runtime_test"."items"')) {
+                    throw new Error('referenced hierarchy parent must not be deleted')
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .delete(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}`
+                )
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+
+            expect(response.status).toBe(409)
+            expect(response.body).toEqual({ error: 'Hierarchy child rows must be moved or deleted first' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('DELETE FROM "app_runtime_test"."items"'))
+            ).toBe(false)
         })
 
         it('checks edit permission, not create permission, before updating child rows', async () => {
