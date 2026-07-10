@@ -34,14 +34,25 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
         return value.map((item, index) => normalizeVolatileValues(item, maps, [...pathSegments, String(index)]))
     }
     if (value && typeof value === 'object') {
-        return Object.fromEntries(
-            Object.entries(value as Record<string, unknown>).map(([key, item]) => [
-                normalizeString(key, maps),
-                normalizeVolatileValues(item, maps, [...pathSegments, key])
-            ])
-        )
+        const entries = Object.entries(value as Record<string, unknown>)
+        const normalizedEntries = entries
+            .filter(([key, item]) => !isDefaultPlayCanvasMaterialAlphaFade(key, item, value))
+            .map(([key, item]) => [normalizeString(key, maps), normalizeVolatileValues(item, maps, [...pathSegments, key])])
+        return Object.fromEntries(normalizedEntries)
     }
     return value
+}
+
+const isDefaultPlayCanvasMaterialAlphaFade = (key: string, item: unknown, owner: unknown): boolean => {
+    if (key !== 'alphaFade' || item !== 1 || !owner || typeof owner !== 'object' || Array.isArray(owner)) {
+        return false
+    }
+    const record = owner as Record<string, unknown>
+    return (
+        (Array.isArray(record.diffuse) || Array.isArray(record.emissive)) &&
+        (record.blendType === 1 || record.blendType === 2 || typeof record.blendType === 'string') &&
+        (typeof record.opacity === 'number' || record.opacity === undefined)
+    )
 }
 
 const isVolatileFileSizePath = (pathSegments: string[]): boolean => {
