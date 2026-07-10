@@ -123,6 +123,7 @@ export function RuntimeTabularPartView({
     const canCreate = state.appData?.permissions.createContent === true
     const canEdit = state.appData?.permissions.editContent === true
     const canDelete = state.appData?.permissions.deleteContent === true
+    const canCopyRows = canCreate && !childFields.some((field) => field.validationRules?.matrixUniqueCoordinates === true)
 
     const columnsWithRowNumber = useMemo<GridColDef[]>(
         () => [
@@ -219,7 +220,7 @@ export function RuntimeTabularPartView({
                     workflowConfirmationTitleText: labels.workflowConfirmationTitleText,
                     workflowConfirmationMessageText: labels.workflowConfirmationMessageText
                 }}
-                permissions={{ canEdit, canCopy: canCreate, canDelete }}
+                permissions={{ canEdit, canCopy: canCopyRows, canDelete }}
             />
         </Box>
     )

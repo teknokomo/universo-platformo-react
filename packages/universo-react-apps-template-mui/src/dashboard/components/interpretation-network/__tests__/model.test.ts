@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
     buildMatrixTree,
     buildMatrixPositionLabels,
+    buildMatrixTableModel,
     buildRootUniverseMatrixCellData,
     flattenMatrixTree,
     parseMatrixHierarchyLayout,
@@ -9,12 +10,13 @@ import {
     parseMatrixMode,
     parseMatrixPositionNumbering,
     toFocusedMatrixHierarchyRows,
+    toConfig,
     toMatrixHierarchyRows,
     toMatrixRows,
     type MatrixCell,
     type RuntimeColumnLike
 } from '../model'
-import { buildCellCreateData, buildCellDialogInitialData, mergeCellCreateData } from '../matrixCellData'
+import { buildCellCreateData, buildCellDialogInitialData, mergeCellCreateData, resolveCellCreateSystemFields } from '../matrixCellData'
 
 const matrixColumn: RuntimeColumnLike = {
     id: 'matrix-component',
@@ -39,6 +41,16 @@ const matrixColumn: RuntimeColumnLike = {
     ]
 }
 
+const physicalMatrixChildColumns: RuntimeColumnLike[] = [
+    { id: 'cell-id', codename: 'CellId', field: 'phys_cell_id' },
+    { id: 'parent-cell-id', codename: 'ParentCellId', field: 'phys_parent_cell_id' },
+    { id: 'row-key', codename: 'RowKey', field: 'phys_row_key' },
+    { id: 'row-label', codename: 'RowLabel', field: 'phys_row_label' },
+    { id: 'col-key', codename: 'ColKey', field: 'phys_col_key' },
+    { id: 'col-label', codename: 'ColLabel', field: 'phys_col_label' },
+    { id: 'value', codename: 'CellValue', field: 'phys_cell_value' }
+]
+
 describe('interpretation network model', () => {
     it('appends a new hierarchical child after its existing siblings', () => {
         const parent = { id: 'parent', parentCellId: null, sortOrder: 0 } as MatrixCell
@@ -55,9 +67,7 @@ describe('interpretation network model', () => {
                 childColumns: matrixColumn.childColumns,
                 locale: 'en',
                 source: parent,
-                existingCells,
-                newRowLabel: 'New row',
-                newCellLabel: 'New child'
+                existingCells
             })._tp_sort_order
         ).toBe(4)
     })
@@ -75,13 +85,231 @@ describe('interpretation network model', () => {
             childColumns: matrixColumn.childColumns,
             locale: 'en',
             source,
-            existingCells,
-            newRowLabel: 'New row',
-            newCellLabel: 'New cell'
+            existingCells
         })
 
         expect(createData._tp_sort_order).toBe(4)
         expect(createData.ParentCellId).toBeNull()
+    })
+
+    it('preserves localized axis labels when extending an existing row or column', () => {
+        const rowLabelValue = { en: 'Existing row', ru: 'Существующая строка' }
+        const colLabelValue = { en: 'Existing column', ru: 'Существующий столбец' }
+        const source = {
+            id: 'source',
+            parentCellId: null,
+            sortOrder: 0,
+            rowKey: 'source-row',
+            rowLabel: 'Existing row',
+            rowLabelValue,
+            colKey: 'source-col',
+            colLabel: 'Existing column',
+            colLabelValue
+        } as MatrixCell
+
+        expect(
+            buildCellCreateData({
+                mode: 'create-cell',
+                childColumns: matrixColumn.childColumns,
+                locale: 'en',
+                source,
+                existingCells: [source]
+            }).RowLabel
+        ).toBe(rowLabelValue)
+        expect(
+            buildCellCreateData({
+                mode: 'create-row',
+                childColumns: matrixColumn.childColumns,
+                locale: 'en',
+                source,
+                existingCells: [source]
+            }).ColLabel
+        ).toBe(colLabelValue)
+    })
+
+    it('writes preserved axis labels to physical row fields when extending a row or column', () => {
+        const rowLabelValue = { en: 'Existing row', ru: 'Существующая строка' }
+        const colLabelValue = { en: 'Existing column', ru: 'Существующий столбец' }
+        const source = {
+            id: 'source',
+            parentCellId: null,
+            sortOrder: 0,
+            rowKey: 'source-row',
+            rowLabel: 'Existing row',
+            rowLabelValue,
+            colKey: 'source-col',
+            colLabel: 'Existing column',
+            colLabelValue
+        } as MatrixCell
+
+        const createCellData = buildCellCreateData({
+            mode: 'create-cell',
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            source,
+            existingCells: [source]
+        })
+        const createRowData = buildCellCreateData({
+            mode: 'create-row',
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            source,
+            existingCells: [source]
+        })
+
+        expect(createCellData.phys_row_label).toBe(rowLabelValue)
+        expect(createCellData.RowLabel).toBeUndefined()
+        expect(createRowData.phys_col_label).toBe(colLabelValue)
+        expect(createRowData.ColLabel).toBeUndefined()
+    })
+
+    it('writes hierarchical child placement to physical system fields', () => {
+        const source = {
+            id: 'parent-cell',
+            parentCellId: null,
+            sortOrder: 0,
+            rowKey: 'parent-row',
+            rowLabel: 'Parent row',
+            colKey: 'parent-column',
+            colLabel: 'Parent column'
+        } as MatrixCell
+
+        const createData = buildCellCreateData({
+            mode: 'create-child',
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            source,
+            existingCells: [source]
+        })
+
+        expect(createData.phys_cell_id).toEqual(expect.any(String))
+        expect(createData.phys_parent_cell_id).toBe('parent-cell')
+        expect(createData.phys_row_key).toBe(`row-${createData.phys_cell_id}`)
+        expect(createData.phys_col_key).toBe(`column-${createData.phys_cell_id}`)
+        expect(createData.ParentCellId).toBeUndefined()
+        expect(createData.RowKey).toBeUndefined()
+        expect(createData.ColKey).toBeUndefined()
+    })
+
+    it('uses explicit existing axis placement instead of matching labels by text', () => {
+        const source = {
+            id: 'parent-cell',
+            parentCellId: null,
+            sortOrder: 0,
+            rowKey: 'parent-row',
+            rowLabel: 'Definition',
+            colKey: 'parent-column',
+            colLabel: 'Meaning'
+        } as MatrixCell
+
+        const createData = buildCellCreateData({
+            mode: 'create-child',
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            source,
+            existingCells: [source],
+            placement: {
+                parentCellId: source.id,
+                row: {
+                    kind: 'existing',
+                    option: {
+                        key: 'existing-row-definition',
+                        label: 'Definition',
+                        labelValue: { en: 'Definition', ru: 'Определение' }
+                    }
+                },
+                column: {
+                    kind: 'existing',
+                    option: {
+                        key: 'existing-column-source',
+                        label: 'Source',
+                        labelValue: { en: 'Source', ru: 'Источник' }
+                    }
+                }
+            }
+        })
+
+        expect(createData.phys_parent_cell_id).toBe('parent-cell')
+        expect(createData.phys_row_key).toBe('existing-row-definition')
+        expect(createData.phys_row_label).toEqual({ en: 'Definition', ru: 'Определение' })
+        expect(createData.phys_col_key).toBe('existing-column-source')
+        expect(createData.phys_col_label).toEqual({ en: 'Source', ru: 'Источник' })
+    })
+
+    it('creates a table cell at explicit existing row and column coordinates', () => {
+        const source = {
+            id: 'source-cell',
+            parentCellId: null,
+            sortOrder: 5,
+            rowKey: 'source-row',
+            rowLabel: 'Definition',
+            colKey: 'source-column',
+            colLabel: 'Source'
+        } as MatrixCell
+
+        const createData = buildCellCreateData({
+            mode: 'create-cell',
+            childColumns: matrixColumn.childColumns,
+            locale: 'en',
+            source,
+            existingCells: [
+                source,
+                { id: 'meaning-cell', parentCellId: null, sortOrder: 8, rowKey: 'other-row', colKey: 'meaning' } as MatrixCell
+            ],
+            placement: {
+                row: {
+                    kind: 'existing',
+                    option: {
+                        key: 'example',
+                        label: 'Example',
+                        labelValue: { en: 'Example', ru: 'Пример' }
+                    }
+                },
+                column: {
+                    kind: 'existing',
+                    option: {
+                        key: 'meaning',
+                        label: 'Meaning',
+                        labelValue: { en: 'Meaning', ru: 'Смысл' }
+                    }
+                }
+            }
+        })
+
+        expect(createData.RowKey).toBe('example')
+        expect(createData.RowLabel).toEqual({ en: 'Example', ru: 'Пример' })
+        expect(createData.ColKey).toBe('meaning')
+        expect(createData.ColLabel).toEqual({ en: 'Meaning', ru: 'Смысл' })
+        expect(createData.ParentCellId).toBeNull()
+        expect(createData._tp_sort_order).toBe(9)
+        expect(createData.CellId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/i)
+    })
+
+    it('protects generated sort order during create merges', () => {
+        expect(
+            mergeCellCreateData(
+                {
+                    CellValue: 'User title',
+                    _tp_sort_order: 99
+                },
+                {
+                    CellId: 'generated-cell',
+                    ParentCellId: null,
+                    RowKey: 'row-generated-cell',
+                    ColKey: 'column-generated-cell',
+                    _tp_sort_order: 3,
+                    CellValue: 'Default title'
+                },
+                resolveCellCreateSystemFields(matrixColumn.childColumns)
+            )
+        ).toEqual({
+            CellId: 'generated-cell',
+            ParentCellId: null,
+            RowKey: 'row-generated-cell',
+            ColKey: 'column-generated-cell',
+            _tp_sort_order: 3,
+            CellValue: 'User title'
+        })
     })
 
     it('keeps trusted generated cell ids when create form data contains hidden undefined fields', () => {
@@ -118,6 +346,8 @@ describe('interpretation network model', () => {
                     CellValue: 'User title',
                     CellDescription: 'User description',
                     CellFillColor: 'blue',
+                    RowLabel: 'User row',
+                    ColLabel: 'User column',
                     RowKey: undefined
                 },
                 {
@@ -136,12 +366,73 @@ describe('interpretation network model', () => {
             CellId: 'generated-cell',
             ParentCellId: null,
             RowKey: 'row-generated-cell',
-            RowLabel: 'Generated row',
+            RowLabel: 'User row',
             ColKey: 'column-generated-cell',
-            ColLabel: 'Generated column',
+            ColLabel: 'User column',
             CellValue: 'User title',
             CellDescription: 'User description',
             CellFillColor: 'blue'
+        })
+    })
+
+    it('protects physical generated matrix placement fields during create merges', () => {
+        expect(
+            mergeCellCreateData(
+                {
+                    phys_cell_id: undefined,
+                    phys_parent_cell_id: undefined,
+                    phys_row_key: undefined,
+                    phys_col_key: undefined,
+                    phys_cell_value: 'User title'
+                },
+                {
+                    phys_cell_id: 'generated-cell',
+                    phys_parent_cell_id: 'parent-cell',
+                    phys_row_key: 'row-generated-cell',
+                    phys_col_key: 'column-generated-cell',
+                    phys_cell_value: 'Default title'
+                },
+                resolveCellCreateSystemFields(physicalMatrixChildColumns)
+            )
+        ).toEqual({
+            phys_cell_id: 'generated-cell',
+            phys_parent_cell_id: 'parent-cell',
+            phys_row_key: 'row-generated-cell',
+            phys_col_key: 'column-generated-cell',
+            phys_cell_value: 'User title'
+        })
+    })
+
+    it('drops stale system codenames when trusted create data uses physical system fields', () => {
+        expect(
+            mergeCellCreateData(
+                {
+                    CellId: 'user-cell-id',
+                    ParentCellId: 'user-parent-cell-id',
+                    RowKey: 'user-row',
+                    ColKey: 'user-column',
+                    _tp_sort_order: 99,
+                    phys_cell_id: undefined,
+                    phys_parent_cell_id: undefined,
+                    phys_row_key: undefined,
+                    phys_col_key: undefined,
+                    phys_cell_value: 'User title'
+                },
+                {
+                    phys_cell_id: 'generated-cell',
+                    phys_parent_cell_id: 'parent-cell',
+                    phys_row_key: 'row-generated-cell',
+                    phys_col_key: 'column-generated-cell',
+                    phys_cell_value: 'Default title'
+                },
+                resolveCellCreateSystemFields(physicalMatrixChildColumns)
+            )
+        ).toEqual({
+            phys_cell_id: 'generated-cell',
+            phys_parent_cell_id: 'parent-cell',
+            phys_row_key: 'row-generated-cell',
+            phys_col_key: 'column-generated-cell',
+            phys_cell_value: 'User title'
         })
     })
 
@@ -193,18 +484,14 @@ describe('interpretation network model', () => {
             childColumns: matrixColumn.childColumns,
             locale: 'en',
             selectedCell: undefined,
-            selectedRawCell: undefined,
-            newRowLabel: 'New row',
-            newCellLabel: 'New cell'
+            selectedRawCell: undefined
         })
         const createData = buildCellCreateData({
             mode: 'create-row',
             childColumns: matrixColumn.childColumns,
             locale: 'en',
             source: undefined,
-            existingCells: [],
-            newRowLabel: 'New row',
-            newCellLabel: 'New cell'
+            existingCells: []
         })
 
         for (const rootCell of [initialData, createData]) {
@@ -212,7 +499,7 @@ describe('interpretation network model', () => {
             expect(rootCell.CellValue).toEqual(
                 expect.objectContaining({
                     locales: expect.objectContaining({
-                        en: expect.objectContaining({ content: 'New cell' })
+                        en: expect.objectContaining({ content: '' })
                     })
                 })
             )
@@ -225,6 +512,71 @@ describe('interpretation network model', () => {
             )
         }
         expect(createData._tp_sort_order).toBe(0)
+    })
+
+    it('pre-fills create dialog axis labels through physical row fields', () => {
+        const rowLabelValue = { en: 'Existing row', ru: 'Существующая строка' }
+        const colLabelValue = { en: 'Existing column', ru: 'Существующий столбец' }
+        const selectedCell = {
+            id: 'source',
+            rowLabel: 'Existing row',
+            rowLabelValue,
+            colLabel: 'Existing column',
+            colLabelValue
+        } as MatrixCell
+
+        const createCellData = buildCellDialogInitialData({
+            mode: 'create-cell',
+            cellMetadataFields: [],
+            styleFields: [],
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            selectedCell,
+            selectedRawCell: undefined
+        })
+        const createRowData = buildCellDialogInitialData({
+            mode: 'create-row',
+            cellMetadataFields: [],
+            styleFields: [],
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            selectedCell,
+            selectedRawCell: undefined
+        })
+
+        expect(createCellData.phys_row_label).toBe(rowLabelValue)
+        expect(createCellData.RowLabel).toBeUndefined()
+        expect(createRowData.phys_col_label).toBe(colLabelValue)
+        expect(createRowData.ColLabel).toBeUndefined()
+    })
+
+    it('pre-fills edit dialog values from physical matrix row fields', () => {
+        const rowLabelValue = { locales: { en: { content: 'Existing row' } }, _primary: 'en' }
+        const colLabelValue = { locales: { en: { content: 'Existing column' } }, _primary: 'en' }
+        const titleValue = { locales: { en: { content: 'Existing title' } }, _primary: 'en' }
+
+        const initialData = buildCellDialogInitialData({
+            mode: 'edit',
+            cellMetadataFields: [
+                { id: 'phys_row_label', codename: 'RowLabel', label: 'Row label', type: 'STRING' },
+                { id: 'phys_col_label', codename: 'ColLabel', label: 'Column label', type: 'STRING' },
+                { id: 'phys_cell_value', codename: 'CellValue', label: 'Title', type: 'STRING' }
+            ],
+            styleFields: [],
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            selectedCell: undefined,
+            selectedRawCell: {
+                id: 'row-1',
+                phys_row_label: rowLabelValue,
+                phys_col_label: colLabelValue,
+                phys_cell_value: titleValue
+            }
+        })
+
+        expect(initialData.phys_row_label).toBe(rowLabelValue)
+        expect(initialData.phys_col_label).toBe(colLabelValue)
+        expect(initialData.phys_cell_value).toBe(titleValue)
     })
 
     it('preserves backend matrix cell order instead of sorting by labels', () => {
@@ -287,6 +639,223 @@ describe('interpretation network model', () => {
             ['row-source', 2],
             ['row-example', 3]
         ])
+    })
+
+    it('derives stable fallback axis keys from the cell identity instead of row order', () => {
+        const firstOrder = toMatrixRows(
+            [
+                { id: 'row-a', CellId: 'cell-a', CellValue: 'A' },
+                { id: 'row-b', CellId: 'cell-b', CellValue: 'B' }
+            ],
+            matrixColumn,
+            'en'
+        )
+        const reversedOrder = toMatrixRows(
+            [
+                { id: 'row-b', CellId: 'cell-b', CellValue: 'B' },
+                { id: 'row-a', CellId: 'cell-a', CellValue: 'A' }
+            ],
+            matrixColumn,
+            'en'
+        )
+
+        expect(firstOrder.map(({ id, rowKey, colKey }) => ({ id, rowKey, colKey }))).toEqual([
+            { id: 'cell-a', rowKey: 'row-cell-a', colKey: 'column-cell-a' },
+            { id: 'cell-b', rowKey: 'row-cell-b', colKey: 'column-cell-b' }
+        ])
+        expect(reversedOrder.map(({ id, rowKey, colKey }) => ({ id, rowKey, colKey }))).toEqual([
+            { id: 'cell-b', rowKey: 'row-cell-b', colKey: 'column-cell-b' },
+            { id: 'cell-a', rowKey: 'row-cell-a', colKey: 'column-cell-a' }
+        ])
+    })
+
+    it('builds a rectangular table model from row and column axes without fabricating cells', () => {
+        const cells = toMatrixRows(
+            [
+                {
+                    id: 'row-meaning',
+                    _tp_sort_order: 0,
+                    CellId: 'meaning',
+                    RowKey: 'definition',
+                    RowLabel: 'Definition',
+                    ColKey: 'meaning',
+                    ColLabel: 'Meaning',
+                    CellValue: 'Meaning'
+                },
+                {
+                    id: 'row-source',
+                    _tp_sort_order: 1,
+                    CellId: 'source',
+                    RowKey: 'definition',
+                    RowLabel: 'Definition',
+                    ColKey: 'source',
+                    ColLabel: 'Source',
+                    CellValue: 'Source'
+                },
+                {
+                    id: 'row-example',
+                    _tp_sort_order: 2,
+                    CellId: 'example',
+                    RowKey: 'example',
+                    RowLabel: 'Example',
+                    ColKey: 'meaning',
+                    ColLabel: 'Meaning',
+                    CellValue: 'Example'
+                }
+            ],
+            matrixColumn,
+            'en'
+        )
+
+        const table = buildMatrixTableModel(cells)
+
+        expect(table.rows).toEqual([
+            { key: 'definition', sourceKey: 'definition', label: 'Definition', labelValue: 'Definition', acceptsEmptyDrop: true },
+            { key: 'example', sourceKey: 'example', label: 'Example', labelValue: 'Example', acceptsEmptyDrop: true }
+        ])
+        expect(table.columns).toEqual([
+            { key: 'meaning', sourceKey: 'meaning', label: 'Meaning', labelValue: 'Meaning', acceptsEmptyDrop: true },
+            { key: 'source', sourceKey: 'source', label: 'Source', labelValue: 'Source', acceptsEmptyDrop: true }
+        ])
+        expect(table.slots.map((row) => row.map((slot) => slot.cell?.id ?? null))).toEqual([
+            ['meaning', 'source'],
+            ['example', null]
+        ])
+    })
+
+    it('keeps table axes in the supplied visible hierarchy order when sibling sort orders repeat', () => {
+        const cells = toMatrixRows(
+            [
+                {
+                    id: 'row-root',
+                    _tp_sort_order: 0,
+                    CellId: 'root',
+                    RowKey: 'root',
+                    RowLabel: 'Root',
+                    ColKey: 'root-column',
+                    ColLabel: 'Root column',
+                    CellValue: 'Root'
+                },
+                {
+                    id: 'row-parent-b',
+                    _tp_sort_order: 1,
+                    CellId: 'parent-b',
+                    ParentCellId: 'root',
+                    RowKey: 'parent-b',
+                    RowLabel: 'Parent B',
+                    ColKey: 'parent-b-column',
+                    ColLabel: 'Parent B column',
+                    CellValue: 'Parent B'
+                },
+                {
+                    id: 'row-child-b',
+                    _tp_sort_order: 0,
+                    CellId: 'child-b',
+                    ParentCellId: 'parent-b',
+                    RowKey: 'child-b',
+                    RowLabel: 'Child B',
+                    ColKey: 'child-b-column',
+                    ColLabel: 'Child B column',
+                    CellValue: 'Child B'
+                },
+                {
+                    id: 'row-parent-a',
+                    _tp_sort_order: 0,
+                    CellId: 'parent-a',
+                    ParentCellId: 'root',
+                    RowKey: 'parent-a',
+                    RowLabel: 'Parent A',
+                    ColKey: 'parent-a-column',
+                    ColLabel: 'Parent A column',
+                    CellValue: 'Parent A'
+                }
+            ],
+            matrixColumn,
+            'en'
+        )
+
+        const table = buildMatrixTableModel(cells)
+
+        expect(table.rows.map((row) => row.key)).toEqual(['root', 'parent-b', 'child-b', 'parent-a'])
+        expect(table.columns.map((column) => column.key)).toEqual(['root-column', 'parent-b-column', 'child-b-column', 'parent-a-column'])
+    })
+
+    it('keeps every visible table cell when row and column coordinates collide', () => {
+        const cells = toMatrixRows(
+            [
+                {
+                    id: 'row-first',
+                    _tp_sort_order: 0,
+                    CellId: 'first',
+                    RowKey: 'same-row',
+                    RowLabel: 'Same row',
+                    ColKey: 'same-column',
+                    ColLabel: 'Same column',
+                    CellValue: 'First'
+                },
+                {
+                    id: 'row-second',
+                    _tp_sort_order: 1,
+                    CellId: 'second',
+                    RowKey: 'same-row',
+                    RowLabel: 'Same row',
+                    ColKey: 'same-column',
+                    ColLabel: 'Same column',
+                    CellValue: 'Second'
+                }
+            ],
+            matrixColumn,
+            'en'
+        )
+
+        const table = buildMatrixTableModel(cells)
+
+        expect(table.rows).toHaveLength(2)
+        expect(table.rows.map((row) => row.label)).toEqual(['Same row', 'Same row'])
+        expect(table.rows.map((row) => row.sourceKey)).toEqual(['same-row', 'same-row'])
+        expect(table.rows.map((row) => row.acceptsEmptyDrop)).toEqual([true, false])
+        expect(table.columns).toEqual([
+            { key: 'same-column', sourceKey: 'same-column', label: 'Same column', labelValue: 'Same column', acceptsEmptyDrop: true }
+        ])
+        expect(table.slots.map((row) => row.map((slot) => slot.cell?.id ?? null))).toEqual([['first'], ['second']])
+    })
+
+    it('normalizes matrix view settings from widget config without resetting valid table defaults', () => {
+        expect(
+            toConfig({
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table',
+                allowNewAxesInCellDialog: true
+            })
+        ).toMatchObject({
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table',
+            allowNewAxesInCellDialog: true
+        })
+        expect(
+            toConfig({
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table'
+            })
+        ).toMatchObject({
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table',
+            allowNewAxesInCellDialog: false
+        })
+        expect(
+            toConfig({
+                matrixMode: 'hierarchicalCells',
+                hierarchyLayout: 'verticalTree'
+            })
+        ).toMatchObject({
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'verticalTree'
+        })
     })
 
     it('parses parent cell ids and flattens hierarchy in sibling order', () => {

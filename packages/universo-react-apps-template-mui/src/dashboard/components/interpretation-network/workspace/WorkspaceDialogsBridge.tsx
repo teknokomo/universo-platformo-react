@@ -1,9 +1,12 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { TFunction } from 'i18next'
+import { createLocalizedContent } from '@universo-react/utils'
 import type { FieldConfig } from '../../../../components/dialogs/FormDialog'
-import type { MatrixCell } from '../model'
+import type { MatrixAxisOptions, MatrixCell } from '../model'
+import type { MatrixCellPlacement } from '../matrixCellData'
 import type { StructureSummary } from './StructurePane'
 import { WorkspaceDialogs } from './WorkspaceDialogs'
+import type { MatrixAxisDialogKind } from './workspaceState'
 
 type CellDialogMode = 'create-child' | 'create-cell' | 'create-row' | 'edit'
 type MaterialDialogMode = 'create' | 'edit'
@@ -28,9 +31,13 @@ export interface WorkspaceDialogsBridgeProps {
     material: { mode: MaterialDialogMode | null; fields: FieldConfig[]; initialData: Record<string, unknown>; error: string | null }
     cell: {
         mode: CellDialogMode | null
+        axisDialogKind: MatrixAxisDialogKind | null
         fields: FieldConfig[]
         styleFields: FieldConfig[]
         initialData: Record<string, unknown>
+        axisOptions: MatrixAxisOptions
+        placement: MatrixCellPlacement | null
+        allowNewAxesInCellDialog: boolean
         error: string | null
         deleteId: string | null
         deleteCell: MatrixCell | undefined
@@ -55,6 +62,8 @@ export interface WorkspaceDialogsBridgeProps {
         setMaterialDialogError: Dispatch<SetStateAction<string | null>>
         setCellDialogMode: Dispatch<SetStateAction<CellDialogMode | null>>
         setCellDialogSourceCellId: Dispatch<SetStateAction<string | null>>
+        setCellDialogPlacement: Dispatch<SetStateAction<MatrixCellPlacement | null>>
+        setAxisDialogKind: Dispatch<SetStateAction<MatrixAxisDialogKind | null>>
         setCellDialogError: Dispatch<SetStateAction<string | null>>
         setCellDeleteId: Dispatch<SetStateAction<string | null>>
         setCellDeleteError: Dispatch<SetStateAction<string | null>>
@@ -112,20 +121,50 @@ export function WorkspaceDialogsBridge({ t, locale, structure, material, cell, m
                 await mutations.saveMaterialMetadata.mutateAsync(data).catch(() => undefined)
             }}
             cellDialogMode={cell.mode}
+            axisDialogKind={cell.axisDialogKind}
             cellMetadataFields={cell.fields}
             styleFields={cell.styleFields}
             cellDialogInitialData={cell.initialData}
+            matrixAxisOptions={cell.axisOptions}
+            cellDialogPlacement={cell.placement}
+            allowNewAxesInCellDialog={cell.allowNewAxesInCellDialog}
             isSavingCell={mutations.saveCell.isPending}
             cellDialogError={cell.error}
             onCloseCellDialog={() => {
                 if (mutations.saveCell.isPending) return
                 actions.setCellDialogMode(null)
                 actions.setCellDialogSourceCellId(null)
+                actions.setCellDialogPlacement(null)
                 actions.setCellDialogError(null)
             }}
             onSubmitCell={async (data) => {
                 if (!cell.mode) return
                 await mutations.saveCell.mutateAsync({ mode: cell.mode, data }).catch(() => undefined)
+            }}
+            onCloseAxisDialog={() => {
+                if (mutations.saveCell.isPending) return
+                actions.setCellDialogMode(null)
+                actions.setAxisDialogKind(null)
+                actions.setCellDialogSourceCellId(null)
+                actions.setCellDialogPlacement(null)
+                actions.setCellDialogError(null)
+            }}
+            onSubmitAxis={async (name) => {
+                if (!cell.mode) return
+                const axisLabel = createLocalizedContent(locale, name)
+                await mutations.saveCell
+                    .mutateAsync({
+                        mode: cell.mode,
+                        data: {
+                            __axisName: name,
+                            __matrixCellPlacement: {
+                                ...cell.placement,
+                                ...(cell.axisDialogKind === 'row' ? { row: { kind: 'new', label: name, labelValue: axisLabel } } : {}),
+                                ...(cell.axisDialogKind === 'column' ? { column: { kind: 'new', label: name, labelValue: axisLabel } } : {})
+                            }
+                        }
+                    })
+                    .catch(() => undefined)
             }}
             cellDeleteId={cell.deleteId}
             deleteCell={cell.deleteCell}

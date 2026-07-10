@@ -2,11 +2,15 @@ import {
     deleteApplicationLayout,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
+    updateApplicationLayoutWidgetConfigsBatch,
     upsertApplicationLayoutWidget
 } from '../../persistence/applicationLayoutsStore'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationLayoutsStore', () => {
+    const scopedBatchLayoutIdA = '018f8a78-7b8f-7c1d-a111-2222333345a1'
+    const scopedBatchLayoutIdB = '018f8a78-7b8f-7c1d-a111-2222333345a2'
+
     it('does not bind an unused scope parameter when listing global layouts', async () => {
         const { executor } = createMockDbExecutor()
 
@@ -103,7 +107,7 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([
                 {
                     id: 'widget-1',
-                    layout_id: 'layout-1',
+                    layout_id: scopedBatchLayoutIdA,
                     zone: 'left',
                     widget_key: 'menuWidget',
                     sort_order: 1,
@@ -237,5 +241,110 @@ describe('applicationLayoutsStore', () => {
         expect(txExecutor.query.mock.calls[2]?.[0]).toContain('WITH updates AS')
         expect(txExecutor.query.mock.calls[2]?.[0]).toContain('unnest($3::uuid[], $4::text[], $5::int[])')
         expect(txExecutor.query.mock.calls[2]?.[1]).toEqual(['layout-1', 'user-1', ['widget-2', 'widget-1'], ['left', 'right'], [1, 2]])
+    })
+
+    it('rejects stale batch widget configs before applying any update', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+
+        txExecutor.query
+            .mockResolvedValueOnce([]) // advisory lock widget-a
+            .mockResolvedValueOnce([]) // advisory lock widget-b
+            .mockResolvedValueOnce([
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    layout_id: 'layout-1',
+                    zone: 'main',
+                    widget_key: 'interpretationNetworkWorkspace',
+                    sort_order: 0,
+                    config: {},
+                    is_active: true,
+                    version: 7
+                },
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    layout_id: scopedBatchLayoutIdB,
+                    zone: 'main',
+                    widget_key: 'interpretationNetworkWorkspace',
+                    sort_order: 0,
+                    config: {},
+                    is_active: true,
+                    version: 5
+                }
+            ])
+
+        await expect(
+            updateApplicationLayoutWidgetConfigsBatch(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                {
+                    updates: [
+                        {
+                            layoutId: scopedBatchLayoutIdA,
+                            widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                            expectedVersion: 7,
+                            config: { matrixMode: 'hierarchicalCells' }
+                        },
+                        {
+                            layoutId: scopedBatchLayoutIdB,
+                            widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                            expectedVersion: 6,
+                            config: { matrixMode: 'hierarchicalCells' }
+                        }
+                    ]
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+
+        expect(executor.transaction).toHaveBeenCalledTimes(1)
+        expect(txExecutor.query).toHaveBeenCalledTimes(3)
+        expect(txExecutor.query.mock.calls[2]?.[0]).toContain('FOR UPDATE')
+        expect(txExecutor.query.mock.calls[2]?.[0]).toContain('UNNEST($1::uuid[], $2::uuid[])')
+        expect(txExecutor.query.mock.calls[2]?.[1]).toEqual([
+            [scopedBatchLayoutIdA, scopedBatchLayoutIdB],
+            ['018f8a78-7b8f-7c1d-a111-2222333344a1', '018f8a78-7b8f-7c1d-a111-2222333344a2']
+        ])
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('SET config = $2::jsonb'))).toBe(false)
+    })
+
+    it('rejects batch widget configs when the widget is not owned by the requested layout', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+
+        txExecutor.query
+            .mockResolvedValueOnce([]) // advisory lock
+            .mockResolvedValueOnce([
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    layout_id: scopedBatchLayoutIdB,
+                    zone: 'main',
+                    widget_key: 'interpretationNetworkWorkspace',
+                    sort_order: 0,
+                    config: {},
+                    is_active: true,
+                    version: 7
+                }
+            ])
+
+        await expect(
+            updateApplicationLayoutWidgetConfigsBatch(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                {
+                    updates: [
+                        {
+                            layoutId: scopedBatchLayoutIdA,
+                            widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                            expectedVersion: 7,
+                            config: { matrixMode: 'hierarchicalCells' }
+                        }
+                    ]
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+
+        expect(executor.transaction).toHaveBeenCalledTimes(1)
+        expect(txExecutor.query.mock.calls[1]?.[0]).toContain('(layout_id, id)')
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('SET config = $2::jsonb'))).toBe(false)
     })
 })

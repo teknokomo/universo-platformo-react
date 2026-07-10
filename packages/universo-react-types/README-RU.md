@@ -6,7 +6,7 @@
 
 | Поле           | Значение                             |
 | -------------- | ------------------------------------ |
-| **Имя пакета** | `@universo-react/types`                    |
+| **Имя пакета** | `@universo-react/types`              |
 | **Версия**     | Смотрите `package.json`              |
 | **Тип**        | TypeScript-first (Типы и интерфейсы) |
 | **Сборка**     | ES модуль с определениями типов      |
@@ -22,6 +22,7 @@
 -   🔄 **Обратная совместимость** - Сохранение совместимости версий
 -   🧾 **Record Behavior Types** - Общие контракты нумерации, lifecycle и posting для Object
 -   📊 **Ledger Types** - Общие контракты append-only Ledger configuration, field roles, source policies и projections
+-   🧭 **Контракт макета трактовочной сети** - Общие равноправные представления Матрицы, допустимый набор, представление по умолчанию, проверка согласованности и нормализация для метахаба, Панели приложения и опубликованного интерфейса
 
 ## Описание
 
@@ -35,6 +36,7 @@
 -   Версия протокола
 -   Metahub entity component manifests
 -   Контракты Object `recordBehavior` и Ledger configuration
+-   Строгая конфигурация макета `interpretationNetworkWorkspace`, включая `matrixMode`, `allowedMatrixViews` и `defaultMatrixView`
 
 ### Вне области применения:
 
@@ -55,6 +57,18 @@
 `common/ledgers` определяет стандартную Ledger configuration.
 Code-facing kind остаётся `ledger`; русская UI-метка: "Регистры".
 Ledgers классифицируют обычные field definitions через `fieldRoles` и используют source policies, чтобы различать manual writes и registrar-owned posting writes.
+
+## Контракт представлений Матрицы трактовочной сети
+
+`common/applicationLayouts` является единым межпакетным контрактом виджета `interpretationNetworkWorkspace`:
+
+-   `matrixMode` описывает семантику данных: `hierarchicalCells` или `independentRows`.
+-   `allowedMatrixViews` задаёт непустое подмножество равноправных представлений `table`, `horizontalRows` и `verticalTree`.
+-   `defaultMatrixView` обязан входить в допустимый набор.
+-   `verticalTree` не допускается для `independentRows`; `table` и `horizontalRows` остаются совместимыми.
+-   `normalizeInterpretationNetworkMatrixViewSettings()` нормализует неполные или недоверенные значения на границах интерфейса и среды выполнения; сохраняемую конфигурацию виджета проверяет строгая схема Zod.
+
+Контракт меняет только конфигурацию виджета. Он не добавляет миграцию схемы базы данных и не требует увеличения версии шаблона метахаба.
 
 ## Установка (workspace)
 

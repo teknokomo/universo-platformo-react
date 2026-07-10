@@ -2,8 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import i18n from '@universo-react/i18n'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
 import { renderWidget } from '../widgetRenderer'
+import { CellEditDialog } from '../interpretation-network/CellEditDialog'
 
 const UUID_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -246,6 +248,81 @@ const matrixRowsFixture = () => ({
     total: 2
 })
 
+const matrixTableRowsFixture = () => {
+    const fixture = matrixRowsFixture()
+    return {
+        ...fixture,
+        items: [
+            fixture.items[0],
+            {
+                ...fixture.items[1],
+                ColKey: 'source',
+                ColLabel: 'Source'
+            }
+        ]
+    }
+}
+
+const matrixTableHierarchyRowsFixture = () => ({
+    items: [
+        {
+            id: 'row-root',
+            CellId: 'root',
+            RowKey: 'root-row',
+            RowLabel: 'Root row',
+            ColKey: 'root-column',
+            ColLabel: 'Root column',
+            CellValue: 'Universe',
+            _tp_sort_order: 0
+        },
+        {
+            id: 'row-parent-a',
+            CellId: 'parent-a',
+            ParentCellId: 'root',
+            RowKey: 'parent-a-row',
+            RowLabel: 'Parent A row',
+            ColKey: 'parent-a-column',
+            ColLabel: 'Parent A column',
+            CellValue: 'Parent A',
+            _tp_sort_order: 0
+        },
+        {
+            id: 'row-parent-b',
+            CellId: 'parent-b',
+            ParentCellId: 'root',
+            RowKey: 'parent-b-row',
+            RowLabel: 'Parent B row',
+            ColKey: 'parent-b-column',
+            ColLabel: 'Parent B column',
+            CellValue: 'Parent B',
+            _tp_sort_order: 1
+        },
+        {
+            id: 'row-child-a1',
+            CellId: 'child-a1',
+            ParentCellId: 'parent-a',
+            RowKey: 'child-a1-row',
+            RowLabel: 'Child A1 row',
+            ColKey: 'child-a1-column',
+            ColLabel: 'Child A1 column',
+            CellValue: 'Child A1',
+            _tp_sort_order: 0
+        },
+        {
+            id: 'row-child-b1',
+            CellId: 'child-b1',
+            ParentCellId: 'parent-b',
+            RowKey: 'child-b1-row',
+            RowLabel: 'Child B1 row',
+            ColKey: 'child-b1-column',
+            ColLabel: 'Child B1 column',
+            CellValue: 'Child B1',
+            _tp_sort_order: 0
+        }
+    ],
+    total: 5
+})
+
 const defaultRuntimeResponse = (url: URL) => {
     const codename = url.searchParams.get('objectCollectionCodename')
     if (codename === 'Structure') {
@@ -349,7 +426,8 @@ const renderInterpretationNetworkWidget = (
     onOpenCreateTarget = vi.fn(),
     permissions = defaultPermissions,
     navigate = vi.fn((href: string) => window.history.pushState(null, '', href)),
-    config: Record<string, unknown> = {}
+    config: Record<string, unknown> = {},
+    locale = 'en'
 ) => {
     vi.stubGlobal('fetch', fetchMock)
     render(
@@ -359,7 +437,7 @@ const renderInterpretationNetworkWidget = (
                     title: 'Interpretation Network',
                     applicationId: 'app-1',
                     apiBaseUrl: '/api/v1',
-                    locale: 'en',
+                    locale,
                     currentWorkspaceId: 'workspace-1',
                     permissions,
                     navigate,
@@ -381,8 +459,9 @@ const renderInterpretationNetworkWidget = (
 }
 
 describe('InterpretationNetworkWorkspaceWidget', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.restoreAllMocks()
+        await i18n.changeLanguage('en')
         window.history.pushState({}, '', '/a/app-1')
     })
 
@@ -578,7 +657,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
         const detailsPane = await screen.findByTestId('interpretation-network-details-pane')
@@ -617,7 +700,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(within(detailsPane).queryByText('Create or select a structure on the left.', { exact: false })).not.toBeInTheDocument()
         expect(within(detailsPane).getByRole('heading', { name: 'Materials' })).toBeInTheDocument()
         expect(within(detailsPane).queryByTestId('interpretation-network-matrix-workspace')).not.toBeInTheDocument()
-    })
+    }, 20_000)
 
     it('filters structures and opens them from the full card view', async () => {
         const user = userEvent.setup()
@@ -658,7 +741,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
         await user.click(await within(structurePane).findByRole('button', { name: 'Structure actions: Existing structure' }))
@@ -879,7 +966,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
@@ -916,7 +1007,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 .every((item) => item.getAttribute('data-position-label-overlay') === 'true')
         ).toBe(true)
         const title = within(structurePane).getAllByTestId('interpretation-network-cell-title')[0]
-        const titleText = title.querySelector('span')
+        const titleText = within(title).getByText('Universe')
         const positionLabel = within(structurePane).getAllByTestId('interpretation-network-cell-position')[0]
         expect(title).toHaveStyle({ justifyContent: 'center', alignItems: 'center' })
         expect(titleText).toHaveStyle({
@@ -958,6 +1049,242 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
         expect(within(structurePane).getByRole('button', { name: 'Vertical tree' })).toHaveAttribute('aria-pressed', 'true')
         expect(await within(structurePane).findAllByTestId('interpretation-network-matrix-row')).toHaveLength(3)
+    }, 20_000)
+
+    it('opens the configured Matrix Table display with semantic headers and accessible cell controls', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const toolbar = within(structurePane).getByTestId('interpretation-network-matrix-toolbar')
+
+        expect(within(toolbar).getByRole('button', { name: 'Table view' })).toHaveAttribute('aria-pressed', 'true')
+        expect(within(toolbar).getByRole('button', { name: 'Table view' })).toHaveClass('Mui-selected')
+        expect(within(toolbar).getByRole('button', { name: 'Horizontal rows' })).toHaveStyle({ height: '40px' })
+        const table = await within(structurePane).findByRole('table', { name: 'Matrix table' })
+        expect(table.closest('[data-testid="interpretation-network-matrix-table"]')).toHaveAttribute('tabindex', '0')
+        expect(within(table).getByRole('columnheader', { name: 'Rows' })).toBeInTheDocument()
+        expect(within(table).getByRole('columnheader', { name: 'Meaning' })).toBeInTheDocument()
+        expect(within(table).getByRole('columnheader', { name: 'Source' })).toBeInTheDocument()
+        expect(within(table).getByRole('rowheader', { name: 'Definition' })).toBeInTheDocument()
+        expect(within(table).getByRole('rowheader', { name: 'Example' })).toBeInTheDocument()
+        expect(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' })).toHaveAttribute(
+            'aria-pressed',
+            'false'
+        )
+        expect(within(table).getByRole('button', { name: 'Example, Source, 2, Other cell value' })).toBeInTheDocument()
+        expect(within(table).getByText('1 material')).toBeInTheDocument()
+        expect(within(table).getByRole('cell', { name: 'Empty intersection: Example, Meaning' })).toBeInTheDocument()
+        expect(table).not.toHaveTextContent('cell-selected')
+        expect(table).not.toHaveTextContent('matrix-row-selected')
+
+        await user.click(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        expect(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' })).toHaveAttribute(
+            'aria-pressed',
+            'true'
+        )
+        expect(within(table).getByRole('cell', { name: 'Empty intersection: Example, Meaning' })).toHaveAttribute(
+            'data-empty-drop-enabled',
+            'true'
+        )
+        expect(within(table).queryByRole('button', { name: 'Add cell at Example, Meaning' })).not.toBeInTheDocument()
+        expect(
+            within(screen.getByTestId('interpretation-network-details-pane')).getByRole('heading', { name: 'Materials' })
+        ).toBeInTheDocument()
+
+        await user.click(within(toolbar).getByRole('button', { name: 'Horizontal rows' }))
+        expect(await within(structurePane).findAllByTestId('interpretation-network-matrix-row')).toHaveLength(1)
+        expect(within(toolbar).getByRole('button', { name: 'Horizontal rows' })).toHaveAttribute('aria-pressed', 'true')
+        expect(within(toolbar).getByRole('button', { name: 'Vertical tree' })).toBeInTheDocument()
+    }, 20_000)
+
+    it('keeps empty Matrix Table intersections as drop targets without extra add buttons', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const table = await within(structurePane).findByRole('table', { name: 'Matrix table' })
+
+        const emptyIntersection = within(table).getByRole('cell', { name: 'Empty intersection: Example, Meaning' })
+        expect(emptyIntersection).toHaveAttribute('data-empty-drop-enabled', 'true')
+        expect(within(table).queryByRole('button', { name: 'Add cell at Example, Meaning' })).not.toBeInTheDocument()
+
+        await user.click(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+
+        expect(within(table).getByRole('button', { name: 'Add row' })).toBeEnabled()
+        expect(within(table).getByRole('button', { name: 'Add column' })).toBeEnabled()
+    }, 20_000)
+
+    it('keeps damaged duplicate table coordinate rows visible while disabling ambiguous empty drops', async () => {
+        const user = userEvent.setup()
+        const duplicatedCoordinateFixture = () => {
+            const fixture = matrixRowsFixture()
+            return {
+                ...fixture,
+                items: [
+                    fixture.items[0],
+                    {
+                        ...fixture.items[1],
+                        id: 'matrix-row-duplicate',
+                        CellId: 'cell-duplicate',
+                        RowKey: 'definition',
+                        RowLabel: 'Definition',
+                        ColKey: 'meaning',
+                        ColLabel: 'Meaning',
+                        CellValue: 'Duplicate coordinate value'
+                    },
+                    {
+                        ...fixture.items[1],
+                        id: 'matrix-row-source-column',
+                        CellId: 'cell-source-column',
+                        RowKey: 'source-row',
+                        RowLabel: 'Source row',
+                        ColKey: 'source',
+                        ColLabel: 'Source',
+                        CellValue: 'Source column value'
+                    }
+                ],
+                total: 3
+            }
+        }
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(duplicatedCoordinateFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const table = await within(await screen.findByTestId('interpretation-network-structure-pane')).findByRole('table', {
+            name: 'Matrix table'
+        })
+
+        expect(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' })).toBeInTheDocument()
+        expect(within(table).getByRole('button', { name: 'Definition, Meaning, 2, Duplicate coordinate value' })).toBeInTheDocument()
+        const emptyDefinitionSourceCells = within(table).getAllByRole('cell', { name: 'Empty intersection: Definition, Source' })
+        expect(emptyDefinitionSourceCells).toHaveLength(2)
+        expect(emptyDefinitionSourceCells.map((cell) => cell.getAttribute('data-empty-drop-enabled'))).toEqual(['true', 'false'])
+    }, 20_000)
+
+    it('keeps Table cells selectable while disabling mutations for read-only users', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(
+            fetchMock,
+            vi.fn(),
+            { createContent: false, editContent: false, deleteContent: false },
+            undefined,
+            {
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table'
+            }
+        )
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const table = await within(structurePane).findByRole('table', { name: 'Matrix table' })
+        const cellButton = within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' })
+
+        expect(cellButton).toBeEnabled()
+        expect(within(table).getAllByRole('button', { name: 'Drag cell' })).toHaveLength(2)
+        within(table)
+            .getAllByRole('button', { name: 'Drag cell' })
+            .forEach((dragButton) => expect(dragButton).toBeDisabled())
+        expect(within(table).getByRole('button', { name: 'Cell actions: Selected cell value' })).toBeEnabled()
+
+        await user.click(cellButton)
+
+        expect(cellButton).toHaveAttribute('aria-pressed', 'true')
+        expect(
+            within(screen.getByTestId('interpretation-network-details-pane')).getByRole('heading', { name: 'Materials' })
+        ).toBeInTheDocument()
+    }, 20_000)
+
+    it('shows complete explicit Table axes while focused-path navigation remains a tree-view concern', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableHierarchyRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table',
+            hierarchyRowMode: 'focusedPath'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const table = await within(structurePane).findByRole('table', { name: 'Matrix table' })
+
+        expect(within(table).getByRole('button', { name: 'Root row, Root column, 1, Universe' })).toBeInTheDocument()
+        expect(within(table).getByRole('button', { name: 'Parent A row, Parent A column, 1/1, Parent A' })).toBeInTheDocument()
+        expect(within(table).getByRole('button', { name: 'Parent B row, Parent B column, 1/2, Parent B' })).toBeInTheDocument()
+        expect(within(table).getByRole('button', { name: 'Child A1 row, Child A1 column, 1/1/1, Child A1' })).toBeInTheDocument()
+        expect(within(table).getByRole('button', { name: 'Child B1 row, Child B1 column, 1/2/1, Child B1' })).toBeInTheDocument()
+    }, 20_000)
+
+    it('uses one Matrix toolbar Add action and in-table axis add buttons in table mode', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableHierarchyRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        const table = await screen.findByRole('table', { name: 'Matrix table' })
+
+        expect(within(toolbar).getByRole('button', { name: 'Add' })).toBeDisabled()
+        expect(within(toolbar).queryByRole('button', { name: 'Add root cell' })).not.toBeInTheDocument()
+        expect(within(toolbar).queryByRole('button', { name: 'Add row' })).not.toBeInTheDocument()
+        expect(within(toolbar).queryByRole('button', { name: 'Add cell in row' })).not.toBeInTheDocument()
+        expect(within(toolbar).queryByRole('button', { name: 'Add child cell' })).not.toBeInTheDocument()
+        expect(within(toolbar).queryByRole('button', { name: 'Add cell' })).not.toBeInTheDocument()
+        expect(within(table).getByRole('button', { name: 'Add row' })).toBeEnabled()
+        expect(within(table).getByRole('button', { name: 'Add column' })).toBeEnabled()
+
+        await user.click(within(table).getByRole('button', { name: 'Root row, Root column, 1, Universe' }))
+
+        expect(within(toolbar).getByRole('button', { name: 'Add' })).toBeEnabled()
+        expect(within(table).getByRole('button', { name: 'Add row' })).toBeEnabled()
+        expect(within(table).getByRole('button', { name: 'Add column' })).toBeEnabled()
     }, 20_000)
 
     it('shows children only for the selected horizontal hierarchy path', async () => {
@@ -1018,7 +1345,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         expect(await screen.findByText('Failed to load matrix cells')).toBeInTheDocument()
@@ -1209,7 +1536,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
@@ -1228,7 +1555,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             ).toBe(false)
         })
         expect(await screen.findByText('Failed to update matrix cells')).toBeInTheDocument()
-    })
+    }, 20_000)
 
     it('moves selected cells through the card action menu', async () => {
         const user = userEvent.setup()
@@ -1288,7 +1615,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                                 MaterialRef: 'material-selected'
                             })
                         }),
-                        { childRowId: 'matrix-row-other', data: { _tp_sort_order: 0 } }
+                        { childRowId: 'matrix-row-other', expectedVersion: 9, data: { _tp_sort_order: 0 } }
                     ])
                 })
             )
@@ -1299,24 +1626,517 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await waitFor(() => expect(screen.getByTestId('interpretation-network-details-pane')).toHaveTextContent('Selected material'))
     }, 20_000)
 
-    it('keeps independent row cell creation scoped to a selected row cell', async () => {
+    it('keeps table axis creation controls available before a table cell is selected', async () => {
         const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        const table = await screen.findByRole('table', { name: 'Matrix table' })
+
+        expect(within(toolbar).getByRole('button', { name: 'Add' })).toBeDisabled()
+        expect(within(toolbar).queryByRole('button', { name: 'Add row' })).not.toBeInTheDocument()
+        expect(within(toolbar).queryByRole('button', { name: 'Add cell in row' })).not.toBeInTheDocument()
+        const addRowButton = within(table).getByRole('button', { name: 'Add row' })
+        const addColumnButton = within(table).getByRole('button', { name: 'Add column' })
+        expect(addRowButton).toBeEnabled()
+        expect(addColumnButton).toBeEnabled()
+
+        await user.click(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+
+        expect(within(toolbar).getByRole('button', { name: 'Add' })).toBeEnabled()
+        expect(within(table).getByRole('button', { name: 'Add row' })).toBeEnabled()
+        expect(within(table).getByRole('button', { name: 'Add column' })).toBeEnabled()
+    })
+
+    it('keeps the standalone cell dialog fail-closed for new row and column creation by default', async () => {
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <CellEditDialog
+                    open
+                    mode='create'
+                    t={i18n.getFixedT('en', 'interpretationNetwork')}
+                    locale='en'
+                    fields={interpretationMatrixColumns()[2].childColumns}
+                    styleFields={[]}
+                    initialData={{}}
+                    axisOptions={{
+                        rows: [{ key: 'definition', label: 'Definition' }],
+                        columns: [{ key: 'meaning', label: 'Meaning' }]
+                    }}
+                    isSubmitting={false}
+                    onClose={vi.fn()}
+                    onSubmit={vi.fn()}
+                />
+            </QueryClientProvider>
+        )
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        expect(within(dialog).queryByRole('radio', { name: 'New row' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'New column' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('textbox', { name: /New row name/i })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('textbox', { name: /New column name/i })).not.toBeInTheDocument()
+        expect(within(dialog).getByRole('combobox', { name: 'Select row' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('combobox', { name: 'Select column' })).toBeInTheDocument()
+    })
+
+    it('creates a new table column from the dedicated table plus dialog', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse({ id: 'matrix-column-created' }, 201)
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const table = await within(structurePane).findByRole('table', { name: 'Matrix table' })
+        await user.click(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        await user.click(within(table).getByRole('button', { name: 'Add column' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add column' })
+        expect(within(dialog).getByRole('textbox', { name: /Column name/i })).toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'Existing row' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'New column' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('RowKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('ColKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('_tp_sort_order')).not.toBeInTheDocument()
+
+        await user.type(within(dialog).getByRole('textbox', { name: /Column name/i }), 'New meaning')
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+            )
+            expect(createCall).toBeDefined()
+            const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
+            expect(body.data).toEqual(
+                expect.objectContaining({
+                    RowKey: 'definition',
+                    RowLabel: 'Definition',
+                    ColKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    ColLabel: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'New meaning' })
+                        })
+                    }),
+                    CellValue: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'New meaning' })
+                        })
+                    })
+                })
+            )
+            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+            expect(body.data.ParentCellId).toBeNull()
+        })
+    }, 20_000)
+
+    it('creates a new table row from the dedicated table plus dialog', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse({ id: 'matrix-row-created' }, 201)
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const table = await within(structurePane).findByRole('table', { name: 'Matrix table' })
+        await user.click(within(table).getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        await user.click(within(table).getByRole('button', { name: 'Add row' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add row' })
+        expect(within(dialog).getByRole('textbox', { name: /Row name/i })).toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'New row' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'Existing column' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('RowKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('ColKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('_tp_sort_order')).not.toBeInTheDocument()
+
+        await user.type(within(dialog).getByRole('textbox', { name: /Row name/i }), 'New definition')
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+            )
+            expect(createCall).toBeDefined()
+            const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
+            expect(body.data).toEqual(
+                expect.objectContaining({
+                    RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    RowLabel: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'New definition' })
+                        })
+                    }),
+                    ColKey: 'meaning',
+                    ColLabel: 'Meaning',
+                    CellValue: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'New definition' })
+                        })
+                    })
+                })
+            )
+            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+            expect(body.data.ParentCellId).toBeNull()
+        })
+    }, 20_000)
+
+    it('hides new row and column options in the regular Add cell dialog by default', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        await user.click(screen.getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        await user.click(within(toolbar).getByRole('button', { name: 'Add' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        expect(within(dialog).queryByRole('radio', { name: 'New row' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'New column' })).not.toBeInTheDocument()
+        expect(within(dialog).getByRole('combobox', { name: 'Select row' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('combobox', { name: 'Select column' })).toBeInTheDocument()
+        expect(within(dialog).queryByText('RowKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('ColKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('_tp_sort_order')).not.toBeInTheDocument()
+    }, 20_000)
+
+    it('creates a hierarchical child cell when inline axis creation is hidden by default', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse({ id: 'matrix-child-created' }, 201)
+            }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentRowsConfig)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        await screen.findAllByText('Selected cell value')
+        await user.click(screen.getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        await user.click(screen.getByRole('button', { name: 'Add' }))
 
+        const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        expect(within(dialog).queryByRole('radio', { name: 'New row' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'New column' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('textbox', { name: /New row name/i })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('textbox', { name: /New column name/i })).not.toBeInTheDocument()
+        await user.type(within(dialog).getByRole('textbox', { name: /Title/i }), 'Child from default add')
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+            )
+            expect(createCall).toBeDefined()
+            const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
+            expect(body.data).toEqual(
+                expect.objectContaining({
+                    ParentCellId: 'cell-selected',
+                    RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    ColKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    CellValue: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Child from default add' })
+                        })
+                    })
+                })
+            )
+            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+        })
+    }, 20_000)
+
+    it('adds a new independent horizontal row after a cell is selected when inline axis creation is disabled', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse({ id: 'matrix-row-created' }, 201)
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['horizontalRows'],
+            defaultMatrixView: 'horizontalRows'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
-        expect(within(toolbar).getByRole('button', { name: 'Add row' })).toBeEnabled()
-        expect(within(toolbar).getByRole('button', { name: 'Add cell in row' })).toBeDisabled()
+        const addButton = within(toolbar).getByRole('button', { name: 'Add' })
+        expect(addButton).toBeDisabled()
+        expect(within(toolbar).getByRole('button', { name: 'Add row' })).toBeDisabled()
 
-        await user.click((await screen.findAllByTestId('interpretation-network-cell'))[0])
-        expect(within(toolbar).getByRole('button', { name: 'Add cell in row' })).toBeEnabled()
-    })
+        await user.click(screen.getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        const addRowButton = within(toolbar).getByRole('button', { name: 'Add row' })
+        expect(addRowButton).toBeEnabled()
+        await user.click(addRowButton)
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add row' })
+        await user.type(within(dialog).getByRole('textbox', { name: /Row name/i }), 'Evidence')
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+            )
+            expect(createCall).toBeDefined()
+            const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
+            expect(body.data).toEqual(
+                expect.objectContaining({
+                    RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    RowLabel: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Evidence' })
+                        })
+                    }),
+                    ColKey: 'meaning',
+                    ColLabel: 'Meaning',
+                    ParentCellId: null,
+                    CellValue: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Evidence' })
+                        })
+                    })
+                })
+            )
+            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+        })
+    }, 20_000)
+
+    it('allows seeding an empty independent matrix when inline axis creation is disabled', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse({ id: 'matrix-seed-created' }, 201)
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse({ items: [], total: 0 })
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['horizontalRows'],
+            defaultMatrixView: 'horizontalRows'
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        const addButton = within(toolbar).getByRole('button', { name: 'Add' })
+        expect(addButton).toBeEnabled()
+        await user.click(addButton)
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        expect(within(dialog).queryByRole('radio', { name: 'New row' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'New column' })).not.toBeInTheDocument()
+        await user.type(within(dialog).getByRole('textbox', { name: /Title/i }), 'First matrix cell')
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+            )
+            expect(createCall).toBeDefined()
+            const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
+            expect(body.data).toEqual(
+                expect.objectContaining({
+                    RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    ColKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    ParentCellId: null,
+                    CellValue: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'First matrix cell' })
+                        })
+                    })
+                })
+            )
+            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+        })
+    }, 20_000)
+
+    it('creates a new standalone Matrix Table cell with new row and column labels when enabled', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse({ id: 'matrix-row-created' }, 201)
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'independentRows',
+            allowedMatrixViews: ['table', 'horizontalRows'],
+            defaultMatrixView: 'table',
+            allowNewAxesInCellDialog: true
+        })
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        await user.click(within(toolbar).getByRole('button', { name: 'Add' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        expect(within(dialog).getByRole('radio', { name: 'New row' })).toBeChecked()
+        expect(within(dialog).getByRole('radio', { name: 'New column' })).toBeChecked()
+        expect(within(dialog).queryByText('RowKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('ColKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('_tp_sort_order')).not.toBeInTheDocument()
+
+        fireEvent.change(within(dialog).getByRole('textbox', { name: /New row name/i }), { target: { value: 'New row' } })
+        fireEvent.change(within(dialog).getByRole('textbox', { name: /New column name/i }), { target: { value: 'New column' } })
+        fireEvent.change(within(dialog).getByRole('textbox', { name: /Title/i }), { target: { value: 'New table cell' } })
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+            )
+            expect(createCall).toBeDefined()
+            const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
+            expect(body.data).toEqual(
+                expect.objectContaining({
+                    RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    ColKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    RowLabel: expect.objectContaining({
+                        locales: expect.objectContaining({ en: expect.objectContaining({ content: 'New row' }) })
+                    }),
+                    ColLabel: expect.objectContaining({
+                        locales: expect.objectContaining({ en: expect.objectContaining({ content: 'New column' }) })
+                    }),
+                    CellValue: expect.objectContaining({
+                        locales: expect.objectContaining({ en: expect.objectContaining({ content: 'New table cell' }) })
+                    })
+                })
+            )
+            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+            expect(body.data.ParentCellId).toBeNull()
+        })
+    }, 20_000)
+
+    it('renders localized Matrix Table placement controls in Russian', async () => {
+        const user = userEvent.setup()
+        await i18n.changeLanguage('ru')
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(
+            fetchMock,
+            vi.fn(),
+            defaultPermissions,
+            undefined,
+            {
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table'
+            },
+            'ru'
+        )
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        await user.click(screen.getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        await user.click(within(toolbar).getByRole('button', { name: 'Добавить' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Добавить ячейку' })
+        expect(within(dialog).getByText('Размещение')).toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'Существующая строка' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'Новая строка' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'Существующая колонка' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio', { name: 'Новая колонка' })).not.toBeInTheDocument()
+        expect(within(dialog).getByRole('combobox', { name: 'Выберите строку' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('combobox', { name: 'Выберите колонку' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Создать' })).toBeInTheDocument()
+        expect(within(dialog).queryByText('RowKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('ColKey')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('_tp_sort_order')).not.toBeInTheDocument()
+    }, 20_000)
+
+    it('shows localized Russian validation for required Matrix Table create fields', async () => {
+        const user = userEvent.setup()
+        await i18n.changeLanguage('ru')
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(
+            fetchMock,
+            vi.fn(),
+            defaultPermissions,
+            undefined,
+            {
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table'
+            },
+            'ru'
+        )
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        await user.click(screen.getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        await user.click(within(toolbar).getByRole('button', { name: 'Добавить' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Добавить ячейку' })
+        await user.click(within(dialog).getByRole('button', { name: 'Создать' }))
+
+        expect(await within(dialog).findAllByText('Заполните это поле.')).toHaveLength(1)
+        expect(within(dialog).queryByText('This field is required.')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('Select an existing row.')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('Select an existing column.')).not.toBeInTheDocument()
+    }, 20_000)
 
     it('creates a hierarchical child cell from the card action menu', async () => {
         const user = userEvent.setup()
@@ -1377,7 +2197,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
@@ -1385,8 +2205,14 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(await screen.findByRole('menuitem', { name: 'Add' }))
 
         const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        const rowLabelField = within(dialog).getByRole('textbox', { name: /New row name/i })
+        const columnLabelField = within(dialog).getByRole('textbox', { name: /New column name/i })
         const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
         const descriptionField = within(dialog).getByRole('textbox', { name: /Description/i })
+        await user.clear(rowLabelField)
+        await user.type(rowLabelField, 'Child row')
+        await user.clear(columnLabelField)
+        await user.type(columnLabelField, 'Child column')
         await user.clear(titleField)
         await user.type(titleField, 'Child from menu')
         await user.clear(descriptionField)
@@ -1520,7 +2346,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await user.click(await screen.findByText('Universe'))
@@ -1530,7 +2356,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(await screen.findByRole('menuitem', { name: 'Add' }))
 
         const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        const rowLabelField = within(dialog).getByRole('textbox', { name: /New row name/i })
+        const columnLabelField = within(dialog).getByRole('textbox', { name: /New column name/i })
         const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
+        await user.clear(rowLabelField)
+        await user.type(rowLabelField, 'Level three row')
+        await user.clear(columnLabelField)
+        await user.type(columnLabelField, 'Level three column')
         await user.clear(titleField)
         await user.type(titleField, 'Level three')
         await user.click(within(dialog).getByRole('button', { name: 'Create' }))
@@ -1564,7 +2396,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         const cells = await screen.findAllByTestId('interpretation-network-cell')
@@ -1573,7 +2405,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(await screen.findByRole('menuitem', { name: 'Add' }))
 
         const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        const rowLabelField = within(dialog).getByRole('textbox', { name: /New row name/i })
+        const columnLabelField = within(dialog).getByRole('textbox', { name: /New column name/i })
         const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
+        await user.clear(rowLabelField)
+        await user.type(rowLabelField, 'Menu child row')
+        await user.clear(columnLabelField)
+        await user.type(columnLabelField, 'Menu child column')
         await user.clear(titleField)
         await user.type(titleField, 'Child under menu cell')
         await user.click(within(dialog).getByRole('button', { name: 'Create' }))
@@ -1707,11 +2545,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 expect.arrayContaining([
                     expect.objectContaining({
                         childRowId: 'matrix-row-neighbor',
+                        expectedVersion: 7,
                         data: { _tp_sort_order: 0 }
                     }),
                     expect.objectContaining({
                         childRowId: 'matrix-row-other',
-                        data: { _tp_sort_order: 2 }
+                        expectedVersion: 9,
+                        data: { _tp_sort_order: 0 }
                     })
                 ])
             )
@@ -1774,7 +2614,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(hierarchicalFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await user.click(await screen.findByText('Root cell value'))
@@ -1834,11 +2674,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 
         await waitFor(() => {
-            expect(
-                fetchMock.mock.calls.some(
-                    ([input, init]) => init?.method === 'DELETE' && String(input).includes('/tabular/matrix-component/matrix-row-selected')
-                )
-            ).toBe(true)
+            const deleteCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'DELETE' && String(input).includes('/tabular/matrix-component/matrix-row-selected')
+            )
+            expect(deleteCall).toBeDefined()
+            expect(new URL(String(deleteCall?.[0]), 'http://localhost:3000').searchParams.get('expectedVersion')).toBe('7')
         })
     }, 20_000)
 
@@ -1864,7 +2704,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(rootFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
@@ -1974,8 +2814,14 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         ).toBe(false)
     }, 20_000)
 
-    it('creates an Editor.js material and stores its reference on the selected matrix cell', async () => {
+    it('creates an Editor.js material and stores its reference through physical fields', async () => {
         const user = userEvent.setup()
+        const physicalInterpretationColumns = interpretationMatrixColumns()
+        const physicalMatrixColumn = physicalInterpretationColumns.find((column) => column.codename === 'InterpretationMatrix')
+        const physicalMaterialRef = physicalMatrixColumn?.childColumns?.find((column) => column.codename === 'MaterialRef')
+        if (physicalMaterialRef) {
+            physicalMaterialRef.field = 'phys_material_ref'
+        }
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
@@ -1986,6 +2832,30 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 return jsonResponse({ id: 'matrix-row-selected' })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            if (url.searchParams.get('objectCollectionCodename') === 'Interpretation') {
+                return jsonResponse(
+                    appData(
+                        'Interpretation',
+                        [{ id: 'interpretation-1', Title: 'Existing structure matrix', ParentStructure: 'concept-1' }],
+                        physicalInterpretationColumns
+                    )
+                )
+            }
+            if (url.searchParams.get('objectCollectionCodename') === 'Material') {
+                const response = defaultRuntimeResponse(url)
+                return jsonResponse({
+                    ...response,
+                    columns: [
+                        ...response.columns,
+                        normalizeColumn({
+                            id: 'material-cell-id-component',
+                            codename: 'CellId',
+                            field: 'phys_cell_id',
+                            headerName: 'Cell ID'
+                        })
+                    ]
+                })
+            }
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock)
@@ -2018,10 +2888,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                                 en: expect.objectContaining({ content: 'New source description' })
                             })
                         }),
-                        CellId: 'cell-selected'
+                        phys_cell_id: 'cell-selected'
                     })
                 })
             )
+            expect(JSON.parse(String(createCall?.[1]?.body ?? '{}')).data).not.toHaveProperty('CellId')
             const matrixPatchCall = fetchMock.mock.calls.find(([input, init]) => {
                 const url = new URL(String(input), 'http://localhost:3000')
                 return (
@@ -2033,7 +2904,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             })
             expect(matrixPatchCall).toBeDefined()
             expect(JSON.parse(String(matrixPatchCall?.[1]?.body ?? '{}'))).toEqual({
-                data: { MaterialRef: 'material-created' },
+                data: { phys_material_ref: 'material-created' },
                 expectedVersion: 7
             })
         })
@@ -2237,8 +3108,89 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'PATCH' && url.pathname.endsWith('/tabular/matrix-component/matrix-row-selected')) {
-                return jsonResponse({ id: 'matrix-row-selected' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component/batch')) {
+                return jsonResponse({ ok: true })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock)
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        await screen.findAllByText('Selected cell value')
+        await user.click(screen.getByRole('button', { name: 'Cell actions: Selected cell value' }))
+        await user.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        const rowLabelField = within(dialog).getByRole('textbox', { name: /Row label/i })
+        const columnLabelField = within(dialog).getByRole('textbox', { name: /Column label/i })
+        const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
+        const descriptionField = within(dialog).getByRole('textbox', { name: /Description/i })
+        expect(descriptionField.tagName.toLowerCase()).toBe('textarea')
+        await user.clear(rowLabelField)
+        await user.type(rowLabelField, 'Updated row label')
+        await user.clear(columnLabelField)
+        await user.type(columnLabelField, 'Updated column label')
+        await user.clear(titleField)
+        await user.type(titleField, 'Updated cell title')
+        await user.clear(descriptionField)
+        await user.type(descriptionField, 'Updated cell description')
+        await user.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Fill Blue' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            const styleCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component/batch')
+            )
+            expect(styleCall).toBeDefined()
+            expect(JSON.parse(String(styleCall?.[1]?.body ?? '{}'))).toEqual(
+                expect.objectContaining({
+                    updates: expect.arrayContaining([
+                        expect.objectContaining({
+                            childRowId: 'matrix-row-selected',
+                            expectedVersion: 7,
+                            data: expect.objectContaining({
+                                CellFillColor: 'blue',
+                                RowLabel: expect.objectContaining({
+                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated row label' }) })
+                                }),
+                                ColLabel: expect.objectContaining({
+                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated column label' }) })
+                                }),
+                                CellValue: expect.objectContaining({
+                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell title' }) })
+                                }),
+                                CellDescription: expect.objectContaining({
+                                    locales: expect.objectContaining({
+                                        en: expect.objectContaining({ content: 'Updated cell description' })
+                                    })
+                                })
+                            })
+                        })
+                    ]),
+                    uniformUpdates: [
+                        expect.objectContaining({
+                            rows: [{ childRowId: 'matrix-row-other', expectedVersion: 9 }],
+                            data: expect.objectContaining({
+                                ColLabel: expect.objectContaining({
+                                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated column label' }) })
+                                })
+                            })
+                        })
+                    ]
+                })
+            )
+        })
+    }, 20_000)
+
+    it('edits cell metadata without syncing unchanged row and column labels to sibling cells', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component/batch')) {
+                return jsonResponse({ ok: true })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
@@ -2253,7 +3205,6 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
         const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
         const descriptionField = within(dialog).getByRole('textbox', { name: /Description/i })
-        expect(descriptionField.tagName.toLowerCase()).toBe('textarea')
         await user.clear(titleField)
         await user.type(titleField, 'Updated cell title')
         await user.clear(descriptionField)
@@ -2263,24 +3214,30 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Save' }))
 
         await waitFor(() => {
-            const styleCall = fetchMock.mock.calls.find(
-                ([input, init]) => init?.method === 'PATCH' && String(input).includes('/tabular/matrix-component/matrix-row-selected')
+            const batchCalls = fetchMock.mock.calls.filter(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component/batch')
             )
-            expect(styleCall).toBeDefined()
-            expect(JSON.parse(String(styleCall?.[1]?.body ?? '{}'))).toEqual(
+            expect(batchCalls).toHaveLength(1)
+            const body = JSON.parse(String(batchCalls[0][1]?.body ?? '{}'))
+            expect(body.updates).toEqual([
                 expect.objectContaining({
+                    childRowId: 'matrix-row-selected',
                     expectedVersion: 7,
                     data: expect.objectContaining({
                         CellFillColor: 'blue',
+                        RowLabel: 'Definition',
+                        ColLabel: 'Meaning',
                         CellValue: expect.objectContaining({
                             locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell title' }) })
                         }),
                         CellDescription: expect.objectContaining({
-                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell description' }) })
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'Updated cell description' })
+                            })
                         })
                     })
                 })
-            )
+            ])
         })
     }, 20_000)
 })

@@ -500,6 +500,27 @@
             "title": "Widget behavior",
             "description": "Configure how inherited entity layouts can override this inherited widget."
         },
+        "interpretationNetworkEditor": {
+            "title": "Interpretation network workspace",
+            "displayTitle": "Matrix display",
+            "description": "Choose which matrix views are available in the published application and which view opens by default.",
+            "availableViewsHelp": "Select at least one Matrix view. Vertical tree requires hierarchical cells.",
+            "defaultMatrixView": "Default view",
+            "defaultMatrixViewHelp": "This view opens first unless a user has already chosen another available view.",
+            "hierarchyRowMode": "Hierarchy rows",
+            "hierarchyRowModeHelp": "Controls whether hierarchy views show the selected branch or every hierarchy level.",
+            "newAxesInCellDialog": "Create rows and columns from cell dialog",
+            "newAxesInCellDialogHelp": "When disabled, users add rows and columns with the table plus buttons, and the Add cell dialog uses existing axes.",
+            "hierarchyRowModes": {
+                "focusedPath": "Focused branch",
+                "allNodes": "All levels"
+            },
+            "views": {
+                "table": "Table view",
+                "horizontalRows": "Horizontal rows",
+                "verticalTree": "Vertical tree"
+            }
+        },
         "widgetScopeVisibility": {
             "title": "Visibility by entity",
             "description": "Disable this global widget for selected entities. A scoped layout is created automatically when a visibility override is saved.",

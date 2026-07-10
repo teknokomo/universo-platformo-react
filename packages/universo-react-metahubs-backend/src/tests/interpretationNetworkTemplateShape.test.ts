@@ -47,7 +47,9 @@ describe('interpretation-network template shape', () => {
         expect(findWidget(left, 'workspaceSwitcher')).toBeDefined()
         expect(workspace?.config).toMatchObject({
             matrixMode: 'hierarchicalCells',
-            hierarchyLayout: 'horizontalRows',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table',
+            allowNewAxesInCellDialog: false,
             positionNumbering: {
                 enabled: true,
                 includeRoot: true,

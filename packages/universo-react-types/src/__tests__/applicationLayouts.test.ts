@@ -1,8 +1,53 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseApplicationLayoutWidgetConfig } from '../common/applicationLayouts'
+import {
+    applicationLayoutWidgetConfigBatchMutationSchema,
+    normalizeInterpretationNetworkMatrixViewSettings,
+    parseApplicationLayoutWidgetConfig
+} from '../common/applicationLayouts'
 
 describe('application layout widget config contracts', () => {
+    it('rejects non-UUID layout IDs in widget config batch mutations', () => {
+        const result = applicationLayoutWidgetConfigBatchMutationSchema.safeParse({
+            updates: [
+                {
+                    layoutId: 'layout-global',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    config: { matrixMode: 'hierarchicalCells' }
+                }
+            ]
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error?.issues[0]).toMatchObject({
+            validation: 'uuid',
+            path: ['updates', 0, 'layoutId']
+        })
+    })
+
+    it('rejects duplicate widget IDs in widget config batch mutations', () => {
+        const result = applicationLayoutWidgetConfigBatchMutationSchema.safeParse({
+            updates: [
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    config: { matrixMode: 'hierarchicalCells' }
+                },
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    config: { matrixMode: 'independentRows' }
+                }
+            ]
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error?.issues[0]).toMatchObject({
+            message: 'Duplicate widgetId',
+            path: ['updates', 1, 'widgetId']
+        })
+    })
+
     it('accepts typed Interpretation Network workspace matrix mode configuration', () => {
         expect(
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
@@ -11,13 +56,21 @@ describe('application layout widget config contracts', () => {
                     objectCollectionCodenames: ['Structure']
                 },
                 matrixMode: 'hierarchicalCells',
-                hierarchyLayout: 'horizontalRows',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table',
                 hierarchyRowMode: 'focusedPath',
                 positionNumbering: {
                     enabled: true,
                     includeRoot: true,
                     startIndex: 1
                 },
+                allowNewAxesInCellDialog: false,
+                sharedBehavior: {
+                    canDeactivate: true,
+                    canExclude: false,
+                    positionLocked: true
+                },
+                hierarchyLayout: 'verticalTree',
                 serverModuleCodename: 'interpretation-runtime',
                 conceptCodename: 'Structure',
                 conceptNameField: 'Name',
@@ -36,12 +89,19 @@ describe('application layout widget config contracts', () => {
             })
         ).toMatchObject({
             matrixMode: 'hierarchicalCells',
-            hierarchyLayout: 'horizontalRows',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table',
             hierarchyRowMode: 'focusedPath',
             positionNumbering: {
                 enabled: true,
                 includeRoot: true,
                 startIndex: 1
+            },
+            allowNewAxesInCellDialog: false,
+            sharedBehavior: {
+                canDeactivate: true,
+                canExclude: false,
+                positionLocked: true
             },
             conceptCodename: 'Structure',
             serverModuleCodename: 'interpretation-runtime',
@@ -55,6 +115,28 @@ describe('application layout widget config contracts', () => {
                 objectCollectionCodenames: ['Structure']
             }
         })
+        expect(
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                hierarchyLayout: 'verticalTree',
+                allowedMatrixViews: ['table'],
+                defaultMatrixView: 'table'
+            })
+        ).toEqual({
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['table'],
+            defaultMatrixView: 'table'
+        })
+        expect(
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                hierarchyLayout: 'verticalTree'
+            })
+        ).toEqual({
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'verticalTree'
+        })
 
         expect(() =>
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
@@ -65,7 +147,7 @@ describe('application layout widget config contracts', () => {
         expect(() =>
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
                 matrixMode: 'hierarchicalCells',
-                hierarchyLayout: 'diagonal',
+                allowedMatrixViews: ['diagonal'],
                 positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
             })
         ).toThrow()
@@ -73,7 +155,6 @@ describe('application layout widget config contracts', () => {
         expect(() =>
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
                 matrixMode: 'hierarchicalCells',
-                hierarchyLayout: 'horizontalRows',
                 hierarchyRowMode: 'allBranches'
             })
         ).toThrow()
@@ -81,7 +162,6 @@ describe('application layout widget config contracts', () => {
         expect(() =>
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
                 matrixMode: 'hierarchicalCells',
-                hierarchyLayout: 'horizontalRows',
                 positionNumbering: { enabled: true, includeRoot: true, startIndex: -1 }
             })
         ).toThrow()
@@ -99,6 +179,51 @@ describe('application layout widget config contracts', () => {
                 defaultRootTitleField: 'CellValue'
             })
         ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['horizontalRows'],
+                defaultMatrixView: 'table'
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'horizontalRows'
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'table'],
+                defaultMatrixView: 'table'
+            })
+        ).toThrow()
+    })
+
+    it('normalizes Matrix view settings at UI and runtime boundaries', () => {
+        expect(
+            normalizeInterpretationNetworkMatrixViewSettings(
+                'hierarchicalCells',
+                ['verticalTree', 'table', 'horizontalRows', 'table'],
+                'table'
+            )
+        ).toEqual({
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table'
+        })
+        expect(normalizeInterpretationNetworkMatrixViewSettings('independentRows', ['table', 'verticalTree'], 'verticalTree')).toEqual({
+            allowedMatrixViews: ['table'],
+            defaultMatrixView: 'table'
+        })
+        expect(normalizeInterpretationNetworkMatrixViewSettings('hierarchicalCells', ['unknown'], 'unknown')).toEqual({
+            allowedMatrixViews: ['horizontalRows'],
+            defaultMatrixView: 'horizontalRows'
+        })
     })
 
     it('accepts generic PlayCanvas canvas widget configuration', () => {

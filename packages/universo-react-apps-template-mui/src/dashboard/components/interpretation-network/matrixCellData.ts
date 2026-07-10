@@ -1,8 +1,50 @@
 import { createLocalizedContent } from '@universo-react/utils'
 import type { FieldConfig } from '../../../components/dialogs/FormDialog'
-import { buildDefaultMatrixCellData, type MatrixCell, type RuntimeColumnLike, type RuntimeRow } from './model'
+import {
+    buildDefaultMatrixCellData,
+    findColumn,
+    readColumnValue,
+    type MatrixAxisOption,
+    type MatrixCell,
+    type RuntimeColumnLike,
+    type RuntimeRow
+} from './model'
 
 type CellDialogMode = 'create-child' | 'create-cell' | 'create-row' | 'edit'
+
+export type MatrixAxisPlacement =
+    | { kind: 'existing'; option: MatrixAxisOption }
+    | { kind: 'new'; label?: string; labelValue?: unknown; key?: string }
+
+export type MatrixCellPlacement = {
+    row?: MatrixAxisPlacement
+    column?: MatrixAxisPlacement
+    parentCellId?: string | null
+}
+
+export const MATRIX_CELL_PLACEMENT_FIELD = '__matrixCellPlacement'
+
+export const readMatrixCellPlacement = (data: Record<string, unknown>): MatrixCellPlacement | undefined => {
+    const value = data[MATRIX_CELL_PLACEMENT_FIELD]
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    return value as MatrixCellPlacement
+}
+
+const readInitialFieldValue = (
+    rawCell: RuntimeRow | undefined,
+    field: FieldConfig,
+    childColumns: RuntimeColumnLike[] | undefined
+): unknown => {
+    if (!rawCell) return undefined
+    const physicalField = field.codename ? findColumn(childColumns, field.codename)?.field : undefined
+    const keys = [field.id, field.codename, physicalField].filter(
+        (key, index, values): key is string => typeof key === 'string' && key.length > 0 && values.indexOf(key) === index
+    )
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(rawCell, key)) return rawCell[key]
+    }
+    return undefined
+}
 
 export const buildCellDialogInitialData = ({
     mode,
@@ -12,8 +54,7 @@ export const buildCellDialogInitialData = ({
     locale,
     selectedCell,
     selectedRawCell,
-    newRowLabel,
-    newCellLabel
+    placement
 }: {
     mode: CellDialogMode | null
     cellMetadataFields: FieldConfig[]
@@ -22,26 +63,48 @@ export const buildCellDialogInitialData = ({
     locale: string
     selectedCell: MatrixCell | undefined
     selectedRawCell: RuntimeRow | undefined
-    newRowLabel: string
-    newCellLabel: string
+    placement?: MatrixCellPlacement
 }): Record<string, unknown> => {
     const fields = [...cellMetadataFields, ...styleFields]
     if (mode === 'create-cell' || mode === 'create-row') {
-        return buildDefaultMatrixCellData(childColumns, locale, {
-            row: mode === 'create-cell' && selectedCell ? selectedCell.rowLabel : newRowLabel,
-            column: mode === 'create-row' && selectedCell ? selectedCell.colLabel : newCellLabel,
-            value: newCellLabel
+        const initialData = buildDefaultMatrixCellData(childColumns, locale, {
+            row:
+                placement?.row?.kind === 'existing'
+                    ? placement.row.option.label
+                    : mode === 'create-cell' && selectedCell
+                    ? selectedCell.rowLabel
+                    : '',
+            column:
+                placement?.column?.kind === 'existing'
+                    ? placement.column.option.label
+                    : mode === 'create-row' && selectedCell
+                    ? selectedCell.colLabel
+                    : '',
+            value: ''
         })
+        const rowLabelField = findColumn(childColumns, 'RowLabel')?.field ?? 'RowLabel'
+        const colLabelField = findColumn(childColumns, 'ColLabel')?.field ?? 'ColLabel'
+        if (placement?.row?.kind === 'existing' && placement.row.option.labelValue !== undefined) {
+            initialData[rowLabelField] = placement.row.option.labelValue
+        } else if (mode === 'create-cell' && selectedCell?.rowLabelValue !== undefined) {
+            initialData[rowLabelField] = selectedCell.rowLabelValue
+        }
+        if (placement?.column?.kind === 'existing' && placement.column.option.labelValue !== undefined) {
+            initialData[colLabelField] = placement.column.option.labelValue
+        } else if (mode === 'create-row' && selectedCell?.colLabelValue !== undefined) {
+            initialData[colLabelField] = selectedCell.colLabelValue
+        }
+        return initialData
     }
     if (mode === 'create-child') {
         return buildDefaultMatrixCellData(childColumns, locale, {
-            row: newCellLabel,
-            column: newCellLabel,
-            value: newCellLabel,
+            row: '',
+            column: '',
+            value: '',
             parentCellId: selectedCell?.id ?? null
         })
     }
-    return Object.fromEntries(fields.map((field) => [field.id, selectedRawCell?.[field.id] ?? selectedRawCell?.[field.codename ?? '']]))
+    return Object.fromEntries(fields.map((field) => [field.id, readInitialFieldValue(selectedRawCell, field, childColumns)]))
 }
 
 export const buildCellCreateData = ({
@@ -50,23 +113,42 @@ export const buildCellCreateData = ({
     locale,
     source,
     existingCells,
-    newRowLabel,
-    newCellLabel
+    placement
 }: {
     mode: Exclude<CellDialogMode, 'edit'>
     childColumns: RuntimeColumnLike[] | undefined
     locale: string
     source: MatrixCell | undefined
     existingCells: MatrixCell[]
-    newRowLabel: string
-    newCellLabel: string
+    placement?: MatrixCellPlacement
 }): Record<string, unknown> => {
+    const rowPlacement = placement?.row
+    const columnPlacement = placement?.column
     const baseData = buildDefaultMatrixCellData(childColumns, locale, {
-        row: mode === 'create-cell' && source ? source.rowLabel : newRowLabel,
-        column: mode === 'create-row' && source ? source.colLabel : newCellLabel,
-        value: newCellLabel,
-        parentCellId: mode === 'create-child' ? source?.id ?? null : null
+        row:
+            rowPlacement?.kind === 'existing'
+                ? rowPlacement.option.label
+                : rowPlacement?.kind === 'new'
+                ? rowPlacement.label ?? ''
+                : mode === 'create-cell' && source
+                ? source.rowLabel
+                : '',
+        column:
+            columnPlacement?.kind === 'existing'
+                ? columnPlacement.option.label
+                : columnPlacement?.kind === 'new'
+                ? columnPlacement.label ?? ''
+                : mode === 'create-row' && source
+                ? source.colLabel
+                : '',
+        value: '',
+        parentCellId: mode === 'create-child' ? placement?.parentCellId ?? source?.id ?? null : null
     })
+    const rowLabelField = findColumn(childColumns, 'RowLabel')?.field ?? 'RowLabel'
+    const colLabelField = findColumn(childColumns, 'ColLabel')?.field ?? 'ColLabel'
+    const parentCellIdField = findColumn(childColumns, 'ParentCellId')?.field ?? 'ParentCellId'
+    const rowKeyField = findColumn(childColumns, 'RowKey')?.field ?? 'RowKey'
+    const colKeyField = findColumn(childColumns, 'ColKey')?.field ?? 'ColKey'
     const siblingParentCellId = mode === 'create-child' ? source?.id ?? null : null
     const siblingSortOrders = existingCells
         .filter((cell) => {
@@ -76,31 +158,70 @@ export const buildCellCreateData = ({
         })
         .map((cell) => cell.sortOrder)
     baseData._tp_sort_order = siblingSortOrders.length > 0 ? Math.max(...siblingSortOrders) + 1 : 0
+    const applyExistingRow = (option: MatrixAxisOption) => {
+        baseData[rowKeyField] = option.key
+        baseData[rowLabelField] = option.labelValue ?? createLocalizedContent(locale, option.label)
+    }
+    const applyExistingColumn = (option: MatrixAxisOption) => {
+        baseData[colKeyField] = option.key
+        baseData[colLabelField] = option.labelValue ?? createLocalizedContent(locale, option.label)
+    }
+    const applyNewRow = (axis: Extract<MatrixAxisPlacement, { kind: 'new' }>) => {
+        if (axis.key) baseData[rowKeyField] = axis.key
+        if (axis.labelValue !== undefined) baseData[rowLabelField] = axis.labelValue
+    }
+    const applyNewColumn = (axis: Extract<MatrixAxisPlacement, { kind: 'new' }>) => {
+        if (axis.key) baseData[colKeyField] = axis.key
+        if (axis.labelValue !== undefined) baseData[colLabelField] = axis.labelValue
+    }
+
     if (source && mode === 'create-child') {
-        baseData.RowKey = `row-${baseData.CellId}`
-        baseData.ColKey = `column-${baseData.CellId}`
-        baseData.ParentCellId = source.id
+        const generatedCellId = readColumnValue(baseData, childColumns, 'CellId')
+        baseData[rowKeyField] = `row-${generatedCellId}`
+        baseData[colKeyField] = `column-${generatedCellId}`
+        baseData[parentCellIdField] = placement?.parentCellId ?? source.id
     }
     if (source && mode === 'create-cell') {
-        baseData.RowKey = source.rowKey
-        baseData.RowLabel = createLocalizedContent(locale, source.rowLabel)
+        baseData[rowKeyField] = source.rowKey
+        baseData[rowLabelField] = source.rowLabelValue ?? createLocalizedContent(locale, source.rowLabel)
     }
     if (source && mode === 'create-row') {
-        baseData.ColKey = source.colKey
-        baseData.ColLabel = createLocalizedContent(locale, source.colLabel)
+        baseData[colKeyField] = source.colKey
+        baseData[colLabelField] = source.colLabelValue ?? createLocalizedContent(locale, source.colLabel)
     }
+    if (rowPlacement?.kind === 'existing') applyExistingRow(rowPlacement.option)
+    if (rowPlacement?.kind === 'new') applyNewRow(rowPlacement)
+    if (columnPlacement?.kind === 'existing') applyExistingColumn(columnPlacement.option)
+    if (columnPlacement?.kind === 'new') applyNewColumn(columnPlacement)
     return baseData
 }
 
-const SYSTEM_CREATE_FIELDS = ['CellId', 'ParentCellId', 'RowKey', 'RowLabel', 'ColKey', 'ColLabel', '_tp_sort_order'] as const
+const SYSTEM_CREATE_FIELDS = ['CellId', 'ParentCellId', 'RowKey', 'ColKey', '_tp_sort_order'] as const
 
-export const mergeCellCreateData = (formData: Record<string, unknown>, trustedData: Record<string, unknown>): Record<string, unknown> => {
-    const merged = {
-        ...trustedData,
-        ...formData
+export const resolveCellCreateSystemFields = (childColumns: RuntimeColumnLike[] | undefined): string[] => [
+    ...SYSTEM_CREATE_FIELDS,
+    ...SYSTEM_CREATE_FIELDS.map((field) => findColumn(childColumns, field)?.field).filter(
+        (field): field is string => typeof field === 'string' && field.length > 0
+    )
+]
+
+export const mergeCellCreateData = (
+    formData: Record<string, unknown>,
+    trustedData: Record<string, unknown>,
+    systemFields: readonly string[] = SYSTEM_CREATE_FIELDS
+): Record<string, unknown> => {
+    const sanitizedFormData = { ...formData }
+
+    for (const field of systemFields) {
+        delete sanitizedFormData[field]
     }
 
-    for (const field of SYSTEM_CREATE_FIELDS) {
+    const merged = {
+        ...trustedData,
+        ...sanitizedFormData
+    }
+
+    for (const field of systemFields) {
         if (Object.prototype.hasOwnProperty.call(trustedData, field)) {
             merged[field] = trustedData[field]
         }

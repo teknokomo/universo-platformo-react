@@ -1947,109 +1947,127 @@ export class PlayCanvasProjectsService {
         revision?: string | null
     }): Promise<{ checksum?: string | null; revision?: string | null } | void> {
         if (input.collection === 'scenes') {
-            const entitiesRecord =
-                input.data.entities && typeof input.data.entities === 'object' && !Array.isArray(input.data.entities)
-                    ? (input.data.entities as Record<string, Record<string, unknown>>)
-                    : {}
-            const syntheticRootIds = new Set(
-                Object.entries(entitiesRecord)
-                    .filter(
-                        ([id, entity]) =>
-                            id === 'root' ||
-                            (entity.resource_id === 'root' &&
-                                (entity.parent === null || entity.parent === undefined) &&
-                                typeof entity.name === 'string' &&
-                                entity.name.toLowerCase() === 'root')
-                    )
-                    .map(([id]) => id)
-            )
-            const entityIdByDocumentId = new Map(
-                Object.entries(entitiesRecord)
-                    .filter(([documentId]) => !syntheticRootIds.has(documentId))
-                    .map(([documentId, entity]) => [
-                        documentId,
-                        typeof entity.resource_id === 'string' && entity.resource_id ? entity.resource_id : documentId
-                    ])
-            )
-            const resolveRealtimeEntityId = (value: unknown): string | null => {
-                if (typeof value !== 'string' || syntheticRootIds.has(value)) {
-                    return null
-                }
-                return entityIdByDocumentId.get(value) ?? value
-            }
-            const currentBeforeSave = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
-            const existingMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorSceneMetadata>(currentBeforeSave.payload?.metadata)
-            const incomingMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorSceneMetadata>(input.data.metadata)
-            const effectiveMetadata = incomingMetadata ?? existingMetadata
-            const incomingAssets = Array.isArray(input.data.assets) ? input.data.assets : currentBeforeSave.payload?.assets
-            const entities = Object.entries(entitiesRecord)
-                .filter(([id]) => !syntheticRootIds.has(id))
-                .map(([id, entity]) => {
-                    const entityId = entityIdByDocumentId.get(id) ?? id
-                    const previousEntity = findEditorSceneEntityById(currentBeforeSave.payload, entityId)
-                    const position = readPlayCanvasEditorVector3Tuple(entity.position, previousEntity?.position)
-                    const rotation = readPlayCanvasEditorVector3Tuple(entity.rotation, previousEntity?.rotation)
-                    const scale = readPlayCanvasEditorVector3Tuple(entity.scale, previousEntity?.scale)
-                    const hasComponentsRecord =
-                        entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
-                    const incomingEntityMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorEntityMetadata>(entity.metadata)
-                    const existingEntityMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorEntityMetadata>(previousEntity?.metadata)
-                    const normalizedComponents = normalizeEditorEntityComponents(hasComponentsRecord ? entity.components : {}, entity)
-                    return {
-                        id: entityId,
-                        name: typeof entity.name === 'string' ? entity.name : previousEntity?.name ?? 'Entity',
-                        parentId: resolveRealtimeEntityId(entity.parent),
-                        enabled: typeof entity.enabled === 'boolean' ? entity.enabled : previousEntity?.enabled ?? true,
-                        ...(position ? { position } : {}),
-                        ...(rotation ? { rotation } : {}),
-                        ...(scale ? { scale } : {}),
-                        components:
-                            hasComponentsRecord || Object.keys(normalizedComponents).length > 0
-                                ? normalizedComponents
-                                : previousEntity?.components ?? {},
-                        metadata: incomingEntityMetadata ?? existingEntityMetadata,
-                        children: Array.isArray(entity.children)
-                            ? entity.children
-                                  .map((child) => resolveRealtimeEntityId(child))
-                                  .filter((child): child is string => typeof child === 'string')
-                            : previousEntity?.children ?? []
-                    }
-                })
-            const payload = playCanvasEditorCompatibilityScenePayloadSchema.parse({
-                schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
-                settings: normalizeEditorSceneSettings(input.data.settings),
-                metadata: syncMmoommMetadataWithEditorEntities(effectiveMetadata, entities),
-                ...(incomingAssets ? { assets: incomingAssets } : {}),
-                entities
-            })
-            if (areEditorScenePayloadsEqual(currentBeforeSave.payload, payload)) {
-                return { checksum: currentBeforeSave.scene.checksum ?? null }
-            }
-            const expectedCurrentChecksum = input.checksum !== undefined ? input.checksum : currentBeforeSave.scene.checksum ?? null
-            try {
-                const saved = await this.saveEditorCompatibilityScene(
-                    input.metahubId,
-                    input.projectId,
-                    input.sceneId,
-                    {
-                        requestId: generateUuidV7(),
-                        payload,
-                        expectedCurrentChecksum
-                    },
-                    input.userId
-                )
-                return { checksum: saved.checksum ?? null }
-            } catch (error) {
-                if (!isCurrentChecksumMismatch(error)) {
-                    throw error
-                }
-
+            const buildPayloadFromCurrentScene = async () => {
                 const current = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
-                if (!areEditorScenePayloadsEqual(current.payload, payload)) {
-                    throw error
+                const entitiesRecord =
+                    input.data.entities && typeof input.data.entities === 'object' && !Array.isArray(input.data.entities)
+                        ? (input.data.entities as Record<string, Record<string, unknown>>)
+                        : {}
+                const syntheticRootIds = new Set(
+                    Object.entries(entitiesRecord)
+                        .filter(
+                            ([id, entity]) =>
+                                id === 'root' ||
+                                (entity.resource_id === 'root' &&
+                                    (entity.parent === null || entity.parent === undefined) &&
+                                    typeof entity.name === 'string' &&
+                                    entity.name.toLowerCase() === 'root')
+                        )
+                        .map(([id]) => id)
+                )
+                const entityIdByDocumentId = new Map(
+                    Object.entries(entitiesRecord)
+                        .filter(([documentId]) => !syntheticRootIds.has(documentId))
+                        .map(([documentId, entity]) => [
+                            documentId,
+                            typeof entity.resource_id === 'string' && entity.resource_id ? entity.resource_id : documentId
+                        ])
+                )
+                const resolveRealtimeEntityId = (value: unknown): string | null => {
+                    if (typeof value !== 'string' || syntheticRootIds.has(value)) {
+                        return null
+                    }
+                    return entityIdByDocumentId.get(value) ?? value
                 }
-                return { checksum: current.scene.checksum ?? null }
+                const existingMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorSceneMetadata>(current.payload?.metadata)
+                const incomingMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorSceneMetadata>(input.data.metadata)
+                const effectiveMetadata = incomingMetadata ?? existingMetadata
+                const incomingAssets = Array.isArray(input.data.assets) ? input.data.assets : current.payload?.assets
+                const entities = Object.entries(entitiesRecord)
+                    .filter(([id]) => !syntheticRootIds.has(id))
+                    .map(([id, entity]) => {
+                        const entityId = entityIdByDocumentId.get(id) ?? id
+                        const previousEntity = findEditorSceneEntityById(current.payload, entityId)
+                        const position = readPlayCanvasEditorVector3Tuple(entity.position, previousEntity?.position)
+                        const rotation = readPlayCanvasEditorVector3Tuple(entity.rotation, previousEntity?.rotation)
+                        const scale = readPlayCanvasEditorVector3Tuple(entity.scale, previousEntity?.scale)
+                        const hasComponentsRecord =
+                            entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components)
+                        const incomingEntityMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorEntityMetadata>(entity.metadata)
+                        const existingEntityMetadata = readEditorJsonMetadataRecord<PlayCanvasEditorEntityMetadata>(
+                            previousEntity?.metadata
+                        )
+                        const normalizedComponents = normalizeEditorEntityComponents(hasComponentsRecord ? entity.components : {}, entity)
+                        return {
+                            id: entityId,
+                            name: typeof entity.name === 'string' ? entity.name : previousEntity?.name ?? 'Entity',
+                            parentId: resolveRealtimeEntityId(entity.parent),
+                            enabled: typeof entity.enabled === 'boolean' ? entity.enabled : previousEntity?.enabled ?? true,
+                            ...(position ? { position } : {}),
+                            ...(rotation ? { rotation } : {}),
+                            ...(scale ? { scale } : {}),
+                            components:
+                                hasComponentsRecord || Object.keys(normalizedComponents).length > 0
+                                    ? normalizedComponents
+                                    : previousEntity?.components ?? {},
+                            metadata: incomingEntityMetadata ?? existingEntityMetadata,
+                            children: Array.isArray(entity.children)
+                                ? entity.children
+                                      .map((child) => resolveRealtimeEntityId(child))
+                                      .filter((child): child is string => typeof child === 'string')
+                                : previousEntity?.children ?? []
+                        }
+                    })
+                const payload = playCanvasEditorCompatibilityScenePayloadSchema.parse({
+                    schemaVersion: PLAYCANVAS_PROJECT_SCHEMA_VERSION,
+                    settings: normalizeEditorSceneSettings(input.data.settings),
+                    metadata: syncMmoommMetadataWithEditorEntities(effectiveMetadata, entities),
+                    ...(incomingAssets ? { assets: incomingAssets } : {}),
+                    entities
+                })
+                return { current, payload }
             }
+
+            const maxAttempts = 4
+            for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                const { current, payload } = await buildPayloadFromCurrentScene()
+                if (areEditorScenePayloadsEqual(current.payload, payload)) {
+                    return { checksum: current.scene.checksum ?? null }
+                }
+                const expectedCurrentChecksum =
+                    attempt === 1 && input.checksum !== undefined ? input.checksum : current.scene.checksum ?? null
+                try {
+                    const saved = await this.saveEditorCompatibilityScene(
+                        input.metahubId,
+                        input.projectId,
+                        input.sceneId,
+                        {
+                            requestId: generateUuidV7(),
+                            payload,
+                            expectedCurrentChecksum
+                        },
+                        input.userId
+                    )
+                    return { checksum: saved.checksum ?? null }
+                } catch (error) {
+                    if (isCurrentChecksumMismatch(error)) {
+                        const latest = await this.readEditorScene(input.metahubId, input.projectId, input.sceneId, input.userId)
+                        if (areEditorScenePayloadsEqual(latest.payload, payload)) {
+                            return { checksum: latest.scene.checksum ?? null }
+                        }
+                        throw error
+                    }
+                    if (!isSceneMetadataUpdateFailure(error) || attempt === maxAttempts) {
+                        throw error
+                    }
+                    await waitForRealtimeSettingsRetry(attempt)
+                }
+            }
+            throw new MetahubValidationError('PlayCanvas Editor realtime scene persistence retry exhausted', {
+                messageCode: 'playcanvas.editorRealtime.scenePersistRetryExhausted',
+                projectId: input.projectId,
+                sceneId: input.sceneId
+            })
         }
 
         if (input.collection === 'settings') {

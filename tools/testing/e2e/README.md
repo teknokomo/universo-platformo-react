@@ -241,6 +241,14 @@ Validate the committed LMS fixture contract without starting the browser runner:
 pnpm run check:lms-fixture-contract
 ```
 
+Validate the Interpretation Network fixture on the dedicated minimal local Supabase profile without overwriting the committed fixture:
+
+```bash
+pnpm run test:e2e:interpretation-network-fixture-gate:local-supabase
+```
+
+The local gate starts the minimal E2E Supabase stack, builds the E2E app with the generated local profile, writes the new snapshot to `tools/testing/e2e/.artifacts/generated-metahubs-interpretation-network-app-snapshot.json`, validates the strict fixture contract, and compares the generated artifact with the committed fixture after normalizing volatile UUID v7 values, timestamps, and snapshot hashes. Regenerate the committed fixture only in a dedicated fixture-update change.
+
 If the server is already running (e.g., from a previous E2E run), reuse it:
 
 ```bash
@@ -256,7 +264,7 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 | `metahubs-lms-app-export`                    | `tools/fixtures/metahubs-lms-app-snapshot.json`                    | Creates the localized LMS application fixture with Learning Content Projects, standalone resources, CourseItems, TrackStages, seeded library affordances, and exports the snapshot used by LMS runtime import flows. |
 | `metahubs-mmoomm-flight-app-export`          | `tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`          | Creates the MMOOMM flight simulator metahub fixture with wrapper packages, Object entities, runtime modules, and a generic PlayCanvas canvas widget.                                                                 |
 | `metahubs-mmoomm-app-export`                 | `tools/fixtures/metahubs-mmoomm-app-snapshot.json`                 | Creates the main browser-authored MMOOMM fixture through the UI-first metahub, package connection, PlayCanvas Editor authoring, publish, layout binding, and snapshot export path.                                   |
-| `metahubs-interpretation-network-app-export` | `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` | Creates the canonical Interpretation Network interpretation-network fixture (Stage 1, no IPFS) and exports the snapshot used by Interpretation Network runtime import flows.                                         |
+| `metahubs-interpretation-network-app-export` | `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` | Creates the canonical Interpretation Network fixture with the Matrix workspace display defaults and exports the snapshot used by Interpretation Network runtime import flows.                                        |
 
 ### Creating New Generators
 

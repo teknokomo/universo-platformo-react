@@ -108,6 +108,23 @@ const buildPageBlockContentValidationOptions = (component: Partial<BlockContentC
     maxBlocks: component.maxBlocks
 })
 
+const LAYOUT_WIDGET_ENTITY_REFERENCE_KEYS = new Set([
+    'boundHubId',
+    'boundTreeEntityId',
+    'hubId',
+    'objectCollectionId',
+    'objectCollectionIds',
+    'sectionId',
+    'sectionIds',
+    'startPage',
+    'targetEntityId',
+    'targetObjectCollectionId',
+    'targetObjectCollectionIds',
+    'targetSectionId',
+    'targetSectionIds',
+    'treeEntityId'
+])
+
 /**
  * Restores metahub branch schema entities from a MetahubSnapshot.
  *
@@ -1748,7 +1765,7 @@ export class SnapshotRestoreService {
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},
                     description: layout.description ?? null,
-                    config: this.remapPlayCanvasRuntimeManifestReferences(layout.config ?? {}, playCanvasRestoreResult),
+                    config: this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
                     is_active: layout.isActive !== false,
                     is_default: layout.isDefault ?? false,
                     sort_order: layout.sortOrder ?? 0,
@@ -1788,7 +1805,7 @@ export class SnapshotRestoreService {
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},
                     description: layout.description ?? null,
-                    config: this.remapPlayCanvasRuntimeManifestReferences(layout.config ?? {}, playCanvasRestoreResult),
+                    config: this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
                     is_active: layout.isActive !== false,
                     is_default: layout.isDefault ?? false,
                     sort_order: layout.sortOrder ?? 0,
@@ -1828,7 +1845,7 @@ export class SnapshotRestoreService {
                     zone: widget.zone,
                     widget_key: widget.widgetKey,
                     sort_order: widget.sortOrder ?? 0,
-                    config: this.remapPlayCanvasRuntimeManifestReferences(widget.config ?? {}, playCanvasRestoreResult),
+                    config: this.remapLayoutConfigReferences(widget.config ?? {}, entityIdMap, playCanvasRestoreResult),
                     is_active: widget.isActive !== false,
                     _upl_created_at: now,
                     _upl_created_by: userId,
@@ -1869,7 +1886,7 @@ export class SnapshotRestoreService {
                     config:
                         override.config == null
                             ? null
-                            : this.remapPlayCanvasRuntimeManifestReferences(override.config, playCanvasRestoreResult),
+                            : this.remapLayoutConfigReferences(override.config, entityIdMap, playCanvasRestoreResult),
                     is_active: typeof override.isActive === 'boolean' ? override.isActive : null,
                     is_deleted_override: override.isDeletedOverride === true,
                     _upl_created_at: now,
@@ -1885,6 +1902,49 @@ export class SnapshotRestoreService {
                     _mhb_deleted: false
                 })
         }
+    }
+
+    private remapLayoutConfigReferences(
+        value: unknown,
+        entityIdMap: Map<string, string>,
+        playCanvasRestoreResult: PlayCanvasProjectSnapshotRestoreResult
+    ): unknown {
+        return this.remapPlayCanvasRuntimeManifestReferences(
+            this.remapEntityReferencesInLayoutConfig(value, entityIdMap),
+            playCanvasRestoreResult
+        )
+    }
+
+    private remapEntityReferencesInLayoutConfig(value: unknown, entityIdMap: Map<string, string>): unknown {
+        if (Array.isArray(value)) {
+            return value.map((item) => this.remapEntityReferencesInLayoutConfig(item, entityIdMap))
+        }
+        if (!value || typeof value !== 'object') {
+            return value
+        }
+        const record = value as Record<string, unknown>
+        const next: Record<string, unknown> = {}
+        for (const [key, item] of Object.entries(record)) {
+            if (LAYOUT_WIDGET_ENTITY_REFERENCE_KEYS.has(key)) {
+                next[key] = this.remapLayoutConfigReferenceValue(item, entityIdMap)
+                continue
+            }
+            next[key] = this.remapEntityReferencesInLayoutConfig(item, entityIdMap)
+        }
+        return next
+    }
+
+    private remapLayoutConfigReferenceValue(value: unknown, entityIdMap: Map<string, string>): unknown {
+        if (typeof value === 'string') {
+            return entityIdMap.get(value) ?? value
+        }
+        if (Array.isArray(value)) {
+            return value.map((item) => this.remapLayoutConfigReferenceValue(item, entityIdMap))
+        }
+        if (!value || typeof value !== 'object') {
+            return value
+        }
+        return this.remapEntityReferencesInLayoutConfig(value, entityIdMap)
     }
 
     private remapPlayCanvasRuntimeManifestReferences(

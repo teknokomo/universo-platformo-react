@@ -329,7 +329,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS: TemplateSeedCompo
             'Табличная часть с одной строкой на ячейку. В каждой строке — значение, цвет и атрибуты границ по сторонам.'
         ),
         sortOrder: 4,
-        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22 },
+        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22, matrixUniqueCoordinates: true },
         childComponents: INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS
     }
 ]
@@ -361,7 +361,7 @@ const INTERPRETATION_NETWORK_TABLE_TEMPLATE_OBJECT_COMPONENTS: TemplateSeedCompo
             'Переиспользуемая структура матрицы, создаваемая в рабочем пространстве. Пользователи могут копировать её и использовать как основу матриц трактовок.'
         ),
         sortOrder: 3,
-        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22 },
+        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22, matrixUniqueCoordinates: true },
         childComponents: INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS
     }
 ]

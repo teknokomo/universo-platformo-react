@@ -3,6 +3,7 @@ import {
     DASHBOARD_LAYOUT_WIDGETS,
     applicationLayoutCreateSchema,
     applicationLayoutMutationSchema,
+    applicationLayoutWidgetConfigBatchMutationSchema,
     applicationLayoutWidgetConfigMutationSchema,
     applicationLayoutWidgetMoveMutationSchema,
     applicationLayoutWidgetMutationSchema,
@@ -14,6 +15,7 @@ import {
     type ApplicationLayoutMutation,
     type ApplicationLayoutScope,
     type ApplicationLayoutWidget,
+    type ApplicationLayoutWidgetConfigBatchMutation,
     type ApplicationLayoutWidgetConfigMutation,
     type ApplicationLayoutWidgetMoveMutation,
     type ApplicationLayoutWidgetMutation,
@@ -669,6 +671,73 @@ export async function updateApplicationLayoutWidgetConfig(
         if (!rows[0]) return null
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
         return mapWidget(rows[0])
+    })
+}
+
+export async function updateApplicationLayoutWidgetConfigsBatch(
+    executor: DbExecutor,
+    schemaName: string,
+    input: ApplicationLayoutWidgetConfigBatchMutation,
+    userId: string | null
+): Promise<ApplicationLayoutWidget[]> {
+    const data = applicationLayoutWidgetConfigBatchMutationSchema.parse(input)
+    const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
+    const updates = [...data.updates].sort((left, right) => left.widgetId.localeCompare(right.widgetId))
+
+    return executor.transaction(async (tx) => {
+        for (const update of updates) {
+            await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                `${schemaName}:layout-widget:${update.layoutId}:${update.widgetId}`
+            ])
+        }
+
+        const currentRows = await tx.query<WidgetRow>(
+            `${widgetSelect(widgetsTable)}
+             WHERE (layout_id, id) IN (
+                   SELECT requested.layout_id, requested.widget_id
+                   FROM UNNEST($1::uuid[], $2::uuid[]) AS requested(layout_id, widget_id)
+             )
+               AND _upl_deleted = false
+               AND _app_deleted = false
+             ORDER BY id
+             FOR UPDATE`,
+            [updates.map((update) => update.layoutId), updates.map((update) => update.widgetId)]
+        )
+        const currentByScopedId = new Map(currentRows.map((row) => [`${row.layout_id}:${row.id}`, row]))
+        const validatedConfigs = new Map<string, Record<string, unknown>>()
+
+        for (const update of updates) {
+            const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)
+            if (!current || (update.expectedVersion !== undefined && current.version !== update.expectedVersion)) {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            }
+            validatedConfigs.set(update.widgetId, assertApplicationLayoutWidgetConfig(current.widget_key, update.config))
+        }
+
+        const saved: ApplicationLayoutWidget[] = []
+        const touchedLayoutIds = new Set<string>()
+        for (const update of updates) {
+            const rows = await tx.query<WidgetRow>(
+                `
+                UPDATE ${widgetsTable}
+                SET config = $2::jsonb, _upl_updated_at = NOW(), _upl_updated_by = $3, _upl_version = COALESCE(_upl_version, 1) + 1
+                WHERE id = $1
+                  AND layout_id = $4
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
+                RETURNING *, COALESCE(_upl_version, 1)::int AS version
+                `,
+                [update.widgetId, JSON.stringify(validatedConfigs.get(update.widgetId)), userId, update.layoutId]
+            )
+            if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            saved.push(mapWidget(rows[0]))
+            touchedLayoutIds.add(String(rows[0].layout_id))
+        }
+
+        for (const layoutId of touchedLayoutIds) {
+            await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
+        }
+        return saved
     })
 }
 

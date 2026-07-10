@@ -12,6 +12,7 @@ const mockListApplicationLayoutWidgets = jest.fn()
 const mockListApplicationLayoutWidgetObject = jest.fn()
 const mockGetApplicationLayoutDetail = jest.fn()
 const mockCreateApplicationLayout = jest.fn()
+const mockUpdateApplicationLayoutWidgetConfigsBatch = jest.fn()
 
 jest.mock('../../routes/guards', () => ({
     __esModule: true,
@@ -46,6 +47,7 @@ jest.mock('../../persistence/applicationLayoutsStore', () => ({
     toggleApplicationLayoutWidget: jest.fn(),
     updateApplicationLayout: jest.fn(),
     updateApplicationLayoutWidgetConfig: jest.fn(),
+    updateApplicationLayoutWidgetConfigsBatch: (...args: unknown[]) => mockUpdateApplicationLayoutWidgetConfigsBatch(...args),
     upsertApplicationLayoutWidget: jest.fn()
 }))
 
@@ -158,6 +160,65 @@ describe('applicationLayoutsController', () => {
         expect(mockNormalizeLocale).toHaveBeenCalledWith('ru')
         expect(res.json).toHaveBeenCalledWith({
             items: [{ id: 'global', scopeKind: 'global', objectCollectionId: null, name: 'Global' }]
+        })
+    })
+
+    it('maps atomic widget config batch conflicts to HTTP 409 for owner/admin writes', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = {
+            updates: [
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    expectedVersion: 7,
+                    config: { matrixMode: 'hierarchicalCells' }
+                }
+            ]
+        }
+        mockUpdateApplicationLayoutWidgetConfigsBatch.mockRejectedValue(new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'))
+
+        await controller.updateWidgetConfigsBatch(
+            {
+                params: { applicationId: 'app-1' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(mockUpdateApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledWith(executor, 'app_runtime_schema', body, 'user-1')
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'
+        })
+    })
+
+    it('maps malformed widget config batch payloads to HTTP 400 without calling the store', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+
+        await controller.updateWidgetConfigsBatch(
+            {
+                params: { applicationId: 'app-1' },
+                body: {
+                    updates: [
+                        {
+                            layoutId: 'not-a-uuid',
+                            widgetId: 'not-a-uuid',
+                            config: { matrixMode: 'hierarchicalCells' }
+                        }
+                    ]
+                }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(mockUpdateApplicationLayoutWidgetConfigsBatch).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_LAYOUT_WIDGET_BATCH_INVALID'
         })
     })
 })

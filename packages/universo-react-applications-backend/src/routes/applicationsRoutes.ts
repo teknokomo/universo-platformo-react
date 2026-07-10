@@ -58,6 +58,7 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/layouts/:layoutId/zone-widgets', readLimiter, asyncHandler(layouts.listWidgets))
     router.get('/:applicationId/layouts/:layoutId/zone-widgets/object', readLimiter, asyncHandler(layouts.listWidgetObject))
     router.put('/:applicationId/layouts/:layoutId/zone-widget', writeLimiter, asyncHandler(layouts.upsertWidget))
+    router.patch('/:applicationId/layouts/zone-widgets/config/batch', writeLimiter, asyncHandler(layouts.updateWidgetConfigsBatch))
     router.patch('/:applicationId/layouts/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(layouts.moveWidget))
     router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/config', writeLimiter, asyncHandler(layouts.updateWidgetConfig))
     router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/toggle-active', writeLimiter, asyncHandler(layouts.toggleWidget))

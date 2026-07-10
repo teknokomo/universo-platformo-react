@@ -6,7 +6,7 @@
 
 | Field            | Value                                 |
 | ---------------- | ------------------------------------- |
-| **Package Name** | `@universo-react/types`                     |
+| **Package Name** | `@universo-react/types`               |
 | **Version**      | See `package.json`                    |
 | **Type**         | TypeScript-first (Types & Interfaces) |
 | **Build**        | ES module with type definitions       |
@@ -23,6 +23,7 @@
 -   🧾 **Record Behavior Types** - Shared Object numbering, lifecycle, and posting contracts
 -   📊 **Ledger Types** - Shared append-only Ledger configuration, field roles, source policies, and projections
 -   🎓 **LMS Platform Primitives** - Generic resource, Learning Content project/reference, sequence, workflow action, role policy, report definition, union datasource, and acceptance-matrix contracts
+-   🧭 **Interpretation Network Layout Contract** - Shared peer Matrix views, allowed/default settings, coherence validation, and boundary normalization for the metahub, Application control panel, and published runtime
 
 ## Description
 
@@ -37,6 +38,7 @@ Base protocol types and ECS domain types for Universo Platformo.
 -   Metahub entity component manifests
 -   Object `recordBehavior` and Ledger configuration contracts
 -   Generic LMS-like platform primitives that remain reusable outside LMS configurations, including workspace-authored Learning Content references, projects, sharing, recents, stars, trash, course/track policies, player presets, and column presets
+-   Strict `interpretationNetworkWorkspace` layout configuration, including `matrixMode`, `allowedMatrixViews`, and `defaultMatrixView`
 
 ### Out of scope:
 
@@ -57,6 +59,18 @@ It covers identity fields, atomic numbering, effective dates, lifecycle states, 
 `common/ledgers` defines the standard Ledger configuration.
 The code-facing kind is `ledger`; the Russian UI label is "Регистры".
 Ledgers classify ordinary field definitions through `fieldRoles` and use source policies to distinguish manual writes from registrar-owned posting writes.
+
+## Interpretation Network Matrix View Contract
+
+`common/applicationLayouts` is the authoritative cross-package contract for the `interpretationNetworkWorkspace` widget:
+
+-   `matrixMode` describes data semantics: `hierarchicalCells` or `independentRows`.
+-   `allowedMatrixViews` is a non-empty subset of the peer views `table`, `horizontalRows`, and `verticalTree`.
+-   `defaultMatrixView` must be present in the allowed set.
+-   `verticalTree` is rejected for `independentRows`; `table` and `horizontalRows` remain compatible.
+-   `normalizeInterpretationNetworkMatrixViewSettings()` is used at UI and runtime boundaries for untrusted or incomplete values; persisted widget configuration is validated by the strict Zod schema.
+
+This contract changes widget configuration only. It does not add a database schema migration or require a metahub template version bump.
 
 ## Install (workspace)
 

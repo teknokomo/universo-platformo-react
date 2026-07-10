@@ -22,15 +22,18 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import TableRowsRoundedIcon from '@mui/icons-material/TableRowsRounded'
 import ViewColumnRoundedIcon from '@mui/icons-material/ViewColumnRounded'
 import type { SensorDescriptor, SensorOptions } from '@dnd-kit/core'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { extractRuntimeErrorMessage } from '../../../../utils/runtimeErrors'
 import { MatrixCellButton } from '../MatrixCellButton'
-import type { MatrixCell, MatrixHierarchyLayout } from '../model'
+import { buildMatrixTableModel, toMatrixTableSlotId, type MatrixCell, type MatrixTableDropSlot, type MatrixView } from '../model'
+import type { MatrixCellPlacement } from '../matrixCellData'
 import type { MatrixDragPreview, MatrixDropState, MatrixMode } from '../matrixDrag'
-import { matrixCollisionDetection } from './matrixCollisionDetection'
+import { createMatrixCollisionDetection } from './matrixCollisionDetection'
+import { MatrixTableView } from './MatrixTableView'
 
 const fixedDropTargetsStrategy: SortingStrategy = () => null
 
@@ -45,17 +48,21 @@ export interface MatrixWorkspaceProps {
     t: TFunction<'interpretationNetwork'>
     locale: string
     matrixMode: MatrixMode
-    hierarchyLayout: MatrixHierarchyLayout
+    matrixView: MatrixView
+    allowedMatrixViews: MatrixView[]
     hierarchyRows: MatrixCell[][]
     positionLabels: Map<string, string>
     matrixCells: MatrixCell[]
     visibleMatrixCells: MatrixCell[]
     matrixRows: Array<{ rowKey: string; cells: MatrixCell[] }>
+    materialCountByCellId: Map<string, number>
     matrixCellIds: string[]
     selectedCell: MatrixCell | undefined
     matrixDropState: MatrixDropState
     matrixDragPreview: MatrixDragPreview | null
     matrixMutationsDisabled: boolean
+    matrixAxisActionsDisabled?: boolean
+    addCellDisabled?: boolean
     isSavingCell: boolean
     isMovingCell: boolean
     matrixRowsError: unknown
@@ -68,8 +75,15 @@ export interface MatrixWorkspaceProps {
     menuMoves: MatrixMenuMove[]
     isDeletingCell: boolean
     sensors: SensorDescriptor<SensorOptions>[]
-    onChangeHierarchyLayout: (layout: MatrixHierarchyLayout) => void
-    onOpenCellDialog: (mode: 'create-child' | 'create-cell' | 'create-row' | 'edit', cellId?: string) => void
+    onChangeMatrixView: (view: MatrixView) => void
+    onOpenCellDialog: (
+        mode: 'create-child' | 'create-cell' | 'create-row' | 'edit',
+        cellId?: string,
+        placement?: MatrixCellPlacement
+    ) => void
+    onAddTableRow: () => void
+    onAddTableColumn: () => void
+    onMoveSelectedToSlot: (slot: MatrixTableDropSlot) => void
     onSelectCell: (cellId: string) => void
     onOpenCellMenu: (anchor: HTMLElement, cellId: string) => void
     onCloseCellMenu: () => void
@@ -85,17 +99,21 @@ export function MatrixWorkspace({
     t,
     locale,
     matrixMode,
-    hierarchyLayout,
+    matrixView,
+    allowedMatrixViews,
     hierarchyRows,
     positionLabels,
     matrixCells,
     visibleMatrixCells,
     matrixRows,
+    materialCountByCellId,
     matrixCellIds,
     selectedCell,
     matrixDropState,
     matrixDragPreview,
     matrixMutationsDisabled,
+    matrixAxisActionsDisabled = matrixMutationsDisabled,
+    addCellDisabled = false,
     isSavingCell,
     isMovingCell,
     matrixRowsError,
@@ -108,8 +126,11 @@ export function MatrixWorkspace({
     menuMoves,
     isDeletingCell,
     sensors,
-    onChangeHierarchyLayout,
+    onChangeMatrixView,
     onOpenCellDialog,
+    onAddTableRow,
+    onAddTableColumn,
+    onMoveSelectedToSlot,
     onSelectCell,
     onOpenCellMenu,
     onCloseCellMenu,
@@ -122,8 +143,19 @@ export function MatrixWorkspace({
 }: MatrixWorkspaceProps) {
     const hierarchicalMatrixIsEmpty = matrixMode === 'hierarchicalCells' && matrixCells.length === 0
     const hierarchicalAddDisabled = matrixMutationsDisabled || isSavingCell || !selectedCell || hierarchicalMatrixIsEmpty
+    const tableAxisAddDisabled = matrixAxisActionsDisabled || isSavingCell || hierarchicalMatrixIsEmpty
+    const showIndependentRowAdd = matrixMode === 'independentRows' && matrixView === 'horizontalRows'
+    const independentRowAddDisabled = matrixMutationsDisabled || isSavingCell || isMovingCell || !selectedCell
 
-    const isHorizontalHierarchy = matrixMode === 'hierarchicalCells' && hierarchyLayout === 'horizontalRows'
+    const isHorizontalHierarchy = matrixMode === 'hierarchicalCells' && matrixView === 'horizontalRows'
+    const buildCellAccessibleLabel = (cell: MatrixCell): string =>
+        t('workspace.table.cellName', {
+            defaultValue: '{{row}}, {{column}}, {{position}}, {{title}}',
+            row: cell.rowLabel,
+            column: cell.colLabel,
+            position: positionLabels.get(cell.id) ?? t('workspace.table.noPosition', 'No position'),
+            title: cell.title || t('workspace.emptyCell', 'Empty cell')
+        })
 
     const dropTargetCellId = matrixDropState.destination?.targetCellId ?? matrixDropState.overCellId
     const renderMatrixCell = (cell: MatrixCell, options: { overlay?: boolean; placeholder?: boolean } = {}) =>
@@ -157,6 +189,7 @@ export function MatrixWorkspace({
                     defaultValue: 'Cell actions: {{title}}',
                     title: cell.title || t('workspace.emptyCell', 'Empty cell')
                 })}
+                accessibleLabel={buildCellAccessibleLabel(cell)}
                 onOpenMenu={(event) => {
                     if (options.overlay) return
                     onOpenCellMenu(event.currentTarget, cell.id)
@@ -177,6 +210,31 @@ export function MatrixWorkspace({
 
     const previewHierarchyRows = matrixDragPreview?.hierarchyRows ?? hierarchyRows
     const previewVisibleCells = matrixDragPreview?.visibleCells ?? visibleMatrixCells
+    const tableVisibleCells = visibleMatrixCells
+    const matrixDisplayCellIds = useMemo(
+        () => (matrixView === 'table' ? tableVisibleCells.map((cell) => cell.id) : matrixCellIds),
+        [matrixCellIds, matrixView, tableVisibleCells]
+    )
+    const matrixDropTargetIds = useMemo(() => {
+        const targetIds = new Set(matrixDisplayCellIds)
+        if (matrixView === 'table') {
+            const table = buildMatrixTableModel(tableVisibleCells)
+            table.slots.flat().forEach((slot) => {
+                if (!slot.cell && slot.row.acceptsEmptyDrop !== false) {
+                    targetIds.add(
+                        toMatrixTableSlotId({
+                            rowKey: slot.row.sourceKey,
+                            rowLabel: slot.row.label,
+                            colKey: slot.column.sourceKey,
+                            colLabel: slot.column.label
+                        })
+                    )
+                }
+            })
+        }
+        return targetIds
+    }, [matrixDisplayCellIds, matrixView, tableVisibleCells])
+    const matrixCellCollisionDetection = useMemo(() => createMatrixCollisionDetection(matrixDropTargetIds), [matrixDropTargetIds])
     const isPreviewPlaceholder = (cell: MatrixCell): boolean => matrixDragPreview?.activeCellId === cell.id
 
     return (
@@ -189,40 +247,51 @@ export function MatrixWorkspace({
                 useFlexGap
                 flexWrap='wrap'
             >
-                {matrixMode === 'hierarchicalCells' ? (
-                    <ToggleButtonGroup
-                        exclusive
-                        size='small'
-                        value={hierarchyLayout}
-                        onChange={(_event, value: MatrixHierarchyLayout | null) => {
-                            if (value) onChangeHierarchyLayout(value)
-                        }}
-                        aria-label={t('workspace.cell.hierarchyLayout', 'Matrix view')}
-                        sx={{
-                            height: 40,
-                            flexShrink: 0,
-                            '& .MuiToggleButton-root': {
-                                width: 40,
-                                minWidth: 40,
+                <Stack direction='row' spacing={1} sx={{ minWidth: 0 }} useFlexGap flexWrap='wrap'>
+                    {allowedMatrixViews.length > 1 ? (
+                        <ToggleButtonGroup
+                            exclusive
+                            size='small'
+                            value={matrixView}
+                            onChange={(_event, value: MatrixView | null) => {
+                                if (value) onChangeMatrixView(value)
+                            }}
+                            aria-label={t('workspace.display.mode', 'Matrix view')}
+                            sx={{
                                 height: 40,
-                                p: 0
-                            }
-                        }}
-                    >
-                        <ToggleButton value='horizontalRows' aria-label={t('workspace.cell.horizontalRows', 'Horizontal rows')}>
-                            <Tooltip title={t('workspace.cell.horizontalRows', 'Horizontal rows')}>
-                                <ViewColumnRoundedIcon fontSize='small' />
-                            </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value='verticalTree' aria-label={t('workspace.cell.verticalTree', 'Vertical tree')}>
-                            <Tooltip title={t('workspace.cell.verticalTree', 'Vertical tree')}>
-                                <AccountTreeRoundedIcon fontSize='small' />
-                            </Tooltip>
-                        </ToggleButton>
-                    </ToggleButtonGroup>
-                ) : (
-                    <Box />
-                )}
+                                flexShrink: 0,
+                                '& .MuiToggleButton-root': {
+                                    width: 40,
+                                    minWidth: 40,
+                                    height: 40,
+                                    p: 0
+                                }
+                            }}
+                        >
+                            {allowedMatrixViews.includes('table') ? (
+                                <ToggleButton value='table' aria-label={t('workspace.display.table', 'Table view')}>
+                                    <Tooltip title={t('workspace.display.table', 'Table view')}>
+                                        <TableRowsRoundedIcon fontSize='small' />
+                                    </Tooltip>
+                                </ToggleButton>
+                            ) : null}
+                            {allowedMatrixViews.includes('horizontalRows') ? (
+                                <ToggleButton value='horizontalRows' aria-label={t('workspace.display.horizontalRows', 'Horizontal rows')}>
+                                    <Tooltip title={t('workspace.display.horizontalRows', 'Horizontal rows')}>
+                                        <ViewColumnRoundedIcon fontSize='small' />
+                                    </Tooltip>
+                                </ToggleButton>
+                            ) : null}
+                            {allowedMatrixViews.includes('verticalTree') ? (
+                                <ToggleButton value='verticalTree' aria-label={t('workspace.display.verticalTree', 'Vertical tree')}>
+                                    <Tooltip title={t('workspace.display.verticalTree', 'Vertical tree')}>
+                                        <AccountTreeRoundedIcon fontSize='small' />
+                                    </Tooltip>
+                                </ToggleButton>
+                            ) : null}
+                        </ToggleButtonGroup>
+                    ) : null}
+                </Stack>
                 {matrixMode === 'hierarchicalCells' ? (
                     <Button
                         type='button'
@@ -235,36 +304,43 @@ export function MatrixWorkspace({
                                 ? t('workspace.cell.addChildDisabled', 'Select a cell before adding a child.')
                                 : undefined
                         }
-                        onClick={() => onOpenCellDialog('create-child')}
+                        onClick={() => onOpenCellDialog('create-child', selectedCell?.id)}
                     >
                         {t('workspace.cell.add', 'Add')}
                     </Button>
                 ) : (
                     <>
+                        {showIndependentRowAdd ? (
+                            <Button
+                                type='button'
+                                variant='outlined'
+                                startIcon={<AddRoundedIcon />}
+                                disabled={independentRowAddDisabled}
+                                sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                title={
+                                    !selectedCell
+                                        ? t('workspace.table.selectCellBeforeAddRow', 'Select a cell before adding a row.')
+                                        : undefined
+                                }
+                                onClick={onAddTableRow}
+                            >
+                                {t('workspace.table.addRow', 'Add row')}
+                            </Button>
+                        ) : null}
                         <Button
                             type='button'
-                            size='small'
                             variant='contained'
                             startIcon={<AddRoundedIcon />}
-                            disabled={matrixMutationsDisabled || isSavingCell}
-                            onClick={() => onOpenCellDialog('create-row')}
-                        >
-                            {t('workspace.cell.addRow', 'Add row')}
-                        </Button>
-                        <Button
-                            type='button'
-                            size='small'
-                            variant='contained'
-                            startIcon={<AddRoundedIcon />}
-                            disabled={matrixMutationsDisabled || isSavingCell || !selectedCell}
+                            disabled={matrixMutationsDisabled || isSavingCell || addCellDisabled}
+                            sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
                             title={
-                                !selectedCell
-                                    ? t('workspace.cell.addSiblingDisabled', 'Select a row cell before adding another cell.')
+                                addCellDisabled
+                                    ? t('workspace.cell.addDisabledSelectCell', 'Select a cell before adding another cell.')
                                     : undefined
                             }
                             onClick={() => onOpenCellDialog('create-cell')}
                         >
-                            {t('workspace.cell.addSibling', 'Add cell in row')}
+                            {t('workspace.cell.add', 'Add')}
                         </Button>
                     </>
                 )}
@@ -295,7 +371,7 @@ export function MatrixWorkspace({
             >
                 <DndContext
                     sensors={sensors}
-                    collisionDetection={matrixCollisionDetection}
+                    collisionDetection={matrixCellCollisionDetection}
                     measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
                     onDragStart={onDragStart}
                     onDragMove={onDragMove}
@@ -304,7 +380,7 @@ export function MatrixWorkspace({
                     onDragEnd={onDragEnd}
                 >
                     <SortableContext
-                        items={matrixCellIds}
+                        items={matrixDisplayCellIds}
                         strategy={
                             matrixMode === 'hierarchicalCells'
                                 ? fixedDropTargetsStrategy
@@ -313,42 +389,63 @@ export function MatrixWorkspace({
                                 : rectSortingStrategy
                         }
                     >
-                        {matrixMode === 'hierarchicalCells'
-                            ? isHorizontalHierarchy
-                                ? previewHierarchyRows.map((row, rowIndex) => (
-                                      <Box
-                                          key={`level-${rowIndex}`}
-                                          data-testid='interpretation-network-matrix-row'
-                                          sx={{
-                                              display: 'grid',
-                                              gridTemplateColumns: `repeat(${Math.max(row.length, 1)}, minmax(0, 1fr))`,
-                                              gap: 1,
-                                              minWidth: 0,
-                                              overflowWrap: 'anywhere'
-                                          }}
-                                      >
-                                          {row.map((cell) => renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) }))}
-                                      </Box>
-                                  ))
-                                : previewVisibleCells.map((cell) => (
-                                      <Box key={cell.id} data-testid='interpretation-network-matrix-row' sx={{ minWidth: 0 }}>
-                                          {renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) })}
-                                      </Box>
-                                  ))
-                            : matrixRows.map((row) => (
-                                  <Box
-                                      key={row.rowKey}
-                                      data-testid='interpretation-network-matrix-row'
-                                      sx={{
-                                          display: 'grid',
-                                          gridTemplateColumns: `repeat(${Math.max(row.cells.length, 1)}, minmax(0, 1fr))`,
-                                          gap: 1,
-                                          minWidth: 0
-                                      }}
-                                  >
-                                      {row.cells.map((cell) => renderMatrixCell(cell))}
-                                  </Box>
-                              ))}
+                        {matrixView === 'table' ? (
+                            <MatrixTableView
+                                t={t}
+                                cells={tableVisibleCells}
+                                selectedCellId={selectedCell?.id}
+                                positionLabels={positionLabels}
+                                materialCountByCellId={materialCountByCellId}
+                                dropState={matrixDropState}
+                                mutationDisabled={matrixMutationsDisabled}
+                                isMovingCell={isMovingCell}
+                                addAxisDisabled={tableAxisAddDisabled}
+                                onSelectCell={onSelectCell}
+                                onOpenCellMenu={onOpenCellMenu}
+                                onAddRow={onAddTableRow}
+                                onAddColumn={onAddTableColumn}
+                                onMoveSelectedToSlot={onMoveSelectedToSlot}
+                            />
+                        ) : matrixMode === 'hierarchicalCells' ? (
+                            isHorizontalHierarchy ? (
+                                previewHierarchyRows.map((row, rowIndex) => (
+                                    <Box
+                                        key={`level-${rowIndex}`}
+                                        data-testid='interpretation-network-matrix-row'
+                                        sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: `repeat(${Math.max(row.length, 1)}, minmax(0, 1fr))`,
+                                            gap: 1,
+                                            minWidth: 0,
+                                            overflowWrap: 'anywhere'
+                                        }}
+                                    >
+                                        {row.map((cell) => renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) }))}
+                                    </Box>
+                                ))
+                            ) : (
+                                previewVisibleCells.map((cell) => (
+                                    <Box key={cell.id} data-testid='interpretation-network-matrix-row' sx={{ minWidth: 0 }}>
+                                        {renderMatrixCell(cell, { placeholder: isPreviewPlaceholder(cell) })}
+                                    </Box>
+                                ))
+                            )
+                        ) : (
+                            matrixRows.map((row) => (
+                                <Box
+                                    key={row.rowKey}
+                                    data-testid='interpretation-network-matrix-row'
+                                    sx={{
+                                        display: 'grid',
+                                        gridTemplateColumns: `repeat(${Math.max(row.cells.length, 1)}, minmax(0, 1fr))`,
+                                        gap: 1,
+                                        minWidth: 0
+                                    }}
+                                >
+                                    {row.cells.map((cell) => renderMatrixCell(cell))}
+                                </Box>
+                            ))
+                        )}
                     </SortableContext>
                     <DragOverlay>
                         {(() => {
@@ -384,6 +481,19 @@ export function MatrixWorkspace({
                     >
                         <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                         {t('workspace.cell.add', 'Add')}
+                    </MenuItem>
+                ) : null}
+                {matrixMode !== 'hierarchicalCells' ? (
+                    <MenuItem
+                        disabled={!menuCell || !canEditContent || matrixMutationsDisabled || isSavingCell}
+                        onClick={() => {
+                            const targetId = menuCell?.id
+                            onCloseCellMenu()
+                            if (targetId) onOpenCellDialog('create-cell', targetId)
+                        }}
+                    >
+                        <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                        {t('workspace.cell.addSibling', 'Add cell in row')}
                     </MenuItem>
                 ) : null}
                 {menuMoves.length > 0 ? <Divider /> : null}

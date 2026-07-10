@@ -147,6 +147,12 @@ describe('SnapshotRestoreService', () => {
         } as unknown as MetahubSnapshot)
 
     const deletedTablesWithLayouts = ['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts']
+    const getCodenameText = (row: Record<string, unknown>): string => {
+        const codename = row.codename
+        if (typeof codename === 'string') return codename
+        const locales = (codename as { locales?: Record<string, { content?: string }> } | undefined)?.locales
+        return locales?.en?.content ?? ''
+    }
 
     it('creates entities and components from a minimal snapshot', async () => {
         const { knex, insertedRows } = createMockKnex()
@@ -1064,6 +1070,141 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_widgets']![0]).toMatchObject({
             zone: 'main',
             widget_key: 'details-table'
+        })
+    })
+
+    it('remaps entity references inside restored layout widget configs', async () => {
+        const sourceHubId = 'old-hub-id'
+        const sourcePageId = 'old-page-id'
+        const sourceObjectId = 'old-object-id'
+        const sourceTreeId = 'old-tree-id'
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                [sourceHubId]: {
+                    kind: 'hub',
+                    codename: 'main-hub',
+                    presentation: { name: { en: 'Main Hub' }, description: {} },
+                    config: {},
+                    fields: []
+                },
+                [sourceObjectId]: {
+                    kind: 'object',
+                    codename: 'sections',
+                    presentation: { name: { en: 'Sections' }, description: {} },
+                    config: {},
+                    fields: []
+                },
+                [sourcePageId]: {
+                    kind: 'page',
+                    codename: 'welcome',
+                    presentation: { name: { en: 'Welcome' }, description: {} },
+                    config: {},
+                    fields: []
+                },
+                [sourceTreeId]: {
+                    kind: 'object',
+                    codename: 'tree',
+                    presentation: { name: { en: 'Tree' }, description: {} },
+                    config: {},
+                    fields: []
+                }
+            },
+            layouts: [
+                {
+                    id: 'old-layout-id',
+                    templateKey: 'dashboard',
+                    name: { en: 'Default' },
+                    description: null,
+                    config: {
+                        targetEntityId: sourceObjectId,
+                        targetSectionId: sourcePageId,
+                        targetObjectCollectionId: sourceObjectId,
+                        targetSectionIds: [sourcePageId, 'stable-codename'],
+                        targetObjectCollectionIds: [sourceObjectId],
+                        unrelatedId: sourceObjectId
+                    },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'old-menu-widget-id',
+                    layoutId: 'old-layout-id',
+                    zone: 'left',
+                    widgetKey: 'menuWidget',
+                    sortOrder: 0,
+                    config: {
+                        startPage: sourcePageId,
+                        boundHubId: sourceHubId,
+                        hubId: sourceHubId,
+                        items: [
+                            {
+                                id: 'menu-item-keeps-own-id',
+                                title: 'Welcome',
+                                sectionId: sourcePageId,
+                                treeEntityId: sourceTreeId,
+                                objectCollectionId: sourceObjectId,
+                                objectCollectionIds: [sourceObjectId],
+                                sectionIds: [sourcePageId, 'stable-codename']
+                            }
+                        ],
+                        metadata: {
+                            targetEntityId: sourceObjectId,
+                            targetSectionId: sourcePageId,
+                            targetObjectCollectionId: sourceObjectId
+                        }
+                    },
+                    isActive: true
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        const objectRows = insertedRows['_mhb_objects'] as Array<Record<string, unknown>>
+        const restoredHubId = objectRows.find((row) => getCodenameText(row) === 'main-hub')?.id
+        const restoredObjectId = objectRows.find((row) => getCodenameText(row) === 'sections')?.id
+        const restoredPageId = objectRows.find((row) => getCodenameText(row) === 'welcome')?.id
+        const restoredTreeId = objectRows.find((row) => getCodenameText(row) === 'tree')?.id
+        const layoutConfig = (insertedRows['_mhb_layouts']?.[0] as { config?: Record<string, unknown> } | undefined)?.config
+        const widgetConfig = (insertedRows['_mhb_widgets']?.[0] as { config?: Record<string, unknown> } | undefined)?.config
+
+        expect(restoredHubId).toBeTruthy()
+        expect(restoredObjectId).toBeTruthy()
+        expect(restoredPageId).toBeTruthy()
+        expect(restoredTreeId).toBeTruthy()
+        expect(layoutConfig).toMatchObject({
+            targetEntityId: restoredObjectId,
+            targetSectionId: restoredPageId,
+            targetObjectCollectionId: restoredObjectId,
+            targetSectionIds: [restoredPageId, 'stable-codename'],
+            targetObjectCollectionIds: [restoredObjectId],
+            unrelatedId: sourceObjectId
+        })
+        expect(widgetConfig).toMatchObject({
+            startPage: restoredPageId,
+            boundHubId: restoredHubId,
+            hubId: restoredHubId,
+            items: [
+                {
+                    id: 'menu-item-keeps-own-id',
+                    sectionId: restoredPageId,
+                    treeEntityId: restoredTreeId,
+                    objectCollectionId: restoredObjectId,
+                    objectCollectionIds: [restoredObjectId],
+                    sectionIds: [restoredPageId, 'stable-codename']
+                }
+            ],
+            metadata: {
+                targetEntityId: restoredObjectId,
+                targetSectionId: restoredPageId,
+                targetObjectCollectionId: restoredObjectId
+            }
         })
     })
 

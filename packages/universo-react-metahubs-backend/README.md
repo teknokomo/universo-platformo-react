@@ -41,6 +41,15 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 -   Learning Content layouts use generic runtime widgets and datasource contracts, including `records.union` for unified libraries and deleted-row queries for trash views.
 -   Snapshot export/import tests assert that the committed LMS fixture does not reintroduce removed global dashboard widgets, demo dashboard surfaces, or metahub-level widget modules.
 
+## Interpretation Network Template Contract
+
+-   The dedicated Interpretation Network template composes the existing Hub, Object, Page, Set, and Enumeration presets; it does not add a platform entity kind.
+-   Its `interpretationNetworkWorkspace` widget carries the canonical peer Matrix views through `allowedMatrixViews` and `defaultMatrixView`, validated by `@universo-react/types`.
+-   The metahub owns these seeded defaults. A materialized Application may override them for one deployment, while workspace users create Structures, cells, Relations, Materials, and table templates.
+-   Template and fixture contract tests require a coherent non-empty subset of `table`, `horizontalRows`, and `verticalTree`, with an allowed default, and reject unrelated demo or configuration-specific widgets.
+-   Matrix records expose user-authored `RowLabel`, `ColLabel`, `CellValue`, and multiline `CellDescription`; UUID v7 identity, parent/axis keys, and persisted order remain system-owned.
+-   The change is configuration-only: the schema version, template version, and minimum structure version are not increased.
+
 ## Main Responsibilities
 
 -   Expose authenticated CRUD routes for design-time metahub resources.
@@ -121,6 +130,8 @@ router.post('/metahub/:metahubId/entities', handle(entityInstancesController.cre
 | `POST` | `/api/v1/metahub/:id/publication/:pubId/versions/import`        | Import snapshot as a new publication version  |
 
 Import endpoints validate envelope integrity (SHA-256 hash), nesting depth, prototype pollution, and entity count limits. See [Snapshot Export & Import guide](../../../docs/en/guides/snapshot-export-import.md) for details.
+
+The Interpretation Network product snapshot is generated through the Playwright generator on the minimal local Supabase profile. After generation, run the dedicated fixture contract and the repository snapshot-fixture contract; deterministic drift checks must compare normalized generated output with the committed fixture rather than accepting an arbitrary hand-edited JSON file.
 
 ## Development
 

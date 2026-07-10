@@ -2954,6 +2954,100 @@ describe('PlayCanvasProjectsService', () => {
         ).resolves.toEqual({ checksum: 'c'.repeat(64) })
     })
 
+    it('retries realtime scene persistence after transient metadata update failures with a fresh checksum', async () => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+        const sceneBefore = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'main_scene'),
+            displayName: createLocalizedContent('en', 'Main Scene'),
+            payloadSchemaVersion: '1',
+            payloadFile: null,
+            checksum: 'b'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 2
+        }
+        const sceneAfterTransientFailure = {
+            ...sceneBefore,
+            checksum: 'c'.repeat(64),
+            version: 3
+        }
+        const savedScene = {
+            ...sceneAfterTransientFailure,
+            checksum: 'd'.repeat(64),
+            version: 4
+        }
+        const requestedSceneData = {
+            settings: {},
+            entities: {
+                'entity-1': {
+                    resource_id: 'entity-1',
+                    name: 'Camera',
+                    parent: null,
+                    enabled: true,
+                    components: {},
+                    children: []
+                }
+            }
+        }
+        const readEditorScene = jest
+            .spyOn(service, 'readEditorScene')
+            .mockResolvedValueOnce({
+                scene: sceneBefore,
+                payload: { schemaVersion: '1', settings: {}, entities: [] },
+                checksum: sceneBefore.checksum
+            })
+            .mockResolvedValueOnce({
+                scene: sceneAfterTransientFailure,
+                payload: { schemaVersion: '1', settings: {}, entities: [] },
+                checksum: sceneAfterTransientFailure.checksum
+            })
+        const saveEditorCompatibilityScene = jest
+            .spyOn(service, 'saveEditorCompatibilityScene')
+            .mockRejectedValueOnce(
+                new MetahubValidationError('PlayCanvas project file metadata reference was not updated', {
+                    messageCode: 'playcanvas.files.metadataUpdateFailed',
+                    projectId: PROJECT_ID,
+                    sourcePath: `playcanvas-projects/${PROJECT_ID}/scenes/${SCENE_ID}.json`
+                })
+            )
+            .mockResolvedValueOnce({
+                scene: savedScene,
+                payload: null,
+                checksum: savedScene.checksum
+            })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'scenes',
+                documentId: '456',
+                data: requestedSceneData,
+                version: 2,
+                checksum: sceneBefore.checksum,
+                revision: '1'
+            })
+        ).resolves.toEqual({ checksum: savedScene.checksum })
+
+        expect(readEditorScene).toHaveBeenCalledTimes(2)
+        expect(saveEditorCompatibilityScene).toHaveBeenCalledTimes(2)
+        expect(saveEditorCompatibilityScene.mock.calls[0]?.[3]).toEqual(
+            expect.objectContaining({
+                expectedCurrentChecksum: sceneBefore.checksum
+            })
+        )
+        expect(saveEditorCompatibilityScene.mock.calls[1]?.[3]).toEqual(
+            expect.objectContaining({
+                expectedCurrentChecksum: sceneAfterTransientFailure.checksum
+            })
+        )
+    })
+
     it('persists realtime settings with document-level revision instead of project row version', async () => {
         const exec = {
             query: jest.fn(async (sql: string, params?: unknown[]) => {

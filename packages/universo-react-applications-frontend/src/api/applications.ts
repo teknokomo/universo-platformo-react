@@ -7,6 +7,7 @@ import type {
     ApplicationLayoutMutation,
     ApplicationLayoutScope,
     ApplicationLayoutWidget,
+    ApplicationLayoutWidgetConfigBatchMutation,
     ApplicationLayoutWidgetConfigMutation,
     ApplicationLayoutWidgetMoveMutation,
     ApplicationLayoutWidgetMutation,
@@ -435,6 +436,17 @@ export const updateApplicationLayoutWidgetConfig = async (
         data
     )
     return response.data.item
+}
+
+export const updateApplicationLayoutWidgetConfigsBatch = async (
+    applicationId: string,
+    data: ApplicationLayoutWidgetConfigBatchMutation
+): Promise<ApplicationLayoutWidget[]> => {
+    const response = await apiClient.patch<{ items: ApplicationLayoutWidget[] }>(
+        `/applications/${applicationId}/layouts/zone-widgets/config/batch`,
+        data
+    )
+    return response.data.items
 }
 
 export const moveApplicationLayoutWidget = async (

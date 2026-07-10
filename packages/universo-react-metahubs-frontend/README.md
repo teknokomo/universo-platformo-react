@@ -29,6 +29,7 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 -   **Linked Collections**: Reusable schema/data surfaces stay on entity-owned child routes
 -   **Shared Resources**: Common layouts, metadata pools, and modules stay available on the dedicated `/resources` surface
 -   **Data-Driven Resource Labels**: Resource tabs resolve their titles from persisted entity type `ui.resourceSurfaces[].title` metadata instead of frontend hardcoded standard labels
+-   **Layout Widget Defaults**: Metahub layouts own canonical widget defaults, including allowed Interpretation Network Matrix views and the default Matrix view
 
 ### 🎨 User Interface
 
@@ -60,6 +61,14 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 -   **Templates API**: Fetches available templates via `GET /templates` endpoint
 -   **TanStack Query Hook**: `useTemplates()` hook with caching and loading states
 -   **Default Template**: When no template is explicitly selected, the default "basic" template is auto-assigned by the backend
+
+### 🧭 Interpretation Network Widget Editing
+
+-   The Metahub layout editor configures the canonical `interpretationNetworkWorkspace` widget with user-facing controls, not raw JSON.
+-   Matrix data semantics stay in `matrixMode`. View availability stays in `allowedMatrixViews`, and the opened view comes from `defaultMatrixView`.
+-   The shared contract from `@universo-react/types` treats `table`, `horizontalRows`, and `verticalTree` as peer Matrix views, requires at least one, and limits `verticalTree` to hierarchical cells.
+-   These settings belong to the metahub because they are shipped with every publication. Deployment-specific overrides belong to the Application control panel, and user-authored Structures, cells, Materials, Relations, and table templates belong to the published workspace.
+-   UI labels and validation are localized in English and Russian and must not expose widget IDs, config keys, UUIDs, or product-specific legacy terminology.
 
 ## Installation & Setup
 
@@ -278,6 +287,10 @@ import { ColumnsContainerEditorDialog } from '@universo-react/metahubs-frontend'
 // - Dirty tracking with isDirty memo (JSON snapshot comparison)
 // - UUID v7 generation for new column IDs via generateUuidV7()
 ```
+
+### Interpretation Network Workspace Widget Settings
+
+The layout authoring screen includes a focused editor for the Interpretation Network workspace widget. Metahub authors can manage `allowedMatrixViews` and `defaultMatrixView` without editing raw widget JSON. The editor preserves the shared widget behavior and entity visibility controls used by other layout widgets and delegates coherence to the shared `@universo-react/types` contract.
 
 ### MetahubMigrationGuard
 

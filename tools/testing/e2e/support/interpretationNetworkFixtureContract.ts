@@ -97,6 +97,13 @@ const assertLocalizedVersionedField = (field: Record<string, unknown>, label: st
     }
 }
 
+const assertTextareaFieldUiConfig = (field: Record<string, unknown>, label: string): void => {
+    const uiConfig = field.uiConfig && typeof field.uiConfig === 'object' ? (field.uiConfig as Record<string, unknown>) : {}
+    if (uiConfig.widget !== 'textarea') {
+        throw new Error(`Interpretation Network fixture contract failed: ${label}.uiConfig.widget must be "textarea"`)
+    }
+}
+
 const assertTabularMaxChildComponents = (field: Record<string, unknown>, label: string): void => {
     const childFields = Array.isArray(field.childFields) ? field.childFields : []
     const validationRules =
@@ -124,9 +131,21 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.matrixMode must be "hierarchicalCells"'
         )
     }
-    if (workspaceConfig.hierarchyLayout !== 'horizontalRows') {
+    const allowedMatrixViews = Array.isArray(workspaceConfig.allowedMatrixViews) ? workspaceConfig.allowedMatrixViews : []
+    if (
+        allowedMatrixViews.length !== 3 ||
+        allowedMatrixViews[0] !== 'table' ||
+        allowedMatrixViews[1] !== 'horizontalRows' ||
+        allowedMatrixViews[2] !== 'verticalTree' ||
+        workspaceConfig.defaultMatrixView !== 'table'
+    ) {
         throw new Error(
-            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.hierarchyLayout must be "horizontalRows"'
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must allow table, horizontal rows, and vertical tree views with table as the default'
+        )
+    }
+    if (workspaceConfig.allowNewAxesInCellDialog !== false) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.allowNewAxesInCellDialog must be false'
         )
     }
     if (workspaceConfig.hierarchyRowMode !== 'focusedPath') {
@@ -370,7 +389,9 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         requireFieldByCodename(structureFields, fieldCodename, 'Structure')
     }
     assertLocalizedVersionedField(requireFieldByCodename(structureFields, 'Name', 'Structure'), 'Structure.Name')
-    assertLocalizedVersionedField(requireFieldByCodename(structureFields, 'Description', 'Structure'), 'Structure.Description')
+    const structureDescriptionField = requireFieldByCodename(structureFields, 'Description', 'Structure')
+    assertLocalizedVersionedField(structureDescriptionField, 'Structure.Description')
+    assertTextareaFieldUiConfig(structureDescriptionField, 'Structure.Description')
     if (findFieldByCodename(structureFields, 'Context')) {
         throw new Error('Interpretation Network fixture contract failed: Structure.Context must not be present in create fields')
     }
@@ -385,7 +406,12 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     for (const fieldCodename of [
         'CellId',
         'ParentCellId',
+        'RowKey',
+        'RowLabel',
+        'ColKey',
+        'ColLabel',
         'CellValue',
+        'CellDescription',
         'CellFillColor',
         'BorderTopColor',
         'BorderRightColor',
@@ -408,6 +434,14 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         requireFieldByCodename(matrixFields, 'ParentCellId', 'Interpretation.InterpretationMatrix'),
         'ParentCellId'
     )
+    assertHiddenSystemFieldUiConfig(requireFieldByCodename(matrixFields, 'RowKey', 'Interpretation.InterpretationMatrix'), 'RowKey')
+    assertHiddenSystemFieldUiConfig(requireFieldByCodename(matrixFields, 'ColKey', 'Interpretation.InterpretationMatrix'), 'ColKey')
+    assertLocalizedVersionedField(requireFieldByCodename(matrixFields, 'RowLabel', 'Interpretation.InterpretationMatrix'), 'RowLabel')
+    assertLocalizedVersionedField(requireFieldByCodename(matrixFields, 'ColLabel', 'Interpretation.InterpretationMatrix'), 'ColLabel')
+    assertLocalizedVersionedField(requireFieldByCodename(matrixFields, 'CellValue', 'Interpretation.InterpretationMatrix'), 'CellValue')
+    const cellDescriptionField = requireFieldByCodename(matrixFields, 'CellDescription', 'Interpretation.InterpretationMatrix')
+    assertLocalizedVersionedField(cellDescriptionField, 'CellDescription')
+    assertTextareaFieldUiConfig(cellDescriptionField, 'CellDescription')
     if (findFieldByCodename(matrixFields, 'Depth')) {
         throw new Error('Interpretation Network fixture contract failed: Interpretation.InterpretationMatrix.Depth must remain derived')
     }
@@ -436,7 +470,9 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         requireFieldByCodename(materialFields, fieldCodename, 'Material')
     }
     assertLocalizedVersionedField(requireFieldByCodename(materialFields, 'Title', 'Material'), 'Material.Title')
-    assertLocalizedVersionedField(requireFieldByCodename(materialFields, 'Description', 'Material'), 'Material.Description')
+    const materialDescriptionField = requireFieldByCodename(materialFields, 'Description', 'Material')
+    assertLocalizedVersionedField(materialDescriptionField, 'Material.Description')
+    assertTextareaFieldUiConfig(materialDescriptionField, 'Material.Description')
     assertHiddenSystemFieldUiConfig(requireFieldByCodename(materialFields, 'CellId', 'Material'), 'Material.CellId')
     for (const fieldCodename of ['Name', 'Description', 'TemplateMatrix']) {
         requireFieldByCodename(tableTemplateFields, fieldCodename, 'TableTemplate')
