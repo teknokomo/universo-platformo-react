@@ -4,12 +4,14 @@ import type { Locator, Page, Response } from '@playwright/test'
 import { test, expect } from '../../fixtures/test'
 import {
     createLoggedInApiContext,
+    deleteMetahub,
     disposeApiContext,
     getApplication,
     listFixedValues,
     listConnectors,
     listLayoutZoneWidgets,
     listLayouts,
+    listMetahubs,
     listObjectCollections,
     listEntityInstances,
     listOptionLists,
@@ -63,6 +65,7 @@ import {
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type ApiSessionLike = Pick<ApiContext, 'baseURL' | 'cookies'>
 type CreatedEntityResponse = { id?: string; data?: { id?: string } }
+type MetahubSummary = { id?: string; name?: unknown; codename?: unknown }
 type ProjectInstanceSummary = { id?: string; name?: unknown; codename?: unknown; config?: Record<string, unknown> | null }
 type PlayCanvasProjectSummary = { id?: string; displayName?: unknown; codename?: unknown }
 type PublishedRuntimeManifestSummary = { projectId?: string; sceneId?: string | null; checksum?: string }
@@ -244,6 +247,21 @@ const createMetahubThroughBrowser = async (page: Page) => {
     return metahubId
 }
 
+const deleteExistingCanonicalMmoommMetahubs = async (api: ApiSessionLike) => {
+    const metahubs = (await listMetahubs(api, { limit: 100, offset: 0 })) as { items?: MetahubSummary[] }
+    const canonicalCodename = MMOOMM_APP_CANONICAL_METAHUB.codename.en
+    const canonicalName = MMOOMM_APP_CANONICAL_METAHUB.name.en
+    const staleMetahubs =
+        metahubs.items?.filter((item) => {
+            return readCodenameText(item.codename) === canonicalCodename || readLocalizedContent(item.name, 'en') === canonicalName
+        }) ?? []
+
+    for (const metahub of staleMetahubs) {
+        if (!metahub.id) continue
+        await deleteMetahub(api, metahub.id)
+    }
+}
+
 const connectPackageThroughBrowser = async (page: Page, label: string) => {
     const button = page.getByRole('button', { name: `Connect ${label}` })
     await expect(button).toBeVisible()
@@ -276,7 +294,7 @@ const createProjectInstanceAndBindThroughBrowser = async (page: Page, api: ApiSe
     await requireProjectInstanceByName(api, metahubId, projectName)
     // Open the instance Edit dialog → "PlayCanvas" tab (the binding surface).
     // There is no standalone /project page anymore.
-    const editDialog = await openProjectEditDialogPlayCanvasTab(page, projectName)
+    const editDialog = await openProjectEditDialogPlayCanvasTab(page, metahubId, projectName)
     await expect(editDialog.getByText('No PlayCanvas project bound yet')).toBeVisible()
     await editDialog.getByRole('button', { name: 'Create & bind project' }).click()
     const createDialogBinding = page.getByRole('dialog', { name: 'Create & bind PlayCanvas project' })
@@ -297,9 +315,11 @@ const createProjectInstanceAndBindThroughBrowser = async (page: Page, api: ApiSe
     return projectId
 }
 
-const openProjectEditDialogPlayCanvasTab = async (page: Page, projectName: string) => {
+const openProjectEditDialogPlayCanvasTab = async (page: Page, metahubId: string, projectName: string) => {
+    await page.goto(`/metahub/${metahubId}/entities/project/instances`, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible({ timeout: 60_000 })
     const row = page.getByRole('row', { name: new RegExp(escapeRegExp(projectName)) }).first()
-    await expect(row, `Projects row for ${projectName} must be visible`).toBeVisible()
+    await expect(row, `Projects row for ${projectName} must be visible`).toBeVisible({ timeout: 60_000 })
     await row.getByRole('button', { name: /Options|Опции/i }).click()
     await page.getByRole('menuitem', { name: /^Edit$/i }).click()
     const editDialog = page.getByRole('dialog', { name: 'Edit Project' })
@@ -861,7 +881,7 @@ const publishPlayCanvasProjectThroughBrowser = async (page: Page, api: ApiContex
 
     await page.goto(`/metahub/${metahubId}/entities/project/instances`)
     await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible()
-    const editDialog = await openProjectEditDialogPlayCanvasTab(page, projectName)
+    const editDialog = await openProjectEditDialogPlayCanvasTab(page, metahubId, projectName)
     const publishButton = editDialog.getByRole('button', { name: 'Publish runtime' })
     await expect(publishButton).toBeVisible()
     await expect(publishButton).toBeEnabled()
@@ -1085,6 +1105,7 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
             password: runManifest.testUser.password
         })
 
+        await deleteExistingCanonicalMmoommMetahubs(api)
         const metahubId = await createMetahubThroughBrowser(page)
         await page.goto(`/metahub/${metahubId}/resources`)
         await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible()

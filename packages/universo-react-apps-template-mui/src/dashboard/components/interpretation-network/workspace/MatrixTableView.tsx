@@ -148,7 +148,7 @@ function OccupiedMatrixTableCell({
                                 flexShrink: 0,
                                 cursor: mutationDisabled || isMovingCell ? 'default' : 'grab',
                                 '&:focus-visible': {
-                                    outline: 2,
+                                    outline: '2px solid',
                                     outlineColor: 'primary.main',
                                     outlineOffset: -3
                                 }
@@ -177,7 +177,7 @@ function OccupiedMatrixTableCell({
                         py: 0.75,
                         pr: 4.5,
                         '&:focus-visible': {
-                            outline: 2,
+                            outline: '2px solid',
                             outlineColor: 'primary.main',
                             outlineOffset: -3
                         }
@@ -273,7 +273,7 @@ function EmptyMatrixTableCell(props: MatrixTableCellProps & { slot: MatrixTableS
                         color: 'text.disabled',
                         textAlign: 'center',
                         '&:focus-visible': {
-                            outline: 2,
+                            outline: '2px solid',
                             outlineColor: 'primary.main',
                             outlineOffset: -4
                         }
