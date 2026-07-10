@@ -1,4 +1,5 @@
 import { buildVLC, createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
+import { normalizeInterpretationNetworkMatrixViewSettings, type InterpretationNetworkMatrixView } from '@universo-react/types'
 import type { AppDataResponse } from '../../../api/api'
 import type { FieldConfig, FieldType } from '../../../components/dialogs/FormDialog'
 import { formatRuntimeSafeValue } from '../../../utils/displayValue'
@@ -40,9 +41,11 @@ export type InterpretationNetworkWorkspaceConfig = {
     tableTemplateDescriptionField?: string
     tableTemplateMatrixField?: string
     matrixMode?: MatrixMode
-    hierarchyLayout?: MatrixHierarchyLayout
+    allowedMatrixViews?: InterpretationNetworkMatrixView[]
+    defaultMatrixView?: InterpretationNetworkMatrixView
     hierarchyRowMode?: MatrixHierarchyRowMode
     positionNumbering?: MatrixPositionNumberingConfig
+    allowNewAxesInCellDialog?: boolean
 }
 
 export type MatrixCell = {
@@ -53,8 +56,10 @@ export type MatrixCell = {
     depth: number
     rowKey: string
     rowLabel: string
+    rowLabelValue?: unknown
     colKey: string
     colLabel: string
+    colLabelValue?: unknown
     title: string
     description: string
     materialRef: string | null
@@ -66,6 +71,53 @@ export type MatrixCell = {
         borderLeft: string
     }
 }
+
+export type MatrixView = InterpretationNetworkMatrixView
+
+export type MatrixTableAxisItem = {
+    key: string
+    sourceKey: string
+    label: string
+    labelValue?: unknown
+    acceptsEmptyDrop?: boolean
+}
+
+export type MatrixTableSlot = {
+    row: MatrixTableAxisItem
+    column: MatrixTableAxisItem
+    cell: MatrixCell | null
+}
+
+export type MatrixTableDropSlot = {
+    rowKey: string
+    rowLabel: string
+    rowLabelValue?: unknown
+    colKey: string
+    colLabel: string
+    colLabelValue?: unknown
+}
+
+export type MatrixAxisOption = {
+    key: string
+    label: string
+    labelValue?: unknown
+}
+
+export type MatrixAxisOptions = {
+    rows: MatrixAxisOption[]
+    columns: MatrixAxisOption[]
+}
+
+export type MatrixTableModel = {
+    rows: MatrixTableAxisItem[]
+    columns: MatrixTableAxisItem[]
+    slots: MatrixTableSlot[][]
+}
+
+const MATRIX_TABLE_SLOT_ID_PREFIX = 'matrix-table-slot:'
+
+export const toMatrixTableSlotId = (slot: MatrixTableDropSlot): string =>
+    `${MATRIX_TABLE_SLOT_ID_PREFIX}${encodeURIComponent(slot.rowKey)}:${encodeURIComponent(slot.colKey)}`
 
 export const MATRIX_MODES = ['hierarchicalCells', 'independentRows'] as const
 export type MatrixMode = (typeof MATRIX_MODES)[number]
@@ -87,6 +139,28 @@ export const parseMatrixMode = (value: unknown): MatrixMode =>
 
 export const parseMatrixHierarchyLayout = (value: unknown): MatrixHierarchyLayout =>
     value === 'verticalTree' || value === 'horizontalRows' ? value : 'horizontalRows'
+
+const normalizeLegacyMatrixViewRequest = (
+    config: Record<string, unknown> | undefined,
+    matrixMode: MatrixMode
+): { allowedMatrixViews: readonly unknown[] | undefined; defaultMatrixView: unknown } => {
+    const legacyHierarchyLayout = parseMatrixHierarchyLayout(config?.hierarchyLayout)
+    const hasLegacyHierarchyLayout = config?.hierarchyLayout === 'verticalTree' || config?.hierarchyLayout === 'horizontalRows'
+    const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
+    const hasNewViewSettings = requestedViews !== undefined || config?.defaultMatrixView !== undefined
+
+    if (!hasLegacyHierarchyLayout || hasNewViewSettings || matrixMode !== 'hierarchicalCells') {
+        return {
+            allowedMatrixViews: requestedViews,
+            defaultMatrixView: config?.defaultMatrixView
+        }
+    }
+
+    return {
+        allowedMatrixViews: Array.from(new Set(['horizontalRows', legacyHierarchyLayout])),
+        defaultMatrixView: legacyHierarchyLayout
+    }
+}
 
 export const parseMatrixHierarchyRowMode = (value: unknown): MatrixHierarchyRowMode =>
     value === 'allNodes' || value === 'focusedPath' ? value : 'focusedPath'
@@ -120,9 +194,11 @@ const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
     tableTemplateDescriptionField: 'Description',
     tableTemplateMatrixField: 'TemplateMatrix',
     matrixMode: 'hierarchicalCells',
-    hierarchyLayout: 'horizontalRows',
+    allowedMatrixViews: ['horizontalRows'],
+    defaultMatrixView: 'horizontalRows',
     hierarchyRowMode: 'focusedPath',
-    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
+    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+    allowNewAxesInCellDialog: false
 }
 
 const CELL_COLOR_HEX: Record<string, string | null> = {
@@ -147,22 +223,37 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
 export const toConfig = (config: Record<string, unknown> | undefined): Required<InterpretationNetworkWorkspaceConfig> => ({
-    ...DEFAULT_CONFIG,
-    ...Object.fromEntries(
-        Object.entries(config ?? {}).filter(
-            ([key, value]) =>
-                key !== 'matrixMode' &&
-                key !== 'hierarchyLayout' &&
-                key !== 'hierarchyRowMode' &&
-                key !== 'positionNumbering' &&
-                typeof value === 'string' &&
-                value.trim().length > 0
+    ...(() => {
+        const matrixMode = parseMatrixMode(config?.matrixMode)
+        const legacyAwareViewRequest = normalizeLegacyMatrixViewRequest(config, matrixMode)
+        const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
+            matrixMode,
+            legacyAwareViewRequest.allowedMatrixViews,
+            legacyAwareViewRequest.defaultMatrixView
         )
-    ),
-    matrixMode: parseMatrixMode(config?.matrixMode),
-    hierarchyLayout: parseMatrixHierarchyLayout(config?.hierarchyLayout),
-    hierarchyRowMode: parseMatrixHierarchyRowMode(config?.hierarchyRowMode),
-    positionNumbering: parseMatrixPositionNumbering(config?.positionNumbering)
+        return {
+            ...DEFAULT_CONFIG,
+            ...Object.fromEntries(
+                Object.entries(config ?? {}).filter(
+                    ([key, value]) =>
+                        key !== 'matrixMode' &&
+                        key !== 'allowedMatrixViews' &&
+                        key !== 'defaultMatrixView' &&
+                        key !== 'hierarchyLayout' &&
+                        key !== 'hierarchyRowMode' &&
+                        key !== 'allowNewAxesInCellDialog' &&
+                        key !== 'positionNumbering' &&
+                        typeof value === 'string' &&
+                        value.trim().length > 0
+                )
+            ),
+            matrixMode,
+            ...viewSettings,
+            hierarchyRowMode: parseMatrixHierarchyRowMode(config?.hierarchyRowMode),
+            positionNumbering: parseMatrixPositionNumbering(config?.positionNumbering),
+            allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true
+        }
+    })()
 })
 
 const readRowValue = (row: Record<string, unknown> | undefined, field: string): unknown => {
@@ -241,6 +332,7 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
         const rawMaterialRef = readCellValue(rawCell, 'MaterialRef')
         const rawParentCellId = readCellValue(rawCell, 'ParentCellId')
         const cellId = resolveMatrixCellId(rawCell, childColumns, index)
+        const stableAxisIdentity = cellId || (typeof rawCell.id === 'string' && rawCell.id.trim() ? rawCell.id.trim() : `index-${index}`)
         const rawSortOrder = readCellValue(rawCell, '_tp_sort_order')
         const fillCodename = getOptionCodename(colorField('CellFillColor'), readCellValue(rawCell, 'CellFillColor'))
         return [
@@ -250,10 +342,12 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
                 sortOrder: typeof rawSortOrder === 'number' && Number.isFinite(rawSortOrder) ? rawSortOrder : index,
                 parentCellId: typeof rawParentCellId === 'string' && rawParentCellId.trim() ? rawParentCellId.trim() : null,
                 depth: 0,
-                rowKey: typeof rawRowKey === 'string' && rawRowKey.trim() ? rawRowKey.trim() : `row-${index}`,
+                rowKey: typeof rawRowKey === 'string' && rawRowKey.trim() ? rawRowKey.trim() : `row-${stableAxisIdentity}`,
                 rowLabel: readCellText(rawCell, 'RowLabel') || `Row ${index + 1}`,
-                colKey: typeof rawColKey === 'string' && rawColKey.trim() ? rawColKey.trim() : `col-${index}`,
+                rowLabelValue: readCellValue(rawCell, 'RowLabel'),
+                colKey: typeof rawColKey === 'string' && rawColKey.trim() ? rawColKey.trim() : `column-${stableAxisIdentity}`,
                 colLabel: readCellText(rawCell, 'ColLabel') || `Column ${index + 1}`,
+                colLabelValue: readCellValue(rawCell, 'ColLabel'),
                 title: readCellText(rawCell, 'CellValue'),
                 description: readCellText(rawCell, 'CellDescription'),
                 materialRef: typeof rawMaterialRef === 'string' && rawMaterialRef.trim() ? rawMaterialRef.trim() : null,
@@ -304,30 +398,32 @@ export const buildDefaultMatrixCellData = (
 ): Record<string, unknown> => {
     const colorField = (field: string) => findColumn(childColumns, field)
     const noneColorId = findOptionIdByCodename(colorField('CellFillColor'), 'none') ?? null
-    const data: Record<string, unknown> = {
-        CellId: generateUuidV7(),
-        ColKey: labels.colKey ?? `column-${generateUuidV7()}`,
-        ColLabel: labels.localizedValue ?? createLocalizedContent(locale, labels.column),
-        RowKey: labels.rowKey ?? `row-${generateUuidV7()}`,
-        RowLabel: labels.localizedValue ?? createLocalizedContent(locale, labels.row),
-        CellValue: labels.localizedValue ?? createLocalizedContent(locale, labels.value ?? labels.column),
-        CellDescription: createLocalizedContent(locale, ''),
-        CellFillColor: noneColorId,
-        BorderTopColor: noneColorId,
-        BorderRightColor: noneColorId,
-        BorderBottomColor: noneColorId,
-        BorderLeftColor: noneColorId,
-        BorderTopWidth: '1px',
-        BorderRightWidth: '1px',
-        BorderBottomWidth: '1px',
-        BorderLeftWidth: '1px',
-        BorderTopStyle: 'solid',
-        BorderRightStyle: 'solid',
-        BorderBottomStyle: 'solid',
-        BorderLeftStyle: 'solid',
-        MaterialRef: null,
-        ParentCellId: labels.parentCellId ?? null
+    const data: Record<string, unknown> = {}
+    const setValue = (codename: string, value: unknown) => {
+        data[findColumn(childColumns, codename)?.field ?? codename] = value
     }
+    setValue('CellId', generateUuidV7())
+    setValue('ColKey', labels.colKey ?? `column-${generateUuidV7()}`)
+    setValue('ColLabel', labels.localizedValue ?? createLocalizedContent(locale, labels.column))
+    setValue('RowKey', labels.rowKey ?? `row-${generateUuidV7()}`)
+    setValue('RowLabel', labels.localizedValue ?? createLocalizedContent(locale, labels.row))
+    setValue('CellValue', labels.localizedValue ?? createLocalizedContent(locale, labels.value ?? labels.column))
+    setValue('CellDescription', createLocalizedContent(locale, ''))
+    setValue('CellFillColor', noneColorId)
+    setValue('BorderTopColor', noneColorId)
+    setValue('BorderRightColor', noneColorId)
+    setValue('BorderBottomColor', noneColorId)
+    setValue('BorderLeftColor', noneColorId)
+    setValue('BorderTopWidth', '1px')
+    setValue('BorderRightWidth', '1px')
+    setValue('BorderBottomWidth', '1px')
+    setValue('BorderLeftWidth', '1px')
+    setValue('BorderTopStyle', 'solid')
+    setValue('BorderRightStyle', 'solid')
+    setValue('BorderBottomStyle', 'solid')
+    setValue('BorderLeftStyle', 'solid')
+    setValue('MaterialRef', null)
+    setValue('ParentCellId', labels.parentCellId ?? null)
     return data
 }
 
@@ -465,6 +561,85 @@ export const uniqueByKey = (cells: MatrixCell[], key: 'rowKey' | 'colKey'): Matr
         seen.add(value)
         return true
     })
+}
+
+const buildAxisOptions = (
+    cells: MatrixCell[],
+    keyField: 'rowKey' | 'colKey',
+    labelField: 'rowLabel' | 'colLabel',
+    labelValueField: 'rowLabelValue' | 'colLabelValue'
+): MatrixAxisOption[] => {
+    const seen = new Set<string>()
+    const options: MatrixAxisOption[] = []
+    for (const cell of cells) {
+        const key = cell[keyField]
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        options.push({
+            key,
+            label: cell[labelField],
+            labelValue: cell[labelValueField]
+        })
+    }
+    return options
+}
+
+export const buildMatrixAxisOptions = (cells: MatrixCell[]): MatrixAxisOptions => ({
+    rows: buildAxisOptions(cells, 'rowKey', 'rowLabel', 'rowLabelValue'),
+    columns: buildAxisOptions(cells, 'colKey', 'colLabel', 'colLabelValue')
+})
+
+export const buildMatrixTableModel = (cells: MatrixCell[]): MatrixTableModel => {
+    const rows: MatrixTableAxisItem[] = []
+    const columns: MatrixTableAxisItem[] = []
+    const rowItems = new Map<string, MatrixTableAxisItem>()
+    const columnItems = new Map<string, MatrixTableAxisItem>()
+    const cellByCoordinates = new Map<string, MatrixCell>()
+
+    for (const cell of cells) {
+        let rowKey = cell.rowKey
+        let key = `${rowKey}\u0000${cell.colKey}`
+        if (cellByCoordinates.has(key)) {
+            rowKey = `${cell.rowKey}\u0000${cell.id}`
+            key = `${rowKey}\u0000${cell.colKey}`
+        }
+
+        if (!rowItems.has(rowKey)) {
+            const item = {
+                key: rowKey,
+                sourceKey: cell.rowKey,
+                label: cell.rowLabel,
+                labelValue: cell.rowLabelValue,
+                acceptsEmptyDrop: rowKey === cell.rowKey
+            }
+            rowItems.set(rowKey, item)
+            rows.push(item)
+        }
+        if (!columnItems.has(cell.colKey)) {
+            const item = {
+                key: cell.colKey,
+                sourceKey: cell.colKey,
+                label: cell.colLabel,
+                labelValue: cell.colLabelValue,
+                acceptsEmptyDrop: true
+            }
+            columnItems.set(cell.colKey, item)
+            columns.push(item)
+        }
+        cellByCoordinates.set(key, cell)
+    }
+
+    return {
+        rows,
+        columns,
+        slots: rows.map((row) =>
+            columns.map((column) => ({
+                row,
+                column,
+                cell: cellByCoordinates.get(`${row.key}\u0000${column.key}`) ?? null
+            }))
+        )
+    }
 }
 
 export const getSectionId = (dataset: RuntimeDataset | undefined): string | undefined =>

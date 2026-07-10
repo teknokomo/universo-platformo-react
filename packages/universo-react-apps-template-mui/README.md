@@ -34,7 +34,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 ### 🧩 Widget Renderer
 
 -   **Shared renderer**: `renderWidget()` maps widget keys to concrete React components
--   **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`
+-   **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`, `interpretationNetworkWorkspace`
 -   **Union datasources**: `detailsTable` can render `records.union` by resolving multiple runtime sections from metadata and querying them through the normal `fetchAppData` surface.
 -   **Relation builder**: `relationBuilder` keeps child records scoped to a selected parent row while reusing generic CRUD dialogs, record pickers, and persisted row ordering.
 -   **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
@@ -79,16 +79,21 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 -   **appsTranslations**: Side-effect i18n resource registration for the apps domain
 -   **Locale utilities**: `getDataGridLocaleText()` for MUI DataGrid locale overrides
--   **interpretationNetwork namespace**: en + ru labels for the Interpretation Network interpretation-network `cellStylePicker` widget (`apps-template-mui/src/i18n/interpretationNetwork.ts`)
+-   **interpretationNetwork namespace**: en + ru labels for the Interpretation Network workspace, the three Matrix view controls, semantic table states, and `cellStylePicker` widget (`apps-template-mui/src/i18n/interpretationNetwork.ts`)
 
-## Stage-1 Additions (Interpretation Network interpretation network)
+## Stage-1 Additions (Interpretation Network)
 
 -   **Structure-first runtime**: the Interpretation Network app opens on the localized `InterpretationNetworkIntro` Page; the `interpretationNetworkWorkspace` center widget is scoped to the `Structures` (`Concept`) section so the empty left pane only exposes `Create structure`, while the right pane owns the start memo and selected-cell `Add material` flow.
 -   **Hierarchy-first Matrix**: `interpretationNetworkWorkspace.config.matrixMode` defaults to `hierarchicalCells`. New Structures seed one root cell named `Universe` / `Вселенная`, and users create further cells with the right-aligned `Add child` action. `independentRows` remains available for row/column compatibility.
+-   **Peer Matrix view contract**: `allowedMatrixViews` and `defaultMatrixView` come from the shared `@universo-react/types` contract. The runtime lets users switch among the allowed `table`, `horizontalRows`, and `verticalTree` views and falls back to an allowed configured view.
+-   **Semantic Table view**: Table renders the Matrix with real table headers, row headers, accessible cell names, selected-cell state, localized empty intersections, local horizontal scrolling, and no page-level horizontal overflow.
 -   **Matrix drag/drop UX**: cells use dnd-kit sortable primitives with a drag overlay, muted origin slot, dashed drop indicator, invalid target state, and menu/keyboard fallback through the existing card action menu.
 -   **`CellStyleDialogField`**: `uiConfig.widget: 'cellStylePicker'` extension of the standard `FormDialog` for the Interpretation Matrix cell color/border attributes (12-color chip grid + per-side width/style + current-field preview).
 -   **Cell ID and hierarchy defaults**: `buildInitialTabularRowValues` creates RFC 9562 UUID v7 values for hidden `CellId` matrix fields. `ParentCellId` is hidden/system-owned, `_tp_sort_order` stores sibling order, and `Depth` is derived at runtime.
+-   **Flexible cell authoring**: users edit `RowLabel`, `ColLabel`, `CellValue`, and optional multiline `CellDescription`. `CellId`, `ParentCellId`, `RowKey`, `ColKey`, and `_tp_sort_order` remain protected system fields.
 -   **`INTERPRETATION_NETWORK_CELL_*` types**: `INTERPRETATION_NETWORK_CELL_COLOR_PRESET_CODENAMES`, `INTERPRETATION_NETWORK_CELL_STYLE_SIDES`, `INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS`, `INTERPRETATION_NETWORK_CELL_STYLE_STYLES` from `@universo-react/types`, plus `InterpretationNetworkCellStyleState` and `InterpretationNetworkCellStyleBorder`.
+
+All three Matrix views use one data model. They preserve compatible creation, selection, material attachment, styling, movement, and drag/drop behavior. Internal UUIDs, axis keys, parent IDs, persisted order, widget IDs, relation IDs, and JSON payloads stay hidden from normal user surfaces.
 
 ## Installation
 

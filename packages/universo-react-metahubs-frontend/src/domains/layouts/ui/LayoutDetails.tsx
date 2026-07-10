@@ -1,22 +1,9 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
-import {
-    Box,
-    CircularProgress,
-    FormControl,
-    FormControlLabel,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Stack,
-    Switch,
-    TextField,
-    Typography
-} from '@mui/material'
+import { Box, CircularProgress, Stack, Typography } from '@mui/material'
 import { DragEndEvent } from '@dnd-kit/core'
 import type {
     ObjectCollectionRuntimeViewConfig,
@@ -26,15 +13,14 @@ import type {
     MenuWidgetConfig,
     ColumnsContainerConfig,
     QuizWidgetConfig,
-    DashboardSideMenuMode,
+    InterpretationNetworkWorkspaceWidgetConfig,
     DashboardSideMenuConfig
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES, defaultDashboardLayoutConfig } from '@universo-react/types'
+import { DASHBOARD_LAYOUT_ZONES } from '@universo-react/types'
 import {
     LayoutAuthoringDetails,
     TemplateMainCard as MainCard,
     ViewHeaderMUI as ViewHeader,
-    EDITABLE_SIDE_MENU_MODES,
     notifyError,
     normalizeSideMenuConfig
 } from '@universo-react/template-mui'
@@ -53,8 +39,10 @@ import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
 import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
 import QuizWidgetEditorDialog from './QuizWidgetEditorDialog'
 import PlayCanvasCanvasWidgetEditorDialog from './PlayCanvasCanvasWidgetEditorDialog'
+import InterpretationNetworkWorkspaceWidgetEditorDialog from './InterpretationNetworkWorkspaceWidgetEditorDialog'
 import WidgetBehaviorEditorDialog from './WidgetBehaviorEditorDialog'
 import { getSharedBehaviorFromWidgetConfig } from './LayoutWidgetSharedBehaviorFields'
+import LayoutRuntimeSettingsPanel from './LayoutRuntimeSettingsPanel'
 
 type MenuEditorState = {
     open: boolean
@@ -86,6 +74,12 @@ type PlayCanvasCanvasEditorState = {
     config: Record<string, unknown> | null
 }
 
+type InterpretationNetworkEditorState = {
+    open: boolean
+    widgetId: string | null
+    config: InterpretationNetworkWorkspaceWidgetConfig | null
+}
+
 type WidgetBehaviorEditorState = {
     open: boolean
     widgetId: string | null
@@ -95,16 +89,6 @@ type WidgetBehaviorEditorState = {
 
 const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
 const EMPTY_WIDGET_OBJECTS: DashboardLayoutWidgetItem[] = []
-const DASHBOARD_CHROME_SETTING_KEYS = [
-    'showBreadcrumbs',
-    'showSearch',
-    'showOverviewCards',
-    'showDetailsTitle',
-    'showDetailsTable',
-    'showFooter'
-] as const
-
-type DashboardChromeSettingKey = (typeof DASHBOARD_CHROME_SETTING_KEYS)[number]
 
 const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
     return normalizeSideMenuConfig(
@@ -124,6 +108,11 @@ export default function LayoutDetails() {
     const [playCanvasCanvasEditor, setPlayCanvasCanvasEditor] = useState<PlayCanvasCanvasEditorState>({
         open: false,
         zone: null,
+        widgetId: null,
+        config: null
+    })
+    const [interpretationNetworkEditor, setInterpretationNetworkEditor] = useState<InterpretationNetworkEditorState>({
+        open: false,
         widgetId: null,
         config: null
     })
@@ -254,6 +243,14 @@ export default function LayoutDetails() {
                         item.config && typeof item.config === 'object' && !Array.isArray(item.config)
                             ? { ...(item.config as Record<string, unknown>) }
                             : {}
+                })
+                return
+            }
+            if (item.widgetKey === 'interpretationNetworkWorkspace') {
+                setInterpretationNetworkEditor({
+                    open: true,
+                    widgetId: item.id,
+                    config: (item.config as InterpretationNetworkWorkspaceWidgetConfig) ?? null
                 })
                 return
             }
@@ -605,6 +602,7 @@ export default function LayoutDetails() {
                             item.widgetKey === 'columnsContainer' ||
                             item.widgetKey === 'quizWidget' ||
                             item.widgetKey === 'playcanvasCanvas' ||
+                            item.widgetKey === 'interpretationNetworkWorkspace' ||
                             isGlobalLayout)
 
                     return {
@@ -706,313 +704,21 @@ export default function LayoutDetails() {
                                 onDragEnd={handleDragEnd}
                                 onAddWidgetRequest={handleAddWidgetRequest}
                                 beforeZonesContent={
-                                    <Fragment>
-                                        <Paper variant='outlined' sx={{ p: 2 }}>
-                                            <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
-                                                {layout?.scopeEntityId
-                                                    ? t('layouts.details.objectBehaviorTitleObject', 'Entity runtime behavior')
-                                                    : t('layouts.details.objectBehaviorTitleGlobal', 'Default entity runtime behavior')}
-                                            </Typography>
-                                            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-                                                {layout?.scopeEntityId
-                                                    ? t(
-                                                          'layouts.details.objectBehaviorDescriptionObject',
-                                                          'This scoped layout overrides the create/search behavior inherited from its global base layout.'
-                                                      )
-                                                    : t(
-                                                          'layouts.details.objectBehaviorDescriptionGlobal',
-                                                          'These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.'
-                                                      )}
-                                            </Typography>
-                                            <Stack spacing={1.5}>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            checked={objectBehaviorConfig.showCreateButton}
-                                                            disabled={viewSettingsSaving || !canManageLayouts}
-                                                            onChange={(_, checked) =>
-                                                                void handleObjectBehaviorChange({ showCreateButton: checked })
-                                                            }
-                                                        />
-                                                    }
-                                                    label={t('objects.runtime.showCreateButton', 'Show create button')}
-                                                />
-                                                <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('objects.runtime.searchMode', 'Search mode')}</InputLabel>
-                                                    <Select
-                                                        value={objectBehaviorConfig.searchMode}
-                                                        label={t('objects.runtime.searchMode', 'Search mode')}
-                                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                                        onChange={(event) =>
-                                                            void handleObjectBehaviorChange({
-                                                                searchMode: event.target
-                                                                    .value as ObjectCollectionRuntimeViewConfig['searchMode']
-                                                            })
-                                                        }
-                                                    >
-                                                        <MenuItem value='page-local'>
-                                                            {t('objects.runtime.searchModePageLocal', 'Page-local')}
-                                                        </MenuItem>
-                                                        <MenuItem value='server'>
-                                                            {t('objects.runtime.searchModeServer', 'Server')}
-                                                        </MenuItem>
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('objects.runtime.createSurface', 'Create form type')}</InputLabel>
-                                                    <Select
-                                                        value={objectBehaviorConfig.createSurface}
-                                                        label={t('objects.runtime.createSurface', 'Create form type')}
-                                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                                        onChange={(event) =>
-                                                            void handleObjectBehaviorChange({
-                                                                createSurface: event.target
-                                                                    .value as ObjectCollectionRuntimeViewConfig['createSurface']
-                                                            })
-                                                        }
-                                                    >
-                                                        <MenuItem value='dialog'>{t('objects.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                                        <MenuItem value='page'>{t('objects.runtime.surfacePage', 'Page')}</MenuItem>
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('objects.runtime.editSurface', 'Edit form type')}</InputLabel>
-                                                    <Select
-                                                        value={objectBehaviorConfig.editSurface}
-                                                        label={t('objects.runtime.editSurface', 'Edit form type')}
-                                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                                        onChange={(event) =>
-                                                            void handleObjectBehaviorChange({
-                                                                editSurface: event.target
-                                                                    .value as ObjectCollectionRuntimeViewConfig['editSurface']
-                                                            })
-                                                        }
-                                                    >
-                                                        <MenuItem value='dialog'>{t('objects.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                                        <MenuItem value='page'>{t('objects.runtime.surfacePage', 'Page')}</MenuItem>
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('objects.runtime.copySurface', 'Copy form type')}</InputLabel>
-                                                    <Select
-                                                        value={objectBehaviorConfig.copySurface}
-                                                        label={t('objects.runtime.copySurface', 'Copy form type')}
-                                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                                        onChange={(event) =>
-                                                            void handleObjectBehaviorChange({
-                                                                copySurface: event.target
-                                                                    .value as ObjectCollectionRuntimeViewConfig['copySurface']
-                                                            })
-                                                        }
-                                                    >
-                                                        <MenuItem value='dialog'>{t('objects.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                                        <MenuItem value='page'>{t('objects.runtime.surfacePage', 'Page')}</MenuItem>
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            checked={objectBehaviorConfig.enableRowReordering}
-                                                            disabled={viewSettingsSaving || !canManageLayouts}
-                                                            onChange={(_, checked) =>
-                                                                void handleObjectBehaviorChange({
-                                                                    enableRowReordering: checked
-                                                                })
-                                                            }
-                                                        />
-                                                    }
-                                                    label={t('objects.runtime.enableRowReordering', 'Enable row reordering')}
-                                                />
-                                                <TextField
-                                                    size='small'
-                                                    label={t('objects.runtime.reorderPersistenceField', 'Reorder persistence field')}
-                                                    value={reorderPersistenceFieldDraft}
-                                                    disabled={
-                                                        viewSettingsSaving || !canManageLayouts || !objectBehaviorConfig.enableRowReordering
-                                                    }
-                                                    helperText={t(
-                                                        'objects.runtime.reorderPersistenceFieldHelper',
-                                                        'Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.'
-                                                    )}
-                                                    onChange={(event) => setReorderPersistenceFieldDraft(event.target.value)}
-                                                    onBlur={() => void commitReorderPersistenceField()}
-                                                    onKeyDown={(event) => {
-                                                        if (event.key === 'Enter') {
-                                                            event.preventDefault()
-                                                            void commitReorderPersistenceField()
-                                                        }
-                                                    }}
-                                                />
-                                            </Stack>
-                                        </Paper>
-                                        <Paper variant='outlined' sx={{ p: 2 }}>
-                                            <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
-                                                {t('layouts.details.viewSettings', 'Application View Settings')}
-                                            </Typography>
-                                            <Stack spacing={1.5}>
-                                                {DASHBOARD_CHROME_SETTING_KEYS.map((key: DashboardChromeSettingKey) => (
-                                                    <FormControlLabel
-                                                        key={key}
-                                                        control={
-                                                            <Switch
-                                                                checked={layoutConfig[key] ?? defaultDashboardLayoutConfig[key]}
-                                                                disabled={viewSettingsSaving || !canManageLayouts}
-                                                                onChange={(_, checked) => void handleViewSettingChange(key, checked)}
-                                                            />
-                                                        }
-                                                        label={t(
-                                                            `layouts.dashboard.sections.${key}`,
-                                                            String(key).replace(/([A-Z])/g, ' $1')
-                                                        )}
-                                                    />
-                                                ))}
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            checked={Boolean(layout?.config?.showViewToggle)}
-                                                            disabled={viewSettingsSaving || !canManageLayouts}
-                                                            onChange={(_, checked) =>
-                                                                void handleViewSettingChange('showViewToggle', checked)
-                                                            }
-                                                        />
-                                                    }
-                                                    label={t('layouts.details.showViewToggle', 'Card/table view toggle')}
-                                                />
-                                                <FormControl size='small' sx={{ minWidth: 180 }}>
-                                                    <InputLabel>{t('layouts.details.defaultViewMode', 'Default view mode')}</InputLabel>
-                                                    <Select
-                                                        value={(layout?.config?.defaultViewMode as string) || 'table'}
-                                                        label={t('layouts.details.defaultViewMode', 'Default view mode')}
-                                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                                        onChange={(e) => void handleViewSettingChange('defaultViewMode', e.target.value)}
-                                                    >
-                                                        <MenuItem value='table'>{t('layouts.details.viewModeTable', 'Table')}</MenuItem>
-                                                        <MenuItem value='card'>{t('layouts.details.viewModeCard', 'Card')}</MenuItem>
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            checked={Boolean(layout?.config?.showFilterBar)}
-                                                            disabled={viewSettingsSaving || !canManageLayouts}
-                                                            onChange={(_, checked) =>
-                                                                void handleViewSettingChange('showFilterBar', checked)
-                                                            }
-                                                        />
-                                                    }
-                                                    label={t('layouts.details.showFilterBar', 'Search/filter bar')}
-                                                />
-                                                <FormControl size='small' sx={{ minWidth: 180 }}>
-                                                    <InputLabel>{t('layouts.details.cardColumns', 'Card columns')}</InputLabel>
-                                                    <Select
-                                                        value={Number(layout?.config?.cardColumns) || 3}
-                                                        label={t('layouts.details.cardColumns', 'Card columns')}
-                                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                                        onChange={(e) =>
-                                                            void handleViewSettingChange('cardColumns', Number(e.target.value))
-                                                        }
-                                                    >
-                                                        <MenuItem value={2}>2</MenuItem>
-                                                        <MenuItem value={3}>3</MenuItem>
-                                                        <MenuItem value={4}>4</MenuItem>
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControl size='small' sx={{ minWidth: 180 }}>
-                                                    <InputLabel>{t('layouts.details.rowHeight', 'Row height')}</InputLabel>
-                                                    <Select
-                                                        value={String(layout?.config?.rowHeight ?? 'compact')}
-                                                        label={t('layouts.details.rowHeight', 'Row height')}
-                                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                                        onChange={(e) => {
-                                                            const v = e.target.value
-                                                            const val = v === 'compact' ? undefined : v === 'auto' ? 'auto' : Number(v)
-                                                            void handleViewSettingChange('rowHeight', val)
-                                                        }}
-                                                    >
-                                                        <MenuItem value='compact'>
-                                                            {t('layouts.details.rowHeightCompact', 'Compact (default)')}
-                                                        </MenuItem>
-                                                        <MenuItem value='52'>
-                                                            {t('layouts.details.rowHeightNormal', 'Normal (52px)')}
-                                                        </MenuItem>
-                                                        <MenuItem value='auto'>
-                                                            {t('layouts.details.rowHeightAuto', 'Auto (multi-line)')}
-                                                        </MenuItem>
-                                                    </Select>
-                                                </FormControl>
-                                                <Paper variant='outlined' sx={{ p: 1.5, borderRadius: 1.5 }}>
-                                                    <Typography variant='subtitle2' sx={{ mb: 1 }}>
-                                                        {t('layouts.details.sideMenu.title', 'Side menu display')}
-                                                    </Typography>
-                                                    <Stack spacing={1}>
-                                                        {EDITABLE_SIDE_MENU_MODES.map((mode) => {
-                                                            const checked = sideMenuConfig.availableModes.includes(mode)
-                                                            const isLastAvailableMode = checked && sideMenuConfig.availableModes.length <= 1
-                                                            return (
-                                                                <FormControlLabel
-                                                                    key={mode}
-                                                                    control={
-                                                                        <Switch
-                                                                            checked={checked}
-                                                                            disabled={
-                                                                                viewSettingsSaving ||
-                                                                                !canManageLayouts ||
-                                                                                isLastAvailableMode
-                                                                            }
-                                                                            onChange={(_, nextChecked) => {
-                                                                                const nextModes = nextChecked
-                                                                                    ? [...sideMenuConfig.availableModes, mode]
-                                                                                    : sideMenuConfig.availableModes.filter(
-                                                                                          (value) => value !== mode
-                                                                                      )
-                                                                                void handleSideMenuConfigChange({
-                                                                                    availableModes: nextModes
-                                                                                })
-                                                                            }}
-                                                                        />
-                                                                    }
-                                                                    label={t(`layouts.details.sideMenu.modes.${mode}`, mode)}
-                                                                />
-                                                            )
-                                                        })}
-                                                        <FormControl size='small' sx={{ minWidth: 180 }}>
-                                                            <InputLabel>
-                                                                {t('layouts.details.sideMenu.primaryMode', 'Primary display mode')}
-                                                            </InputLabel>
-                                                            <Select
-                                                                value={sideMenuConfig.primaryMode}
-                                                                label={t('layouts.details.sideMenu.primaryMode', 'Primary display mode')}
-                                                                disabled={viewSettingsSaving || !canManageLayouts}
-                                                                onChange={(event) =>
-                                                                    void handleSideMenuConfigChange({
-                                                                        primaryMode: event.target.value as DashboardSideMenuMode
-                                                                    })
-                                                                }
-                                                            >
-                                                                {sideMenuConfig.availableModes.map((mode) => (
-                                                                    <MenuItem key={mode} value={mode}>
-                                                                        {t(`layouts.details.sideMenu.modes.${mode}`, mode)}
-                                                                    </MenuItem>
-                                                                ))}
-                                                            </Select>
-                                                        </FormControl>
-                                                        <FormControlLabel
-                                                            control={
-                                                                <Switch
-                                                                    checked={sideMenuConfig.rememberUserChoice ?? true}
-                                                                    disabled={viewSettingsSaving || !canManageLayouts}
-                                                                    onChange={(_, checked) =>
-                                                                        void handleSideMenuConfigChange({ rememberUserChoice: checked })
-                                                                    }
-                                                                />
-                                                            }
-                                                            label={t('layouts.details.sideMenu.rememberUserChoice', 'Remember user choice')}
-                                                        />
-                                                    </Stack>
-                                                </Paper>
-                                            </Stack>
-                                        </Paper>
-                                    </Fragment>
+                                    <LayoutRuntimeSettingsPanel
+                                        t={t}
+                                        isScopedLayout={Boolean(layout?.scopeEntityId)}
+                                        layoutConfig={layoutConfig}
+                                        objectBehaviorConfig={objectBehaviorConfig}
+                                        sideMenuConfig={sideMenuConfig}
+                                        reorderPersistenceFieldDraft={reorderPersistenceFieldDraft}
+                                        viewSettingsSaving={viewSettingsSaving}
+                                        canManageLayouts={canManageLayouts}
+                                        onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                        onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
+                                        onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                                        onReorderPersistenceFieldDraftChange={setReorderPersistenceFieldDraft}
+                                        onCommitReorderPersistenceField={() => void commitReorderPersistenceField()}
+                                    />
                                 }
                             />
                         </Stack>
@@ -1183,6 +889,37 @@ export default function LayoutDetails() {
                 }}
                 onCancel={() => setPlayCanvasCanvasEditor({ open: false, zone: null, widgetId: null, config: null })}
             />
+
+            {interpretationNetworkEditor.open ? (
+                <InterpretationNetworkWorkspaceWidgetEditorDialog
+                    open={interpretationNetworkEditor.open}
+                    config={interpretationNetworkEditor.config ?? undefined}
+                    metahubId={metahubId}
+                    layoutId={layoutId}
+                    widgetId={interpretationNetworkEditor.widgetId}
+                    showSharedBehavior={isGlobalLayout}
+                    showScopeVisibility={isGlobalLayout && Boolean(interpretationNetworkEditor.widgetId)}
+                    onSave={async (config) => {
+                        const widgetId = interpretationNetworkEditor.widgetId
+                        if (!widgetId || !metahubId || !layoutId) return
+                        try {
+                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
+                                metahubId,
+                                layoutId,
+                                widgetId,
+                                config as Record<string, unknown>
+                            )
+                            upsertZoneWidgetInCache(response.data.item)
+                            await persistAndRefresh()
+                            setInterpretationNetworkEditor({ open: false, widgetId: null, config: null })
+                        } catch (e: unknown) {
+                            notifyError(t, enqueueSnackbar, e)
+                            throw e
+                        }
+                    }}
+                    onCancel={() => setInterpretationNetworkEditor({ open: false, widgetId: null, config: null })}
+                />
+            ) : null}
 
             <WidgetBehaviorEditorDialog
                 open={widgetBehaviorEditor.open}

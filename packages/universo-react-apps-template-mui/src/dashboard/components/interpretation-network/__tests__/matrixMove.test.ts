@@ -141,6 +141,29 @@ describe('hierarchical matrix moves', () => {
         })
     })
 
+    it('rejects drop targets that are present in the full snapshot but hidden from the active view', () => {
+        const cells = [cell('root', null, 0), cell('visible', 'root', 0), cell('hidden', 'visible', 0)]
+
+        expect(
+            resolveMatrixDropState({
+                mode: 'hierarchicalCells',
+                cells,
+                cellIds: ['root', 'visible'],
+                sourceCellId: 'visible',
+                targetCellId: 'hidden',
+                translatedRect: { top: 164, height: 80 },
+                targetRect: { top: 100, height: 80 },
+                hierarchyLayout: 'horizontalRows'
+            })
+        ).toEqual({
+            activeCellId: 'visible',
+            overCellId: 'hidden',
+            placement: null,
+            isValid: false,
+            destination: null
+        })
+    })
+
     it('moves a root inside another root and appends it after existing children', () => {
         const cells = [cell('source', null, 0), cell('target', null, 1), cell('existing-child', 'target', 0)]
         const result = buildMove(cells, 'source', 'target', 'child')
@@ -164,14 +187,15 @@ describe('hierarchical matrix moves', () => {
         )
     })
 
-    it('omits expected versions from untouched old sibling compaction updates', () => {
+    it('adds expected versions to sibling compaction updates', () => {
         const cells = [cell('root', null, 0), cell('source', 'root', 0), cell('old-next', 'root', 1), cell('target', null, 1)]
         const result = buildMove(cells, 'source', 'target', 'child')
 
         const oldSiblingUpdate = result?.updates.find((update) => update.childRowId === 'row-old-next')
         expect(oldSiblingUpdate).toEqual({
             childRowId: 'row-old-next',
-            data: { _tp_sort_order: 0 }
+            data: { _tp_sort_order: 0 },
+            expectedVersion: 2
         })
         expect(result?.updates[0]).toEqual(
             expect.objectContaining({
@@ -243,6 +267,37 @@ describe('hierarchical matrix moves', () => {
             isValid: false,
             destination: null
         })
+    })
+
+    it('uses horizontal geometry for table-style hierarchy drops instead of vertical tree semantics', () => {
+        const cells = [cell('parent', null, 0), cell('first', 'parent', 0), cell('source', 'parent', 1)]
+        const geometry = {
+            translatedRect: { top: 10, left: 160, width: 100, height: 64 },
+            targetRect: { top: 100, left: 100, width: 100, height: 64 }
+        }
+
+        expect(
+            resolveMatrixDropState({
+                mode: 'hierarchicalCells',
+                cells,
+                cellIds: cells.map((item) => item.id),
+                sourceCellId: 'source',
+                targetCellId: 'first',
+                ...geometry,
+                hierarchyLayout: 'verticalTree'
+            }).placement
+        ).toBeNull()
+        expect(
+            resolveMatrixDropState({
+                mode: 'hierarchicalCells',
+                cells,
+                cellIds: cells.map((item) => item.id),
+                sourceCellId: 'source',
+                targetCellId: 'first',
+                ...geometry,
+                hierarchyLayout: 'horizontalRows'
+            }).placement
+        ).toBe('child')
     })
 
     it('uses 25-50-25 target zones when dragging a deeply nested cell to a higher horizontal row', () => {
@@ -432,5 +487,448 @@ describe('hierarchical matrix moves', () => {
                 (row) => row.map((item) => item.id)
             )
         ).toEqual([['root'], ['old-parent', 'target-parent'], ['target'], ['source']])
+    })
+})
+
+describe('independent matrix table moves', () => {
+    const independentCells: MatrixCell[] = [
+        {
+            ...cell('meaning', null, 0),
+            rowKey: 'definition',
+            rowLabel: 'Definition',
+            colKey: 'meaning',
+            colLabel: 'Meaning'
+        },
+        {
+            ...cell('source', null, 1),
+            rowKey: 'definition',
+            rowLabel: 'Definition',
+            colKey: 'source',
+            colLabel: 'Source'
+        },
+        {
+            ...cell('example', null, 2),
+            rowKey: 'example',
+            rowLabel: 'Example',
+            colKey: 'meaning',
+            colLabel: 'Meaning'
+        }
+    ]
+
+    const independentRawRows = new Map<string, RuntimeRow>(
+        independentCells.map((item) => [
+            item.id,
+            {
+                id: item.rawRowId,
+                CellId: item.id,
+                RowKey: item.rowKey,
+                RowLabel: item.rowLabel,
+                ColKey: item.colKey,
+                ColLabel: item.colLabel,
+                CellValue: item.title,
+                CellDescription: `${item.title} description`,
+                _tp_sort_order: item.sortOrder,
+                _upl_version: item.sortOrder + 1
+            }
+        ])
+    )
+    const childColumns = [
+        { id: 'cell-id', codename: 'CellId', field: 'CellId' },
+        { id: 'row-key', codename: 'RowKey', field: 'RowKey' },
+        { id: 'row-label', codename: 'RowLabel', field: 'RowLabel' },
+        { id: 'col-key', codename: 'ColKey', field: 'ColKey' },
+        { id: 'col-label', codename: 'ColLabel', field: 'ColLabel' },
+        { id: 'cell-value', codename: 'CellValue', field: 'CellValue' },
+        { id: 'cell-description', codename: 'CellDescription', field: 'CellDescription' }
+    ]
+
+    it('resolves an empty table intersection as an explicit coordinate destination', () => {
+        expect(
+            resolveMatrixDropState({
+                mode: 'independentRows',
+                cells: independentCells,
+                cellIds: independentCells.map((item) => item.id),
+                sourceCellId: 'source',
+                targetCellId: 'matrix-table-slot:example:source',
+                tableSlot: {
+                    rowKey: 'example',
+                    rowLabel: 'Example',
+                    colKey: 'source',
+                    colLabel: 'Source'
+                }
+            })
+        ).toEqual({
+            activeCellId: 'source',
+            overCellId: 'matrix-table-slot:example:source',
+            placement: 'child',
+            isValid: true,
+            destination: {
+                placement: 'child',
+                targetCellId: 'matrix-table-slot:example:source',
+                parentCellId: null,
+                insertionIndex: 1,
+                tableSlot: {
+                    rowKey: 'example',
+                    rowLabel: 'Example',
+                    colKey: 'source',
+                    colLabel: 'Source'
+                }
+            }
+        })
+    })
+
+    it('moves a cell into an empty table intersection without generating new axis keys or replacing user content', () => {
+        const result = buildMatrixMoveUpdates({
+            mode: 'independentRows',
+            sourceCellId: 'source',
+            targetCellId: 'matrix-table-slot:example:source',
+            placement: 'child',
+            destination: {
+                placement: 'child',
+                targetCellId: 'matrix-table-slot:example:source',
+                parentCellId: null,
+                insertionIndex: 1,
+                tableSlot: {
+                    rowKey: 'example',
+                    rowLabel: 'Example',
+                    colKey: 'source',
+                    colLabel: 'Source'
+                }
+            },
+            cells: independentCells,
+            rawRowsByCellId: independentRawRows,
+            childColumns,
+            locale: 'en',
+            readRuntimeRowVersion: (row) => (typeof row?._upl_version === 'number' ? row._upl_version : undefined),
+            readSubmittedText: (value) => String(value ?? '')
+        })
+
+        expect(result?.updates[0]).toEqual({
+            childRowId: 'row-source',
+            expectedVersion: 2,
+            data: expect.objectContaining({
+                CellId: 'source',
+                RowKey: 'example',
+                RowLabel: expect.objectContaining({
+                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Example' }) })
+                }),
+                ColKey: 'source',
+                ColLabel: expect.objectContaining({
+                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Source' }) })
+                }),
+                CellValue: 'source',
+                CellDescription: 'source description',
+                _tp_sort_order: 1
+            })
+        })
+        expect(result?.updates).toEqual(
+            expect.arrayContaining([
+                {
+                    childRowId: 'row-example',
+                    data: { _tp_sort_order: 0 },
+                    expectedVersion: 3
+                }
+            ])
+        )
+        const sortOrderUpdates = result?.updates.map((update) => [update.childRowId, update.data._tp_sort_order])
+        expect(sortOrderUpdates).toEqual([
+            ['row-source', 1],
+            ['row-example', 0]
+        ])
+        expect(JSON.stringify(result)).not.toMatch(/column-[0-9a-f]{8}/i)
+    })
+
+    it('preserves localized axis label values when moving into an empty table intersection', () => {
+        const localizedRowLabel = {
+            locales: {
+                en: { content: 'Example' },
+                ru: { content: 'Пример' }
+            }
+        }
+        const localizedColumnLabel = {
+            locales: {
+                en: { content: 'Source' },
+                ru: { content: 'Источник' }
+            }
+        }
+        const result = buildMatrixMoveUpdates({
+            mode: 'independentRows',
+            sourceCellId: 'source',
+            targetCellId: 'matrix-table-slot:example:source',
+            placement: 'child',
+            destination: {
+                placement: 'child',
+                targetCellId: 'matrix-table-slot:example:source',
+                parentCellId: null,
+                insertionIndex: 1,
+                tableSlot: {
+                    rowKey: 'example',
+                    rowLabel: 'Example',
+                    rowLabelValue: localizedRowLabel,
+                    colKey: 'source',
+                    colLabel: 'Source',
+                    colLabelValue: localizedColumnLabel
+                }
+            },
+            cells: independentCells,
+            rawRowsByCellId: independentRawRows,
+            childColumns,
+            locale: 'en',
+            readRuntimeRowVersion: (row) => (typeof row?._upl_version === 'number' ? row._upl_version : undefined),
+            readSubmittedText: (value) => String(value ?? '')
+        })
+
+        expect(result?.updates[0].data).toEqual(
+            expect.objectContaining({
+                RowLabel: localizedRowLabel,
+                ColLabel: localizedColumnLabel
+            })
+        )
+    })
+
+    it('renumbers both affected rows when moving into an empty later-row table intersection', () => {
+        const result = buildMatrixMoveUpdates({
+            mode: 'independentRows',
+            sourceCellId: 'meaning',
+            targetCellId: 'matrix-table-slot:example:source',
+            placement: 'child',
+            destination: {
+                placement: 'child',
+                targetCellId: 'matrix-table-slot:example:source',
+                parentCellId: null,
+                insertionIndex: 1,
+                tableSlot: {
+                    rowKey: 'example',
+                    rowLabel: 'Example',
+                    colKey: 'source',
+                    colLabel: 'Source'
+                }
+            },
+            cells: independentCells,
+            rawRowsByCellId: independentRawRows,
+            childColumns,
+            locale: 'en',
+            readRuntimeRowVersion: (row) => (typeof row?._upl_version === 'number' ? row._upl_version : undefined),
+            readSubmittedText: (value) => String(value ?? '')
+        })
+
+        expect(result?.updates).toEqual([
+            expect.objectContaining({
+                childRowId: 'row-meaning',
+                data: expect.objectContaining({
+                    RowKey: 'example',
+                    ColKey: 'source',
+                    _tp_sort_order: 1
+                })
+            }),
+            {
+                childRowId: 'row-source',
+                data: { _tp_sort_order: 0 },
+                expectedVersion: 2
+            },
+            {
+                childRowId: 'row-example',
+                data: { _tp_sort_order: 0 },
+                expectedVersion: 3
+            }
+        ])
+    })
+
+    it('rejects a stale empty table intersection that is already occupied in the current snapshot', () => {
+        expect(
+            buildMatrixMoveUpdates({
+                mode: 'independentRows',
+                sourceCellId: 'source',
+                targetCellId: 'matrix-table-slot:example:meaning',
+                placement: 'child',
+                destination: {
+                    placement: 'child',
+                    targetCellId: 'matrix-table-slot:example:meaning',
+                    parentCellId: null,
+                    insertionIndex: 1,
+                    tableSlot: {
+                        rowKey: 'example',
+                        rowLabel: 'Example',
+                        colKey: 'meaning',
+                        colLabel: 'Meaning'
+                    }
+                },
+                cells: independentCells,
+                rawRowsByCellId: independentRawRows,
+                childColumns,
+                locale: 'en',
+                readRuntimeRowVersion: (row) => (typeof row?._upl_version === 'number' ? row._upl_version : undefined),
+                readSubmittedText: (value) => String(value ?? '')
+            })
+        ).toBeNull()
+    })
+})
+
+describe('matrix table coordinate moves', () => {
+    const cells: MatrixCell[] = [
+        {
+            ...cell('root', null, 0),
+            rowKey: 'root',
+            rowLabel: 'Root',
+            colKey: 'root-column',
+            colLabel: 'Root column'
+        },
+        {
+            ...cell('parent', 'root', 0),
+            rowKey: 'parent',
+            rowLabel: 'Parent',
+            colKey: 'parent-column',
+            colLabel: 'Parent column'
+        },
+        {
+            ...cell('source', 'parent', 0),
+            rowKey: 'source',
+            rowLabel: 'Source',
+            colKey: 'source-column',
+            colLabel: 'Source column'
+        },
+        {
+            ...cell('target-row', 'root', 1),
+            rowKey: 'target-row',
+            rowLabel: 'Target row',
+            colKey: 'target-column',
+            colLabel: 'Target column'
+        }
+    ]
+    const rawRowsWithCoordinates = new Map<string, RuntimeRow>(
+        cells.map((item) => [
+            item.id,
+            {
+                id: item.rawRowId,
+                CellId: item.id,
+                ParentCellId: item.parentCellId,
+                RowKey: item.rowKey,
+                RowLabel: item.rowLabel,
+                ColKey: item.colKey,
+                ColLabel: item.colLabel,
+                CellValue: item.title,
+                _tp_sort_order: item.sortOrder,
+                _upl_version: item.sortOrder + 1
+            }
+        ])
+    )
+    const childColumns = [
+        { id: 'cell-id', codename: 'CellId', field: 'CellId' },
+        { id: 'parent-id', codename: 'ParentCellId', field: 'ParentCellId' },
+        { id: 'row-key', codename: 'RowKey', field: 'RowKey' },
+        { id: 'row-label', codename: 'RowLabel', field: 'RowLabel' },
+        { id: 'col-key', codename: 'ColKey', field: 'ColKey' },
+        { id: 'col-label', codename: 'ColLabel', field: 'ColLabel' },
+        { id: 'cell-value', codename: 'CellValue', field: 'CellValue' }
+    ]
+
+    it('resolves an empty table intersection in hierarchical mode while preserving the source parent', () => {
+        expect(
+            resolveMatrixDropState({
+                mode: 'hierarchicalCells',
+                cells,
+                cellIds: cells.map((item) => item.id),
+                sourceCellId: 'source',
+                targetCellId: 'matrix-table-slot:target-row:root-column',
+                tableSlot: {
+                    rowKey: 'target-row',
+                    rowLabel: 'Target row',
+                    colKey: 'root-column',
+                    colLabel: 'Root column'
+                }
+            })
+        ).toEqual({
+            activeCellId: 'source',
+            overCellId: 'matrix-table-slot:target-row:root-column',
+            placement: 'child',
+            isValid: true,
+            destination: {
+                placement: 'child',
+                targetCellId: 'matrix-table-slot:target-row:root-column',
+                parentCellId: 'parent',
+                insertionIndex: 1,
+                tableSlot: {
+                    rowKey: 'target-row',
+                    rowLabel: 'Target row',
+                    colKey: 'root-column',
+                    colLabel: 'Root column'
+                }
+            }
+        })
+    })
+
+    it('moves a hierarchical cell into a free table intersection without changing tree parent or sibling order', () => {
+        const result = buildMatrixMoveUpdates({
+            mode: 'hierarchicalCells',
+            sourceCellId: 'source',
+            targetCellId: 'matrix-table-slot:target-row:root-column',
+            placement: 'child',
+            destination: {
+                placement: 'child',
+                targetCellId: 'matrix-table-slot:target-row:root-column',
+                parentCellId: 'parent',
+                insertionIndex: 1,
+                tableSlot: {
+                    rowKey: 'target-row',
+                    rowLabel: 'Target row',
+                    colKey: 'root-column',
+                    colLabel: 'Root column'
+                }
+            },
+            cells,
+            rawRowsByCellId: rawRowsWithCoordinates,
+            childColumns,
+            locale: 'en',
+            readRuntimeRowVersion: (row) => (typeof row?._upl_version === 'number' ? row._upl_version : undefined),
+            readSubmittedText: (value) => String(value ?? '')
+        })
+
+        expect(result?.updates[0]).toEqual({
+            childRowId: 'row-source',
+            expectedVersion: 1,
+            data: expect.objectContaining({
+                CellId: 'source',
+                RowKey: 'target-row',
+                RowLabel: expect.objectContaining({
+                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Target row' }) })
+                }),
+                ColKey: 'root-column',
+                ColLabel: expect.objectContaining({
+                    locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Root column' }) })
+                })
+            })
+        })
+        expect(result?.updates[0].data).not.toHaveProperty('ParentCellId')
+        expect(result?.updates[0].data).not.toHaveProperty('_tp_sort_order')
+        expect(result?.updates).toHaveLength(1)
+    })
+
+    it('rejects an occupied table intersection in hierarchical mode', () => {
+        expect(
+            buildMatrixMoveUpdates({
+                mode: 'hierarchicalCells',
+                sourceCellId: 'source',
+                targetCellId: 'matrix-table-slot:target-row:target-column',
+                placement: 'child',
+                destination: {
+                    placement: 'child',
+                    targetCellId: 'matrix-table-slot:target-row:target-column',
+                    parentCellId: 'parent',
+                    insertionIndex: 1,
+                    tableSlot: {
+                        rowKey: 'target-row',
+                        rowLabel: 'Target row',
+                        colKey: 'target-column',
+                        colLabel: 'Target column'
+                    }
+                },
+                cells,
+                rawRowsByCellId: rawRowsWithCoordinates,
+                childColumns,
+                locale: 'en',
+                readRuntimeRowVersion: (row) => (typeof row?._upl_version === 'number' ? row._upl_version : undefined),
+                readSubmittedText: (value) => String(value ?? '')
+            })
+        ).toBeNull()
     })
 })

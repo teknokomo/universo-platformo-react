@@ -116,8 +116,10 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
                 objectCollectionCodenames: ['Structure']
             },
             matrixMode: 'hierarchicalCells',
-            hierarchyLayout: 'horizontalRows',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table',
             hierarchyRowMode: 'focusedPath',
+            allowNewAxesInCellDialog: false,
             positionNumbering: {
                 enabled: true,
                 includeRoot: true,

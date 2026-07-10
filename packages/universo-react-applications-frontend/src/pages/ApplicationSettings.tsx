@@ -2,12 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Box, CircularProgress, Tab, Tabs } from '@mui/material'
-import { RESOURCE_TYPES, collectUnsupportedActiveCapabilityRules, sanitizeApplicationLearningContentSettings } from '@universo-react/types'
+import {
+    RESOURCE_TYPES,
+    collectUnsupportedActiveCapabilityRules,
+    normalizeInterpretationNetworkMatrixViewSettings,
+    sanitizeApplicationLearningContentSettings
+} from '@universo-react/types'
 import type {
     ApplicationLearningContentSettings,
     ApplicationLayout,
     ApplicationLayoutWidget,
     ApplicationRolePolicySettings,
+    InterpretationNetworkMatrixMode,
     ResourceType,
     RoleCapabilityRule
 } from '@universo-react/types'
@@ -26,12 +32,9 @@ import {
     ConnectorsSettingsPanel,
     GeneralSettingsPanel,
     LimitsSettingsPanel,
-    MatrixSettingsPanel,
-    type ApplicationCapabilityKey,
-    type InterpretationNetworkHierarchyLayout,
-    type InterpretationNetworkMatrixSettings,
-    type InterpretationNetworkMatrixMode
+    type ApplicationCapabilityKey
 } from './application-settings/SettingsPanels'
+import { MatrixSettingsPanel, type InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
 import { ContentSettingsPanel } from './application-settings/ContentSettingsPanel'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
@@ -41,7 +44,7 @@ import {
     listApplicationLayouts,
     listApplicationLayoutWidgets,
     updateApplication,
-    updateApplicationLayoutWidgetConfig,
+    updateApplicationLayoutWidgetConfigsBatch,
     updateApplicationWorkspaceLimits
 } from '../api/applications'
 import { DEFAULT_APPLICATION_DIALOG_SETTINGS, sanitizeApplicationDialogSettingsForSave } from '../settings/dialogSettings'
@@ -226,9 +229,6 @@ const listWritableInterpretationNetworkWidgets = (
 const parseMatrixMode = (value: unknown): InterpretationNetworkMatrixMode =>
     value === 'independentRows' || value === 'hierarchicalCells' ? value : 'hierarchicalCells'
 
-const parseHierarchyLayout = (value: unknown): InterpretationNetworkHierarchyLayout =>
-    value === 'verticalTree' || value === 'horizontalRows' ? value : 'horizontalRows'
-
 const parseHierarchyRowMode = (value: unknown): InterpretationNetworkMatrixSettings['hierarchyRowMode'] =>
     value === 'allNodes' || value === 'focusedPath' ? value : 'focusedPath'
 
@@ -245,12 +245,29 @@ const parsePositionNumbering = (value: unknown): InterpretationNetworkMatrixSett
     }
 }
 
-const parseMatrixSettings = (config: Record<string, unknown> | null | undefined): InterpretationNetworkMatrixSettings => ({
-    matrixMode: parseMatrixMode(config?.matrixMode),
-    hierarchyLayout: parseHierarchyLayout(config?.hierarchyLayout),
-    hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
-    positionNumbering: parsePositionNumbering(config?.positionNumbering)
-})
+const parseMatrixSettings = (config: Record<string, unknown> | null | undefined): InterpretationNetworkMatrixSettings => {
+    const matrixMode = parseMatrixMode(config?.matrixMode)
+    const legacyHierarchyLayout =
+        config?.hierarchyLayout === 'horizontalRows' || config?.hierarchyLayout === 'verticalTree' ? config.hierarchyLayout : undefined
+    const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
+    const hasNewViewSettings = requestedViews !== undefined || config?.defaultMatrixView !== undefined
+    const allowedMatrixViews =
+        legacyHierarchyLayout && !hasNewViewSettings && matrixMode === 'hierarchicalCells'
+            ? Array.from(new Set(['horizontalRows', legacyHierarchyLayout]))
+            : requestedViews
+
+    return {
+        matrixMode,
+        ...normalizeInterpretationNetworkMatrixViewSettings(
+            matrixMode,
+            allowedMatrixViews,
+            config?.defaultMatrixView ?? legacyHierarchyLayout
+        ),
+        hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
+        positionNumbering: parsePositionNumbering(config?.positionNumbering),
+        allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true
+    }
+}
 
 const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
     'moduleCodename',
@@ -262,9 +279,11 @@ const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
     'sharedBehavior',
     'serverModuleCodename',
     'matrixMode',
-    'hierarchyLayout',
+    'allowedMatrixViews',
+    'defaultMatrixView',
     'hierarchyRowMode',
     'positionNumbering',
+    'allowNewAxesInCellDialog',
     'conceptCodename',
     'conceptNameField',
     'conceptDescriptionField',
@@ -286,6 +305,17 @@ const sanitizeWidgetConfigForSave = (config: Record<string, unknown> | null | un
         Object.entries(config ?? {}).filter(([key, value]) => value !== undefined && INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS.has(key))
     )
 }
+
+const areMatrixSettingsEqual = (left: InterpretationNetworkMatrixSettings, right: InterpretationNetworkMatrixSettings): boolean =>
+    left.matrixMode === right.matrixMode &&
+    left.allowedMatrixViews.length === right.allowedMatrixViews.length &&
+    left.allowedMatrixViews.every((view, index) => view === right.allowedMatrixViews[index]) &&
+    left.defaultMatrixView === right.defaultMatrixView &&
+    left.hierarchyRowMode === right.hierarchyRowMode &&
+    left.allowNewAxesInCellDialog === right.allowNewAxesInCellDialog &&
+    left.positionNumbering.enabled === right.positionNumbering.enabled &&
+    left.positionNumbering.includeRoot === right.positionNumbering.includeRoot &&
+    left.positionNumbering.startIndex === right.positionNumbering.startIndex
 
 const loadLayoutsForScope = async (applicationId: string, scopeEntityId: LayoutScopeFilter): Promise<ApplicationLayout[]> => {
     const layouts: ApplicationLayout[] = []
@@ -398,31 +428,30 @@ const ApplicationSettings = () => {
             if (widgets.length === 0) {
                 throw new Error(t('settings.matrix.widgetMissing', 'Matrix workspace widget is not installed in this application.'))
             }
-            return Promise.all(
-                widgets.map(async (widget) => ({
+            const savedWidgets = await updateApplicationLayoutWidgetConfigsBatch(applicationId!, {
+                updates: widgets.map((widget) => ({
                     layoutId: widget.layout.id,
                     widgetId: widget.id,
-                    savedWidget: await updateApplicationLayoutWidgetConfig(applicationId!, widget.layout.id, widget.id, {
-                        config: {
-                            ...sanitizeWidgetConfigForSave(widget.config),
-                            matrixMode: settings.matrixMode,
-                            hierarchyLayout: settings.hierarchyLayout,
-                            hierarchyRowMode: settings.hierarchyRowMode,
-                            positionNumbering: settings.positionNumbering
-                        },
-                        ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
-                    })
+                    config: {
+                        ...sanitizeWidgetConfigForSave(widget.config),
+                        matrixMode: settings.matrixMode,
+                        allowedMatrixViews: settings.allowedMatrixViews,
+                        defaultMatrixView: settings.defaultMatrixView,
+                        hierarchyRowMode: settings.hierarchyRowMode,
+                        positionNumbering: settings.positionNumbering,
+                        allowNewAxesInCellDialog: settings.allowNewAxesInCellDialog
+                    },
+                    ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
                 }))
-            )
+            })
+
+            return savedWidgets
         },
         onSuccess: async (savedWidgets, savedSettings) => {
             if (!applicationId) return
             setMatrixSettingsOverride(savedSettings)
             const savedWidgetsByIdentity = new Map(
-                savedWidgets.map(({ layoutId, widgetId, savedWidget }) => [
-                    `${savedWidget.layoutId ?? layoutId}:${savedWidget.id ?? widgetId}`,
-                    savedWidget
-                ])
+                savedWidgets.map((savedWidget) => [`${savedWidget.layoutId ?? ''}:${savedWidget.id}`, savedWidget])
             )
             queryClient.setQueryData<MaterializedApplicationLayoutState>(
                 ['applications', applicationId, 'settings', 'materialized-layouts'],
@@ -440,9 +469,11 @@ const ApplicationSettings = () => {
                                                 ...widget.config,
                                                 ...(savedWidget.config ?? {}),
                                                 matrixMode: savedSettings.matrixMode,
-                                                hierarchyLayout: savedSettings.hierarchyLayout,
+                                                allowedMatrixViews: savedSettings.allowedMatrixViews,
+                                                defaultMatrixView: savedSettings.defaultMatrixView,
                                                 hierarchyRowMode: savedSettings.hierarchyRowMode,
-                                                positionNumbering: savedSettings.positionNumbering
+                                                positionNumbering: savedSettings.positionNumbering,
+                                                allowNewAxesInCellDialog: savedSettings.allowNewAxesInCellDialog
                                             },
                                             layout: widget.layout
                                         }
@@ -456,8 +487,10 @@ const ApplicationSettings = () => {
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
             enqueueSnackbar(t('settings.matrix.saved', 'Matrix settings saved'), { variant: 'success' })
         },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('settings.matrix.saveError', 'Failed to save matrix settings'), { variant: 'error' })
+        onError: async () => {
+            setMatrixSettingsOverride(null)
+            await materializedLayoutsQuery.refetch({ throwOnError: false }).catch(() => undefined)
+            enqueueSnackbar(t('settings.matrix.saveError', 'Failed to save matrix settings'), { variant: 'error' })
         }
     })
 
@@ -483,8 +516,12 @@ const ApplicationSettings = () => {
     const hasMatrixCapability = hasMatrixMaterializedState(materializedLayoutState)
     const hasLearningContentTab = hasLearningContentCapability || (layoutCapabilitiesLoading && activeTab === 'learningContent')
     const hasMatrixTab = hasMatrixCapability || (layoutCapabilitiesLoading && activeTab === 'matrix')
-    const matrixWidget = listInterpretationNetworkWidgets(materializedLayoutState)[0]
+    const matrixWidgets = listInterpretationNetworkWidgets(materializedLayoutState)
+    const matrixWidget = matrixWidgets[0]
     const matrixWidgetSettings = parseMatrixSettings(matrixWidget?.config)
+    const hasDivergentMatrixSettings = matrixWidgets
+        .slice(1)
+        .some((widget) => !areMatrixSettingsEqual(matrixWidgetSettings, parseMatrixSettings(widget.config)))
     const matrixWidgetIdentity = matrixWidget ? `${matrixWidget.layout.id}:${matrixWidget.id}:${matrixWidget.version ?? 'unknown'}` : null
     const matrixSettings = matrixSettingsOverride ?? matrixWidgetSettings
     const shouldStripHiddenLearningContent = materializedLayoutsQuery.isSuccess && !hasLearningContentCapability
@@ -682,6 +719,7 @@ const ApplicationSettings = () => {
                     <MatrixSettingsPanel
                         t={t}
                         settings={matrixSettings}
+                        hasDivergentSettings={hasDivergentMatrixSettings}
                         isSaving={saveMatrixMutation.isPending}
                         onSave={(settings) => saveMatrixMutation.mutate(settings)}
                     />

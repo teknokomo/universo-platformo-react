@@ -40,6 +40,10 @@ const tabularUpdateBodySchema = z
     })
     .passthrough()
 
+const tabularDeleteQuerySchema = z.object({
+    expectedVersion: z.coerce.number().int().positive().optional()
+})
+
 const tabularBatchUpdateBodySchema = z
     .object({
         updates: z
@@ -51,7 +55,26 @@ const tabularBatchUpdateBodySchema = z
                 })
             )
             .min(1)
-            .max(5000)
+            .max(5000),
+        uniformUpdates: z
+            .array(
+                z.object({
+                    rows: z
+                        .array(
+                            z.object({
+                                childRowId: z.string().trim().uuid(),
+                                expectedVersion: z.number().int().positive().optional()
+                            })
+                        )
+                        .min(1)
+                        .max(5000),
+                    data: z.record(z.unknown()).refine((data) => Object.keys(data).length === 1, {
+                        message: 'Uniform updates must contain exactly one field.'
+                    })
+                })
+            )
+            .max(2)
+            .optional()
     })
     .superRefine((value, ctx) => {
         const fieldUpdateCount = value.updates.filter(
@@ -176,6 +199,100 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             }
             for (const id of visited) {
                 verified.add(id)
+            }
+        }
+    }
+
+    const validateTabularCoordinates = async (
+        manager: DbExecutor,
+        tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
+        recordId: string,
+        runtimeRowCondition: string,
+        updates: Array<{ childRowId?: string; data: Record<string, unknown> }>
+    ): Promise<void> => {
+        if (tc.tableAttr.validation_rules?.matrixUniqueCoordinates !== true) return
+        const rowKeyAttr = tc.childAttrs.find((attr) => attr.codename === 'RowKey' || attr.column_name === 'RowKey')
+        const colKeyAttr = tc.childAttrs.find((attr) => attr.codename === 'ColKey' || attr.column_name === 'ColKey')
+        if (!rowKeyAttr || !colKeyAttr) return
+        if (!IDENTIFIER_REGEX.test(rowKeyAttr.column_name) || !IDENTIFIER_REGEX.test(colKeyAttr.column_name)) {
+            throw new UpdateFailure(400, { error: 'Invalid coordinate metadata' })
+        }
+
+        const rows = (await manager.query(
+            `
+        SELECT id,
+               ${quoteIdentifier(rowKeyAttr.column_name)} AS row_key,
+               ${quoteIdentifier(colKeyAttr.column_name)} AS col_key
+        FROM ${tc.tabTableIdent}
+        WHERE _tp_parent_id = $1
+          AND ${runtimeRowCondition}
+        FOR UPDATE
+      `,
+            [recordId]
+        )) as Array<{ id: string; row_key?: unknown; col_key?: unknown }>
+
+        const proposedCoordinates = new Map<string, { rowKey: string | null; colKey: string | null }>()
+        for (const row of rows) {
+            proposedCoordinates.set(row.id, {
+                rowKey: typeof row.row_key === 'string' ? row.row_key : null,
+                colKey: typeof row.col_key === 'string' ? row.col_key : null
+            })
+        }
+
+        let newRowIndex = 0
+        for (const update of updates) {
+            const rowId = update.childRowId ?? `__new_${newRowIndex++}`
+            const existing = update.childRowId ? proposedCoordinates.get(update.childRowId) : undefined
+            const rowInput = getRuntimeInputValue(update.data, rowKeyAttr.column_name, rowKeyAttr.codename)
+            const colInput = getRuntimeInputValue(update.data, colKeyAttr.column_name, colKeyAttr.codename)
+            const nextRowKey = rowInput.hasUserValue
+                ? typeof rowInput.value === 'string'
+                    ? rowInput.value
+                    : null
+                : existing?.rowKey ?? null
+            const nextColKey = colInput.hasUserValue
+                ? typeof colInput.value === 'string'
+                    ? colInput.value
+                    : null
+                : existing?.colKey ?? null
+
+            proposedCoordinates.set(rowId, { rowKey: nextRowKey, colKey: nextColKey })
+        }
+
+        const ownerByCoordinate = new Map<string, string>()
+        for (const [rowId, coordinate] of proposedCoordinates) {
+            if (coordinate.rowKey === null || coordinate.colKey === null) continue
+            const key = `${coordinate.rowKey}\u0000${coordinate.colKey}`
+            const owner = ownerByCoordinate.get(key)
+            if (owner && owner !== rowId) {
+                throw new UpdateFailure(409, { error: 'Duplicate tabular coordinates' })
+            }
+            ownerByCoordinate.set(key, rowId)
+        }
+    }
+
+    const assertAllowedUniformTabularUpdates = (
+        tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
+        uniformUpdates: Array<{ data: Record<string, unknown> }>
+    ): void => {
+        if (uniformUpdates.length === 0) return
+        if (tc.tableAttr.validation_rules?.matrixUniqueCoordinates !== true) {
+            throw new UpdateFailure(400, { error: 'Uniform tabular updates are available only for Matrix axis labels' })
+        }
+
+        const allowedFields = new Set<string>()
+        for (const codename of ['RowLabel', 'ColLabel']) {
+            const attr = tc.childAttrs.find((field) => field.codename === codename || field.column_name === codename)
+            if (attr) {
+                allowedFields.add(attr.codename)
+                allowedFields.add(attr.column_name)
+            }
+        }
+
+        for (const update of uniformUpdates) {
+            const [field] = Object.keys(update.data)
+            if (!field || !allowedFields.has(field)) {
+                throw new UpdateFailure(400, { error: 'Uniform tabular updates are available only for Matrix axis labels' })
             }
         }
     }
@@ -368,6 +485,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         const placeholders: string[] = ['$1', '$2']
         const values: unknown[] = [recordId, sortOrder]
         let pIdx = 3
+        const effectiveCreateData: Record<string, unknown> = { ...data }
 
         if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
             colNames.push(quoteIdentifier('workspace_id'))
@@ -444,6 +562,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     colNames.push(quoteIdentifier(cAttr.column_name))
                     placeholders.push(`$${pIdx}`)
                     values.push(defaultValue)
+                    effectiveCreateData[cAttr.column_name] = defaultValue
+                    if (cAttr.codename) effectiveCreateData[cAttr.codename] = defaultValue
                     pIdx++
                 }
                 continue
@@ -456,6 +576,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 colNames.push(quoteIdentifier(cAttr.column_name))
                 placeholders.push(`$${pIdx}`)
                 values.push(coerced)
+                effectiveCreateData[cAttr.column_name] = coerced
+                if (cAttr.codename) effectiveCreateData[cAttr.codename] = coerced
                 pIdx++
             } catch (err) {
                 return res.status(400).json({
@@ -485,7 +607,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
                 assertRuntimeRecordMutable(tc.object.config, parentRows[0])
-                await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ data }])
+                await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
+                await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
 
                 const { minRows, maxRows } = getTableRowLimits(tc.tableAttr.validation_rules)
                 const activeCountRows = (await tx.query(
@@ -594,6 +717,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (parentRows[0]._upl_locked) throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 assertRuntimeRecordMutable(tc.object.config, parentRows[0])
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
+                await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
 
                 const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, data, ctx.userId)
                 if ('error' in update) throw new UpdateFailure(400, update.error)
@@ -671,8 +795,16 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
+        const uniformUpdates = parsedBody.data.uniformUpdates ?? []
+        const allRequestedRows = [
+            ...parsedBody.data.updates.map((update) => ({
+                childRowId: update.childRowId,
+                expectedVersion: update.expectedVersion
+            })),
+            ...uniformUpdates.flatMap((group) => group.rows)
+        ]
         const seenChildRowIds = new Set<string>()
-        for (const update of parsedBody.data.updates) {
+        for (const update of allRequestedRows) {
             if (seenChildRowIds.has(update.childRowId)) {
                 return res.status(400).json({ error: 'Duplicate childRowId in batch update' })
             }
@@ -685,6 +817,12 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        try {
+            assertAllowedUniformTabularUpdates(tc, uniformUpdates)
+        } catch (error) {
+            if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)
+            throw error
+        }
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
             tc.object.config,
@@ -712,15 +850,16 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
                 assertRuntimeRecordMutable(tc.object.config, parentRows[0])
-                await validateTabularHierarchy(
-                    tx,
-                    tc,
-                    recordId,
-                    runtimeRowCondition,
-                    parsedBody.data.updates.map((update) => ({ childRowId: update.childRowId, data: update.data }))
-                )
+                await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [
+                    ...parsedBody.data.updates.map((update) => ({ childRowId: update.childRowId, data: update.data })),
+                    ...uniformUpdates.flatMap((group) => group.rows.map((row) => ({ childRowId: row.childRowId, data: group.data })))
+                ])
+                await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [
+                    ...parsedBody.data.updates.map((update) => ({ childRowId: update.childRowId, data: update.data })),
+                    ...uniformUpdates.flatMap((group) => group.rows.map((row) => ({ childRowId: row.childRowId, data: group.data })))
+                ])
 
-                const requestedChildRowIds = parsedBody.data.updates.map((update) => update.childRowId)
+                const requestedChildRowIds = allRequestedRows.map((update) => update.childRowId)
                 const childRows = (await tx.query(
                     `
             SELECT id, _upl_version
@@ -740,7 +879,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     }
                 }
 
-                for (const updateInput of parsedBody.data.updates) {
+                for (const updateInput of allRequestedRows) {
                     if (updateInput.expectedVersion === undefined) continue
                     const actualVersion = Number(childRowsById.get(updateInput.childRowId)?._upl_version ?? 1)
                     if (actualVersion !== updateInput.expectedVersion) {
@@ -794,6 +933,39 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
                     if (rows.length === 0) {
                         throw new UpdateFailure(404, { error: 'Child row not found', childRowId: updateInput.childRowId })
+                    }
+                }
+
+                for (const uniformUpdate of uniformUpdates) {
+                    const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, uniformUpdate.data, ctx.userId)
+                    if ('error' in update) {
+                        throw new UpdateFailure(400, update.error)
+                    }
+                    const setClauses = update.setClauses.filter((setClause) => setClause !== '_upl_version = COALESCE(_upl_version, 1) + 1')
+                    const values = [...update.values]
+                    const childIdsParam = update.nextParamIndex
+                    const expectedVersionsParam = childIdsParam + 1
+                    const parentIdParam = expectedVersionsParam + 1
+                    values.push(uniformUpdate.rows.map((row) => row.childRowId))
+                    values.push(uniformUpdate.rows.map((row) => row.expectedVersion ?? null))
+                    values.push(recordId)
+                    const updatedRows = (await tx.query(
+                        `
+              UPDATE ${tc.tabTableIdent} AS target
+              SET ${setClauses.join(', ')},
+                  _upl_version = COALESCE(target._upl_version, 1) + 1
+              FROM UNNEST($${childIdsParam}::uuid[], $${expectedVersionsParam}::integer[]) AS requested(id, expected_version)
+              WHERE target.id = requested.id
+                AND target._tp_parent_id = $${parentIdParam}
+                AND ${runtimeRowCondition}
+                AND (requested.expected_version IS NULL OR COALESCE(target._upl_version, 1) = requested.expected_version)
+              RETURNING target.id
+            `,
+                        values
+                    )) as Array<{ id: string }>
+
+                    if (updatedRows.length !== uniformUpdate.rows.length) {
+                        throw new UpdateFailure(409, { error: 'Version mismatch during uniform batch update' })
                     }
                 }
 
@@ -917,6 +1089,9 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        if (tc.tableAttr.validation_rules?.matrixUniqueCoordinates === true) {
+            return res.status(400).json({ error: 'Matrix coordinate rows cannot be copied without selecting new coordinates' })
+        }
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
             tc.object.config,
@@ -1044,6 +1219,11 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     copyValues.push(normalizeRuntimeTableChildInsertValueByMeta(copyValue, childAttrsByColumn.get(column)))
                 }
 
+                const copiedData = Object.fromEntries(
+                    copyColumns.map((column, index) => [column, copyValues[headerColumns.length + index]])
+                )
+                await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ data: copiedData }])
+
                 if (hierarchyAttrs && copiedHierarchyIdentity) {
                     await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [
                         {
@@ -1081,6 +1261,13 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
         if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
             return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
+        const parsedDeleteQuery = tabularDeleteQuerySchema.safeParse({
+            expectedVersion: req.query.expectedVersion
+        })
+        if (!parsedDeleteQuery.success) {
+            return res.status(400).json({ error: 'expectedVersion must be a positive integer' })
+        }
+        const { expectedVersion } = parsedDeleteQuery.data
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
@@ -1123,7 +1310,9 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 const hierarchyAttrs = resolveHierarchyAttrs(tc)
                 const childRows = (await tx.query(
                     `
-            SELECT id${hierarchyAttrs ? `, ${quoteIdentifier(hierarchyAttrs.identityAttr.column_name)} AS hierarchy_identity` : ''}
+            SELECT id, COALESCE(_upl_version, 1)::int AS version${
+                hierarchyAttrs ? `, ${quoteIdentifier(hierarchyAttrs.identityAttr.column_name)} AS hierarchy_identity` : ''
+            }
             FROM ${tc.tabTableIdent}
             WHERE id = $1
               AND _tp_parent_id = $2
@@ -1131,10 +1320,17 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             LIMIT 1
           `,
                     [childRowId, recordId]
-                )) as Array<{ id: string; hierarchy_identity?: unknown }>
+                )) as Array<{ id: string; version: number; hierarchy_identity?: unknown }>
 
                 if (childRows.length === 0) {
                     throw new UpdateFailure(404, { error: 'Child row not found' })
+                }
+                if (expectedVersion !== undefined && childRows[0].version !== expectedVersion) {
+                    throw new UpdateFailure(409, {
+                        error: 'Version conflict',
+                        expectedVersion,
+                        actualVersion: childRows[0].version
+                    })
                 }
                 if (hierarchyAttrs) {
                     const hierarchyIdentity = childRows[0].hierarchy_identity
@@ -1178,6 +1374,12 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     }
                 }
 
+                const deleteVersionClause = expectedVersion !== undefined ? 'AND COALESCE(_upl_version, 1) = $4' : ''
+                const deleteParameters =
+                    expectedVersion !== undefined ? [ctx.userId, childRowId, recordId, expectedVersion] : [ctx.userId, childRowId, recordId]
+                const hardDeleteVersionClause = expectedVersion !== undefined ? 'AND COALESCE(_upl_version, 1) = $3' : ''
+                const hardDeleteParameters =
+                    expectedVersion !== undefined ? [childRowId, recordId, expectedVersion] : [childRowId, recordId]
                 const deleted = runtimeDeleteSetClause
                     ? ((await tx.query(
                           `
@@ -1187,9 +1389,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 WHERE id = $2
                   AND _tp_parent_id = $3
                   AND ${runtimeRowCondition}
+                  ${deleteVersionClause}
                 RETURNING id
               `,
-                          [ctx.userId, childRowId, recordId]
+                          deleteParameters
                       )) as Array<{ id: string }>)
                     : ((await tx.query(
                           `
@@ -1197,13 +1400,16 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 WHERE id = $1
                   AND _tp_parent_id = $2
                   AND ${runtimeRowCondition}
+                  ${hardDeleteVersionClause}
                 RETURNING id
               `,
-                          [childRowId, recordId]
+                          hardDeleteParameters
                       )) as Array<{ id: string }>)
 
                 if (deleted.length === 0) {
-                    throw new UpdateFailure(404, { error: 'Child row not found' })
+                    throw new UpdateFailure(expectedVersion !== undefined ? 409 : 404, {
+                        error: expectedVersion !== undefined ? 'Version conflict' : 'Child row not found'
+                    })
                 }
             })
 

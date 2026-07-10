@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { excludeActiveCollision, pointWithinCellCollision } from '../workspace/matrixCollisionDetection'
+import { createMatrixCollisionDetection, excludeActiveCollision, pointWithinCellCollision } from '../workspace/matrixCollisionDetection'
 
 const droppableContainer = (id: string) => ({
     id,
@@ -51,6 +51,27 @@ describe('matrix collision detection', () => {
             droppableContainers: [droppableContainer('source'), droppableContainer('target')],
             droppableRects: new Map([
                 ['source', { top: 0, bottom: 64, left: 0, right: 100, width: 100, height: 64 }],
+                ['target', { top: 0, bottom: 64, left: 130, right: 230, width: 100, height: 64 }]
+            ])
+        })
+
+        expect(collisions.map((collision) => collision.id)).toEqual(['target'])
+    })
+
+    it('ignores non-cell droppables when the matrix provides an explicit cell target set', () => {
+        const collisionDetection = createMatrixCollisionDetection(new Set(['target']))
+        const collisions = collisionDetection({
+            active: { id: 'source', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+            collisionRect: { top: 0, bottom: 64, left: 0, right: 100, width: 100, height: 64 },
+            pointerCoordinates: { x: 180, y: 32 },
+            droppableContainers: [
+                droppableContainer('source'),
+                droppableContainer('interpretation-network-matrix-table'),
+                droppableContainer('target')
+            ],
+            droppableRects: new Map([
+                ['source', { top: 0, bottom: 64, left: 0, right: 100, width: 100, height: 64 }],
+                ['interpretation-network-matrix-table', { top: 0, bottom: 100, left: 0, right: 400, width: 400, height: 100 }],
                 ['target', { top: 0, bottom: 64, left: 130, right: 230, width: 100, height: 64 }]
             ])
         })

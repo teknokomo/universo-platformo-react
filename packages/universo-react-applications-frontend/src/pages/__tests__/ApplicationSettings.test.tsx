@@ -23,7 +23,7 @@ vi.mock('../../api/applications', () => ({
     listApplicationLayoutScopes: vi.fn(),
     listApplicationLayouts: vi.fn(),
     listApplicationLayoutWidgets: vi.fn(),
-    updateApplicationLayoutWidgetConfig: vi.fn(),
+    updateApplicationLayoutWidgetConfigsBatch: vi.fn(),
     updateApplicationWorkspaceLimits: vi.fn(),
     updateApplication: vi.fn()
 }))
@@ -49,7 +49,7 @@ import {
     listApplicationLayouts,
     listApplicationLayoutWidgets,
     updateApplication,
-    updateApplicationLayoutWidgetConfig,
+    updateApplicationLayoutWidgetConfigsBatch,
     updateApplicationWorkspaceLimits
 } from '../../api/applications'
 
@@ -59,8 +59,32 @@ const mockedListApplicationLayoutScopes = vi.mocked(listApplicationLayoutScopes)
 const mockedListApplicationLayouts = vi.mocked(listApplicationLayouts)
 const mockedListApplicationLayoutWidgets = vi.mocked(listApplicationLayoutWidgets)
 const mockedUpdateApplication = vi.mocked(updateApplication)
-const mockedUpdateApplicationLayoutWidgetConfig = vi.mocked(updateApplicationLayoutWidgetConfig)
+const mockedUpdateApplicationLayoutWidgetConfigsBatch = vi.mocked(updateApplicationLayoutWidgetConfigsBatch)
 const mockedUpdateApplicationWorkspaceLimits = vi.mocked(updateApplicationWorkspaceLimits)
+
+const mockSavedBatchWidgets = (
+    layoutIdsByWidgetId: Record<string, string>
+): ReturnType<typeof mockedUpdateApplicationLayoutWidgetConfigsBatch.mockImplementation> =>
+    mockedUpdateApplicationLayoutWidgetConfigsBatch.mockImplementation(async (_applicationId, input) =>
+        input.updates.map((update) => ({
+            id: update.widgetId,
+            layoutId: layoutIdsByWidgetId[update.widgetId] ?? '',
+            zone: 'main',
+            widgetKey: 'interpretationNetworkWorkspace',
+            sortOrder: 0,
+            config: update.config,
+            isActive: true,
+            version: 8
+        }))
+    )
+
+const getLastMatrixBatchUpdate = (widgetId: string) => {
+    const lastCall = mockedUpdateApplicationLayoutWidgetConfigsBatch.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('app-1')
+    const update = lastCall?.[1].updates.find((item) => item.widgetId === widgetId)
+    expect(update).toBeDefined()
+    return update!
+}
 
 const createRuntimeReadyApplication = (overrides: Record<string, unknown> = {}) =>
     ({
@@ -182,7 +206,7 @@ describe('ApplicationSettings', () => {
         })
         mockedListApplicationLayoutScopes.mockResolvedValue([])
         mockedListApplicationLayoutWidgets.mockResolvedValue([])
-        mockedUpdateApplicationLayoutWidgetConfig.mockResolvedValue({} as never)
+        mockedUpdateApplicationLayoutWidgetConfigsBatch.mockResolvedValue([] as never)
         mockedUpdateApplicationWorkspaceLimits.mockResolvedValue([])
     })
 
@@ -1010,6 +1034,7 @@ describe('ApplicationSettings', () => {
                 version: 7
             }
         ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
 
         renderSettings()
 
@@ -1057,7 +1082,7 @@ describe('ApplicationSettings', () => {
                 version: 7
             }
         ] as never)
-        mockedUpdateApplicationLayoutWidgetConfig.mockResolvedValue({
+        mockedUpdateApplicationLayoutWidgetConfigsBatch.mockResolvedValue({
             id: 'widget-1',
             layoutId: 'layout-1',
             zone: 'main',
@@ -1161,7 +1186,7 @@ describe('ApplicationSettings', () => {
 
     it('discovers feature settings from scoped materialized layouts', async () => {
         const scopedLayout = {
-            id: 'layout-scoped',
+            id: '018f8a78-7b8f-7c1d-a111-2222333345b2',
             scopeId: 'object-structure',
             scopeKind: 'entity',
             scopeEntityId: 'object-structure',
@@ -1198,7 +1223,7 @@ describe('ApplicationSettings', () => {
                   } as never)
         )
         mockedListApplicationLayoutWidgets.mockImplementation(async (_applicationId, layoutId) =>
-            layoutId === 'layout-scoped'
+            layoutId === '018f8a78-7b8f-7c1d-a111-2222333345b2'
                 ? ([
                       {
                           id: 'widget-scoped',
@@ -1222,7 +1247,7 @@ describe('ApplicationSettings', () => {
             offset: 0,
             scopeEntityId: 'object-structure'
         })
-        expect(mockedListApplicationLayoutWidgets).toHaveBeenCalledWith('app-1', 'layout-scoped')
+        expect(mockedListApplicationLayoutWidgets).toHaveBeenCalledWith('app-1', '018f8a78-7b8f-7c1d-a111-2222333345b2')
     })
 
     it('saves matrix mode through the layout widget config API', async () => {
@@ -1263,9 +1288,11 @@ describe('ApplicationSettings', () => {
                 sortOrder: 0,
                 config: {
                     matrixMode: 'hierarchicalCells',
-                    hierarchyLayout: 'horizontalRows',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'table',
                     hierarchyRowMode: 'allNodes',
                     positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+                    allowNewAxesInCellDialog: false,
                     serverModuleCodename: 'interpretation-runtime',
                     conceptCodename: 'Structure',
                     relationCodename: 'Interpretation',
@@ -1305,29 +1332,43 @@ describe('ApplicationSettings', () => {
         await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
         await userEvent.click(within(screen.getByTestId('application-setting-matrix-mode')).getByRole('combobox'))
         await userEvent.click(screen.getByRole('option', { name: 'Independent rows' }))
-        expect(mockedUpdateApplicationLayoutWidgetConfig).not.toHaveBeenCalled()
+        expect(screen.getByRole('checkbox', { name: 'Vertical tree' })).toBeDisabled()
+        expect(screen.getByRole('checkbox', { name: 'Table view' })).toBeChecked()
+        expect(screen.getByRole('checkbox', { name: 'Horizontal rows' })).toBeChecked()
+        expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).not.toHaveBeenCalled()
         await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
 
         await waitFor(() => {
-            expect(mockedUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledWith('app-1', 'layout-1', 'widget-1', {
-                config: {
-                    matrixMode: 'independentRows',
-                    hierarchyLayout: 'horizontalRows',
-                    hierarchyRowMode: 'allNodes',
-                    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
-                    serverModuleCodename: 'interpretation-runtime',
-                    conceptCodename: 'Structure',
-                    relationCodename: 'Interpretation',
-                    tableTemplateCodename: 'Interpretation Network Matrix',
-                    visibleFor: {
-                        sectionCodenames: ['Structure'],
-                        objectCollectionCodenames: ['Structure']
-                    }
-                },
-                expectedVersion: 7
-            })
+            expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    updates: [
+                        expect.objectContaining({
+                            layoutId: 'layout-1',
+                            widgetId: 'widget-1',
+                            config: expect.objectContaining({
+                                matrixMode: 'independentRows',
+                                allowedMatrixViews: ['table', 'horizontalRows'],
+                                defaultMatrixView: 'table',
+                                hierarchyRowMode: 'allNodes',
+                                positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+                                allowNewAxesInCellDialog: false,
+                                serverModuleCodename: 'interpretation-runtime',
+                                conceptCodename: 'Structure',
+                                relationCodename: 'Interpretation',
+                                tableTemplateCodename: 'Interpretation Network Matrix',
+                                visibleFor: {
+                                    sectionCodenames: ['Structure'],
+                                    objectCollectionCodenames: ['Structure']
+                                }
+                            }),
+                            expectedVersion: 7
+                        })
+                    ]
+                })
+            )
         })
-        const savedConfig = mockedUpdateApplicationLayoutWidgetConfig.mock.calls[0][3].config as Record<string, unknown>
+        const savedConfig = getLastMatrixBatchUpdate('widget-1').config as Record<string, unknown>
         expect(savedConfig).toMatchObject({
             serverModuleCodename: 'interpretation-runtime',
             relationCodename: 'Interpretation',
@@ -1351,6 +1392,72 @@ describe('ApplicationSettings', () => {
             queryClient.getQueryState(['interpretationNetworkWorkspaceMatrix', 'app-1', 'workspace-1', 'structure-1', 'matrix-column'])
                 ?.isInvalidated
         ).toBe(true)
+    })
+
+    it('saves matrix settings with the materialized layout id when widget layoutId is missing', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: {
+                total: 1,
+                limit: 100,
+                offset: 0,
+                count: 1,
+                hasMore: false
+            }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'table',
+                    hierarchyRowMode: 'allNodes',
+                    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+                    allowNewAxesInCellDialog: false
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-mode')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Independent rows' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toEqual(
+                expect.objectContaining({
+                    layoutId: 'layout-1',
+                    widgetId: 'widget-1',
+                    expectedVersion: 7
+                })
+            )
+        })
     })
 
     it('keeps a feature tab visible while materialized layout capability discovery is refreshing', async () => {
@@ -1425,9 +1532,72 @@ describe('ApplicationSettings', () => {
         expect(await screen.findByTestId('application-setting-matrix-mode')).toBeInTheDocument()
     })
 
+    it('saves the Matrix cell dialog axis creation toggle', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 1
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'table',
+                    hierarchyRowMode: 'focusedPath',
+                    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+                    allowNewAxesInCellDialog: false
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-new-axes-in-cell-dialog')).getByRole('switch'))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    allowNewAxesInCellDialog: true,
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'table'
+                }),
+                expectedVersion: 7
+            })
+        })
+    }, 15_000)
+
     it('saves matrix settings to every active interpretation workspace widget', async () => {
         const globalLayout = {
-            id: 'layout-global',
+            id: '018f8a78-7b8f-7c1d-a111-2222333345c1',
             scopeId: null,
             scopeKind: 'global',
             scopeEntityId: null,
@@ -1445,7 +1615,7 @@ describe('ApplicationSettings', () => {
         }
         const scopedLayout = {
             ...globalLayout,
-            id: 'layout-scoped',
+            id: '018f8a78-7b8f-7c1d-a111-2222333345c2',
             scopeId: 'object-structure',
             scopeKind: 'entity',
             scopeEntityId: 'object-structure',
@@ -1479,66 +1649,149 @@ describe('ApplicationSettings', () => {
             } as never
         })
         mockedListApplicationLayoutWidgets.mockImplementation(async (_applicationId, layoutId) =>
-            layoutId === 'layout-global' || layoutId === 'layout-scoped'
+            layoutId === '018f8a78-7b8f-7c1d-a111-2222333345c1' || layoutId === '018f8a78-7b8f-7c1d-a111-2222333345c2'
                 ? ([
                       {
-                          id: layoutId === 'layout-global' ? 'widget-global' : 'widget-scoped',
+                          id: layoutId === '018f8a78-7b8f-7c1d-a111-2222333345c1' ? 'widget-global' : 'widget-scoped',
                           layoutId,
                           zone: 'main',
                           widgetKey: 'interpretationNetworkWorkspace',
                           sortOrder: 0,
-                          config: { matrixMode: 'hierarchicalCells', conceptCodename: 'Structure' },
+                          config: {
+                              matrixMode: 'hierarchicalCells',
+                              allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                              defaultMatrixView: layoutId === '018f8a78-7b8f-7c1d-a111-2222333345c1' ? 'horizontalRows' : 'table',
+                              conceptCodename: 'Structure'
+                          },
                           isActive: true,
                           version: 7
                       }
                   ] as never)
                 : []
         )
-        mockedUpdateApplicationLayoutWidgetConfig.mockImplementation(async (_applicationId, layoutId, widgetId, input) => ({
-            id: widgetId,
-            layoutId,
-            zone: 'main',
-            widgetKey: 'interpretationNetworkWorkspace',
-            sortOrder: 0,
-            config: input.config,
-            isActive: true,
-            version: 8
-        }))
+        mockSavedBatchWidgets({
+            'widget-global': '018f8a78-7b8f-7c1d-a111-2222333345c1',
+            'widget-scoped': '018f8a78-7b8f-7c1d-a111-2222333345c2'
+        })
 
         renderSettings()
 
         await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        expect(await screen.findByTestId('application-settings-matrix-divergence-warning')).toHaveTextContent(
+            'Saving will normalize every active widget'
+        )
         await userEvent.click(within(screen.getByTestId('application-setting-matrix-mode')).getByRole('combobox'))
         await userEvent.click(screen.getByRole('option', { name: 'Independent rows' }))
         await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
 
         await waitFor(() => {
-            expect(mockedUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledTimes(2)
+            expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledTimes(1)
         })
-        expect(mockedUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
-            'app-1',
-            'layout-global',
-            'widget-global',
-            expect.objectContaining({
-                config: expect.objectContaining({
-                    matrixMode: 'independentRows',
-                    hierarchyLayout: 'horizontalRows',
-                    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
-                }),
-                expectedVersion: 7
-            })
+        expect(getLastMatrixBatchUpdate('widget-global')).toMatchObject({
+            config: expect.objectContaining({
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'horizontalRows',
+                positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
+            }),
+            expectedVersion: 7
+        })
+        expect(getLastMatrixBatchUpdate('widget-scoped')).toMatchObject({
+            config: expect.objectContaining({
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'horizontalRows',
+                positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
+            }),
+            expectedVersion: 7
+        })
+    })
+
+    it('allows normalizing divergent active matrix widgets without changing a control first', async () => {
+        const globalLayout = {
+            id: '018f8a78-7b8f-7c1d-a111-2222333345d1',
+            scopeId: null,
+            scopeKind: 'global',
+            scopeEntityId: null,
+            templateKey: 'dashboard',
+            name: { en: 'Global dashboard' },
+            description: null,
+            config: {},
+            isActive: true,
+            isDefault: true,
+            sortOrder: 0,
+            sourceKind: 'application',
+            syncState: 'in_sync',
+            isSourceExcluded: false,
+            version: 3
+        }
+        const scopedLayout = {
+            ...globalLayout,
+            id: '018f8a78-7b8f-7c1d-a111-2222333345d2',
+            scopeId: 'object-structure',
+            scopeKind: 'entity',
+            scopeEntityId: 'object-structure',
+            name: { en: 'Scoped dashboard' }
+        }
+        mockedListApplicationLayoutScopes.mockResolvedValue([
+            {
+                id: 'object-structure',
+                scopeKind: 'entity',
+                objectCollectionId: 'object-structure',
+                scopeEntityId: 'object-structure',
+                name: 'Structure'
+            }
+        ] as never)
+        mockedListApplicationLayouts.mockImplementation(async (_applicationId, params) =>
+            params?.scopeEntityId === 'object-structure'
+                ? ({
+                      items: [scopedLayout],
+                      pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+                  } as never)
+                : ({
+                      items: [globalLayout],
+                      pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+                  } as never)
         )
-        expect(mockedUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
-            'app-1',
-            'layout-scoped',
-            'widget-scoped',
+        mockedListApplicationLayoutWidgets.mockImplementation(async (_applicationId, layoutId) =>
+            layoutId === '018f8a78-7b8f-7c1d-a111-2222333345d1' || layoutId === '018f8a78-7b8f-7c1d-a111-2222333345d2'
+                ? ([
+                      {
+                          id: layoutId === '018f8a78-7b8f-7c1d-a111-2222333345d1' ? 'widget-global' : 'widget-scoped',
+                          layoutId,
+                          zone: 'main',
+                          widgetKey: 'interpretationNetworkWorkspace',
+                          sortOrder: 0,
+                          config: {
+                              matrixMode: 'hierarchicalCells',
+                              allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                              defaultMatrixView: layoutId === '018f8a78-7b8f-7c1d-a111-2222333345d1' ? 'table' : 'horizontalRows',
+                              conceptCodename: 'Structure'
+                          },
+                          isActive: true,
+                          version: 7
+                      }
+                  ] as never)
+                : []
+        )
+        mockSavedBatchWidgets({
+            'widget-global': '018f8a78-7b8f-7c1d-a111-2222333345d1',
+            'widget-scoped': '018f8a78-7b8f-7c1d-a111-2222333345d2'
+        })
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        expect(await screen.findByTestId('application-settings-matrix-divergence-warning')).toBeInTheDocument()
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledTimes(1)
+        })
+        expect(getLastMatrixBatchUpdate('widget-scoped').config).toEqual(
             expect.objectContaining({
-                config: expect.objectContaining({
-                    matrixMode: 'independentRows',
-                    hierarchyLayout: 'horizontalRows',
-                    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 }
-                }),
-                expectedVersion: 7
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table'
             })
         )
     })
@@ -1554,7 +1807,7 @@ describe('ApplicationSettings', () => {
             }
         ] as never)
         mockedListApplicationLayouts.mockImplementation(async (_applicationId, params) => {
-            if (params?.scopeEntityId === null) {
+            if (params?.scopeEntityId == null) {
                 return {
                     items: [],
                     pagination: { total: 0, limit: 100, offset: 0, count: 0, hasMore: false }
@@ -1564,7 +1817,7 @@ describe('ApplicationSettings', () => {
                 return {
                     items: [
                         {
-                            id: 'layout-scoped',
+                            id: '018f8a78-7b8f-7c1d-a111-2222333345f2',
                             scopeId: 'object-structure',
                             scopeKind: 'entity',
                             scopeEntityId: 'object-structure',
@@ -1592,7 +1845,7 @@ describe('ApplicationSettings', () => {
         mockedListApplicationLayoutWidgets.mockResolvedValue([
             {
                 id: 'widget-scoped',
-                layoutId: 'layout-scoped',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345f2',
                 zone: 'main',
                 widgetKey: 'interpretationNetworkWorkspace',
                 sortOrder: 0,
@@ -1601,6 +1854,7 @@ describe('ApplicationSettings', () => {
                 version: 7
             }
         ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
 
         renderSettings()
 
@@ -1610,23 +1864,20 @@ describe('ApplicationSettings', () => {
         await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
 
         await waitFor(() => {
-            expect(mockedUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
-                'app-1',
-                'layout-scoped',
-                'widget-scoped',
-                expect.objectContaining({
-                    config: expect.objectContaining({
-                        matrixMode: 'independentRows',
-                        hierarchyRowMode: 'focusedPath',
-                        conceptCodename: 'Structure'
-                    }),
-                    expectedVersion: 7
-                })
-            )
+            expect(getLastMatrixBatchUpdate('widget-scoped')).toMatchObject({
+                config: expect.objectContaining({
+                    matrixMode: 'independentRows',
+                    allowedMatrixViews: ['horizontalRows'],
+                    defaultMatrixView: 'horizontalRows',
+                    hierarchyRowMode: 'focusedPath',
+                    conceptCodename: 'Structure'
+                }),
+                expectedVersion: 7
+            })
         })
     })
 
-    it('saves matrix hierarchy layout and position numbering settings through widget config', async () => {
+    it('saves allowed Matrix views, the default view, and position numbering through widget config', async () => {
         mockedListApplicationLayouts.mockResolvedValue({
             items: [
                 {
@@ -1658,9 +1909,91 @@ describe('ApplicationSettings', () => {
                 sortOrder: 0,
                 config: {
                     matrixMode: 'hierarchicalCells',
-                    hierarchyLayout: 'horizontalRows',
+                    allowedMatrixViews: ['horizontalRows'],
+                    defaultMatrixView: 'horizontalRows',
                     hierarchyRowMode: 'allNodes',
                     positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+                    conceptCodename: 'Structure'
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Table view' }))
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Vertical tree' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-default-view')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Vertical tree' }))
+        expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).not.toHaveBeenCalled()
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'verticalTree',
+                    hierarchyRowMode: 'allNodes',
+                    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+                    conceptCodename: 'Structure'
+                }),
+                expectedVersion: 7
+            })
+        })
+
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-position-numbering-root')).getByRole('switch'))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'verticalTree',
+                    hierarchyRowMode: 'allNodes',
+                    positionNumbering: { enabled: true, includeRoot: false, startIndex: 1 }
+                }),
+                expectedVersion: 8
+            })
+        })
+    }, 15_000)
+
+    it('migrates a legacy vertical hierarchy layout without changing the selected Matrix view', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    hierarchyLayout: 'verticalTree',
                     conceptCodename: 'Structure'
                 },
                 isActive: true,
@@ -1671,48 +2004,172 @@ describe('ApplicationSettings', () => {
         renderSettings()
 
         await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
-        await userEvent.click(within(screen.getByTestId('application-setting-matrix-hierarchy-layout')).getByRole('combobox'))
-        await userEvent.click(screen.getByRole('option', { name: 'Vertical tree' }))
-        expect(mockedUpdateApplicationLayoutWidgetConfig).not.toHaveBeenCalled()
-        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
-
-        await waitFor(() => {
-            expect(mockedUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
-                'app-1',
-                'layout-1',
-                'widget-1',
-                expect.objectContaining({
-                    config: expect.objectContaining({
-                        matrixMode: 'hierarchicalCells',
-                        hierarchyLayout: 'verticalTree',
-                        hierarchyRowMode: 'allNodes',
-                        positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
-                        conceptCodename: 'Structure'
-                    }),
-                    expectedVersion: 7
-                })
-            )
-        })
+        expect(screen.getByRole('checkbox', { name: 'Horizontal rows' })).toBeChecked()
+        expect(screen.getByRole('checkbox', { name: 'Vertical tree' })).toBeChecked()
+        expect(within(screen.getByTestId('application-setting-matrix-default-view')).getByRole('combobox')).toHaveTextContent(
+            'Vertical tree'
+        )
 
         await userEvent.click(within(screen.getByTestId('application-setting-matrix-position-numbering-root')).getByRole('switch'))
         await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
 
         await waitFor(() => {
-            expect(mockedUpdateApplicationLayoutWidgetConfig).toHaveBeenLastCalledWith(
-                'app-1',
-                'layout-1',
-                'widget-1',
-                expect.objectContaining({
-                    config: expect.objectContaining({
-                        hierarchyLayout: 'verticalTree',
-                        hierarchyRowMode: 'allNodes',
-                        positionNumbering: { enabled: true, includeRoot: false, startIndex: 1 }
-                    }),
-                    expectedVersion: 7
-                })
-            )
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'verticalTree',
+                    positionNumbering: { enabled: true, includeRoot: false, startIndex: 1 },
+                    conceptCodename: 'Structure'
+                }),
+                expectedVersion: 7
+            })
         })
-    })
+        expect(getLastMatrixBatchUpdate('widget-1').config).not.toHaveProperty('hierarchyLayout')
+    }, 15_000)
+
+    it('saves Table view as an allowed and default Matrix view through widget config', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['horizontalRows'],
+                    defaultMatrixView: 'horizontalRows',
+                    conceptCodename: 'Structure'
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Table view' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-default-view')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Table view' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows'],
+                    defaultMatrixView: 'table',
+                    conceptCodename: 'Structure'
+                }),
+                expectedVersion: 7
+            })
+        })
+    }, 15_000)
+
+    it('reloads materialized layouts and reports an atomic matrix widget batch save failure', async () => {
+        const globalLayout = {
+            id: '018f8a78-7b8f-7c1d-a111-2222333345e1',
+            scopeId: null,
+            scopeKind: 'global',
+            scopeEntityId: null,
+            templateKey: 'dashboard',
+            name: { en: 'Global dashboard' },
+            description: null,
+            config: {},
+            isActive: true,
+            isDefault: true,
+            sortOrder: 0,
+            sourceKind: 'application',
+            syncState: 'in_sync',
+            isSourceExcluded: false,
+            version: 3
+        }
+        const scopedLayout = {
+            ...globalLayout,
+            id: '018f8a78-7b8f-7c1d-a111-2222333345e2',
+            scopeId: 'object-structure',
+            scopeKind: 'entity',
+            scopeEntityId: 'object-structure',
+            name: { en: 'Scoped dashboard' }
+        }
+        mockedListApplicationLayoutScopes.mockResolvedValue([
+            {
+                id: 'object-structure',
+                scopeKind: 'entity',
+                objectCollectionId: 'object-structure',
+                scopeEntityId: 'object-structure',
+                name: 'Structure'
+            }
+        ] as never)
+        mockedListApplicationLayouts.mockImplementation(async (_applicationId, params) =>
+            params?.scopeEntityId === 'object-structure'
+                ? ({
+                      items: [scopedLayout],
+                      pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+                  } as never)
+                : ({
+                      items: [globalLayout],
+                      pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+                  } as never)
+        )
+        mockedListApplicationLayoutWidgets.mockImplementation(
+            async (_applicationId, layoutId) =>
+                [
+                    {
+                        id: layoutId === '018f8a78-7b8f-7c1d-a111-2222333345e1' ? 'widget-global' : 'widget-scoped',
+                        layoutId,
+                        zone: 'main',
+                        widgetKey: 'interpretationNetworkWorkspace',
+                        sortOrder: 0,
+                        config: { matrixMode: 'hierarchicalCells', conceptCodename: 'Structure' },
+                        isActive: true,
+                        version: 7
+                    }
+                ] as never
+        )
+        mockedUpdateApplicationLayoutWidgetConfigsBatch.mockRejectedValue(new Error('Version conflict'))
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Table view' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledTimes(1)
+        })
+        expect(getLastMatrixBatchUpdate('widget-global')).toBeDefined()
+        expect(getLastMatrixBatchUpdate('widget-scoped')).toBeDefined()
+        expect(await screen.findByText('Failed to save matrix settings')).toBeInTheDocument()
+        expect(screen.queryByText('Matrix settings saved')).not.toBeInTheDocument()
+        await waitFor(() => {
+            expect(mockedListApplicationLayoutWidgets.mock.calls.length).toBeGreaterThan(2)
+        })
+    }, 15_000)
 
     it('does not load limits while schema provisioning is still pending', async () => {
         mockedUseApplicationDetails.mockReturnValue({

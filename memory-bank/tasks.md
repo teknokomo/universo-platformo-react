@@ -1,29 +1,48 @@
-# Interpretation Network Runtime Structures And Focused Matrix Follow-up (2026-07-05)
+# Interpretation Network Matrix Axis Dialogs (2026-07-09)
 
-> Status: IMPLEMENT in progress
-> Scope: published Interpretation Network structures actions, table/card alignment, focused horizontal hierarchy rendering, and horizontal-row drag thresholds.
-
-## Checklist
-
--   [x] S1. Inspect current Structures list/table/card, Matrix hierarchy rows, DnD threshold code, tests, and E2E flow.
--   [x] S2. Restore standard Structures action menus in table and card views with Edit/Delete actions and no raw technical fields.
--   [x] S3. Align Structures table description cells vertically with title cells.
--   [x] S4. Add focused horizontal hierarchy rendering so lower rows show only the selected path/selected cell children by default, while keeping full-level rendering configurable.
--   [x] S5. Fix horizontal-row DnD thresholds: no-op below 10%, child insertion from 10-50%, sibling reorder after the leading edge crosses 50%, and origin return without mutation.
--   [x] S6. Update focused Vitest/component and Playwright coverage, including runtime screenshots/overflow assertions on minimal local Supabase.
--   [x] S7. Run the previous slice's focused package tests/builds and fixture/isolation gates.
--   [x] S8. Preserve the selected hierarchy path after creating a nested child so the parent remains expanded and the new cell appears without reopening ancestors.
--   [x] S9. Add cross-level horizontal drop zones: left 25% inserts before, center 50% reparents as a child, and right 25% inserts after, at any higher hierarchy level.
--   [x] S10. Add focused unit/component regression coverage for nested creation and cross-level drop boundaries while preserving same-row 10/50 behavior and cycle rejection.
--   [x] S11. Run Prettier, focused test/build/fixture/isolation gates, browser evidence if required, OntoIndex diff verification, and Thermos/autoreview closeout.
+> Status: completed
+> Scope: simplify Matrix Table row/column authoring and make new-axis creation from the cell dialog configurable without schema/template version bumps.
 
 ## UI Contract
 
--   Structures table/card views expose the same user-facing actions pattern as existing Material cards/tables: a three-dot icon opens Edit/Delete actions, with destructive delete confirmation.
--   Structure title and description cells are vertically centered in table view and preserve the existing app-template density and typography.
--   Horizontal hierarchy rows render a focused path by default: no child row is shown until a cell in the current row is selected; then only that selected cell's children fill the next row, recursively by selected path.
--   A full-level horizontal hierarchy remains available as widget config for future/alternate layouts, but the Interpretation Network default is focused horizontal rows.
--   Horizontal drag detection has a stable dead-zone before 10% overlap, child placement from 10% through 50% leading-edge overlap, sibling placement after 50%, and no mutation when released back in the dead-zone/origin slot.
--   Saving a newly created child keeps its parent selected, preserving every already expanded ancestor row while the refreshed data adds the child to the visible next row.
--   Dragging a cell onto any higher horizontal row uses the hovered target's width: the left quarter inserts before it, the middle half reparents into it, and the right quarter inserts after it. Existing same-row overlap rules remain unchanged.
--   No page-level horizontal overflow, raw UUIDs, raw JSON, or untranslated action/drag labels are introduced.
+-   Matrix Table `Add row` opens a dedicated localized dialog for a new row name only; it creates a cell in the new row using the selected cell column as context.
+-   Matrix Table `Add column` opens a dedicated localized dialog for a new column name only; it creates a cell in the new column using the selected cell row as context.
+-   The regular cell dialog hides `New row` and `New column` placement options unless widget/application configuration explicitly enables them.
+-   The Interpretation Network fixture defaults this setting to disabled, so new metahubs/applications start with the simpler MVP workflow.
+-   System fields remain hidden; no raw UUIDs/JSON/internal field names are exposed in normal runtime UI.
+-   Existing Matrix Table DnD remains intact and E2E-covered.
+
+## Checklist
+
+-   [x] T1. Inspect current Matrix settings, cell placement dialog, tests, E2E fixture, and run OntoIndex impact for edited symbols.
+-   [x] T2. Add a shared Matrix setting for allowing new row/column creation inside the cell dialog, with default disabled in the Interpretation Network template/fixture and application settings.
+-   [x] T3. Implement dedicated Add row/Add column runtime dialogs and route table plus buttons to them.
+-   [x] T4. Update cell dialog placement behavior so New row/New column radio options are hidden unless enabled by configuration.
+-   [x] T5. Update focused unit/component/E2E tests and fixture contract for the simplified dialogs and default setting.
+-   [x] T6. Run Prettier, focused tests/build/lint, local minimal Supabase E2E where feasible, OntoIndex diff verification, and autoreview.
+-   [x] T7. Update `memory-bank/progress.md` with implementation and verification results.
+
+# Interpretation Network Matrix Table UX Fixes (2026-07-09)
+
+> Status: completed
+> Scope: fix Matrix Table axis dialog spacing and allow moving a cell card into a free table intersection without schema/template version bumps.
+
+## UI Contract
+
+-   Matrix Table `Add row` and `Add column` dialogs use existing `apps-template-mui` MUI dialog primitives and standard action/content spacing; no extra duplicate shared dialog component is introduced.
+-   The axis name field label must remain fully visible when focused and unfocused.
+-   Matrix Table row/column plus actions are usable from the initial opened table state; if no cell was selected, they use the first visible table cell as the safe anchor context.
+-   A free Matrix Table intersection is a valid drop target in table view.
+-   Dropping an existing cell card into a free table intersection changes only table coordinates (`RowKey`, `RowLabel`, `ColKey`, `ColLabel`) and local row sort order; the existing parent-child relationship is preserved for MVP predictability.
+-   A selected cell can be moved into a free table intersection through a keyboard-reachable empty-slot command as well as pointer drag/drop.
+-   Occupied intersections remain protected from accidental overwrite.
+
+## Checklist
+
+-   [x] T1. Inspect current axis dialog and Matrix Table drag/drop implementation, including OntoIndex impact where available.
+-   [x] T2. Fix axis dialog spacing using existing template/MUI primitives.
+-   [x] T3. Enable free table intersection drops for hierarchical and independent Matrix Table modes while preserving parent links.
+-   [x] T4. Add focused regression tests for table-slot drop behavior and dialog layout semantics.
+-   [x] T5. Accept and remediate runtime UX QA findings for hidden selection prerequisites and keyboard-accessible empty-slot moves.
+-   [x] T6. Run Prettier, focused tests/lint/build/guards, local minimal Supabase E2E where feasible, OntoIndex diff verification, and autoreview.
+-   [x] T7. Update `memory-bank/progress.md` with implementation and verification results.

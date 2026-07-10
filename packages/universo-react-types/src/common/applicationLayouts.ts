@@ -657,6 +657,37 @@ export type LearnerPlayerWidgetConfig = z.infer<typeof learnerPlayerWidgetConfig
 export const interpretationNetworkMatrixModes = ['hierarchicalCells', 'independentRows'] as const
 export type InterpretationNetworkMatrixMode = (typeof interpretationNetworkMatrixModes)[number]
 
+export const interpretationNetworkMatrixViews = ['table', 'horizontalRows', 'verticalTree'] as const
+export type InterpretationNetworkMatrixView = (typeof interpretationNetworkMatrixViews)[number]
+
+export interface InterpretationNetworkMatrixViewSettings {
+    allowedMatrixViews: InterpretationNetworkMatrixView[]
+    defaultMatrixView: InterpretationNetworkMatrixView
+}
+
+export const normalizeInterpretationNetworkMatrixViewSettings = (
+    matrixMode: InterpretationNetworkMatrixMode,
+    allowedMatrixViews: readonly unknown[] | undefined,
+    defaultMatrixView: unknown
+): InterpretationNetworkMatrixViewSettings => {
+    const fallbackView: InterpretationNetworkMatrixView = 'horizontalRows'
+    const requestedViews = allowedMatrixViews ?? [fallbackView]
+    const allowedViews = interpretationNetworkMatrixViews.filter(
+        (view) => requestedViews.includes(view) && (matrixMode === 'hierarchicalCells' || view !== 'verticalTree')
+    )
+    const normalizedAllowedViews: InterpretationNetworkMatrixView[] = allowedViews.length > 0 ? allowedViews : [fallbackView]
+    const normalizedDefaultView =
+        interpretationNetworkMatrixViews.includes(defaultMatrixView as InterpretationNetworkMatrixView) &&
+        normalizedAllowedViews.includes(defaultMatrixView as InterpretationNetworkMatrixView)
+            ? (defaultMatrixView as InterpretationNetworkMatrixView)
+            : normalizedAllowedViews[0]
+
+    return {
+        allowedMatrixViews: normalizedAllowedViews,
+        defaultMatrixView: normalizedDefaultView
+    }
+}
+
 export const interpretationNetworkHierarchyLayouts = ['horizontalRows', 'verticalTree'] as const
 export type InterpretationNetworkHierarchyLayout = (typeof interpretationNetworkHierarchyLayouts)[number]
 
@@ -671,12 +702,38 @@ export const interpretationNetworkPositionNumberingSchema = z
     })
     .strict()
 
-export const interpretationNetworkWorkspaceWidgetConfigSchema = moduleBackedWidgetConfigSchema
+const migrateDeprecatedInterpretationNetworkConfigKeys = (value: unknown): unknown => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return value
+    }
+
+    const { hierarchyLayout, ...config } = value as Record<string, unknown>
+    if (!interpretationNetworkHierarchyLayouts.includes(hierarchyLayout as InterpretationNetworkHierarchyLayout)) {
+        return config
+    }
+    if (Array.isArray(config.allowedMatrixViews) || config.defaultMatrixView !== undefined) {
+        return config
+    }
+
+    const legacyView = hierarchyLayout as InterpretationNetworkHierarchyLayout
+    const matrixMode = config.matrixMode === 'independentRows' ? 'independentRows' : 'hierarchicalCells'
+    const allowedMatrixViews = matrixMode === 'hierarchicalCells' ? ['horizontalRows', legacyView] : ['horizontalRows']
+
+    return {
+        ...config,
+        allowedMatrixViews: Array.from(new Set(allowedMatrixViews)),
+        defaultMatrixView: matrixMode === 'hierarchicalCells' ? legacyView : 'horizontalRows'
+    }
+}
+
+const interpretationNetworkWorkspaceWidgetConfigObjectSchema = moduleBackedWidgetConfigSchema
     .extend({
         matrixMode: z.enum(interpretationNetworkMatrixModes).optional(),
-        hierarchyLayout: z.enum(interpretationNetworkHierarchyLayouts).optional(),
+        allowedMatrixViews: z.array(z.enum(interpretationNetworkMatrixViews)).min(1).max(3).optional(),
+        defaultMatrixView: z.enum(interpretationNetworkMatrixViews).optional(),
         hierarchyRowMode: z.enum(interpretationNetworkHierarchyRowModes).optional(),
         positionNumbering: interpretationNetworkPositionNumberingSchema.optional(),
+        allowNewAxesInCellDialog: z.boolean().optional(),
         conceptCodename: z.string().trim().min(1).max(128).optional(),
         conceptNameField: z.string().trim().min(1).max(128).optional(),
         conceptDescriptionField: z.string().trim().min(1).max(128).optional(),
@@ -693,6 +750,38 @@ export const interpretationNetworkWorkspaceWidgetConfigSchema = moduleBackedWidg
         tableTemplateMatrixField: z.string().trim().min(1).max(128).optional()
     })
     .strict()
+    .superRefine((config, ctx) => {
+        const matrixMode = config.matrixMode ?? 'hierarchicalCells'
+        const allowedMatrixViews = config.allowedMatrixViews ?? ['horizontalRows']
+        const uniqueViews = new Set(allowedMatrixViews)
+
+        if (uniqueViews.size !== allowedMatrixViews.length) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['allowedMatrixViews'],
+                message: 'Matrix views must be unique'
+            })
+        }
+        if (matrixMode === 'independentRows' && uniqueViews.has('verticalTree')) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['allowedMatrixViews'],
+                message: 'Vertical tree view is available only for hierarchical matrix cells'
+            })
+        }
+        if (config.defaultMatrixView && !uniqueViews.has(config.defaultMatrixView)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['defaultMatrixView'],
+                message: 'Default Matrix view must be allowed'
+            })
+        }
+    })
+
+export const interpretationNetworkWorkspaceWidgetConfigSchema = z.preprocess(
+    migrateDeprecatedInterpretationNetworkConfigKeys,
+    interpretationNetworkWorkspaceWidgetConfigObjectSchema
+)
 
 export type InterpretationNetworkWorkspaceWidgetConfig = z.infer<typeof interpretationNetworkWorkspaceWidgetConfigSchema>
 
@@ -813,6 +902,32 @@ export const applicationLayoutWidgetConfigMutationSchema = z.object({
     expectedVersion: z.number().int().positive().optional()
 })
 export type ApplicationLayoutWidgetConfigMutation = z.infer<typeof applicationLayoutWidgetConfigMutationSchema>
+
+export const applicationLayoutWidgetConfigBatchMutationSchema = z.object({
+    updates: z
+        .array(
+            applicationLayoutWidgetConfigMutationSchema.extend({
+                layoutId: z.string().uuid(),
+                widgetId: z.string().uuid()
+            })
+        )
+        .min(1)
+        .max(100)
+        .superRefine((updates, ctx) => {
+            const seen = new Set<string>()
+            updates.forEach((update, index) => {
+                if (seen.has(update.widgetId)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        message: 'Duplicate widgetId',
+                        path: [index, 'widgetId']
+                    })
+                }
+                seen.add(update.widgetId)
+            })
+        })
+})
+export type ApplicationLayoutWidgetConfigBatchMutation = z.infer<typeof applicationLayoutWidgetConfigBatchMutationSchema>
 
 export const applicationLayoutWidgetMoveMutationSchema = z.object({
     widgetId: z.string(),

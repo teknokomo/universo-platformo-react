@@ -29,6 +29,15 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 -   Default LMS layout использует shared dashboard shell (`menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable`) вместо глобальных LMS-only widgets.
 -   Learning Content layouts используют generic runtime widgets и datasource contracts, включая `records.union` для unified libraries и deleted-row queries для trash views.
 
+## Контракт шаблона трактовочной сети
+
+-   Специализированный шаблон трактовочной сети компонуется из существующих пресетов Hub, Object, Page, Set и Enumeration и не добавляет новый вид сущности платформы.
+-   Виджет `interpretationNetworkWorkspace` хранит исходные настройки равноправных представлений Матрицы в `allowedMatrixViews` и `defaultMatrixView`; их проверяет общий контракт `@universo-react/types`.
+-   Метахаб владеет исходными настройками. Материализованное Приложение может переопределить их для конкретного развёртывания, а пользователи рабочего пространства создают Структуры, ячейки, Связи, Материалы и шаблоны таблиц.
+-   Тесты шаблона и фикстуры требуют согласованное непустое подмножество `table`, `horizontalRows` и `verticalTree` с разрешённым значением по умолчанию и запрещают посторонние демонстрационные или конфигурационно-зависимые виджеты.
+-   Записи Матрицы содержат задаваемые пользователем `RowLabel`, `ColLabel`, `CellValue` и многострочное `CellDescription`; идентификатор UUID v7, родительский и осевые ключи, а также сохраняемый порядок остаются системными.
+-   Изменяется только конфигурация: версии схемы, шаблона и минимальной структуры не увеличиваются.
+
 ## Main Responsibilities
 
 -   Экспортировать authenticated CRUD routes для design-time metahub resources.

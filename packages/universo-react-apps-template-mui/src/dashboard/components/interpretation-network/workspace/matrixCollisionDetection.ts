@@ -3,6 +3,9 @@ import { closestCenter, rectIntersection, type Collision, type CollisionDetectio
 export const excludeActiveCollision = (collisions: Collision[], activeId: UniqueIdentifier): Collision[] =>
     collisions.filter((collision) => collision.id !== activeId)
 
+export const includeAllowedTargetCollisions = (collisions: Collision[], allowedTargetIds: ReadonlySet<UniqueIdentifier>): Collision[] =>
+    collisions.filter((collision) => allowedTargetIds.has(collision.id))
+
 const pointWithinRect = (point: { x: number; y: number }, rect: { top: number; left: number; width: number; height: number }): boolean =>
     point.x >= rect.left && point.x <= rect.left + rect.width && point.y >= rect.top && point.y <= rect.top + rect.height
 
@@ -57,3 +60,11 @@ export const matrixCollisionDetection: CollisionDetection = (args) => {
 
     return excludeActiveCollision(closestCenter(args), args.active.id)
 }
+
+export const createMatrixCollisionDetection =
+    (allowedTargetIds: ReadonlySet<UniqueIdentifier>): CollisionDetection =>
+    (args) => {
+        const scopedContainers = args.droppableContainers.filter((container) => allowedTargetIds.has(container.id))
+        const scopedArgs = { ...args, droppableContainers: scopedContainers }
+        return includeAllowedTargetCollisions(matrixCollisionDetection(scopedArgs), allowedTargetIds)
+    }

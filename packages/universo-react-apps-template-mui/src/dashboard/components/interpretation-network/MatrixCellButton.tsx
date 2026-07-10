@@ -10,6 +10,62 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { MatrixCell } from './model'
 
+export function MatrixCellContent({
+    children,
+    positionLabel,
+    compact = false
+}: {
+    children: React.ReactNode
+    positionLabel?: string
+    compact?: boolean
+}) {
+    return (
+        <Box sx={{ minWidth: 0, width: '100%', position: 'relative', pt: positionLabel && compact ? 2.25 : 0 }}>
+            {positionLabel ? (
+                <Box
+                    component='span'
+                    data-testid='interpretation-network-cell-position'
+                    sx={{
+                        position: compact ? 'absolute' : 'static',
+                        top: compact ? 0 : undefined,
+                        left: compact ? 0 : undefined,
+                        display: 'inline-flex',
+                        maxWidth: '100%',
+                        px: 0.75,
+                        py: 0.125,
+                        mb: compact ? 0 : 0.5,
+                        borderRadius: 1,
+                        typography: 'caption',
+                        lineHeight: 1.4,
+                        color: 'text.secondary',
+                        bgcolor: 'action.hover',
+                        pointerEvents: 'none'
+                    }}
+                >
+                    {positionLabel}
+                </Box>
+            ) : null}
+            <Box
+                component='span'
+                sx={{
+                    display: 'block',
+                    width: compact ? '100%' : 'fit-content',
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    mx: compact ? 0 : 'auto',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: compact ? 'normal' : 'nowrap',
+                    overflowWrap: 'anywhere',
+                    textAlign: compact ? 'left' : 'left'
+                }}
+            >
+                {children}
+            </Box>
+        </Box>
+    )
+}
+
 export function MatrixCellButton({
     cell,
     selected,
@@ -17,6 +73,7 @@ export function MatrixCellButton({
     onSelect,
     dragLabel,
     menuLabel,
+    accessibleLabel,
     onOpenMenu,
     disabled = false,
     depth = 0,
@@ -35,6 +92,7 @@ export function MatrixCellButton({
     dragLabel: string
     menuLabel: string
     onOpenMenu: (event: React.MouseEvent<HTMLElement>) => void
+    accessibleLabel?: string
     disabled?: boolean
     depth?: number
     positionLabel?: string
@@ -168,6 +226,8 @@ export function MatrixCellButton({
                     variant='text'
                     data-testid='interpretation-network-cell-title'
                     data-position-label-overlay={positionLabel ? 'true' : undefined}
+                    aria-label={accessibleLabel}
+                    aria-pressed={selected}
                     onClick={onSelect}
                     sx={{
                         flex: '1 1 auto',
@@ -188,45 +248,9 @@ export function MatrixCellButton({
                         }
                     }}
                 >
-                    <Box
-                        component='span'
-                        sx={{
-                            display: 'block',
-                            width: 'fit-content',
-                            minWidth: 0,
-                            maxWidth: '100%',
-                            mx: 'auto',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            textAlign: 'left'
-                        }}
-                    >
-                        {children}
-                    </Box>
+                    <MatrixCellContent positionLabel={positionLabel}>{children}</MatrixCellContent>
                 </Button>
             </Stack>
-            {positionLabel ? (
-                <Box
-                    component='span'
-                    data-testid='interpretation-network-cell-position'
-                    sx={{
-                        position: 'absolute',
-                        top: 4,
-                        left: 32,
-                        px: 0.75,
-                        py: 0.125,
-                        borderRadius: 1,
-                        typography: 'caption',
-                        lineHeight: 1.4,
-                        color: 'text.secondary',
-                        bgcolor: 'action.hover',
-                        pointerEvents: 'none'
-                    }}
-                >
-                    {positionLabel}
-                </Box>
-            ) : null}
             <IconButton
                 type='button'
                 size='small'

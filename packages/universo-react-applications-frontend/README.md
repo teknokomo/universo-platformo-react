@@ -37,6 +37,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Entity Scopes**: Global layouts and entity-scoped layouts share one authoring model, so Home-only widgets can stay scoped to a Page while other runtime sections use the global shell.
 -   **Source Awareness**: Layout cards show whether a layout came from a metahub publication or from the application.
 -   **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
+-   **Runtime Widget Overrides**: Application-level settings update materialized widget configuration for the deployed instance without changing the source metahub template.
 
 ### 🎨 User Interface
 
@@ -46,6 +47,14 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Dialog Forms**: Modal forms for creating and editing entities
 -   **Tabbed Application Forms**: Create, edit, and copy dialogs reuse the shared `General / Parameters` pattern
 -   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. Interpretation Network Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
+
+### 🧭 Interpretation Network Matrix Settings
+
+-   The Application control panel owns deployment-specific Matrix display overrides for active materialized `interpretationNetworkWorkspace` widgets.
+-   Administrators select a non-empty allowed subset of `table`, `horizontalRows`, and `verticalTree`, then choose `defaultMatrixView` from that subset.
+-   Save applies one coherent configuration to all active Interpretation Network workspace widgets. If the widgets currently disagree, the UI shows a localized warning and normalizes the saved state instead of presenting raw JSON or widget IDs.
+-   Matrix view settings do not create or edit workspace content. Structures, cells, Relations, Materials, and table templates remain authored in the published workspace.
+-   Narrow screens stack settings controls, use full-width inputs, and keep validation and snackbar feedback localized.
 
 ### 🔧 Technical Features
 

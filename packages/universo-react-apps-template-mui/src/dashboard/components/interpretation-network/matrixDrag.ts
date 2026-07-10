@@ -8,6 +8,7 @@ import {
     type MatrixHierarchyRowMode,
     type MatrixHierarchyLayout
 } from './model'
+import type { MatrixTableDropSlot } from './model'
 
 export type MatrixDropPlacement = 'before' | 'after' | 'child'
 export type MatrixMode = 'hierarchicalCells' | 'independentRows'
@@ -17,6 +18,7 @@ export type MatrixDropDestination = {
     targetCellId: string
     parentCellId: string | null
     insertionIndex: number
+    tableSlot?: MatrixTableDropSlot
 }
 
 export type MatrixDropState = {
@@ -189,7 +191,8 @@ export const resolveMatrixDropState = ({
     targetCellId,
     translatedRect,
     targetRect,
-    hierarchyLayout = 'verticalTree'
+    hierarchyLayout = 'verticalTree',
+    tableSlot
 }: {
     mode: MatrixMode
     cells: MatrixCell[]
@@ -199,6 +202,7 @@ export const resolveMatrixDropState = ({
     translatedRect?: RectLike | null
     targetRect?: RectLike | null
     hierarchyLayout?: MatrixHierarchyLayout
+    tableSlot?: MatrixTableDropSlot | null
 }): MatrixDropState => {
     if (!targetCellId || sourceCellId === targetCellId) {
         return { activeCellId: sourceCellId, overCellId: targetCellId, placement: null, isValid: false, destination: null }
@@ -206,6 +210,27 @@ export const resolveMatrixDropState = ({
 
     const sourceIndex = cellIds.indexOf(sourceCellId)
     const targetIndex = cellIds.indexOf(targetCellId)
+    if (sourceIndex < 0 || (targetIndex < 0 && !tableSlot)) {
+        return { activeCellId: sourceCellId, overCellId: targetCellId, placement: null, isValid: false, destination: null }
+    }
+
+    if (tableSlot) {
+        const source = cells.find((cell) => cell.id === sourceCellId)
+        return {
+            activeCellId: sourceCellId,
+            overCellId: targetCellId,
+            placement: 'child',
+            isValid: true,
+            destination: {
+                placement: 'child',
+                targetCellId,
+                parentCellId: source?.parentCellId ?? null,
+                insertionIndex: cells.filter((cell) => cell.rowKey === tableSlot.rowKey && cell.id !== sourceCellId).length,
+                tableSlot
+            }
+        }
+    }
+
     const source = cells.find((cell) => cell.id === sourceCellId)
     const target = cells.find((cell) => cell.id === targetCellId)
     const targetIsHigherLevel =
@@ -254,7 +279,7 @@ export const resolveMatrixDropState = ({
         activeCellId: sourceCellId,
         overCellId: targetCellId,
         placement: destination?.placement ?? placement,
-        isValid: sourceIndex >= 0 && targetIndex >= 0 && destination !== null,
+        isValid: destination !== null,
         destination
     }
 }

@@ -81,6 +81,7 @@ export interface FieldValidationRules extends Record<string, unknown> {
     // TABLE settings
     minRows?: number | null
     maxRows?: number | null
+    matrixUniqueCoordinates?: boolean
 }
 
 export interface FieldConfig {
@@ -2534,6 +2535,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 const tableShowTitle = field.tableUiConfig?.showTitle !== false
                 const tableMinRows = field.validationRules?.minRows as number | undefined
                 const tableMaxRows = field.validationRules?.maxRows as number | undefined
+                const tableCopyRowsEnabled = field.validationRules?.matrixUniqueCoordinates !== true
                 const rowCount = tableValue.length
 
                 const { helperText: tableHelperText, isMissing: checkMissing } = buildTableConstraintText({
@@ -2573,6 +2575,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 onChange={(rows) => handleFieldChange(field.id, rows)}
                                 minRows={tableMinRows}
                                 maxRows={tableMaxRows}
+                                copyRowsEnabled={tableCopyRowsEnabled}
                             />
                             {tableHelperText && (
                                 <Typography variant='caption' color={tableMissing ? 'error' : 'text.secondary'} sx={{ mt: 0.5, ml: 1.75 }}>

@@ -64,6 +64,8 @@ export interface RuntimeInlineTabularEditorProps {
     minRows?: number | null
     /** Maximum number of rows (disables add when at limit). */
     maxRows?: number | null
+    /** Copy is disabled for matrix coordinate tables because a copy needs explicit new coordinates. */
+    copyRowsEnabled?: boolean
 }
 
 /**
@@ -89,7 +91,8 @@ export function RuntimeInlineTabularEditor({
     deferPersistence = false,
     onChange,
     minRows,
-    maxRows
+    maxRows,
+    copyRowsEnabled = true
 }: RuntimeInlineTabularEditorProps) {
     const { t, i18n } = useTranslation('apps')
     const resolvedLocale = locale ?? i18n.language ?? 'en'
@@ -400,6 +403,11 @@ export function RuntimeInlineTabularEditor({
             return
         }
 
+        if (!copyRowsEnabled) {
+            handleCloseRowMenu()
+            return
+        }
+
         if (typeof maxRows === 'number' && effectiveRows.length >= maxRows) {
             handleCloseRowMenu()
             return
@@ -454,7 +462,8 @@ export function RuntimeInlineTabularEditor({
         queryKey,
         onError,
         handleCloseRowMenu,
-        getTabularErrorMessage
+        getTabularErrorMessage,
+        copyRowsEnabled
     ])
 
     // UPDATE a row via API (processRowUpdate handler for DataGrid).
@@ -774,13 +783,15 @@ export function RuntimeInlineTabularEditor({
                     <EditIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('app.edit', 'Edit')}
                 </MenuItem>
-                <MenuItem
-                    onClick={() => void handleCopyRowFromMenu()}
-                    disabled={typeof maxRows === 'number' && effectiveRows.length >= maxRows}
-                >
-                    <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
-                    {t('app.copy', 'Copy')}
-                </MenuItem>
+                {copyRowsEnabled ? (
+                    <MenuItem
+                        onClick={() => void handleCopyRowFromMenu()}
+                        disabled={typeof maxRows === 'number' && effectiveRows.length >= maxRows}
+                    >
+                        <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
+                        {t('app.copy', 'Copy')}
+                    </MenuItem>
+                ) : null}
                 <Divider />
                 <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />

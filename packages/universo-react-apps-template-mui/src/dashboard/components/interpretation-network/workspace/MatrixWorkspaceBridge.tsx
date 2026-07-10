@@ -1,6 +1,7 @@
 import type { DragEndEvent, DragMoveEvent, DragOverEvent, DragStartEvent, SensorDescriptor, SensorOptions } from '@dnd-kit/core'
 import type { TFunction } from 'i18next'
-import type { MatrixCell, MatrixHierarchyLayout } from '../model'
+import type { MatrixCell, MatrixTableDropSlot, MatrixView } from '../model'
+import type { MatrixCellPlacement } from '../matrixCellData'
 import type { MatrixDragPreview, MatrixDropState, MatrixMode } from '../matrixDrag'
 import { MatrixWorkspace, type MatrixMenuMove, type MatrixWorkspaceProps } from './MatrixWorkspace'
 
@@ -8,17 +9,21 @@ export interface MatrixWorkspaceBridgeProps {
     t: TFunction<'interpretationNetwork'>
     locale: string
     mode: MatrixMode
-    hierarchyLayout: MatrixHierarchyLayout
+    matrixView: MatrixView
+    allowedMatrixViews: MatrixView[]
     hierarchyRows: MatrixCell[][]
     positionLabels: Map<string, string>
     cells: MatrixCell[]
     visibleCells: MatrixCell[]
     rows: MatrixWorkspaceProps['matrixRows']
+    materialCountByCellId: Map<string, number>
     cellIds: string[]
     selectedCell: MatrixCell | undefined
     dropState: MatrixDropState
     dragPreview: MatrixDragPreview | null
     disabled: boolean
+    axisActionsDisabled?: boolean
+    addCellDisabled?: boolean
     savingCell: boolean
     movingCell: boolean
     errors: { rows: unknown; saveCell: unknown; moveCell: unknown }
@@ -26,9 +31,16 @@ export interface MatrixWorkspaceBridgeProps {
     menu: { anchor: HTMLElement | null; cell: MatrixCell | undefined; moves: MatrixMenuMove[] }
     deletingCell: boolean
     sensors: SensorDescriptor<SensorOptions>[]
-    onChangeHierarchyLayout: (layout: MatrixHierarchyLayout) => void
+    onChangeMatrixView: (view: MatrixView) => void
     actions: {
-        openCellDialog: (mode: 'create-child' | 'create-cell' | 'create-row' | 'edit', cellId?: string) => void
+        openCellDialog: (
+            mode: 'create-child' | 'create-cell' | 'create-row' | 'edit',
+            cellId?: string,
+            placement?: MatrixCellPlacement
+        ) => void
+        addTableRow: () => void
+        addTableColumn: () => void
+        moveSelectedToSlot: (slot: MatrixTableDropSlot) => void
         selectCell: (cellId: string) => void
         openCellMenu: (anchor: HTMLElement, cellId: string) => void
         closeCellMenu: () => void
@@ -45,17 +57,21 @@ export function MatrixWorkspaceBridge({
     t,
     locale,
     mode,
-    hierarchyLayout,
+    matrixView,
+    allowedMatrixViews,
     hierarchyRows,
     positionLabels,
     cells,
     visibleCells,
     rows,
+    materialCountByCellId,
     cellIds,
     selectedCell,
     dropState,
     dragPreview,
     disabled,
+    axisActionsDisabled,
+    addCellDisabled,
     savingCell,
     movingCell,
     errors,
@@ -63,7 +79,7 @@ export function MatrixWorkspaceBridge({
     menu,
     deletingCell,
     sensors,
-    onChangeHierarchyLayout,
+    onChangeMatrixView,
     actions
 }: MatrixWorkspaceBridgeProps) {
     return (
@@ -71,17 +87,21 @@ export function MatrixWorkspaceBridge({
             t={t}
             locale={locale}
             matrixMode={mode}
-            hierarchyLayout={hierarchyLayout}
+            matrixView={matrixView}
+            allowedMatrixViews={allowedMatrixViews}
             hierarchyRows={hierarchyRows}
             positionLabels={positionLabels}
             matrixCells={cells}
             visibleMatrixCells={visibleCells}
             matrixRows={rows}
+            materialCountByCellId={materialCountByCellId}
             matrixCellIds={cellIds}
             selectedCell={selectedCell}
             matrixDropState={dropState}
             matrixDragPreview={dragPreview}
             matrixMutationsDisabled={disabled}
+            matrixAxisActionsDisabled={axisActionsDisabled}
+            addCellDisabled={addCellDisabled}
             isSavingCell={savingCell}
             isMovingCell={movingCell}
             matrixRowsError={errors.rows}
@@ -94,8 +114,11 @@ export function MatrixWorkspaceBridge({
             menuMoves={menu.moves}
             isDeletingCell={deletingCell}
             sensors={sensors}
-            onChangeHierarchyLayout={onChangeHierarchyLayout}
+            onChangeMatrixView={onChangeMatrixView}
             onOpenCellDialog={actions.openCellDialog}
+            onAddTableRow={actions.addTableRow}
+            onAddTableColumn={actions.addTableColumn}
+            onMoveSelectedToSlot={actions.moveSelectedToSlot}
             onSelectCell={actions.selectCell}
             onOpenCellMenu={actions.openCellMenu}
             onCloseCellMenu={actions.closeCellMenu}

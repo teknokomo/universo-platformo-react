@@ -1230,8 +1230,13 @@ export async function batchUpdateTabularRows(options: {
     sectionId?: string
     workspaceId?: string | null
     updates: Array<{ childRowId: string; data: Record<string, unknown>; expectedVersion?: number }>
+    uniformUpdates?: Array<{
+        rows: Array<{ childRowId: string; expectedVersion?: number }>
+        data: Record<string, unknown>
+    }>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, updates } = options
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, updates, uniformUpdates } =
+        options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
     if (workspaceId?.trim()) {
@@ -1243,7 +1248,7 @@ export async function batchUpdateTabularRows(options: {
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates })
+        body: JSON.stringify({ updates, ...(uniformUpdates?.length ? { uniformUpdates } : {}) })
     })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Batch update tabular rows failed'))
@@ -1261,12 +1266,26 @@ export async function deleteTabularRow(options: {
     sectionId?: string
     workspaceId?: string | null
     childRowId: string
+    expectedVersion?: number
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, childRowId } = options
+    const {
+        apiBaseUrl,
+        applicationId,
+        parentRecordId,
+        componentId,
+        objectCollectionId,
+        sectionId,
+        workspaceId,
+        childRowId,
+        expectedVersion
+    } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
     if (workspaceId?.trim()) {
         params.set('workspaceId', workspaceId.trim())
+    }
+    if (expectedVersion !== undefined) {
+        params.set('expectedVersion', String(expectedVersion))
     }
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
     url += `?${params.toString()}`
