@@ -123,7 +123,7 @@ function OccupiedMatrixTableCell({
                 opacity: isDragging ? 0.48 : 1,
                 transform: CSS.Transform.toString(transform),
                 transition,
-                outline: selected ? 2 : 0,
+                outline: selected ? '2px solid' : 'none',
                 outlineColor: 'primary.main',
                 outlineOffset: selected ? -2 : 0,
                 ...renderDropIndicatorSx(dropPlacement, invalidDropTarget)
@@ -359,7 +359,7 @@ export function MatrixTableView({
                 boxShadow: 'none',
                 overflowX: 'auto',
                 '&:focus-visible': {
-                    outline: 2,
+                    outline: '2px solid',
                     outlineColor: 'primary.main',
                     outlineOffset: 2
                 }

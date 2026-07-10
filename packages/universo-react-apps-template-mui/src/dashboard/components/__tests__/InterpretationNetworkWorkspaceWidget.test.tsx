@@ -1893,10 +1893,14 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         })
     }, 20_000)
 
-    it('keeps independent horizontal rows Add disabled until a cell is selected when inline axis creation is disabled', async () => {
+    it('adds a new independent horizontal row after a cell is selected when inline axis creation is disabled', async () => {
         const user = userEvent.setup()
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
+                return jsonResponse({ id: 'matrix-row-created' }, 201)
+            }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
@@ -1910,8 +1914,43 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
         const addButton = within(toolbar).getByRole('button', { name: 'Add' })
         expect(addButton).toBeDisabled()
+        expect(within(toolbar).getByRole('button', { name: 'Add row' })).toBeDisabled()
 
-        expect(screen.queryByRole('dialog', { name: 'Add cell' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' }))
+        const addRowButton = within(toolbar).getByRole('button', { name: 'Add row' })
+        expect(addRowButton).toBeEnabled()
+        await user.click(addRowButton)
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add row' })
+        await user.type(within(dialog).getByRole('textbox', { name: /Row name/i }), 'Evidence')
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+            )
+            expect(createCall).toBeDefined()
+            const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
+            expect(body.data).toEqual(
+                expect.objectContaining({
+                    RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    RowLabel: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Evidence' })
+                        })
+                    }),
+                    ColKey: 'meaning',
+                    ColLabel: 'Meaning',
+                    ParentCellId: null,
+                    CellValue: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Evidence' })
+                        })
+                    })
+                })
+            )
+            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+        })
     }, 20_000)
 
     it('allows seeding an empty independent matrix when inline axis creation is disabled', async () => {

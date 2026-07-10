@@ -144,6 +144,8 @@ export function MatrixWorkspace({
     const hierarchicalMatrixIsEmpty = matrixMode === 'hierarchicalCells' && matrixCells.length === 0
     const hierarchicalAddDisabled = matrixMutationsDisabled || isSavingCell || !selectedCell || hierarchicalMatrixIsEmpty
     const tableAxisAddDisabled = matrixAxisActionsDisabled || isSavingCell || hierarchicalMatrixIsEmpty
+    const showIndependentRowAdd = matrixMode === 'independentRows' && matrixView === 'horizontalRows'
+    const independentRowAddDisabled = matrixMutationsDisabled || isSavingCell || isMovingCell || !selectedCell
 
     const isHorizontalHierarchy = matrixMode === 'hierarchicalCells' && matrixView === 'horizontalRows'
     const buildCellAccessibleLabel = (cell: MatrixCell): string =>
@@ -307,21 +309,40 @@ export function MatrixWorkspace({
                         {t('workspace.cell.add', 'Add')}
                     </Button>
                 ) : (
-                    <Button
-                        type='button'
-                        variant='contained'
-                        startIcon={<AddRoundedIcon />}
-                        disabled={matrixMutationsDisabled || isSavingCell || addCellDisabled}
-                        sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
-                        title={
-                            addCellDisabled
-                                ? t('workspace.cell.addDisabledSelectCell', 'Select a cell before adding another cell.')
-                                : undefined
-                        }
-                        onClick={() => onOpenCellDialog('create-cell')}
-                    >
-                        {t('workspace.cell.add', 'Add')}
-                    </Button>
+                    <>
+                        {showIndependentRowAdd ? (
+                            <Button
+                                type='button'
+                                variant='outlined'
+                                startIcon={<AddRoundedIcon />}
+                                disabled={independentRowAddDisabled}
+                                sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                title={
+                                    !selectedCell
+                                        ? t('workspace.table.selectCellBeforeAddRow', 'Select a cell before adding a row.')
+                                        : undefined
+                                }
+                                onClick={onAddTableRow}
+                            >
+                                {t('workspace.table.addRow', 'Add row')}
+                            </Button>
+                        ) : null}
+                        <Button
+                            type='button'
+                            variant='contained'
+                            startIcon={<AddRoundedIcon />}
+                            disabled={matrixMutationsDisabled || isSavingCell || addCellDisabled}
+                            sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                            title={
+                                addCellDisabled
+                                    ? t('workspace.cell.addDisabledSelectCell', 'Select a cell before adding another cell.')
+                                    : undefined
+                            }
+                            onClick={() => onOpenCellDialog('create-cell')}
+                        >
+                            {t('workspace.cell.add', 'Add')}
+                        </Button>
+                    </>
                 )}
             </Stack>
             {matrixRowsError ? (
