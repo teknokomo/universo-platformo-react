@@ -36,15 +36,25 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
     if (value && typeof value === 'object') {
         const entries = Object.entries(value as Record<string, unknown>)
         const normalizedEntries = entries
-            .filter(([key, item]) => !isDefaultPlayCanvasMaterialAlphaFade(key, item, value))
+            .filter(([key, item]) => !isDefaultPlayCanvasMaterialField(key, item, value))
             .map(([key, item]) => [normalizeString(key, maps), normalizeVolatileValues(item, maps, [...pathSegments, key])])
         return Object.fromEntries(normalizedEntries)
     }
     return value
 }
 
-const isDefaultPlayCanvasMaterialAlphaFade = (key: string, item: unknown, owner: unknown): boolean => {
-    if (key !== 'alphaFade' || item !== 1 || !owner || typeof owner !== 'object' || Array.isArray(owner)) {
+const DEFAULT_PLAYCANVAS_MATERIAL_FIELDS = new Map<string, unknown>([
+    ['alphaFade', 1],
+    ['alphaToCoverage', false],
+    ['opacityFadesSpecular', true],
+    ['twoSidedLighting', false]
+])
+
+const isDefaultPlayCanvasMaterialField = (key: string, item: unknown, owner: unknown): boolean => {
+    if (!DEFAULT_PLAYCANVAS_MATERIAL_FIELDS.has(key) || item !== DEFAULT_PLAYCANVAS_MATERIAL_FIELDS.get(key)) {
+        return false
+    }
+    if (!owner || typeof owner !== 'object' || Array.isArray(owner)) {
         return false
     }
     const record = owner as Record<string, unknown>
