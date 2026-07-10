@@ -46,12 +46,45 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
 const DEFAULT_PLAYCANVAS_MATERIAL_FIELDS = new Map<string, unknown>([
     ['alphaFade', 1],
     ['alphaToCoverage', false],
+    ['ambient', [1, 1, 1]],
+    ['ambientTint', true],
+    ['anisotropyIntensity', 0],
+    ['anisotropyRotation', 0],
+    ['clearCoat', 0],
+    ['clearCoatBumpiness', 1],
+    ['clearCoatGloss', 1],
+    ['clearCoatGlossMap', null],
+    ['clearCoatGlossMapChannel', 'r'],
+    ['clearCoatGlossMapOffset', [0, 0]],
+    ['clearCoatGlossMapTiling', [1, 1]],
+    ['clearCoatGlossMapUv', 0],
+    ['clearCoatGlossVertexColor', false],
+    ['clearCoatGlossVertexColorChannel', 'r'],
+    ['clearCoatMap', null],
+    ['clearCoatMapChannel', 'r'],
+    ['clearCoatMapOffset', [0, 0]],
+    ['clearCoatMapTiling', [1, 1]],
+    ['clearCoatMapUv', 0],
+    ['clearCoatNormalMap', null],
+    ['clearCoatNormalMapOffset', [0, 0]],
+    ['clearCoatNormalMapTiling', [1, 1]],
+    ['clearCoatNormalMapUv', 0],
+    ['clearCoatVertexColor', false],
+    ['clearCoatVertexColorChannel', 'r'],
+    ['cubeMapProjectionBox', { center: [0, 0, 0], halfExtents: [0.5, 0.5, 0.5] }],
+    ['diffuseTint', true],
+    ['emissiveTint', true],
+    ['metalnessTint', true],
+    ['mipmaps', true],
     ['opacityFadesSpecular', true],
+    ['sheenGlossTint', true],
+    ['sheenTint', true],
     ['twoSidedLighting', false]
 ])
 
 const isDefaultPlayCanvasMaterialField = (key: string, item: unknown, owner: unknown): boolean => {
-    if (!DEFAULT_PLAYCANVAS_MATERIAL_FIELDS.has(key) || item !== DEFAULT_PLAYCANVAS_MATERIAL_FIELDS.get(key)) {
+    const expectedValue = DEFAULT_PLAYCANVAS_MATERIAL_FIELDS.get(key)
+    if (!DEFAULT_PLAYCANVAS_MATERIAL_FIELDS.has(key) || stableStringify(item) !== stableStringify(expectedValue)) {
         return false
     }
     if (!owner || typeof owner !== 'object' || Array.isArray(owner)) {
