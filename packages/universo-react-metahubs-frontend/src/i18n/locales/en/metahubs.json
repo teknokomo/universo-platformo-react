@@ -504,13 +504,48 @@
             "title": "Interpretation network workspace",
             "displayTitle": "Matrix display",
             "description": "Choose which matrix views are available in the published application and which view opens by default.",
+            "matrixMode": "Matrix mode",
+            "matrixModeHelp": "Hierarchical cells are the default. Separate rows and columns keep the secondary Matrix table mode available.",
             "availableViewsHelp": "Select at least one Matrix view. Vertical tree requires hierarchical cells.",
             "defaultMatrixView": "Default view",
             "defaultMatrixViewHelp": "This view opens first unless a user has already chosen another available view.",
+            "tableProjection": "Table projection",
+            "tableProjectionHelp": "Hierarchical path is the default table projection. Separate axes keep the row and column table behavior available.",
+            "breadcrumbDepth": "Breadcrumb depth",
+            "breadcrumbDepthHelp": "Full path is shown by default. Limited depth keeps the last levels and opens hidden parents from the ellipsis menu.",
+            "breadcrumbDepthMode": "Path",
+            "breadcrumbDepthCount": "Levels",
+            "tableHeaders": "Show hierarchical table headers",
+            "tableHeadersHelp": "Disabled by default for interpretation networks; users can enable the current-level and cell column headers when needed.",
+            "tableHeaderCard": "Show focused parent card",
+            "tableHeaderCardHelp": "Enabled by default so the focused parent cell remains visually separated before it moves into breadcrumbs.",
+            "breadcrumbColors": "Use cell colors for breadcrumbs",
+            "breadcrumbColorsHelp": "Enabled by default so hierarchy path items keep the same visual color as their cells.",
+            "totalCells": "Show total cells in tree",
+            "totalCellsHelp": "Enabled by default so users can see the total number of cells in the current Matrix tree.",
+            "toolbarLayout": "Toolbar layout",
+            "toolbarLayoutHelp": "Horizontal toolbar remains the default. Vertical toolbar is available as an opt-in layout.",
             "hierarchyRowMode": "Hierarchy rows",
             "hierarchyRowModeHelp": "Controls whether hierarchy views show the selected branch or every hierarchy level.",
             "newAxesInCellDialog": "Create rows and columns from cell dialog",
             "newAxesInCellDialogHelp": "When disabled, users add rows and columns with the table plus buttons, and the Add cell dialog uses existing axes.",
+            "tableProjections": {
+                "hierarchicalPath": "Hierarchy path",
+                "independentAxes": "Separate axes"
+            },
+            "matrixModes": {
+                "hierarchicalCells": "Hierarchical cells",
+                "independentRows": "Separate rows and columns"
+            },
+            "breadcrumbDepthOptions": {
+                "full": "Full path",
+                "last": "Last {{count}} levels",
+                "lastMode": "Last levels"
+            },
+            "toolbarLayouts": {
+                "horizontal": "Horizontal",
+                "vertical": "Vertical"
+            },
             "hierarchyRowModes": {
                 "focusedPath": "Focused branch",
                 "allNodes": "All levels"

@@ -2,7 +2,7 @@
 name: ontoindex-code-intelligence
 description: Universo-specific complement to the OntoIndex code-intelligence tool. Use alongside the generated `.claude/skills/ontoindex/*` skills when querying the code graph in this monorepo. Adds the three things those generated skills do NOT cover — the namespace-collision caveat (this is code intelligence over source, NOT OWL/RDF/SPARQL), this repo's pnpm wrapper and golden queries, and the SQL-first edge-quality limitation.
 metadata:
-    version: '1.9.10'
+    version: '2.0.10'
     scope: 'project-workflow'
     owner: 'Universo Platformo'
 ---

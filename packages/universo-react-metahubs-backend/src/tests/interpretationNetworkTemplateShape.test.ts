@@ -38,6 +38,13 @@ describe('interpretation-network template shape', () => {
                       interpretationTitleField?: string
                       materialTitleField?: string
                       tableTemplateCodename?: string
+                      tableProjection?: string
+                      breadcrumbDepth?: { mode?: string }
+                      toolbarLayout?: string
+                      showHierarchicalTableHeaders?: boolean
+                      showHierarchicalTableHeaderCard?: boolean
+                      showMatrixTreeTotalCells?: boolean
+                      colorBreadcrumbsByCell?: boolean
                   }
               }
             | undefined
@@ -49,6 +56,13 @@ describe('interpretation-network template shape', () => {
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
+            tableProjection: 'hierarchicalPath',
+            breadcrumbDepth: { mode: 'full' },
+            toolbarLayout: 'horizontal',
+            showHierarchicalTableHeaders: false,
+            showHierarchicalTableHeaderCard: true,
+            showMatrixTreeTotalCells: true,
+            colorBreadcrumbsByCell: true,
             allowNewAxesInCellDialog: false,
             positionNumbering: {
                 enabled: true,

@@ -52,6 +52,8 @@ Frontend application for managing applications and connectors in the Universo Pl
 
 -   The Application control panel owns deployment-specific Matrix display overrides for active materialized `interpretationNetworkWorkspace` widgets.
 -   Administrators select a non-empty allowed subset of `table`, `horizontalRows`, and `verticalTree`, then choose `defaultMatrixView` from that subset.
+-   Table opens with the hierarchy-first `hierarchicalPath` projection by default: breadcrumbs represent the parent path and the current level's children become rows. `independentAxes` remains available as a secondary row/column projection.
+-   Breadcrumb depth is configurable as the full path or a finite trailing depth, and toolbar layout remains horizontal by default with vertical layout as an explicit opt-in.
 -   Save applies one coherent configuration to all active Interpretation Network workspace widgets. If the widgets currently disagree, the UI shows a localized warning and normalizes the saved state instead of presenting raw JSON or widget IDs.
 -   Matrix view settings do not create or edit workspace content. Structures, cells, Relations, Materials, and table templates remain authored in the published workspace.
 -   Narrow screens stack settings controls, use full-width inputs, and keep validation and snackbar feedback localized.

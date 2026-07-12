@@ -7,6 +7,7 @@ export type WorkspaceDataRequest = Parameters<typeof fetchAppData>[0]
 
 const WORKSPACE_PAGE_SIZE = 100
 const RESERVED_RUNTIME_ROUTE_SEGMENTS = new Set(['admin', 'workspaces'])
+const MATRIX_FOCUS_QUERY_PARAM = 'matrixCell'
 
 export const readSubmittedText = (value: unknown, locale: string): string => {
     if (typeof value === 'string') return value.trim()
@@ -91,10 +92,17 @@ export const readRouteStructureId = (applicationId?: string | null): string | nu
     return segments[segments.length - 1] || null
 }
 
+export const readRouteMatrixCellId = (): string | null => {
+    if (typeof window === 'undefined') return null
+    const value = new URLSearchParams(window.location.search).get(MATRIX_FOCUS_QUERY_PARAM)
+    return value?.trim() || null
+}
+
 export const buildStructureRuntimePath = (
     applicationId: string | undefined,
     structureSectionId: string | null | undefined,
-    structureId: string | null
+    structureId: string | null,
+    focusedCellId?: string | null
 ): string | null => {
     if (typeof window === 'undefined' || !applicationId) return null
     const segments = readRuntimePathSegments(applicationId)
@@ -113,5 +121,13 @@ export const buildStructureRuntimePath = (
         baseSegments.push(encodeURIComponent(structureId))
     }
 
-    return `/${baseSegments.join('/')}${window.location.search}${window.location.hash}`
+    const searchParams = new URLSearchParams(window.location.search)
+    if (focusedCellId?.trim()) {
+        searchParams.set(MATRIX_FOCUS_QUERY_PARAM, focusedCellId.trim())
+    } else {
+        searchParams.delete(MATRIX_FOCUS_QUERY_PARAM)
+    }
+    const search = searchParams.toString()
+
+    return `/${baseSegments.join('/')}${search ? `?${search}` : ''}${window.location.hash}`
 }

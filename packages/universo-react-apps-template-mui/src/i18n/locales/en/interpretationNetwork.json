@@ -39,6 +39,23 @@
             "materialCount_one": "{{count}} material",
             "materialCount_other": "{{count}} materials"
         },
+        "breadcrumbs": {
+            "label": "Matrix path",
+            "showHidden": "Show hidden path"
+        },
+        "hierarchicalTable": {
+            "label": "Hierarchical matrix table",
+            "labelFor": "Matrix table for {{title}}",
+            "noRoot": "Create a structure again to restore its root matrix cell.",
+            "multipleRoots": "Multiple root cells",
+            "multipleRootsHelp": "Choose a root cell to continue navigation.",
+            "rowHeader": "Current level",
+            "cellHeader": "Cell",
+            "noChildren": "This cell has no child cells yet.",
+            "cellName": "{{position}}, {{title}}",
+            "totalCells_one": "Total {{count}} cell in the structure",
+            "totalCells_other": "Total {{count}} cells in the structure"
+        },
         "axis": {
             "addRowTitle": "Add row",
             "addColumnTitle": "Add column",
@@ -95,7 +112,7 @@
             "add": "Add",
             "addCell": "Add cell",
             "addRootCell": "Add root cell",
-            "addChild": "Add child cell",
+            "addChild": "Add",
             "addChildDisabled": "Select a cell before adding a child.",
             "addDisabledSelectCell": "Select a cell before adding another cell.",
             "addSibling": "Add cell in row",

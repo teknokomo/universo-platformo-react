@@ -1290,6 +1290,9 @@ describe('ApplicationSettings', () => {
                     matrixMode: 'hierarchicalCells',
                     allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
                     defaultMatrixView: 'table',
+                    tableProjection: 'hierarchicalPath',
+                    breadcrumbDepth: { mode: 'last', count: 4 },
+                    toolbarLayout: 'vertical',
                     hierarchyRowMode: 'allNodes',
                     positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
                     allowNewAxesInCellDialog: false,
@@ -1319,6 +1322,7 @@ describe('ApplicationSettings', () => {
                 version: 7
             }
         ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
 
         const queryClient = renderSettings()
         queryClient.setQueryData(['interpretationNetworkWorkspace', 'app-1'], { cached: true })
@@ -1350,6 +1354,9 @@ describe('ApplicationSettings', () => {
                                 matrixMode: 'independentRows',
                                 allowedMatrixViews: ['table', 'horizontalRows'],
                                 defaultMatrixView: 'table',
+                                tableProjection: 'independentAxes',
+                                breadcrumbDepth: { mode: 'last', count: 4 },
+                                toolbarLayout: 'vertical',
                                 hierarchyRowMode: 'allNodes',
                                 positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
                                 allowNewAxesInCellDialog: false,
@@ -1393,6 +1400,72 @@ describe('ApplicationSettings', () => {
                 ?.isInvalidated
         ).toBe(true)
     })
+
+    it('restores the hierarchical table projection default when switching back from independent rows', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'independentRows',
+                    allowedMatrixViews: ['table', 'horizontalRows'],
+                    defaultMatrixView: 'table',
+                    tableProjection: 'independentAxes',
+                    breadcrumbDepth: { mode: 'full' },
+                    toolbarLayout: 'horizontal'
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-mode')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Hierarchical cells' }))
+        expect(within(screen.getByTestId('application-setting-matrix-table-projection')).getByRole('combobox')).toHaveTextContent(
+            'Hierarchy path'
+        )
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows'],
+                    defaultMatrixView: 'table',
+                    tableProjection: 'hierarchicalPath'
+                }),
+                expectedVersion: 7
+            })
+        })
+    }, 15_000)
 
     it('saves matrix settings with the materialized layout id when widget layoutId is missing', async () => {
         mockedListApplicationLayouts.mockResolvedValue({
@@ -1867,8 +1940,11 @@ describe('ApplicationSettings', () => {
             expect(getLastMatrixBatchUpdate('widget-scoped')).toMatchObject({
                 config: expect.objectContaining({
                     matrixMode: 'independentRows',
-                    allowedMatrixViews: ['horizontalRows'],
-                    defaultMatrixView: 'horizontalRows',
+                    allowedMatrixViews: ['table', 'horizontalRows'],
+                    defaultMatrixView: 'table',
+                    tableProjection: 'independentAxes',
+                    breadcrumbDepth: { mode: 'full' },
+                    toolbarLayout: 'horizontal',
                     hierarchyRowMode: 'focusedPath',
                     conceptCodename: 'Structure'
                 }),
@@ -1960,6 +2036,62 @@ describe('ApplicationSettings', () => {
             })
         })
     }, 15_000)
+
+    it('disables table-only Matrix settings when Table view is not allowed', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'horizontalRows',
+                    tableProjection: 'hierarchicalPath',
+                    breadcrumbDepth: { mode: 'last', count: 4 },
+                    conceptCodename: 'Structure'
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        expect(screen.getAllByText('Enable Table view to configure table projection and breadcrumb depth.')).toHaveLength(2)
+        expect(within(screen.getByTestId('application-setting-matrix-table-projection')).getByRole('combobox')).toHaveAttribute(
+            'aria-disabled',
+            'true'
+        )
+        const breadcrumbDepthPanel = within(screen.getByTestId('application-setting-matrix-breadcrumb-depth'))
+        expect(breadcrumbDepthPanel.getByRole('combobox', { name: 'Path' })).toHaveAttribute('aria-disabled', 'true')
+        expect(breadcrumbDepthPanel.getByRole('combobox', { name: 'Levels' })).toHaveAttribute('aria-disabled', 'true')
+    })
 
     it('migrates a legacy vertical hierarchy layout without changing the selected Matrix view', async () => {
         mockedListApplicationLayouts.mockResolvedValue({
@@ -2090,6 +2222,117 @@ describe('ApplicationSettings', () => {
         })
     }, 15_000)
 
+    it('saves hierarchical table navigation settings through widget config', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows'],
+                    defaultMatrixView: 'table',
+                    tableProjection: 'hierarchicalPath',
+                    breadcrumbDepth: { mode: 'last', count: 5 },
+                    showHierarchicalTableHeaders: true,
+                    showHierarchicalTableHeaderCard: false,
+                    showMatrixTreeTotalCells: false,
+                    colorBreadcrumbsByCell: false,
+                    conceptCodename: 'Structure'
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
+
+        const queryClient = renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        expect(within(screen.getByTestId('application-setting-matrix-toolbar-layout')).getByRole('combobox')).toHaveTextContent(
+            'Horizontal'
+        )
+        const breadcrumbDepthPanel = within(screen.getByTestId('application-setting-matrix-breadcrumb-depth'))
+        const breadcrumbMode = breadcrumbDepthPanel.getByRole('combobox', { name: 'Path' })
+        const breadcrumbCount = breadcrumbDepthPanel.getByRole('combobox', { name: 'Levels' })
+        await waitFor(() => {
+            expect(within(screen.getByTestId('application-setting-matrix-table-headers')).getByRole('switch')).toBeChecked()
+            expect(within(screen.getByTestId('application-setting-matrix-table-header-card')).getByRole('switch')).not.toBeChecked()
+            expect(within(screen.getByTestId('application-setting-matrix-total-cells')).getByRole('switch')).not.toBeChecked()
+            expect(within(screen.getByTestId('application-setting-matrix-breadcrumb-colors')).getByRole('switch')).not.toBeChecked()
+        })
+        expect(breadcrumbMode).toHaveTextContent('Last levels')
+        expect(breadcrumbCount).toHaveTextContent('5')
+        expect(breadcrumbCount).toBeEnabled()
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-table-headers')).getByRole('switch'))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-table-header-card')).getByRole('switch'))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-total-cells')).getByRole('switch'))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-breadcrumb-colors')).getByRole('switch'))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-table-projection')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Separate axes' }))
+        expect(within(screen.getByTestId('application-setting-matrix-total-cells')).getByRole('switch')).toBeEnabled()
+        await userEvent.click(breadcrumbMode)
+        await userEvent.click(screen.getByRole('option', { name: 'Full path' }))
+        expect(breadcrumbDepthPanel.getByRole('combobox', { name: 'Levels' })).toHaveAttribute('aria-disabled', 'true')
+        await userEvent.click(breadcrumbDepthPanel.getByRole('combobox', { name: 'Path' }))
+        await userEvent.click(screen.getByRole('option', { name: 'Last levels' }))
+        await userEvent.click(breadcrumbDepthPanel.getByRole('combobox', { name: 'Levels' }))
+        await userEvent.click(screen.getByRole('option', { name: '3' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-toolbar-layout')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Vertical' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    matrixMode: 'hierarchicalCells',
+                    tableProjection: 'independentAxes',
+                    breadcrumbDepth: { mode: 'last', count: 3 },
+                    toolbarLayout: 'vertical',
+                    showHierarchicalTableHeaders: false,
+                    showHierarchicalTableHeaderCard: true,
+                    showMatrixTreeTotalCells: true,
+                    colorBreadcrumbsByCell: true,
+                    conceptCodename: 'Structure'
+                }),
+                expectedVersion: 7
+            })
+        })
+        await waitFor(() => {
+            expect(
+                (
+                    queryClient.getQueryData(['applications', 'app-1', 'settings', 'materialized-layouts']) as {
+                        widgets: Array<{ id: string; config: Record<string, unknown> }>
+                    }
+                ).widgets.find((widget) => widget.id === 'widget-1')?.config.showMatrixTreeTotalCells
+            ).toBe(true)
+        })
+    }, 15_000)
+
     it('reloads materialized layouts and reports an atomic matrix widget batch save failure', async () => {
         const globalLayout = {
             id: '018f8a78-7b8f-7c1d-a111-2222333345e1',
@@ -2145,7 +2388,12 @@ describe('ApplicationSettings', () => {
                         zone: 'main',
                         widgetKey: 'interpretationNetworkWorkspace',
                         sortOrder: 0,
-                        config: { matrixMode: 'hierarchicalCells', conceptCodename: 'Structure' },
+                        config: {
+                            matrixMode: 'hierarchicalCells',
+                            allowedMatrixViews: ['horizontalRows'],
+                            defaultMatrixView: 'horizontalRows',
+                            conceptCodename: 'Structure'
+                        },
                         isActive: true,
                         version: 7
                     }

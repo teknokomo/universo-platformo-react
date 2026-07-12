@@ -41,6 +41,25 @@
             "materialCount_many": "{{count}} материалов",
             "materialCount_other": "{{count}} материала"
         },
+        "breadcrumbs": {
+            "label": "Путь матрицы",
+            "showHidden": "Показать скрытую часть пути"
+        },
+        "hierarchicalTable": {
+            "label": "Иерархическая таблица матрицы",
+            "labelFor": "Таблица матрицы: {{title}}",
+            "noRoot": "Создайте структуру заново, чтобы восстановить корневую ячейку матрицы.",
+            "multipleRoots": "Несколько корневых ячеек",
+            "multipleRootsHelp": "Выберите корневую ячейку, чтобы продолжить навигацию.",
+            "rowHeader": "Текущий уровень",
+            "cellHeader": "Ячейка",
+            "noChildren": "У этой ячейки пока нет дочерних ячеек.",
+            "cellName": "{{position}}, {{title}}",
+            "totalCells_one": "Всего {{count}} ячейка в структуре",
+            "totalCells_few": "Всего {{count}} ячейки в структуре",
+            "totalCells_many": "Всего {{count}} ячеек в структуре",
+            "totalCells_other": "Всего {{count}} ячейки в структуре"
+        },
         "axis": {
             "addRowTitle": "Добавить строку",
             "addColumnTitle": "Добавить колонку",
@@ -97,7 +116,7 @@
             "add": "Добавить",
             "addCell": "Добавить ячейку",
             "addRootCell": "Добавить корневую ячейку",
-            "addChild": "Добавить дочернюю ячейку",
+            "addChild": "Добавить",
             "addChildDisabled": "Выберите ячейку, чтобы добавить дочернюю.",
             "addDisabledSelectCell": "Выберите ячейку, чтобы добавить ещё одну ячейку.",
             "addSibling": "Добавить ячейку в строку",

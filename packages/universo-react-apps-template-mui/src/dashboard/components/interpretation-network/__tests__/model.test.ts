@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
     buildMatrixTree,
+    buildBreadcrumbDisplayItems,
+    buildHierarchicalMatrixTableModel,
     buildMatrixPositionLabels,
     buildMatrixTableModel,
     buildRootUniverseMatrixCellData,
@@ -9,6 +11,9 @@ import {
     parseMatrixHierarchyRowMode,
     parseMatrixMode,
     parseMatrixPositionNumbering,
+    resolveMatrixPath,
+    resolveMatrixRootState,
+    resolveRouteFocus,
     toFocusedMatrixHierarchyRows,
     toConfig,
     toMatrixHierarchyRows,
@@ -191,6 +196,35 @@ describe('interpretation network model', () => {
         expect(createData.ColKey).toBeUndefined()
     })
 
+    it('uses the normalized create-child parent for both persistence and sibling ordering', () => {
+        const source = {
+            id: 'parent-cell',
+            parentCellId: null,
+            sortOrder: 0,
+            rowKey: 'parent-row',
+            rowLabel: 'Parent row',
+            colKey: 'parent-column',
+            colLabel: 'Parent column'
+        } as MatrixCell
+        const existingCells = [
+            source,
+            { id: 'child-a', parentCellId: source.id, sortOrder: 2 } as MatrixCell,
+            { id: 'other-child', parentCellId: 'other-parent', sortOrder: 9 } as MatrixCell
+        ]
+
+        const createData = buildCellCreateData({
+            mode: 'create-child',
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            source,
+            existingCells,
+            placement: { parentCellId: source.id }
+        })
+
+        expect(createData.phys_parent_cell_id).toBe(source.id)
+        expect(createData._tp_sort_order).toBe(3)
+    })
+
     it('uses explicit existing axis placement instead of matching labels by text', () => {
         const source = {
             id: 'parent-cell',
@@ -234,6 +268,41 @@ describe('interpretation network model', () => {
         expect(createData.phys_row_label).toEqual({ en: 'Definition', ru: 'Определение' })
         expect(createData.phys_col_key).toBe('existing-column-source')
         expect(createData.phys_col_label).toEqual({ en: 'Source', ru: 'Источник' })
+    })
+
+    it('rejects hierarchical child creation without a current source parent', () => {
+        expect(() =>
+            buildCellCreateData({
+                mode: 'create-child',
+                childColumns: matrixColumn.childColumns,
+                locale: 'en',
+                source: undefined,
+                existingCells: []
+            })
+        ).toThrow('cell-not-selected')
+    })
+
+    it('rejects hierarchical child creation when placement targets a different parent', () => {
+        const source = {
+            id: 'parent-cell',
+            parentCellId: null,
+            sortOrder: 0,
+            rowKey: 'parent-row',
+            rowLabel: 'Parent row',
+            colKey: 'parent-column',
+            colLabel: 'Parent column'
+        } as MatrixCell
+
+        expect(() =>
+            buildCellCreateData({
+                mode: 'create-child',
+                childColumns: matrixColumn.childColumns,
+                locale: 'en',
+                source,
+                existingCells: [source],
+                placement: { parentCellId: 'stale-parent-cell' }
+            })
+        ).toThrow('cell-parent-mismatch')
     })
 
     it('creates a table cell at explicit existing row and column coordinates', () => {
@@ -550,6 +619,30 @@ describe('interpretation network model', () => {
         expect(createRowData.ColLabel).toBeUndefined()
     })
 
+    it('uses explicit create-child placement as the initial parent instead of stale selection', () => {
+        const selectedCell = {
+            id: 'previous-selected-cell',
+            parentCellId: null,
+            sortOrder: 0
+        } as MatrixCell
+
+        const initialData = buildCellDialogInitialData({
+            mode: 'create-child',
+            cellMetadataFields: [],
+            styleFields: [],
+            childColumns: physicalMatrixChildColumns,
+            locale: 'en',
+            selectedCell,
+            selectedRawCell: undefined,
+            placement: {
+                parentCellId: 'menu-target-cell'
+            }
+        })
+
+        expect(initialData.phys_parent_cell_id).toBe('menu-target-cell')
+        expect(initialData.ParentCellId).toBeUndefined()
+    })
+
     it('pre-fills edit dialog values from physical matrix row fields', () => {
         const rowLabelValue = { locales: { en: { content: 'Existing row' } }, _primary: 'en' }
         const colLabelValue = { locales: { en: { content: 'Existing column' } }, _primary: 'en' }
@@ -821,17 +914,38 @@ describe('interpretation network model', () => {
     })
 
     it('normalizes matrix view settings from widget config without resetting valid table defaults', () => {
+        expect(toConfig({})).toMatchObject({
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table',
+            tableProjection: 'hierarchicalPath',
+            breadcrumbDepth: { mode: 'full' },
+            toolbarLayout: 'horizontal',
+            showHierarchicalTableHeaderCard: true
+        })
         expect(
             toConfig({
                 matrixMode: 'hierarchicalCells',
                 allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
                 defaultMatrixView: 'table',
+                tableProjection: 'independentAxes',
+                breadcrumbDepth: { mode: 'last', count: 4 },
+                toolbarLayout: 'vertical',
+                showHierarchicalTableHeaders: true,
+                showHierarchicalTableHeaderCard: false,
+                colorBreadcrumbsByCell: false,
                 allowNewAxesInCellDialog: true
             })
         ).toMatchObject({
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
+            tableProjection: 'independentAxes',
+            breadcrumbDepth: { mode: 'last', count: 4 },
+            toolbarLayout: 'vertical',
+            showHierarchicalTableHeaders: true,
+            showHierarchicalTableHeaderCard: false,
+            colorBreadcrumbsByCell: false,
             allowNewAxesInCellDialog: true
         })
         expect(
@@ -844,6 +958,10 @@ describe('interpretation network model', () => {
             matrixMode: 'independentRows',
             allowedMatrixViews: ['table', 'horizontalRows'],
             defaultMatrixView: 'table',
+            tableProjection: 'independentAxes',
+            showHierarchicalTableHeaders: false,
+            showHierarchicalTableHeaderCard: true,
+            colorBreadcrumbsByCell: true,
             allowNewAxesInCellDialog: false
         })
         expect(
@@ -854,8 +972,161 @@ describe('interpretation network model', () => {
         ).toMatchObject({
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'verticalTree'
+            defaultMatrixView: 'verticalTree',
+            tableProjection: 'hierarchicalPath',
+            showHierarchicalTableHeaders: false,
+            showHierarchicalTableHeaderCard: true,
+            colorBreadcrumbsByCell: true
         })
+    })
+
+    it('builds hierarchical table levels with header cell, row cells, and ancestor breadcrumbs', () => {
+        const cells = [
+            { id: 'root', parentCellId: null, sortOrder: 0, title: 'Root', depth: 0 } as MatrixCell,
+            { id: 'parent', parentCellId: 'root', sortOrder: 0, title: 'Parent', depth: 1 } as MatrixCell,
+            { id: 'sibling', parentCellId: 'root', sortOrder: 1, title: 'Sibling', depth: 1 } as MatrixCell,
+            { id: 'child-b', parentCellId: 'parent', sortOrder: 2, title: 'Child B', depth: 2 } as MatrixCell,
+            { id: 'child-a', parentCellId: 'parent', sortOrder: 1, title: 'Child A', depth: 2 } as MatrixCell,
+            { id: 'grandchild', parentCellId: 'child-a', sortOrder: 0, title: 'Grandchild', depth: 3 } as MatrixCell
+        ]
+
+        expect(resolveMatrixRootState(cells)).toMatchObject({ kind: 'singleRoot', root: cells[0] })
+        expect(resolveMatrixPath(cells, 'child-a').map((cell) => cell.id)).toEqual(['root', 'parent', 'child-a'])
+        expect(
+            buildBreadcrumbDisplayItems(resolveMatrixPath(cells, 'child-a'), { mode: 'last', count: 2 }).hiddenPrefix.map((cell) => cell.id)
+        ).toEqual(['root'])
+        expect(
+            buildBreadcrumbDisplayItems(resolveMatrixPath(cells, 'child-a'), { mode: 'last', count: 0 }).hiddenPrefix.map((cell) => cell.id)
+        ).toEqual(['root', 'parent', 'child-a'])
+        expect(resolveRouteFocus('missing', cells, resolveMatrixRootState(cells))).toBe('root')
+
+        const rootModel = buildHierarchicalMatrixTableModel({
+            cells,
+            focusedCellId: 'root',
+            breadcrumbDepth: { mode: 'full' }
+        })
+
+        expect(rootModel.headerCell?.id).toBe('root')
+        expect(rootModel.hiddenBreadcrumbs).toEqual([])
+        expect(rootModel.visibleBreadcrumbs).toEqual([])
+        expect(rootModel.tableRows.map((row) => [row.rowCell.id, row.cells.map((cell) => cell.id)])).toEqual([
+            ['parent', ['child-a', 'child-b']],
+            ['sibling', []]
+        ])
+
+        const childFocusModel = buildHierarchicalMatrixTableModel({
+            cells,
+            focusedCellId: 'parent',
+            breadcrumbDepth: { mode: 'last', count: 1 }
+        })
+
+        expect(childFocusModel.focusedCell?.id).toBe('parent')
+        expect(childFocusModel.headerCell?.id).toBe('root')
+        expect(childFocusModel.hiddenBreadcrumbs).toEqual([])
+        expect(childFocusModel.visibleBreadcrumbs).toEqual([])
+        expect(childFocusModel.tableRows.map((row) => [row.rowCell.id, row.cells.map((cell) => cell.id)])).toEqual([
+            ['parent', ['child-a', 'child-b']],
+            ['sibling', []]
+        ])
+        expect(childFocusModel.visibleCells.map((cell) => cell.id)).toEqual(['root', 'parent', 'child-a', 'child-b', 'sibling'])
+
+        const deepModel = buildHierarchicalMatrixTableModel({
+            cells,
+            focusedCellId: 'child-a',
+            breadcrumbDepth: { mode: 'last', count: 1 }
+        })
+
+        expect(deepModel.headerCell?.id).toBe('parent')
+        expect(deepModel.hiddenBreadcrumbs).toEqual([])
+        expect(deepModel.visibleBreadcrumbs.map((cell) => cell.id)).toEqual(['root'])
+        expect(deepModel.tableRows.map((row) => [row.rowCell.id, row.cells.map((cell) => cell.id)])).toEqual([
+            ['child-a', ['grandchild']],
+            ['child-b', []]
+        ])
+    })
+
+    it('keeps the root as table header while first-level cells become row labels', () => {
+        const cells = [
+            { id: 'root', parentCellId: null, sortOrder: 0, title: 'Universe', depth: 0 } as MatrixCell,
+            { id: 'cell-1', parentCellId: 'root', sortOrder: 0, title: 'Cell 1', depth: 1 } as MatrixCell,
+            { id: 'cell-2', parentCellId: 'root', sortOrder: 1, title: 'Cell 2', depth: 1 } as MatrixCell,
+            { id: 'cell-3', parentCellId: 'root', sortOrder: 2, title: 'Cell 3', depth: 1 } as MatrixCell,
+            { id: 'cell-4', parentCellId: 'root', sortOrder: 3, title: 'Cell 4', depth: 1 } as MatrixCell,
+            { id: 'cell-1-a', parentCellId: 'cell-1', sortOrder: 0, title: 'Cell 1 A', depth: 2 } as MatrixCell,
+            { id: 'cell-2-a', parentCellId: 'cell-2', sortOrder: 0, title: 'Cell 2 A', depth: 2 } as MatrixCell,
+            { id: 'cell-2-b', parentCellId: 'cell-2', sortOrder: 1, title: 'Cell 2 B', depth: 2 } as MatrixCell,
+            { id: 'cell-2-a-i', parentCellId: 'cell-2-a', sortOrder: 0, title: 'Cell 2 A I', depth: 3 } as MatrixCell
+        ]
+
+        const rootOnlyModel = buildHierarchicalMatrixTableModel({
+            cells: [cells[0]],
+            focusedCellId: 'root',
+            breadcrumbDepth: { mode: 'full' }
+        })
+        expect(rootOnlyModel.headerCell?.id).toBe('root')
+        expect(rootOnlyModel.tableRows.map((row) => [row.rowCell.id, row.cells.map((cell) => cell.id)])).toEqual([['root', []]])
+
+        const firstLevelModel = buildHierarchicalMatrixTableModel({
+            cells,
+            focusedCellId: 'cell-2',
+            breadcrumbDepth: { mode: 'full' }
+        })
+        expect(firstLevelModel.headerCell?.id).toBe('root')
+        expect(firstLevelModel.visibleBreadcrumbs).toEqual([])
+        expect(firstLevelModel.tableRows.map((row) => [row.rowCell.id, row.cells.map((cell) => cell.id)])).toEqual([
+            ['cell-1', ['cell-1-a']],
+            ['cell-2', ['cell-2-a', 'cell-2-b']],
+            ['cell-3', []],
+            ['cell-4', []]
+        ])
+
+        const secondLevelModel = buildHierarchicalMatrixTableModel({
+            cells,
+            focusedCellId: 'cell-2-a',
+            breadcrumbDepth: { mode: 'full' }
+        })
+        expect(secondLevelModel.headerCell?.id).toBe('cell-2')
+        expect(secondLevelModel.visibleBreadcrumbs.map((cell) => cell.id)).toEqual(['root'])
+        expect(secondLevelModel.tableRows.map((row) => [row.rowCell.id, row.cells.map((cell) => cell.id)])).toEqual([
+            ['cell-2-a', ['cell-2-a-i']],
+            ['cell-2-b', []]
+        ])
+    })
+
+    it('does not silently choose a root when a hierarchical table has multiple roots', () => {
+        const cells = [
+            { id: 'root-b', parentCellId: null, sortOrder: 1, title: 'Root B', depth: 0 } as MatrixCell,
+            { id: 'root-a', parentCellId: null, sortOrder: 0, title: 'Root A', depth: 0 } as MatrixCell
+        ]
+        const rootState = resolveMatrixRootState(cells)
+
+        expect(rootState).toMatchObject({ kind: 'multipleRoots' })
+        expect(resolveRouteFocus(null, cells, rootState)).toBeNull()
+        expect(
+            buildHierarchicalMatrixTableModel({
+                cells,
+                focusedCellId: null,
+                breadcrumbDepth: { mode: 'full' }
+            }).tableRows.map((row) => row.rowCell.id)
+        ).toEqual(['root-a', 'root-b'])
+    })
+
+    it('keeps orphan hierarchical cells visible as root candidates', () => {
+        const cells = [
+            { id: 'root', parentCellId: null, sortOrder: 0, title: 'Root', depth: 0 } as MatrixCell,
+            { id: 'orphan', parentCellId: 'missing-parent', sortOrder: 1, title: 'Orphan', depth: 1 } as MatrixCell
+        ]
+
+        const rootState = resolveMatrixRootState(cells)
+
+        expect(rootState).toMatchObject({ kind: 'multipleRoots' })
+        expect(
+            buildHierarchicalMatrixTableModel({
+                cells,
+                focusedCellId: null,
+                breadcrumbDepth: { mode: 'full' }
+            }).tableRows.map((row) => row.rowCell.id)
+        ).toEqual(['root', 'orphan'])
     })
 
     it('parses parent cell ids and flattens hierarchy in sibling order', () => {

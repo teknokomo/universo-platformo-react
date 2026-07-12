@@ -30,7 +30,11 @@ const mockUseMetahubDetails = vi.fn()
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key,
+        t: (_key: string, fallback?: string, options?: Record<string, unknown>) =>
+            Object.entries(options ?? {}).reduce(
+                (value, [name, replacement]) => value.replaceAll(`{{${name}}}`, String(replacement)),
+                fallback ?? _key
+            ),
         i18n: { language: 'en' }
     })
 }))
@@ -198,6 +202,9 @@ describe('LayoutDetails interpretation network widget editor', () => {
                     matrixMode: 'hierarchicalCells',
                     allowedMatrixViews: ['horizontalRows'],
                     defaultMatrixView: 'horizontalRows',
+                    showHierarchicalTableHeaderCard: false,
+                    showMatrixTreeTotalCells: false,
+                    colorBreadcrumbsByCell: false,
                     conceptCodename: 'concepts'
                 },
                 isActive: true,
@@ -219,6 +226,12 @@ describe('LayoutDetails interpretation network widget editor', () => {
                         matrixMode: 'hierarchicalCells',
                         allowedMatrixViews: ['table', 'horizontalRows'],
                         defaultMatrixView: 'table',
+                        tableProjection: 'hierarchicalPath',
+                        breadcrumbDepth: { mode: 'full' },
+                        toolbarLayout: 'horizontal',
+                        showHierarchicalTableHeaderCard: false,
+                        showMatrixTreeTotalCells: false,
+                        colorBreadcrumbsByCell: false,
                         conceptCodename: 'concepts'
                     },
                     isActive: true,
@@ -242,12 +255,32 @@ describe('LayoutDetails interpretation network widget editor', () => {
         await user.click(within(dialog).getByRole('checkbox', { name: 'Table view' }))
         await user.click(within(dialog).getByRole('combobox', { name: 'Default view' }))
         await user.click(screen.getByRole('option', { name: 'Table view' }))
+        expect(within(dialog).getByRole('combobox', { name: 'Levels' })).toHaveAttribute('aria-disabled', 'true')
+        await user.click(within(dialog).getByRole('combobox', { name: 'Path' }))
+        await user.click(screen.getByRole('option', { name: 'Last levels' }))
+        await user.click(within(dialog).getByRole('combobox', { name: 'Levels' }))
+        await user.click(screen.getByRole('option', { name: '4' }))
+        await user.click(within(dialog).getByRole('switch', { name: 'Show hierarchical table headers' }))
+        const headerCardSwitch = within(dialog).getByRole('switch', { name: 'Show focused parent card' })
+        expect(headerCardSwitch).not.toBeChecked()
+        await user.click(headerCardSwitch)
+        await user.click(within(dialog).getByRole('switch', { name: 'Use cell colors for breadcrumbs' }))
+        await user.click(within(dialog).getByRole('switch', { name: 'Show total cells in tree' }))
+        await user.click(within(dialog).getByRole('combobox', { name: 'Toolbar layout' }))
+        await user.click(screen.getByRole('option', { name: 'Vertical' }))
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(updateLayoutZoneWidgetConfig).toHaveBeenCalledWith('metahub-1', 'layout-1', 'widget-network', {
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows'],
             defaultMatrixView: 'table',
+            tableProjection: 'hierarchicalPath',
+            breadcrumbDepth: { mode: 'last', count: 4 },
+            toolbarLayout: 'vertical',
+            showHierarchicalTableHeaders: true,
+            showHierarchicalTableHeaderCard: true,
+            showMatrixTreeTotalCells: true,
+            colorBreadcrumbsByCell: true,
             allowNewAxesInCellDialog: false,
             conceptCodename: 'concepts'
         })

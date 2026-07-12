@@ -115,6 +115,7 @@ export function MatrixCellButton({
             data-testid={isOverlay ? 'interpretation-network-cell-drag-overlay' : 'interpretation-network-cell'}
             data-cell-id={cell.id}
             data-selected={!isOverlay && selected ? 'true' : undefined}
+            data-selected-outline={!isOverlay && selected ? 'inset' : undefined}
             data-drop-placement={dropPlacement ?? undefined}
             data-invalid-drop-target={isInvalidDropTarget ? 'true' : undefined}
             onClick={onSelect}
@@ -133,9 +134,7 @@ export function MatrixCellButton({
                 borderBottom: isInvalidDropTarget ? '1px dashed' : cell.style.borderBottom,
                 borderLeft: isInvalidDropTarget ? '1px dashed' : cell.style.borderLeft,
                 borderColor: isInvalidDropTarget ? 'error.main' : undefined,
-                outline: selected ? 2 : 0,
-                outlineColor: 'primary.main',
-                outlineOffset: selected ? 2 : 0,
+                outline: 0,
                 boxShadow: isOverlay ? 6 : selected ? 3 : 0,
                 overflow: 'hidden',
                 ml: depth > 0 ? Math.min(depth * 3, 12) : 0,
@@ -194,6 +193,21 @@ export function MatrixCellButton({
                                         borderStyle: 'dashed',
                                         borderRadius: 1
                                     })
+                          }
+                      }
+                    : {}),
+                ...(selected && !isOverlay
+                    ? {
+                          '&::after': {
+                              content: '""',
+                              position: 'absolute',
+                              zIndex: 4,
+                              inset: 3,
+                              border: 2,
+                              borderStyle: 'solid',
+                              borderColor: 'primary.main',
+                              borderRadius: 0.75,
+                              pointerEvents: 'none'
                           }
                       }
                     : {})
@@ -256,11 +270,14 @@ export function MatrixCellButton({
                 size='small'
                 aria-label={menuLabel}
                 disabled={isOverlay}
+                onPointerDown={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                     event.stopPropagation()
                     onOpenMenu(event)
                 }}
-                sx={{ position: 'absolute', top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
+                sx={{ position: 'absolute', zIndex: 2, top: 4, right: 4, width: 28, height: 28, p: 0.25 }}
             >
                 <MoreVertRoundedIcon sx={{ fontSize: 18 }} />
             </IconButton>

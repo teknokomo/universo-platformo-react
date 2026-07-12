@@ -165,6 +165,37 @@
                 "independentRowsViewConstraint": "Вертикальное дерево доступно только для иерархических ячеек.",
                 "defaultView": "Вид по умолчанию",
                 "defaultViewDescription": "Выберите, какой из разрешённых видов пользователь увидит при открытии Матрицы.",
+                "tableProjection": "Проекция таблицы",
+                "tableProjectionDescription": "Выберите, как иерархические ячейки отображаются в табличном виде.",
+                "independentRowsProjectionConstraint": "Независимые строки всегда используют отдельные оси строк и колонок.",
+                "tableViewDisabledConstraint": "Включите табличный вид, чтобы настроить проекцию таблицы и глубину навигационной цепочки.",
+                "tableProjections": {
+                    "hierarchicalPath": "Путь иерархии",
+                    "independentAxes": "Отдельные оси"
+                },
+                "breadcrumbDepth": "Глубина навигационной цепочки",
+                "breadcrumbDepthDescription": "Выберите, какая часть выбранного пути остаётся видимой над иерархическими таблицами.",
+                "breadcrumbDepthMode": "Путь",
+                "breadcrumbDepthCount": "Уровни",
+                "breadcrumbDepthOptions": {
+                    "full": "Полный путь",
+                    "last": "Последние уровни: {{count}}",
+                    "lastMode": "Последние уровни"
+                },
+                "tableHeaders": "Заголовки таблицы",
+                "tableHeadersDescription": "Показывать заголовки колонок текущего уровня и ячеек над иерархическими таблицами Матрицы.",
+                "tableHeaderCard": "Карточка выбранного родителя",
+                "tableHeaderCardDescription": "Показывать выбранную родительскую ячейку отдельной карточкой над иерархической таблицей Матрицы.",
+                "breadcrumbColors": "Цвета хлебных крошек",
+                "breadcrumbColorsDescription": "Показывать элементы пути как компактные боксы с цветом соответствующей ячейки.",
+                "totalCells": "Всего ячеек",
+                "totalCellsDescription": "Показывать общее количество ячеек текущего дерева Матрицы под структурой.",
+                "toolbarLayout": "Расположение панели инструментов",
+                "toolbarLayoutDescription": "Оставьте элементы панели в одной строке по умолчанию или расположите их вертикально, когда рабочей области нужны дополнительные действия.",
+                "toolbarLayouts": {
+                    "horizontal": "Горизонтально",
+                    "vertical": "Вертикально"
+                },
                 "hierarchyRowMode": "Строки иерархии",
                 "hierarchyRowModeDescription": "Выберите, показывать в древовидных видах Матрицы выбранную ветку или все уровни иерархии.",
                 "hierarchyRowModes": {

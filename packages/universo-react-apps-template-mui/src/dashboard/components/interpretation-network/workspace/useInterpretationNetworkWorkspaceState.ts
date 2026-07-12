@@ -8,6 +8,7 @@ import { buildMatrixDragPreview, type MatrixDropState } from '../matrixDrag'
 import { buildCellDialogInitialData, type MatrixCellPlacement } from '../matrixCellData'
 import { buildMaterialEditorInitialData, buildMaterialInitialData } from '../materialData'
 import {
+    buildHierarchicalMatrixTableModel,
     buildMatrixPositionLabels,
     buildMatrixTree,
     buildMatrixAxisOptions,
@@ -27,6 +28,11 @@ import {
     type MatrixView,
     type RuntimeRow
 } from '../model'
+import type {
+    InterpretationNetworkBreadcrumbDepth,
+    InterpretationNetworkTableProjection,
+    InterpretationNetworkToolbarLayout
+} from '@universo-react/types'
 import type { StructureSummary } from './StructurePane'
 import type { CellDialogMode, MaterialDialogMode, StructureDialogMode } from './workspaceState'
 
@@ -47,6 +53,9 @@ type WorkspaceWidgetConfig = {
     positionNumbering: { enabled: boolean; includeRoot: boolean; startIndex: number }
     allowedMatrixViews: MatrixView[]
     defaultMatrixView: MatrixView
+    tableProjection: InterpretationNetworkTableProjection
+    breadcrumbDepth: InterpretationNetworkBreadcrumbDepth
+    toolbarLayout: InterpretationNetworkToolbarLayout
 }
 
 export type WorkspaceDialogModes = {
@@ -213,6 +222,15 @@ export function useInterpretationNetworkWorkspaceState({
         () => buildMatrixPositionLabels(matrixTree, widgetConfig.positionNumbering),
         [matrixTree, widgetConfig.positionNumbering]
     )
+    const hierarchicalTableModel = useMemo(
+        () =>
+            buildHierarchicalMatrixTableModel({
+                cells: matrixCells,
+                focusedCellId: selectedCellId,
+                breadcrumbDepth: widgetConfig.breadcrumbDepth
+            }),
+        [matrixCells, selectedCellId, widgetConfig.breadcrumbDepth]
+    )
     const effectiveMatrixView = widgetConfig.allowedMatrixViews.includes(matrixViewOverride ?? widgetConfig.defaultMatrixView)
         ? matrixViewOverride ?? widgetConfig.defaultMatrixView
         : widgetConfig.allowedMatrixViews[0]
@@ -253,9 +271,9 @@ export function useInterpretationNetworkWorkspaceState({
     const deleteRawCell = deleteCell ? rawMatrixRowsByCellId.get(deleteCell.id) : undefined
     const rootCellId =
         widgetConfig.matrixMode === 'hierarchicalCells'
-            ? [...matrixCells]
-                  .filter((cell) => cell.parentCellId === null)
-                  .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title) || a.id.localeCompare(b.id))[0]?.id ?? null
+            ? hierarchicalTableModel.rootState.kind === 'singleRoot'
+                ? hierarchicalTableModel.rootState.root.id
+                : null
             : null
 
     const cellMaterials = findMaterialsForCell(materials, data?.materials.columns, selectedCell?.id, selectedCell?.materialRef ?? null)
@@ -385,10 +403,19 @@ export function useInterpretationNetworkWorkspaceState({
         () =>
             widgetConfig.matrixMode === 'hierarchicalCells'
                 ? effectiveMatrixView === 'table'
-                    ? hierarchicalMatrixCells
+                    ? widgetConfig.tableProjection === 'hierarchicalPath'
+                        ? hierarchicalTableModel.visibleCells
+                        : matrixCells
                     : hierarchicalMatrixRows.flatMap((row) => row)
                 : matrixCells,
-        [effectiveMatrixView, hierarchicalMatrixCells, hierarchicalMatrixRows, matrixCells, widgetConfig.matrixMode]
+        [
+            effectiveMatrixView,
+            hierarchicalMatrixRows,
+            hierarchicalTableModel.visibleCells,
+            matrixCells,
+            widgetConfig.matrixMode,
+            widgetConfig.tableProjection
+        ]
     )
     const matrixCellIds = useMemo(() => visibleMatrixCells.map((cell) => cell.id), [visibleMatrixCells])
     const matrixDragPreview = useMemo(
@@ -421,6 +448,7 @@ export function useInterpretationNetworkWorkspaceState({
         matrixCells,
         matrixAxisOptions,
         hierarchicalMatrixRows,
+        hierarchicalTableModel,
         matrixPositionLabels,
         effectiveMatrixView,
         matrixRowsSnapshotRef,

@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url'
 // Keep in sync with:
 //   .agents/skills/ontoindex-code-intelligence/SKILL.md (metadata.version)
 //   .agents/skills/SOURCES.md (ledger row)
-export const PINNED_VERSION = '1.9.10'
+export const PINNED_VERSION = '2.0.10'
 
 export const BINARY = process.platform === 'win32' ? 'ontoindex.cmd' : 'ontoindex'
 // `.cmd` shims on Windows require a shell; elsewhere keep shell disabled.

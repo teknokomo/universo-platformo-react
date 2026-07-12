@@ -118,6 +118,13 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
+            tableProjection: 'hierarchicalPath',
+            breadcrumbDepth: { mode: 'full' },
+            toolbarLayout: 'horizontal',
+            showHierarchicalTableHeaders: false,
+            showHierarchicalTableHeaderCard: true,
+            showMatrixTreeTotalCells: true,
+            colorBreadcrumbsByCell: true,
             hierarchyRowMode: 'focusedPath',
             allowNewAxesInCellDialog: false,
             positionNumbering: {

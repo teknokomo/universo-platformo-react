@@ -1,9 +1,10 @@
 import type { DragEndEvent, DragMoveEvent, DragOverEvent, DragStartEvent, SensorDescriptor, SensorOptions } from '@dnd-kit/core'
 import type { TFunction } from 'i18next'
-import type { MatrixCell, MatrixTableDropSlot, MatrixView } from '../model'
+import type { HierarchicalMatrixTableModel, MatrixCell, MatrixTableDropSlot, MatrixView } from '../model'
 import type { MatrixCellPlacement } from '../matrixCellData'
 import type { MatrixDragPreview, MatrixDropState, MatrixMode } from '../matrixDrag'
 import { MatrixWorkspace, type MatrixMenuMove, type MatrixWorkspaceProps } from './MatrixWorkspace'
+import type { InterpretationNetworkTableProjection, InterpretationNetworkToolbarLayout } from '@universo-react/types'
 
 export interface MatrixWorkspaceBridgeProps {
     t: TFunction<'interpretationNetwork'>
@@ -11,7 +12,14 @@ export interface MatrixWorkspaceBridgeProps {
     mode: MatrixMode
     matrixView: MatrixView
     allowedMatrixViews: MatrixView[]
+    tableProjection: InterpretationNetworkTableProjection
+    toolbarLayout: InterpretationNetworkToolbarLayout
+    showHierarchicalTableHeaders: boolean
+    showHierarchicalTableHeaderCard: boolean
+    showMatrixTreeTotalCells: boolean
+    colorBreadcrumbsByCell: boolean
     hierarchyRows: MatrixCell[][]
+    hierarchicalTableModel: HierarchicalMatrixTableModel
     positionLabels: Map<string, string>
     cells: MatrixCell[]
     visibleCells: MatrixCell[]
@@ -59,7 +67,14 @@ export function MatrixWorkspaceBridge({
     mode,
     matrixView,
     allowedMatrixViews,
+    tableProjection,
+    toolbarLayout,
+    showHierarchicalTableHeaders,
+    showHierarchicalTableHeaderCard,
+    showMatrixTreeTotalCells,
+    colorBreadcrumbsByCell,
     hierarchyRows,
+    hierarchicalTableModel,
     positionLabels,
     cells,
     visibleCells,
@@ -89,7 +104,14 @@ export function MatrixWorkspaceBridge({
             matrixMode={mode}
             matrixView={matrixView}
             allowedMatrixViews={allowedMatrixViews}
+            tableProjection={tableProjection}
+            toolbarLayout={toolbarLayout}
+            showHierarchicalTableHeaders={showHierarchicalTableHeaders}
+            showHierarchicalTableHeaderCard={showHierarchicalTableHeaderCard}
+            showMatrixTreeTotalCells={showMatrixTreeTotalCells}
+            colorBreadcrumbsByCell={colorBreadcrumbsByCell}
             hierarchyRows={hierarchyRows}
+            hierarchicalTableModel={hierarchicalTableModel}
             positionLabels={positionLabels}
             matrixCells={cells}
             visibleMatrixCells={visibleCells}

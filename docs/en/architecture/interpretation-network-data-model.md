@@ -39,8 +39,14 @@ Matrix display settings are widget configuration, not cell data:
 -   `matrixMode` controls Matrix data semantics: `hierarchicalCells` or `independentRows`.
 -   `allowedMatrixViews` is the non-empty set of peer Matrix views available to workspace users: `table`, `horizontalRows`, and `verticalTree`.
 -   `defaultMatrixView` is one member of `allowedMatrixViews` and opens when the workspace is entered.
+-   `tableProjection` controls the Table presentation. The template default is `hierarchicalPath`, where parent cells become breadcrumbs and the focused level's children become rows. `independentAxes` remains available for the explicit row/column table projection.
+-   `breadcrumbDepth` defaults to the full path. A finite `last` depth shows the configured trailing levels and exposes hidden parents through the localized ellipsis menu.
+-   `toolbarLayout` defaults to `horizontal`; `vertical` is an opt-in display setting for dense workspaces.
+-   `showHierarchicalTableHeaders` defaults to `false` for the hierarchy-first Table. It can be enabled to show the current-level/cell column headers.
+-   `showHierarchicalTableHeaderCard` defaults to `true`, keeping the focused parent cell as a separated context card above the row table before it moves into breadcrumbs.
+-   `colorBreadcrumbsByCell` defaults to `true`, so breadcrumb boxes use the same configured fill as their source cells and use a separate hover/focus treatment for navigation feedback.
 
-The authoritative schema and normalizer live in `@universo-react/types` (`common/applicationLayouts`). The three values are alternative presentations of one Matrix, not separate Matrix and Table features. At least one view is required, duplicates are invalid, and the default must be allowed. `verticalTree` requires `hierarchicalCells`; `table` and `horizontalRows` also support `independentRows`. The template seeds canonical settings at the metahub layer; the Application control panel may override them for the deployed instance; workspace users switch among the allowed views while authoring content.
+The authoritative schema and normalizers live in `@universo-react/types` (`common/applicationLayouts`). Matrix views are alternative presentations of one Matrix, not separate Matrix and Table features. At least one view is required, duplicates are invalid, and the default must be allowed. `verticalTree` requires `hierarchicalCells`; `table` and `horizontalRows` also support `independentRows`. The template seeds canonical settings at the metahub layer; the Application control panel may override them for the deployed instance; workspace users switch among the allowed views while authoring content.
 
 These fields do not require a database migration, a new entity preset, or a metahub template version bump.
 
@@ -50,7 +56,7 @@ The runtime widget renders the structure list on the left. After a structure is 
 
 Application settings do not infer Interpretation Network behavior from hardcoded LMS defaults. The settings page reads active materialized layout widgets; Matrix settings are saved back to the `interpretationNetworkWorkspace` widget config, while Learning Content remains visible only for applications whose runtime state actually contains that configuration.
 
-The `table`, `horizontalRows`, and `verticalTree` views present the same cell records. Table view uses user-authored `RowLabel` and `ColLabel` values as semantic headers. A missing `(RowKey, ColKey)` intersection remains an empty, localized table cell; it is not persisted as a new record. User-facing surfaces hide UUIDs, axis keys, parent IDs, sort order, raw JSON, and old product-specific names.
+The `table`, `horizontalRows`, and `verticalTree` views present the same cell records. By default, Table view is hierarchy-first: the selected cell path becomes clickable cell-colored breadcrumbs, the focused parent becomes the current table context, direct children become rows, and column headers are hidden unless enabled explicitly. Breadcrumb clicks update selection, route state, visible children, and the Materials pane. When `tableProjection` is `independentAxes`, Table view uses user-authored `RowLabel` and `ColLabel` values as semantic headers; a missing `(RowKey, ColKey)` intersection remains an empty, localized table cell and is not persisted as a new record. User-facing surfaces hide UUIDs, axis keys, parent IDs, sort order, raw JSON, and old product-specific names.
 
 ## Workspace templates
 

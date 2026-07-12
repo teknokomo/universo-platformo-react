@@ -66,13 +66,13 @@ const buildMove = (
     })
 
 describe('hierarchical matrix moves', () => {
-    it('uses 10-50% overlap for child placement and greater overlap for sibling insertion', () => {
+    it('uses vertical edge zones for sibling insertion and the center zone for child placement', () => {
         const target = { top: 100, height: 100 }
-        expect(resolveHierarchicalDropPlacement({ top: 91, height: 100 }, target)).toBe('before')
-        expect(resolveHierarchicalDropPlacement({ top: 190.1, height: 100 }, target)).toBeNull()
-        expect(resolveHierarchicalDropPlacement({ top: 190, height: 100 }, target)).toBe('child')
-        expect(resolveHierarchicalDropPlacement({ top: 150, height: 100 }, target)).toBe('child')
-        expect(resolveHierarchicalDropPlacement({ top: 149.9, height: 100 }, target)).toBe('after')
+        expect(resolveHierarchicalDropPlacement({ top: 0, height: 100 }, target)).toBeNull()
+        expect(resolveHierarchicalDropPlacement({ top: 50, height: 100 }, target)).toBe('before')
+        expect(resolveHierarchicalDropPlacement({ top: 75, height: 100 }, target)).toBe('child')
+        expect(resolveHierarchicalDropPlacement({ top: 125, height: 100 }, target)).toBe('child')
+        expect(resolveHierarchicalDropPlacement({ top: 125.1, height: 100 }, target)).toBe('after')
         expect(resolveHierarchicalDropPlacement(null, target)).toBe('after')
     })
 
@@ -116,8 +116,49 @@ describe('hierarchical matrix moves', () => {
 
     it('uses the dragged card center instead of the handle pointer for visible drop placement', () => {
         const target = { top: 100, height: 80 }
-        expect(resolveHierarchicalDropPlacement({ top: 122, height: 64 }, target)).toBe('after')
-        expect(resolveHierarchicalDropPlacement({ top: 94, height: 64 }, target)).toBe('before')
+        expect(resolveHierarchicalDropPlacement({ top: 87.9, height: 64 }, target)).toBe('before')
+        expect(resolveHierarchicalDropPlacement({ top: 88.1, height: 64 }, target)).toBe('child')
+        expect(resolveHierarchicalDropPlacement({ top: 122, height: 64 }, target)).toBe('child')
+        expect(resolveHierarchicalDropPlacement({ top: 128.1, height: 64 }, target)).toBe('after')
+    })
+
+    it('resolves vertical table-style center drops as child destinations and edge drops as sibling destinations', () => {
+        const cells = [cell('root', null, 0), cell('target', 'root', 0), cell('source', 'root', 1)]
+        const resolveAtCenter = (centerY: number) =>
+            resolveMatrixDropState({
+                mode: 'hierarchicalCells',
+                cells,
+                cellIds: cells.map((item) => item.id),
+                sourceCellId: 'source',
+                targetCellId: 'target',
+                translatedRect: { top: centerY - 32, height: 64 },
+                targetRect: { top: 100, height: 80 }
+            })
+
+        expect(resolveAtCenter(119.9).destination).toEqual({
+            placement: 'before',
+            targetCellId: 'target',
+            parentCellId: 'root',
+            insertionIndex: 0
+        })
+        expect(resolveAtCenter(120).destination).toEqual({
+            placement: 'child',
+            targetCellId: 'target',
+            parentCellId: 'target',
+            insertionIndex: 0
+        })
+        expect(resolveAtCenter(160).destination).toEqual({
+            placement: 'child',
+            targetCellId: 'target',
+            parentCellId: 'target',
+            insertionIndex: 0
+        })
+        expect(resolveAtCenter(160.1).destination).toEqual({
+            placement: 'after',
+            targetCellId: 'target',
+            parentCellId: 'root',
+            insertionIndex: 1
+        })
     })
 
     it('marks descendant targets invalid while preserving the visible child indicator', () => {
@@ -129,7 +170,7 @@ describe('hierarchical matrix moves', () => {
                 cellIds: cells.map((item) => item.id),
                 sourceCellId: 'root',
                 targetCellId: 'child',
-                translatedRect: { top: 164, height: 80 },
+                translatedRect: { top: 110, height: 80 },
                 targetRect: { top: 100, height: 80 }
             })
         ).toEqual({

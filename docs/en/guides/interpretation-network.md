@@ -29,13 +29,13 @@ The workspace is intentionally operational, not decorative. It reuses shared run
 
 ### Layer ownership
 
-| Layer                     | Owns                                                                                                                             |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Metahub                   | Canonical `interpretationNetworkWorkspace` widget defaults, including allowed Matrix views and the default Matrix view.          |
-| Application control panel | Deployment-specific overrides for all active materialized Interpretation Network widgets.                                        |
-| Published workspace       | User-authored Structures, matrix cells, Relations, Materials, table templates, selection state, and transient display switching. |
+| Layer                     | Owns                                                                                                                                                                                                                                           |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metahub                   | Canonical `interpretationNetworkWorkspace` widget defaults, including allowed Matrix views, default Matrix view, Table projection, breadcrumb depth, toolbar layout, optional Table headers, the focused parent card, and breadcrumb coloring. |
+| Application control panel | Deployment-specific overrides for all active materialized Interpretation Network widgets.                                                                                                                                                      |
+| Published workspace       | User-authored Structures, matrix cells, Relations, Materials, table templates, selection state, and transient display switching.                                                                                                               |
 
-The shared contract lives in `@universo-react/types`: `matrixMode` describes data semantics, while `allowedMatrixViews` and `defaultMatrixView` configure the peer views `table`, `horizontalRows`, and `verticalTree`. At least one view is required and the default must be allowed. `verticalTree` requires hierarchical cells; the other two views also support independent rows.
+The shared contract lives in `@universo-react/types`: `matrixMode` describes data semantics, while `allowedMatrixViews` and `defaultMatrixView` configure the peer views `table`, `horizontalRows`, and `verticalTree`. `tableProjection`, `breadcrumbDepth`, `toolbarLayout`, `showHierarchicalTableHeaders`, `showHierarchicalTableHeaderCard`, and `colorBreadcrumbsByCell` tune the Table experience. At least one view is required and the default must be allowed. `verticalTree` requires hierarchical cells; the other two views also support independent rows.
 
 ## Installation
 
@@ -56,13 +56,19 @@ The fixture does not seed user-authored structures, matrix cells, or materials. 
 
 The Matrix behavior is configured on the materialized `interpretationNetworkWorkspace` layout widget, not in generic application settings. The supported modes are:
 
--   `hierarchicalCells` — the default product mode. A newly created Structure receives one root matrix cell named `Universe` / `Вселенная`; users select an existing cell and use **Add child** to create child cells below it.
+-   `hierarchicalCells` — the default product mode. A newly created Structure receives one root matrix cell named `Universe` / `Вселенная`; users select an existing cell and use **Add** to create child cells below it.
 -   `independentRows` — the compatibility mode. Users can create independent rows and sibling cells with **Add row** and **Add cell in row**.
 
 Display settings are separate from data semantics:
 
 -   `allowedMatrixViews` — the non-empty allowed subset of `table`, `horizontalRows`, and `verticalTree`.
 -   `defaultMatrixView` — the allowed view opened by default.
+-   `tableProjection` — `hierarchicalPath` by default, where breadcrumbs represent the parent path and the current level's children become table rows; `independentAxes` keeps the explicit row/column table.
+-   `breadcrumbDepth` — full path by default, or the last configured levels with an ellipsis menu for hidden parents.
+-   `toolbarLayout` — horizontal by default; vertical is available as an opt-in setting.
+-   `showHierarchicalTableHeaders` — hidden by default for the hierarchy-first Table; enable it only when the current-level/cell column headers are useful.
+-   `showHierarchicalTableHeaderCard` — enabled by default, keeping the focused parent cell as a separated context card above the row table.
+-   `colorBreadcrumbsByCell` — enabled by default so breadcrumb boxes carry the same fill color as their source cells.
 
 The application settings page derives the Matrix tab from active materialized widgets. It can enable any compatible views and choose the default for the deployed instance. If several active widgets disagree, the settings surface warns the administrator and saves one normalized configuration to all of them. LMS-only settings such as Learning Content are not shown for the Interpretation Network unless the connected metahub publication actually materializes matching runtime configuration.
 
@@ -82,10 +88,13 @@ Matrix actions are right-aligned and use the same contained MUI action style as 
 
 Table, Horizontal rows, and Vertical tree are peer views over the same Matrix cell data. They do not create separate storage models and do not change `matrixMode`.
 
--   Users author `RowLabel`, `ColLabel`, `CellValue`, and the optional multiline `CellDescription`; these values can be changed when a cell is created or edited.
+-   Users author `CellValue` and the optional multiline `CellDescription`; in the secondary `independentAxes` projection they can also author `RowLabel` and `ColLabel`.
 -   The runtime owns `CellId` (UUID v7), `ParentCellId`, `RowKey`, `ColKey`, and `_tp_sort_order`. These fields are not editable or shown on normal user surfaces.
--   Table rows and columns come from the explicit Matrix axes. Missing intersections render a localized empty state instead of fabricating records.
--   The table uses semantic MUI table markup: `TableHead`, column headers with `scope="col"`, row headers with `scope="row"`, and labelled scroll containment when horizontal scrolling is needed.
+-   The default Table projection is hierarchy-first: parent cells render as clickable cell-colored breadcrumbs, the focused parent is the separated table context card by default, and direct children render as rows with material summaries.
+-   If `breadcrumbDepth` is finite, the visible path is truncated to the configured trailing levels and hidden parents are available from the ellipsis menu.
+-   The secondary `independentAxes` Table projection uses explicit Matrix rows and columns. Missing intersections render a localized empty state instead of fabricating records.
+-   Table headers are optional. In the Interpretation Network default configuration the current-level/cell column headers are hidden; Application Settings or the metahub widget editor can enable them.
+-   The table uses semantic MUI table markup: optional `TableHead`, column headers with `scope="col"` when enabled, row headers with `scope="row"`, and labelled scroll containment when horizontal scrolling is needed.
 -   Cells expose accessible names that include row, column, position, title, and selected state. Keyboard users can select a cell, open its actions, move through the workflow, and reach the Materials pane.
 -   Cell color, border styling, position labels, selected state, material summary, creation, edit/delete actions, menu movement, and drag/drop behavior remain aligned across compatible views.
 -   Only the table container may scroll horizontally. The application page itself must not gain horizontal overflow at desktop, tablet, or mobile widths.

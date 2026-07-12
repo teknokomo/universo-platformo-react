@@ -1,5 +1,12 @@
 import { buildVLC, createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
-import { normalizeInterpretationNetworkMatrixViewSettings, type InterpretationNetworkMatrixView } from '@universo-react/types'
+import {
+    normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkTableSettings,
+    type InterpretationNetworkBreadcrumbDepth,
+    type InterpretationNetworkMatrixView,
+    type InterpretationNetworkTableProjection,
+    type InterpretationNetworkToolbarLayout
+} from '@universo-react/types'
 import type { AppDataResponse } from '../../../api/api'
 import type { FieldConfig, FieldType } from '../../../components/dialogs/FormDialog'
 import { formatRuntimeSafeValue } from '../../../utils/displayValue'
@@ -43,6 +50,13 @@ export type InterpretationNetworkWorkspaceConfig = {
     matrixMode?: MatrixMode
     allowedMatrixViews?: InterpretationNetworkMatrixView[]
     defaultMatrixView?: InterpretationNetworkMatrixView
+    tableProjection?: InterpretationNetworkTableProjection
+    breadcrumbDepth?: InterpretationNetworkBreadcrumbDepth
+    toolbarLayout?: InterpretationNetworkToolbarLayout
+    showHierarchicalTableHeaders?: boolean
+    showHierarchicalTableHeaderCard?: boolean
+    showMatrixTreeTotalCells?: boolean
+    colorBreadcrumbsByCell?: boolean
     hierarchyRowMode?: MatrixHierarchyRowMode
     positionNumbering?: MatrixPositionNumberingConfig
     allowNewAxesInCellDialog?: boolean
@@ -112,6 +126,31 @@ export type MatrixTableModel = {
     rows: MatrixTableAxisItem[]
     columns: MatrixTableAxisItem[]
     slots: MatrixTableSlot[][]
+}
+
+export type MatrixRootState = { kind: 'empty' } | { kind: 'singleRoot'; root: MatrixCell } | { kind: 'multipleRoots'; roots: MatrixCell[] }
+
+export type HierarchicalMatrixTableRow = {
+    rowCell: MatrixCell
+    cells: MatrixCell[]
+}
+
+export type MatrixBreadcrumbDisplay<T> = {
+    hiddenPrefix: T[]
+    visibleTail: T[]
+}
+
+export type HierarchicalMatrixTableModel = {
+    rootState: MatrixRootState
+    focusedCell: MatrixCell | null
+    focusedPath: MatrixCell[]
+    headerCell: MatrixCell | null
+    breadcrumbDepth: InterpretationNetworkBreadcrumbDepth
+    hiddenBreadcrumbs: MatrixCell[]
+    visibleBreadcrumbs: MatrixCell[]
+    rowLabels: MatrixCell[]
+    tableRows: HierarchicalMatrixTableRow[]
+    visibleCells: MatrixCell[]
 }
 
 const MATRIX_TABLE_SLOT_ID_PREFIX = 'matrix-table-slot:'
@@ -194,8 +233,15 @@ const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
     tableTemplateDescriptionField: 'Description',
     tableTemplateMatrixField: 'TemplateMatrix',
     matrixMode: 'hierarchicalCells',
-    allowedMatrixViews: ['horizontalRows'],
-    defaultMatrixView: 'horizontalRows',
+    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+    defaultMatrixView: 'table',
+    tableProjection: 'hierarchicalPath',
+    breadcrumbDepth: { mode: 'full' },
+    toolbarLayout: 'horizontal',
+    showHierarchicalTableHeaders: false,
+    showHierarchicalTableHeaderCard: true,
+    showMatrixTreeTotalCells: true,
+    colorBreadcrumbsByCell: true,
     hierarchyRowMode: 'focusedPath',
     positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
     allowNewAxesInCellDialog: false
@@ -228,8 +274,18 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
         const legacyAwareViewRequest = normalizeLegacyMatrixViewRequest(config, matrixMode)
         const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
             matrixMode,
-            legacyAwareViewRequest.allowedMatrixViews,
-            legacyAwareViewRequest.defaultMatrixView
+            legacyAwareViewRequest.allowedMatrixViews ?? DEFAULT_CONFIG.allowedMatrixViews,
+            legacyAwareViewRequest.defaultMatrixView ?? DEFAULT_CONFIG.defaultMatrixView
+        )
+        const tableSettings = normalizeInterpretationNetworkTableSettings(
+            matrixMode,
+            config?.tableProjection,
+            config?.breadcrumbDepth,
+            config?.toolbarLayout,
+            config?.showHierarchicalTableHeaders,
+            config?.showHierarchicalTableHeaderCard,
+            config?.showMatrixTreeTotalCells,
+            config?.colorBreadcrumbsByCell
         )
         return {
             ...DEFAULT_CONFIG,
@@ -239,6 +295,13 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
                         key !== 'matrixMode' &&
                         key !== 'allowedMatrixViews' &&
                         key !== 'defaultMatrixView' &&
+                        key !== 'tableProjection' &&
+                        key !== 'breadcrumbDepth' &&
+                        key !== 'toolbarLayout' &&
+                        key !== 'showHierarchicalTableHeaders' &&
+                        key !== 'showHierarchicalTableHeaderCard' &&
+                        key !== 'showMatrixTreeTotalCells' &&
+                        key !== 'colorBreadcrumbsByCell' &&
                         key !== 'hierarchyLayout' &&
                         key !== 'hierarchyRowMode' &&
                         key !== 'allowNewAxesInCellDialog' &&
@@ -249,6 +312,7 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
             ),
             matrixMode,
             ...viewSettings,
+            ...tableSettings,
             hierarchyRowMode: parseMatrixHierarchyRowMode(config?.hierarchyRowMode),
             positionNumbering: parseMatrixPositionNumbering(config?.positionNumbering),
             allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true
@@ -470,6 +534,63 @@ export const buildMatrixTree = (cells: MatrixCell[]): MatrixTreeNode[] => {
     return roots
 }
 
+export const resolveMatrixRootState = (cells: MatrixCell[]): MatrixRootState => {
+    const roots = buildMatrixTree(cells).map(({ children: _children, ...cell }) => cell)
+
+    if (roots.length === 0) return { kind: 'empty' }
+    if (roots.length === 1) return { kind: 'singleRoot', root: roots[0] }
+    return { kind: 'multipleRoots', roots }
+}
+
+export const resolveMatrixPath = (cells: readonly MatrixCell[], focusedCellId: string | null | undefined): MatrixCell[] => {
+    const byId = new Map(cells.map((cell) => [cell.id, cell]))
+    const focused = focusedCellId ? byId.get(focusedCellId) : undefined
+    if (!focused) return []
+
+    const path: MatrixCell[] = []
+    const visited = new Set<string>()
+    let current: MatrixCell | undefined = focused
+
+    while (current && !visited.has(current.id)) {
+        visited.add(current.id)
+        path.push(current)
+        current = current.parentCellId ? byId.get(current.parentCellId) : undefined
+    }
+
+    return path.reverse()
+}
+
+export function buildBreadcrumbDisplayItems<T>(
+    path: readonly T[],
+    depth: InterpretationNetworkBreadcrumbDepth
+): MatrixBreadcrumbDisplay<T> {
+    if (depth.mode === 'full') {
+        return { hiddenPrefix: [], visibleTail: [...path] }
+    }
+
+    const count = Math.max(0, Math.trunc(depth.count))
+    if (path.length <= count) {
+        return { hiddenPrefix: [], visibleTail: [...path] }
+    }
+
+    const visibleTail = count > 0 ? path.slice(-count) : []
+    return {
+        hiddenPrefix: path.slice(0, path.length - visibleTail.length),
+        visibleTail
+    }
+}
+
+export const resolveRouteFocus = (
+    routeCellId: string | null | undefined,
+    cells: readonly MatrixCell[],
+    rootState: MatrixRootState
+): string | null => {
+    if (routeCellId && cells.some((cell) => cell.id === routeCellId)) {
+        return routeCellId
+    }
+    return rootState.kind === 'singleRoot' ? rootState.root.id : null
+}
+
 export const flattenMatrixTree = (nodes: MatrixTreeNode[], depth = 0, visited = new Set<string>()): MatrixCell[] =>
     nodes.flatMap((node) => {
         if (visited.has(node.id)) return []
@@ -519,6 +640,101 @@ export const toFocusedMatrixHierarchyRows = (nodes: MatrixTreeNode[], selectedCe
     }
 
     return rows
+}
+
+const compareMatrixCellsByPosition = (left: MatrixCell, right: MatrixCell): number =>
+    left.sortOrder - right.sortOrder || left.title.localeCompare(right.title) || left.id.localeCompare(right.id)
+
+const groupMatrixCellsByParentId = (cells: readonly MatrixCell[]): Map<string | null, MatrixCell[]> => {
+    const cellsByParentId = new Map<string | null, MatrixCell[]>()
+    for (const cell of cells) {
+        const parentCellId = cell.parentCellId ?? null
+        const list = cellsByParentId.get(parentCellId)
+        if (list) {
+            list.push(cell)
+        } else {
+            cellsByParentId.set(parentCellId, [cell])
+        }
+    }
+    for (const list of cellsByParentId.values()) {
+        list.sort(compareMatrixCellsByPosition)
+    }
+    return cellsByParentId
+}
+
+const collectDirectChildren = (
+    cellsByParentId: ReadonlyMap<string | null, readonly MatrixCell[]>,
+    parentCellId: string | null
+): MatrixCell[] => [...(cellsByParentId.get(parentCellId ?? null) ?? [])]
+
+const uniqueMatrixCells = (cells: readonly MatrixCell[]): MatrixCell[] => {
+    const seen = new Set<string>()
+    return cells.filter((cell) => {
+        if (seen.has(cell.id)) return false
+        seen.add(cell.id)
+        return true
+    })
+}
+
+export const buildHierarchicalMatrixTableModel = ({
+    cells,
+    focusedCellId,
+    breadcrumbDepth
+}: {
+    cells: readonly MatrixCell[]
+    focusedCellId: string | null | undefined
+    breadcrumbDepth: InterpretationNetworkBreadcrumbDepth
+}): HierarchicalMatrixTableModel => {
+    const cellsByParentId = groupMatrixCellsByParentId(cells)
+    const rootState = resolveMatrixRootState([...cells])
+    const resolvedFocusedCellId = resolveRouteFocus(focusedCellId, cells, rootState)
+    const focusedCell = resolvedFocusedCellId ? cells.find((cell) => cell.id === resolvedFocusedCellId) ?? null : null
+    const focusedPath = focusedCell ? resolveMatrixPath(cells, focusedCell.id) : []
+    const headerCell = focusedPath.length > 2 ? focusedPath[focusedPath.length - 2] : focusedPath.length > 0 ? focusedPath[0] ?? null : null
+    const breadcrumbPath = headerCell
+        ? focusedPath.slice(
+              0,
+              focusedPath.findIndex((cell) => cell.id === headerCell.id)
+          )
+        : []
+    const { hiddenPrefix, visibleTail } = buildBreadcrumbDisplayItems(breadcrumbPath, breadcrumbDepth)
+    const directChildren = headerCell ? collectDirectChildren(cellsByParentId, headerCell.id) : []
+    const focusedDirectChild =
+        headerCell && focusedCell?.parentCellId === headerCell.id ? directChildren.find((cell) => cell.id === focusedCell.id) : undefined
+    const tableRows: HierarchicalMatrixTableRow[] = headerCell
+        ? focusedCell?.id === headerCell.id
+            ? directChildren.length > 0
+                ? directChildren.map((rowCell) => ({
+                      rowCell,
+                      cells: collectDirectChildren(cellsByParentId, rowCell.id)
+                  }))
+                : [{ rowCell: headerCell, cells: [] }]
+            : directChildren.length === 0 || !focusedDirectChild
+            ? [{ rowCell: headerCell, cells: directChildren }]
+            : directChildren.map((rowCell) => ({
+                  rowCell,
+                  cells: collectDirectChildren(cellsByParentId, rowCell.id)
+              }))
+        : rootState.kind === 'multipleRoots'
+        ? rootState.roots.map((rowCell) => ({ rowCell, cells: collectDirectChildren(cellsByParentId, rowCell.id) }))
+        : []
+    const visibleCells = uniqueMatrixCells([
+        ...(headerCell ? [headerCell] : []),
+        ...tableRows.flatMap((row) => [row.rowCell, ...row.cells])
+    ])
+
+    return {
+        rootState,
+        focusedCell,
+        focusedPath,
+        headerCell,
+        breadcrumbDepth,
+        hiddenBreadcrumbs: hiddenPrefix,
+        visibleBreadcrumbs: visibleTail,
+        rowLabels: tableRows.map((row) => row.rowCell),
+        tableRows,
+        visibleCells
+    }
 }
 
 export const buildMatrixPositionLabels = (nodes: MatrixTreeNode[], config: MatrixPositionNumberingConfig): Map<string, string> => {
@@ -641,6 +857,8 @@ export const buildMatrixTableModel = (cells: MatrixCell[]): MatrixTableModel => 
         )
     }
 }
+
+export const buildIndependentAxesMatrixTableModel = buildMatrixTableModel
 
 export const getSectionId = (dataset: RuntimeDataset | undefined): string | undefined =>
     typeof dataset?.section?.id === 'string' && dataset.section.id.trim() ? dataset.section.id : undefined

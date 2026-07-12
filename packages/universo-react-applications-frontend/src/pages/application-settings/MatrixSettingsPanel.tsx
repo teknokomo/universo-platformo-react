@@ -16,11 +16,16 @@ import {
 } from '@mui/material'
 import type { TFunction } from 'i18next'
 import {
+    interpretationNetworkBreadcrumbDepthCounts,
     interpretationNetworkMatrixViews,
     normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkTableSettings,
+    type InterpretationNetworkBreadcrumbDepth,
     type InterpretationNetworkHierarchyRowMode,
     type InterpretationNetworkMatrixMode,
-    type InterpretationNetworkMatrixView
+    type InterpretationNetworkMatrixView,
+    type InterpretationNetworkTableProjection,
+    type InterpretationNetworkToolbarLayout
 } from '@universo-react/types'
 import { SaveSettingsButton, testIdInputProps } from './SettingsPanels'
 
@@ -32,6 +37,9 @@ const MATRIX_VIEW_FALLBACK_LABELS: Record<InterpretationNetworkMatrixView, strin
     verticalTree: 'Vertical tree'
 }
 
+const defaultTableProjectionForMode = (matrixMode: InterpretationNetworkMatrixMode): InterpretationNetworkTableProjection =>
+    matrixMode === 'independentRows' ? 'independentAxes' : 'hierarchicalPath'
+
 export type InterpretationNetworkPositionNumberingSettings = {
     enabled: boolean
     includeRoot: boolean
@@ -42,9 +50,46 @@ export type InterpretationNetworkMatrixSettings = {
     matrixMode: InterpretationNetworkMatrixMode
     allowedMatrixViews: InterpretationNetworkMatrixView[]
     defaultMatrixView: InterpretationNetworkMatrixView
+    tableProjection: InterpretationNetworkTableProjection
+    breadcrumbDepth: InterpretationNetworkBreadcrumbDepth
+    toolbarLayout: InterpretationNetworkToolbarLayout
+    showHierarchicalTableHeaders: boolean
+    showHierarchicalTableHeaderCard: boolean
+    showMatrixTreeTotalCells: boolean
+    colorBreadcrumbsByCell: boolean
     hierarchyRowMode: InterpretationNetworkHierarchyRowMode
     positionNumbering: InterpretationNetworkPositionNumberingSettings
     allowNewAxesInCellDialog: boolean
+}
+
+const normalizeMatrixPanelSettings = (settings: InterpretationNetworkMatrixSettings): InterpretationNetworkMatrixSettings => {
+    const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
+        settings.matrixMode,
+        settings.allowedMatrixViews,
+        settings.defaultMatrixView
+    )
+    const tableSettings = normalizeInterpretationNetworkTableSettings(
+        settings.matrixMode,
+        settings.tableProjection,
+        settings.breadcrumbDepth,
+        settings.toolbarLayout,
+        settings.showHierarchicalTableHeaders,
+        settings.showHierarchicalTableHeaderCard,
+        settings.showMatrixTreeTotalCells,
+        settings.colorBreadcrumbsByCell
+    )
+
+    return {
+        ...settings,
+        ...viewSettings,
+        ...tableSettings,
+        positionNumbering: {
+            enabled: settings.positionNumbering.enabled,
+            includeRoot: settings.positionNumbering.includeRoot,
+            startIndex: settings.positionNumbering.startIndex
+        },
+        allowNewAxesInCellDialog: settings.allowNewAxesInCellDialog === true
+    }
 }
 
 export const MatrixSettingsPanel = ({
@@ -60,25 +105,41 @@ export const MatrixSettingsPanel = ({
     isSaving: boolean
     onSave: (settings: InterpretationNetworkMatrixSettings) => void
 }) => {
-    const [localSettings, setLocalSettings] = useState(settings)
+    const normalizedSettings = useMemo(() => normalizeMatrixPanelSettings(settings), [settings])
+    const [localSettings, setLocalSettings] = useState(() => normalizedSettings)
 
     useEffect(() => {
-        setLocalSettings(settings)
-    }, [settings])
+        setLocalSettings(normalizedSettings)
+    }, [normalizedSettings])
+
+    const tableViewAllowed = localSettings.allowedMatrixViews.includes('table')
+    const tableOnlyControlsDisabled = isSaving || !tableViewAllowed
+    const tableProjectionDisabled = tableOnlyControlsDisabled || localSettings.matrixMode === 'independentRows'
+    const breadcrumbDepthDisabled = tableOnlyControlsDisabled
 
     const hasChanges = useMemo(
         () =>
             hasDivergentSettings ||
-            localSettings.matrixMode !== settings.matrixMode ||
-            localSettings.allowedMatrixViews.length !== settings.allowedMatrixViews.length ||
-            localSettings.allowedMatrixViews.some((view, index) => view !== settings.allowedMatrixViews[index]) ||
-            localSettings.defaultMatrixView !== settings.defaultMatrixView ||
-            localSettings.hierarchyRowMode !== settings.hierarchyRowMode ||
-            localSettings.allowNewAxesInCellDialog !== settings.allowNewAxesInCellDialog ||
-            localSettings.positionNumbering.enabled !== settings.positionNumbering.enabled ||
-            localSettings.positionNumbering.includeRoot !== settings.positionNumbering.includeRoot ||
-            localSettings.positionNumbering.startIndex !== settings.positionNumbering.startIndex,
-        [hasDivergentSettings, localSettings, settings]
+            localSettings.matrixMode !== normalizedSettings.matrixMode ||
+            localSettings.allowedMatrixViews.length !== normalizedSettings.allowedMatrixViews.length ||
+            localSettings.allowedMatrixViews.some((view, index) => view !== normalizedSettings.allowedMatrixViews[index]) ||
+            localSettings.defaultMatrixView !== normalizedSettings.defaultMatrixView ||
+            localSettings.tableProjection !== normalizedSettings.tableProjection ||
+            localSettings.breadcrumbDepth.mode !== normalizedSettings.breadcrumbDepth.mode ||
+            (localSettings.breadcrumbDepth.mode === 'last' &&
+                (normalizedSettings.breadcrumbDepth.mode !== 'last' ||
+                    localSettings.breadcrumbDepth.count !== normalizedSettings.breadcrumbDepth.count)) ||
+            localSettings.toolbarLayout !== normalizedSettings.toolbarLayout ||
+            localSettings.showHierarchicalTableHeaders !== normalizedSettings.showHierarchicalTableHeaders ||
+            localSettings.showHierarchicalTableHeaderCard !== normalizedSettings.showHierarchicalTableHeaderCard ||
+            localSettings.showMatrixTreeTotalCells !== normalizedSettings.showMatrixTreeTotalCells ||
+            localSettings.colorBreadcrumbsByCell !== normalizedSettings.colorBreadcrumbsByCell ||
+            localSettings.hierarchyRowMode !== normalizedSettings.hierarchyRowMode ||
+            localSettings.allowNewAxesInCellDialog !== normalizedSettings.allowNewAxesInCellDialog ||
+            localSettings.positionNumbering.enabled !== normalizedSettings.positionNumbering.enabled ||
+            localSettings.positionNumbering.includeRoot !== normalizedSettings.positionNumbering.includeRoot ||
+            localSettings.positionNumbering.startIndex !== normalizedSettings.positionNumbering.startIndex,
+        [hasDivergentSettings, localSettings, normalizedSettings]
     )
 
     return (
@@ -127,6 +188,7 @@ export const MatrixSettingsPanel = ({
                                 setLocalSettings((current) => ({
                                     ...current,
                                     matrixMode,
+                                    tableProjection: defaultTableProjectionForMode(matrixMode),
                                     ...normalizeInterpretationNetworkMatrixViewSettings(
                                         matrixMode,
                                         current.allowedMatrixViews,
@@ -246,6 +308,347 @@ export const MatrixSettingsPanel = ({
                                     {t(`settings.matrix.views.${view}`, MATRIX_VIEW_FALLBACK_LABELS[view])}
                                 </MenuItem>
                             ))}
+                        </Select>
+                    </FormControl>
+                </Box>
+                <Box
+                    data-testid='application-setting-matrix-table-projection'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.tableProjection', 'Table projection')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t('settings.matrix.tableProjectionDescription', 'Choose how hierarchical cells appear in the table view.')}
+                        </Typography>
+                        {localSettings.matrixMode === 'independentRows' ? (
+                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                                {t(
+                                    'settings.matrix.independentRowsProjectionConstraint',
+                                    'Independent rows always use separate row and column axes.'
+                                )}
+                            </Typography>
+                        ) : null}
+                        {!tableViewAllowed ? (
+                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                                {t(
+                                    'settings.matrix.tableViewDisabledConstraint',
+                                    'Enable Table view to configure table projection and breadcrumb depth.'
+                                )}
+                            </Typography>
+                        ) : null}
+                    </Box>
+                    <FormControl size='small' sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 260 } }}>
+                        <InputLabel id='application-settings-matrix-table-projection-label'>
+                            {t('settings.matrix.tableProjection', 'Table projection')}
+                        </InputLabel>
+                        <Select
+                            id='application-settings-matrix-table-projection'
+                            labelId='application-settings-matrix-table-projection-label'
+                            value={localSettings.tableProjection}
+                            label={t('settings.matrix.tableProjection', 'Table projection')}
+                            onChange={(event) =>
+                                setLocalSettings((current) => ({
+                                    ...current,
+                                    tableProjection: event.target.value as InterpretationNetworkTableProjection
+                                }))
+                            }
+                            disabled={tableProjectionDisabled}
+                            inputProps={testIdInputProps('application-settings-matrix-table-projection-select')}
+                        >
+                            <MenuItem value='hierarchicalPath'>
+                                {t('settings.matrix.tableProjections.hierarchicalPath', 'Hierarchy path')}
+                            </MenuItem>
+                            <MenuItem value='independentAxes'>
+                                {t('settings.matrix.tableProjections.independentAxes', 'Separate axes')}
+                            </MenuItem>
+                        </Select>
+                    </FormControl>
+                </Box>
+                <Box
+                    data-testid='application-setting-matrix-breadcrumb-depth'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.breadcrumbDepth', 'Breadcrumb depth')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.matrix.breadcrumbDepthDescription',
+                                'Choose how much of the focused path remains visible above hierarchical tables.'
+                            )}
+                        </Typography>
+                        {!tableViewAllowed ? (
+                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                                {t(
+                                    'settings.matrix.tableViewDisabledConstraint',
+                                    'Enable Table view to configure table projection and breadcrumb depth.'
+                                )}
+                            </Typography>
+                        ) : null}
+                    </Box>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 260 } }}
+                    >
+                        <FormControl size='small' sx={{ minWidth: { sm: 150 } }}>
+                            <InputLabel id='application-settings-matrix-breadcrumb-depth-mode-label'>
+                                {t('settings.matrix.breadcrumbDepthMode', 'Path')}
+                            </InputLabel>
+                            <Select
+                                id='application-settings-matrix-breadcrumb-depth-mode'
+                                labelId='application-settings-matrix-breadcrumb-depth-mode-label'
+                                value={localSettings.breadcrumbDepth.mode}
+                                label={t('settings.matrix.breadcrumbDepthMode', 'Path')}
+                                onChange={(event) =>
+                                    setLocalSettings((current) => ({
+                                        ...current,
+                                        breadcrumbDepth:
+                                            event.target.value === 'last'
+                                                ? {
+                                                      mode: 'last',
+                                                      count: current.breadcrumbDepth.mode === 'last' ? current.breadcrumbDepth.count : 4
+                                                  }
+                                                : { mode: 'full' }
+                                    }))
+                                }
+                                disabled={breadcrumbDepthDisabled}
+                                inputProps={testIdInputProps('application-settings-matrix-breadcrumb-depth-mode-select')}
+                            >
+                                <MenuItem value='full'>{t('settings.matrix.breadcrumbDepthOptions.full', 'Full path')}</MenuItem>
+                                <MenuItem value='last'>{t('settings.matrix.breadcrumbDepthOptions.lastMode', 'Last levels')}</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <FormControl size='small' sx={{ minWidth: { sm: 104 } }}>
+                            <InputLabel id='application-settings-matrix-breadcrumb-depth-count-label'>
+                                {t('settings.matrix.breadcrumbDepthCount', 'Levels')}
+                            </InputLabel>
+                            <Select
+                                id='application-settings-matrix-breadcrumb-depth-count'
+                                labelId='application-settings-matrix-breadcrumb-depth-count-label'
+                                value={localSettings.breadcrumbDepth.mode === 'last' ? String(localSettings.breadcrumbDepth.count) : '4'}
+                                label={t('settings.matrix.breadcrumbDepthCount', 'Levels')}
+                                onChange={(event) =>
+                                    setLocalSettings((current) => ({
+                                        ...current,
+                                        breadcrumbDepth: normalizeInterpretationNetworkTableSettings(
+                                            current.matrixMode,
+                                            current.tableProjection,
+                                            { mode: 'last', count: Number(event.target.value) },
+                                            current.toolbarLayout,
+                                            current.showHierarchicalTableHeaders,
+                                            current.showHierarchicalTableHeaderCard,
+                                            current.showMatrixTreeTotalCells,
+                                            current.colorBreadcrumbsByCell
+                                        ).breadcrumbDepth
+                                    }))
+                                }
+                                disabled={breadcrumbDepthDisabled || localSettings.breadcrumbDepth.mode === 'full'}
+                                inputProps={testIdInputProps('application-settings-matrix-breadcrumb-depth-count-select')}
+                            >
+                                {interpretationNetworkBreadcrumbDepthCounts.map((count) => (
+                                    <MenuItem key={count} value={String(count)}>
+                                        {count}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Stack>
+                </Box>
+                <Box
+                    data-testid='application-setting-matrix-table-headers'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.tableHeaders', 'Table headers')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.matrix.tableHeadersDescription',
+                                'Show the current-level and cell column headers above hierarchical Matrix tables.'
+                            )}
+                        </Typography>
+                    </Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={localSettings.showHierarchicalTableHeaders}
+                                disabled={tableOnlyControlsDisabled || localSettings.tableProjection !== 'hierarchicalPath'}
+                                onChange={(event) =>
+                                    setLocalSettings((current) => ({
+                                        ...current,
+                                        showHierarchicalTableHeaders: event.target.checked
+                                    }))
+                                }
+                                inputProps={testIdInputProps('application-settings-matrix-table-headers')}
+                            />
+                        }
+                        label={t('settings.matrix.enabled', 'Enabled')}
+                    />
+                </Box>
+                <Box
+                    data-testid='application-setting-matrix-table-header-card'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.tableHeaderCard', 'Focused parent card')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.matrix.tableHeaderCardDescription',
+                                'Show the focused parent cell as a separate card above the hierarchical Matrix table.'
+                            )}
+                        </Typography>
+                    </Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={localSettings.showHierarchicalTableHeaderCard}
+                                disabled={tableOnlyControlsDisabled || localSettings.tableProjection !== 'hierarchicalPath'}
+                                onChange={(event) =>
+                                    setLocalSettings((current) => ({
+                                        ...current,
+                                        showHierarchicalTableHeaderCard: event.target.checked
+                                    }))
+                                }
+                                inputProps={testIdInputProps('application-settings-matrix-table-header-card')}
+                            />
+                        }
+                        label={t('settings.matrix.enabled', 'Enabled')}
+                    />
+                </Box>
+                <Box
+                    data-testid='application-setting-matrix-breadcrumb-colors'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.breadcrumbColors', 'Breadcrumb colors')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.matrix.breadcrumbColorsDescription',
+                                'Render hierarchy breadcrumbs as compact boxes using each cell color.'
+                            )}
+                        </Typography>
+                    </Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={localSettings.colorBreadcrumbsByCell}
+                                disabled={tableOnlyControlsDisabled || localSettings.tableProjection !== 'hierarchicalPath'}
+                                onChange={(event) =>
+                                    setLocalSettings((current) => ({
+                                        ...current,
+                                        colorBreadcrumbsByCell: event.target.checked
+                                    }))
+                                }
+                                inputProps={testIdInputProps('application-settings-matrix-breadcrumb-colors')}
+                            />
+                        }
+                        label={t('settings.matrix.enabled', 'Enabled')}
+                    />
+                </Box>
+                <Box
+                    data-testid='application-setting-matrix-total-cells'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.totalCells', 'Total cells')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.matrix.totalCellsDescription',
+                                'Show the total number of cells in the current Matrix tree below the structure.'
+                            )}
+                        </Typography>
+                    </Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={localSettings.showMatrixTreeTotalCells}
+                                disabled={isSaving}
+                                onChange={(event) =>
+                                    setLocalSettings((current) => ({
+                                        ...current,
+                                        showMatrixTreeTotalCells: event.target.checked
+                                    }))
+                                }
+                                inputProps={testIdInputProps('application-settings-matrix-total-cells')}
+                            />
+                        }
+                        label={t('settings.matrix.enabled', 'Enabled')}
+                    />
+                </Box>
+                <Box
+                    data-testid='application-setting-matrix-toolbar-layout'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.toolbarLayout', 'Toolbar layout')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.matrix.toolbarLayoutDescription',
+                                'Keep toolbar controls in one row by default, or stack them when the workspace needs more vertical controls.'
+                            )}
+                        </Typography>
+                    </Box>
+                    <FormControl size='small' sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 260 } }}>
+                        <InputLabel id='application-settings-matrix-toolbar-layout-label'>
+                            {t('settings.matrix.toolbarLayout', 'Toolbar layout')}
+                        </InputLabel>
+                        <Select
+                            id='application-settings-matrix-toolbar-layout'
+                            labelId='application-settings-matrix-toolbar-layout-label'
+                            value={localSettings.toolbarLayout}
+                            label={t('settings.matrix.toolbarLayout', 'Toolbar layout')}
+                            onChange={(event) =>
+                                setLocalSettings((current) => ({
+                                    ...current,
+                                    toolbarLayout: event.target.value as InterpretationNetworkToolbarLayout
+                                }))
+                            }
+                            disabled={isSaving}
+                            inputProps={testIdInputProps('application-settings-matrix-toolbar-layout-select')}
+                        >
+                            <MenuItem value='horizontal'>{t('settings.matrix.toolbarLayouts.horizontal', 'Horizontal')}</MenuItem>
+                            <MenuItem value='vertical'>{t('settings.matrix.toolbarLayouts.vertical', 'Vertical')}</MenuItem>
                         </Select>
                     </FormControl>
                 </Box>

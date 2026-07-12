@@ -74,21 +74,24 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
         const user = userEvent.setup()
         const { onSave } = renderDialog()
 
-        await user.click(screen.getByRole('checkbox', { name: 'Table view' }))
-        await user.click(screen.getByRole('checkbox', { name: 'Vertical tree' }))
+        expect(screen.getByRole('checkbox', { name: 'Table view' })).toBeChecked()
+        expect(screen.getByRole('checkbox', { name: 'Horizontal rows' })).toBeChecked()
+        expect(screen.getByRole('checkbox', { name: 'Vertical tree' })).toBeChecked()
         await user.click(screen.getByRole('combobox', { name: 'Default view' }))
         await user.click(screen.getByRole('option', { name: 'Table view' }))
         await user.click(screen.getByRole('combobox', { name: 'Hierarchy rows' }))
         await user.click(screen.getByRole('option', { name: 'All levels' }))
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        expect(onSave).toHaveBeenCalledWith({
-            matrixMode: 'hierarchicalCells',
-            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'table',
-            hierarchyRowMode: 'allNodes',
-            allowNewAxesInCellDialog: false
-        })
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table',
+                hierarchyRowMode: 'allNodes',
+                allowNewAxesInCellDialog: false
+            })
+        )
     })
 
     it('keeps Table view and horizontal rows available while excluding vertical tree for independent rows', async () => {
@@ -108,12 +111,68 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
 
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        expect(onSave).toHaveBeenCalledWith({
-            matrixMode: 'independentRows',
-            allowedMatrixViews: ['table', 'horizontalRows'],
-            defaultMatrixView: 'table',
-            allowNewAxesInCellDialog: false
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table',
+                tableProjection: 'independentAxes',
+                allowNewAxesInCellDialog: false
+            })
+        )
+    })
+
+    it('allows switching the Matrix mode from the metahub widget editor', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'verticalTree',
+                tableProjection: 'hierarchicalPath'
+            }
         })
+
+        await user.click(screen.getByRole('combobox', { name: 'Matrix mode' }))
+        await user.click(screen.getByRole('option', { name: 'Separate rows and columns' }))
+
+        expect(screen.getByRole('checkbox', { name: 'Vertical tree' })).toBeDisabled()
+
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table',
+                tableProjection: 'independentAxes'
+            })
+        )
+    })
+
+    it('restores the hierarchical table projection when switching back to hierarchical cells', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table',
+                tableProjection: 'independentAxes'
+            }
+        })
+
+        await user.click(screen.getByRole('combobox', { name: 'Matrix mode' }))
+        await user.click(screen.getByRole('option', { name: 'Hierarchical cells' }))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table',
+                tableProjection: 'hierarchicalPath'
+            })
+        )
     })
 
     it('saves whether the cell dialog can create Matrix rows and columns', async () => {
@@ -132,12 +191,45 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
         await user.click(switchControl)
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        expect(onSave).toHaveBeenCalledWith({
-            matrixMode: 'independentRows',
-            allowedMatrixViews: ['table', 'horizontalRows'],
-            defaultMatrixView: 'table',
-            allowNewAxesInCellDialog: true
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table',
+                tableProjection: 'independentAxes',
+                allowNewAxesInCellDialog: true
+            })
+        )
+    })
+
+    it('keeps the total-cell counter setting editable for independent Matrix rows', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['horizontalRows'],
+                defaultMatrixView: 'horizontalRows',
+                tableProjection: 'independentAxes',
+                showMatrixTreeTotalCells: false
+            }
         })
+
+        const totalCellsSwitch = screen.getByRole('switch', { name: 'Show total cells in tree' })
+        expect(totalCellsSwitch).toBeEnabled()
+        expect(totalCellsSwitch).not.toBeChecked()
+
+        await user.click(totalCellsSwitch)
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'independentRows',
+                allowedMatrixViews: ['horizontalRows'],
+                defaultMatrixView: 'horizontalRows',
+                tableProjection: 'independentAxes',
+                showMatrixTreeTotalCells: true
+            })
+        )
     })
 
     it('preserves existing widget config and shared behavior while editing display settings', async () => {
@@ -167,18 +259,20 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
         await user.click(screen.getByRole('checkbox', { name: 'Table view' }))
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        expect(onSave).toHaveBeenCalledWith({
-            matrixMode: 'hierarchicalCells',
-            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'horizontalRows',
-            conceptCodename: 'concepts',
-            allowNewAxesInCellDialog: false,
-            sharedBehavior: {
-                canDeactivate: true,
-                canExclude: false,
-                positionLocked: false
-            }
-        })
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'horizontalRows',
+                conceptCodename: 'concepts',
+                allowNewAxesInCellDialog: false,
+                sharedBehavior: {
+                    canDeactivate: true,
+                    canExclude: false,
+                    positionLocked: false
+                }
+            })
+        )
     })
 
     it('migrates legacy vertical hierarchy display to the new Matrix view settings', async () => {
@@ -194,11 +288,13 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
 
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        expect(onSave).toHaveBeenCalledWith({
-            matrixMode: 'hierarchicalCells',
-            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'verticalTree',
-            allowNewAxesInCellDialog: false
-        })
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'verticalTree',
+                allowNewAxesInCellDialog: false
+            })
+        )
     })
 })

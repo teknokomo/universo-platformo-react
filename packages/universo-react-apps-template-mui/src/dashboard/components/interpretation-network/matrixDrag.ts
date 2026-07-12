@@ -139,19 +139,14 @@ export const resolveHierarchicalDropPlacement = (
 
     const overlap = calculateAxisOverlap(translatedRect, targetRect, axis)
     if (overlap < 0.1) return null
-    if (overlap <= 0.5) return 'child'
 
     const translatedCenter = translatedRect.top + translatedRect.height / 2
-    const targetCenter = targetRect.top + targetRect.height / 2
-    if (Math.abs(translatedCenter - targetCenter) > 0.5) {
-        return translatedCenter <= targetCenter ? 'before' : 'after'
-    }
+    if (targetRect.height <= 0) return 'after'
 
-    if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex !== targetIndex) {
-        return sourceIndex < targetIndex ? 'after' : 'before'
-    }
-
-    return translatedCenter <= targetCenter ? 'before' : 'after'
+    const targetProgress = (translatedCenter - targetRect.top) / targetRect.height
+    if (targetProgress < 0.25) return 'before'
+    if (targetProgress <= 0.75) return 'child'
+    return 'after'
 }
 
 export const resolveHierarchicalDestination = (
