@@ -157,7 +157,6 @@ export function useMatrixWorkspaceActions({
             if (result?.selectedCellIdAfterMove) {
                 selectMatrixCell(result.selectedCellIdAfterMove, { replace: true })
             }
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
         },
         onSettled: async () => {
             pendingMoveKeyRef.current = null

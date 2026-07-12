@@ -642,10 +642,30 @@ export const toFocusedMatrixHierarchyRows = (nodes: MatrixTreeNode[], selectedCe
     return rows
 }
 
-const collectDirectChildren = (cells: readonly MatrixCell[], parentCellId: string | null): MatrixCell[] =>
-    cells
-        .filter((cell) => cell.parentCellId === parentCellId)
-        .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title) || left.id.localeCompare(right.id))
+const compareMatrixCellsByPosition = (left: MatrixCell, right: MatrixCell): number =>
+    left.sortOrder - right.sortOrder || left.title.localeCompare(right.title) || left.id.localeCompare(right.id)
+
+const groupMatrixCellsByParentId = (cells: readonly MatrixCell[]): Map<string | null, MatrixCell[]> => {
+    const cellsByParentId = new Map<string | null, MatrixCell[]>()
+    for (const cell of cells) {
+        const parentCellId = cell.parentCellId ?? null
+        const list = cellsByParentId.get(parentCellId)
+        if (list) {
+            list.push(cell)
+        } else {
+            cellsByParentId.set(parentCellId, [cell])
+        }
+    }
+    for (const list of cellsByParentId.values()) {
+        list.sort(compareMatrixCellsByPosition)
+    }
+    return cellsByParentId
+}
+
+const collectDirectChildren = (
+    cellsByParentId: ReadonlyMap<string | null, readonly MatrixCell[]>,
+    parentCellId: string | null
+): MatrixCell[] => [...(cellsByParentId.get(parentCellId ?? null) ?? [])]
 
 const uniqueMatrixCells = (cells: readonly MatrixCell[]): MatrixCell[] => {
     const seen = new Set<string>()
@@ -665,6 +685,7 @@ export const buildHierarchicalMatrixTableModel = ({
     focusedCellId: string | null | undefined
     breadcrumbDepth: InterpretationNetworkBreadcrumbDepth
 }): HierarchicalMatrixTableModel => {
+    const cellsByParentId = groupMatrixCellsByParentId(cells)
     const rootState = resolveMatrixRootState([...cells])
     const resolvedFocusedCellId = resolveRouteFocus(focusedCellId, cells, rootState)
     const focusedCell = resolvedFocusedCellId ? cells.find((cell) => cell.id === resolvedFocusedCellId) ?? null : null
@@ -677,7 +698,7 @@ export const buildHierarchicalMatrixTableModel = ({
           )
         : []
     const { hiddenPrefix, visibleTail } = buildBreadcrumbDisplayItems(breadcrumbPath, breadcrumbDepth)
-    const directChildren = headerCell ? collectDirectChildren(cells, headerCell.id) : []
+    const directChildren = headerCell ? collectDirectChildren(cellsByParentId, headerCell.id) : []
     const focusedDirectChild =
         headerCell && focusedCell?.parentCellId === headerCell.id ? directChildren.find((cell) => cell.id === focusedCell.id) : undefined
     const tableRows: HierarchicalMatrixTableRow[] = headerCell
@@ -685,17 +706,17 @@ export const buildHierarchicalMatrixTableModel = ({
             ? directChildren.length > 0
                 ? directChildren.map((rowCell) => ({
                       rowCell,
-                      cells: collectDirectChildren(cells, rowCell.id)
+                      cells: collectDirectChildren(cellsByParentId, rowCell.id)
                   }))
                 : [{ rowCell: headerCell, cells: [] }]
             : directChildren.length === 0 || !focusedDirectChild
             ? [{ rowCell: headerCell, cells: directChildren }]
             : directChildren.map((rowCell) => ({
                   rowCell,
-                  cells: collectDirectChildren(cells, rowCell.id)
+                  cells: collectDirectChildren(cellsByParentId, rowCell.id)
               }))
         : rootState.kind === 'multipleRoots'
-        ? rootState.roots.map((rowCell) => ({ rowCell, cells: collectDirectChildren(cells, rowCell.id) }))
+        ? rootState.roots.map((rowCell) => ({ rowCell, cells: collectDirectChildren(cellsByParentId, rowCell.id) }))
         : []
     const visibleCells = uniqueMatrixCells([
         ...(headerCell ? [headerCell] : []),

@@ -36,7 +36,12 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
     if (value && typeof value === 'object') {
         const entries = Object.entries(value as Record<string, unknown>)
         const normalizedEntries = entries
-            .filter(([key, item]) => !isDefaultPlayCanvasMaterialField(key, item, value))
+            .filter(
+                ([key, item]) =>
+                    !isDefaultPlayCanvasMaterialField(key, item, value) &&
+                    !isEmptyPlayCanvasAssetMetaField(key, item, value, pathSegments) &&
+                    !isEmptyPlayCanvasEditorDocumentMetaField(key, item, value, pathSegments)
+            )
             .map(([key, item]) => [normalizeString(key, maps), normalizeVolatileValues(item, maps, [...pathSegments, key])])
         return Object.fromEntries(normalizedEntries)
     }
@@ -95,6 +100,41 @@ const isDefaultPlayCanvasMaterialField = (key: string, item: unknown, owner: unk
         (Array.isArray(record.diffuse) || Array.isArray(record.emissive)) &&
         (record.blendType === 1 || record.blendType === 2 || typeof record.blendType === 'string') &&
         (typeof record.opacity === 'number' || record.opacity === undefined)
+    )
+}
+
+const isEmptyPlayCanvasAssetMetaField = (key: string, item: unknown, owner: unknown, pathSegments: string[]): boolean => {
+    if (key !== 'meta' || item !== null || pathSegments.at(-2) !== 'assets' || !/^\d+$/.test(pathSegments.at(-1) ?? '')) {
+        return false
+    }
+    if (!owner || typeof owner !== 'object' || Array.isArray(owner)) {
+        return false
+    }
+    const record = owner as Record<string, unknown>
+    return (
+        typeof record.name === 'string' &&
+        (typeof record.id === 'number' || typeof record.id === 'string') &&
+        (typeof record.type === 'string' || typeof record.file === 'object' || typeof record.url === 'string')
+    )
+}
+
+const isEmptyPlayCanvasEditorDocumentMetaField = (key: string, item: unknown, owner: unknown, pathSegments: string[]): boolean => {
+    if (
+        key !== 'meta' ||
+        item !== null ||
+        pathSegments.at(-1) !== 'editorDocument' ||
+        pathSegments.at(-2) !== 'metadata' ||
+        !pathSegments.includes('assets')
+    ) {
+        return false
+    }
+    if (!owner || typeof owner !== 'object' || Array.isArray(owner)) {
+        return false
+    }
+    const record = owner as Record<string, unknown>
+    return (
+        (record.data !== undefined || Array.isArray(record.tags) || typeof record.preload === 'boolean') &&
+        (typeof record.source === 'boolean' || record.file !== undefined || record.data !== undefined)
     )
 }
 
