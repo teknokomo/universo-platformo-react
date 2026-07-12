@@ -28,6 +28,12 @@ import {
     expectInterpretationNetworkRuntimeDataReady,
     watchInterpretationNetworkBrowserRegressionIssues
 } from '../../support/interpretationNetworkRuntime'
+import {
+    expectIndependentAxesMatrixTableRuntime,
+    expectMatrixTableDefaultRuntime,
+    expectMatrixTableHorizontalScrollConstrained,
+    getMatrixTable
+} from '../../support/interpretationNetworkMatrixTableRuntime'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -38,6 +44,7 @@ const createdMaterialDescription = 'Created through the Interpretation Network m
 const updatedMaterialTitle = 'E2E edited source note'
 const updatedMaterialDescription = 'Updated Interpretation Network material description.'
 const materialBodyText = 'Browser-authored material body'
+const firstChildCellTitle = 'E2E first child cell'
 
 const codenameVlc = (content: string) => {
     const timestamp = new Date(0).toISOString()
@@ -81,42 +88,6 @@ const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\
 
 const getMaterialOpenButton = (surface: Locator, title: string): Locator =>
     surface.getByRole('button', { name: new RegExp(`^${escapeRegExp(title)}(?:\\s|$)`) }).first()
-
-const getMatrixTable = (page: Page): Locator => page.getByTestId('interpretation-network-matrix-table')
-
-const expectMatrixTableHorizontalScrollConstrained = async (page: Page, label: string): Promise<void> => {
-    const metrics = await getMatrixTable(page).evaluate((node) => {
-        const root = node as HTMLElement
-        const rootRect = root.getBoundingClientRect()
-        const viewportWidth = document.documentElement.clientWidth
-        const pageOverflowPx = Math.max(0, document.documentElement.scrollWidth - viewportWidth)
-        const table = root.querySelector('table') as HTMLElement | null
-
-        return {
-            visible: rootRect.width > 0 && rootRect.height > 0,
-            pageOverflowPx,
-            rootLeft: rootRect.left,
-            rootRight: rootRect.right,
-            viewportWidth,
-            internalOverflowPx: Math.max(0, root.scrollWidth - root.clientWidth),
-            tableClientWidth: root.clientWidth,
-            tableScrollWidth: root.scrollWidth,
-            semanticTableVisible: Boolean(table && table.getBoundingClientRect().width > 0 && table.getBoundingClientRect().height > 0)
-        }
-    })
-
-    expect(metrics.visible, `${label} matrix table scroll region must be visible`).toBe(true)
-    expect(metrics.semanticTableVisible, `${label} must contain a visible semantic table`).toBe(true)
-    expect(metrics.rootLeft, `${label} matrix table must start inside the viewport`).toBeGreaterThanOrEqual(-1)
-    expect(metrics.rootRight, `${label} matrix table must fit inside the viewport`).toBeLessThanOrEqual(metrics.viewportWidth + 1)
-
-    if (metrics.internalOverflowPx > 1) {
-        expect(
-            metrics.pageOverflowPx,
-            `${label} may scroll internally (${metrics.tableClientWidth}/${metrics.tableScrollWidth}) but must not widen the page`
-        ).toBeLessThanOrEqual(1)
-    }
-}
 
 const hasLocalizedPayloadValue = (payload: unknown, expectedText: string, locale = 'en'): boolean => {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false
@@ -184,10 +155,10 @@ const getVisibleWorkspaceSwitcher = (page: Page): Locator =>
     page.getByTestId('runtime-workspace-switcher').filter({ visible: true }).first()
 
 const getDockedRuntimeNavigation = (page: Page): Locator =>
-    page.getByTestId('runtime-side-menu-docked').locator('nav[aria-label="Interpretation Network"]')
+    page.getByTestId('runtime-side-menu-docked').getByRole('navigation', { name: 'Interpretation Network' })
 
 const getOverlayRuntimeNavigation = (page: Page): Locator =>
-    page.getByTestId('runtime-side-menu-overlay').locator('nav[aria-label="Interpretation Network"]')
+    page.getByTestId('runtime-side-menu-overlay').getByRole('navigation', { name: 'Interpretation Network' })
 
 const getVisibleRuntimeNavigation = (page: Page): Locator =>
     page.getByRole('navigation', { name: 'Interpretation Network' }).filter({ visible: true }).first()
@@ -236,7 +207,7 @@ const expectSameSelectedToggleTheme = (
     expect(Math.abs((firstBackground?.alpha ?? 0) - (secondBackground?.alpha ?? 0)), `${label} background alpha`).toBeLessThanOrEqual(0.04)
 }
 
-const getColorModeButton = (page: Page): Locator => page.locator('button[data-testid="runtime-color-mode-button"]')
+const getColorModeButton = (page: Page): Locator => page.getByTestId('runtime-color-mode-button')
 
 const expectColorModeButtonVisible = async (page: Page, label: string): Promise<void> => {
     await expect(getColorModeButton(page), `${label} visible color-mode button`).toBeVisible({ timeout: 30_000 })
@@ -331,70 +302,6 @@ const expectOverlayContentUsesFullRail = async (page: Page, label: string): Prom
 
 const attachRuntimeScreenshot = async (page: Page, testInfo: TestInfo, name: string): Promise<void> => {
     await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true })
-}
-
-const expectAxisDialogStandardSpacing = async (
-    dialog: Locator,
-    options: {
-        fieldName: string | RegExp
-        createName: string
-        label: string
-    }
-): Promise<void> => {
-    const field = dialog.getByRole('textbox', { name: options.fieldName })
-    const createButton = dialog.getByRole('button', { name: options.createName })
-    await expect(field, `${options.label} field`).toBeVisible()
-    await expect(createButton, `${options.label} create action`).toBeVisible()
-
-    const geometry = await field.evaluate((input, createName) => {
-        const inputElement = input as HTMLElement
-        const root = inputElement.closest('[role="dialog"]') as HTMLElement | null
-        const formControl = inputElement.closest('.MuiFormControl-root') as HTMLElement | null
-        const label = formControl?.querySelector('.MuiInputLabel-root') as HTMLElement | null
-        const createButton = root
-            ? Array.from(root.querySelectorAll('button')).find((button) => button.textContent?.trim() === createName)
-            : null
-        const actions = createButton?.closest('.MuiDialogActions-root') as HTMLElement | null
-        const rootRect = root?.getBoundingClientRect()
-        const controlRect = formControl?.getBoundingClientRect()
-        const labelRect = label?.getBoundingClientRect()
-        const createRect = createButton?.getBoundingClientRect()
-        const actionsRect = actions?.getBoundingClientRect()
-
-        return rootRect && controlRect && labelRect && createRect && actionsRect
-            ? {
-                  labelVisible: labelRect.width > 0 && labelRect.height > 0,
-                  controlLeft: controlRect.left,
-                  controlTop: controlRect.top,
-                  controlRight: controlRect.right,
-                  labelTop: labelRect.top,
-                  labelLeft: labelRect.left,
-                  labelRight: labelRect.right,
-                  actionsRight: actionsRect.right,
-                  actionsBottom: actionsRect.bottom,
-                  createRightGap: rootRect.right - createRect.right,
-                  createBottomGap: rootRect.bottom - createRect.bottom,
-                  createFooterRightGap: actionsRect.right - createRect.right,
-                  createFooterBottomGap: actionsRect.bottom - createRect.bottom
-              }
-            : null
-    }, options.createName)
-
-    expect(geometry, `${options.label} dialog geometry`).not.toBeNull()
-    expect(geometry?.labelVisible, `${options.label} field label must render with measurable bounds`).toBe(true)
-    expect(geometry?.labelTop ?? 0, `${options.label} field label must not be clipped at the top`).toBeGreaterThanOrEqual(
-        (geometry?.controlTop ?? 0) - 12
-    )
-    expect(geometry?.labelLeft ?? 0, `${options.label} field label must stay inside the form control`).toBeGreaterThanOrEqual(
-        (geometry?.controlLeft ?? 0) - 1
-    )
-    expect(geometry?.labelRight ?? 0, `${options.label} field label must stay inside the form control`).toBeLessThanOrEqual(
-        (geometry?.controlRight ?? 0) + 1
-    )
-    expect(geometry?.createFooterRightGap ?? 0, `${options.label} create action footer right spacing`).toBeGreaterThanOrEqual(0)
-    expect(geometry?.createFooterBottomGap ?? 0, `${options.label} create action footer bottom spacing`).toBeGreaterThanOrEqual(0)
-    expect(geometry?.createRightGap ?? 0, `${options.label} create action right spacing`).toBeGreaterThanOrEqual(20)
-    expect(geometry?.createBottomGap ?? 0, `${options.label} create action bottom spacing`).toBeGreaterThanOrEqual(14)
 }
 
 const expectRuntimeSideMenuModes = async (page: Page, testInfo: TestInfo): Promise<void> => {
@@ -573,119 +480,6 @@ const readMatrixRowCellTexts = async (page: Page): Promise<string[][]> =>
             )
         )
 
-const expectMatrixTableDefaultRuntime = async (
-    page: Page,
-    options: {
-        locale: 'en' | 'ru' | 'any'
-        structureName: string
-        rootTitle?: string | RegExp
-        verticalTreeAvailable?: boolean
-        assertAxisDialogs?: boolean
-        assertDefaultCellDialog?: boolean
-    }
-): Promise<void> => {
-    const verticalTreeAvailable = options.verticalTreeAvailable ?? true
-    const rootTitle = options.rootTitle ?? (options.locale === 'ru' ? 'Вселенная' : 'Universe')
-    const tableToggleName =
-        options.locale === 'ru' ? 'Табличный вид' : options.locale === 'en' ? 'Table view' : /^(Table view|Табличный вид)$/
-    const horizontalRowsToggleName =
-        options.locale === 'ru'
-            ? 'Горизонтальные строки'
-            : options.locale === 'en'
-            ? 'Horizontal rows'
-            : /^(Horizontal rows|Горизонтальные строки)$/
-    const verticalTreeToggleName =
-        options.locale === 'ru'
-            ? 'Вертикальное дерево'
-            : options.locale === 'en'
-            ? 'Vertical tree'
-            : /^(Vertical tree|Вертикальное дерево)$/
-    const tableName =
-        options.locale === 'ru' ? 'Таблица матрицы' : options.locale === 'en' ? 'Matrix table' : /^(Matrix table|Таблица матрицы)$/
-    const rowsHeaderName = options.locale === 'ru' ? 'Строки' : options.locale === 'en' ? 'Rows' : /^(Rows|Строки)$/
-    const matrixPane = page.getByTestId('interpretation-network-matrix-workspace')
-    await expect(matrixPane).toBeVisible({ timeout: 30_000 })
-    await expect(matrixPane.getByRole('button', { name: tableToggleName })).toHaveAttribute('aria-pressed', 'true')
-    await expect(matrixPane.getByRole('button', { name: horizontalRowsToggleName })).toBeVisible()
-    if (verticalTreeAvailable) {
-        await expect(matrixPane.getByRole('button', { name: verticalTreeToggleName })).toBeVisible()
-    } else {
-        await expect(matrixPane.getByRole('button', { name: verticalTreeToggleName })).toHaveCount(0)
-    }
-
-    const tableRegion = getMatrixTable(page)
-    await expect(tableRegion).toBeVisible({ timeout: 30_000 })
-    await expect(tableRegion).toHaveAttribute('tabindex', '0')
-    const table = tableRegion.getByRole('table', { name: tableName })
-    await expect(table).toBeVisible()
-    await expect(table.getByRole('columnheader', { name: rowsHeaderName })).toBeVisible()
-    await expect(table.getByRole('columnheader', { name: rootTitle })).toBeVisible()
-    await expect(table.getByRole('rowheader', { name: rootTitle })).toBeVisible()
-    const escapedRootTitle = rootTitle instanceof RegExp ? '(Universe|Вселенная)' : escapeRegExp(rootTitle)
-    const rootCellButton = table.getByRole('button', { name: new RegExp(`^${escapedRootTitle}, ${escapedRootTitle}, 1,`) })
-    await expect(rootCellButton).toBeVisible()
-    if (options.assertAxisDialogs) {
-        const addRowName = options.locale === 'ru' ? 'Добавить строку' : 'Add row'
-        const addColumnName = options.locale === 'ru' ? 'Добавить колонку' : 'Add column'
-        await expect(table.getByRole('button', { name: addRowName })).toBeEnabled()
-        await table.getByRole('button', { name: addRowName }).click()
-        const rowDialog = page.getByRole('dialog', { name: addRowName })
-        await expect(rowDialog).toBeVisible()
-        await expectAxisDialogStandardSpacing(rowDialog, {
-            fieldName: options.locale === 'ru' ? 'Название строки' : 'Row name',
-            createName: options.locale === 'ru' ? 'Создать' : 'Create',
-            label: `Matrix Table ${options.locale} add row`
-        })
-        await expect(rowDialog.getByRole('radio')).toHaveCount(0)
-        await rowDialog.getByRole('button', { name: options.locale === 'ru' ? 'Отмена' : 'Cancel' }).click()
-        await expect(rowDialog).toHaveCount(0)
-        await expect(rootCellButton).toBeVisible()
-        await table.getByRole('button', { name: addColumnName }).click()
-        const columnDialog = page.getByRole('dialog', { name: addColumnName })
-        await expect(columnDialog).toBeVisible()
-        await expectAxisDialogStandardSpacing(columnDialog, {
-            fieldName: options.locale === 'ru' ? 'Название колонки' : 'Column name',
-            createName: options.locale === 'ru' ? 'Создать' : 'Create',
-            label: `Matrix Table ${options.locale} add column`
-        })
-        await expect(columnDialog.getByRole('radio')).toHaveCount(0)
-        await columnDialog.getByRole('button', { name: options.locale === 'ru' ? 'Отмена' : 'Cancel' }).click()
-        await expect(columnDialog).toHaveCount(0)
-    }
-    if (options.assertDefaultCellDialog) {
-        const addCellName = options.locale === 'ru' ? 'Добавить' : 'Add'
-        const addCellDialogName = options.locale === 'ru' ? 'Добавить ячейку' : 'Add cell'
-        await matrixPane
-            .getByTestId('interpretation-network-matrix-toolbar')
-            .getByRole('button', { name: addCellName, exact: true })
-            .click()
-        const cellDialog = page.getByRole('dialog', { name: addCellDialogName })
-        await expect(cellDialog).toBeVisible()
-        await expect(cellDialog.getByRole('radio')).toHaveCount(0)
-        await expect(cellDialog.getByRole('combobox', { name: options.locale === 'ru' ? 'Выберите строку' : 'Select row' })).toHaveCount(0)
-        await expect(
-            cellDialog.getByRole('combobox', { name: options.locale === 'ru' ? 'Выберите колонку' : 'Select column' })
-        ).toHaveCount(0)
-        await expect(
-            cellDialog.getByText(
-                options.locale === 'ru' ? 'Создаётся автоматически для новой ячейки.' : 'Created automatically for the new cell.'
-            )
-        ).toHaveCount(2)
-        await expect(cellDialog).not.toContainText(options.locale === 'ru' ? 'Новая строка' : 'New row')
-        await expect(cellDialog).not.toContainText(options.locale === 'ru' ? 'Новая колонка' : 'New column')
-        await cellDialog.getByRole('button', { name: options.locale === 'ru' ? 'Отмена' : 'Cancel' }).click()
-        await expect(cellDialog).toHaveCount(0)
-    }
-    await expect(page.getByTestId('interpretation-network-cell')).toHaveCount(0)
-    await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(options.structureName)
-    await expectNoTechnicalLeakage(tableRegion, {
-        label: `Interpretation Network Matrix Table ${options.locale}`,
-        checkUuidSubstrings: true,
-        forbiddenVisibleTextPatterns: [/Cell ID/i, /\[object Object\]/i, /"blocks"/i]
-    })
-    await expectNoPageHorizontalOverflow(page, `Interpretation Network Matrix Table ${options.locale}`)
-}
-
 const dragMatrixCellByPointer = async (
     source: Locator,
     target: Locator,
@@ -773,25 +567,6 @@ const dragMatrixCellByPointer = async (
         await expect(placeholder).toBeVisible({ timeout: 10_000 })
         await expect(placeholder).toHaveAttribute('data-drop-placement', placement)
     }
-    await source.page().mouse.up()
-}
-
-const dragMatrixTableCellToEmptySlot = async (source: Locator, target: Locator): Promise<void> => {
-    const sourceHandle = source.getByRole('button', { name: 'Drag cell' })
-    await expect(sourceHandle).toBeVisible()
-    await expect(target).toHaveAttribute('data-empty-drop-enabled', 'true')
-    const sourceBox = await sourceHandle.boundingBox()
-    const targetBox = await target.boundingBox()
-    expect(sourceBox, 'Matrix Table drag source handle box').toBeTruthy()
-    expect(targetBox, 'Matrix Table empty drop target box').toBeTruthy()
-    if (!sourceBox || !targetBox) return
-
-    await sourceHandle.hover()
-    await source.page().mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2)
-    await source.page().mouse.down()
-    await source.page().mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 16 })
-    await expect(source.page().getByTestId('interpretation-network-cell-drag-overlay')).toBeVisible({ timeout: 10_000 })
-    await expect(target).toHaveAttribute('data-drop-target', 'true')
     await source.page().mouse.up()
 }
 
@@ -1054,6 +829,12 @@ const saveApplicationMatrixViewSettings = async (
         horizontalRows: boolean
         verticalTree: boolean
         defaultView: 'Table view' | 'Horizontal rows' | 'Vertical tree'
+        tableProjection?: 'Hierarchy path' | 'Separate axes'
+        breadcrumbDepth?: { mode: 'Full path' } | { mode: 'Last levels'; count: '1' | '2' | '3' | '4' | '5' | '6' | '8' | '10' | '12' }
+        toolbarLayout?: 'Horizontal' | 'Vertical'
+        showHierarchicalTableHeaders?: boolean
+        showHierarchicalTableHeaderCard?: boolean
+        colorBreadcrumbsByCell?: boolean
         allowNewAxesInCellDialog?: boolean
     }
 ): Promise<void> => {
@@ -1095,6 +876,67 @@ const saveApplicationMatrixViewSettings = async (
         }
         await expect(axisDialogSwitch).toBeChecked({ checked: settings.allowNewAxesInCellDialog })
     }
+    if (settings.tableProjection) {
+        const tableProjection = page.getByRole('combobox', { name: 'Table projection' })
+        await expect(tableProjection).toBeVisible()
+        if ((await tableProjection.textContent())?.trim() !== settings.tableProjection) {
+            await tableProjection.click()
+            await page.getByRole('option', { name: settings.tableProjection }).click()
+            changed = true
+        }
+    }
+    if (settings.breadcrumbDepth) {
+        const breadcrumbPanel = page.getByTestId('application-setting-matrix-breadcrumb-depth')
+        const breadcrumbMode = breadcrumbPanel.getByRole('combobox', { name: 'Path' })
+        if ((await breadcrumbMode.textContent())?.trim() !== settings.breadcrumbDepth.mode) {
+            await breadcrumbMode.click()
+            await page.getByRole('option', { name: settings.breadcrumbDepth.mode }).click()
+            changed = true
+        }
+        if (settings.breadcrumbDepth.mode === 'Last levels') {
+            const breadcrumbCount = breadcrumbPanel.locator('#application-settings-matrix-breadcrumb-depth-count')
+            if ((await breadcrumbCount.textContent())?.trim() !== settings.breadcrumbDepth.count) {
+                await breadcrumbCount.click()
+                await page.getByRole('option', { name: settings.breadcrumbDepth.count, exact: true }).click()
+                changed = true
+            }
+        }
+    }
+    if (settings.toolbarLayout) {
+        const toolbarLayout = page.getByRole('combobox', { name: 'Toolbar layout' })
+        if ((await toolbarLayout.textContent())?.trim() !== settings.toolbarLayout) {
+            await toolbarLayout.click()
+            await page.getByRole('option', { name: settings.toolbarLayout }).click()
+            changed = true
+        }
+    }
+    if (settings.showHierarchicalTableHeaders !== undefined) {
+        const headersSwitch = page.getByTestId('application-setting-matrix-table-headers').getByRole('switch')
+        await expect(headersSwitch).toBeVisible()
+        if ((await headersSwitch.isChecked()) !== settings.showHierarchicalTableHeaders) {
+            await headersSwitch.click()
+            changed = true
+        }
+        await expect(headersSwitch).toBeChecked({ checked: settings.showHierarchicalTableHeaders })
+    }
+    if (settings.showHierarchicalTableHeaderCard !== undefined) {
+        const headerCardSwitch = page.getByTestId('application-setting-matrix-table-header-card').getByRole('switch')
+        await expect(headerCardSwitch).toBeVisible()
+        if ((await headerCardSwitch.isChecked()) !== settings.showHierarchicalTableHeaderCard) {
+            await headerCardSwitch.click()
+            changed = true
+        }
+        await expect(headerCardSwitch).toBeChecked({ checked: settings.showHierarchicalTableHeaderCard })
+    }
+    if (settings.colorBreadcrumbsByCell !== undefined) {
+        const breadcrumbColorsSwitch = page.getByTestId('application-setting-matrix-breadcrumb-colors').getByRole('switch')
+        await expect(breadcrumbColorsSwitch).toBeVisible()
+        if ((await breadcrumbColorsSwitch.isChecked()) !== settings.colorBreadcrumbsByCell) {
+            await breadcrumbColorsSwitch.click()
+            changed = true
+        }
+        await expect(breadcrumbColorsSwitch).toBeChecked({ checked: settings.colorBreadcrumbsByCell })
+    }
     const defaultView = page.getByRole('combobox', { name: 'Default view' })
     if ((await defaultView.textContent())?.trim() !== settings.defaultView) {
         await defaultView.click()
@@ -1115,6 +957,26 @@ const saveApplicationMatrixViewSettings = async (
     await page.getByTestId('application-settings-matrix-save').click()
     await expect((await saveResponse).ok(), 'Matrix settings widget config update must succeed').toBe(true)
     await expect(page.getByTestId('application-settings-matrix-save')).toHaveCount(0)
+}
+
+const selectHierarchicalRootIfPrompted = async (page: Page, rootName = 'Universe'): Promise<void> => {
+    const matrixPane = page.getByTestId('interpretation-network-matrix-workspace')
+    await expect(matrixPane).toBeVisible({ timeout: 30_000 })
+
+    const rootButton = matrixPane.getByRole('button', { name: rootName, exact: true })
+    await expect(getMatrixTable(page).or(rootButton).first()).toBeVisible({ timeout: 30_000 })
+
+    if (await rootButton.isVisible()) {
+        await rootButton.click()
+    }
+}
+
+const activateHierarchicalBreadcrumb = async (page: Page, name: string): Promise<void> => {
+    const breadcrumb = page.getByTestId('interpretation-network-hierarchical-table').getByRole('button', { name, exact: true })
+    await expect(breadcrumb).toBeVisible({ timeout: 30_000 })
+    await breadcrumb.focus()
+    await expect(breadcrumb).toBeFocused()
+    await page.keyboard.press('Enter')
 }
 
 const expectHorizontalRowsOnlyMatrixRuntime = async (
@@ -1150,15 +1012,11 @@ const expectIndependentRowsTableDrop = async (
         allowNewAxesInCellDialog: true
     })
     await page.goto(`/a/${applicationId}/${structureSectionId}/${structureId}`)
-    await expectMatrixTableDefaultRuntime(page, {
-        locale: 'en',
-        structureName: createdStructureName,
-        verticalTreeAvailable: false
-    })
+    await expectIndependentAxesMatrixTableRuntime(page, { locale: 'en', verticalTreeAvailable: false })
 
     const toolbar = page.getByTestId('interpretation-network-matrix-toolbar')
     await expect(toolbar.getByRole('button', { name: 'Table view' })).toHaveAttribute('aria-pressed', 'true')
-    const sourceCell = getMatrixTable(page).getByTestId('interpretation-network-table-cell').filter({ hasText: 'E2E first child cell' })
+    const sourceCell = getMatrixTable(page).getByTestId('interpretation-network-table-cell').filter({ hasText: firstChildCellTitle })
     await expect(sourceCell).toBeVisible()
     await expect(getMatrixTable(page).getByRole('button', { name: 'Drag cell' }).first()).toBeEnabled()
     await expect(getMatrixTable(page).getByRole('button', { name: 'Add row' })).toBeEnabled()
@@ -1181,12 +1039,16 @@ const expectIndependentRowsTableDrop = async (
         timeout: 30_000
     })
 
-    const independentTarget = getMatrixTable(page).locator(
-        '[data-testid="interpretation-network-table-empty-cell"][data-empty-drop-enabled="true"][aria-label^="Empty intersection: E2E independent target row,"]'
-    )
-    await expect(independentTarget.first()).toBeVisible()
+    const independentTarget = getMatrixTable(page)
+        .getByTestId('interpretation-network-table-empty-cell')
+        .filter({
+            has: page.getByRole('button', { name: 'Move selected cell here: E2E independent target row, E2E primary column' })
+        })
+        .first()
+    await expect(independentTarget).toBeVisible()
+    await expect(independentTarget).toHaveAttribute('data-empty-drop-enabled', 'true')
     const moveRequest = waitForMatrixMoveResponse(page, applicationId, 30_000)
-    await moveSelectedMatrixTableCellToEmptySlotByKeyboard(sourceCell, independentTarget.first())
+    await moveSelectedMatrixTableCellToEmptySlotByKeyboard(sourceCell, independentTarget)
     const moveResponse = await moveRequest
     expect(moveResponse.ok()).toBe(true)
     const movePayload = moveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
@@ -1202,13 +1064,21 @@ const expectIndependentRowsTableDrop = async (
         table: true,
         horizontalRows: true,
         verticalTree: true,
-        defaultView: 'Table view'
+        defaultView: 'Table view',
+        tableProjection: 'Hierarchy path',
+        breadcrumbDepth: { mode: 'Full path' },
+        toolbarLayout: 'Horizontal'
     })
     await page.goto(`/a/${applicationId}/${structureSectionId}/${structureId}`)
-    await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName })
+    await selectHierarchicalRootIfPrompted(page)
+    await expectMatrixTableDefaultRuntime(page, {
+        locale: 'en',
+        structureName: createdStructureName,
+        expectedChildLabels: [firstChildCellTitle]
+    })
 }
 
-const expectHierarchicalTableFreeSlotDrop = async (
+const expectHierarchicalTableHasNoFreeSlotDrop = async (
     page: Page,
     applicationId: string,
     structureSectionId: string,
@@ -1219,45 +1089,61 @@ const expectHierarchicalTableFreeSlotDrop = async (
         table: true,
         horizontalRows: true,
         verticalTree: true,
-        defaultView: 'Table view'
+        defaultView: 'Table view',
+        tableProjection: 'Hierarchy path'
     })
     await page.goto(`/a/${applicationId}/${structureSectionId}/${structureId}`)
-    await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName })
+    await expectMatrixTableDefaultRuntime(page, {
+        locale: 'en',
+        structureName: createdStructureName,
+        expectedChildLabels: [firstChildCellTitle]
+    })
 
     const table = getMatrixTable(page)
-    const sourceCell = table.getByTestId('interpretation-network-table-cell').filter({ hasText: 'E2E first child cell' }).first()
+    const sourceCell = table.getByTestId('interpretation-network-table-cell').filter({ hasText: firstChildCellTitle }).first()
     await sourceCell.scrollIntoViewIfNeeded()
     await expect(sourceCell).toBeVisible({ timeout: 30_000 })
     await expect(table.getByRole('button', { name: 'Drag cell' }).first()).toBeEnabled()
+    await expect(table.getByTestId('interpretation-network-table-empty-cell')).toHaveCount(0)
+    await expect(table.getByTestId('interpretation-network-table-cell').filter({ hasText: firstChildCellTitle })).toBeVisible({
+        timeout: 30_000
+    })
+}
 
-    const enabledEmptyTargets = table.locator('[data-testid="interpretation-network-table-empty-cell"][data-empty-drop-enabled="true"]')
-    const target = enabledEmptyTargets.first()
-    await target.scrollIntoViewIfNeeded()
-    await expect(target).toBeVisible()
-    const targetAccessibleName = await target.getAttribute('aria-label')
-    expect(targetAccessibleName, 'hierarchical Matrix Table empty drop target must be user-labeled').toMatch(/^Empty intersection:/)
+const expectVerticalToolbarAndFiniteBreadcrumbs = async (
+    page: Page,
+    applicationId: string,
+    structureSectionId: string,
+    structureId: string
+): Promise<void> => {
+    await saveApplicationMatrixViewSettings(page, applicationId, {
+        matrixMode: 'Hierarchical cells',
+        table: true,
+        horizontalRows: true,
+        verticalTree: true,
+        defaultView: 'Table view',
+        tableProjection: 'Hierarchy path',
+        breadcrumbDepth: { mode: 'Last levels', count: '1' },
+        toolbarLayout: 'Vertical'
+    })
+    await page.goto(`/a/${applicationId}/${structureSectionId}/${structureId}`)
+    await expectMatrixTableDefaultRuntime(page, {
+        locale: 'en',
+        structureName: createdStructureName,
+        expectedChildLabels: [firstChildCellTitle]
+    })
 
-    const moveRequest = waitForMatrixMoveResponse(page, applicationId, 30_000)
-    await dragMatrixTableCellToEmptySlot(sourceCell, target)
-    const moveResponse = await moveRequest
-    expect(moveResponse.ok()).toBe(true)
-    const movePayload = moveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
-    expect(movePayload.updates?.[0]?.data, 'hierarchical table free-slot move must persist table coordinates').toEqual(
-        expect.objectContaining({
-            RowKey: expect.any(String),
-            ColKey: expect.any(String)
+    const toolbar = page.getByTestId('interpretation-network-matrix-toolbar')
+    await expect(toolbar).toBeVisible()
+    await expect
+        .poll(() => toolbar.evaluate((element) => window.getComputedStyle(element).flexDirection), {
+            message: 'vertical Matrix toolbar must use column direction'
         })
-    )
-    expect(
-        movePayload.updates?.[0]?.data,
-        'hierarchical table free-slot move must preserve the existing parent relation by omitting ParentCellId'
-    ).not.toHaveProperty('ParentCellId')
-    expect(
-        movePayload.updates?.[0]?.data,
-        'hierarchical table free-slot move must preserve sibling order by omitting _tp_sort_order'
-    ).not.toHaveProperty('_tp_sort_order')
-    expect(movePayload.updates, 'hierarchical table free-slot move must not compact unrelated sibling order').toHaveLength(1)
-    await expect(table.getByTestId('interpretation-network-table-cell').filter({ hasText: 'E2E first child cell' })).toBeVisible({
+        .toBe('column')
+
+    await expect(
+        getMatrixTable(page).getByTestId('interpretation-network-table-cell').filter({ hasText: firstChildCellTitle })
+    ).toBeVisible({
         timeout: 30_000
     })
 }
@@ -1297,6 +1183,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
     })
 
     test('imported interpretation-network snapshot renders the interpretation workspace', async ({ page, runManifest }, testInfo) => {
+        test.setTimeout(240_000)
         const browserIssues = watchInterpretationNetworkBrowserRegressionIssues(page)
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
@@ -1404,14 +1291,15 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             new RegExp(
                 `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.structureSectionId)}/${escapeRegExp(
                     createdStructure.id ?? ''
-                )}$`
+                )}(?:[?#].*)?$`
             )
         )
         await expectMatrixTableDefaultRuntime(page, {
             locale: 'en',
             structureName: createdStructureName,
             assertAxisDialogs: true,
-            assertDefaultCellDialog: true
+            assertDefaultCellDialog: true,
+            rootOnly: true
         })
         await saveApplicationMatrixViewSettings(page, applicationId, {
             table: false,
@@ -1427,13 +1315,12 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             defaultView: 'Table view'
         })
         await page.goto(`/a/${applicationId}/${runtimeSections.structureSectionId}/${createdStructure.id ?? ''}`)
-        await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName })
+        await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName, rootOnly: true })
         const matrixDisplayToggle = page
             .getByTestId('interpretation-network-matrix-toolbar')
             .getByRole('button', { name: 'Horizontal rows' })
-        const tableDisplayToggle = page.getByTestId('interpretation-network-matrix-toolbar').getByRole('button', { name: 'Table view' })
-        const matrixTableBox = await getMatrixTable(page).boundingBox()
-        expect(matrixTableBox?.width, 'Matrix Table must render inside its scroll container').toBeGreaterThan(0)
+        const matrixTableSurfaceBox = await page.getByTestId('interpretation-network-hierarchical-table').boundingBox()
+        expect(matrixTableSurfaceBox?.width, 'Matrix Table surface must render inside its scroll container').toBeGreaterThan(0)
 
         const firstMenuLink = getDockedRuntimeNavigation(page).getByRole('link').first()
         const menuGap = await firstMenuLink.evaluate((link) => {
@@ -1449,14 +1336,14 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             new RegExp(
                 `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.structureSectionId)}/${escapeRegExp(
                     createdStructure.id ?? ''
-                )}$`
+                )}(?:[?#].*)?$`
             )
         )
         await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName, { timeout: 30_000 })
         await expect(page.getByRole('tab', { name: 'Matrix' })).toBeVisible()
         await expect(page.getByRole('tabpanel', { name: 'Matrix' })).toBeVisible()
-        await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName })
+        await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName, rootOnly: true })
         await matrixDisplayToggle.click()
         const cells = page.getByTestId('interpretation-network-cell')
         await expect(cells.first()).toBeVisible({ timeout: 30_000 })
@@ -1476,7 +1363,8 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         })
         await page.goto(`/a/${applicationId}/${runtimeSections.structureSectionId}/${createdStructure.id ?? ''}`)
         await expectMatrixCellMoveNotSwapWithNewAxesCellDialog(page, applicationId)
-        await expectHierarchicalTableFreeSlotDrop(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
+        await expectHierarchicalTableHasNoFreeSlotDrop(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
+        await expectVerticalToolbarAndFiniteBreadcrumbs(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
         await expectIndependentRowsTableDrop(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
         await page.getByRole('button', { name: 'Horizontal rows' }).click()
         await cells.first().click()
@@ -1628,36 +1516,56 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expectLocalizedValidation(ruMaterialDialog, 'ru', { label: 'RU Interpretation Network material validation' })
         await page.keyboard.press('Escape')
         await expect(ruMaterialDialog).toHaveCount(0)
+        await activateHierarchicalBreadcrumb(page, 'Вселенная')
         await page.getByTestId('interpretation-network-matrix-toolbar').getByRole('button', { name: 'Табличный вид' }).click()
         await expectMatrixTableDefaultRuntime(page, {
             locale: 'ru',
             structureName: createdStructureName,
-            rootTitle: 'Вселенная'
+            rootTitle: 'Вселенная',
+            expectedChildLabels: [firstChildCellTitle]
         })
-        const ruMatrixCellButton = getMatrixTable(page).getByRole('button', { name: /^Вселенная, Вселенная, 1,/ })
+        const ruMatrixCellButton = getMatrixTable(page)
+            .getByTestId('interpretation-network-table-cell')
+            .filter({ hasText: firstChildCellTitle })
+            .getByRole('button', { name: new RegExp(escapeRegExp(firstChildCellTitle)) })
+            .first()
         await ruMatrixCellButton.focus()
         await expect(ruMatrixCellButton).toBeFocused()
         await page.keyboard.press('Enter')
         await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Создать' })).toBeVisible()
-        const ruMatrixCellActions = page.getByRole('button', { name: 'Действия ячейки: Вселенная' }).first()
+        await activateHierarchicalBreadcrumb(page, 'Вселенная')
+        const ruMatrixCellActions = page.getByRole('button', { name: `Действия ячейки: ${firstChildCellTitle}` }).first()
         await ruMatrixCellActions.focus()
         await expect(ruMatrixCellActions).toBeFocused()
         await page.keyboard.press('Enter')
         await expect(page.getByRole('menuitem', { name: 'Редактировать' })).toBeVisible()
         await page.keyboard.press('Escape')
+        await activateHierarchicalBreadcrumb(page, 'Вселенная')
         await applyBrowserPreferences(page, { language: 'en' })
         await page.reload()
-        await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName })
+        await expectMatrixTableDefaultRuntime(page, {
+            locale: 'en',
+            structureName: createdStructureName,
+            expectedChildLabels: [firstChildCellTitle]
+        })
         await expectRuntimeUxViewportMatrix(page, 'Interpretation Network created structure runtime', {
             beforeEachViewport: async () => {
                 await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
                 await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName)
-                await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName })
+                await expectMatrixTableDefaultRuntime(page, {
+                    locale: 'en',
+                    structureName: createdStructureName,
+                    expectedChildLabels: [firstChildCellTitle]
+                })
                 await expectMatrixTableHorizontalScrollConstrained(page, 'Interpretation Network created structure runtime viewport')
                 await getMatrixTable(page)
-                    .getByRole('button', { name: /^Universe, Universe, 1,/ })
+                    .getByTestId('interpretation-network-table-cell')
+                    .filter({ hasText: firstChildCellTitle })
+                    .getByRole('button', { name: new RegExp(escapeRegExp(firstChildCellTitle)) })
+                    .first()
                     .click()
                 await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toBeVisible()
+                await activateHierarchicalBreadcrumb(page, 'Universe')
                 const viewport = page.viewportSize()
                 await attachRuntimeScreenshot(page, testInfo, `matrix-table-${viewport?.width ?? 0}x${viewport?.height ?? 0}`)
             }

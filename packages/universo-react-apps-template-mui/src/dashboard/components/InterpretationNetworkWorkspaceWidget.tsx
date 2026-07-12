@@ -1,17 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import {
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    type DragEndEvent,
-    type DragMoveEvent,
-    type DragOverEvent,
-    type DragStartEvent
-} from '@dnd-kit/core'
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { createLocalizedContent, normalizeLocale } from '@universo-react/utils'
 import {
     batchUpdateTabularRows,
@@ -27,17 +16,15 @@ import {
 import '../../i18n/interpretationNetwork'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { formatRuntimeSafeValue } from '../../utils/displayValue'
-import {
-    resolveMatrixDropState,
-    type MatrixDropDestination,
-    type MatrixDropPlacement,
-    type MatrixDropState
-} from './interpretation-network/matrixDrag'
+import { type MatrixDropState } from './interpretation-network/matrixDrag'
 import { type StructureSummary, type StructureViewMode } from './interpretation-network/workspace/StructurePane'
 import { RuntimeContextMissing, WorkspaceError, WorkspaceLoading } from './interpretation-network/workspace/WorkspaceStatus'
 import { buildMatrixMenuMoves } from './interpretation-network/workspace/matrixMenuMoves'
 import { InterpretationNetworkWorkspaceContent } from './interpretation-network/workspace/InterpretationNetworkWorkspaceContent'
+import { useCellDialogActions } from './interpretation-network/workspace/useCellDialogActions'
 import { useInterpretationNetworkWorkspaceState } from './interpretation-network/workspace/useInterpretationNetworkWorkspaceState'
+import { useMatrixRouteSelectionSync } from './interpretation-network/workspace/useMatrixRouteSelectionSync'
+import { useMatrixWorkspaceActions } from './interpretation-network/workspace/useMatrixWorkspaceActions'
 import { useStructureRoute } from './interpretation-network/workspace/useStructureRoute'
 import {
     EMPTY_MATRIX_DROP_STATE,
@@ -47,7 +34,6 @@ import {
     type StructureDialogMode
 } from './interpretation-network/workspace/workspaceState'
 import { fetchAllWorkspaceData, readRuntimeRowVersion, readSubmittedText } from './interpretation-network/workspace/workspaceRuntime'
-import { buildMatrixMoveUpdates } from './interpretation-network/matrixMove'
 import {
     buildCellCreateData,
     MATRIX_CELL_PLACEMENT_FIELD,
@@ -57,15 +43,7 @@ import {
     type MatrixCellPlacement
 } from './interpretation-network/matrixCellData'
 import { createStructureWithRootMatrix } from './interpretation-network/structureActions'
-import {
-    findColumn,
-    getSectionId,
-    readColumnValue,
-    toMatrixTableSlotId,
-    toConfig,
-    type MatrixView,
-    type MatrixTableDropSlot
-} from './interpretation-network/model'
+import { findColumn, getSectionId, readColumnValue, toConfig, type MatrixView } from './interpretation-network/model'
 
 export default function InterpretationNetworkWorkspaceWidget({ config }: { config?: Record<string, unknown> }) {
     const widgetConfig = useMemo(() => toConfig(config), [config])
@@ -94,13 +72,13 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         }
     })
 
+    const [structureDialogMode, setStructureDialogMode] = useState<StructureDialogMode | null>(null)
     const [selectedInterpretationId, setSelectedInterpretationId] = useState<string | null>(null)
     const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null)
     const [selectedCellId, setSelectedCellId] = useState<string | null>(null)
     const [pendingSelectedCellId, setPendingSelectedCellId] = useState<string | null>(null)
     const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null)
     const [openedMaterialId, setOpenedMaterialId] = useState<string | null>(null)
-    const [structureDialogMode, setStructureDialogMode] = useState<StructureDialogMode | null>(null)
     const [editingStructureId, setEditingStructureId] = useState<string | null>(null)
     const [structureDeleteId, setStructureDeleteId] = useState<string | null>(null)
     const [structureMenuAnchor, setStructureMenuAnchor] = useState<HTMLElement | null>(null)
@@ -127,7 +105,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const canEditContent = details?.permissions?.editContent === true
     const canDeleteContent = details?.permissions?.deleteContent === true
 
-    const { routeStructureId, navigateToStructure } = useStructureRoute({
+    const { routeStructureId, routeCellId, navigateToStructure, navigateToCell } = useStructureRoute({
         applicationId: details?.applicationId,
         conceptSectionId: getSectionId(query.data?.concepts),
         navigate: details?.navigate
@@ -174,13 +152,12 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         matrixCells,
         matrixAxisOptions,
         hierarchicalMatrixRows,
+        hierarchicalTableModel,
         matrixPositionLabels,
         effectiveMatrixView,
         matrixRowsSnapshotRef,
         selectedCell,
         selectedRawCell,
-        cellDialogSourceCell,
-        cellDialogSourceRawCell,
         menuCell,
         deleteCell,
         deleteRawCell,
@@ -202,84 +179,60 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         matrixCellIds,
         matrixDragPreview
     } = workspaceState
-    const pendingMoveKeyRef = useRef<string | null>(null)
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-    )
-
-    useEffect(() => {
-        if (selectedInterpretationId && !interpretations.some((row) => row.id === selectedInterpretationId)) {
-            setSelectedInterpretationId(null)
-            setSelectedCellId(null)
-        }
-    }, [interpretations, selectedInterpretationId])
-
-    useEffect(() => {
-        if (selectedConceptId && !concepts.some((row) => row.id === selectedConceptId)) {
-            setSelectedConceptId(null)
-            setSelectedInterpretationId(null)
-            setSelectedCellId(null)
-        }
-    }, [concepts, selectedConceptId])
-
-    useEffect(() => {
-        if (query.isLoading || query.isFetching) return
-        if (!routeStructureId) {
-            if (selectedConceptId) {
-                setSelectedConceptId(null)
-                setSelectedInterpretationId(null)
-                setSelectedCellId(null)
-                setSelectedMaterialId(null)
-                setOpenedMaterialId(null)
-            }
-            return
-        }
-
-        const routeStructure = structureSummaries.find((structure) => structure.id === routeStructureId)
-        if (!routeStructure) {
-            setSelectedConceptId(null)
-            setSelectedInterpretationId(null)
-            setSelectedCellId(null)
-            setSelectedMaterialId(null)
-            setOpenedMaterialId(null)
-            return
-        }
-        if (selectedConceptId === routeStructure.id && selectedInterpretationId === routeStructure.interpretationId) return
-
-        setSelectedConceptId(routeStructure.id)
-        setSelectedInterpretationId(routeStructure.interpretationId)
-        setSelectedCellId(null)
+    const clearMaterialSelection = useCallback(() => {
         setSelectedMaterialId(null)
         setOpenedMaterialId(null)
-        setMaterialDialogMode(null)
         setEditingMaterialId(null)
-    }, [query.isFetching, query.isLoading, routeStructureId, selectedConceptId, selectedInterpretationId, structureSummaries])
+        setMaterialDialogMode(null)
+    }, [])
 
-    useEffect(() => {
-        if (pendingSelectedCellId && matrixCells.some((cell) => cell.id === pendingSelectedCellId)) {
-            setSelectedCellId(pendingSelectedCellId)
-            setPendingSelectedCellId(null)
-        }
-    }, [matrixCells, pendingSelectedCellId])
+    const selectMatrixCell = useCallback(
+        (cellId: string | null, options: { replace?: boolean; updateRoute?: boolean } = {}) => {
+            setSelectedCellId(cellId)
+            clearMaterialSelection()
+            if (options.updateRoute !== false && routeStructureId) {
+                navigateToCell(cellId, options)
+            }
+        },
+        [clearMaterialSelection, navigateToCell, routeStructureId]
+    )
+    const syncRouteCell = useCallback(
+        (cellId: string | null, options: { replace?: boolean } = {}) => {
+            if (routeStructureId) {
+                navigateToCell(cellId, options)
+            }
+        },
+        [navigateToCell, routeStructureId]
+    )
 
-    useEffect(() => {
-        if (selectedCellId && !matrixCells.some((cell) => cell.id === selectedCellId)) {
-            setSelectedCellId(null)
-        }
-    }, [matrixCells, selectedCellId])
-
-    useEffect(() => {
-        if (!selectedCell) {
-            setSelectedMaterialId(null)
-            setOpenedMaterialId(null)
-            setEditingMaterialId(null)
-            setMaterialDialogMode(null)
-            return
-        }
-        if (selectedMaterialId && cellMaterials.some((material) => material.id === selectedMaterialId)) return
-        setSelectedMaterialId(cellMaterials[0]?.id ?? null)
-    }, [cellMaterials, selectedCell, selectedMaterialId])
+    useMatrixRouteSelectionSync({
+        queryLoading: query.isLoading,
+        queryFetching: query.isFetching,
+        routeStructureId,
+        routeCellId,
+        concepts,
+        interpretations,
+        structureSummaries,
+        matrixCells,
+        rootState: hierarchicalTableModel.rootState,
+        selectedInterpretation,
+        selectedCell,
+        selectedInterpretationId,
+        selectedConceptId,
+        selectedCellId,
+        pendingSelectedCellId,
+        selectedMaterialId,
+        cellMaterials,
+        matrixRowsSettled: !matrixRowsQuery.isLoading && !matrixRowsQuery.isFetching,
+        selectMatrixCell,
+        clearMaterialSelection,
+        setSelectedInterpretationId,
+        setSelectedConceptId,
+        setPendingSelectedCellId,
+        setSelectedMaterialId,
+        setOpenedMaterialId,
+        syncRouteCell
+    })
     const createStructureMutation = useMutation({
         mutationFn: async (data: Record<string, unknown>) =>
             createStructureWithRootMatrix({
@@ -314,7 +267,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             }
             if (created?.interpretation && typeof created.interpretation.id === 'string') {
                 setSelectedInterpretationId(created.interpretation.id)
-                setSelectedCellId(null)
+                selectMatrixCell(null, { replace: true })
             }
             if (createdConceptId) {
                 navigateToStructure(createdConceptId)
@@ -385,7 +338,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             if (deletedId && selectedConceptId === deletedId) {
                 setSelectedConceptId(null)
                 setSelectedInterpretationId(null)
-                setSelectedCellId(null)
+                selectMatrixCell(null, { replace: true })
                 setSelectedMaterialId(null)
                 setOpenedMaterialId(null)
                 navigateToStructure(null)
@@ -411,9 +364,16 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             }
             const normalizedLocale = normalizeLocale(locale)
             const { [MATRIX_CELL_PLACEMENT_FIELD]: _placementField, __axisName: axisName, ...submittedData } = data
+            const sourceCellIdForSubmit = cellDialogSourceCellId ?? selectedCellId
+            const sourceCellFromSnapshot = sourceCellIdForSubmit
+                ? matrixRowsSnapshotRef.current.cells.find((cell) => cell.id === sourceCellIdForSubmit)
+                : undefined
+            const sourceRawCellFromSnapshot = sourceCellFromSnapshot
+                ? matrixRowsSnapshotRef.current.rawRowsByCellId.get(sourceCellFromSnapshot.id)
+                : undefined
             if (mode === 'edit') {
-                if (!cellDialogSourceRawCell?.id) throw new Error('cell-not-selected')
-                const sourceCell = cellDialogSourceCell
+                if (!sourceRawCellFromSnapshot?.id) throw new Error('cell-not-selected')
+                const sourceCell = sourceCellFromSnapshot
                 const rowLabelField = findColumn(matrixColumn.childColumns, 'RowLabel')?.field ?? 'RowLabel'
                 const colLabelField = findColumn(matrixColumn.childColumns, 'ColLabel')?.field ?? 'ColLabel'
                 if (sourceCell && !readSubmittedText(submittedData[rowLabelField], normalizedLocale)) {
@@ -424,7 +384,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                 }
                 const axisValueChanged = (field: string, fallbackField: string): boolean => {
                     if (!Object.prototype.hasOwnProperty.call(submittedData, field)) return false
-                    const previousValue = cellDialogSourceRawCell[field] ?? cellDialogSourceRawCell[fallbackField]
+                    const previousValue = sourceRawCellFromSnapshot[field] ?? sourceRawCellFromSnapshot[fallbackField]
                     return (
                         formatRuntimeSafeValue(submittedData[field], normalizedLocale) !==
                         formatRuntimeSafeValue(previousValue, normalizedLocale)
@@ -469,21 +429,41 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                     objectCollectionId: interpretationSectionId,
                     updates: [
                         {
-                            childRowId: cellDialogSourceRawCell.id,
+                            childRowId: sourceRawCellFromSnapshot.id,
                             data: submittedData,
-                            expectedVersion: readRuntimeRowVersion(cellDialogSourceRawCell)
+                            expectedVersion: readRuntimeRowVersion(sourceRawCellFromSnapshot)
                         }
                     ],
                     uniformUpdates
                 })
-                return { saved, selectedCellIdAfterSave: cellDialogSourceCell?.id ?? null }
+                return { saved, selectedCellIdAfterSave: sourceCellFromSnapshot?.id ?? null }
             }
 
-            const source = cellDialogSourceCell
+            const source = sourceCellFromSnapshot
             const placement = readMatrixCellPlacement(data) ?? activeCellDialogPlacement ?? undefined
+            if (mode === 'create-child') {
+                if (!source) throw new Error('cell-not-selected')
+                if (placement?.parentCellId !== undefined && placement.parentCellId !== source.id) {
+                    throw new Error('cell-parent-mismatch')
+                }
+            }
             if (typeof axisName === 'string' && axisName.trim()) {
                 const titleField = findColumn(matrixColumn.childColumns, 'CellValue')?.field ?? 'CellValue'
                 submittedData[titleField] = createLocalizedContent(normalizedLocale, axisName.trim())
+            }
+            if (mode === 'create-child') {
+                const titleField = findColumn(matrixColumn.childColumns, 'CellValue')?.field ?? 'CellValue'
+                const rowLabelField = findColumn(matrixColumn.childColumns, 'RowLabel')?.field ?? 'RowLabel'
+                const colLabelField = findColumn(matrixColumn.childColumns, 'ColLabel')?.field ?? 'ColLabel'
+                const titleValue = submittedData[titleField]
+                if (readSubmittedText(titleValue, normalizedLocale)) {
+                    if (!readSubmittedText(submittedData[rowLabelField], normalizedLocale)) {
+                        submittedData[rowLabelField] = titleValue
+                    }
+                    if (!readSubmittedText(submittedData[colLabelField], normalizedLocale)) {
+                        submittedData[colLabelField] = titleValue
+                    }
+                }
             }
             const baseData = buildCellCreateData({
                 mode,
@@ -523,7 +503,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             if (result && typeof result === 'object' && 'selectedCellIdAfterSave' in result) {
                 const rawCellId = result.selectedCellIdAfterSave
                 if (typeof rawCellId === 'string' && rawCellId.trim()) {
-                    setSelectedCellId(rawCellId.trim())
+                    selectMatrixCell(rawCellId.trim(), { replace: true })
                 }
             }
             if (result && typeof result === 'object' && 'pendingSelectedCellId' in result) {
@@ -545,139 +525,47 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         !widgetConfig.allowNewAxesInCellDialog &&
         !selectedCell &&
         !isEmptyIndependentRowsMatrix
-    const effectiveMoveHierarchyLayout = effectiveMatrixView === 'verticalTree' ? 'verticalTree' : 'horizontalRows'
-    const moveCellMutation = useMutation({
-        mutationFn: async ({
-            sourceCellId,
-            targetCellId,
-            placement = 'after',
-            destination
-        }: {
-            sourceCellId: string
-            targetCellId: string
-            placement?: MatrixDropPlacement
-            destination?: MatrixDropDestination
-        }) => {
-            if (!canEditContent) throw new Error('permission-denied')
-            if (
-                !details?.apiBaseUrl ||
-                !details.applicationId ||
-                !interpretationSectionId ||
-                !selectedInterpretation?.id ||
-                !matrixColumn?.id ||
-                sourceCellId === targetCellId
-            ) {
-                return null
-            }
-            const { cells: currentMatrixCells, rawRowsByCellId: currentRawMatrixRowsByCellId } = matrixRowsSnapshotRef.current
-            const movePlan = buildMatrixMoveUpdates({
-                mode: widgetConfig.matrixMode,
-                sourceCellId,
-                targetCellId,
-                placement,
-                cells: currentMatrixCells,
-                rawRowsByCellId: currentRawMatrixRowsByCellId,
-                childColumns: matrixColumn.childColumns,
-                locale,
-                readRuntimeRowVersion,
-                readSubmittedText,
-                hierarchyLayout: effectiveMoveHierarchyLayout,
-                destination
-            })
-            if (!movePlan) return null
-
-            await batchUpdateTabularRows({
-                apiBaseUrl: details.apiBaseUrl,
-                applicationId: details.applicationId,
-                workspaceId: details.currentWorkspaceId,
-                parentRecordId: selectedInterpretation.id,
-                componentId: matrixColumn.id,
-                objectCollectionId: interpretationSectionId,
-                updates: movePlan.updates
-            })
-            return { selectedCellIdAfterMove: movePlan.selectedCellIdAfterMove }
-        },
-        onSuccess: async (result) => {
-            if (result?.selectedCellIdAfterMove) {
-                setSelectedCellId(result.selectedCellIdAfterMove)
-            }
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
-        },
-        onSettled: async () => {
-            pendingMoveKeyRef.current = null
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
-        }
+    const { sensors, moveCellMutation, handleMoveCell, moveSelectedToTableSlot, matrixDragHandlers } = useMatrixWorkspaceActions({
+        t,
+        queryClient,
+        canEditContent,
+        apiBaseUrl: details?.apiBaseUrl,
+        applicationId: details?.applicationId,
+        workspaceId: details?.currentWorkspaceId,
+        interpretationSectionId,
+        selectedInterpretationId: selectedInterpretation?.id,
+        matrixColumnId: matrixColumn?.id,
+        matrixChildColumns: matrixColumn?.childColumns,
+        matrixRowsSnapshotRef,
+        setMatrixDropState,
+        matrixMutationsDisabled,
+        effectiveMatrixView,
+        tableProjection: widgetConfig.tableProjection,
+        widgetMatrixMode: widgetConfig.matrixMode,
+        locale,
+        visibleMatrixCells,
+        matrixCellIds,
+        selectedCell,
+        selectMatrixCell,
+        readRuntimeRowVersion,
+        readSubmittedText,
+        setCellDialogError
     })
-
-    const handleMoveCell = useCallback(
-        (sourceCellId: string, targetCellId: string, placement: MatrixDropPlacement = 'after', destination?: MatrixDropDestination) => {
-            if (!sourceCellId || !targetCellId || sourceCellId === targetCellId) return
-            if (matrixMutationsDisabled || moveCellMutation.isPending) return
-            const moveKey = `${sourceCellId}:${targetCellId}:${placement}`
-            if (pendingMoveKeyRef.current === moveKey) return
-            pendingMoveKeyRef.current = moveKey
-            moveCellMutation.mutate({ sourceCellId, targetCellId, placement, destination })
-        },
-        [matrixMutationsDisabled, moveCellMutation]
-    )
-    const calculateDropState = useCallback(
-        (sourceCellId: string, targetCellId: string | null, event?: Pick<DragOverEvent, 'active' | 'over'>): MatrixDropState => {
-            const activeCellIds = effectiveMatrixView === 'table' ? visibleMatrixCells.map((cell) => cell.id) : matrixCellIds
-            return resolveMatrixDropState({
-                mode: widgetConfig.matrixMode,
-                cells: matrixRowsSnapshotRef.current.cells,
-                cellIds: activeCellIds,
-                sourceCellId,
-                targetCellId,
-                translatedRect: event?.active.rect.current.translated,
-                targetRect: event?.over?.rect,
-                hierarchyLayout: effectiveMoveHierarchyLayout,
-                tableSlot: event?.over?.data.current?.matrixTableSlot as MatrixTableDropSlot | undefined
-            })
-        },
-        [
-            effectiveMoveHierarchyLayout,
-            effectiveMatrixView,
-            matrixCellIds,
-            matrixRowsSnapshotRef,
-            visibleMatrixCells,
-            widgetConfig.matrixMode
-        ]
-    )
-    const handleMatrixDragStart = useCallback((event: DragStartEvent) => {
-        const sourceCellId = typeof event.active.id === 'string' ? event.active.id : String(event.active.id)
-        setMatrixDropState({ activeCellId: sourceCellId, overCellId: null, placement: null, isValid: false, destination: null })
-    }, [])
-    const handleMatrixDragMove = useCallback(
-        (event: DragMoveEvent) => {
-            const sourceCellId = typeof event.active.id === 'string' ? event.active.id : String(event.active.id)
-            const targetCellId = event.over ? (typeof event.over.id === 'string' ? event.over.id : String(event.over.id)) : null
-            setMatrixDropState(calculateDropState(sourceCellId, targetCellId, event))
-        },
-        [calculateDropState]
-    )
-    const handleMatrixDragOver = useCallback(
-        (event: DragOverEvent) => {
-            const sourceCellId = typeof event.active.id === 'string' ? event.active.id : String(event.active.id)
-            const targetCellId = event.over ? (typeof event.over.id === 'string' ? event.over.id : String(event.over.id)) : null
-            setMatrixDropState(calculateDropState(sourceCellId, targetCellId, event))
-        },
-        [calculateDropState]
-    )
-    const handleMatrixDragCancel = useCallback(() => {
-        setMatrixDropState(EMPTY_MATRIX_DROP_STATE)
-    }, [])
-    const handleMatrixDragEnd = useCallback(
-        (event: DragEndEvent) => {
-            const sourceCellId = typeof event.active.id === 'string' ? event.active.id : String(event.active.id)
-            const targetCellId = event.over ? (typeof event.over.id === 'string' ? event.over.id : String(event.over.id)) : null
-            const dropState = calculateDropState(sourceCellId, targetCellId, event)
-            setMatrixDropState(EMPTY_MATRIX_DROP_STATE)
-            if (!dropState.overCellId || !dropState.placement || !dropState.isValid) return
-            handleMoveCell(sourceCellId, dropState.overCellId, dropState.placement, dropState.destination ?? undefined)
-        },
-        [calculateDropState, handleMoveCell]
-    )
+    const { openCellDialog, openTableAxisDialog } = useCellDialogActions({
+        matrixMode: widgetConfig.matrixMode,
+        allowNewAxesInCellDialog: widgetConfig.allowNewAxesInCellDialog,
+        effectiveMatrixView,
+        matrixCells,
+        visibleMatrixCells,
+        selectedCellId,
+        selectedCell,
+        selectMatrixCell,
+        setCellDialogSourceCellId,
+        setCellDialogPlacement,
+        setCellDialogError,
+        setCellDialogMode,
+        setAxisDialogKind
+    })
     const saveMaterialMetadataMutation = useMutation({
         mutationFn: async (data: Record<string, unknown>) => {
             if (!details?.apiBaseUrl || !details.applicationId || !materialSectionId) return null
@@ -801,7 +689,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         },
         onSuccess: async () => {
             if (cellDeleteId === selectedCellId) {
-                setSelectedCellId(null)
+                selectMatrixCell(null, { replace: true })
             }
             setCellDeleteId(null)
             setCellDeleteError(null)
@@ -839,7 +727,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const openStructure = (structure: StructureSummary) => {
         setSelectedConceptId(structure.id)
         setSelectedInterpretationId(structure.interpretationId)
-        setSelectedCellId(null)
+        selectMatrixCell(null, { replace: true })
         setSelectedMaterialId(null)
         setOpenedMaterialId(null)
         setMaterialDialogMode(null)
@@ -849,7 +737,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const backToStructureList = () => {
         setSelectedConceptId(null)
         setSelectedInterpretationId(null)
-        setSelectedCellId(null)
+        selectMatrixCell(null, { replace: true })
         setSelectedMaterialId(null)
         setOpenedMaterialId(null)
         navigateToStructure(null)
@@ -858,116 +746,6 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         setStructureDialogError(null)
         setEditingStructureId(null)
         setStructureDialogMode('create')
-    }
-    const openCellDialog = (mode: CellDialogMode, cellId?: string, placement?: MatrixCellPlacement) => {
-        const sourceCellId = cellId ?? selectedCellId
-        const sourceCell = sourceCellId ? matrixCells.find((cell) => cell.id === sourceCellId) : undefined
-        const defaultPlacement: MatrixCellPlacement | null =
-            placement ??
-            (sourceCell && mode === 'create-cell'
-                ? {
-                      row: {
-                          kind: 'existing',
-                          option: {
-                              key: sourceCell.rowKey,
-                              label: sourceCell.rowLabel,
-                              labelValue: sourceCell.rowLabelValue
-                          }
-                      }
-                  }
-                : sourceCell && mode === 'create-row'
-                ? {
-                      column: {
-                          kind: 'existing',
-                          option: {
-                              key: sourceCell.colKey,
-                              label: sourceCell.colLabel,
-                              labelValue: sourceCell.colLabelValue
-                          }
-                      }
-                  }
-                : widgetConfig.matrixMode === 'independentRows' &&
-                  effectiveMatrixView !== 'table' &&
-                  (widgetConfig.allowNewAxesInCellDialog || matrixCells.length === 0) &&
-                  mode === 'create-cell'
-                ? {
-                      row: { kind: 'new' as const, label: '' },
-                      column: { kind: 'new' as const, label: '' }
-                  }
-                : mode === 'create-child'
-                ? {
-                      row: { kind: 'new' as const, label: '' },
-                      column: { kind: 'new' as const, label: '' },
-                      parentCellId: sourceCellId ?? null
-                  }
-                : null)
-        if (cellId) setSelectedCellId(cellId)
-        setCellDialogSourceCellId(sourceCellId)
-        setCellDialogPlacement(defaultPlacement)
-        setCellDialogError(null)
-        setCellDialogMode(mode)
-    }
-    const openTableAxisDialog = (axis: 'row' | 'column') => {
-        const sourceCell = selectedCell ?? visibleMatrixCells[0] ?? matrixCells[0]
-        if (!sourceCell) return
-        const parentCellId = widgetConfig.matrixMode === 'hierarchicalCells' ? sourceCell.id : null
-        setSelectedCellId(sourceCell.id)
-        setCellDialogSourceCellId(sourceCell.id)
-        setCellDialogPlacement({
-            parentCellId,
-            ...(axis === 'column'
-                ? {
-                      row: {
-                          kind: 'existing' as const,
-                          option: {
-                              key: sourceCell.rowKey,
-                              label: sourceCell.rowLabel,
-                              labelValue: sourceCell.rowLabelValue
-                          }
-                      }
-                  }
-                : {
-                      row: {
-                          kind: 'new' as const,
-                          label: ''
-                      }
-                  }),
-            ...(axis === 'row'
-                ? {
-                      column: {
-                          kind: 'existing' as const,
-                          option: {
-                              key: sourceCell.colKey,
-                              label: sourceCell.colLabel,
-                              labelValue: sourceCell.colLabelValue
-                          }
-                      }
-                  }
-                : {
-                      column: {
-                          kind: 'new' as const,
-                          label: ''
-                      }
-                  })
-        })
-        setCellDialogError(null)
-        setCellDialogMode(widgetConfig.matrixMode === 'hierarchicalCells' ? 'create-child' : axis === 'row' ? 'create-row' : 'create-cell')
-        setAxisDialogKind(axis)
-    }
-    const moveSelectedToTableSlot = (slot: MatrixTableDropSlot) => {
-        if (!selectedCell) {
-            setCellDialogError(t('workspace.table.selectCellBeforeMove', 'Select a cell before moving it into an empty table position.'))
-            return
-        }
-        setCellDialogError(null)
-        const targetCellId = toMatrixTableSlotId(slot)
-        handleMoveCell(selectedCell.id, targetCellId, 'child', {
-            placement: 'child',
-            targetCellId,
-            parentCellId: widgetConfig.matrixMode === 'hierarchicalCells' ? selectedCell.parentCellId ?? null : null,
-            insertionIndex: 0,
-            tableSlot: slot
-        })
     }
     const closeCellMenu = () => {
         setCellMenuAnchor(null)
@@ -999,7 +777,14 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                           mode: widgetConfig.matrixMode,
                           matrixView: effectiveMatrixView,
                           allowedMatrixViews: widgetConfig.allowedMatrixViews,
+                          tableProjection: widgetConfig.tableProjection,
+                          toolbarLayout: widgetConfig.toolbarLayout,
+                          showHierarchicalTableHeaders: widgetConfig.showHierarchicalTableHeaders,
+                          showHierarchicalTableHeaderCard: widgetConfig.showHierarchicalTableHeaderCard,
+                          showMatrixTreeTotalCells: widgetConfig.showMatrixTreeTotalCells,
+                          colorBreadcrumbsByCell: widgetConfig.colorBreadcrumbsByCell,
                           hierarchyRows: hierarchicalMatrixRows,
+                          hierarchicalTableModel,
                           positionLabels: matrixPositionLabels,
                           cells: matrixCells,
                           visibleCells: visibleMatrixCells,
@@ -1025,7 +810,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                               addTableRow: () => openTableAxisDialog('row'),
                               addTableColumn: () => openTableAxisDialog('column'),
                               moveSelectedToSlot: moveSelectedToTableSlot,
-                              selectCell: setSelectedCellId,
+                              selectCell: selectMatrixCell,
                               openCellMenu: (anchor, cellId) => {
                                   setCellMenuAnchor(anchor)
                                   setCellMenuCellId(cellId)
@@ -1035,11 +820,11 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                                   setCellDeleteError(null)
                                   setCellDeleteId(cellId)
                               },
-                              dragStart: handleMatrixDragStart,
-                              dragMove: handleMatrixDragMove,
-                              dragOver: handleMatrixDragOver,
-                              dragCancel: handleMatrixDragCancel,
-                              dragEnd: handleMatrixDragEnd
+                              dragStart: matrixDragHandlers.dragStart,
+                              dragMove: matrixDragHandlers.dragMove,
+                              dragOver: matrixDragHandlers.dragOver,
+                              dragCancel: matrixDragHandlers.dragCancel,
+                              dragEnd: matrixDragHandlers.dragEnd
                           }
                       }
                     : null
@@ -1139,6 +924,8 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                     axisOptions: matrixAxisOptions,
                     placement: activeCellDialogPlacement,
                     allowNewAxesInCellDialog: widgetConfig.allowNewAxesInCellDialog,
+                    hideAxisLabelFields:
+                        widgetConfig.matrixMode === 'hierarchicalCells' && widgetConfig.tableProjection === 'hierarchicalPath',
                     error: cellDialogError,
                     deleteId: cellDeleteId,
                     deleteCell,

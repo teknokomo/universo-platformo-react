@@ -143,6 +143,45 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must allow table, horizontal rows, and vertical tree views with table as the default'
         )
     }
+    if (workspaceConfig.tableProjection !== 'hierarchicalPath') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.tableProjection must be "hierarchicalPath"'
+        )
+    }
+    const breadcrumbDepth =
+        workspaceConfig.breadcrumbDepth && typeof workspaceConfig.breadcrumbDepth === 'object'
+            ? (workspaceConfig.breadcrumbDepth as Record<string, unknown>)
+            : {}
+    if (breadcrumbDepth.mode !== 'full') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.breadcrumbDepth must show the full path by default'
+        )
+    }
+    if (workspaceConfig.toolbarLayout !== 'horizontal') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.toolbarLayout must be "horizontal" by default'
+        )
+    }
+    if (workspaceConfig.showHierarchicalTableHeaders !== false) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.showHierarchicalTableHeaders must be false by default'
+        )
+    }
+    if (workspaceConfig.showHierarchicalTableHeaderCard !== true) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.showHierarchicalTableHeaderCard must be true by default'
+        )
+    }
+    if (workspaceConfig.showMatrixTreeTotalCells !== true) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.showMatrixTreeTotalCells must be true by default'
+        )
+    }
+    if (workspaceConfig.colorBreadcrumbsByCell !== true) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.colorBreadcrumbsByCell must be true by default'
+        )
+    }
     if (workspaceConfig.allowNewAxesInCellDialog !== false) {
         throw new Error(
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.allowNewAxesInCellDialog must be false'

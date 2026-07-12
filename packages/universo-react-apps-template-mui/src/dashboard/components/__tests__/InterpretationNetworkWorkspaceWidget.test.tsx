@@ -420,6 +420,29 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const defaultPermissions = { createContent: true, editContent: true, deleteContent: true }
 const independentRowsConfig = { matrixMode: 'independentRows' }
+const independentAxesTableConfig = {
+    matrixMode: 'hierarchicalCells',
+    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+    defaultMatrixView: 'table',
+    tableProjection: 'independentAxes'
+}
+const hierarchicalPathTableConfig = {
+    matrixMode: 'hierarchicalCells',
+    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+    defaultMatrixView: 'table',
+    tableProjection: 'hierarchicalPath'
+}
+const horizontalRowsConfig = {
+    matrixMode: 'hierarchicalCells',
+    allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+    defaultMatrixView: 'horizontalRows'
+}
+const horizontalRowsIndependentAxesConfig = {
+    matrixMode: 'hierarchicalCells',
+    allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+    defaultMatrixView: 'horizontalRows',
+    tableProjection: 'independentAxes'
+}
 
 const renderInterpretationNetworkWidget = (
     fetchMock: ReturnType<typeof vi.fn>,
@@ -456,6 +479,23 @@ const renderInterpretationNetworkWidget = (
         </QueryClientProvider>
     )
     return { onOpenCreateTarget, navigate }
+}
+
+const clickSelectedMatrixCell = async (user: ReturnType<typeof userEvent.setup>) => {
+    const tableCell = screen.queryByRole('button', { name: 'Definition, Meaning, 1, Selected cell value' })
+    if (tableCell) {
+        await user.click(tableCell)
+        return
+    }
+
+    await user.click((await screen.findAllByTestId('interpretation-network-cell'))[0])
+}
+
+const switchToHorizontalRows = async (user: ReturnType<typeof userEvent.setup>) => {
+    const horizontalRowsButton = await screen.findByRole('button', { name: 'Horizontal rows' })
+    if (horizontalRowsButton?.getAttribute('aria-pressed') !== 'true') {
+        await user.click(horizontalRowsButton)
+    }
 }
 
 describe('InterpretationNetworkWorkspaceWidget', () => {
@@ -629,7 +669,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         })
 
         const user = userEvent.setup()
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentRowsConfig)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...independentRowsConfig,
+            allowedMatrixViews: ['horizontalRows'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await waitFor(() => {
             expect(
@@ -855,6 +899,67 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(within(structurePane).queryByRole('button', { name: 'Existing structure' })).not.toBeInTheDocument()
     })
 
+    it('keeps hierarchical table cell selection in sync with the focused-cell route query', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableHierarchyRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        window.history.pushState({}, '', `/a/app-1/${sectionIds.Structure}`)
+        const { navigate } = renderInterpretationNetworkWidget(fetchMock)
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        expect(await screen.findByRole('table', { name: 'Matrix table for Universe' })).toBeInTheDocument()
+        await waitFor(() => {
+            expect(window.location.search).toContain('matrixCell=root')
+        })
+
+        await user.click(screen.getByRole('button', { name: '1/1, Parent A' }))
+
+        await waitFor(() => {
+            expect(window.location.search).toContain('matrixCell=parent-a')
+        })
+        expect(navigate).toHaveBeenLastCalledWith(`/a/app-1/${sectionIds.Structure}/concept-1?matrixCell=parent-a`)
+        expect(await screen.findByRole('table', { name: 'Matrix table for Universe' })).toBeInTheDocument()
+        expect(screen.getByRole('rowheader', { name: /Parent A/ })).toBeInTheDocument()
+        expect(screen.queryByText('Parent A', { selector: '[aria-current="page"]' })).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'Cell actions: Universe' }))
+
+        expect(await screen.findByRole('menuitem', { name: 'Add' })).toBeInTheDocument()
+        expect(window.location.search).toContain('matrixCell=parent-a')
+        expect(navigate).toHaveBeenLastCalledWith(`/a/app-1/${sectionIds.Structure}/concept-1?matrixCell=parent-a`)
+        await user.keyboard('{Escape}')
+        expect(screen.getByRole('rowheader', { name: /Parent A/ })).toBeInTheDocument()
+    })
+
+    it('hides system-managed row and column placement in the hierarchical table Add cell dialog', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixTableHierarchyRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, hierarchicalPathTableConfig)
+
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        await user.click(screen.getByRole('button', { name: '1/1, Parent A' }))
+        await user.click(within(toolbar).getByRole('button', { name: 'Add' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Add cell' })
+        expect(within(dialog).queryByText('Placement')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('Row')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('Column')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('Created automatically for the new cell.')).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('combobox', { name: 'Select row' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('combobox', { name: 'Select column' })).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
+        expect(within(dialog).getByRole('textbox', { name: /Title/i })).toBeInTheDocument()
+        expect(within(dialog).getByRole('textbox', { name: /Description/i })).toBeInTheDocument()
+    }, 20_000)
+
     it('reads the latest structure segment from nested URLs and replaces stale structure segments on navigation', async () => {
         const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -911,7 +1016,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         expect(screen.getByText('Create or select a structure on the left.', { exact: false })).toBeInTheDocument()
@@ -920,7 +1029,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             within(screen.getByTestId('interpretation-network-details-pane')).queryByRole('button', { name: 'Create' })
         ).not.toBeInTheDocument()
 
-        await user.click((await screen.findAllByTestId('interpretation-network-cell'))[0])
+        await clickSelectedMatrixCell(user)
 
         expect(screen.queryByText('Create or select a structure on the left.', { exact: false })).not.toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Materials' })).toBeInTheDocument()
@@ -940,7 +1049,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
 
@@ -976,10 +1089,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
         let rows = await within(structurePane).findAllByTestId('interpretation-network-matrix-row')
 
-        expect(rows).toHaveLength(1)
+        expect(rows).toHaveLength(2)
         expect(within(rows[0]).getByText('Universe')).toBeInTheDocument()
-        expect(within(structurePane).queryByText('Child A')).not.toBeInTheDocument()
-        expect(within(structurePane).queryByText('Child B')).not.toBeInTheDocument()
+        expect(within(rows[1]).getByText('Child A')).toBeInTheDocument()
+        expect(within(rows[1]).getByText('Child B')).toBeInTheDocument()
         await user.click(within(rows[0]).getByText('Universe'))
         rows = await within(structurePane).findAllByTestId('interpretation-network-matrix-row')
         expect(rows).toHaveLength(2)
@@ -1061,7 +1174,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'table'
+            defaultMatrixView: 'table',
+            tableProjection: 'independentAxes'
         })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
@@ -1205,7 +1319,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             {
                 matrixMode: 'hierarchicalCells',
                 allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
-                defaultMatrixView: 'table'
+                defaultMatrixView: 'table',
+                tableProjection: 'independentAxes'
             }
         )
 
@@ -1240,6 +1355,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
+            tableProjection: 'independentAxes',
             hierarchyRowMode: 'focusedPath'
         })
 
@@ -1264,18 +1380,18 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'table'
+            defaultMatrixView: 'table',
+            tableProjection: 'independentAxes'
         })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
         const table = await screen.findByRole('table', { name: 'Matrix table' })
 
-        expect(within(toolbar).getByRole('button', { name: 'Add' })).toBeDisabled()
+        expect(within(toolbar).getByRole('button', { name: 'Add' })).toBeEnabled()
         expect(within(toolbar).queryByRole('button', { name: 'Add root cell' })).not.toBeInTheDocument()
         expect(within(toolbar).queryByRole('button', { name: 'Add row' })).not.toBeInTheDocument()
         expect(within(toolbar).queryByRole('button', { name: 'Add cell in row' })).not.toBeInTheDocument()
-        expect(within(toolbar).queryByRole('button', { name: 'Add child cell' })).not.toBeInTheDocument()
         expect(within(toolbar).queryByRole('button', { name: 'Add cell' })).not.toBeInTheDocument()
         expect(within(table).getByRole('button', { name: 'Add row' })).toBeEnabled()
         expect(within(table).getByRole('button', { name: 'Add column' })).toBeEnabled()
@@ -1307,15 +1423,16 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
 
         expect(within(structurePane).getByText('Universe')).toBeInTheDocument()
-        expect(within(structurePane).queryByText('Parent A')).not.toBeInTheDocument()
-        await user.click(within(structurePane).getByText('Universe'))
-
         expect(await within(structurePane).findByText('Parent A')).toBeInTheDocument()
         expect(within(structurePane).getByText('Parent B')).toBeInTheDocument()
         expect(within(structurePane).queryByText('Child A1')).not.toBeInTheDocument()
@@ -1345,7 +1462,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...horizontalRowsConfig,
+            allowNewAxesInCellDialog: true
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         expect(await screen.findByText('Failed to load matrix cells')).toBeInTheDocument()
@@ -1356,12 +1476,19 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
     })
 
     it('disables authoring controls when the current role cannot mutate content', async () => {
+        const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), { createContent: false, editContent: false, deleteContent: false })
+        renderInterpretationNetworkWidget(
+            fetchMock,
+            vi.fn(),
+            { createContent: false, editContent: false, deleteContent: false },
+            undefined,
+            independentAxesTableConfig
+        )
 
         expect(
             await screen.findByText('You can view this workspace, but content editing is not available for your role.')
@@ -1369,10 +1496,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled()
         expect(screen.queryByRole('button', { name: 'Add page' })).not.toBeInTheDocument()
 
-        await userEvent.click(screen.getByRole('button', { name: 'Existing structure' }))
+        await user.click(screen.getByRole('button', { name: 'Existing structure' }))
         expect(await screen.findByRole('button', { name: 'Add' })).toBeDisabled()
 
-        await userEvent.click((await screen.findAllByTestId('interpretation-network-cell'))[0])
+        await clickSelectedMatrixCell(user)
         expect(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' })).toBeDisabled()
         expect(screen.queryByRole('button', { name: 'Edit material' })).not.toBeInTheDocument()
     })
@@ -1383,7 +1510,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), { createContent: true, editContent: true, deleteContent: false })
+        renderInterpretationNetworkWidget(
+            fetchMock,
+            vi.fn(),
+            { createContent: true, editContent: true, deleteContent: false },
+            undefined,
+            independentAxesTableConfig
+        )
 
         expect(
             screen.queryByText('You can view this workspace, but content editing is not available for your role.')
@@ -1392,15 +1525,22 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
     })
 
     it('does not offer material creation when the role cannot link it to the selected cell', async () => {
+        const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), { createContent: true, editContent: false, deleteContent: false })
+        renderInterpretationNetworkWidget(
+            fetchMock,
+            vi.fn(),
+            { createContent: true, editContent: false, deleteContent: false },
+            undefined,
+            independentAxesTableConfig
+        )
 
-        await userEvent.click(await screen.findByRole('button', { name: 'Existing structure' }))
-        await userEvent.click((await screen.findAllByTestId('interpretation-network-cell'))[0])
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        await clickSelectedMatrixCell(user)
 
         expect(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' })).toBeDisabled()
         expect(fetchMock.mock.calls.some(([input, init]) => init?.method === 'POST' && String(input).includes('/runtime/rows'))).toBe(false)
@@ -1536,7 +1676,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...horizontalRowsConfig,
+            allowNewAxesInCellDialog: true
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
@@ -1687,6 +1830,76 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(within(dialog).queryByRole('textbox', { name: /New column name/i })).not.toBeInTheDocument()
         expect(within(dialog).getByRole('combobox', { name: 'Select row' })).toBeInTheDocument()
         expect(within(dialog).getByRole('combobox', { name: 'Select column' })).toBeInTheDocument()
+    })
+
+    it('requires an edited cell title even when the style tab is active', async () => {
+        const user = userEvent.setup()
+        const onSubmit = vi.fn()
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <CellEditDialog
+                    open
+                    mode='edit'
+                    t={i18n.getFixedT('en', 'interpretationNetwork')}
+                    locale='en'
+                    fields={interpretationMatrixColumns()[2].childColumns}
+                    styleFields={[interpretationMatrixColumns()[2].childColumns[1]]}
+                    initialData={{
+                        'child-row': 'Definition',
+                        'child-col': 'Meaning',
+                        'child-value': 'Editable title',
+                        'child-fill': 'blue'
+                    }}
+                    isSubmitting={false}
+                    onClose={vi.fn()}
+                    onSubmit={onSubmit}
+                />
+            </QueryClientProvider>
+        )
+
+        const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
+        await user.clear(titleField)
+        await user.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+        expect(onSubmit).not.toHaveBeenCalled()
+        expect(await within(dialog).findByRole('textbox', { name: /Title/i })).toHaveAccessibleDescription('This field is required.')
+        expect(within(dialog).getByRole('tab', { name: 'Basic' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('requires edited row and column labels before saving an existing cell', async () => {
+        const user = userEvent.setup()
+        const onSubmit = vi.fn()
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <CellEditDialog
+                    open
+                    mode='edit'
+                    t={i18n.getFixedT('en', 'interpretationNetwork')}
+                    locale='en'
+                    fields={interpretationMatrixColumns()[2].childColumns}
+                    styleFields={[]}
+                    initialData={{
+                        'child-row': 'Definition',
+                        'child-col': 'Meaning',
+                        'child-value': 'Editable title'
+                    }}
+                    isSubmitting={false}
+                    onClose={vi.fn()}
+                    onSubmit={onSubmit}
+                />
+            </QueryClientProvider>
+        )
+
+        const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        await user.clear(within(dialog).getByRole('textbox', { name: /Row label/i }))
+        await user.clear(within(dialog).getByRole('textbox', { name: /Column label/i }))
+        await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+        expect(onSubmit).not.toHaveBeenCalled()
+        expect(await within(dialog).findByRole('textbox', { name: /Row label/i })).toHaveAccessibleDescription('This field is required.')
+        expect(within(dialog).getByRole('textbox', { name: /Column label/i })).toHaveAccessibleDescription('This field is required.')
     })
 
     it('creates a new table column from the dedicated table plus dialog', async () => {
@@ -1882,6 +2095,16 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     ParentCellId: 'cell-selected',
                     RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
                     ColKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                    RowLabel: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Child from default add' })
+                        })
+                    }),
+                    ColLabel: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Child from default add' })
+                        })
+                    }),
                     CellValue: expect.objectContaining({
                         locales: expect.objectContaining({
                             en: expect.objectContaining({ content: 'Child from default add' })
@@ -2197,7 +2420,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...horizontalRowsConfig,
+            allowNewAxesInCellDialog: true
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
@@ -2346,7 +2572,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...horizontalRowsConfig,
+            allowNewAxesInCellDialog: true
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await user.click(await screen.findByText('Universe'))
@@ -2396,7 +2625,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...horizontalRowsConfig,
+            allowNewAxesInCellDialog: true
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         const cells = await screen.findAllByTestId('interpretation-network-cell')
@@ -2471,7 +2703,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentRowsConfig)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...independentRowsConfig,
+            allowedMatrixViews: ['horizontalRows'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
 
@@ -2614,7 +2850,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(hierarchicalFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...horizontalRowsConfig,
+            allowNewAxesInCellDialog: true
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await user.click(await screen.findByText('Root cell value'))
@@ -2704,7 +2943,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(rootFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, { allowNewAxesInCellDialog: true })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...horizontalRowsConfig,
+            allowNewAxesInCellDialog: true
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
@@ -2754,7 +2996,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(topLevelFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            matrixMode: 'hierarchicalCells',
+            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'horizontalRows'
+        })
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Independent')
@@ -2799,7 +3045,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(parentWithChildFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsIndependentAxesConfig)
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
@@ -2858,11 +3104,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             }
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsIndependentAxesConfig)
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
-        await user.click(screen.getAllByTestId('interpretation-network-cell')[0])
+        await clickSelectedMatrixCell(user)
         await user.click(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' }))
         await user.type(await screen.findByLabelText('Title'), 'New source note')
         await user.type(await screen.findByLabelText('Description'), 'New source description')
@@ -2928,10 +3174,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentAxesTableConfig)
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
-        await user.click((await screen.findAllByTestId('interpretation-network-cell'))[0])
+        await clickSelectedMatrixCell(user)
         await user.click(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' }))
         await user.type(await screen.findByLabelText('Title'), 'Conflicting material')
         await user.click(screen.getByRole('button', { name: 'Create' }))
@@ -2958,11 +3204,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentAxesTableConfig)
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
-        await user.click(screen.getAllByTestId('interpretation-network-cell')[0])
+        await clickSelectedMatrixCell(user)
         await user.click(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' }))
 
         const dialog = await screen.findByRole('dialog', { name: 'Add material' })
@@ -2984,11 +3230,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentAxesTableConfig)
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
-        await user.click(screen.getAllByTestId('interpretation-network-cell')[0])
+        await clickSelectedMatrixCell(user)
 
         expect(await screen.findByTestId('interpretation-network-material-table')).toBeInTheDocument()
         const materialTable = screen.getByTestId('interpretation-network-material-table')
@@ -3083,23 +3329,25 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
     }, 40_000)
 
     it('preserves the configured selected cell fill and border instead of replacing them with black', async () => {
+        const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsIndependentAxesConfig)
 
-        await userEvent.click(await screen.findByRole('button', { name: 'Existing structure' }))
+        await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
+        await switchToHorizontalRows(user)
         const selectedCell = screen.getAllByTestId('interpretation-network-cell')[0]
-        await userEvent.click(selectedCell)
+        await user.click(selectedCell)
 
         const selectedCellStyle = window.getComputedStyle(selectedCell)
         expect(selectedCellStyle.backgroundColor).toBe('#1e88e5')
         expect(selectedCellStyle.borderTopColor).toBe('#1e88e5')
         expect(selectedCellStyle.borderTopWidth).toBe('3px')
-        expect(selectedCellStyle.outlineWidth).toBe('2px')
+        expect(selectedCell).toHaveAttribute('data-selected-outline', 'inset')
         expect(selectedCellStyle.backgroundColor).not.toBe('rgb(0, 0, 0)')
     })
 
@@ -3114,10 +3362,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsIndependentAxesConfig)
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
+        await user.click(screen.getAllByTestId('interpretation-network-cell')[0])
         await user.click(screen.getByRole('button', { name: 'Cell actions: Selected cell value' }))
         await user.click(await screen.findByRole('menuitem', { name: 'Edit' }))
 
@@ -3135,8 +3384,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.type(titleField, 'Updated cell title')
         await user.clear(descriptionField)
         await user.type(descriptionField, 'Updated cell description')
-        await user.click(within(dialog).getByRole('tab', { name: 'Style' }))
-        await user.click(within(dialog).getByRole('button', { name: 'Fill Blue' }))
+        await waitFor(() => {
+            expect(rowLabelField).toHaveValue('Updated row label')
+            expect(columnLabelField).toHaveValue('Updated column label')
+            expect(titleField).toHaveValue('Updated cell title')
+            expect(descriptionField).toHaveValue('Updated cell description')
+        })
         await user.click(within(dialog).getByRole('button', { name: 'Save' }))
 
         await waitFor(() => {
@@ -3151,7 +3404,6 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                             childRowId: 'matrix-row-selected',
                             expectedVersion: 7,
                             data: expect.objectContaining({
-                                CellFillColor: 'blue',
                                 RowLabel: expect.objectContaining({
                                     locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated row label' }) })
                                 }),
@@ -3195,22 +3447,29 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
         })
-        renderInterpretationNetworkWidget(fetchMock)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsIndependentAxesConfig)
 
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await screen.findAllByText('Selected cell value')
+        await user.click(screen.getAllByTestId('interpretation-network-cell')[0])
         await user.click(screen.getByRole('button', { name: 'Cell actions: Selected cell value' }))
         await user.click(await screen.findByRole('menuitem', { name: 'Edit' }))
 
         const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        const rowLabelField = within(dialog).getByRole('textbox', { name: /Row label/i })
+        const columnLabelField = within(dialog).getByRole('textbox', { name: /Column label/i })
         const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
         const descriptionField = within(dialog).getByRole('textbox', { name: /Description/i })
+        expect(rowLabelField).toHaveValue('Definition')
+        expect(columnLabelField).toHaveValue('Meaning')
         await user.clear(titleField)
         await user.type(titleField, 'Updated cell title')
         await user.clear(descriptionField)
         await user.type(descriptionField, 'Updated cell description')
-        await user.click(within(dialog).getByRole('tab', { name: 'Style' }))
-        await user.click(within(dialog).getByRole('button', { name: 'Fill Blue' }))
+        await waitFor(() => {
+            expect(titleField).toHaveValue('Updated cell title')
+            expect(descriptionField).toHaveValue('Updated cell description')
+        })
         await user.click(within(dialog).getByRole('button', { name: 'Save' }))
 
         await waitFor(() => {
@@ -3224,9 +3483,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     childRowId: 'matrix-row-selected',
                     expectedVersion: 7,
                     data: expect.objectContaining({
-                        CellFillColor: 'blue',
-                        RowLabel: 'Definition',
-                        ColLabel: 'Meaning',
+                        RowLabel: expect.objectContaining({
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Definition' }) })
+                        }),
+                        ColLabel: expect.objectContaining({
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Meaning' }) })
+                        }),
                         CellValue: expect.objectContaining({
                             locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Updated cell title' }) })
                         }),
@@ -3238,6 +3500,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     })
                 })
             ])
+            expect(body.uniformUpdates).toBeUndefined()
         })
     }, 20_000)
 })

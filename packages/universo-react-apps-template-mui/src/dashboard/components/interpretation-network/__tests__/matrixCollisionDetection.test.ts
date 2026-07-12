@@ -58,6 +58,29 @@ describe('matrix collision detection', () => {
         expect(collisions.map((collision) => collision.id)).toEqual(['target'])
     })
 
+    it('keeps the center target ahead of edge targets when broad intersections overlap several cells', () => {
+        const collisionDetection = createMatrixCollisionDetection(new Set(['top-edge-target', 'center-target', 'bottom-edge-target']))
+        const collisions = collisionDetection({
+            active: { id: 'source', data: { current: {} }, rect: { current: { initial: null, translated: null } } },
+            collisionRect: { top: 130, bottom: 210, left: 0, right: 100, width: 100, height: 80 },
+            pointerCoordinates: null,
+            droppableContainers: [
+                droppableContainer('source'),
+                droppableContainer('top-edge-target'),
+                droppableContainer('center-target'),
+                droppableContainer('bottom-edge-target')
+            ],
+            droppableRects: new Map([
+                ['source', { top: 0, bottom: 80, left: 0, right: 100, width: 100, height: 80 }],
+                ['top-edge-target', { top: 80, bottom: 140, left: 0, right: 100, width: 100, height: 60 }],
+                ['center-target', { top: 140, bottom: 220, left: 0, right: 100, width: 100, height: 80 }],
+                ['bottom-edge-target', { top: 220, bottom: 280, left: 0, right: 100, width: 100, height: 60 }]
+            ])
+        })
+
+        expect(collisions.map((collision) => collision.id)).toEqual(['center-target'])
+    })
+
     it('ignores non-cell droppables when the matrix provides an explicit cell target set', () => {
         const collisionDetection = createMatrixCollisionDetection(new Set(['target']))
         const collisions = collisionDetection({

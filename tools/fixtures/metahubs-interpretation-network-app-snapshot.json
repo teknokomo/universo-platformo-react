@@ -9650,7 +9650,16 @@
                     "allowNewAxesInCellDialog": false,
                     "interpretationTitleField": "Title",
                     "tableTemplateMatrixField": "TemplateMatrix",
-                    "interpretationParentField": "ParentStructure"
+                    "interpretationParentField": "ParentStructure",
+                    "tableProjection": "hierarchicalPath",
+                    "breadcrumbDepth": {
+                        "mode": "full"
+                    },
+                    "toolbarLayout": "horizontal",
+                    "showHierarchicalTableHeaders": false,
+                    "showHierarchicalTableHeaderCard": true,
+                    "showMatrixTreeTotalCells": true,
+                    "colorBreadcrumbsByCell": true
                 },
                 "isActive": true
             },
@@ -9864,5 +9873,5 @@
             "workspaceMode": "required"
         }
     },
-    "snapshotHash": "5f4600f64e1e22e052d590b42f6230f2cb972bb16a25a02391331b766c01cd9a"
+    "snapshotHash": "bef944ff80a8482f93d2750291a5f19eadf05accd0b6748c04de47bb24976e1f"
 }

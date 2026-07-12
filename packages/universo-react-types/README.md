@@ -67,8 +67,15 @@ Ledgers classify ordinary field definitions through `fieldRoles` and use source 
 -   `matrixMode` describes data semantics: `hierarchicalCells` or `independentRows`.
 -   `allowedMatrixViews` is a non-empty subset of the peer views `table`, `horizontalRows`, and `verticalTree`.
 -   `defaultMatrixView` must be present in the allowed set.
+-   `tableProjection` is `hierarchicalPath` by default and may be changed to `independentAxes` for the secondary row/column table.
+-   `breadcrumbDepth` defaults to the full path; finite `last` depth is restricted to the shared allowlist.
+-   `toolbarLayout` defaults to `horizontal`; `vertical` is an opt-in display setting.
+-   `showHierarchicalTableHeaders` defaults to `false`; the hierarchical-path table can show the current-level/cell column headers only when enabled explicitly.
+-   `showHierarchicalTableHeaderCard` defaults to `true`; the focused parent cell stays as a separated card above the row table before moving into breadcrumbs.
+-   `colorBreadcrumbsByCell` defaults to `true`; breadcrumb boxes use the same configured cell fill color while preserving a distinct hover/focus treatment.
 -   `verticalTree` is rejected for `independentRows`; `table` and `horizontalRows` remain compatible.
 -   `normalizeInterpretationNetworkMatrixViewSettings()` is used at UI and runtime boundaries for untrusted or incomplete values; persisted widget configuration is validated by the strict Zod schema.
+-   `normalizeInterpretationNetworkTableSettings()` repairs table projection, breadcrumb depth, toolbar layout, optional headers, the focused parent card, total tree-cell counter, and breadcrumb coloring consistently across template, Application Settings, and runtime parsing.
 
 This contract changes widget configuration only. It does not add a database schema migration or require a metahub template version bump.
 

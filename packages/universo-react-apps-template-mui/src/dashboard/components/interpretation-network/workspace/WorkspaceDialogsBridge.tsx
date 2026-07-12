@@ -38,6 +38,7 @@ export interface WorkspaceDialogsBridgeProps {
         axisOptions: MatrixAxisOptions
         placement: MatrixCellPlacement | null
         allowNewAxesInCellDialog: boolean
+        hideAxisLabelFields: boolean
         error: string | null
         deleteId: string | null
         deleteCell: MatrixCell | undefined
@@ -128,6 +129,7 @@ export function WorkspaceDialogsBridge({ t, locale, structure, material, cell, m
             matrixAxisOptions={cell.axisOptions}
             cellDialogPlacement={cell.placement}
             allowNewAxesInCellDialog={cell.allowNewAxesInCellDialog}
+            hideAxisLabelFields={cell.hideAxisLabelFields}
             isSavingCell={mutations.saveCell.isPending}
             cellDialogError={cell.error}
             onCloseCellDialog={() => {

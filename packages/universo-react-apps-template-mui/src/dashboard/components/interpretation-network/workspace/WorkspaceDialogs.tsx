@@ -126,6 +126,7 @@ export interface WorkspaceDialogsProps {
     matrixAxisOptions: MatrixAxisOptions
     cellDialogPlacement: MatrixCellPlacement | null
     allowNewAxesInCellDialog: boolean
+    hideAxisLabelFields: boolean
     isSavingCell: boolean
     cellDialogError: string | null
     onCloseCellDialog: () => void
@@ -172,6 +173,7 @@ export function WorkspaceDialogs({
     matrixAxisOptions,
     cellDialogPlacement,
     allowNewAxesInCellDialog,
+    hideAxisLabelFields,
     isSavingCell,
     cellDialogError,
     onCloseCellDialog,
@@ -249,6 +251,8 @@ export function WorkspaceDialogs({
                 axisOptions={matrixAxisOptions}
                 initialPlacement={cellDialogPlacement ?? undefined}
                 allowNewAxes={allowNewAxesInCellDialog}
+                hidePlacementFields={(cellDialogMode === 'create-child' && !allowNewAxesInCellDialog) || hideAxisLabelFields}
+                hideAxisLabelFields={hideAxisLabelFields}
                 isSubmitting={isSavingCell}
                 error={cellDialogError}
                 onClose={onCloseCellDialog}

@@ -32,7 +32,7 @@ OntoIndex индексирует исходный код и Markdown в лока
 поэтому он не добавляется в зависимости репозитория.
 
 ```bash
-pnpm add -g https://github.com/ontograph/ontoindex/releases/download/v1.9.10/ontoindex-1.9.10.tgz
+pnpm add -g https://github.com/ontograph/ontoindex/releases/download/v2.0.10/ontoindex-2.0.10.tgz
 ontoindex --version
 ```
 

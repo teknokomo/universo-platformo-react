@@ -14,10 +14,15 @@ import {
 import { useTranslation } from 'react-i18next'
 import { EntityFormDialog } from '@universo-react/template-mui'
 import {
+    interpretationNetworkBreadcrumbDepthCounts,
     interpretationNetworkMatrixViews,
     normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkTableSettings,
+    type InterpretationNetworkMatrixMode,
     type InterpretationNetworkHierarchyRowMode,
     type InterpretationNetworkMatrixView,
+    type InterpretationNetworkTableProjection,
+    type InterpretationNetworkToolbarLayout,
     type InterpretationNetworkWorkspaceWidgetConfig
 } from '@universo-react/types'
 
@@ -42,6 +47,11 @@ const MATRIX_VIEW_FALLBACK_LABELS: Record<InterpretationNetworkMatrixView, strin
     verticalTree: 'Vertical tree'
 }
 
+const MATRIX_MODE_FALLBACK_LABELS: Record<InterpretationNetworkMatrixMode, string> = {
+    hierarchicalCells: 'Hierarchical cells',
+    independentRows: 'Separate rows and columns'
+}
+
 const normalizeConfig = (config?: InterpretationNetworkWorkspaceWidgetConfig | null): InterpretationNetworkWorkspaceWidgetConfig => {
     const current = config ?? {}
     const { hierarchyLayout, ...persistableConfig } = current as InterpretationNetworkWorkspaceWidgetConfig & {
@@ -50,19 +60,31 @@ const normalizeConfig = (config?: InterpretationNetworkWorkspaceWidgetConfig | n
     const matrixMode = current.matrixMode ?? 'hierarchicalCells'
     const hasLegacyHierarchyLayout = hierarchyLayout === 'verticalTree' || hierarchyLayout === 'horizontalRows'
     const hasNewViewSettings = current.allowedMatrixViews !== undefined || current.defaultMatrixView !== undefined
+    const defaultAllowedMatrixViews: InterpretationNetworkMatrixView[] =
+        matrixMode === 'hierarchicalCells' ? ['table', 'horizontalRows', 'verticalTree'] : ['table', 'horizontalRows']
     const requestedViews =
         hasLegacyHierarchyLayout && !hasNewViewSettings && matrixMode === 'hierarchicalCells'
             ? Array.from(new Set(['horizontalRows', hierarchyLayout]))
-            : current.allowedMatrixViews
+            : current.allowedMatrixViews ?? defaultAllowedMatrixViews
     const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
         matrixMode,
         requestedViews,
-        current.defaultMatrixView ?? (hasLegacyHierarchyLayout && !hasNewViewSettings ? hierarchyLayout : undefined)
+        current.defaultMatrixView ?? (hasLegacyHierarchyLayout && !hasNewViewSettings ? hierarchyLayout : 'table')
     )
 
     return {
         ...persistableConfig,
         ...viewSettings,
+        ...normalizeInterpretationNetworkTableSettings(
+            matrixMode,
+            current.tableProjection,
+            current.breadcrumbDepth,
+            current.toolbarLayout,
+            current.showHierarchicalTableHeaders,
+            current.showHierarchicalTableHeaderCard,
+            current.showMatrixTreeTotalCells,
+            current.colorBreadcrumbsByCell
+        ),
         allowNewAxesInCellDialog: current.allowNewAxesInCellDialog === true
     }
 }
@@ -92,6 +114,16 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
         draft.matrixMode ?? 'hierarchicalCells',
         draft.allowedMatrixViews,
         draft.defaultMatrixView
+    )
+    const tableSettings = normalizeInterpretationNetworkTableSettings(
+        draft.matrixMode ?? 'hierarchicalCells',
+        draft.tableProjection,
+        draft.breadcrumbDepth,
+        draft.toolbarLayout,
+        draft.showHierarchicalTableHeaders,
+        draft.showHierarchicalTableHeaderCard,
+        draft.showMatrixTreeTotalCells,
+        draft.colorBreadcrumbsByCell
     )
 
     const setViewAllowed = (view: InterpretationNetworkMatrixView, allowed: boolean) => {
@@ -138,6 +170,51 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                             )}
                         </Typography>
                     </Stack>
+
+                    <FormControl fullWidth>
+                        <InputLabel id={`${defaultMatrixViewLabelId}-matrix-mode`}>
+                            {t('layouts.interpretationNetworkEditor.matrixMode', 'Matrix mode')}
+                        </InputLabel>
+                        <Select
+                            labelId={`${defaultMatrixViewLabelId}-matrix-mode`}
+                            value={draft.matrixMode ?? 'hierarchicalCells'}
+                            label={t('layouts.interpretationNetworkEditor.matrixMode', 'Matrix mode')}
+                            onChange={(event) => {
+                                const matrixMode = event.target.value as InterpretationNetworkMatrixMode
+                                setDraft((current) => ({
+                                    ...current,
+                                    matrixMode,
+                                    ...normalizeInterpretationNetworkMatrixViewSettings(
+                                        matrixMode,
+                                        current.allowedMatrixViews,
+                                        current.defaultMatrixView
+                                    ),
+                                    ...normalizeInterpretationNetworkTableSettings(
+                                        matrixMode,
+                                        matrixMode === 'independentRows' ? 'independentAxes' : 'hierarchicalPath',
+                                        current.breadcrumbDepth,
+                                        current.toolbarLayout,
+                                        current.showHierarchicalTableHeaders,
+                                        current.showHierarchicalTableHeaderCard,
+                                        current.showMatrixTreeTotalCells,
+                                        current.colorBreadcrumbsByCell
+                                    )
+                                }))
+                            }}
+                        >
+                            {(['hierarchicalCells', 'independentRows'] as const).map((mode) => (
+                                <MenuItem key={mode} value={mode}>
+                                    {t(`layouts.interpretationNetworkEditor.matrixModes.${mode}`, MATRIX_MODE_FALLBACK_LABELS[mode])}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                        <FormHelperText>
+                            {t(
+                                'layouts.interpretationNetworkEditor.matrixModeHelp',
+                                'Hierarchical cells are the default. Separate rows and columns keep the secondary Matrix table mode available.'
+                            )}
+                        </FormHelperText>
+                    </FormControl>
 
                     <Stack spacing={0.25}>
                         {interpretationNetworkMatrixViews.map((view) => {
@@ -198,6 +275,251 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                             {t(
                                 'layouts.interpretationNetworkEditor.defaultMatrixViewHelp',
                                 'This view opens first unless a user has already chosen another available view.'
+                            )}
+                        </FormHelperText>
+                    </FormControl>
+
+                    <FormControl fullWidth>
+                        <InputLabel id={`${defaultMatrixViewLabelId}-table-projection`}>
+                            {t('layouts.interpretationNetworkEditor.tableProjection', 'Table projection')}
+                        </InputLabel>
+                        <Select
+                            labelId={`${defaultMatrixViewLabelId}-table-projection`}
+                            value={tableSettings.tableProjection}
+                            label={t('layouts.interpretationNetworkEditor.tableProjection', 'Table projection')}
+                            disabled={(draft.matrixMode ?? 'hierarchicalCells') === 'independentRows'}
+                            onChange={(event) =>
+                                setDraft((current) => ({
+                                    ...current,
+                                    tableProjection: event.target.value as InterpretationNetworkTableProjection
+                                }))
+                            }
+                        >
+                            <MenuItem value='hierarchicalPath'>
+                                {t('layouts.interpretationNetworkEditor.tableProjections.hierarchicalPath', 'Hierarchy path')}
+                            </MenuItem>
+                            <MenuItem value='independentAxes'>
+                                {t('layouts.interpretationNetworkEditor.tableProjections.independentAxes', 'Separate axes')}
+                            </MenuItem>
+                        </Select>
+                        <FormHelperText>
+                            {t(
+                                'layouts.interpretationNetworkEditor.tableProjectionHelp',
+                                'Hierarchical path is the default table projection. Separate axes keep the row and column table behavior available.'
+                            )}
+                        </FormHelperText>
+                    </FormControl>
+
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                        <FormControl fullWidth>
+                            <InputLabel id={`${defaultMatrixViewLabelId}-breadcrumb-depth-mode`}>
+                                {t('layouts.interpretationNetworkEditor.breadcrumbDepthMode', 'Path')}
+                            </InputLabel>
+                            <Select
+                                labelId={`${defaultMatrixViewLabelId}-breadcrumb-depth-mode`}
+                                value={tableSettings.breadcrumbDepth.mode}
+                                label={t('layouts.interpretationNetworkEditor.breadcrumbDepthMode', 'Path')}
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        breadcrumbDepth:
+                                            event.target.value === 'last'
+                                                ? {
+                                                      mode: 'last',
+                                                      count:
+                                                          tableSettings.breadcrumbDepth.mode === 'last'
+                                                              ? tableSettings.breadcrumbDepth.count
+                                                              : 4
+                                                  }
+                                                : { mode: 'full' }
+                                    }))
+                                }
+                            >
+                                <MenuItem value='full'>
+                                    {t('layouts.interpretationNetworkEditor.breadcrumbDepthOptions.full', 'Full path')}
+                                </MenuItem>
+                                <MenuItem value='last'>
+                                    {t('layouts.interpretationNetworkEditor.breadcrumbDepthOptions.lastMode', 'Last levels')}
+                                </MenuItem>
+                            </Select>
+                            <FormHelperText>
+                                {t(
+                                    'layouts.interpretationNetworkEditor.breadcrumbDepthHelp',
+                                    'Full path is shown by default. Limited depth keeps the last levels and opens hidden parents from the ellipsis menu.'
+                                )}
+                            </FormHelperText>
+                        </FormControl>
+                        <FormControl fullWidth>
+                            <InputLabel id={`${defaultMatrixViewLabelId}-breadcrumb-depth-count`}>
+                                {t('layouts.interpretationNetworkEditor.breadcrumbDepthCount', 'Levels')}
+                            </InputLabel>
+                            <Select
+                                labelId={`${defaultMatrixViewLabelId}-breadcrumb-depth-count`}
+                                value={tableSettings.breadcrumbDepth.mode === 'last' ? String(tableSettings.breadcrumbDepth.count) : '4'}
+                                label={t('layouts.interpretationNetworkEditor.breadcrumbDepthCount', 'Levels')}
+                                disabled={tableSettings.breadcrumbDepth.mode === 'full'}
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        breadcrumbDepth: normalizeInterpretationNetworkTableSettings(
+                                            current.matrixMode ?? 'hierarchicalCells',
+                                            current.tableProjection,
+                                            { mode: 'last', count: Number(event.target.value) },
+                                            current.toolbarLayout,
+                                            current.showHierarchicalTableHeaders,
+                                            current.showHierarchicalTableHeaderCard,
+                                            current.showMatrixTreeTotalCells,
+                                            current.colorBreadcrumbsByCell
+                                        ).breadcrumbDepth
+                                    }))
+                                }
+                            >
+                                {interpretationNetworkBreadcrumbDepthCounts.map((count) => (
+                                    <MenuItem key={count} value={String(count)}>
+                                        {count}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Stack>
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={tableSettings.showHierarchicalTableHeaders}
+                                disabled={
+                                    !viewSettings.allowedMatrixViews.includes('table') ||
+                                    tableSettings.tableProjection !== 'hierarchicalPath'
+                                }
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        showHierarchicalTableHeaders: event.target.checked
+                                    }))
+                                }
+                                inputProps={{
+                                    'aria-label': t('layouts.interpretationNetworkEditor.tableHeaders', 'Show hierarchical table headers')
+                                }}
+                            />
+                        }
+                        label={t('layouts.interpretationNetworkEditor.tableHeaders', 'Show hierarchical table headers')}
+                    />
+                    <FormHelperText>
+                        {t(
+                            'layouts.interpretationNetworkEditor.tableHeadersHelp',
+                            'Disabled by default for interpretation networks; users can enable the current-level and cell column headers when needed.'
+                        )}
+                    </FormHelperText>
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={tableSettings.showHierarchicalTableHeaderCard}
+                                disabled={
+                                    !viewSettings.allowedMatrixViews.includes('table') ||
+                                    tableSettings.tableProjection !== 'hierarchicalPath'
+                                }
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        showHierarchicalTableHeaderCard: event.target.checked
+                                    }))
+                                }
+                                inputProps={{
+                                    'aria-label': t('layouts.interpretationNetworkEditor.tableHeaderCard', 'Show focused parent card')
+                                }}
+                            />
+                        }
+                        label={t('layouts.interpretationNetworkEditor.tableHeaderCard', 'Show focused parent card')}
+                    />
+                    <FormHelperText>
+                        {t(
+                            'layouts.interpretationNetworkEditor.tableHeaderCardHelp',
+                            'Enabled by default so the focused parent cell remains visually separated before it moves into breadcrumbs.'
+                        )}
+                    </FormHelperText>
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={tableSettings.colorBreadcrumbsByCell}
+                                disabled={
+                                    !viewSettings.allowedMatrixViews.includes('table') ||
+                                    tableSettings.tableProjection !== 'hierarchicalPath'
+                                }
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        colorBreadcrumbsByCell: event.target.checked
+                                    }))
+                                }
+                                inputProps={{
+                                    'aria-label': t(
+                                        'layouts.interpretationNetworkEditor.breadcrumbColors',
+                                        'Use cell colors for breadcrumbs'
+                                    )
+                                }}
+                            />
+                        }
+                        label={t('layouts.interpretationNetworkEditor.breadcrumbColors', 'Use cell colors for breadcrumbs')}
+                    />
+                    <FormHelperText>
+                        {t(
+                            'layouts.interpretationNetworkEditor.breadcrumbColorsHelp',
+                            'Enabled by default so hierarchy path items keep the same visual color as their cells.'
+                        )}
+                    </FormHelperText>
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={tableSettings.showMatrixTreeTotalCells}
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        showMatrixTreeTotalCells: event.target.checked
+                                    }))
+                                }
+                                inputProps={{
+                                    'aria-label': t('layouts.interpretationNetworkEditor.totalCells', 'Show total cells in tree')
+                                }}
+                            />
+                        }
+                        label={t('layouts.interpretationNetworkEditor.totalCells', 'Show total cells in tree')}
+                    />
+                    <FormHelperText>
+                        {t(
+                            'layouts.interpretationNetworkEditor.totalCellsHelp',
+                            'Enabled by default so users can see the total number of cells in the current Matrix tree.'
+                        )}
+                    </FormHelperText>
+
+                    <FormControl fullWidth>
+                        <InputLabel id={`${defaultMatrixViewLabelId}-toolbar-layout`}>
+                            {t('layouts.interpretationNetworkEditor.toolbarLayout', 'Toolbar layout')}
+                        </InputLabel>
+                        <Select
+                            labelId={`${defaultMatrixViewLabelId}-toolbar-layout`}
+                            value={tableSettings.toolbarLayout}
+                            label={t('layouts.interpretationNetworkEditor.toolbarLayout', 'Toolbar layout')}
+                            onChange={(event) =>
+                                setDraft((current) => ({
+                                    ...current,
+                                    toolbarLayout: event.target.value as InterpretationNetworkToolbarLayout
+                                }))
+                            }
+                        >
+                            <MenuItem value='horizontal'>
+                                {t('layouts.interpretationNetworkEditor.toolbarLayouts.horizontal', 'Horizontal')}
+                            </MenuItem>
+                            <MenuItem value='vertical'>
+                                {t('layouts.interpretationNetworkEditor.toolbarLayouts.vertical', 'Vertical')}
+                            </MenuItem>
+                        </Select>
+                        <FormHelperText>
+                            {t(
+                                'layouts.interpretationNetworkEditor.toolbarLayoutHelp',
+                                'Horizontal toolbar remains the default. Vertical toolbar is available as an opt-in layout.'
                             )}
                         </FormHelperText>
                     </FormControl>

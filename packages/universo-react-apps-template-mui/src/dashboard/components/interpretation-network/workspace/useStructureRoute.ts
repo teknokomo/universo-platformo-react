@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { buildStructureRuntimePath, readRouteStructureId } from './workspaceRuntime'
+import { buildStructureRuntimePath, readRouteMatrixCellId, readRouteStructureId } from './workspaceRuntime'
 
 type UseStructureRouteOptions = {
     applicationId?: string | null
@@ -9,10 +9,16 @@ type UseStructureRouteOptions = {
 
 export function useStructureRoute({ applicationId, conceptSectionId, navigate }: UseStructureRouteOptions) {
     const [routeStructureId, setRouteStructureId] = useState<string | null>(() => readRouteStructureId(applicationId))
+    const [routeCellId, setRouteCellId] = useState<string | null>(() => readRouteMatrixCellId())
 
     const navigateToStructure = useCallback(
-        (structureId: string | null, options: { replace?: boolean } = {}) => {
-            const nextPath = buildStructureRuntimePath(applicationId ?? undefined, conceptSectionId, structureId)
+        (structureId: string | null, options: { replace?: boolean; focusedCellId?: string | null } = {}) => {
+            const nextPath = buildStructureRuntimePath(
+                applicationId ?? undefined,
+                conceptSectionId,
+                structureId,
+                options.focusedCellId ?? null
+            )
             if (!nextPath || typeof window === 'undefined') return
 
             const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
@@ -26,12 +32,23 @@ export function useStructureRoute({ applicationId, conceptSectionId, navigate }:
                 }
             }
             setRouteStructureId(structureId)
+            setRouteCellId(options.focusedCellId ?? null)
         },
         [applicationId, conceptSectionId, navigate]
     )
 
+    const navigateToCell = useCallback(
+        (cellId: string | null, options: { replace?: boolean } = {}) => {
+            navigateToStructure(routeStructureId, { ...options, focusedCellId: cellId })
+        },
+        [navigateToStructure, routeStructureId]
+    )
+
     useEffect(() => {
-        const handlePopState = () => setRouteStructureId(readRouteStructureId(applicationId))
+        const handlePopState = () => {
+            setRouteStructureId(readRouteStructureId(applicationId))
+            setRouteCellId(readRouteMatrixCellId())
+        }
 
         handlePopState()
         if (typeof window === 'undefined') return undefined
@@ -39,5 +56,5 @@ export function useStructureRoute({ applicationId, conceptSectionId, navigate }:
         return () => window.removeEventListener('popstate', handlePopState)
     }, [applicationId])
 
-    return { routeStructureId, navigateToStructure }
+    return { routeStructureId, routeCellId, navigateToStructure, navigateToCell }
 }

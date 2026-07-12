@@ -165,6 +165,37 @@
                 "independentRowsViewConstraint": "Vertical tree is available only for hierarchical cells.",
                 "defaultView": "Default view",
                 "defaultViewDescription": "Choose which allowed view users see when they open the matrix.",
+                "tableProjection": "Table projection",
+                "tableProjectionDescription": "Choose how hierarchical cells appear in the table view.",
+                "independentRowsProjectionConstraint": "Independent rows always use separate row and column axes.",
+                "tableViewDisabledConstraint": "Enable Table view to configure table projection and breadcrumb depth.",
+                "tableProjections": {
+                    "hierarchicalPath": "Hierarchy path",
+                    "independentAxes": "Separate axes"
+                },
+                "breadcrumbDepth": "Breadcrumb depth",
+                "breadcrumbDepthDescription": "Choose how much of the focused path remains visible above hierarchical tables.",
+                "breadcrumbDepthMode": "Path",
+                "breadcrumbDepthCount": "Levels",
+                "breadcrumbDepthOptions": {
+                    "full": "Full path",
+                    "last": "Last {{count}} levels",
+                    "lastMode": "Last levels"
+                },
+                "tableHeaders": "Table headers",
+                "tableHeadersDescription": "Show the current-level and cell column headers above hierarchical Matrix tables.",
+                "tableHeaderCard": "Focused parent card",
+                "tableHeaderCardDescription": "Show the focused parent cell as a separate card above the hierarchical Matrix table.",
+                "breadcrumbColors": "Breadcrumb colors",
+                "breadcrumbColorsDescription": "Render hierarchy breadcrumbs as compact boxes using each cell color.",
+                "totalCells": "Total cells",
+                "totalCellsDescription": "Show the total number of cells in the current Matrix tree below the structure.",
+                "toolbarLayout": "Toolbar layout",
+                "toolbarLayoutDescription": "Keep toolbar controls in one row by default, or stack them when the workspace needs more vertical controls.",
+                "toolbarLayouts": {
+                    "horizontal": "Horizontal",
+                    "vertical": "Vertical"
+                },
                 "hierarchyRowMode": "Hierarchy rows",
                 "hierarchyRowModeDescription": "Choose whether tree-style Matrix views show the focused branch or every hierarchy level.",
                 "hierarchyRowModes": {

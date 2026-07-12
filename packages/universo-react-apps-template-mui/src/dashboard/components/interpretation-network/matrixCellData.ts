@@ -46,6 +46,21 @@ const readInitialFieldValue = (
     return undefined
 }
 
+const readSelectedCellFieldValue = (cell: MatrixCell | undefined, field: FieldConfig): unknown => {
+    switch (field.codename ?? field.id) {
+        case 'RowLabel':
+            return cell?.rowLabelValue ?? cell?.rowLabel
+        case 'ColLabel':
+            return cell?.colLabelValue ?? cell?.colLabel
+        case 'CellValue':
+            return cell?.title
+        case 'CellDescription':
+            return cell?.description
+        default:
+            return undefined
+    }
+}
+
 export const buildCellDialogInitialData = ({
     mode,
     cellMetadataFields,
@@ -101,10 +116,15 @@ export const buildCellDialogInitialData = ({
             row: '',
             column: '',
             value: '',
-            parentCellId: selectedCell?.id ?? null
+            parentCellId: placement?.parentCellId ?? selectedCell?.id ?? null
         })
     }
-    return Object.fromEntries(fields.map((field) => [field.id, readInitialFieldValue(selectedRawCell, field, childColumns)]))
+    return Object.fromEntries(
+        fields.map((field) => [
+            field.id,
+            readInitialFieldValue(selectedRawCell, field, childColumns) ?? readSelectedCellFieldValue(selectedCell, field)
+        ])
+    )
 }
 
 export const buildCellCreateData = ({
@@ -122,6 +142,13 @@ export const buildCellCreateData = ({
     existingCells: MatrixCell[]
     placement?: MatrixCellPlacement
 }): Record<string, unknown> => {
+    if (mode === 'create-child' && !source) {
+        throw new Error('cell-not-selected')
+    }
+    if (mode === 'create-child' && placement?.parentCellId !== undefined && placement.parentCellId !== source?.id) {
+        throw new Error('cell-parent-mismatch')
+    }
+    const resolvedCreateParentCellId = mode === 'create-child' ? placement?.parentCellId ?? source?.id ?? null : null
     const rowPlacement = placement?.row
     const columnPlacement = placement?.column
     const baseData = buildDefaultMatrixCellData(childColumns, locale, {
@@ -142,17 +169,16 @@ export const buildCellCreateData = ({
                 ? source.colLabel
                 : '',
         value: '',
-        parentCellId: mode === 'create-child' ? placement?.parentCellId ?? source?.id ?? null : null
+        parentCellId: resolvedCreateParentCellId
     })
     const rowLabelField = findColumn(childColumns, 'RowLabel')?.field ?? 'RowLabel'
     const colLabelField = findColumn(childColumns, 'ColLabel')?.field ?? 'ColLabel'
     const parentCellIdField = findColumn(childColumns, 'ParentCellId')?.field ?? 'ParentCellId'
     const rowKeyField = findColumn(childColumns, 'RowKey')?.field ?? 'RowKey'
     const colKeyField = findColumn(childColumns, 'ColKey')?.field ?? 'ColKey'
-    const siblingParentCellId = mode === 'create-child' ? source?.id ?? null : null
     const siblingSortOrders = existingCells
         .filter((cell) => {
-            if (mode === 'create-child') return (cell.parentCellId ?? null) === siblingParentCellId
+            if (mode === 'create-child') return (cell.parentCellId ?? null) === resolvedCreateParentCellId
             if (mode === 'create-row') return (cell.parentCellId ?? null) === null
             return true
         })
@@ -179,7 +205,7 @@ export const buildCellCreateData = ({
         const generatedCellId = readColumnValue(baseData, childColumns, 'CellId')
         baseData[rowKeyField] = `row-${generatedCellId}`
         baseData[colKeyField] = `column-${generatedCellId}`
-        baseData[parentCellIdField] = placement?.parentCellId ?? source.id
+        baseData[parentCellIdField] = resolvedCreateParentCellId
     }
     if (source && mode === 'create-cell') {
         baseData[rowKeyField] = source.rowKey

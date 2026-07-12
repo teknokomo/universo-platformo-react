@@ -1,5 +1,14 @@
 # Current Research
 
+## 2026-07-10: Interpretation Network hierarchical Matrix Table navigation
+
+-   Research artifact created: `memory-bank/research/interpretation-network-hierarchical-table-navigation-research-2026-07-10.md`. Brief: local Platformo Interpretation Network hierarchical table brief tracked outside the repository; source TZ: local Interpretation Network hierarchical table input plus screenshot QA input.
+-   Core finding: hierarchical Table is not just a `defaultMatrixView` change. The current template/fixture already default to `table`, but runtime fallback still defaults to `horizontalRows`, and `buildMatrixTableModel` still builds the table from independent `rowKey`/`colKey` axes instead of the focused `parentCellId` path.
+-   Screenshot finding: the full local set contains twelve PNGs, not two. They show the expected workflow: tree-to-table switch, breadcrumb chips, finite-depth ellipsis, upward breadcrumb navigation, hierarchy-derived row labels, colored child cells, right content/material pane, and an optional vertical toolbar. The raw address/CID-like diagnostic blocks visible in the legacy UI must not appear on normal published runtime surfaces.
+-   Decision for PLAN: keep the independent row/column table available as a secondary setting, but make the new hierarchical breadcrumb table the default Interpretation Network projection. The existing implementation can be refactored substantially; only the user-facing capability must remain available.
+-   Toolbar decision: plan `toolbarLayout` as a setting with the current horizontal toolbar as default and vertical toolbar as opt-in.
+-   Evidence: Context7 confirmed current MUI Breadcrumbs collapse props and Playwright web-first assertion guidance; WAI-ARIA APG confirms breadcrumb landmark semantics; lmn.rs pages confirm table-oriented domain representation; local Elm source confirms path-stack navigation behavior as reference only.
+
 ## 2026-06-20: MMOOMM PlayCanvas Visual Linkup Lab
 
 -   Research artifact created and QA-updated: `memory-bank/research/mmoomm-playcanvas-visual-linkup-lab-research-2026-06-20.md`. Brief: local cross-project MMOOMM PlayCanvas Visual Linkup Lab brief, dated 2026-06-20; source TZ: local MMOOMM PlayCanvas Visual Linkup Lab input, dated 2026-06-20.
@@ -34,11 +43,11 @@
 ## 2026-06-16: OntoIndex code-intelligence adoption (CLI + MCP for AI agents)
 
 -   Research artifact: `memory-bank/research/ontoindex-code-intelligence-research-2026-06-16.md`. Brief: MANAGER cross-project brief (tracked outside the repository).
--   Tool identity confirmed against primary README: OntoIndex is graph **code intelligence** (CLI/MCP/HTTP/web UI), AGPL-3.0-or-later, README `1.9.8` / latest tag `v1.9.10`, node `20|22 LTS`, local-first `.ontoindex/` + `~/.ontoindex/`. NOT RDF/SPARQL, NOT runtime/business-data search.
--   Version/port conflicts resolved: pin a version (prefer `v1.9.10`) — README prose is not authoritative; serve port is **4747** (`3000` in the Gemini doc is stale from the LobeHub listing).
+-   Tool identity confirmed against primary README: OntoIndex is graph **code intelligence** (CLI/MCP/HTTP/web UI), AGPL-3.0-or-later, current project pin `v2.0.10`, node `20|22 LTS`, local-first `.ontoindex/` + `~/.ontoindex/`. NOT RDF/SPARQL, NOT runtime/business-data search.
+-   Version/port conflicts resolved: pin a version (currently `v2.0.10`) — README prose is not authoritative; serve port is **4747** (`3000` in the Gemini doc is stale from the LobeHub listing).
 -   Repo MCP state: greenfield but Claude is pre-enabled (`.claude/settings.json:34` → `enableAllProjectMcpServers: true`), so a committed root `.mcp.json` stdio entry is idiomatic and auto-approved. **QA correction:** `claude mcp add` defaults to **local** scope — use `--scope project` (or hand-author) to write the shared `.mcp.json`. Codex uses `~/.codex/config.toml` TOML (not `.mcp.json`) and is git-ignored → Codex/Gemini/Qoder MCP config is per-developer via docs. `check:agent-profiles` unaffected and not in CI.
 -   CI gates that apply: `main.yml` (`pnpm lint`/`build`) and `docs-i18n-check.yml` (EN/RU lockstep + screenshot policy). `.ontoindex/` must be gitignored before first `analyze`.
--   Resolved by user (2026-06-16): **Phase A only**, everything runs **locally**, **AGPL not a concern** (owner confirms compliance). No blocking questions remain; minor PLAN defaults — pin `v1.9.10`, manual reindex + documented `detect-changes`.
+-   Resolved by user (2026-06-16): **Phase A only**, everything runs **locally**, **AGPL not a concern** (owner confirms compliance). No blocking questions remain; current pin is `v2.0.10`, with manual reindex + documented `detect-changes`.
 -   QA pass (2026-06-16): artifact `Status: Reviewed`; OntoIndex facts re-verified against primary README (no change); corrected Claude Code MCP scope mechanics and Codex TOML distinction via official Claude Code + Codex docs.
 
 ## 2026-06-15: PlayCanvas Editor v2.23.4 → v2.24.2 upstream update and vendor governance

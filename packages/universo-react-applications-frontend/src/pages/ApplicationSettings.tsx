@@ -6,6 +6,7 @@ import {
     RESOURCE_TYPES,
     collectUnsupportedActiveCapabilityRules,
     normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkTableSettings,
     sanitizeApplicationLearningContentSettings
 } from '@universo-react/types'
 import type {
@@ -14,6 +15,7 @@ import type {
     ApplicationLayoutWidget,
     ApplicationRolePolicySettings,
     InterpretationNetworkMatrixMode,
+    InterpretationNetworkMatrixView,
     ResourceType,
     RoleCapabilityRule
 } from '@universo-react/types'
@@ -251,18 +253,37 @@ const parseMatrixSettings = (config: Record<string, unknown> | null | undefined)
         config?.hierarchyLayout === 'horizontalRows' || config?.hierarchyLayout === 'verticalTree' ? config.hierarchyLayout : undefined
     const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
     const hasNewViewSettings = requestedViews !== undefined || config?.defaultMatrixView !== undefined
+    const defaultAllowedMatrixViews: InterpretationNetworkMatrixView[] =
+        matrixMode === 'hierarchicalCells' ? ['table', 'horizontalRows', 'verticalTree'] : ['table', 'horizontalRows']
     const allowedMatrixViews =
         legacyHierarchyLayout && !hasNewViewSettings && matrixMode === 'hierarchicalCells'
             ? Array.from(new Set(['horizontalRows', legacyHierarchyLayout]))
-            : requestedViews
+            : requestedViews ?? defaultAllowedMatrixViews
+    const tableSettings = normalizeInterpretationNetworkTableSettings(
+        matrixMode,
+        config?.tableProjection,
+        config?.breadcrumbDepth,
+        config?.toolbarLayout,
+        config?.showHierarchicalTableHeaders,
+        config?.showHierarchicalTableHeaderCard,
+        config?.showMatrixTreeTotalCells,
+        config?.colorBreadcrumbsByCell
+    )
 
     return {
         matrixMode,
         ...normalizeInterpretationNetworkMatrixViewSettings(
             matrixMode,
             allowedMatrixViews,
-            config?.defaultMatrixView ?? legacyHierarchyLayout
+            config?.defaultMatrixView ?? legacyHierarchyLayout ?? 'table'
         ),
+        tableProjection: tableSettings.tableProjection,
+        breadcrumbDepth: tableSettings.breadcrumbDepth,
+        toolbarLayout: tableSettings.toolbarLayout,
+        showHierarchicalTableHeaders: tableSettings.showHierarchicalTableHeaders,
+        showHierarchicalTableHeaderCard: tableSettings.showHierarchicalTableHeaderCard,
+        showMatrixTreeTotalCells: tableSettings.showMatrixTreeTotalCells,
+        colorBreadcrumbsByCell: tableSettings.colorBreadcrumbsByCell,
         hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
         positionNumbering: parsePositionNumbering(config?.positionNumbering),
         allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true
@@ -281,6 +302,13 @@ const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
     'matrixMode',
     'allowedMatrixViews',
     'defaultMatrixView',
+    'tableProjection',
+    'breadcrumbDepth',
+    'toolbarLayout',
+    'showHierarchicalTableHeaders',
+    'showHierarchicalTableHeaderCard',
+    'showMatrixTreeTotalCells',
+    'colorBreadcrumbsByCell',
     'hierarchyRowMode',
     'positionNumbering',
     'allowNewAxesInCellDialog',
@@ -311,11 +339,44 @@ const areMatrixSettingsEqual = (left: InterpretationNetworkMatrixSettings, right
     left.allowedMatrixViews.length === right.allowedMatrixViews.length &&
     left.allowedMatrixViews.every((view, index) => view === right.allowedMatrixViews[index]) &&
     left.defaultMatrixView === right.defaultMatrixView &&
+    left.tableProjection === right.tableProjection &&
+    left.breadcrumbDepth.mode === right.breadcrumbDepth.mode &&
+    (left.breadcrumbDepth.mode !== 'last' ||
+        (right.breadcrumbDepth.mode === 'last' && left.breadcrumbDepth.count === right.breadcrumbDepth.count)) &&
+    left.toolbarLayout === right.toolbarLayout &&
+    left.showHierarchicalTableHeaders === right.showHierarchicalTableHeaders &&
+    left.showHierarchicalTableHeaderCard === right.showHierarchicalTableHeaderCard &&
+    left.showMatrixTreeTotalCells === right.showMatrixTreeTotalCells &&
+    left.colorBreadcrumbsByCell === right.colorBreadcrumbsByCell &&
     left.hierarchyRowMode === right.hierarchyRowMode &&
     left.allowNewAxesInCellDialog === right.allowNewAxesInCellDialog &&
     left.positionNumbering.enabled === right.positionNumbering.enabled &&
     left.positionNumbering.includeRoot === right.positionNumbering.includeRoot &&
     left.positionNumbering.startIndex === right.positionNumbering.startIndex
+
+const normalizeMatrixSettingsForSave = (settings: InterpretationNetworkMatrixSettings): InterpretationNetworkMatrixSettings => {
+    const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
+        settings.matrixMode,
+        settings.allowedMatrixViews,
+        settings.defaultMatrixView
+    )
+    const tableSettings = normalizeInterpretationNetworkTableSettings(
+        settings.matrixMode,
+        settings.tableProjection,
+        settings.breadcrumbDepth,
+        settings.toolbarLayout,
+        settings.showHierarchicalTableHeaders,
+        settings.showHierarchicalTableHeaderCard,
+        settings.showMatrixTreeTotalCells,
+        settings.colorBreadcrumbsByCell
+    )
+
+    return {
+        ...settings,
+        ...viewSettings,
+        ...tableSettings
+    }
+}
 
 const loadLayoutsForScope = async (applicationId: string, scopeEntityId: LayoutScopeFilter): Promise<ApplicationLayout[]> => {
     const layouts: ApplicationLayout[] = []
@@ -428,31 +489,40 @@ const ApplicationSettings = () => {
             if (widgets.length === 0) {
                 throw new Error(t('settings.matrix.widgetMissing', 'Matrix workspace widget is not installed in this application.'))
             }
+            const normalizedSettings = normalizeMatrixSettingsForSave(settings)
             const savedWidgets = await updateApplicationLayoutWidgetConfigsBatch(applicationId!, {
                 updates: widgets.map((widget) => ({
                     layoutId: widget.layout.id,
                     widgetId: widget.id,
                     config: {
                         ...sanitizeWidgetConfigForSave(widget.config),
-                        matrixMode: settings.matrixMode,
-                        allowedMatrixViews: settings.allowedMatrixViews,
-                        defaultMatrixView: settings.defaultMatrixView,
-                        hierarchyRowMode: settings.hierarchyRowMode,
-                        positionNumbering: settings.positionNumbering,
-                        allowNewAxesInCellDialog: settings.allowNewAxesInCellDialog
+                        matrixMode: normalizedSettings.matrixMode,
+                        allowedMatrixViews: normalizedSettings.allowedMatrixViews,
+                        defaultMatrixView: normalizedSettings.defaultMatrixView,
+                        tableProjection: normalizedSettings.tableProjection,
+                        breadcrumbDepth: normalizedSettings.breadcrumbDepth,
+                        toolbarLayout: normalizedSettings.toolbarLayout,
+                        showHierarchicalTableHeaders: normalizedSettings.showHierarchicalTableHeaders,
+                        showHierarchicalTableHeaderCard: normalizedSettings.showHierarchicalTableHeaderCard,
+                        showMatrixTreeTotalCells: normalizedSettings.showMatrixTreeTotalCells,
+                        colorBreadcrumbsByCell: normalizedSettings.colorBreadcrumbsByCell,
+                        hierarchyRowMode: normalizedSettings.hierarchyRowMode,
+                        positionNumbering: normalizedSettings.positionNumbering,
+                        allowNewAxesInCellDialog: normalizedSettings.allowNewAxesInCellDialog
                     },
                     ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
                 }))
             })
 
-            return savedWidgets
+            return { savedWidgets, savedSettings: normalizedSettings }
         },
-        onSuccess: async (savedWidgets, savedSettings) => {
+        onSuccess: async ({ savedWidgets, savedSettings }) => {
             if (!applicationId) return
             setMatrixSettingsOverride(savedSettings)
             const savedWidgetsByIdentity = new Map(
                 savedWidgets.map((savedWidget) => [`${savedWidget.layoutId ?? ''}:${savedWidget.id}`, savedWidget])
             )
+            const savedWidgetsById = new Map(savedWidgets.map((savedWidget) => [savedWidget.id, savedWidget]))
             queryClient.setQueryData<MaterializedApplicationLayoutState>(
                 ['applications', applicationId, 'settings', 'materialized-layouts'],
                 (current) =>
@@ -460,7 +530,8 @@ const ApplicationSettings = () => {
                         ? {
                               ...current,
                               widgets: current.widgets.map((widget) => {
-                                  const savedWidget = savedWidgetsByIdentity.get(`${widget.layout.id}:${widget.id}`)
+                                  const savedWidget =
+                                      savedWidgetsByIdentity.get(`${widget.layout.id}:${widget.id}`) ?? savedWidgetsById.get(widget.id)
                                   return savedWidget
                                       ? {
                                             ...widget,
@@ -471,6 +542,13 @@ const ApplicationSettings = () => {
                                                 matrixMode: savedSettings.matrixMode,
                                                 allowedMatrixViews: savedSettings.allowedMatrixViews,
                                                 defaultMatrixView: savedSettings.defaultMatrixView,
+                                                tableProjection: savedSettings.tableProjection,
+                                                breadcrumbDepth: savedSettings.breadcrumbDepth,
+                                                toolbarLayout: savedSettings.toolbarLayout,
+                                                showHierarchicalTableHeaders: savedSettings.showHierarchicalTableHeaders,
+                                                showHierarchicalTableHeaderCard: savedSettings.showHierarchicalTableHeaderCard,
+                                                showMatrixTreeTotalCells: savedSettings.showMatrixTreeTotalCells,
+                                                colorBreadcrumbsByCell: savedSettings.colorBreadcrumbsByCell,
                                                 hierarchyRowMode: savedSettings.hierarchyRowMode,
                                                 positionNumbering: savedSettings.positionNumbering,
                                                 allowNewAxesInCellDialog: savedSettings.allowNewAxesInCellDialog

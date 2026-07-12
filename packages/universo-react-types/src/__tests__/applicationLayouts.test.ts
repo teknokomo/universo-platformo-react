@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
     applicationLayoutWidgetConfigBatchMutationSchema,
+    normalizeInterpretationNetworkTableSettings,
     normalizeInterpretationNetworkMatrixViewSettings,
     parseApplicationLayoutWidgetConfig
 } from '../common/applicationLayouts'
@@ -58,6 +59,11 @@ describe('application layout widget config contracts', () => {
                 matrixMode: 'hierarchicalCells',
                 allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
                 defaultMatrixView: 'table',
+                tableProjection: 'hierarchicalPath',
+                breadcrumbDepth: { mode: 'full' },
+                toolbarLayout: 'horizontal',
+                showHierarchicalTableHeaders: false,
+                colorBreadcrumbsByCell: true,
                 hierarchyRowMode: 'focusedPath',
                 positionNumbering: {
                     enabled: true,
@@ -91,6 +97,11 @@ describe('application layout widget config contracts', () => {
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
+            tableProjection: 'hierarchicalPath',
+            breadcrumbDepth: { mode: 'full' },
+            toolbarLayout: 'horizontal',
+            showHierarchicalTableHeaders: false,
+            colorBreadcrumbsByCell: true,
             hierarchyRowMode: 'focusedPath',
             positionNumbering: {
                 enabled: true,
@@ -203,6 +214,37 @@ describe('application layout widget config contracts', () => {
                 defaultMatrixView: 'table'
             })
         ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'independentRows',
+                tableProjection: 'hierarchicalPath'
+            })
+        ).toThrow()
+
+        expect(
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                defaultMatrixView: 'horizontalRows'
+            })
+        ).toEqual({
+            matrixMode: 'hierarchicalCells',
+            defaultMatrixView: 'horizontalRows'
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                breadcrumbDepth: { mode: 'last', count: 7 }
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                toolbarLayout: 'diagonal'
+            })
+        ).toThrow()
     })
 
     it('normalizes Matrix view settings at UI and runtime boundaries', () => {
@@ -221,8 +263,51 @@ describe('application layout widget config contracts', () => {
             defaultMatrixView: 'table'
         })
         expect(normalizeInterpretationNetworkMatrixViewSettings('hierarchicalCells', ['unknown'], 'unknown')).toEqual({
-            allowedMatrixViews: ['horizontalRows'],
-            defaultMatrixView: 'horizontalRows'
+            allowedMatrixViews: ['table'],
+            defaultMatrixView: 'table'
+        })
+    })
+
+    it('normalizes Interpretation Network table settings at UI and runtime boundaries', () => {
+        expect(normalizeInterpretationNetworkTableSettings('hierarchicalCells', undefined, undefined, undefined)).toEqual({
+            tableProjection: 'hierarchicalPath',
+            breadcrumbDepth: { mode: 'full' },
+            toolbarLayout: 'horizontal',
+            showHierarchicalTableHeaders: false,
+            showHierarchicalTableHeaderCard: true,
+            showMatrixTreeTotalCells: true,
+            colorBreadcrumbsByCell: true
+        })
+        expect(
+            normalizeInterpretationNetworkTableSettings(
+                'hierarchicalCells',
+                'independentAxes',
+                { mode: 'last', count: 4 },
+                'vertical',
+                true,
+                false,
+                false,
+                false
+            )
+        ).toEqual({
+            tableProjection: 'independentAxes',
+            breadcrumbDepth: { mode: 'last', count: 4 },
+            toolbarLayout: 'vertical',
+            showHierarchicalTableHeaders: true,
+            showHierarchicalTableHeaderCard: false,
+            showMatrixTreeTotalCells: false,
+            colorBreadcrumbsByCell: false
+        })
+        expect(
+            normalizeInterpretationNetworkTableSettings('independentRows', 'hierarchicalPath', { mode: 'last', count: 99 }, 'diagonal')
+        ).toEqual({
+            tableProjection: 'independentAxes',
+            breadcrumbDepth: { mode: 'full' },
+            toolbarLayout: 'horizontal',
+            showHierarchicalTableHeaders: false,
+            showHierarchicalTableHeaderCard: true,
+            showMatrixTreeTotalCells: true,
+            colorBreadcrumbsByCell: true
         })
     })
 

@@ -14,10 +14,12 @@ import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
+import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
+import Typography from '@mui/material/Typography'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
@@ -27,15 +29,31 @@ import ViewColumnRoundedIcon from '@mui/icons-material/ViewColumnRounded'
 import type { SensorDescriptor, SensorOptions } from '@dnd-kit/core'
 import { useMemo, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
+import type { InterpretationNetworkTableProjection, InterpretationNetworkToolbarLayout } from '@universo-react/types'
 import { extractRuntimeErrorMessage } from '../../../../utils/runtimeErrors'
 import { MatrixCellButton } from '../MatrixCellButton'
-import { buildMatrixTableModel, toMatrixTableSlotId, type MatrixCell, type MatrixTableDropSlot, type MatrixView } from '../model'
+import {
+    buildMatrixTableModel,
+    toMatrixTableSlotId,
+    type HierarchicalMatrixTableModel,
+    type MatrixCell,
+    type MatrixTableDropSlot,
+    type MatrixView
+} from '../model'
 import type { MatrixCellPlacement } from '../matrixCellData'
 import type { MatrixDragPreview, MatrixDropState, MatrixMode } from '../matrixDrag'
 import { createMatrixCollisionDetection } from './matrixCollisionDetection'
+import { HierarchicalMatrixTableView } from './HierarchicalMatrixTableView'
 import { MatrixTableView } from './MatrixTableView'
 
 const fixedDropTargetsStrategy: SortingStrategy = () => null
+
+const renderTreeTotalLabel = (t: TFunction<'interpretationNetwork'>, count: number): string =>
+    t('workspace.hierarchicalTable.totalCells', {
+        defaultValue_one: 'Total {{count}} cell in the structure',
+        defaultValue_other: 'Total {{count}} cells in the structure',
+        count
+    })
 
 export interface MatrixMenuMove {
     label: string
@@ -50,7 +68,14 @@ export interface MatrixWorkspaceProps {
     matrixMode: MatrixMode
     matrixView: MatrixView
     allowedMatrixViews: MatrixView[]
+    tableProjection: InterpretationNetworkTableProjection
+    toolbarLayout: InterpretationNetworkToolbarLayout
+    showHierarchicalTableHeaders: boolean
+    showHierarchicalTableHeaderCard: boolean
+    showMatrixTreeTotalCells?: boolean
+    colorBreadcrumbsByCell: boolean
     hierarchyRows: MatrixCell[][]
+    hierarchicalTableModel: HierarchicalMatrixTableModel
     positionLabels: Map<string, string>
     matrixCells: MatrixCell[]
     visibleMatrixCells: MatrixCell[]
@@ -101,7 +126,14 @@ export function MatrixWorkspace({
     matrixMode,
     matrixView,
     allowedMatrixViews,
+    tableProjection,
+    toolbarLayout,
+    showHierarchicalTableHeaders,
+    showHierarchicalTableHeaderCard,
+    showMatrixTreeTotalCells = true,
+    colorBreadcrumbsByCell,
     hierarchyRows,
+    hierarchicalTableModel,
     positionLabels,
     matrixCells,
     visibleMatrixCells,
@@ -157,6 +189,16 @@ export function MatrixWorkspace({
             title: cell.title || t('workspace.emptyCell', 'Empty cell')
         })
 
+    const openCellDialogAfterMenuClose = (mode: Parameters<typeof onOpenCellDialog>[0], cellId: string | undefined) => {
+        onCloseCellMenu()
+        if (!cellId) return
+        window.requestAnimationFrame(() => onOpenCellDialog(mode, cellId))
+    }
+    const openMenuCellDialogAfterMenuClose = (mode: Parameters<typeof onOpenCellDialog>[0]) => {
+        const targetId = menuCell?.id
+        openCellDialogAfterMenuClose(mode, targetId)
+    }
+
     const dropTargetCellId = matrixDropState.destination?.targetCellId ?? matrixDropState.overCellId
     const renderMatrixCell = (cell: MatrixCell, options: { overlay?: boolean; placeholder?: boolean } = {}) =>
         options.placeholder ? (
@@ -211,13 +253,14 @@ export function MatrixWorkspace({
     const previewHierarchyRows = matrixDragPreview?.hierarchyRows ?? hierarchyRows
     const previewVisibleCells = matrixDragPreview?.visibleCells ?? visibleMatrixCells
     const tableVisibleCells = visibleMatrixCells
+    const isHierarchicalPathTable = matrixView === 'table' && matrixMode === 'hierarchicalCells' && tableProjection === 'hierarchicalPath'
     const matrixDisplayCellIds = useMemo(
         () => (matrixView === 'table' ? tableVisibleCells.map((cell) => cell.id) : matrixCellIds),
         [matrixCellIds, matrixView, tableVisibleCells]
     )
     const matrixDropTargetIds = useMemo(() => {
         const targetIds = new Set(matrixDisplayCellIds)
-        if (matrixView === 'table') {
+        if (matrixView === 'table' && !isHierarchicalPathTable) {
             const table = buildMatrixTableModel(tableVisibleCells)
             table.slots.flat().forEach((slot) => {
                 if (!slot.cell && slot.row.acceptsEmptyDrop !== false) {
@@ -233,7 +276,7 @@ export function MatrixWorkspace({
             })
         }
         return targetIds
-    }, [matrixDisplayCellIds, matrixView, tableVisibleCells])
+    }, [isHierarchicalPathTable, matrixDisplayCellIds, matrixView, tableVisibleCells])
     const matrixCellCollisionDetection = useMemo(() => createMatrixCollisionDetection(matrixDropTargetIds), [matrixDropTargetIds])
     const isPreviewPlaceholder = (cell: MatrixCell): boolean => matrixDragPreview?.activeCellId === cell.id
 
@@ -241,9 +284,13 @@ export function MatrixWorkspace({
         <Box data-testid='interpretation-network-matrix-workspace'>
             <Stack
                 data-testid='interpretation-network-matrix-toolbar'
-                direction='row'
+                direction={toolbarLayout === 'vertical' ? 'column' : 'row'}
                 spacing={1}
-                sx={{ mb: 1, alignItems: 'center', justifyContent: 'space-between' }}
+                sx={{
+                    mb: 1,
+                    alignItems: toolbarLayout === 'vertical' ? 'stretch' : 'center',
+                    justifyContent: toolbarLayout === 'vertical' ? 'flex-start' : 'space-between'
+                }}
                 useFlexGap
                 flexWrap='wrap'
             >
@@ -382,14 +429,32 @@ export function MatrixWorkspace({
                     <SortableContext
                         items={matrixDisplayCellIds}
                         strategy={
-                            matrixMode === 'hierarchicalCells'
-                                ? fixedDropTargetsStrategy
-                                : isHorizontalHierarchy
+                            isHorizontalHierarchy
                                 ? verticalListSortingStrategy
+                                : matrixMode === 'hierarchicalCells'
+                                ? fixedDropTargetsStrategy
                                 : rectSortingStrategy
                         }
                     >
-                        {matrixView === 'table' ? (
+                        {isHierarchicalPathTable ? (
+                            <HierarchicalMatrixTableView
+                                t={t}
+                                model={hierarchicalTableModel}
+                                selectedCellId={selectedCell?.id}
+                                positionLabels={positionLabels}
+                                materialCountByCellId={materialCountByCellId}
+                                showColumnHeaders={showHierarchicalTableHeaders}
+                                showHeaderCard={showHierarchicalTableHeaderCard}
+                                colorBreadcrumbsByCell={colorBreadcrumbsByCell}
+                                mutationDisabled={matrixMutationsDisabled}
+                                isMovingCell={isMovingCell}
+                                dropTargetCellId={dropTargetCellId}
+                                dropPlacement={matrixDropState.placement}
+                                invalidDropTarget={Boolean(dropTargetCellId && !matrixDropState.isValid)}
+                                onSelectCell={onSelectCell}
+                                onOpenCellMenu={onOpenCellMenu}
+                            />
+                        ) : matrixView === 'table' ? (
                             <MatrixTableView
                                 t={t}
                                 cells={tableVisibleCells}
@@ -457,27 +522,34 @@ export function MatrixWorkspace({
                         })()}
                     </DragOverlay>
                 </DndContext>
+                {showMatrixTreeTotalCells ? (
+                    <Paper
+                        variant='outlined'
+                        data-testid='interpretation-network-tree-total-cells'
+                        sx={{
+                            width: '100%',
+                            minWidth: 0,
+                            p: 1.25,
+                            borderRadius: 1,
+                            bgcolor: 'action.hover',
+                            boxShadow: 'none'
+                        }}
+                    >
+                        <Typography variant='body2' color='text.secondary' sx={{ fontWeight: 500 }}>
+                            {renderTreeTotalLabel(t, matrixCells.length)}
+                        </Typography>
+                    </Paper>
+                ) : null}
             </Box>
             <Menu anchorEl={cellMenuAnchor} open={Boolean(cellMenuAnchor)} onClose={onCloseCellMenu}>
-                <MenuItem
-                    disabled={!menuCell || !canEditContent}
-                    onClick={() => {
-                        const targetId = menuCell?.id
-                        onCloseCellMenu()
-                        if (targetId) onOpenCellDialog('edit', targetId)
-                    }}
-                >
+                <MenuItem disabled={!menuCell || !canEditContent} onClick={() => openMenuCellDialogAfterMenuClose('edit')}>
                     <EditRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('workspace.cell.edit', 'Edit')}
                 </MenuItem>
                 {matrixMode === 'hierarchicalCells' ? (
                     <MenuItem
                         disabled={!menuCell || !canEditContent || matrixMutationsDisabled || isSavingCell}
-                        onClick={() => {
-                            const targetId = menuCell?.id
-                            onCloseCellMenu()
-                            if (targetId) onOpenCellDialog('create-child', targetId)
-                        }}
+                        onClick={() => openMenuCellDialogAfterMenuClose('create-child')}
                     >
                         <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                         {t('workspace.cell.add', 'Add')}
@@ -486,11 +558,7 @@ export function MatrixWorkspace({
                 {matrixMode !== 'hierarchicalCells' ? (
                     <MenuItem
                         disabled={!menuCell || !canEditContent || matrixMutationsDisabled || isSavingCell}
-                        onClick={() => {
-                            const targetId = menuCell?.id
-                            onCloseCellMenu()
-                            if (targetId) onOpenCellDialog('create-cell', targetId)
-                        }}
+                        onClick={() => openMenuCellDialogAfterMenuClose('create-cell')}
                     >
                         <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                         {t('workspace.cell.addSibling', 'Add cell in row')}
