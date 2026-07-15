@@ -40,6 +40,7 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
                 ([key, item]) =>
                     !isDefaultPlayCanvasMaterialField(key, item, value) &&
                     !isEmptyPlayCanvasAssetMetaField(key, item, value, pathSegments) &&
+                    !isEmptyPlayCanvasAssetMetadataMetaField(key, item, value, pathSegments) &&
                     !isEmptyPlayCanvasEditorDocumentMetaField(key, item, value, pathSegments) &&
                     !isVolatilePlayCanvasEditorDocumentVersionField(key, pathSegments)
             )
@@ -116,6 +117,29 @@ const isEmptyPlayCanvasAssetMetaField = (key: string, item: unknown, owner: unkn
         typeof record.name === 'string' &&
         (typeof record.id === 'number' || typeof record.id === 'string') &&
         (typeof record.type === 'string' || typeof record.file === 'object' || typeof record.url === 'string')
+    )
+}
+
+const isEmptyPlayCanvasAssetMetadataMetaField = (key: string, item: unknown, owner: unknown, pathSegments: string[]): boolean => {
+    if (
+        key !== 'meta' ||
+        item !== null ||
+        pathSegments.at(-1) !== 'metadata' ||
+        pathSegments.at(-3) !== 'assets' ||
+        !/^\d+$/.test(pathSegments.at(-2) ?? '')
+    ) {
+        return false
+    }
+    if (!owner || typeof owner !== 'object' || Array.isArray(owner)) {
+        return false
+    }
+    const record = owner as Record<string, unknown>
+    return (
+        typeof record.data === 'object' ||
+        typeof record.editorDocument === 'object' ||
+        typeof record.mmoomm === 'object' ||
+        Array.isArray(record.tags) ||
+        typeof record.preload === 'boolean'
     )
 }
 

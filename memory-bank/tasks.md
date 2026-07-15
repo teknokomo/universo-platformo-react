@@ -20,6 +20,12 @@
 -   [x] T7. Update fixture generator/import/runtime browser flows, focused visual/a11y checks, E2E wrapper, EN/RU docs, package READMEs, and required project checks.
 -   [ ] T8. Run formatting, focused tests/builds, local-minimal-Supabase Playwright proof, guards, OntoIndex diff verification, Thermos/autoreview, and record completed progress. Formatting, focused tests/builds, guards, and OntoIndex have run; browser proof is blocked by an already running local app server on port 3100, and Thermos/autoreview did not finish within the interactive window.
 
+## MMOOMM fixture drift follow-up (2026-07-15)
+
+-   [x] M4. Investigate the next Node 22 drift failure: PlayCanvas material asset metadata emitted `meta: null` while the authored fixture omitted the optional field.
+-   [x] M5. Normalize only null `assets/<index>/metadata/meta` records that have PlayCanvas asset metadata shape; preserve strict comparison for authored asset fields and unrelated snapshot metadata.
+-   [x] M6. Validate the fix with the fixture contract, a synthetic `metadata.meta: null` drift regression, affected package lint/builds, formatting, and `git diff --check`.
+
 ## Runtime UX verification follow-up (2026-07-15)
 
 > Status: completed
