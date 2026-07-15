@@ -4,7 +4,7 @@
 // The `interpretation-network` metahub template ships the start Page, two-pane
 // dashboard layout, base presets, and the full interpretation-network
 // model (Structure / Interpretation / Relation / Material + Context /
-// RelationType / CellColor). Fresh apps must not ship user-authored
+// RelationType). Fresh apps must not ship user-authored
 // demo Structures, matrix rows, Relations, Materials, or Templates.
 //
 // The named-entity lookup algorithm (`readRuntimeLabel` /

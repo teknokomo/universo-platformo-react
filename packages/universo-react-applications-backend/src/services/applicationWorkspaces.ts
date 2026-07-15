@@ -12,6 +12,7 @@ import {
     ApplicationMembershipState,
     isLedgerSchemaCapableEntity,
     normalizeLedgerConfigFromConfig,
+    normalizeInterpretationNetworkHexColor,
     type EntityTypeCapabilities,
     type LedgerConfig,
     type VersionedLocalizedContent
@@ -129,6 +130,7 @@ type RuntimeObjectSeedComponentRow = {
     columnName: string
     dataType: string
     uiConfig: Record<string, unknown> | null
+    validationRules: Record<string, unknown> | null
     targetObjectId: string | null
     targetObjectKind: string | null
 }
@@ -932,6 +934,14 @@ const normalizeWorkspaceSeedValue = (value: unknown, component: RuntimeObjectSee
         return normalizeReferenceId(value)
     }
 
+    if (component.dataType === 'STRING' && component.validationRules?.format === 'hexColor') {
+        try {
+            return normalizeInterpretationNetworkHexColor(value)
+        } catch {
+            throw new Error(`Invalid hexColor value for ${component.objectId}.${component.codename}`)
+        }
+    }
+
     if (columnType === 'jsonb') {
         return JSON.stringify(value)
     }
@@ -1189,6 +1199,7 @@ async function loadRuntimeObjectSeedMetadata(
                 column_name AS "columnName",
                 data_type AS "dataType",
                 ui_config AS "uiConfig",
+                validation_rules AS "validationRules",
                 target_object_id AS "targetObjectId",
                 target_object_kind AS "targetObjectKind"
             FROM ${componentsQt}

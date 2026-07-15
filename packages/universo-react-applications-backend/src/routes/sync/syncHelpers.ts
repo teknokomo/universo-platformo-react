@@ -15,6 +15,7 @@ import {
     ApplicationSchemaStatus,
     ComponentDefinitionDataType,
     DASHBOARD_LAYOUT_WIDGETS,
+    normalizeInterpretationNetworkHexColor,
     type ApplicationLifecycleContract,
     type ApplicationLayoutWidget,
     type ComponentDefinitionValidationRules,
@@ -978,6 +979,13 @@ export function normalizeChildFieldValue(
     elementId: string
 ): unknown {
     if (value === null || value === undefined) return null
+    if (field.dataType === ComponentDefinitionDataType.STRING && field.validationRules?.format === 'hexColor') {
+        try {
+            return normalizeInterpretationNetworkHexColor(value)
+        } catch {
+            throw new Error('Invalid configured colour value')
+        }
+    }
     if (isVLCField(field)) return prepareJsonbValue(value)
     if (field.dataType === ComponentDefinitionDataType.JSON) return prepareJsonbValue(value)
     if (field.dataType === ComponentDefinitionDataType.NUMBER) {

@@ -65,7 +65,8 @@ test.describe('Interpretation Network workspace @visual', () => {
         await expect(menu.getByRole('link', { name: 'Workspaces' })).toBeVisible()
         await menu.getByRole('link', { name: 'Structures' }).click()
         await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText('Create structure')
+        await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Create' })).toBeVisible()
+        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText('Create a structure first.')
         await expect(page.getByTestId('interpretation-network-structure-pane')).not.toContainText(
             'Create a structure to start working with the matrix.'
         )

@@ -115,6 +115,91 @@ const assertTabularMaxChildComponents = (field: Record<string, unknown>, label: 
     }
 }
 
+const assertHexColorField = (field: Record<string, unknown>, label: string): void => {
+    if (field.dataType !== 'STRING') {
+        throw new Error(`Interpretation Network fixture contract failed: ${label}.dataType must be "STRING"`)
+    }
+    if (field.isRequired === true) {
+        throw new Error(`Interpretation Network fixture contract failed: ${label} must be nullable`)
+    }
+    if (field.targetEntityId !== null && field.targetEntityId !== undefined) {
+        throw new Error(`Interpretation Network fixture contract failed: ${label} must not target a colour entity`)
+    }
+    const validationRules =
+        field.validationRules && typeof field.validationRules === 'object' ? (field.validationRules as Record<string, unknown>) : {}
+    if (validationRules.format !== 'hexColor' || validationRules.maxLength !== 7 || validationRules.pattern !== '^#[0-9A-F]{6}$') {
+        throw new Error(`Interpretation Network fixture contract failed: ${label} must use canonical hexColor validation`)
+    }
+}
+
+const INTERPRETATION_NETWORK_MATRIX_CHILD_FIELD_CODENAMES = [
+    'CellId',
+    'ParentCellId',
+    'ColKey',
+    'ColLabel',
+    'RowKey',
+    'RowLabel',
+    'CellValue',
+    'CellDescription',
+    'CellFillColor',
+    'TextColor',
+    'BorderTopColor',
+    'BorderRightColor',
+    'BorderBottomColor',
+    'BorderLeftColor',
+    'BorderTopWidth',
+    'BorderRightWidth',
+    'BorderBottomWidth',
+    'BorderLeftWidth',
+    'BorderTopStyle',
+    'BorderRightStyle',
+    'BorderBottomStyle',
+    'BorderLeftStyle',
+    'MaterialRef'
+] as const
+
+const assertExactMatrixChildFieldContract = (fields: Array<Record<string, unknown>>, label: string): void => {
+    const actual = fields.map((field) => readRuntimeLabel(field.codename))
+    if (
+        actual.length !== INTERPRETATION_NETWORK_MATRIX_CHILD_FIELD_CODENAMES.length ||
+        actual.some((codename, index) => codename !== INTERPRETATION_NETWORK_MATRIX_CHILD_FIELD_CODENAMES[index])
+    ) {
+        throw new Error(
+            `Interpretation Network fixture contract failed: ${label} must contain exactly the 23 current matrix child fields in canonical order`
+        )
+    }
+}
+
+const assertCellStylePreviewContract = (field: Record<string, unknown>, label: string): void => {
+    const uiConfig = field.uiConfig && typeof field.uiConfig === 'object' ? (field.uiConfig as Record<string, unknown>) : {}
+    const preview =
+        uiConfig.cellStylePreview && typeof uiConfig.cellStylePreview === 'object'
+            ? (uiConfig.cellStylePreview as Record<string, unknown>)
+            : {}
+    const expected = {
+        fillColorField: 'CellFillColor',
+        textColorField: 'TextColor',
+        borderTopColorField: 'BorderTopColor',
+        borderRightColorField: 'BorderRightColor',
+        borderBottomColorField: 'BorderBottomColor',
+        borderLeftColorField: 'BorderLeftColor',
+        borderTopWidthField: 'BorderTopWidth',
+        borderRightWidthField: 'BorderRightWidth',
+        borderBottomWidthField: 'BorderBottomWidth',
+        borderLeftWidthField: 'BorderLeftWidth',
+        borderTopStyleField: 'BorderTopStyle',
+        borderRightStyleField: 'BorderRightStyle',
+        borderBottomStyleField: 'BorderBottomStyle',
+        borderLeftStyleField: 'BorderLeftStyle'
+    }
+
+    for (const [key, value] of Object.entries(expected)) {
+        if (preview[key] !== value) {
+            throw new Error(`Interpretation Network fixture contract failed: ${label}.uiConfig.cellStylePreview.${key} must be "${value}"`)
+        }
+    }
+}
+
 const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unknown>): void => {
     const layoutZoneWidgets = Array.isArray(snapshot.layoutZoneWidgets)
         ? (snapshot.layoutZoneWidgets as Array<Record<string, unknown>>)
@@ -126,6 +211,11 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     }
     const workspaceConfig =
         workspaceWidget.config && typeof workspaceWidget.config === 'object' ? (workspaceWidget.config as Record<string, unknown>) : {}
+    if (Object.hasOwn(workspaceConfig, 'hierarchyLayout')) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config must not contain removed hierarchyLayout'
+        )
+    }
     if (workspaceConfig.matrixMode !== 'hierarchicalCells') {
         throw new Error(
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.matrixMode must be "hierarchicalCells"'
@@ -182,6 +272,15 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.colorBreadcrumbsByCell must be true by default'
         )
     }
+    const splitPane =
+        workspaceConfig.splitPane && typeof workspaceConfig.splitPane === 'object'
+            ? (workspaceConfig.splitPane as Record<string, unknown>)
+            : {}
+    if (splitPane.enabled !== true || Object.keys(splitPane).length !== 1) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.splitPane must enable only resizing'
+        )
+    }
     if (workspaceConfig.allowNewAxesInCellDialog !== false) {
         throw new Error(
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.allowNewAxesInCellDialog must be false'
@@ -219,6 +318,9 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     const menuConfig = menuWidget.config && typeof menuWidget.config === 'object' ? (menuWidget.config as Record<string, unknown>) : {}
     if (menuConfig.autoShowAllSections !== false) {
         throw new Error('Interpretation Network fixture contract failed: menuWidget must not auto-render every object section')
+    }
+    if (menuConfig.showTitle !== false) {
+        throw new Error('Interpretation Network fixture contract failed: menuWidget must hide its title by default')
     }
     if (menuConfig.startPage !== 'InterpretationNetworkIntro') {
         throw new Error('Interpretation Network fixture contract failed: menuWidget must start from InterpretationNetworkIntro')
@@ -393,7 +495,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         throw new Error('Interpretation Network fixture contract failed: base Set entity type is missing')
     }
 
-    const requiredEnums = ['Context', 'RelationType', 'CellColor']
+    const requiredEnums = ['Context', 'RelationType']
     for (const enumName of requiredEnums) {
         const entity = findEntityByCodename(entityList, enumName)
         if (!entity) {
@@ -405,13 +507,11 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         }
     }
 
-    const cellColor = findEntityByCodename(entityList, 'CellColor')
-    const cellColorCodenames = getOptionCodenames(snapshot, cellColor)
-    const requiredColors = ['none', 'gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'indigo', 'purple', 'pink', 'black']
-    for (const color of requiredColors) {
-        if (!cellColorCodenames.includes(color)) {
-            throw new Error(`Interpretation Network fixture contract failed: CellColor is missing value "${color}"`)
-        }
+    if (findEntityByCodename(entityList, 'CellColor')) {
+        throw new Error('Interpretation Network fixture contract failed: CellColor must not be seeded')
+    }
+    if (JSON.stringify(snapshot).includes('cellStylePicker')) {
+        throw new Error('Interpretation Network fixture contract failed: legacy cellStylePicker metadata must not be seeded')
     }
 
     const structureRows = getEntityRows(snapshot, structureEntity)
@@ -442,6 +542,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     const matrixFields = Array.isArray(interpretationMatrixField.childFields)
         ? (interpretationMatrixField.childFields as Array<Record<string, unknown>>)
         : []
+    assertExactMatrixChildFieldContract(matrixFields, 'Interpretation.InterpretationMatrix')
     for (const fieldCodename of [
         'CellId',
         'ParentCellId',
@@ -452,6 +553,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         'CellValue',
         'CellDescription',
         'CellFillColor',
+        'TextColor',
         'BorderTopColor',
         'BorderRightColor',
         'BorderBottomColor',
@@ -481,6 +583,17 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     const cellDescriptionField = requireFieldByCodename(matrixFields, 'CellDescription', 'Interpretation.InterpretationMatrix')
     assertLocalizedVersionedField(cellDescriptionField, 'CellDescription')
     assertTextareaFieldUiConfig(cellDescriptionField, 'CellDescription')
+    assertCellStylePreviewContract(requireFieldByCodename(matrixFields, 'CellValue', 'Interpretation.InterpretationMatrix'), 'CellValue')
+    for (const fieldCodename of [
+        'CellFillColor',
+        'TextColor',
+        'BorderTopColor',
+        'BorderRightColor',
+        'BorderBottomColor',
+        'BorderLeftColor'
+    ]) {
+        assertHexColorField(requireFieldByCodename(matrixFields, fieldCodename, 'Interpretation.InterpretationMatrix'), fieldCodename)
+    }
     if (findFieldByCodename(matrixFields, 'Depth')) {
         throw new Error('Interpretation Network fixture contract failed: Interpretation.InterpretationMatrix.Depth must remain derived')
     }
@@ -524,6 +637,24 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     const templateMatrixFields = Array.isArray(templateMatrixField.childFields)
         ? (templateMatrixField.childFields as Array<Record<string, unknown>>)
         : []
+    assertExactMatrixChildFieldContract(templateMatrixFields, 'TableTemplate.TemplateMatrix')
+    assertCellStylePreviewContract(
+        requireFieldByCodename(templateMatrixFields, 'CellValue', 'TableTemplate.TemplateMatrix'),
+        'TableTemplate.TemplateMatrix.CellValue'
+    )
+    for (const fieldCodename of [
+        'CellFillColor',
+        'TextColor',
+        'BorderTopColor',
+        'BorderRightColor',
+        'BorderBottomColor',
+        'BorderLeftColor'
+    ]) {
+        assertHexColorField(
+            requireFieldByCodename(templateMatrixFields, fieldCodename, 'TableTemplate.TemplateMatrix'),
+            `TableTemplate.TemplateMatrix.${fieldCodename}`
+        )
+    }
     assertHiddenSystemFieldUiConfig(
         requireFieldByCodename(templateMatrixFields, 'ParentCellId', 'TableTemplate.TemplateMatrix'),
         'TableTemplate.TemplateMatrix.ParentCellId'

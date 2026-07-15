@@ -17,6 +17,7 @@ import {
     interpretationNetworkBreadcrumbDepthCounts,
     interpretationNetworkMatrixViews,
     normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     type InterpretationNetworkMatrixMode,
     type InterpretationNetworkHierarchyRowMode,
@@ -54,27 +55,19 @@ const MATRIX_MODE_FALLBACK_LABELS: Record<InterpretationNetworkMatrixMode, strin
 
 const normalizeConfig = (config?: InterpretationNetworkWorkspaceWidgetConfig | null): InterpretationNetworkWorkspaceWidgetConfig => {
     const current = config ?? {}
-    const { hierarchyLayout, ...persistableConfig } = current as InterpretationNetworkWorkspaceWidgetConfig & {
-        hierarchyLayout?: unknown
-    }
     const matrixMode = current.matrixMode ?? 'hierarchicalCells'
-    const hasLegacyHierarchyLayout = hierarchyLayout === 'verticalTree' || hierarchyLayout === 'horizontalRows'
-    const hasNewViewSettings = current.allowedMatrixViews !== undefined || current.defaultMatrixView !== undefined
     const defaultAllowedMatrixViews: InterpretationNetworkMatrixView[] =
         matrixMode === 'hierarchicalCells' ? ['table', 'horizontalRows', 'verticalTree'] : ['table', 'horizontalRows']
-    const requestedViews =
-        hasLegacyHierarchyLayout && !hasNewViewSettings && matrixMode === 'hierarchicalCells'
-            ? Array.from(new Set(['horizontalRows', hierarchyLayout]))
-            : current.allowedMatrixViews ?? defaultAllowedMatrixViews
     const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
         matrixMode,
-        requestedViews,
-        current.defaultMatrixView ?? (hasLegacyHierarchyLayout && !hasNewViewSettings ? hierarchyLayout : 'table')
+        current.allowedMatrixViews ?? defaultAllowedMatrixViews,
+        current.defaultMatrixView ?? 'table'
     )
 
     return {
-        ...persistableConfig,
+        ...current,
         ...viewSettings,
+        splitPane: normalizeInterpretationNetworkSplitPaneSettings(current.splitPane),
         ...normalizeInterpretationNetworkTableSettings(
             matrixMode,
             current.tableProjection,
@@ -580,6 +573,33 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                         {t(
                             'layouts.interpretationNetworkEditor.newAxesInCellDialogHelp',
                             'When disabled, users add rows and columns with the table plus buttons, and the Add cell dialog uses existing axes.'
+                        )}
+                    </FormHelperText>
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={normalizeInterpretationNetworkSplitPaneSettings(draft.splitPane).enabled}
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        splitPane: { enabled: event.target.checked }
+                                    }))
+                                }
+                                inputProps={{
+                                    'aria-label': t(
+                                        'layouts.interpretationNetworkEditor.resizablePanes',
+                                        'Allow users to resize workspace panes'
+                                    )
+                                }}
+                            />
+                        }
+                        label={t('layouts.interpretationNetworkEditor.resizablePanes', 'Allow users to resize workspace panes')}
+                    />
+                    <FormHelperText>
+                        {t(
+                            'layouts.interpretationNetworkEditor.resizablePanesHelp',
+                            'When enabled, users can temporarily adjust the Structure and Materials pane widths. Their adjustment is not saved.'
                         )}
                     </FormHelperText>
 

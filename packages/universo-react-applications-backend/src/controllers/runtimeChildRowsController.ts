@@ -13,6 +13,7 @@ import {
     buildRuntimeActiveRowCondition,
     buildRuntimeSoftDeleteSetClause,
     coerceRuntimeValue,
+    toRuntimeInputFormatErrorBody,
     normalizeRuntimeTableChildInsertValueByMeta,
     getTableRowLimits,
     getTableRowCountError,
@@ -366,6 +367,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 values.push(coerced)
                 pIdx++
             } catch (err) {
+                const formatError = toRuntimeInputFormatErrorBody(err)
+                if (formatError) {
+                    return { error: formatError }
+                }
                 return {
                     error: {
                         error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
@@ -580,6 +585,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (cAttr.codename) effectiveCreateData[cAttr.codename] = coerced
                 pIdx++
             } catch (err) {
+                const formatError = toRuntimeInputFormatErrorBody(err)
+                if (formatError) {
+                    return res.status(400).json(formatError)
+                }
                 return res.status(400).json({
                     error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
                 })
@@ -657,6 +666,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         } catch (e) {
             if (e instanceof UpdateFailure) {
                 return res.status(e.statusCode).json(e.body)
+            }
+            const formatError = toRuntimeInputFormatErrorBody(e)
+            if (formatError) {
+                return res.status(400).json(formatError)
             }
             throw e
         }
@@ -1069,6 +1082,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             if (e instanceof UpdateFailure) {
                 return res.status(e.statusCode).json(e.body)
             }
+            const formatError = toRuntimeInputFormatErrorBody(e)
+            if (formatError) return res.status(400).json(formatError)
             throw e
         }
     }
@@ -1248,6 +1263,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             if (e instanceof UpdateFailure) {
                 return res.status(e.statusCode).json(e.body)
             }
+            const formatError = toRuntimeInputFormatErrorBody(e)
+            if (formatError) return res.status(400).json(formatError)
             throw e
         }
     }

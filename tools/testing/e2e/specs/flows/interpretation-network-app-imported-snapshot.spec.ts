@@ -154,14 +154,16 @@ const expectEqualDesktopPaneWidths = async (page: Page, label: string): Promise<
 const getVisibleWorkspaceSwitcher = (page: Page): Locator =>
     page.getByTestId('runtime-workspace-switcher').filter({ visible: true }).first()
 
-const getDockedRuntimeNavigation = (page: Page): Locator =>
-    page.getByTestId('runtime-side-menu-docked').getByRole('navigation', { name: 'Interpretation Network' })
+const getDockedRuntimeNavigation = (page: Page): Locator => page.getByTestId('runtime-side-menu-docked').getByRole('navigation').first()
 
-const getOverlayRuntimeNavigation = (page: Page): Locator =>
-    page.getByTestId('runtime-side-menu-overlay').getByRole('navigation', { name: 'Interpretation Network' })
+const getOverlayRuntimeNavigation = (page: Page): Locator => page.getByTestId('runtime-side-menu-overlay').getByRole('navigation').first()
 
 const getVisibleRuntimeNavigation = (page: Page): Locator =>
-    page.getByRole('navigation', { name: 'Interpretation Network' }).filter({ visible: true }).first()
+    page
+        .getByRole('navigation')
+        .filter({ has: page.getByRole('link', { name: 'Structures' }).or(page.getByRole('button', { name: 'Structures' })) })
+        .filter({ visible: true })
+        .first()
 
 const getRuntimeNavigationItem = (navigation: Locator, name: string): Locator =>
     navigation.getByRole('link', { name }).or(navigation.getByRole('button', { name })).first()
@@ -517,8 +519,20 @@ const dragMatrixCellByPointer = async (
         await moveSourceCenterTo(targetBox.x + targetBox.width * targetProgress)
         await expect(source.page().getByTestId('interpretation-network-cell-drag-overlay')).toBeVisible({ timeout: 10_000 })
     } else if (placement === 'child' && options.axis === 'vertical') {
-        await moveSourceCenterTo(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 1.18)
-        await expect(source.page().getByTestId('interpretation-network-cell-drag-overlay')).toBeVisible({ timeout: 10_000 })
+        for (const targetProgress of [0.5, 0.55, 0.45, 0.6, 0.4]) {
+            await moveSourceCenterTo(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * targetProgress)
+            await expect(source.page().getByTestId('interpretation-network-cell-drag-overlay')).toBeVisible({ timeout: 10_000 })
+            const matchedChildPlacement = await expect
+                .poll(async () => currentTarget.first().getAttribute('data-drop-placement'), {
+                    timeout: 1_500
+                })
+                .toBe('child')
+                .then(
+                    () => true,
+                    () => false
+                )
+            if (matchedChildPlacement) break
+        }
     } else if (placement === 'child') {
         const overlapBaseWidth = Math.min(sourceCellBox.width, targetBox.width)
         for (const overlapRatio of [0.45, 0.35, 0.25, 0.15]) {
@@ -963,19 +977,23 @@ const selectHierarchicalRootIfPrompted = async (page: Page, rootName = 'Universe
     const matrixPane = page.getByTestId('interpretation-network-matrix-workspace')
     await expect(matrixPane).toBeVisible({ timeout: 30_000 })
 
-    const rootButton = matrixPane.getByRole('button', { name: rootName, exact: true })
+    const rootButton = matrixPane.getByRole('button', {
+        name: new RegExp(`^(?:\\d+(?:/\\d+)?,\\s*)?${escapeRegExp(rootName)}$`)
+    })
     await expect(getMatrixTable(page).or(rootButton).first()).toBeVisible({ timeout: 30_000 })
 
-    if (await rootButton.isVisible()) {
-        await rootButton.click()
+    if ((await rootButton.count()) > 0 && (await rootButton.first().isVisible())) {
+        await rootButton.first().click()
     }
 }
 
 const activateHierarchicalBreadcrumb = async (page: Page, name: string): Promise<void> => {
-    const breadcrumb = page.getByTestId('interpretation-network-hierarchical-table').getByRole('button', { name, exact: true })
+    const breadcrumb = page
+        .getByTestId('interpretation-network-hierarchical-table')
+        .getByRole('button', { name: new RegExp(`^(?:\\d+(?:/\\d+)?,\\s*)?${escapeRegExp(name)}$`) })
     await expect(breadcrumb).toBeVisible({ timeout: 30_000 })
-    await breadcrumb.focus()
-    await expect(breadcrumb).toBeFocused()
+    await breadcrumb.first().focus()
+    await expect(breadcrumb.first()).toBeFocused()
     await page.keyboard.press('Enter')
 }
 
@@ -1284,7 +1302,20 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         const createdStructure = (await createStructureResponse.json()) as { id?: string }
         expect(createdStructure.id, 'created structure id must be returned by runtime create').toMatch(/^[0-9a-f-]{36}$/i)
         await expect(structureDialog).toHaveCount(0)
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName, { timeout: 30_000 })
+        await expect(page.getByTestId('interpretation-network-structure-header')).toContainText(createdStructureName, { timeout: 30_000 })
+        await page.getByTestId('interpretation-network-structure-header').getByRole('button', { name: 'Structures' }).click()
+        const structurePane = page.getByTestId('interpretation-network-structure-pane')
+        await structurePane.getByRole('button', { name: `Structure actions: ${createdStructureName}` }).click()
+        await page.getByRole('menuitem', { name: 'Edit' }).click()
+        const editStructureDialog = page.getByRole('dialog', { name: 'Edit structure' })
+        await expect(editStructureDialog).toBeVisible({ timeout: 30_000 })
+        await expect(editStructureDialog.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(createdStructureName)
+        await expect(editStructureDialog.getByRole('textbox', { name: 'Description', exact: true })).toHaveValue(
+            createdStructureDescription
+        )
+        await editStructureDialog.getByRole('button', { name: 'Cancel' }).click()
+        await structurePane.getByRole('button', { name: createdStructureName, exact: true }).click()
+        await expect(page.getByTestId('interpretation-network-structure-header')).toContainText(createdStructureName, { timeout: 30_000 })
         await expect(page.getByRole('tab', { name: 'Matrix' })).toBeVisible()
         await expect(page.getByRole('tabpanel', { name: 'Matrix' })).toBeVisible()
         await expect(page).toHaveURL(
@@ -1340,7 +1371,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             )
         )
         await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName, { timeout: 30_000 })
+        await expect(page.getByTestId('interpretation-network-structure-header')).toContainText(createdStructureName, { timeout: 30_000 })
         await expect(page.getByRole('tab', { name: 'Matrix' })).toBeVisible()
         await expect(page.getByRole('tabpanel', { name: 'Matrix' })).toBeVisible()
         await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName, rootOnly: true })
@@ -1551,7 +1582,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expectRuntimeUxViewportMatrix(page, 'Interpretation Network created structure runtime', {
             beforeEachViewport: async () => {
                 await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-                await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(createdStructureName)
+                await expect(page.getByTestId('interpretation-network-structure-header')).toContainText(createdStructureName)
                 await expectMatrixTableDefaultRuntime(page, {
                     locale: 'en',
                     structureName: createdStructureName,

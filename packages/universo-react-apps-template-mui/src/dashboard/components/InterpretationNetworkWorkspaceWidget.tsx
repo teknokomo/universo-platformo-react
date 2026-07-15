@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
+import { useTheme } from '@mui/material/styles'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { createLocalizedContent, normalizeLocale } from '@universo-react/utils'
@@ -10,6 +12,7 @@ import {
     deleteAppRow,
     deleteTabularRow,
     fetchAppData,
+    fetchAppRow,
     updateAppRow,
     updateTabularRow
 } from '../../api/api'
@@ -47,6 +50,7 @@ import { findColumn, getSectionId, readColumnValue, toConfig, type MatrixView } 
 
 export default function InterpretationNetworkWorkspaceWidget({ config }: { config?: Record<string, unknown> }) {
     const widgetConfig = useMemo(() => toConfig(config), [config])
+    const theme = useTheme()
     const details = useDashboardDetails()
     const { t, i18n } = useTranslation('interpretationNetwork')
     const queryClient = useQueryClient()
@@ -80,6 +84,18 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null)
     const [openedMaterialId, setOpenedMaterialId] = useState<string | null>(null)
     const [editingStructureId, setEditingStructureId] = useState<string | null>(null)
+    const [editingStructureData, setEditingStructureData] = useState<Record<string, unknown> | undefined>(undefined)
+    const clearEditingStructure = useCallback(() => {
+        setEditingStructureId(null)
+        setEditingStructureData(undefined)
+    }, [])
+    const setEditingStructureIdForDialogs: Dispatch<SetStateAction<string | null>> = useCallback((next) => {
+        setEditingStructureId((current) => {
+            const resolved = typeof next === 'function' ? next(current) : next
+            if (resolved === null) setEditingStructureData(undefined)
+            return resolved
+        })
+    }, [])
     const [structureDeleteId, setStructureDeleteId] = useState<string | null>(null)
     const [structureMenuAnchor, setStructureMenuAnchor] = useState<HTMLElement | null>(null)
     const [structureMenuId, setStructureMenuId] = useState<string | null>(null)
@@ -101,6 +117,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const [materialDialogError, setMaterialDialogError] = useState<string | null>(null)
     const [cellDialogError, setCellDialogError] = useState<string | null>(null)
     const [cellDeleteError, setCellDeleteError] = useState<string | null>(null)
+    const [structureReturnFocusId, setStructureReturnFocusId] = useState<string | null>(null)
     const canCreateContent = details?.permissions?.createContent === true
     const canEditContent = details?.permissions?.editContent === true
     const canDeleteContent = details?.permissions?.deleteContent === true
@@ -115,12 +132,14 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         data: query.data,
         details,
         locale,
+        themeBackground: theme.palette.background.paper,
         widgetConfig,
         selectedInterpretationId,
         selectedConceptId,
         selectedCellId,
         openedMaterialId,
         editingStructureId,
+        editingStructureData,
         editingMaterialId,
         cellDialogSourceCellId,
         cellDialogPlacement,
@@ -257,7 +276,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             }),
         onSuccess: async (created) => {
             setStructureDialogMode(null)
-            setEditingStructureId(null)
+            clearEditingStructure()
             setStructureDialogError(null)
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
             let createdConceptId: string | null = null
@@ -295,7 +314,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         },
         onSuccess: async () => {
             setStructureDialogMode(null)
-            setEditingStructureId(null)
+            clearEditingStructure()
             setStructureDialogError(null)
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
         },
@@ -725,6 +744,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     }
 
     const openStructure = (structure: StructureSummary) => {
+        setStructureReturnFocusId(structure.id)
         setSelectedConceptId(structure.id)
         setSelectedInterpretationId(structure.interpretationId)
         selectMatrixCell(null, { replace: true })
@@ -744,7 +764,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     }
     const openCreateStructureDialog = () => {
         setStructureDialogError(null)
-        setEditingStructureId(null)
+        clearEditingStructure()
         setStructureDialogMode('create')
     }
     const closeCellMenu = () => {
@@ -856,11 +876,27 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                     setStructureMenuId(structureId)
                 },
                 onCloseStructureMenu: closeStructureMenu,
-                onEditStructure: (structureId) => {
+                onEditStructure: async (structureId) => {
                     closeStructureMenu()
                     setStructureDialogError(null)
-                    setEditingStructureId(structureId)
-                    setStructureDialogMode('edit')
+                    const conceptSectionId = getSectionId(query.data?.concepts)
+                    if (!details?.apiBaseUrl || !details.applicationId || !conceptSectionId) {
+                        setStructureDialogError(t('workspace.structure.updateError', 'Failed to update structure'))
+                        return
+                    }
+                    try {
+                        const rawRecord = await fetchAppRow({
+                            apiBaseUrl: details.apiBaseUrl,
+                            applicationId: details.applicationId,
+                            rowId: structureId,
+                            objectCollectionId: conceptSectionId
+                        })
+                        setEditingStructureData(rawRecord)
+                        setEditingStructureId(structureId)
+                        setStructureDialogMode('edit')
+                    } catch {
+                        setStructureDialogError(t('workspace.structure.updateError', 'Failed to update structure'))
+                    }
                 },
                 onDeleteStructure: (structureId) => {
                     closeStructureMenu()
@@ -869,6 +905,9 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                 },
                 onBackToList: backToStructureList
             }}
+            splitPaneEnabled={widgetConfig.splitPane.enabled}
+            structureReturnFocusId={structureReturnFocusId}
+            onBackToStructureList={backToStructureList}
             details={{
                 t,
                 locale,
@@ -941,7 +980,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                 },
                 actions: {
                     setStructureDialogMode,
-                    setEditingStructureId,
+                    setEditingStructureId: setEditingStructureIdForDialogs,
                     setStructureDialogError,
                     setStructureDeleteId,
                     setStructureDeleteError,

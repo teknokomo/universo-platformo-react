@@ -25,6 +25,7 @@ const matrixCell = (input: Partial<MatrixCell> & Pick<MatrixCell, 'id' | 'parent
     materialRef: null,
     style: {
         fill: null,
+        text: null,
         borderTop: null,
         borderRight: null,
         borderBottom: null,
@@ -194,6 +195,7 @@ describe('workspace runtime route helpers', () => {
                         materialRef: null,
                         style: {
                             fill: null,
+                            text: null,
                             borderTop: null,
                             borderRight: null,
                             borderBottom: null,
@@ -217,6 +219,7 @@ describe('workspace runtime route helpers', () => {
                         materialRef: null,
                         style: {
                             fill: null,
+                            text: null,
                             borderTop: null,
                             borderRight: null,
                             borderBottom: null,
@@ -243,6 +246,7 @@ describe('workspace runtime route helpers', () => {
                         materialRef: null,
                         style: {
                             fill: null,
+                            text: null,
                             borderTop: null,
                             borderRight: null,
                             borderBottom: null,
@@ -357,6 +361,7 @@ describe('workspace runtime route helpers', () => {
                         materialRef: null,
                         style: {
                             fill: null,
+                            text: null,
                             borderTop: null,
                             borderRight: null,
                             borderBottom: null,
@@ -383,6 +388,7 @@ describe('workspace runtime route helpers', () => {
                         materialRef: null,
                         style: {
                             fill: null,
+                            text: null,
                             borderTop: null,
                             borderRight: null,
                             borderBottom: null,
@@ -437,6 +443,7 @@ describe('workspace runtime route helpers', () => {
             materialRef: null,
             style: {
                 fill: null,
+                text: null,
                 borderTop: null,
                 borderRight: null,
                 borderBottom: null,
@@ -580,6 +587,7 @@ describe('workspace runtime route helpers', () => {
             materialRef: null,
             style: {
                 fill: null,
+                text: null,
                 borderTop: null,
                 borderRight: null,
                 borderBottom: null,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildVLC, createLocalizedContent } from '@universo-react/utils'
 import {
     buildMatrixTree,
     buildBreadcrumbDisplayItems,
@@ -11,6 +12,7 @@ import {
     parseMatrixHierarchyRowMode,
     parseMatrixMode,
     parseMatrixPositionNumbering,
+    readColumnValue,
     resolveMatrixPath,
     resolveMatrixRootState,
     resolveRouteFocus,
@@ -414,7 +416,7 @@ describe('interpretation network model', () => {
                 {
                     CellValue: 'User title',
                     CellDescription: 'User description',
-                    CellFillColor: 'blue',
+                    CellFillColor: '#1E88E5',
                     RowLabel: 'User row',
                     ColLabel: 'User column',
                     RowKey: undefined
@@ -428,7 +430,7 @@ describe('interpretation network model', () => {
                     ColLabel: 'Generated column',
                     CellValue: 'Default title',
                     CellDescription: '',
-                    CellFillColor: 'none'
+                    CellFillColor: null
                 }
             )
         ).toEqual({
@@ -440,7 +442,7 @@ describe('interpretation network model', () => {
             ColLabel: 'User column',
             CellValue: 'User title',
             CellDescription: 'User description',
-            CellFillColor: 'blue'
+            CellFillColor: '#1E88E5'
         })
     })
 
@@ -670,6 +672,18 @@ describe('interpretation network model', () => {
         expect(initialData.phys_row_label).toBe(rowLabelValue)
         expect(initialData.phys_col_label).toBe(colLabelValue)
         expect(initialData.phys_cell_value).toBe(titleValue)
+    })
+
+    it('reads a versioned value from its component id before its codename when the physical field is absent', () => {
+        const titleValue = buildVLC('English structure', 'Русская структура')
+
+        expect(
+            readColumnValue(
+                { data: { 'structure-name-component': titleValue, Name: createLocalizedContent('en', 'Wrong fallback') } },
+                [{ id: 'structure-name-component', codename: 'Name', field: 'physical_name' }],
+                'Name'
+            )
+        ).toBe(titleValue)
     })
 
     it('preserves backend matrix cell order instead of sorting by labels', () => {
@@ -921,7 +935,8 @@ describe('interpretation network model', () => {
             tableProjection: 'hierarchicalPath',
             breadcrumbDepth: { mode: 'full' },
             toolbarLayout: 'horizontal',
-            showHierarchicalTableHeaderCard: true
+            showHierarchicalTableHeaderCard: true,
+            splitPane: { enabled: true }
         })
         expect(
             toConfig({
@@ -934,6 +949,7 @@ describe('interpretation network model', () => {
                 showHierarchicalTableHeaders: true,
                 showHierarchicalTableHeaderCard: false,
                 colorBreadcrumbsByCell: false,
+                splitPane: { enabled: true },
                 allowNewAxesInCellDialog: true
             })
         ).toMatchObject({
@@ -946,6 +962,7 @@ describe('interpretation network model', () => {
             showHierarchicalTableHeaders: true,
             showHierarchicalTableHeaderCard: false,
             colorBreadcrumbsByCell: false,
+            splitPane: { enabled: true },
             allowNewAxesInCellDialog: true
         })
         expect(
@@ -964,20 +981,132 @@ describe('interpretation network model', () => {
             colorBreadcrumbsByCell: true,
             allowNewAxesInCellDialog: false
         })
-        expect(
-            toConfig({
-                matrixMode: 'hierarchicalCells',
-                hierarchyLayout: 'verticalTree'
-            })
-        ).toMatchObject({
+        expect(toConfig({ matrixMode: 'hierarchicalCells', hierarchyLayout: 'verticalTree' })).toMatchObject({
             matrixMode: 'hierarchicalCells',
-            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'verticalTree',
-            tableProjection: 'hierarchicalPath',
-            showHierarchicalTableHeaders: false,
-            showHierarchicalTableHeaderCard: true,
-            colorBreadcrumbsByCell: true
+            allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+            defaultMatrixView: 'table',
+            splitPane: { enabled: true }
         })
+    })
+
+    it('reads canonical scalar colours, retains text colour, and falls back safely for malformed display data', () => {
+        const cells = toMatrixRows(
+            [
+                {
+                    id: 'cell-row',
+                    CellId: 'cell',
+                    RowKey: 'row',
+                    RowLabel: 'Row',
+                    ColKey: 'column',
+                    ColLabel: 'Column',
+                    CellValue: 'Title',
+                    CellFillColor: '#1e88e5',
+                    TextColor: '#1E88E5',
+                    BorderTopColor: '#abc',
+                    BorderTopWidth: '2px',
+                    BorderTopStyle: 'dashed'
+                },
+                {
+                    id: 'malformed-row',
+                    CellId: 'malformed',
+                    RowKey: 'row-2',
+                    RowLabel: 'Row 2',
+                    ColKey: 'column-2',
+                    ColLabel: 'Column 2',
+                    CellValue: 'Malformed',
+                    CellFillColor: 'url(javascript:alert(1))',
+                    TextColor: 'red'
+                },
+                {
+                    id: 'text-only-low-contrast-row',
+                    CellId: 'text-only-low-contrast',
+                    RowKey: 'row-3',
+                    RowLabel: 'Row 3',
+                    ColKey: 'column-3',
+                    ColLabel: 'Column 3',
+                    CellValue: 'Text only',
+                    CellFillColor: null,
+                    TextColor: '#FFFFFF'
+                }
+            ],
+            {
+                ...matrixColumn,
+                childColumns: [
+                    ...(matrixColumn.childColumns ?? []),
+                    { id: 'text', codename: 'TextColor', field: 'TextColor' },
+                    { id: 'top-color', codename: 'BorderTopColor', field: 'BorderTopColor' },
+                    { id: 'top-width', codename: 'BorderTopWidth', field: 'BorderTopWidth' },
+                    { id: 'top-style', codename: 'BorderTopStyle', field: 'BorderTopStyle' }
+                ]
+            },
+            'en'
+        )
+
+        expect(cells[0]?.style).toMatchObject({
+            fill: '#1E88E5',
+            text: '#1E88E5',
+            borderTop: '2px dashed #AABBCC'
+        })
+        expect(cells[1]?.style).toMatchObject({ fill: null, text: null })
+        expect(cells[2]?.style).toMatchObject({ fill: null, text: '#FFFFFF' })
+
+        const darkThemeCells = toMatrixRows(
+            [
+                {
+                    id: 'text-only-low-contrast-row',
+                    CellId: 'text-only-low-contrast',
+                    RowKey: 'row-3',
+                    RowLabel: 'Row 3',
+                    ColKey: 'column-3',
+                    ColLabel: 'Column 3',
+                    CellValue: 'Text only',
+                    CellFillColor: null,
+                    TextColor: '#000000'
+                }
+            ],
+            {
+                ...matrixColumn,
+                childColumns: [...(matrixColumn.childColumns ?? []), { id: 'text', codename: 'TextColor', field: 'TextColor' }]
+            },
+            'en',
+            '#121212'
+        )
+
+        expect(darkThemeCells[0]?.style).toMatchObject({ fill: null, text: '#000000' })
+
+        const authoredColourCells = toMatrixRows(
+            [
+                {
+                    id: 'orange-white',
+                    CellId: 'orange-white',
+                    RowKey: 'row-4',
+                    RowLabel: 'Row 4',
+                    ColKey: 'column-4',
+                    ColLabel: 'Column 4',
+                    CellValue: 'Orange with white text',
+                    CellFillColor: '#FB8C00',
+                    TextColor: '#FFFFFF'
+                },
+                {
+                    id: 'blue-red',
+                    CellId: 'blue-red',
+                    RowKey: 'row-5',
+                    RowLabel: 'Row 5',
+                    ColKey: 'column-5',
+                    ColLabel: 'Column 5',
+                    CellValue: 'Blue with red text',
+                    CellFillColor: '#0D47A1',
+                    TextColor: '#E53935'
+                }
+            ],
+            {
+                ...matrixColumn,
+                childColumns: [...(matrixColumn.childColumns ?? []), { id: 'text', codename: 'TextColor', field: 'TextColor' }]
+            },
+            'en'
+        )
+
+        expect(authoredColourCells.map((cell) => cell.style.text)).toEqual(['#FFFFFF', '#E53935'])
     })
 
     it('builds hierarchical table levels with header cell, row cells, and ancestor breadcrumbs', () => {

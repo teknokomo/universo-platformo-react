@@ -617,6 +617,48 @@ describe('Publications Routes', () => {
                 .expect(400)
         })
 
+        it('rejects legacy Interpretation Network matrix metadata before creating a publication version', async () => {
+            mockFindPublicationById.mockResolvedValue({
+                id: 'publication-1',
+                metahubId: 'metahub-1',
+                name: { en: 'Publication' },
+                description: null,
+                schemaName: 'mhb_test'
+            })
+
+            const envelope = buildSnapshotEnvelope({
+                snapshot: {
+                    version: '1.0.0',
+                    metahubId: '00000000-0000-0000-0000-000000000001',
+                    entities: {
+                        interpretation: {
+                            codename: 'Interpretation',
+                            fields: [{ codename: 'InterpretationMatrix', dataType: 'TABLE', childFields: [] }]
+                        },
+                        tableTemplate: {
+                            codename: 'TableTemplate',
+                            fields: [{ codename: 'TemplateMatrix', dataType: 'TABLE', childFields: [] }]
+                        }
+                    },
+                    layoutZoneWidgets: [{ widgetKey: 'interpretationNetworkWorkspace' }]
+                },
+                metahub: {
+                    id: '00000000-0000-0000-0000-000000000001',
+                    name: { en: 'Imported metahub' },
+                    codename: { en: 'imported-metahub' }
+                }
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/publication/publication-1/versions/import')
+                .send(envelope)
+                .expect(400)
+
+            expect(response.body).toEqual({ error: 'Invalid snapshot envelope', code: 'INVALID_SNAPSHOT_METADATA' })
+            expect(mockCreatePublicationVersion).not.toHaveBeenCalled()
+        })
+
         it('imports a new version, updates publication pointers, and requests manageMetahub permission', async () => {
             mockFindPublicationById.mockResolvedValue({
                 id: 'publication-1',

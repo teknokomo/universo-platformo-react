@@ -3,6 +3,7 @@ import { basicDemoTemplate } from '../../domains/templates/data/basic-demo.templ
 import { emptyTemplate } from '../../domains/templates/data/empty.template'
 import { objectEntityPreset } from '../../domains/templates/data/object.entity-preset'
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
+import { interpretationNetworkTemplate } from '../../domains/templates/data/interpretation-network.template'
 import { oneCCompatibleTemplate } from '../../domains/templates/data/one-c-compatible.template'
 import {
     oneCCompatibleAllPresets,
@@ -44,6 +45,22 @@ describe('TemplateManifestValidator', () => {
 
     it('accepts the built-in lms template', () => {
         expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
+    })
+
+    it('accepts canonical hexColor metadata and rejects unknown semantic formats', () => {
+        expect(() => validateTemplateManifest(cloneTemplate(interpretationNetworkTemplate))).not.toThrow()
+
+        const invalidFormat = cloneTemplate(interpretationNetworkTemplate)
+        const matrix = invalidFormat.seed.entities
+            ?.find((entity) => entity.codename === 'Interpretation')
+            ?.components?.find((component) => component.codename === 'InterpretationMatrix')
+        const fillColor = matrix?.childComponents?.find((component) => component.codename === 'CellFillColor')
+        expect(fillColor).toBeDefined()
+        if (fillColor) {
+            fillColor.validationRules = { ...fillColor.validationRules, format: 'cssExpression' }
+        }
+
+        expect(() => validateTemplateManifest(invalidFormat)).toThrow()
     })
 
     it('accepts the built-in 1C-Compatible template without changing the default starter template presets', () => {

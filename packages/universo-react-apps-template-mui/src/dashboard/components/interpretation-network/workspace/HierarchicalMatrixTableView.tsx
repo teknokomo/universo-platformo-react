@@ -21,6 +21,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TFunction } from 'i18next'
 import { useState } from 'react'
+import { resolveInterpretationNetworkMaximumContrastForeground } from '@universo-react/types'
 import { MatrixCellContent } from '../MatrixCellButton'
 import { buildBreadcrumbDisplayItems, type HierarchicalMatrixTableModel, type MatrixCell } from '../model'
 import type { MatrixDropPlacement } from '../matrixDrag'
@@ -64,7 +65,7 @@ const renderDropIndicatorSx = (dropPlacement: MatrixDropPlacement | null, invali
           }
         : {}
 
-const getBreadcrumbSx = (cell: MatrixCell, colorBreadcrumbsByCell: boolean, current: boolean) =>
+export const getBreadcrumbSx = (cell: MatrixCell, colorBreadcrumbsByCell: boolean, current: boolean) =>
     colorBreadcrumbsByCell
         ? {
               minWidth: 0,
@@ -75,7 +76,7 @@ const getBreadcrumbSx = (cell: MatrixCell, colorBreadcrumbsByCell: boolean, curr
               border: '1px solid',
               borderColor: current ? 'primary.main' : 'divider',
               backgroundColor: cell.style.fill ?? 'action.hover',
-              color: 'text.primary',
+              color: cell.style.text ?? 'text.primary',
               textTransform: 'none',
               fontWeight: current ? 600 : 500,
               overflow: 'hidden',
@@ -84,10 +85,14 @@ const getBreadcrumbSx = (cell: MatrixCell, colorBreadcrumbsByCell: boolean, curr
               boxShadow: current ? 1 : 0,
               transition: 'box-shadow 120ms ease, filter 120ms ease, outline-color 120ms ease',
               '&:hover': {
+                  backgroundColor: cell.style.fill ?? 'action.hover',
+                  color: cell.style.text ?? 'text.primary',
                   boxShadow: 2,
                   filter: 'brightness(1.04)'
               },
               '&:focus-visible': {
+                  backgroundColor: cell.style.fill ?? 'action.hover',
+                  color: cell.style.text ?? 'text.primary',
                   outline: '2px solid',
                   outlineColor: 'primary.main',
                   outlineOffset: 2,
@@ -98,6 +103,7 @@ const getBreadcrumbSx = (cell: MatrixCell, colorBreadcrumbsByCell: boolean, curr
               minWidth: 0,
               maxWidth: 240,
               px: 0.5,
+              color: current ? 'text.primary' : 'primary.main',
               textTransform: 'none',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -108,6 +114,9 @@ const getBreadcrumbSx = (cell: MatrixCell, colorBreadcrumbsByCell: boolean, curr
                   outlineOffset: 2
               }
           }
+
+const resolveSelectionOutlineColor = (fill: string | null): string =>
+    fill ? resolveInterpretationNetworkMaximumContrastForeground(fill) : 'primary.main'
 
 type HierarchicalMatrixTableCellProps = {
     t: TFunction<'interpretationNetwork'>
@@ -154,6 +163,7 @@ function HierarchicalMatrixTableCell({
     })
     const title = getCellTitle(t, cell)
     const contentTransform = island ? undefined : CSS.Transform.toString(transform)
+    const selectedOutlineColor = resolveSelectionOutlineColor(cell.style.fill)
 
     const cellContent = (
         <Stack
@@ -165,6 +175,7 @@ function HierarchicalMatrixTableCell({
                 minWidth: 0,
                 position: 'relative',
                 bgcolor: cell.style.fill ?? 'background.paper',
+                color: cell.style.text ?? 'text.primary',
                 borderTop: invalidDropTarget ? '1px dashed' : cell.style.borderTop,
                 borderRight: invalidDropTarget ? '1px dashed' : cell.style.borderRight,
                 borderBottom: invalidDropTarget ? '1px dashed' : cell.style.borderBottom,
@@ -183,12 +194,13 @@ function HierarchicalMatrixTableCell({
                               content: '""',
                               position: 'absolute',
                               zIndex: 4,
-                              inset: 3,
+                              inset: 0,
                               border: 2,
                               borderStyle: 'solid',
-                              borderColor: 'primary.main',
+                              borderColor: selectedOutlineColor,
                               borderRadius: 0.75,
-                              pointerEvents: 'none'
+                              pointerEvents: 'none',
+                              boxShadow: `inset 0 0 0 1px ${cell.style.text ?? 'rgba(255,255,255,0.72)'}`
                           }
                       }
                     : {})
@@ -242,7 +254,7 @@ function HierarchicalMatrixTableCell({
                     justifyContent: 'flex-start',
                     alignItems: 'stretch',
                     textAlign: 'left',
-                    color: 'text.primary',
+                    color: cell.style.text ?? 'text.primary',
                     px: 1,
                     py: 0.75,
                     pr: 4.5,
@@ -254,11 +266,11 @@ function HierarchicalMatrixTableCell({
                 }}
             >
                 <Stack spacing={0.25} sx={{ minWidth: 0, width: '100%', justifyContent: 'center' }}>
-                    <MatrixCellContent positionLabel={positionLabel} compact>
+                    <MatrixCellContent positionLabel={positionLabel} textColor={cell.style.text} compact>
                         {title}
                     </MatrixCellContent>
                     {materialCount > 0 ? (
-                        <Typography variant='caption' color='text.secondary' sx={{ lineHeight: 1.3 }}>
+                        <Typography variant='caption' sx={{ lineHeight: 1.3, color: cell.style.text ?? 'text.secondary' }}>
                             {t('workspace.table.materialCount', {
                                 defaultValue: '{{count}} materials',
                                 count: materialCount
@@ -411,32 +423,44 @@ export function HierarchicalMatrixTableView({
                     {visibleBreadcrumbs.map((cell) => {
                         const title = getCellTitle(t, cell)
                         const current = cell.id === model.focusedCell?.id
-                        return current ? (
+                        const content = (
                             <Typography
-                                key={cell.id}
-                                color='text.primary'
-                                aria-current='page'
-                                data-testid='interpretation-network-breadcrumb-item'
-                                data-cell-id={cell.id}
-                                data-cell-colored={colorBreadcrumbsByCell ? 'true' : undefined}
-                                sx={getBreadcrumbSx(cell, colorBreadcrumbsByCell, true)}
+                                component='span'
+                                noWrap
+                                sx={{ display: 'block', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
                             >
                                 {title}
                             </Typography>
+                        )
+                        return current ? (
+                            <Tooltip key={cell.id} title={title}>
+                                <Typography
+                                    color='text.primary'
+                                    aria-current='page'
+                                    aria-label={title}
+                                    data-testid='interpretation-network-breadcrumb-item'
+                                    data-cell-id={cell.id}
+                                    data-cell-colored={colorBreadcrumbsByCell ? 'true' : undefined}
+                                    sx={getBreadcrumbSx(cell, colorBreadcrumbsByCell, true)}
+                                >
+                                    {content}
+                                </Typography>
+                            </Tooltip>
                         ) : (
-                            <Button
-                                key={cell.id}
-                                type='button'
-                                variant='text'
-                                size='small'
-                                onClick={() => onSelectCell(cell.id)}
-                                data-testid='interpretation-network-breadcrumb-item'
-                                data-cell-id={cell.id}
-                                data-cell-colored={colorBreadcrumbsByCell ? 'true' : undefined}
-                                sx={getBreadcrumbSx(cell, colorBreadcrumbsByCell, false)}
-                            >
-                                {title}
-                            </Button>
+                            <Tooltip key={cell.id} title={title}>
+                                <Button
+                                    type='button'
+                                    variant='text'
+                                    size='small'
+                                    onClick={() => onSelectCell(cell.id)}
+                                    data-testid='interpretation-network-breadcrumb-item'
+                                    data-cell-id={cell.id}
+                                    data-cell-colored={colorBreadcrumbsByCell ? 'true' : undefined}
+                                    sx={getBreadcrumbSx(cell, colorBreadcrumbsByCell, false)}
+                                >
+                                    {content}
+                                </Button>
+                            </Tooltip>
                         )
                     })}
                 </Breadcrumbs>

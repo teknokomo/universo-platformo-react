@@ -211,6 +211,8 @@
                 "positionNumberingDescription": "Show derived position paths such as 1/2/2 on matrix cells without storing them on records.",
                 "newAxesInCellDialog": "Create rows and columns from cell dialog",
                 "newAxesInCellDialogDescription": "When disabled, users add rows and columns with the table plus buttons, and the Add cell dialog uses existing axes.",
+                "resizablePanes": "Resizable workspace panes",
+                "resizablePanesDescription": "Allow users to temporarily adjust the Structure and Materials pane widths. Their adjustment is not saved.",
                 "enabled": "Enabled",
                 "includeRootNumber": "Include root number",
                 "includeRootNumberDescription": "When disabled, numbering starts from the first child level instead of the root cell.",

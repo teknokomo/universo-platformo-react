@@ -2,7 +2,7 @@
 //
 // Re-uses the base presets and materialises the Stage-1
 // interpretation-network model through template definitions: Structure,
-// Interpretation, Relation, Material, Context, RelationType, CellColor,
+// Interpretation, Relation, Material, Context, RelationType,
 // plus a localized intro page. User-authored structures, matrix rows,
 // materials, relations, and templates are intentionally created in the
 // published application workspace, not prefilled by the product fixture.
@@ -53,7 +53,7 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
         sortOrder: 2,
         isActive: true,
         config: enrichConfigWithVlcTimestamps({
-            showTitle: true,
+            showTitle: false,
             title: {
                 _schema: '1',
                 _primary: 'en',
@@ -125,6 +125,7 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
             showHierarchicalTableHeaderCard: true,
             showMatrixTreeTotalCells: true,
             colorBreadcrumbsByCell: true,
+            splitPane: { enabled: true },
             hierarchyRowMode: 'focusedPath',
             allowNewAxesInCellDialog: false,
             positionNumbering: {
@@ -178,8 +179,7 @@ export const interpretationNetworkTemplate: MetahubTemplateManifest = {
         entities: INTERPRETATION_NETWORK_STAGE2.seedEntities,
         optionValues: {
             Context: INTERPRETATION_NETWORK_STAGE2.contextValues,
-            RelationType: INTERPRETATION_NETWORK_STAGE2.relationTypeValues,
-            CellColor: INTERPRETATION_NETWORK_STAGE2.cellColorValues
+            RelationType: INTERPRETATION_NETWORK_STAGE2.relationTypeValues
         },
         settings: [
             { key: 'general.language', value: { _value: 'system' } },

@@ -141,8 +141,8 @@ describe('tabularCellValues', () => {
         const sx = buildCellStylePreviewSx(
             {
                 id: 'row-1',
-                'field-fill-color-id': 'color-yellow-id',
-                'field-border-top-color-id': 'color-gray-id',
+                'field-fill-color-id': '#FDD835',
+                'field-border-top-color-id': '#9E9E9E',
                 'field-border-top-width-id': '2px',
                 'field-border-top-style-id': 'solid'
             },
@@ -159,8 +159,7 @@ describe('tabularCellValues', () => {
                         id: 'field-fill-color-id',
                         codename: 'CellFillColor',
                         label: 'Fill Color',
-                        type: 'REF' as const,
-                        refOptions: [{ id: 'color-yellow-id', label: 'Yellow', codename: 'yellow' }]
+                        type: 'STRING' as const
                     }
                 ],
                 [
@@ -169,8 +168,7 @@ describe('tabularCellValues', () => {
                         id: 'field-border-top-color-id',
                         codename: 'BorderTopColor',
                         label: 'Top Border Color',
-                        type: 'REF' as const,
-                        refOptions: [{ id: 'color-gray-id', label: 'Gray', codename: 'gray' }]
+                        type: 'STRING' as const
                     }
                 ],
                 [
@@ -184,7 +182,42 @@ describe('tabularCellValues', () => {
             ])
         )
 
-        expect(sx).toEqual(expect.objectContaining({ bgcolor: '#fdd835', borderTop: '2px solid #9e9e9e' }))
+        expect(sx).toEqual(expect.objectContaining({ bgcolor: '#FDD835', borderTop: '2px solid #9E9E9E' }))
+    })
+
+    it('uses a safe text colour when a tabular style preview receives a low-contrast pair', () => {
+        const sx = buildCellStylePreviewSx(
+            {
+                id: 'row-1',
+                CellFillColor: '#777777',
+                TextColor: '#777777'
+            },
+            {
+                fillColorField: 'CellFillColor',
+                textColorField: 'TextColor'
+            },
+            new Map([
+                ['CellFillColor', { id: 'CellFillColor', codename: 'CellFillColor', label: 'Fill Color', type: 'STRING' as const }],
+                ['TextColor', { id: 'TextColor', codename: 'TextColor', label: 'Text Color', type: 'STRING' as const }]
+            ])
+        )
+
+        expect(sx).toEqual(expect.objectContaining({ bgcolor: '#777777', color: '#000000' }))
+    })
+
+    it('uses a safe text colour when a tabular style preview has no fill colour', () => {
+        const sx = buildCellStylePreviewSx(
+            {
+                id: 'row-1',
+                TextColor: '#FFFFFF'
+            },
+            {
+                textColorField: 'TextColor'
+            },
+            new Map([['TextColor', { id: 'TextColor', codename: 'TextColor', label: 'Text Color', type: 'STRING' as const }]])
+        )
+
+        expect(sx).toEqual(expect.objectContaining({ bgcolor: 'transparent', color: '#000000' }))
     })
 
     it('omits metadata-hidden TABLE child fields from tabular columns', () => {
@@ -231,26 +264,17 @@ describe('tabularCellValues', () => {
         expect(row.IsFeatured).toBe(false)
     })
 
-    it('renders bounded selects for metadata-driven cell border width and style values', () => {
-        const onSelectChange = vi.fn()
+    it('renders metadata-driven cell border values as ordinary user-facing text', () => {
         const columns = buildTabularColumns({
             childFields: [
                 {
                     id: 'BorderTopWidth',
                     label: 'Top Border Width',
-                    type: 'STRING' as const,
-                    uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'width' }
-                },
-                {
-                    id: 'BorderTopStyle',
-                    label: 'Top Border Style',
-                    type: 'STRING' as const,
-                    uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'lineStyle' }
+                    type: 'STRING' as const
                 }
             ],
             rowNumberById: new Map([['row-1', 1]]),
             onDeleteRow: vi.fn(),
-            onSelectChange,
             locale: 'en'
         })
 
@@ -265,11 +289,7 @@ describe('tabularCellValues', () => {
             </>
         )
 
-        const widthSelect = screen.getByRole('combobox')
-        fireEvent.mouseDown(widthSelect)
-        fireEvent.click(screen.getByRole('option', { name: '2px' }))
-
-        expect(onSelectChange).toHaveBeenCalledWith('row-1', 'BorderTopWidth', '2px')
+        expect(screen.getByText('1px')).toBeInTheDocument()
     })
 
     it('renders safe display labels for object-backed child STRING values', () => {
@@ -671,18 +691,14 @@ describe('tabularCellValues', () => {
         expect(screen.queryByText(/\[object Object]/)).not.toBeInTheDocument()
     })
 
-    it('renders cell line style options as localized labels in tabular editors', () => {
+    it('renders safe display labels for ordinary metadata-backed child STRING values', () => {
         const columns = buildTabularColumns({
             childFields: [
                 {
                     id: 'BorderTopStyle',
                     label: 'Top Border Style',
                     type: 'STRING' as const,
-                    validationRules: {},
-                    uiConfig: {
-                        widget: 'cellStylePicker',
-                        cellStyleValue: 'lineStyle'
-                    }
+                    validationRules: {}
                 }
             ],
             rowNumberById: new Map([['row-1', 1]]),
@@ -692,7 +708,7 @@ describe('tabularCellValues', () => {
 
         const styleColumn = columns.find((column) => column.field === 'BorderTopStyle')
         expect(styleColumn?.renderCell).toBeDefined()
-        expect(styleColumn?.valueFormatter?.('dashed' as never)).toBe('Штриховая')
+        expect(styleColumn?.valueFormatter?.('dashed' as never)).toBe('dashed')
 
         render(
             <>
@@ -704,7 +720,6 @@ describe('tabularCellValues', () => {
             </>
         )
 
-        expect(screen.getByText('Штриховая')).toBeInTheDocument()
-        expect(screen.queryByText('dashed')).not.toBeInTheDocument()
+        expect(screen.getByText('dashed')).toBeInTheDocument()
     })
 })

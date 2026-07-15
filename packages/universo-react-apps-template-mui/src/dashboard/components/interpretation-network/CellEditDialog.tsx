@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
-import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -17,14 +16,20 @@ import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { useTheme } from '@mui/material/styles'
 import type { TFunction } from 'i18next'
-import type { VersionedLocalizedContent } from '@universo-react/types'
+import {
+    calculateInterpretationNetworkContrastRatio,
+    parseInterpretationNetworkHexColor,
+    type MatrixColor,
+    type VersionedLocalizedContent
+} from '@universo-react/types'
 import { createLocalizedContent, normalizeLocale } from '@universo-react/utils'
 import { LocalizedInlineField } from '../../../components/forms/LocalizedInlineField'
-import { CellStyleDialogField } from '../../../components/dialogs/CellStyleDialogField'
 import type { FieldConfig } from '../../../components/dialogs/FormDialog'
 import type { MatrixAxisOption } from './model'
 import { MATRIX_CELL_PLACEMENT_FIELD, type MatrixCellPlacement } from './matrixCellData'
+import { InterpretationNetworkCellStyleEditor } from './InterpretationNetworkCellStyleEditor'
 
 type CellEditDialogMode = 'create' | 'edit'
 type AxisKind = 'existing' | 'new'
@@ -81,6 +86,43 @@ const readLocalizedText = (value: unknown, locale: string): string => {
 const findOption = (options: MatrixAxisOption[] | undefined, key: string | undefined): MatrixAxisOption | null =>
     (key ? options?.find((option) => option.key === key) : undefined) ?? null
 
+const DEFAULT_CELL_FILL = '#FFFFFF'
+const DEFAULT_CELL_TEXT = '#000000'
+
+const toThemeMatrixColor = (value: unknown, fallback: '#FFFFFF' | '#000000'): MatrixColor => {
+    const parsed = parseInterpretationNetworkHexColor(value)
+    if (parsed) return parsed
+    if (typeof value === 'string') {
+        const rgb = value.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(0|1|0?\.\d+))?\s*\)$/i)
+        if (rgb) {
+            const channels = rgb.slice(1, 4).map(Number)
+            if (channels.every((channel) => channel >= 0 && channel <= 255)) {
+                const parsedRgb = parseInterpretationNetworkHexColor(
+                    `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+                )
+                if (parsedRgb) return parsedRgb
+            }
+        }
+    }
+    return parseInterpretationNetworkHexColor(fallback)!
+}
+
+export const resolveCellStyleContrast = ({
+    fill,
+    text,
+    themePaper,
+    themeText
+}: {
+    fill: unknown
+    text: unknown
+    themePaper: unknown
+    themeText: unknown
+}): number => {
+    const effectiveFill = parseInterpretationNetworkHexColor(fill) ?? toThemeMatrixColor(themePaper, DEFAULT_CELL_FILL)
+    const effectiveText = parseInterpretationNetworkHexColor(text) ?? toThemeMatrixColor(themeText, DEFAULT_CELL_TEXT)
+    return calculateInterpretationNetworkContrastRatio(effectiveText, effectiveFill)
+}
+
 const placementLabelValue = (
     value: unknown,
     fallback: MatrixAxisOption | null | undefined,
@@ -110,6 +152,7 @@ export function CellEditDialog({
     onClose,
     onSubmit
 }: CellEditDialogProps) {
+    const theme = useTheme()
     const normalizedLocale = normalizeLocale(locale)
     const rowLabelField = useMemo(() => findField(fields, 'RowLabel'), [fields])
     const columnLabelField = useMemo(() => findField(fields, 'ColLabel'), [fields])
@@ -122,6 +165,7 @@ export function CellEditDialog({
     const [columnKind, setColumnKind] = useState<AxisKind>('new')
     const [selectedRow, setSelectedRow] = useState<MatrixAxisOption | null>(null)
     const [selectedColumn, setSelectedColumn] = useState<MatrixAxisOption | null>(null)
+    const [styleEditorResetKey, setStyleEditorResetKey] = useState(0)
     const rowIsSystemManaged = mode === 'create' && !allowNewAxes && (hidePlacementFields || initialPlacement?.row?.kind === 'new')
     const columnIsSystemManaged = mode === 'create' && !allowNewAxes && (hidePlacementFields || initialPlacement?.column?.kind === 'new')
     const placementIsSystemManaged = rowIsSystemManaged && columnIsSystemManaged
@@ -154,6 +198,7 @@ export function CellEditDialog({
         setSelectedColumn(initialColumn)
         setValidationErrors({})
         setTab('basic')
+        setStyleEditorResetKey((value) => value + 1)
     }, [
         axisOptions?.columns,
         axisOptions?.rows,
@@ -217,6 +262,26 @@ export function CellEditDialog({
             setTab('basic')
             return
         }
+        const normalizedStyleFields = styleFields.filter((field) => field.validationRules?.format === 'hexColor')
+        const nextDraft = { ...draft }
+        const colorFieldErrors = normalizedStyleFields.flatMap((field) => {
+            const value = nextDraft[field.id]
+            if (value === null || value === undefined || value === '') {
+                nextDraft[field.id] = null
+                return []
+            }
+            const normalized = parseInterpretationNetworkHexColor(value)
+            if (normalized) {
+                nextDraft[field.id] = normalized
+                return []
+            }
+            return [[field.id, t('cellStyle.invalidColor', 'Enter a hexadecimal color such as #1E88E5.')]]
+        })
+        if (colorFieldErrors.length > 0) {
+            setValidationErrors((current) => ({ ...current, ...Object.fromEntries(colorFieldErrors) }))
+            setTab('style')
+            return
+        }
         const placement: MatrixCellPlacement | undefined =
             mode === 'create'
                 ? {
@@ -239,7 +304,7 @@ export function CellEditDialog({
                       parentCellId: initialPlacement?.parentCellId ?? null
                   }
                 : undefined
-        await onSubmit(placement ? { ...draft, [MATRIX_CELL_PLACEMENT_FIELD]: placement } : draft)
+        await onSubmit(placement ? { ...nextDraft, [MATRIX_CELL_PLACEMENT_FIELD]: placement } : nextDraft)
     }
 
     const handleAxisKindChange = (axis: 'row' | 'column', nextKind: AxisKind) => {
@@ -460,16 +525,16 @@ export function CellEditDialog({
                     {tab === 'style' ? (
                         <Stack spacing={2}>
                             {styleFields.length > 0 ? (
-                                styleFields.map((field) => (
-                                    <Box key={field.id}>
-                                        <CellStyleDialogField
-                                            field={field}
-                                            value={draft[field.id]}
-                                            onChange={(value) => handleFieldChange(field, value)}
-                                            disabled={isSubmitting}
-                                        />
-                                    </Box>
-                                ))
+                                <InterpretationNetworkCellStyleEditor
+                                    t={t}
+                                    fields={styleFields}
+                                    draft={draft}
+                                    disabled={isSubmitting}
+                                    resetKey={styleEditorResetKey}
+                                    validationErrors={validationErrors}
+                                    themePaper={theme.palette.background.paper}
+                                    onChange={handleFieldChange}
+                                />
                             ) : (
                                 <Alert severity='info'>
                                     {t('workspace.cellStyle.unavailable', 'Cell style fields are not available.')}

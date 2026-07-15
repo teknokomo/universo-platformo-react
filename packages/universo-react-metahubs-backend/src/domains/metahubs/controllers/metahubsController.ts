@@ -7,6 +7,7 @@ import type { PackageAttachmentConfig, PackageSourceDescriptor, PlayCanvasProjec
 import {
     activeAppRowCondition,
     buildSnapshotEnvelope,
+    computeSnapshotHash,
     getCodenamePrimary,
     parseWorkspaceModePolicy,
     validateSnapshotEnvelope,
@@ -85,6 +86,7 @@ import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
 import { SnapshotSerializer } from '../../publications/services/SnapshotSerializer'
+import { validateInterpretationNetworkSnapshotMetadata } from '../../publications/services/interpretationNetworkSnapshotValidation'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import {
@@ -104,7 +106,7 @@ import type { MetahubSnapshotTransportEnvelope } from '@universo-react/types'
 import { SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo-react/types'
 import { structureVersionToSemver } from '../services/structureVersions'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
-import { MetahubNotFoundError, MetahubDomainError } from '../../shared/domainErrors'
+import { MetahubNotFoundError, MetahubDomainError, MetahubValidationError } from '../../shared/domainErrors'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 import { createLogger } from '../../../utils/logger'
 
@@ -2056,8 +2058,26 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid snapshot envelope', details: message })
         }
 
+        let importedSnapshot = envelope.snapshot
+        try {
+            const validation = validateInterpretationNetworkSnapshotMetadata(envelope.snapshot)
+            importedSnapshot = validation.normalizedSnapshot
+            if (validation.hasNormalizedChanges) {
+                envelope = {
+                    ...envelope,
+                    snapshot: importedSnapshot,
+                    snapshotHash: computeSnapshotHash(importedSnapshot as Record<string, unknown>)
+                }
+            }
+        } catch (error) {
+            if (error instanceof MetahubValidationError) {
+                return res.status(400).json({ error: 'Invalid snapshot envelope', code: 'INVALID_SNAPSHOT_METADATA' })
+            }
+            throw error
+        }
+
         let importedRuntimePolicy: MetahubRuntimePolicySnapshot | undefined
-        const rawRuntimePolicy = (envelope.snapshot as { runtimePolicy?: unknown }).runtimePolicy
+        const rawRuntimePolicy = (importedSnapshot as { runtimePolicy?: unknown }).runtimePolicy
         if (rawRuntimePolicy !== undefined && rawRuntimePolicy !== null) {
             if (typeof rawRuntimePolicy !== 'object' || Array.isArray(rawRuntimePolicy)) {
                 return res.status(400).json({
@@ -2086,7 +2106,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const rootExec = getPoolExecutor()
 
         const snapshotPackages = (
-            envelope.snapshot as {
+            importedSnapshot as {
                 packages?: Array<{ packageName?: unknown; version?: unknown; source?: unknown; config?: unknown }>
             }
         ).packages
@@ -2208,12 +2228,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const restoreService = createPoolSnapshotRestoreService(branch.schemaName)
             await restoreService.restoreFromSnapshot(
                 metahub.id,
-                envelope.snapshot as unknown as import('../../publications/services/SnapshotSerializer').MetahubSnapshot,
+                importedSnapshot as unknown as import('../../publications/services/SnapshotSerializer').MetahubSnapshot,
                 userId
             )
 
             const importedVersionEnvelope = (
-                envelope.snapshot as {
+                importedSnapshot as {
                     versionEnvelope?: { structureVersion?: string; templateVersion?: string }
                 }
             )?.versionEnvelope

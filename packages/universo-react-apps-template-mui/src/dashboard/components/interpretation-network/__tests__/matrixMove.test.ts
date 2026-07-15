@@ -18,6 +18,7 @@ const cell = (id: string, parentCellId: string | null, sortOrder: number): Matri
     materialRef: null,
     style: {
         fill: null,
+        text: null,
         borderTop: '1px solid transparent',
         borderRight: '1px solid transparent',
         borderBottom: '1px solid transparent',

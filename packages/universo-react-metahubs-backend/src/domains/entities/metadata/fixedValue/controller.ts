@@ -2,7 +2,12 @@ import { z } from 'zod'
 import type { DbExecutor } from '@universo-react/utils'
 import { localizedContent, toNumberRules, validateNumber } from '@universo-react/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo-react/utils/validation/codename'
-import { FixedValueDataType, FIXED_VALUE_DATA_TYPES, SHARED_OBJECT_KINDS } from '@universo-react/types'
+import {
+    FixedValueDataType,
+    FIXED_VALUE_DATA_TYPES,
+    normalizeInterpretationNetworkHexColor,
+    SHARED_OBJECT_KINDS
+} from '@universo-react/types'
 import type { FixedValueCopyOptions } from '@universo-react/types'
 import { MetahubSchemaService } from '../../../metahubs/services/MetahubSchemaService'
 import { MetahubFixedValuesService } from '../../../metahubs/services/MetahubFixedValuesService'
@@ -49,6 +54,7 @@ const validationRulesSchema = z
         minLength: z.number().int().min(0).max(10000).nullable().optional(),
         maxLength: z.number().int().min(1).max(10000).nullable().optional(),
         pattern: z.string().max(500).nullable().optional(),
+        format: z.literal('hexColor').nullable().optional(),
         versioned: z.boolean().nullable().optional(),
         localized: z.boolean().nullable().optional(),
         precision: z.number().int().min(1).max(15).nullable().optional(),
@@ -298,6 +304,36 @@ const extractStringValues = (value: unknown): string[] => {
     return Object.values(raw).filter((entry): entry is string => typeof entry === 'string')
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const normalizeLocalizedHexColorContent = (value: unknown): string => {
+    if (typeof value !== 'string') throw new TypeError('Expected localized hexadecimal colour content')
+    const normalized = normalizeInterpretationNetworkHexColor(value)
+    if (normalized === null) throw new TypeError('Expected localized hexadecimal colour content')
+    return normalized
+}
+
+const normalizeLocalizedHexColorEntry = (value: unknown): Record<string, unknown> => {
+    if (!isRecord(value)) throw new TypeError('Expected localized hexadecimal colour content')
+    return { ...value, content: normalizeLocalizedHexColorContent(value.content) }
+}
+
+const normalizeHexColorConstantValue = (value: unknown): unknown => {
+    if (typeof value === 'string') return normalizeInterpretationNetworkHexColor(value)
+    if (!isRecord(value)) throw new TypeError('Expected a hexadecimal colour string')
+
+    if (isRecord(value.locales)) {
+        return {
+            ...value,
+            locales: Object.fromEntries(
+                Object.entries(value.locales).map(([locale, entry]) => [locale, normalizeLocalizedHexColorEntry(entry)])
+            )
+        }
+    }
+
+    return Object.fromEntries(Object.entries(value).map(([locale, entry]) => [locale, normalizeLocalizedHexColorContent(entry)]))
+}
+
 const parseConstantValue = (
     dataType: FixedValueDataType,
     value: unknown,
@@ -322,7 +358,7 @@ const parseConstantValue = (
         const minLength = typeof rules.minLength === 'number' ? rules.minLength : null
         const maxLength = typeof rules.maxLength === 'number' ? rules.maxLength : null
         let pattern: RegExp | null = null
-        if (typeof rules.pattern === 'string' && rules.pattern.length > 0) {
+        if (rules.format !== 'hexColor' && typeof rules.pattern === 'string' && rules.pattern.length > 0) {
             try {
                 pattern = new RegExp(rules.pattern)
             } catch {
@@ -331,6 +367,13 @@ const parseConstantValue = (
         }
 
         for (const entry of strings) {
+            if (rules.format === 'hexColor') {
+                try {
+                    normalizeInterpretationNetworkHexColor(entry)
+                } catch {
+                    return { ok: false, error: 'STRING value has an invalid format' }
+                }
+            }
             if (minLength !== null && entry.length < minLength) {
                 return { ok: false, error: `STRING value length must be >= ${minLength}` }
             }
@@ -339,6 +382,14 @@ const parseConstantValue = (
             }
             if (pattern && !pattern.test(entry)) {
                 return { ok: false, error: 'STRING value does not match the pattern' }
+            }
+        }
+
+        if (rules.format === 'hexColor') {
+            try {
+                return { ok: true, value: normalizeHexColorConstantValue(value) }
+            } catch {
+                return { ok: false, error: 'STRING value has an invalid format' }
             }
         }
 

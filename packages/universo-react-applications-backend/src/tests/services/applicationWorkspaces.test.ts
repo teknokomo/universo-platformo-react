@@ -459,6 +459,141 @@ describe('applicationWorkspaces service', () => {
         )
     })
 
+    it('normalizes hex-color workspace seed values through the same semantic contract as runtime writes', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334690'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334691',
+            '018f8a78-7b8f-7c1d-a111-222233334692',
+            '018f8a78-7b8f-7c1d-a111-222233334693'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334694', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334695', codename: 'member' }]
+                }
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                colorObject: [
+                                    {
+                                        id: 'color-seed-row',
+                                        data: {
+                                            Title: 'Styled cell',
+                                            CellFillColor: '#abc',
+                                            TextColor: '#1e88e5'
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: 'colorObject',
+                        codename: 'ColorRows',
+                        tableName: 'obj_color_object'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                return [
+                    {
+                        objectId: 'colorObject',
+                        componentId: 'title-cmp',
+                        parentComponentId: null,
+                        codename: 'Title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        validationRules: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'colorObject',
+                        componentId: 'fill-cmp',
+                        parentComponentId: null,
+                        codename: 'CellFillColor',
+                        columnName: 'col_fill',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        validationRules: { format: 'hexColor' },
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'colorObject',
+                        componentId: 'text-cmp',
+                        parentComponentId: null,
+                        codename: 'TextColor',
+                        columnName: 'col_text',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        validationRules: { format: 'hexColor' },
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    { tableName: 'obj_color_object', columnName: 'col_title', udtName: 'text' },
+                    { tableName: 'obj_color_object', columnName: 'col_fill', udtName: 'text' },
+                    { tableName: 'obj_color_object', columnName: 'col_text', udtName: 'text' }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233334696',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334697',
+            defaultRoleCodename: 'owner'
+        })
+
+        const colorInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_color_object"`)
+        )
+
+        expect(colorInsertCall).toBeDefined()
+        expect(colorInsertCall?.[1]).toEqual(expect.arrayContaining(['#AABBCC', '#1E88E5']))
+    })
+
     it('remaps workspace seed refs for object-like objects even when kind metadata is not literal object', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334750'

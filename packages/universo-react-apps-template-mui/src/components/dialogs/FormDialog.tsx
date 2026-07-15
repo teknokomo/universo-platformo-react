@@ -52,7 +52,6 @@ import { extractRuntimeErrorMessage } from '../../utils/runtimeErrors'
 import PageContainer from '../../crud-dashboard/components/PageContainer'
 import { EditorJsBlockEditor } from '@universo-react/block-editor'
 import { ResourcePreview } from '../resource-preview'
-import { CellStyleDialogField, isCellStylePickerField } from './CellStyleDialogField'
 import { fetchAppData } from '../../api'
 
 export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
@@ -1611,20 +1610,6 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
         if (customField !== undefined) {
             return customField
-        }
-
-        if (isCellStylePickerField(field)) {
-            return (
-                <CellStyleDialogField
-                    field={field}
-                    value={value}
-                    onChange={(next) => handleFieldChange(field.id, next)}
-                    error={fieldError}
-                    helperText={field.helperText}
-                    locale={normalizedLocale}
-                    disabled={disabled}
-                />
-            )
         }
 
         switch (field.type) {

@@ -1638,7 +1638,8 @@ describe('Metahubs Routes', () => {
                             'preset-set': false,
                             'preset-enumeration': true
                         }
-                    }
+                    },
+                    layoutZoneWidgets: [{ widgetKey: 'interpretationNetworkWorkspace' }]
                 })
                 .expect(201)
 
@@ -1984,6 +1985,34 @@ describe('Metahubs Routes', () => {
             const app = buildApp()
             const res = await request(app).post('/metahubs/import').send(envelope).expect(400)
             expect(res.body.details).toContain('hash mismatch')
+        })
+
+        it('rejects legacy Interpretation Network matrix metadata before creating an import target', async () => {
+            const envelope = makeTestEnvelope({
+                entities: {
+                    interpretation: {
+                        kind: 'object',
+                        codename: 'Interpretation',
+                        presentation: { name: {}, description: {} },
+                        config: {},
+                        fields: [{ codename: 'InterpretationMatrix', dataType: 'TABLE', childFields: [] }]
+                    },
+                    tableTemplate: {
+                        kind: 'object',
+                        codename: 'TableTemplate',
+                        presentation: { name: {}, description: {} },
+                        config: {},
+                        fields: [{ codename: 'TemplateMatrix', dataType: 'TABLE', childFields: [] }]
+                    }
+                },
+                layoutZoneWidgets: [{ widgetKey: 'interpretationNetworkWorkspace' }]
+            })
+
+            const app = buildApp()
+            const response = await request(app).post('/metahubs/import').send(envelope).expect(400)
+
+            expect(response.body).toEqual({ error: 'Invalid snapshot envelope', code: 'INVALID_SNAPSHOT_METADATA' })
+            expect(mockCreateMetahub).not.toHaveBeenCalled()
         })
 
         it('should return 400 on invalid imported runtime policy', async () => {

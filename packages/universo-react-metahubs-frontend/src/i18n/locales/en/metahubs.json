@@ -529,6 +529,8 @@
             "hierarchyRowModeHelp": "Controls whether hierarchy views show the selected branch or every hierarchy level.",
             "newAxesInCellDialog": "Create rows and columns from cell dialog",
             "newAxesInCellDialogHelp": "When disabled, users add rows and columns with the table plus buttons, and the Add cell dialog uses existing axes.",
+            "resizablePanes": "Allow users to resize workspace panes",
+            "resizablePanesHelp": "When enabled, users can temporarily adjust the Structure and Materials pane widths. Their adjustment is not saved.",
             "tableProjections": {
                 "hierarchicalPath": "Hierarchy path",
                 "independentAxes": "Separate axes"

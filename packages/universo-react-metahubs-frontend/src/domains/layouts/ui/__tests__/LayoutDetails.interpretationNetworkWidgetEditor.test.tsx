@@ -205,7 +205,8 @@ describe('LayoutDetails interpretation network widget editor', () => {
                     showHierarchicalTableHeaderCard: false,
                     showMatrixTreeTotalCells: false,
                     colorBreadcrumbsByCell: false,
-                    conceptCodename: 'concepts'
+                    conceptCodename: 'concepts',
+                    splitPane: { enabled: true }
                 },
                 isActive: true,
                 isInherited: false
@@ -232,7 +233,8 @@ describe('LayoutDetails interpretation network widget editor', () => {
                         showHierarchicalTableHeaderCard: false,
                         showMatrixTreeTotalCells: false,
                         colorBreadcrumbsByCell: false,
-                        conceptCodename: 'concepts'
+                        conceptCodename: 'concepts',
+                        splitPane: { enabled: true }
                     },
                     isActive: true,
                     isInherited: false
@@ -282,7 +284,8 @@ describe('LayoutDetails interpretation network widget editor', () => {
             showMatrixTreeTotalCells: true,
             colorBreadcrumbsByCell: true,
             allowNewAxesInCellDialog: false,
-            conceptCodename: 'concepts'
+            conceptCodename: 'concepts',
+            splitPane: { enabled: true }
         })
     })
 

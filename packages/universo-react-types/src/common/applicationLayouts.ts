@@ -19,6 +19,7 @@ import { sequencePolicySchema } from './sequenceCompletion'
 import { reportDefinitionSchema } from './lmsPlatform'
 import { workflowActionSchema } from './workflowActions'
 export * from './interpretationNetworkLayout'
+export * from './interpretationNetworkColor'
 
 export const APPLICATION_LAYOUT_SOURCE_KINDS = ['metahub', 'application'] as const
 export type ApplicationLayoutSourceKind = (typeof APPLICATION_LAYOUT_SOURCE_KINDS)[number]

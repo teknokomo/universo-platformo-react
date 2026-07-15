@@ -5,9 +5,9 @@
 // of creating a shell-only metahub.
 //
 // Components exported here:
-//   - `INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS` — the 20-column
+//   - `INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS` — the 23-column
 //     child-component definition for the InterpretationMatrix TABLE
-//     (CellId, CellFillColor, per-side Border*Color/Width/Style, MaterialRef)
+//     (CellId, CellFillColor, TextColor, per-side Border*Color/Width/Style, MaterialRef)
 //   - `INTERPRETATION_NETWORK_STRUCTURE_OBJECT_COMPONENTS` — Structure Object preset
 //     (Name, Description)
 //   - `INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS` — Interpretation Object
@@ -19,15 +19,20 @@
 //   - `INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME` — default hub codename (Main)
 //   - `INTERPRETATION_NETWORK_SEED_ENTITIES` — the Interpretation Network entity/page definitions
 //     (InterpretationNetworkIntro page, Structure / Interpretation / Relation /
-//     Material / TableTemplate + Context / RelationType / CellColor) wired into
+//     Material / TableTemplate + Context / RelationType) wired into
 //     `seed.entities`
-//   - `INTERPRETATION_NETWORK_CONTEXT_VALUES` / `INTERPRETATION_NETWORK_RELATION_TYPE_VALUES` /
-//     `INTERPRETATION_NETWORK_CELL_COLOR_VALUES` — pre-defined enumeration value sets
+//   - `INTERPRETATION_NETWORK_CONTEXT_VALUES` / `INTERPRETATION_NETWORK_RELATION_TYPE_VALUES`
+//     — pre-defined enumeration value sets
 //
 import { vlc } from './basic.template'
 import type { TemplateSeedComponent, TemplateSeedEntity, TemplateSeedEnumerationValue } from '@universo-react/types'
 
 const INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME = 'Main'
+const INTERPRETATION_NETWORK_HEX_COLOR_VALIDATION = {
+    maxLength: 7,
+    pattern: '^#[0-9A-F]{6}$',
+    format: 'hexColor' as const
+}
 
 const buildEditorText = (en: string, ru: string) => ({
     _schema: '1',
@@ -131,6 +136,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
             rows: 2,
             cellStylePreview: {
                 fillColorField: 'CellFillColor',
+                textColorField: 'TextColor',
                 borderTopColorField: 'BorderTopColor',
                 borderRightColorField: 'BorderRightColor',
                 borderBottomColorField: 'BorderBottomColor',
@@ -156,118 +162,121 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
     },
     {
         codename: 'CellFillColor',
-        dataType: 'REF',
+        dataType: 'STRING',
         name: vlc('Fill Color', 'Цвет заливки'),
         sortOrder: 9,
-        targetEntityCodename: 'CellColor',
-        targetEntityKind: 'enumeration',
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'fill', cellStyleValue: 'color' }
+        validationRules: INTERPRETATION_NETWORK_HEX_COLOR_VALIDATION,
+        uiConfig: { interpretationNetworkStyleRole: 'fill' }
+    },
+    {
+        codename: 'TextColor',
+        dataType: 'STRING',
+        name: vlc('Text Color', 'Цвет текста'),
+        sortOrder: 10,
+        validationRules: INTERPRETATION_NETWORK_HEX_COLOR_VALIDATION,
+        uiConfig: { interpretationNetworkStyleRole: 'text' }
     },
     {
         codename: 'BorderTopColor',
-        dataType: 'REF',
+        dataType: 'STRING',
         name: vlc('Top Border Color', 'Цвет верхней границы'),
-        sortOrder: 10,
-        targetEntityCodename: 'CellColor',
-        targetEntityKind: 'enumeration',
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'color' }
+        sortOrder: 11,
+        validationRules: INTERPRETATION_NETWORK_HEX_COLOR_VALIDATION,
+        uiConfig: { interpretationNetworkStyleRole: 'borderTopColor' }
     },
     {
         codename: 'BorderRightColor',
-        dataType: 'REF',
+        dataType: 'STRING',
         name: vlc('Right Border Color', 'Цвет правой границы'),
-        sortOrder: 11,
-        targetEntityCodename: 'CellColor',
-        targetEntityKind: 'enumeration',
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'right', cellStyleValue: 'color' }
+        sortOrder: 12,
+        validationRules: INTERPRETATION_NETWORK_HEX_COLOR_VALIDATION,
+        uiConfig: { interpretationNetworkStyleRole: 'borderRightColor' }
     },
     {
         codename: 'BorderBottomColor',
-        dataType: 'REF',
+        dataType: 'STRING',
         name: vlc('Bottom Border Color', 'Цвет нижней границы'),
-        sortOrder: 12,
-        targetEntityCodename: 'CellColor',
-        targetEntityKind: 'enumeration',
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'bottom', cellStyleValue: 'color' }
+        sortOrder: 13,
+        validationRules: INTERPRETATION_NETWORK_HEX_COLOR_VALIDATION,
+        uiConfig: { interpretationNetworkStyleRole: 'borderBottomColor' }
     },
     {
         codename: 'BorderLeftColor',
-        dataType: 'REF',
+        dataType: 'STRING',
         name: vlc('Left Border Color', 'Цвет левой границы'),
-        sortOrder: 13,
-        targetEntityCodename: 'CellColor',
-        targetEntityKind: 'enumeration',
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'left', cellStyleValue: 'color' }
+        sortOrder: 14,
+        validationRules: INTERPRETATION_NETWORK_HEX_COLOR_VALIDATION,
+        uiConfig: { interpretationNetworkStyleRole: 'borderLeftColor' }
     },
     {
         codename: 'BorderTopWidth',
         dataType: 'STRING',
         name: vlc('Top Border Width', 'Толщина верхней границы'),
-        sortOrder: 14,
+        sortOrder: 15,
         validationRules: { maxLength: 8 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'width' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderTopWidth' }
     },
     {
         codename: 'BorderRightWidth',
         dataType: 'STRING',
         name: vlc('Right Border Width', 'Толщина правой границы'),
-        sortOrder: 15,
+        sortOrder: 16,
         validationRules: { maxLength: 8 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'right', cellStyleValue: 'width' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderRightWidth' }
     },
     {
         codename: 'BorderBottomWidth',
         dataType: 'STRING',
         name: vlc('Bottom Border Width', 'Толщина нижней границы'),
-        sortOrder: 16,
+        sortOrder: 17,
         validationRules: { maxLength: 8 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'bottom', cellStyleValue: 'width' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderBottomWidth' }
     },
     {
         codename: 'BorderLeftWidth',
         dataType: 'STRING',
         name: vlc('Left Border Width', 'Толщина левой границы'),
-        sortOrder: 17,
+        sortOrder: 18,
         validationRules: { maxLength: 8 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'left', cellStyleValue: 'width' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderLeftWidth' }
     },
     {
         codename: 'BorderTopStyle',
         dataType: 'STRING',
         name: vlc('Top Border Style', 'Стиль верхней границы'),
-        sortOrder: 18,
+        sortOrder: 19,
         validationRules: { maxLength: 16 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'lineStyle' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderTopStyle' }
     },
     {
         codename: 'BorderRightStyle',
         dataType: 'STRING',
         name: vlc('Right Border Style', 'Стиль правой границы'),
-        sortOrder: 19,
+        sortOrder: 20,
         validationRules: { maxLength: 16 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'right', cellStyleValue: 'lineStyle' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderRightStyle' }
     },
     {
         codename: 'BorderBottomStyle',
         dataType: 'STRING',
         name: vlc('Bottom Border Style', 'Стиль нижней границы'),
-        sortOrder: 20,
+        sortOrder: 21,
         validationRules: { maxLength: 16 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'bottom', cellStyleValue: 'lineStyle' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderBottomStyle' }
     },
     {
         codename: 'BorderLeftStyle',
         dataType: 'STRING',
         name: vlc('Left Border Style', 'Стиль левой границы'),
-        sortOrder: 21,
+        sortOrder: 22,
         validationRules: { maxLength: 16 },
-        uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'left', cellStyleValue: 'lineStyle' }
+        uiConfig: { interpretationNetworkStyleRole: 'borderLeftStyle' }
     },
     {
         codename: 'MaterialRef',
         dataType: 'REF',
         name: vlc('Attached Material', 'Прикреплённый материал'),
-        sortOrder: 22,
+        sortOrder: 23,
         targetEntityCodename: 'Material',
         targetEntityKind: 'object',
         uiConfig: { enumPresentationMode: 'label' }
@@ -329,7 +338,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS: TemplateSeedCompo
             'Табличная часть с одной строкой на ячейку. В каждой строке — значение, цвет и атрибуты границ по сторонам.'
         ),
         sortOrder: 4,
-        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22, matrixUniqueCoordinates: true },
+        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 23, matrixUniqueCoordinates: true },
         childComponents: INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS
     }
 ]
@@ -361,7 +370,7 @@ const INTERPRETATION_NETWORK_TABLE_TEMPLATE_OBJECT_COMPONENTS: TemplateSeedCompo
             'Переиспользуемая структура матрицы, создаваемая в рабочем пространстве. Пользователи могут копировать её и использовать как основу матриц трактовок.'
         ),
         sortOrder: 3,
-        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 22, matrixUniqueCoordinates: true },
+        validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 23, matrixUniqueCoordinates: true },
         childComponents: INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS
     }
 ]
@@ -590,16 +599,6 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
             'Закрытый список типов связей: partOf, causes, causedBy, analogue, opposite, relatedProcess.'
         ),
         hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME]
-    },
-    {
-        codename: 'CellColor',
-        kind: 'enumeration',
-        name: vlc('Cell Colors', 'Цвета ячеек'),
-        description: vlc(
-            'Twelve named colors used by the Interpretation Matrix cell style picker.',
-            'Двенадцать именованных цветов, используемых picker-ом стиля ячеек матрицы трактовок.'
-        ),
-        hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME]
     }
 ]
 
@@ -622,24 +621,8 @@ const INTERPRETATION_NETWORK_RELATION_TYPE_VALUES: TemplateSeedEnumerationValue[
     { codename: 'relatedProcess', name: vlc('Related process', 'Связанный процесс'), sortOrder: 6 }
 ]
 
-const INTERPRETATION_NETWORK_CELL_COLOR_VALUES: TemplateSeedEnumerationValue[] = [
-    { codename: 'none', name: vlc('None', 'Нет'), sortOrder: 1, isDefault: true },
-    { codename: 'gray', name: vlc('Gray', 'Серый'), sortOrder: 2 },
-    { codename: 'red', name: vlc('Red', 'Красный'), sortOrder: 3 },
-    { codename: 'orange', name: vlc('Orange', 'Оранжевый'), sortOrder: 4 },
-    { codename: 'yellow', name: vlc('Yellow', 'Жёлтый'), sortOrder: 5 },
-    { codename: 'green', name: vlc('Green', 'Зелёный'), sortOrder: 6 },
-    { codename: 'teal', name: vlc('Teal', 'Бирюзовый'), sortOrder: 7 },
-    { codename: 'blue', name: vlc('Blue', 'Синий'), sortOrder: 8 },
-    { codename: 'indigo', name: vlc('Indigo', 'Индиго'), sortOrder: 9 },
-    { codename: 'purple', name: vlc('Purple', 'Фиолетовый'), sortOrder: 10 },
-    { codename: 'pink', name: vlc('Pink', 'Розовый'), sortOrder: 11 },
-    { codename: 'black', name: vlc('Black', 'Чёрный'), sortOrder: 12 }
-]
-
 export const INTERPRETATION_NETWORK_STAGE2 = {
     seedEntities: INTERPRETATION_NETWORK_SEED_ENTITIES,
     contextValues: INTERPRETATION_NETWORK_CONTEXT_VALUES,
-    relationTypeValues: INTERPRETATION_NETWORK_RELATION_TYPE_VALUES,
-    cellColorValues: INTERPRETATION_NETWORK_CELL_COLOR_VALUES
+    relationTypeValues: INTERPRETATION_NETWORK_RELATION_TYPE_VALUES
 }

@@ -549,6 +549,8 @@ export interface ComponentDefinitionValidationRules {
     minLength?: number
     pattern?: string
     options?: string[]
+    /** Closed semantic formatter used by generic input boundaries. */
+    format?: 'hexColor'
     /** Enable versioning (VLC pattern). When true, field stores JSONB instead of TEXT */
     versioned?: boolean
     /** Enable localization (multiple language versions via VLC). When true, field stores JSONB instead of TEXT */
@@ -770,72 +772,25 @@ export const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
 export type EnumPresentationMode = (typeof ENUM_PRESENTATION_MODES)[number]
 
 /**
- * Interpretation Network interpretation network — stable codenames for the 12 named
- * cell colors used by the `CellColor` enumeration in the `interpretation-network` template.
- * Re-used by the runtime `cellStylePicker` widget and the Playwright
- * fixture-contract assertions. The `none` value is the default and renders
- * the cell with no fill or border color.
- */
-export const INTERPRETATION_NETWORK_CELL_COLOR_PRESET_CODENAMES = [
-    'none',
-    'gray',
-    'red',
-    'orange',
-    'yellow',
-    'green',
-    'teal',
-    'blue',
-    'indigo',
-    'purple',
-    'pink',
-    'black'
-] as const
-export type InterpretationNetworkCellColorPresetCodename = (typeof INTERPRETATION_NETWORK_CELL_COLOR_PRESET_CODENAMES)[number]
-
-/**
  * Interpretation Network interpretation network — the four border sides whose color/width/style
- * are tracked per cell. The cell itself also has a `fill` attribute (see
- * `InterpretationNetworkCellStyleSide`).
+ * are tracked per cell.
  */
 export const INTERPRETATION_NETWORK_CELL_STYLE_SIDES = ['top', 'right', 'bottom', 'left'] as const
 export type InterpretationNetworkCellStyleSide = (typeof INTERPRETATION_NETWORK_CELL_STYLE_SIDES)[number]
 
 /**
- * Interpretation Network interpretation network — border widths allowed by the
- * `cellStylePicker` widget. Matches the CSS shorthand the platform exports.
+ * Interpretation Network interpretation network — border widths supported by
+ * the cell-style editor. Matches the CSS shorthand the platform exports.
  */
 export const INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS = ['0', '1px', '2px', '3px', '4px'] as const
 export type InterpretationNetworkCellStyleWidth = (typeof INTERPRETATION_NETWORK_CELL_STYLE_WIDTHS)[number]
 
 /**
- * Interpretation Network interpretation network — border styles allowed by the
- * `cellStylePicker` widget.
+ * Interpretation Network interpretation network — border styles supported by
+ * the cell-style editor.
  */
 export const INTERPRETATION_NETWORK_CELL_STYLE_STYLES = ['solid', 'dashed', 'dotted', 'double', 'none'] as const
 export type InterpretationNetworkCellStyleLineStyle = (typeof INTERPRETATION_NETWORK_CELL_STYLE_STYLES)[number]
-
-/**
- * Interpretation Network interpretation network — typed state for a single cell's style.
- * Used by the runtime `cellStylePicker` widget and the fixture contract.
- */
-export interface InterpretationNetworkCellStyleState {
-    fill: InterpretationNetworkCellColorPresetCodename
-    borders: Record<
-        InterpretationNetworkCellStyleSide,
-        {
-            color: InterpretationNetworkCellColorPresetCodename
-            width: InterpretationNetworkCellStyleWidth
-            style: InterpretationNetworkCellStyleLineStyle
-        }
-    >
-}
-
-/**
- * Interpretation Network interpretation network — typed state for one side of one cell.
- * Same shape as `InterpretationNetworkCellStyleState['borders'][InterpretationNetworkCellStyleSide]`,
- * exported as a named alias for clearer call sites in the picker.
- */
-export type InterpretationNetworkCellStyleBorder = InterpretationNetworkCellStyleState['borders'][InterpretationNetworkCellStyleSide]
 
 /**
  * Extended UI config for REF fields.

@@ -6,9 +6,20 @@ export interface InterpretationNetworkWorkspaceContentProps {
     structure: Omit<WorkspaceShellProps['structure'], 'matrixWorkspace'>
     details: WorkspaceShellProps['details']
     dialogs: WorkspaceShellProps['dialogs']
+    splitPaneEnabled?: boolean
+    structureReturnFocusId?: string | null
+    onBackToStructureList?: () => void
 }
 
-export function InterpretationNetworkWorkspaceContent({ matrix, structure, details, dialogs }: InterpretationNetworkWorkspaceContentProps) {
+export function InterpretationNetworkWorkspaceContent({
+    matrix,
+    structure,
+    details,
+    dialogs,
+    splitPaneEnabled,
+    structureReturnFocusId,
+    onBackToStructureList
+}: InterpretationNetworkWorkspaceContentProps) {
     return (
         <WorkspaceShell
             structure={{
@@ -17,6 +28,9 @@ export function InterpretationNetworkWorkspaceContent({ matrix, structure, detai
             }}
             details={details}
             dialogs={dialogs}
+            splitPaneEnabled={splitPaneEnabled}
+            structureReturnFocusId={structureReturnFocusId}
+            onBackToStructureList={onBackToStructureList}
         />
     )
 }
