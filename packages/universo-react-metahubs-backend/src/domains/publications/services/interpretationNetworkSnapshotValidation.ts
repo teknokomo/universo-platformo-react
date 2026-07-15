@@ -57,7 +57,7 @@ const hasInterpretationNetworkWorkspaceWidget = (snapshot: SnapshotLike): boolea
     Array.isArray(snapshot.layoutZoneWidgets) &&
     snapshot.layoutZoneWidgets.filter(isRecord).some((widget) => widget.widgetKey === 'interpretationNetworkWorkspace')
 
-const cloneSnapshot = <TSnapshot extends SnapshotLike>(snapshot: TSnapshot): TSnapshot => JSON.parse(JSON.stringify(snapshot)) as TSnapshot
+const cloneSnapshot = <TSnapshot extends SnapshotLike>(snapshot: TSnapshot): TSnapshot => structuredClone(snapshot)
 
 const unchangedValidationResult = <TSnapshot extends SnapshotLike>(
     snapshot: TSnapshot

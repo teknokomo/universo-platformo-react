@@ -138,7 +138,11 @@ export function InterpretationNetworkCellStyleEditor({
     useEffect(() => {
         setAdvanced(bordersDiffer)
         setColorErrors({})
-    }, [bordersDiffer, resetKey])
+        // The editor mode is initialized when a dialog draft is opened or reset.
+        // Do not derive it from every draft update: an intentional per-side edit
+        // must stay visible even after the sides become equal.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resetKey])
 
     const updateColor = (field: FieldConfig | undefined, value: unknown, targets: FieldConfig[] = []) => {
         if (!field) return

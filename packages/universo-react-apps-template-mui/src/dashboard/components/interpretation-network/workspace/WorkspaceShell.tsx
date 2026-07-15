@@ -78,6 +78,8 @@ export function WorkspaceShell({
     const registerStructureOpenControl = (structureId: string, element: HTMLElement | null) => {
         if (element) {
             structureOpenControlsRef.current.set(structureId, element)
+        } else {
+            structureOpenControlsRef.current.delete(structureId)
         }
     }
 
