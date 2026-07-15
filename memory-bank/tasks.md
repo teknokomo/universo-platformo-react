@@ -62,6 +62,14 @@
 -   [ ] C4. Add browser E2E proof against the imported snapshot on minimal local Supabase, including a screenshot/computed-style assertion (deferred: current flow has no stable cell-style edit fixture).
 -   [x] C5. Run Prettier, lint, build, focused/full tests, fixture contract/drift checks, and `git diff --check`; OntoIndex CLI diff and Thermos closeout remain pending.
 
+## MMOOMM Fixture Drift Gate Regression (2026-07-15)
+
+> Scope: the Node 22 GitHub Actions build repeatedly failed because PlayCanvas Editor injected a scene-local `metadata.editorDocument.version` field into generated material assets, while the authored fixture intentionally omitted that optimistic-concurrency revision.
+
+-   [x] M1. Confirm the failing CI path and compare the generated/tracked normalized diff.
+-   [x] M2. Normalize only the PlayCanvas scene-local editor-document revision field; do not mutate the tracked fixture or hide unrelated asset drift.
+-   [x] M3. Run the MMOOMM fixture contract/drift checks and affected package builds.
+
 ---
 
 # Interpretation Network Matrix Visual And Drop Follow-up (2026-07-12)

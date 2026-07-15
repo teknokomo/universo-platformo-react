@@ -40,7 +40,8 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
                 ([key, item]) =>
                     !isDefaultPlayCanvasMaterialField(key, item, value) &&
                     !isEmptyPlayCanvasAssetMetaField(key, item, value, pathSegments) &&
-                    !isEmptyPlayCanvasEditorDocumentMetaField(key, item, value, pathSegments)
+                    !isEmptyPlayCanvasEditorDocumentMetaField(key, item, value, pathSegments) &&
+                    !isVolatilePlayCanvasEditorDocumentVersionField(key, pathSegments)
             )
             .map(([key, item]) => [normalizeString(key, maps), normalizeVolatileValues(item, maps, [...pathSegments, key])])
         return Object.fromEntries(normalizedEntries)
@@ -137,6 +138,12 @@ const isEmptyPlayCanvasEditorDocumentMetaField = (key: string, item: unknown, ow
         (typeof record.source === 'boolean' || record.file !== undefined || record.data !== undefined)
     )
 }
+
+// Scene-local asset saves increment this optimistic-concurrency revision in the
+// runtime payload. It is intentionally absent from the authored fixture and must
+// not make an otherwise equivalent generated snapshot drift.
+const isVolatilePlayCanvasEditorDocumentVersionField = (key: string, pathSegments: string[]): boolean =>
+    key === 'version' && pathSegments.at(-1) === 'editorDocument' && pathSegments.includes('assets')
 
 const isVolatileFileSizePath = (pathSegments: string[]): boolean => {
     if (pathSegments.at(-1) !== 'size') return false
