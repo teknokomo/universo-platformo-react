@@ -67,6 +67,7 @@ import {
     buildRuntimeRestoreSetClause,
     RUNTIME_WRITABLE_TYPES,
     coerceRuntimeValue,
+    toRuntimeInputFormatErrorBody,
     normalizeConfiguredRuntimeJsonValue,
     normalizeRuntimeTableChildInsertValue,
     normalizeRuntimeTableChildInsertValueByMeta,
@@ -4356,6 +4357,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (error instanceof UpdateFailure) {
                 return res.status(error.statusCode).json(error.body)
             }
+            const formatError = toRuntimeInputFormatErrorBody(error)
+            if (formatError) {
+                return res.status(400).json(formatError)
+            }
             throw error
         }
     }
@@ -5697,6 +5702,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         try {
             coerced = normalizeConfiguredRuntimeJsonValue(coerceRuntimeValue(rawValue, cmp.data_type, cmp.validation_rules), cmp)
         } catch (e) {
+            const formatError = toRuntimeInputFormatErrorBody(e)
+            if (formatError) return res.status(400).json(formatError)
             return res.status(400).json({ error: (e as Error).message })
         }
 
@@ -6007,6 +6014,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 normalizedPatchByColumn[cmp.column_name] = coerced
                 paramIndex++
             } catch (e) {
+                const formatError = toRuntimeInputFormatErrorBody(e)
+                if (formatError) return res.status(400).json(formatError)
                 return res.status(400).json({
                     error: `Invalid value for ${attrLabel}: ${(e as Error).message}`
                 })
@@ -6174,6 +6183,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                             cAttr.validation_rules
                         )
                     } catch (err) {
+                        const formatError = toRuntimeInputFormatErrorBody(err)
+                        if (formatError) return res.status(400).json(formatError)
                         return res.status(400).json({
                             error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
                         })
@@ -6592,6 +6603,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     value: coerced
                 })
             } catch (e) {
+                const formatError = toRuntimeInputFormatErrorBody(e)
+                if (formatError) return res.status(400).json(formatError)
                 return res.status(400).json({
                     error: `Invalid value for ${attrLabel}: ${(e as Error).message}`
                 })
@@ -6851,6 +6864,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                                 cAttr.validation_rules
                             )
                         } catch (err) {
+                            const formatError = toRuntimeInputFormatErrorBody(err)
+                            if (formatError) return res.status(400).json(formatError)
                             return res.status(400).json({
                                 error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
                             })
@@ -7200,6 +7215,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                     copyOverrideValues.set(cmp.column_name, coerced)
                 } catch (error) {
+                    const formatError = toRuntimeInputFormatErrorBody(error)
+                    if (formatError) return res.status(400).json(formatError)
                     return res.status(400).json({
                         error: `Invalid value for ${attrLabel}: ${(error as Error).message}`
                     })
@@ -7550,6 +7567,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (error instanceof UpdateFailure) {
                 return res.status(error.statusCode).json(error.body)
             }
+            const formatError = toRuntimeInputFormatErrorBody(error)
+            if (formatError) return res.status(400).json(formatError)
             throw error
         }
     }

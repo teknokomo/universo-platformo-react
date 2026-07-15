@@ -79,6 +79,30 @@ const templatePresetReferenceSchema = z.object({
     includedByDefault: z.boolean().optional()
 })
 
+const validationRulesSchema = z
+    .object({
+        required: z.boolean().nullable().optional(),
+        minLength: z.number().int().min(0).max(10_000).nullable().optional(),
+        maxLength: z.number().int().min(1).max(10_000).nullable().optional(),
+        pattern: z.string().max(500).nullable().optional(),
+        options: z.array(z.string().max(200)).max(100).nullable().optional(),
+        format: z.literal('hexColor').nullable().optional(),
+        versioned: z.boolean().nullable().optional(),
+        localized: z.boolean().nullable().optional(),
+        precision: z.number().int().min(1).max(15).nullable().optional(),
+        scale: z.number().int().min(0).max(14).nullable().optional(),
+        min: z.number().nullable().optional(),
+        max: z.number().nullable().optional(),
+        nonNegative: z.boolean().nullable().optional(),
+        dateComposition: z.enum(['date', 'time', 'datetime']).nullable().optional(),
+        minRows: z.number().int().min(0).nullable().optional(),
+        maxRows: z.number().int().min(1).nullable().optional(),
+        maxChildComponents: z.number().int().min(1).nullable().optional(),
+        matrixUniqueCoordinates: z.boolean().nullable().optional()
+    })
+    .strict()
+    .optional()
+
 /** Schema for a child component inside a TABLE component (no nesting). */
 const seedChildComponentSchema = z.object({
     codename: z.string().min(1).max(100),
@@ -90,7 +114,7 @@ const seedChildComponentSchema = z.object({
     targetEntityCodename: z.string().optional(),
     targetEntityKind: entityKindKeySchema.optional(),
     targetConstantCodename: z.string().optional(),
-    validationRules: z.record(z.unknown()).optional(),
+    validationRules: validationRulesSchema,
     uiConfig: z.record(z.unknown()).optional()
 })
 
@@ -105,7 +129,7 @@ const seedComponentSchema = z.object({
     targetEntityCodename: z.string().optional(),
     targetEntityKind: entityKindKeySchema.optional(),
     targetConstantCodename: z.string().optional(),
-    validationRules: z.record(z.unknown()).optional(),
+    validationRules: validationRulesSchema,
     uiConfig: z.record(z.unknown()).optional(),
     /** Child components for TABLE data type (tabular parts). */
     childComponents: z.array(seedChildComponentSchema).optional()
@@ -117,7 +141,7 @@ const seedFixedValueSchema = z.object({
     name: vlcSchema,
     description: vlcSchema.optional(),
     sortOrder: z.number().int().optional(),
-    validationRules: z.record(z.unknown()).optional(),
+    validationRules: validationRulesSchema,
     uiConfig: z.record(z.unknown()).optional(),
     value: z.unknown().optional()
 })

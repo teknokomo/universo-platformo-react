@@ -75,12 +75,14 @@ type UseInterpretationNetworkWorkspaceStateOptions = {
         | null
         | undefined
     locale: string
+    themeBackground: unknown
     widgetConfig: WorkspaceWidgetConfig
     selectedInterpretationId: string | null
     selectedConceptId: string | null
     selectedCellId: string | null
     openedMaterialId: string | null
     editingStructureId: string | null
+    editingStructureData?: Record<string, unknown>
     editingMaterialId: string | null
     cellDialogSourceCellId: string | null
     cellDialogPlacement: MatrixCellPlacement | null
@@ -101,12 +103,14 @@ export function useInterpretationNetworkWorkspaceState({
     data,
     details,
     locale,
+    themeBackground,
     widgetConfig,
     selectedInterpretationId,
     selectedConceptId,
     selectedCellId,
     openedMaterialId,
     editingStructureId,
+    editingStructureData,
     editingMaterialId,
     cellDialogSourceCellId,
     cellDialogPlacement,
@@ -181,6 +185,11 @@ export function useInterpretationNetworkWorkspaceState({
         concepts.find((row) => row.id === selectedConceptId) ??
         concepts.find((row) => typeof selectedInterpretationConceptRef === 'string' && row.id === selectedInterpretationConceptRef)
     const editingStructure = editingStructureId ? concepts.find((row) => row.id === editingStructureId) : undefined
+    const editingStructureRawData = useMemo(() => {
+        if (!editingStructureData) return undefined
+        const nested = editingStructureData.data
+        return nested && typeof nested === 'object' && !Array.isArray(nested) ? (nested as Record<string, unknown>) : editingStructureData
+    }, [editingStructureData])
 
     const matrixRowsQuery = useQuery({
         queryKey: [
@@ -205,8 +214,8 @@ export function useInterpretationNetworkWorkspaceState({
     })
 
     const matrixCells = useMemo(
-        () => toMatrixRows(matrixRowsQuery.data?.items ?? [], matrixColumn, locale),
-        [locale, matrixColumn, matrixRowsQuery.data?.items]
+        () => toMatrixRows(matrixRowsQuery.data?.items ?? [], matrixColumn, locale, themeBackground),
+        [locale, matrixColumn, matrixRowsQuery.data?.items, themeBackground]
     )
     const matrixAxisOptions = useMemo(() => buildMatrixAxisOptions(matrixCells), [matrixCells])
     const matrixTree = useMemo(() => buildMatrixTree(matrixCells), [matrixCells])
@@ -313,10 +322,14 @@ export function useInterpretationNetworkWorkspaceState({
             Object.fromEntries(
                 structureFields.map((field) => [
                     field.id,
-                    dialogs.structureDialogMode === 'edit' ? editingStructure?.[field.id] : undefined
+                    dialogs.structureDialogMode === 'edit'
+                        ? editingStructureRawData?.[field.codename ?? field.id] ??
+                          editingStructureRawData?.[field.id] ??
+                          readColumnValue(editingStructure, data?.concepts.columns, field.codename ?? field.id)
+                        : undefined
                 ])
             ),
-        [dialogs.structureDialogMode, editingStructure, structureFields]
+        [data?.concepts.columns, dialogs.structureDialogMode, editingStructure, editingStructureRawData, structureFields]
     )
     const materialEditorInitialData = useMemo(
         () => buildMaterialEditorInitialData(materialBodyField, selectedMaterial),

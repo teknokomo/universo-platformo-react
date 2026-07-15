@@ -17,6 +17,32 @@ import {
     INTERPRETATION_NETWORK_CANONICAL_METAHUB
 } from './interpretationNetworkFixtureContract'
 
+const GENERATED_INTERPRETATION_NETWORK_FIXTURE_PATH = path.resolve(
+    repoRoot,
+    'tools',
+    'testing',
+    'e2e',
+    '.artifacts',
+    'generated-metahubs-interpretation-network-app-snapshot.json'
+)
+
+const resolveInterpretationNetworkSnapshotPath = (snapshotFilename: string): string => {
+    if (snapshotFilename !== 'metahubs-interpretation-network-app-snapshot.json') {
+        throw new Error(`Unsupported Interpretation Network fixture filename: ${snapshotFilename}`)
+    }
+
+    const committedFixturePath = path.resolve(repoRoot, 'tools', 'fixtures', snapshotFilename)
+    const configuredPath = process.env.INTERPRETATION_NETWORK_FIXTURE_PATH
+    if (!configuredPath) return committedFixturePath
+
+    const resolvedConfiguredPath = path.resolve(repoRoot, configuredPath)
+    if (resolvedConfiguredPath !== committedFixturePath && resolvedConfiguredPath !== GENERATED_INTERPRETATION_NETWORK_FIXTURE_PATH) {
+        throw new Error('Interpretation Network fixture path must be the committed fixture or the controlled generated E2E artifact')
+    }
+
+    return resolvedConfiguredPath
+}
+
 export interface ImportInterpretationNetworkSnapshotOptions {
     snapshotFilename: string
     label: string
@@ -47,7 +73,7 @@ export async function importInterpretationNetworkSnapshot(
     api: ApiContext,
     options: ImportInterpretationNetworkSnapshotOptions
 ): Promise<ImportInterpretationNetworkSnapshotResult> {
-    const snapshotPath = path.resolve(repoRoot, 'tools', 'fixtures', options.snapshotFilename)
+    const snapshotPath = resolveInterpretationNetworkSnapshotPath(options.snapshotFilename)
     const raw = await readFile(snapshotPath, 'utf8')
     const fixture = JSON.parse(raw) as Record<string, unknown>
     const validatedFixture = validateSnapshotEnvelope(fixture)

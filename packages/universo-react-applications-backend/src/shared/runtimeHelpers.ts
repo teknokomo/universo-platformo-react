@@ -1,5 +1,10 @@
 import type { DbExecutor } from '@universo-react/utils'
-import type { ApplicationLifecycleContract, PageBlockContentValidationOptions, WorkflowCapabilityMap } from '@universo-react/types'
+import {
+    normalizeInterpretationNetworkHexColor,
+    type ApplicationLifecycleContract,
+    type PageBlockContentValidationOptions,
+    type WorkflowCapabilityMap
+} from '@universo-react/types'
 import { getVLCString } from '@universo-react/utils/vlc'
 import {
     createLocalizedContent,
@@ -28,6 +33,23 @@ export class UpdateFailure extends Error {
         super('Update failed')
     }
 }
+
+/**
+ * Safe, stable validation error for a closed metadata formatter.
+ *
+ * Controllers map this error to a public code instead of exposing parser
+ * details, field codenames, or arbitrary exception messages.
+ */
+export class RuntimeInputFormatError extends Error {
+    readonly code = 'INVALID_FIELD_FORMAT'
+
+    constructor() {
+        super('Invalid field format')
+    }
+}
+
+export const toRuntimeInputFormatErrorBody = (error: unknown): { error: string; code: string } | null =>
+    error instanceof RuntimeInputFormatError ? { error: 'Invalid field format', code: error.code } : null
 
 // ---------------------------------------------------------------------------
 // Security & identifier helpers
@@ -430,6 +452,14 @@ export const coerceRuntimeValue = (value: unknown, dataType: string, validationR
             return num
         }
         case 'STRING': {
+            if (validationRules?.format === 'hexColor') {
+                try {
+                    return normalizeInterpretationNetworkHexColor(value)
+                } catch {
+                    throw new RuntimeInputFormatError()
+                }
+            }
+
             const isVLC = Boolean(validationRules?.versioned) || Boolean(validationRules?.localized)
             if (isVLC) {
                 if (typeof value === 'string') return createLocalizedContent('en', value)
@@ -538,6 +568,10 @@ export const normalizeRuntimeTableChildInsertValue = (
 ): unknown => {
     if (value === undefined || value === null) {
         return null
+    }
+
+    if (dataType === 'STRING' && validationRules?.format === 'hexColor') {
+        return coerceRuntimeValue(value, dataType, validationRules)
     }
 
     if (dataType === 'JSON') {

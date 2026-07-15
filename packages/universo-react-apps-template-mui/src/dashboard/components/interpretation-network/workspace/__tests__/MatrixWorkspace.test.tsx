@@ -8,8 +8,10 @@ import type { ComponentProps, ReactElement } from 'react'
 import { buildHierarchicalMatrixTableModel, type MatrixCell } from '../../model'
 import type { MatrixDragPreview, MatrixDropState } from '../../matrixDrag'
 import { CellEditDialog } from '../../CellEditDialog'
+import { WorkspaceShell } from '../WorkspaceShell'
 import { WorkspaceDialogs } from '../WorkspaceDialogs'
 import { MatrixWorkspace } from '../MatrixWorkspace'
+import { getBreadcrumbSx } from '../HierarchicalMatrixTableView'
 
 const t = ((key: string, options?: unknown, fallback?: string) => {
     const pluralDefault =
@@ -50,6 +52,7 @@ const cell = (input: Partial<MatrixCell> & Pick<MatrixCell, 'id' | 'parentCellId
     materialRef: null,
     style: {
         fill: null,
+        text: null,
         borderTop: '1px solid rgba(0, 0, 0, 0.12)',
         borderRight: '1px solid rgba(0, 0, 0, 0.12)',
         borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
@@ -423,6 +426,278 @@ describe('MatrixWorkspace', () => {
         })
     })
 
+    it('shows a visible style contrast warning and still saves the authored colours', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    defaultLocale: 'en',
+                    locales: [{ code: 'en', label: 'English', isDefault: true }]
+                })
+            })
+        )
+        const user = userEvent.setup()
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+
+        renderWithQueryClient(
+            <CellEditDialog
+                open
+                mode='edit'
+                t={t}
+                locale='en'
+                fields={[{ id: 'CellValue', codename: 'CellValue', label: 'Title', type: 'STRING' }]}
+                styleFields={[
+                    { id: 'TextColor', codename: 'TextColor', label: 'Text color', type: 'STRING', validationRules: { format: 'hexColor' } }
+                ]}
+                initialData={{ CellValue: createLocalizedContent('en', 'Meaning'), TextColor: null }}
+                isSubmitting={false}
+                onClose={vi.fn()}
+                onSubmit={onSubmit}
+            />
+        )
+
+        const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        await user.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        fireEvent.change(within(dialog).getByRole('textbox', { name: /Hex color/ }), { target: { value: '#FFFFFF' } })
+        expect(await within(dialog).findByRole('status')).toHaveTextContent(
+            'This text and fill combination may be difficult to read. You can still save it.'
+        )
+        expect(within(dialog).getByRole('textbox', { name: /Hex color/ })).toHaveAttribute('aria-invalid', 'false')
+        await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    })
+
+    it('places the white preset immediately after black for every colour control', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    defaultLocale: 'en',
+                    locales: [{ code: 'en', label: 'English', isDefault: true }]
+                })
+            })
+        )
+
+        renderWithQueryClient(
+            <CellEditDialog
+                open
+                mode='edit'
+                t={t}
+                locale='en'
+                fields={[{ id: 'CellValue', codename: 'CellValue', label: 'Title', type: 'STRING' }]}
+                styleFields={[
+                    { id: 'CellFillColor', codename: 'CellFillColor', label: 'Fill', type: 'STRING' },
+                    { id: 'TextColor', codename: 'TextColor', label: 'Text color', type: 'STRING' },
+                    { id: 'BorderTopColor', codename: 'BorderTopColor', label: 'Border', type: 'STRING' }
+                ]}
+                initialData={{ CellValue: createLocalizedContent('en', 'Meaning') }}
+                isSubmitting={false}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+            />
+        )
+
+        const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        await userEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        const groups = within(dialog).getAllByRole('group', { name: /preset colors/i })
+        expect(groups).toHaveLength(3)
+        for (const group of groups) {
+            const presets = within(group).getAllByRole('button')
+            expect(presets[0]).toHaveAccessibleName('black')
+            expect(presets[1]).toHaveAccessibleName('white')
+        }
+    })
+
+    it('resets grouped border editing state when opening a different cell', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    defaultLocale: 'en',
+                    locales: [{ code: 'en', label: 'English', isDefault: true }]
+                })
+            })
+        )
+        const styleFields = [
+            { id: 'BorderTopColor', codename: 'BorderTopColor', label: 'Top border color', type: 'STRING' as const },
+            { id: 'BorderRightColor', codename: 'BorderRightColor', label: 'Right border color', type: 'STRING' as const },
+            { id: 'BorderBottomColor', codename: 'BorderBottomColor', label: 'Bottom border color', type: 'STRING' as const },
+            { id: 'BorderLeftColor', codename: 'BorderLeftColor', label: 'Left border color', type: 'STRING' as const }
+        ]
+        const baseProps = {
+            open: true,
+            mode: 'edit' as const,
+            t,
+            locale: 'en',
+            fields: [{ id: 'CellValue', codename: 'CellValue', label: 'Title', type: 'STRING' as const }],
+            styleFields,
+            initialData: {
+                CellValue: createLocalizedContent('en', 'Uniform cell'),
+                BorderTopColor: '#000000',
+                BorderRightColor: '#000000',
+                BorderBottomColor: '#000000',
+                BorderLeftColor: '#000000'
+            },
+            isSubmitting: false,
+            onClose: vi.fn(),
+            onSubmit: vi.fn().mockResolvedValue(undefined)
+        }
+
+        const { rerender } = renderWithQueryClient(<CellEditDialog {...baseProps} />)
+        const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
+        await userEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        expect(within(dialog).getByRole('button', { name: 'Edit sides separately' })).toBeInTheDocument()
+
+        rerender(
+            <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+                <CellEditDialog
+                    {...baseProps}
+                    initialData={{
+                        CellValue: createLocalizedContent('en', 'Split border cell'),
+                        BorderTopColor: '#000000',
+                        BorderRightColor: '#E53935',
+                        BorderBottomColor: '#000000',
+                        BorderLeftColor: '#000000'
+                    }}
+                />
+            </QueryClientProvider>
+        )
+        await userEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
+
+        expect(await within(dialog).findByRole('button', { name: 'Edit all sides together' })).toBeInTheDocument()
+    })
+
+    it('keeps the adjusted split-pane size when the selected structure row is refreshed with the same id', () => {
+        const structure = {
+            t,
+            selectedConcept: { id: 'structure-1', Name: 'Structure one' },
+            conceptColumns: [{ id: 'Name', codename: 'Name', field: 'Name' }],
+            conceptNameField: 'Name',
+            locale: 'en',
+            structureFilter: '',
+            structureViewMode: 'cards' as const,
+            filteredStructures: [],
+            canCreateStructure: true,
+            structureFieldsReady: true,
+            createStructureError: false,
+            normalizedStructureFilter: '',
+            matrixWorkspace: <div>Matrix</div>,
+            structureMenuAnchor: null,
+            structureMenuId: null,
+            canEditStructure: true,
+            canDeleteStructure: true,
+            onFilterChange: vi.fn(),
+            onViewModeChange: vi.fn(),
+            onOpenCreateStructure: vi.fn(),
+            onOpenStructure: vi.fn(),
+            onOpenStructureMenu: vi.fn(),
+            onCloseStructureMenu: vi.fn(),
+            onEditStructure: vi.fn(),
+            onDeleteStructure: vi.fn(),
+            onBackToList: vi.fn()
+        }
+        const details = {
+            t,
+            locale: 'en',
+            selectedCell: undefined,
+            selectedMaterial: undefined,
+            cellMaterials: [],
+            selectedMaterialId: null,
+            openedMaterialId: null,
+            materialBodyField: undefined,
+            materialBodyValue: undefined,
+            canCreateContent: true,
+            canEditContent: true,
+            isSavingMaterial: false,
+            materialEditorError: null,
+            materials: [],
+            materialColumns: [],
+            materialTitleField: 'Title',
+            saveMaterialBodyMutation: { mutateAsync: vi.fn().mockResolvedValue(undefined) },
+            actions: {
+                setMaterialDialogError: vi.fn(),
+                setEditingMaterialId: vi.fn(),
+                setMaterialDialogMode: vi.fn(),
+                setSelectedMaterialId: vi.fn(),
+                setOpenedMaterialId: vi.fn()
+            }
+        }
+        const dialogs = {
+            t,
+            locale: 'en',
+            structure: {
+                mode: null,
+                fields: [],
+                initialData: {},
+                error: null,
+                deleteId: null,
+                deleteStructure: undefined,
+                deleteError: null
+            },
+            material: { mode: null, fields: [], initialData: {}, error: null },
+            cell: {
+                mode: null,
+                axisDialogKind: null,
+                fields: [],
+                styleFields: [],
+                initialData: {},
+                axisOptions: { rows: [], columns: [] },
+                placement: null,
+                allowNewAxesInCellDialog: false,
+                hideAxisLabelFields: false,
+                error: null,
+                deleteId: null,
+                deleteCell: undefined,
+                deleteError: null
+            },
+            mutations: {
+                createStructure: { isPending: false, mutateAsync: vi.fn().mockResolvedValue(undefined) },
+                updateStructure: { isPending: false, mutateAsync: vi.fn().mockResolvedValue(undefined) },
+                deleteStructure: { isPending: false, mutateAsync: vi.fn().mockResolvedValue(undefined) },
+                saveMaterialMetadata: { isPending: false, mutateAsync: vi.fn().mockResolvedValue(undefined) },
+                saveCell: { isPending: false, mutateAsync: vi.fn().mockResolvedValue(undefined) },
+                deleteCell: { isPending: false, mutateAsync: vi.fn().mockResolvedValue(undefined) }
+            },
+            actions: {
+                setStructureDialogMode: vi.fn(),
+                setEditingStructureId: vi.fn(),
+                setStructureDialogError: vi.fn(),
+                setStructureDeleteId: vi.fn(),
+                setStructureDeleteError: vi.fn(),
+                setMaterialDialogMode: vi.fn(),
+                setEditingMaterialId: vi.fn(),
+                setMaterialDialogError: vi.fn(),
+                setCellDialogMode: vi.fn(),
+                setCellDialogSourceCellId: vi.fn(),
+                setCellDialogPlacement: vi.fn(),
+                setAxisDialogKind: vi.fn(),
+                setCellDialogError: vi.fn(),
+                setCellDeleteId: vi.fn(),
+                setCellDeleteError: vi.fn()
+            }
+        }
+
+        const { rerender } = render(<WorkspaceShell structure={structure} details={details} dialogs={dialogs} splitPaneEnabled />)
+
+        const separator = screen.getByRole('separator', { name: 'Resize structure and details panes' })
+        fireEvent.keyDown(separator, { key: 'ArrowRight' })
+        expect(separator).toHaveAttribute('aria-valuenow', '55')
+
+        rerender(
+            <WorkspaceShell
+                structure={{ ...structure, selectedConcept: { id: 'structure-1', Name: 'Structure one refreshed' } }}
+                details={details}
+                dialogs={dialogs}
+                splitPaneEnabled
+            />
+        )
+
+        expect(screen.getByRole('separator', { name: 'Resize structure and details panes' })).toHaveAttribute('aria-valuenow', '55')
+    })
+
     it('renders the hierarchical path table with a header card, row cells, and ancestor breadcrumbs', async () => {
         const user = userEvent.setup()
         const cells = [
@@ -573,6 +848,49 @@ describe('MatrixWorkspace', () => {
 
         expect(screen.getByRole('button', { name: 'Universe' })).toHaveStyle({ backgroundColor: '#fb8c00' })
         expect(screen.getByTestId('interpretation-network-breadcrumb-item')).toHaveAttribute('data-cell-colored', 'true')
+    })
+
+    it('preserves authored breadcrumb colours while applying hover and keyboard-focus effects', () => {
+        const styledCell = cell({
+            id: 'root',
+            parentCellId: null,
+            sortOrder: 0,
+            title: 'Universe',
+            style: { ...cell({ id: 'x', parentCellId: null, sortOrder: 0 }).style, fill: '#FB8C00', text: '#FFFFFF' }
+        })
+        const sx = getBreadcrumbSx(styledCell, true, false) as Record<string, unknown>
+
+        expect(sx.backgroundColor).toBe('#FB8C00')
+        expect(sx.color).toBe('#FFFFFF')
+        expect(sx['&:hover']).toEqual(expect.objectContaining({ backgroundColor: '#FB8C00', color: '#FFFFFF', filter: 'brightness(1.04)' }))
+        expect(sx['&:focus-visible']).toEqual(expect.objectContaining({ backgroundColor: '#FB8C00', color: '#FFFFFF' }))
+    })
+
+    it('keeps default breadcrumb text theme-coloured when cell colouring is disabled', () => {
+        const cells = [
+            cell({
+                id: 'root',
+                parentCellId: null,
+                sortOrder: 0,
+                title: 'Universe',
+                style: {
+                    ...cell({ id: 'x', parentCellId: null, sortOrder: 0 }).style,
+                    fill: '#212121',
+                    text: '#FFFFFF'
+                }
+            }),
+            cell({ id: 'meaning', parentCellId: 'root', sortOrder: 0, title: 'Meaning' }),
+            cell({ id: 'term', parentCellId: 'meaning', sortOrder: 0, title: 'Term' })
+        ]
+
+        renderHierarchicalPathWorkspace({
+            cells,
+            focusedCellId: 'term',
+            selectedCell: cells[2],
+            colorBreadcrumbsByCell: false
+        })
+
+        expect(screen.getByRole('button', { name: 'Universe' })).toHaveStyle({ color: '#1976d2' })
     })
 
     it('uses a one-word Add action for hierarchical cell creation', () => {
@@ -765,8 +1083,20 @@ describe('MatrixWorkspace', () => {
     it('shows the total tree-cell counter and selected inset outline outside the table view', () => {
         const cells = [
             cell({ id: 'root', parentCellId: null, sortOrder: 0, title: 'Universe' }),
-            cell({ id: 'cell-1', parentCellId: 'root', sortOrder: 0, title: 'Cell 1' }),
-            cell({ id: 'cell-2', parentCellId: 'root', sortOrder: 1, title: 'Cell 2' })
+            cell({
+                id: 'cell-1',
+                parentCellId: 'root',
+                sortOrder: 0,
+                title: 'Cell 1',
+                style: { ...cell({ id: 'cell-1-style', parentCellId: null, sortOrder: 0 }).style, fill: '#FB8C00', text: '#FFFFFF' }
+            }),
+            cell({
+                id: 'cell-2',
+                parentCellId: 'root',
+                sortOrder: 1,
+                title: 'Cell 2',
+                style: { ...cell({ id: 'cell-2-style', parentCellId: null, sortOrder: 0 }).style, fill: '#212121', text: '#E53935' }
+            })
         ]
         const baseProps: ComponentProps<typeof MatrixWorkspace> = {
             t,
@@ -831,6 +1161,20 @@ describe('MatrixWorkspace', () => {
             'data-selected-outline',
             'inset'
         )
+
+        const whiteCellButton = screen.getByRole('button', { name: /2, Cell 1/ })
+        expect(whiteCellButton).toHaveStyle({ color: '#FFFFFF' })
+        expect(whiteCellButton.closest('[data-testid="interpretation-network-cell"]')).toHaveStyle({
+            backgroundColor: '#FB8C00',
+            color: '#FFFFFF'
+        })
+
+        const redCellButton = screen.getByRole('button', { name: /3, Cell 2/ })
+        expect(redCellButton).toHaveStyle({ color: '#E53935' })
+        expect(redCellButton.closest('[data-testid="interpretation-network-cell"]')).toHaveStyle({
+            backgroundColor: '#212121',
+            color: '#E53935'
+        })
 
         rerender(<MatrixWorkspace {...baseProps} matrixView='verticalTree' showMatrixTreeTotalCells={false} />)
 

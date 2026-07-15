@@ -6,6 +6,7 @@ import {
     RESOURCE_TYPES,
     collectUnsupportedActiveCapabilityRules,
     normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     sanitizeApplicationLearningContentSettings
 } from '@universo-react/types'
@@ -249,16 +250,10 @@ const parsePositionNumbering = (value: unknown): InterpretationNetworkMatrixSett
 
 const parseMatrixSettings = (config: Record<string, unknown> | null | undefined): InterpretationNetworkMatrixSettings => {
     const matrixMode = parseMatrixMode(config?.matrixMode)
-    const legacyHierarchyLayout =
-        config?.hierarchyLayout === 'horizontalRows' || config?.hierarchyLayout === 'verticalTree' ? config.hierarchyLayout : undefined
     const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
-    const hasNewViewSettings = requestedViews !== undefined || config?.defaultMatrixView !== undefined
     const defaultAllowedMatrixViews: InterpretationNetworkMatrixView[] =
         matrixMode === 'hierarchicalCells' ? ['table', 'horizontalRows', 'verticalTree'] : ['table', 'horizontalRows']
-    const allowedMatrixViews =
-        legacyHierarchyLayout && !hasNewViewSettings && matrixMode === 'hierarchicalCells'
-            ? Array.from(new Set(['horizontalRows', legacyHierarchyLayout]))
-            : requestedViews ?? defaultAllowedMatrixViews
+    const allowedMatrixViews = requestedViews ?? defaultAllowedMatrixViews
     const tableSettings = normalizeInterpretationNetworkTableSettings(
         matrixMode,
         config?.tableProjection,
@@ -272,11 +267,7 @@ const parseMatrixSettings = (config: Record<string, unknown> | null | undefined)
 
     return {
         matrixMode,
-        ...normalizeInterpretationNetworkMatrixViewSettings(
-            matrixMode,
-            allowedMatrixViews,
-            config?.defaultMatrixView ?? legacyHierarchyLayout ?? 'table'
-        ),
+        ...normalizeInterpretationNetworkMatrixViewSettings(matrixMode, allowedMatrixViews, config?.defaultMatrixView ?? 'table'),
         tableProjection: tableSettings.tableProjection,
         breadcrumbDepth: tableSettings.breadcrumbDepth,
         toolbarLayout: tableSettings.toolbarLayout,
@@ -286,7 +277,8 @@ const parseMatrixSettings = (config: Record<string, unknown> | null | undefined)
         colorBreadcrumbsByCell: tableSettings.colorBreadcrumbsByCell,
         hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
         positionNumbering: parsePositionNumbering(config?.positionNumbering),
-        allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true
+        allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true,
+        splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane)
     }
 }
 
@@ -312,6 +304,7 @@ const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
     'hierarchyRowMode',
     'positionNumbering',
     'allowNewAxesInCellDialog',
+    'splitPane',
     'conceptCodename',
     'conceptNameField',
     'conceptDescriptionField',
@@ -350,6 +343,7 @@ const areMatrixSettingsEqual = (left: InterpretationNetworkMatrixSettings, right
     left.colorBreadcrumbsByCell === right.colorBreadcrumbsByCell &&
     left.hierarchyRowMode === right.hierarchyRowMode &&
     left.allowNewAxesInCellDialog === right.allowNewAxesInCellDialog &&
+    left.splitPane.enabled === right.splitPane.enabled &&
     left.positionNumbering.enabled === right.positionNumbering.enabled &&
     left.positionNumbering.includeRoot === right.positionNumbering.includeRoot &&
     left.positionNumbering.startIndex === right.positionNumbering.startIndex
@@ -508,7 +502,8 @@ const ApplicationSettings = () => {
                         colorBreadcrumbsByCell: normalizedSettings.colorBreadcrumbsByCell,
                         hierarchyRowMode: normalizedSettings.hierarchyRowMode,
                         positionNumbering: normalizedSettings.positionNumbering,
-                        allowNewAxesInCellDialog: normalizedSettings.allowNewAxesInCellDialog
+                        allowNewAxesInCellDialog: normalizedSettings.allowNewAxesInCellDialog,
+                        splitPane: normalizedSettings.splitPane
                     },
                     ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
                 }))
@@ -551,7 +546,8 @@ const ApplicationSettings = () => {
                                                 colorBreadcrumbsByCell: savedSettings.colorBreadcrumbsByCell,
                                                 hierarchyRowMode: savedSettings.hierarchyRowMode,
                                                 positionNumbering: savedSettings.positionNumbering,
-                                                allowNewAxesInCellDialog: savedSettings.allowNewAxesInCellDialog
+                                                allowNewAxesInCellDialog: savedSettings.allowNewAxesInCellDialog,
+                                                splitPane: savedSettings.splitPane
                                             },
                                             layout: widget.layout
                                         }

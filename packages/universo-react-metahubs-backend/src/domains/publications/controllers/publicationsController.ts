@@ -6,6 +6,7 @@ import {
     WorkspacePolicyError,
     assertPublicationWorkspacePolicyTransition,
     buildSnapshotEnvelope,
+    computeSnapshotHash,
     getCodenamePrimary,
     validateSnapshotEnvelope
 } from '@universo-react/utils'
@@ -34,11 +35,12 @@ import {
     type AppRow
 } from '../../../persistence'
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
+import { validateInterpretationNetworkSnapshotMetadata } from '../services/interpretationNetworkSnapshotValidation'
 import { getDDLServices, generateSchemaName, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
 import type { MetahubSnapshotTransportEnvelope } from '@universo-react/types'
 import { createLinkedApplication } from '../helpers/createLinkedApplication'
-import { MetahubNotFoundError } from '../../shared/domainErrors'
+import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
@@ -1496,6 +1498,22 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid snapshot envelope', details: message })
         }
 
+        let importedSnapshot = envelope.snapshot
+        const sourceSnapshotHash = envelope.snapshotHash
+        let storedSnapshotHash = sourceSnapshotHash
+        try {
+            const validation = validateInterpretationNetworkSnapshotMetadata(envelope.snapshot)
+            importedSnapshot = validation.normalizedSnapshot
+            if (validation.hasNormalizedChanges) {
+                storedSnapshotHash = computeSnapshotHash(importedSnapshot as Record<string, unknown>)
+            }
+        } catch (error) {
+            if (error instanceof MetahubValidationError) {
+                return res.status(400).json({ error: 'Invalid snapshot envelope', code: 'INVALID_SNAPSHOT_METADATA' })
+            }
+            throw error
+        }
+
         // 2. Verify publication exists and belongs to this metahub
         const publication = await findPublicationById(exec, publicationId)
         if (!publication || publication.metahubId !== metahubId) {
@@ -1517,8 +1535,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 versionNumber: nextVersionNumber,
                 name: versionName!,
                 description: null,
-                snapshotJson: envelope.snapshot as Record<string, unknown>,
-                snapshotHash: envelope.snapshotHash,
+                snapshotJson: importedSnapshot as Record<string, unknown>,
+                snapshotHash: storedSnapshotHash,
                 branchId: null,
                 isActive: true,
                 userId
@@ -1535,7 +1553,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             ...result,
             importedFrom: {
                 sourceMetahubId: envelope.metahub.id,
-                sourceSnapshotHash: envelope.snapshotHash,
+                sourceSnapshotHash,
                 exportedAt: envelope.exportedAt
             }
         })

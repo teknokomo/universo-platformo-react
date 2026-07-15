@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
     applicationLayoutWidgetConfigBatchMutationSchema,
+    INTERPRETATION_NETWORK_SPLIT_PANE_DEFAULT,
+    INTERPRETATION_NETWORK_SPLIT_PANE_MAX_PERCENT,
+    INTERPRETATION_NETWORK_SPLIT_PANE_MIN_PERCENT,
+    normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     normalizeInterpretationNetworkMatrixViewSettings,
     parseApplicationLayoutWidgetConfig
@@ -64,6 +68,7 @@ describe('application layout widget config contracts', () => {
                 toolbarLayout: 'horizontal',
                 showHierarchicalTableHeaders: false,
                 colorBreadcrumbsByCell: true,
+                splitPane: { enabled: true },
                 hierarchyRowMode: 'focusedPath',
                 positionNumbering: {
                     enabled: true,
@@ -76,7 +81,6 @@ describe('application layout widget config contracts', () => {
                     canExclude: false,
                     positionLocked: true
                 },
-                hierarchyLayout: 'verticalTree',
                 serverModuleCodename: 'interpretation-runtime',
                 conceptCodename: 'Structure',
                 conceptNameField: 'Name',
@@ -102,6 +106,7 @@ describe('application layout widget config contracts', () => {
             toolbarLayout: 'horizontal',
             showHierarchicalTableHeaders: false,
             colorBreadcrumbsByCell: true,
+            splitPane: { enabled: true },
             hierarchyRowMode: 'focusedPath',
             positionNumbering: {
                 enabled: true,
@@ -126,28 +131,12 @@ describe('application layout widget config contracts', () => {
                 objectCollectionCodenames: ['Structure']
             }
         })
-        expect(
-            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
-                matrixMode: 'hierarchicalCells',
-                hierarchyLayout: 'verticalTree',
-                allowedMatrixViews: ['table'],
-                defaultMatrixView: 'table'
-            })
-        ).toEqual({
-            matrixMode: 'hierarchicalCells',
-            allowedMatrixViews: ['table'],
-            defaultMatrixView: 'table'
-        })
-        expect(
+        expect(() =>
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
                 matrixMode: 'hierarchicalCells',
                 hierarchyLayout: 'verticalTree'
             })
-        ).toEqual({
-            matrixMode: 'hierarchicalCells',
-            allowedMatrixViews: ['horizontalRows', 'verticalTree'],
-            defaultMatrixView: 'verticalTree'
-        })
+        ).toThrow()
 
         expect(() =>
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
@@ -309,6 +298,20 @@ describe('application layout widget config contracts', () => {
             showMatrixTreeTotalCells: true,
             colorBreadcrumbsByCell: true
         })
+    })
+
+    it('accepts only a minimal split-pane configuration and provides fixed layout bounds', () => {
+        expect(INTERPRETATION_NETWORK_SPLIT_PANE_DEFAULT).toBe(50)
+        expect(INTERPRETATION_NETWORK_SPLIT_PANE_MIN_PERCENT).toBe(25)
+        expect(INTERPRETATION_NETWORK_SPLIT_PANE_MAX_PERCENT).toBe(75)
+        expect(normalizeInterpretationNetworkSplitPaneSettings({ enabled: true })).toEqual({ enabled: true })
+        expect(normalizeInterpretationNetworkSplitPaneSettings({ enabled: 'true' })).toEqual({ enabled: true })
+        expect(normalizeInterpretationNetworkSplitPaneSettings(undefined)).toEqual({ enabled: true })
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                splitPane: { enabled: true, ratio: 0.5 }
+            })
+        ).toThrow()
     })
 
     it('accepts generic PlayCanvas canvas widget configuration', () => {

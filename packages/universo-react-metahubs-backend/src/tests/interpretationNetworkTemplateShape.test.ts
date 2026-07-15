@@ -45,6 +45,7 @@ describe('interpretation-network template shape', () => {
                       showHierarchicalTableHeaderCard?: boolean
                       showMatrixTreeTotalCells?: boolean
                       colorBreadcrumbsByCell?: boolean
+                      splitPane?: { enabled?: boolean }
                   }
               }
             | undefined
@@ -63,6 +64,7 @@ describe('interpretation-network template shape', () => {
             showHierarchicalTableHeaderCard: true,
             showMatrixTreeTotalCells: true,
             colorBreadcrumbsByCell: true,
+            splitPane: { enabled: true },
             allowNewAxesInCellDialog: false,
             positionNumbering: {
                 enabled: true,
@@ -78,7 +80,10 @@ describe('interpretation-network template shape', () => {
             conceptDescriptionField: 'Description',
             interpretationParentField: 'ParentStructure'
         })
-        const menu = findWidget(left, 'menuWidget') as { config?: { startPage?: string; items?: Array<{ id?: string }> } } | undefined
+        const menu = findWidget(left, 'menuWidget') as
+            | { config?: { showTitle?: boolean; startPage?: string; items?: Array<{ id?: string }> } }
+            | undefined
+        expect(menu?.config?.showTitle).toBe(false)
         expect(menu?.config?.startPage).toBe('InterpretationNetworkIntro')
         expect(menu?.config?.items?.map((item) => item.id)).toEqual([
             'interpretationNetwork-nav-intro',
@@ -110,7 +115,6 @@ describe('interpretation-network template shape', () => {
         expect(interpretationNetworkTemplate.seed.entities).toBe(INTERPRETATION_NETWORK_STAGE2.seedEntities)
         const codenames = (interpretationNetworkTemplate.seed.entities ?? []).map((e) => e.codename).sort()
         expect(codenames).toEqual([
-            'CellColor',
             'Context',
             'Interpretation',
             'InterpretationNetworkIntro',
@@ -122,9 +126,10 @@ describe('interpretation-network template shape', () => {
         ])
     })
 
-    it('specifies all twelve CellColor values in the active template seed', () => {
-        const codenames = interpretationNetworkTemplate.seed.optionValues?.CellColor?.map((v) => v.codename).sort()
-        expect(codenames).toEqual(['black', 'blue', 'gray', 'green', 'indigo', 'none', 'orange', 'pink', 'purple', 'red', 'teal', 'yellow'])
+    it('does not preserve a CellColor enumeration or legacy colour picker metadata', () => {
+        expect(interpretationNetworkTemplate.seed.optionValues?.CellColor).toBeUndefined()
+        expect(JSON.stringify(interpretationNetworkTemplate)).not.toContain('cellStylePicker')
+        expect(JSON.stringify(interpretationNetworkTemplate)).not.toContain('CellColor')
     })
 
     it('does not seed user-authored runtime rows into the product fixture path', () => {
@@ -166,39 +171,53 @@ describe('interpretation-network template shape', () => {
         expect(body?.uiConfig).toMatchObject({ widget: 'editorjsBlockContent', gridHidden: true })
     })
 
-    it('Interpretation entity specifies the TABLE InterpretationMatrix with 22 child components', () => {
+    it('Interpretation entity specifies the TABLE InterpretationMatrix with 23 child components', () => {
         const interp = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Interpretation')
         expect(interp).toBeDefined()
         const matrix = interp?.components?.find((c) => c.codename === 'InterpretationMatrix')
         expect(matrix?.dataType).toBe('TABLE')
-        expect(matrix?.childComponents?.length).toBe(22)
+        expect(matrix?.childComponents?.length).toBe(23)
         expect(Number(matrix?.validationRules?.maxChildComponents ?? 0)).toBe(matrix?.childComponents?.length ?? 0)
         const codenames = matrix?.childComponents?.map((c) => c.codename) ?? []
         expect(codenames).toContain('CellId')
         expect(codenames).toContain('ParentCellId')
         expect(codenames).toContain('CellDescription')
         expect(codenames).toContain('CellFillColor')
+        expect(codenames).toContain('TextColor')
         expect(codenames).toContain('MaterialRef')
         expect(matrix?.childComponents?.find((c) => c.codename === 'MaterialRef')).toMatchObject({
             targetEntityCodename: 'Material',
             targetEntityKind: 'object'
         })
-        expect(matrix?.childComponents?.find((c) => c.codename === 'CellFillColor')?.uiConfig).toMatchObject({
-            widget: 'cellStylePicker',
-            cellStyleFor: 'fill'
-        })
+        for (const codename of [
+            'CellFillColor',
+            'TextColor',
+            'BorderTopColor',
+            'BorderRightColor',
+            'BorderBottomColor',
+            'BorderLeftColor'
+        ]) {
+            expect(matrix?.childComponents?.find((c) => c.codename === codename)).toMatchObject({
+                dataType: 'STRING',
+                validationRules: {
+                    format: 'hexColor',
+                    maxLength: 7,
+                    pattern: '^#[0-9A-F]{6}$'
+                }
+            })
+        }
         expect(matrix?.childComponents?.find((c) => c.codename === 'CellValue')?.uiConfig).toMatchObject({
             widget: 'textarea',
             cellStylePreview: {
                 fillColorField: 'CellFillColor',
+                textColorField: 'TextColor',
                 borderTopColorField: 'BorderTopColor',
                 borderTopWidthField: 'BorderTopWidth',
                 borderTopStyleField: 'BorderTopStyle'
             }
         })
         expect(matrix?.childComponents?.find((c) => c.codename === 'BorderTopWidth')?.uiConfig).toMatchObject({
-            widget: 'cellStylePicker',
-            cellStyleFor: 'top'
+            interpretationNetworkStyleRole: 'borderTopWidth'
         })
     })
 

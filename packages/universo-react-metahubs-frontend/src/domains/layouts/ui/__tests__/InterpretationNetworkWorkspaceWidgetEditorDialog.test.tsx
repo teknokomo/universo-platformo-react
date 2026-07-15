@@ -244,13 +244,13 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
                 matrixMode: 'hierarchicalCells',
                 allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
                 defaultMatrixView: 'table',
-                hierarchyLayout: 'verticalTree',
                 conceptCodename: 'concepts',
                 sharedBehavior: {
                     canDeactivate: true,
                     canExclude: false,
                     positionLocked: false
-                }
+                },
+                splitPane: { enabled: true }
             } as ComponentProps<typeof InterpretationNetworkWorkspaceWidgetEditorDialog>['config']
         })
 
@@ -266,6 +266,7 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
                 defaultMatrixView: 'horizontalRows',
                 conceptCodename: 'concepts',
                 allowNewAxesInCellDialog: false,
+                splitPane: { enabled: true },
                 sharedBehavior: {
                     canDeactivate: true,
                     canExclude: false,
@@ -275,24 +276,27 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
         )
     })
 
-    it('migrates legacy vertical hierarchy display to the new Matrix view settings', async () => {
+    it('saves the resizable-pane setting through the shared configuration contract', async () => {
         const user = userEvent.setup()
         const { onSave } = renderDialog({
             config: {
                 matrixMode: 'hierarchicalCells',
-                hierarchyLayout: 'verticalTree'
-            } as ComponentProps<typeof InterpretationNetworkWorkspaceWidgetEditorDialog>['config']
+                splitPane: { enabled: true }
+            }
         })
 
-        expect(screen.getByRole('checkbox', { name: 'Vertical tree' })).toBeChecked()
+        const splitPaneSwitch = screen.getByRole('switch', { name: 'Allow users to resize workspace panes' })
+        expect(splitPaneSwitch).toBeChecked()
 
+        await user.click(splitPaneSwitch)
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(onSave).toHaveBeenCalledWith(
             expect.objectContaining({
                 matrixMode: 'hierarchicalCells',
-                allowedMatrixViews: ['horizontalRows', 'verticalTree'],
-                defaultMatrixView: 'verticalTree',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table',
+                splitPane: { enabled: false },
                 allowNewAxesInCellDialog: false
             })
         )

@@ -1668,6 +1668,64 @@ describe('ApplicationSettings', () => {
         })
     }, 15_000)
 
+    it('saves the resizable-pane setting through the existing atomic Matrix widget batch', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 1
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'table',
+                    splitPane: { enabled: true }
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        const splitPaneSetting = within(screen.getByTestId('application-setting-matrix-resizable-panes')).getByRole('switch')
+        expect(splitPaneSetting).toBeChecked()
+        await userEvent.click(splitPaneSetting)
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({ splitPane: { enabled: false } }),
+                expectedVersion: 7
+            })
+        })
+    }, 15_000)
+
     it('saves matrix settings to every active interpretation workspace widget', async () => {
         const globalLayout = {
             id: '018f8a78-7b8f-7c1d-a111-2222333345c1',
@@ -2093,7 +2151,7 @@ describe('ApplicationSettings', () => {
         expect(breadcrumbDepthPanel.getByRole('combobox', { name: 'Levels' })).toHaveAttribute('aria-disabled', 'true')
     })
 
-    it('migrates a legacy vertical hierarchy layout without changing the selected Matrix view', async () => {
+    it('ignores an unsupported legacy hierarchy layout and saves the strict Matrix configuration', async () => {
         mockedListApplicationLayouts.mockResolvedValue({
             items: [
                 {
@@ -2138,9 +2196,7 @@ describe('ApplicationSettings', () => {
         await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
         expect(screen.getByRole('checkbox', { name: 'Horizontal rows' })).toBeChecked()
         expect(screen.getByRole('checkbox', { name: 'Vertical tree' })).toBeChecked()
-        expect(within(screen.getByTestId('application-setting-matrix-default-view')).getByRole('combobox')).toHaveTextContent(
-            'Vertical tree'
-        )
+        expect(within(screen.getByTestId('application-setting-matrix-default-view')).getByRole('combobox')).toHaveTextContent('Table view')
 
         await userEvent.click(within(screen.getByTestId('application-setting-matrix-position-numbering-root')).getByRole('switch'))
         await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
@@ -2149,8 +2205,8 @@ describe('ApplicationSettings', () => {
             expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
                 config: expect.objectContaining({
                     matrixMode: 'hierarchicalCells',
-                    allowedMatrixViews: ['horizontalRows', 'verticalTree'],
-                    defaultMatrixView: 'verticalTree',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'table',
                     positionNumbering: { enabled: true, includeRoot: false, startIndex: 1 },
                     conceptCodename: 'Structure'
                 }),

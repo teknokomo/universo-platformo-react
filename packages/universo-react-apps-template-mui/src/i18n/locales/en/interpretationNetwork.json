@@ -170,6 +170,10 @@
             "unavailable": "Cell style fields are not available.",
             "error": "Failed to save cell style"
         },
+        "splitPane": {
+            "resize": "Resize structure and details panes",
+            "reset": "Reset panes"
+        },
         "material": {
             "title": "Materials",
             "create": "Create",
@@ -232,6 +236,17 @@
         "none": "None",
         "preview": "Current field preview",
         "helper": "These settings are saved with the row.",
+        "border": "Border",
+        "allBorders": "All borders",
+        "textColor": "Text color",
+        "hex": "Hex color",
+        "clear": "Clear",
+        "colorPicker": "{{label}} color picker",
+        "presetColors": "{{label}} preset colors",
+        "invalidColor": "Enter a hexadecimal color such as #1E88E5.",
+        "contrastWarning": "This text and fill combination may be difficult to read. You can still save it.",
+        "editSidesSeparately": "Edit sides separately",
+        "editAllSides": "Edit all sides together",
         "colors": {
             "none": "None",
             "gray": "Gray",
@@ -244,7 +259,8 @@
             "indigo": "Indigo",
             "purple": "Purple",
             "pink": "Pink",
-            "black": "Black"
+            "black": "Black",
+            "white": "White"
         },
         "lineStyles": {
             "solid": "Solid",

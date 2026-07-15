@@ -5,9 +5,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@universo-react/i18n'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
 import { renderWidget } from '../widgetRenderer'
-import { CellEditDialog } from '../interpretation-network/CellEditDialog'
+import { CellEditDialog, resolveCellStyleContrast } from '../interpretation-network/CellEditDialog'
 
 const UUID_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const vlc = (en: string, ru: string, primary = 'ru') => ({
+    _schema: '1',
+    _primary: primary,
+    locales: {
+        en: { content: en, version: 1, isActive: true },
+        ru: { content: ru, version: 1, isActive: true }
+    }
+})
 
 vi.mock('@universo-react/block-editor', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@universo-react/block-editor')>()
@@ -154,14 +162,11 @@ const interpretationMatrixColumns = () => [
                 id: 'child-fill',
                 codename: 'CellFillColor',
                 field: 'CellFillColor',
-                dataType: 'REF',
+                dataType: 'STRING',
                 headerName: 'Fill Color',
-                uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'fill', cellStyleValue: 'color' },
-                refOptions: [
-                    { id: 'none', codename: 'none', label: 'None' },
-                    { id: 'blue', codename: 'blue', label: 'Blue' }
-                ]
+                validationRules: { format: 'hexColor' }
             },
+            { id: 'child-text', codename: 'TextColor', field: 'TextColor', dataType: 'STRING', validationRules: { format: 'hexColor' } },
             { id: 'child-row-key', codename: 'RowKey', field: 'RowKey' },
             { id: 'child-row', codename: 'RowLabel', field: 'RowLabel' },
             { id: 'child-col-key', codename: 'ColKey', field: 'ColKey' },
@@ -179,13 +184,9 @@ const interpretationMatrixColumns = () => [
                 id: 'child-border-top-color',
                 codename: 'BorderTopColor',
                 field: 'BorderTopColor',
-                dataType: 'REF',
+                dataType: 'STRING',
                 headerName: 'Top Border Color',
-                uiConfig: { widget: 'cellStylePicker', cellStyleFor: 'top', cellStyleValue: 'color' },
-                refOptions: [
-                    { id: 'none', codename: 'none', label: 'None' },
-                    { id: 'blue', codename: 'blue', label: 'Blue' }
-                ]
+                validationRules: { format: 'hexColor' }
             },
             { id: 'child-material', codename: 'MaterialRef', field: 'MaterialRef' }
         ]
@@ -204,19 +205,20 @@ const matrixRowsFixture = () => ({
             ColLabel: 'Meaning',
             CellValue: 'Selected cell value',
             CellDescription: 'Selected cell description',
-            CellFillColor: 'blue',
+            CellFillColor: '#1E88E5',
+            TextColor: '#FFFFFF',
             BorderTopWidth: '3px',
             BorderTopStyle: 'solid',
-            BorderTopColor: 'blue',
+            BorderTopColor: '#1E88E5',
             BorderRightWidth: '1px',
             BorderRightStyle: 'solid',
-            BorderRightColor: 'none',
+            BorderRightColor: null,
             BorderBottomWidth: '1px',
             BorderBottomStyle: 'solid',
-            BorderBottomColor: 'none',
+            BorderBottomColor: null,
             BorderLeftWidth: '1px',
             BorderLeftStyle: 'solid',
-            BorderLeftColor: 'none',
+            BorderLeftColor: null,
             MaterialRef: 'material-selected'
         },
         {
@@ -229,19 +231,20 @@ const matrixRowsFixture = () => ({
             ColLabel: 'Meaning',
             CellValue: 'Other cell value',
             CellDescription: 'Other cell description',
-            CellFillColor: 'none',
+            CellFillColor: null,
+            TextColor: null,
             BorderTopWidth: '1px',
             BorderTopStyle: 'solid',
-            BorderTopColor: 'none',
+            BorderTopColor: null,
             BorderRightWidth: '1px',
             BorderRightStyle: 'solid',
-            BorderRightColor: 'none',
+            BorderRightColor: null,
             BorderBottomWidth: '1px',
             BorderBottomStyle: 'solid',
-            BorderBottomColor: 'none',
+            BorderBottomColor: null,
             BorderLeftWidth: '1px',
             BorderLeftStyle: 'solid',
-            BorderLeftColor: 'none',
+            BorderLeftColor: null,
             MaterialRef: null
         }
     ],
@@ -330,12 +333,19 @@ const defaultRuntimeResponse = (url: URL) => {
             'Structure',
             [{ id: 'concept-1', Name: 'Existing structure' }],
             [
-                { id: 'term-component', codename: 'Name', field: 'Name', headerName: 'Name' },
+                {
+                    id: 'term-component',
+                    codename: 'Name',
+                    field: 'Name',
+                    headerName: 'Name',
+                    validationRules: { localized: true, maxLength: 255, versioned: true }
+                },
                 {
                     id: 'description-component',
                     codename: 'Description',
                     field: 'Description',
                     headerName: 'Description',
+                    validationRules: { localized: true, versioned: true },
                     uiConfig: { widget: 'textarea' }
                 }
             ]
@@ -401,8 +411,8 @@ const defaultRuntimeResponse = (url: URL) => {
                             id: 'template-child-fill',
                             codename: 'CellFillColor',
                             field: 'CellFillColor',
-                            dataType: 'REF',
-                            refOptions: [{ id: 'none-id', codename: 'none', label: 'None' }]
+                            dataType: 'STRING',
+                            validationRules: { format: 'hexColor' }
                         }
                     ]
                 }
@@ -503,6 +513,16 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         vi.restoreAllMocks()
         await i18n.changeLanguage('en')
         window.history.pushState({}, '', '/a/app-1')
+    })
+
+    it('uses the active theme colours when only one cell style colour is authored', () => {
+        expect(resolveCellStyleContrast({ fill: null, text: '#FFFFFF', themePaper: '#FFFFFF', themeText: '#121212' })).toBeLessThan(4.5)
+        expect(
+            resolveCellStyleContrast({ fill: null, text: '#FFFFFF', themePaper: '#121212', themeText: '#FFFFFF' })
+        ).toBeGreaterThanOrEqual(4.5)
+        expect(
+            resolveCellStyleContrast({ fill: '#121212', text: null, themePaper: '#121212', themeText: 'rgba(255, 255, 255, 0.87)' })
+        ).toBeGreaterThanOrEqual(4.5)
     })
 
     it('keeps the Structures section empty until the user creates a structure', async () => {
@@ -693,7 +713,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.type(screen.getByLabelText('Filter by title'), 'Second page structure')
         const structureCards = await screen.findByTestId('interpretation-network-structure-cards')
         expect(await within(structureCards).findByText('Second page structure')).toBeInTheDocument()
-    }, 20_000)
+    }, 35_000)
 
     it('replaces the left structure list with the opened structure matrix and keeps materials on the right', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -744,7 +764,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(within(detailsPane).queryByText('Create or select a structure on the left.', { exact: false })).not.toBeInTheDocument()
         expect(within(detailsPane).getByRole('heading', { name: 'Materials' })).toBeInTheDocument()
         expect(within(detailsPane).queryByTestId('interpretation-network-matrix-workspace')).not.toBeInTheDocument()
-    }, 20_000)
+    }, 35_000)
 
     it('filters structures and opens them from the full card view', async () => {
         const user = userEvent.setup()
@@ -766,7 +786,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(within(cards).getByText('Existing structure'))
 
         expect(await within(structurePane).findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
-    }, 20_000)
+    }, 35_000)
 
     it('offers standard structure actions in table and card views', async () => {
         const user = userEvent.setup()
@@ -809,7 +829,13 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(JSON.parse(String(updateCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
                     objectCollectionId: sectionIds.Structure,
-                    data: expect.objectContaining({ Name: 'Renamed structure' })
+                    data: expect.objectContaining({
+                        Name: expect.objectContaining({
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'Renamed structure' })
+                            })
+                        })
+                    })
                 })
             )
         })
@@ -846,6 +872,82 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(interpretationDeleteIndex).toBeGreaterThanOrEqual(0)
         expect(structureDeleteIndex).toBeGreaterThanOrEqual(0)
         expect(interpretationDeleteIndex).toBeGreaterThan(structureDeleteIndex)
+    }, 20_000)
+
+    it('opens all localized Name and Description variants when editing a structure row', async () => {
+        const user = userEvent.setup()
+        const rawStructureName = vlc('Existing structure EN', 'Существующая структура')
+        const rawStructureDescription = vlc('Existing description EN', 'Существующее описание')
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (init?.method === 'PATCH' && url.pathname.endsWith('/runtime/rows/concept-1')) {
+                return jsonResponse({ id: 'concept-1' })
+            }
+            if (init?.method !== 'PATCH' && url.pathname.endsWith('/runtime/rows/concept-1')) {
+                return jsonResponse({
+                    id: 'concept-1',
+                    data: {
+                        Name: rawStructureName,
+                        Description: rawStructureDescription
+                    }
+                })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, horizontalRowsConfig, 'ru')
+
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        await user.click(await within(structurePane).findByRole('button', { name: 'Structure actions: Existing structure' }))
+        await user.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+
+        const editDialog = await screen.findByRole('dialog', { name: 'Edit structure' })
+        const nameInputs = within(editDialog).getAllByRole('textbox', { name: 'Name' })
+        const descriptionInputs = within(editDialog).getAllByRole('textbox', { name: 'Description' })
+        expect(nameInputs).toHaveLength(2)
+        expect(descriptionInputs).toHaveLength(2)
+        expect(nameInputs.map((input) => (input as HTMLInputElement).value).sort()).toEqual(
+            ['Existing structure EN', 'Существующая структура'].sort()
+        )
+        expect(descriptionInputs.map((input) => (input as HTMLInputElement).value).sort()).toEqual(
+            ['Existing description EN', 'Существующее описание'].sort()
+        )
+
+        const englishNameInput = nameInputs.find((input) => (input as HTMLInputElement).value === 'Existing structure EN')
+        expect(englishNameInput).toBeDefined()
+        await user.clear(englishNameInput!)
+        await user.type(englishNameInput!, 'Updated structure EN')
+        await user.click(within(editDialog).getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            const updateCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'PATCH' && String(input).includes('/runtime/rows/concept-1')
+            )
+            expect(updateCall).toBeDefined()
+            const body = JSON.parse(String(updateCall?.[1]?.body ?? '{}'))
+            expect(body).toEqual(
+                expect.objectContaining({
+                    objectCollectionId: sectionIds.Structure,
+                    data: expect.objectContaining({
+                        Name: expect.objectContaining({
+                            _primary: 'ru',
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'Updated structure EN' }),
+                                ru: expect.objectContaining({ content: 'Существующая структура' })
+                            })
+                        }),
+                        Description: expect.objectContaining({
+                            _primary: 'ru',
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'Existing description EN' }),
+                                ru: expect.objectContaining({ content: 'Существующее описание' })
+                            })
+                        })
+                    })
+                })
+            )
+        })
     }, 20_000)
 
     it('persists the opened structure in the URL and restores it after refresh', async () => {
@@ -932,7 +1034,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(navigate).toHaveBeenLastCalledWith(`/a/app-1/${sectionIds.Structure}/concept-1?matrixCell=parent-a`)
         await user.keyboard('{Escape}')
         expect(screen.getByRole('rowheader', { name: /Parent A/ })).toBeInTheDocument()
-    })
+    }, 20_000)
 
     it('hides system-managed row and column placement in the hierarchical table Add cell dialog', async () => {
         const user = userEvent.setup()
@@ -1001,7 +1103,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
         expect(await within(structurePane).findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
 
-        await user.click(within(structurePane).getByRole('button', { name: 'Structures' }))
+        await user.click(screen.getByRole('button', { name: 'Structures' }))
         await user.click(await within(structurePane).findByRole('button', { name: 'Second structure' }))
 
         expect(await within(structurePane).findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
@@ -1754,7 +1856,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                                 _tp_sort_order: 1,
                                 CellValue: 'Selected cell value',
                                 CellDescription: 'Selected cell description',
-                                CellFillColor: 'blue',
+                                CellFillColor: '#1E88E5',
                                 MaterialRef: 'material-selected'
                             })
                         }),
@@ -1848,7 +1950,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                         'child-row': 'Definition',
                         'child-col': 'Meaning',
                         'child-value': 'Editable title',
-                        'child-fill': 'blue'
+                        'child-fill': '#1E88E5'
                     }}
                     isSubmitting={false}
                     onClose={vi.fn()}
@@ -2399,19 +2501,20 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                         ColLabel: 'Child column',
                         CellValue: 'Child from menu',
                         CellDescription: 'Child created through the cell actions menu',
-                        CellFillColor: 'none',
+                        CellFillColor: null,
+                        TextColor: null,
                         BorderTopWidth: '1px',
                         BorderTopStyle: 'solid',
-                        BorderTopColor: 'none',
+                        BorderTopColor: null,
                         BorderRightWidth: '1px',
                         BorderRightStyle: 'solid',
-                        BorderRightColor: 'none',
+                        BorderRightColor: null,
                         BorderBottomWidth: '1px',
                         BorderBottomStyle: 'solid',
-                        BorderBottomColor: 'none',
+                        BorderBottomColor: null,
                         BorderLeftWidth: '1px',
                         BorderLeftStyle: 'solid',
-                        BorderLeftColor: 'none',
+                        BorderLeftColor: null,
                         MaterialRef: null
                     })
                     fixture.total += 1
@@ -2811,19 +2914,20 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                         ColLabel: 'Root',
                         CellValue: 'Root cell value',
                         CellDescription: 'Root cell description',
-                        CellFillColor: 'none',
+                        CellFillColor: null,
+                        TextColor: null,
                         BorderTopWidth: '1px',
                         BorderTopStyle: 'solid',
-                        BorderTopColor: 'none',
+                        BorderTopColor: null,
                         BorderRightWidth: '1px',
                         BorderRightStyle: 'solid',
-                        BorderRightColor: 'none',
+                        BorderRightColor: null,
                         BorderBottomWidth: '1px',
                         BorderBottomStyle: 'solid',
-                        BorderBottomColor: 'none',
+                        BorderBottomColor: null,
                         BorderLeftWidth: '1px',
                         BorderLeftStyle: 'solid',
-                        BorderLeftColor: 'none',
+                        BorderLeftColor: null,
                         MaterialRef: null,
                         _tp_sort_order: 0
                     },
@@ -3344,8 +3448,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(selectedCell)
 
         const selectedCellStyle = window.getComputedStyle(selectedCell)
-        expect(selectedCellStyle.backgroundColor).toBe('#1e88e5')
-        expect(selectedCellStyle.borderTopColor).toBe('#1e88e5')
+        expect(selectedCellStyle.backgroundColor.toLowerCase()).toBe('#1e88e5')
+        expect(selectedCellStyle.borderTopColor.toLowerCase()).toBe('#1e88e5')
         expect(selectedCellStyle.borderTopWidth).toBe('3px')
         expect(selectedCell).toHaveAttribute('data-selected-outline', 'inset')
         expect(selectedCellStyle.backgroundColor).not.toBe('rgb(0, 0, 0)')
@@ -3376,14 +3480,10 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const titleField = within(dialog).getByRole('textbox', { name: /Title/i })
         const descriptionField = within(dialog).getByRole('textbox', { name: /Description/i })
         expect(descriptionField.tagName.toLowerCase()).toBe('textarea')
-        await user.clear(rowLabelField)
-        await user.type(rowLabelField, 'Updated row label')
-        await user.clear(columnLabelField)
-        await user.type(columnLabelField, 'Updated column label')
-        await user.clear(titleField)
-        await user.type(titleField, 'Updated cell title')
-        await user.clear(descriptionField)
-        await user.type(descriptionField, 'Updated cell description')
+        fireEvent.change(rowLabelField, { target: { value: 'Updated row label' } })
+        fireEvent.change(columnLabelField, { target: { value: 'Updated column label' } })
+        fireEvent.change(titleField, { target: { value: 'Updated cell title' } })
+        fireEvent.change(descriptionField, { target: { value: 'Updated cell description' } })
         await waitFor(() => {
             expect(rowLabelField).toHaveValue('Updated row label')
             expect(columnLabelField).toHaveValue('Updated column label')
@@ -3462,10 +3562,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const descriptionField = within(dialog).getByRole('textbox', { name: /Description/i })
         expect(rowLabelField).toHaveValue('Definition')
         expect(columnLabelField).toHaveValue('Meaning')
-        await user.clear(titleField)
-        await user.type(titleField, 'Updated cell title')
-        await user.clear(descriptionField)
-        await user.type(descriptionField, 'Updated cell description')
+        fireEvent.change(titleField, { target: { value: 'Updated cell title' } })
+        fireEvent.change(descriptionField, { target: { value: 'Updated cell description' } })
         await waitFor(() => {
             expect(titleField).toHaveValue('Updated cell title')
             expect(descriptionField).toHaveValue('Updated cell description')

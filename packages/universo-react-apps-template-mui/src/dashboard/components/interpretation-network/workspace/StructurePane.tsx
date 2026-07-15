@@ -18,6 +18,7 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { GridColDef } from '@mui/x-data-grid'
 import type { GridLocaleText } from '@mui/x-data-grid'
 import type { ReactNode } from 'react'
+import type { SxProps, Theme } from '@mui/material/styles'
 import type { TFunction } from 'i18next'
 import CustomizedDataGrid from '../../CustomizedDataGrid'
 import { CatalogToolbar } from '../CatalogToolbar'
@@ -58,9 +59,12 @@ export interface StructurePaneProps {
     onOpenStructure: (structure: StructureSummary) => void
     onOpenStructureMenu: (anchor: HTMLElement, structureId: string) => void
     onCloseStructureMenu: () => void
-    onEditStructure: (structureId: string) => void
+    onEditStructure: (structureId: string) => void | Promise<void>
     onDeleteStructure: (structureId: string) => void
     onBackToList: () => void
+    onStructureOpenControl?: (structureId: string, element: HTMLElement | null) => void
+    hideSelectedHeader?: boolean
+    paneSx?: SxProps<Theme>
 }
 
 export function StructurePane({
@@ -90,7 +94,10 @@ export function StructurePane({
     onCloseStructureMenu,
     onEditStructure,
     onDeleteStructure,
-    onBackToList
+    onBackToList,
+    onStructureOpenControl,
+    hideSelectedHeader = false,
+    paneSx
 }: StructurePaneProps) {
     const selectedConceptTitle = selectedConcept
         ? readColumnText(selectedConcept, conceptColumns, conceptNameField, locale) || t('workspace.untitledConcept', 'Untitled concept')
@@ -111,6 +118,7 @@ export function StructurePane({
             minWidth: 180,
             renderCell: (params) => (
                 <Button
+                    ref={(element) => onStructureOpenControl?.(String(params.row.id), element)}
                     type='button'
                     size='small'
                     variant='text'
@@ -175,6 +183,7 @@ export function StructurePane({
 
     return (
         <Box
+            id='interpretation-network-structure-pane'
             data-testid='interpretation-network-structure-pane'
             sx={{
                 flex: { xs: '1 1 auto', md: '1 1 0%' },
@@ -183,7 +192,8 @@ export function StructurePane({
                 borderColor: 'divider',
                 borderRadius: 1,
                 p: 2,
-                overflow: 'hidden'
+                overflow: 'hidden',
+                ...paneSx
             }}
         >
             {!selectedConcept ? (
@@ -264,6 +274,7 @@ export function StructurePane({
                                     }}
                                 >
                                     <CardActionArea
+                                        ref={(element) => onStructureOpenControl?.(structure.id, element)}
                                         onClick={() => onOpenStructure(structure)}
                                         sx={{
                                             alignItems: 'stretch',
@@ -326,21 +337,23 @@ export function StructurePane({
                 </>
             ) : (
                 <Stack spacing={1.5}>
-                    <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
-                        <IconButton
-                            type='button'
-                            size='small'
-                            aria-label={t('workspace.structure.backToList', 'Structures')}
-                            onClick={onBackToList}
-                        >
-                            <ArrowBackRoundedIcon fontSize='small' />
-                        </IconButton>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant='subtitle1' sx={{ fontWeight: 700 }} noWrap>
-                                {selectedConceptTitle}
-                            </Typography>
-                        </Box>
-                    </Stack>
+                    {!hideSelectedHeader ? (
+                        <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
+                            <IconButton
+                                type='button'
+                                size='small'
+                                aria-label={t('workspace.structure.backToList', 'Structures')}
+                                onClick={onBackToList}
+                            >
+                                <ArrowBackRoundedIcon fontSize='small' />
+                            </IconButton>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography variant='subtitle1' sx={{ fontWeight: 700 }} noWrap>
+                                    {selectedConceptTitle}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    ) : null}
                     <Box>
                         <Tabs
                             value='matrix'

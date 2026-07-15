@@ -131,9 +131,10 @@ export const expectMatrixTableDefaultRuntime = async (
             await expect(table.getByRole('columnheader', { name: cellHeaderName })).toHaveCount(0)
         }
         if (options.expectedChildLabels && options.expectedChildLabels.length > 0) {
-            await expect(table).not.toContainText(noChildrenText)
             for (const label of options.expectedChildLabels) {
-                await expect(tableRegion.getByTestId('interpretation-network-table-cell').filter({ hasText: label })).toBeVisible()
+                const expectedCell = tableRegion.getByTestId('interpretation-network-table-cell').filter({ hasText: label }).first()
+                await expect(expectedCell).toBeVisible()
+                await expect(expectedCell.locator('xpath=ancestor::tr[1]')).toContainText(noChildrenText)
             }
         } else {
             await expect(table).toContainText(noChildrenText)
@@ -193,7 +194,7 @@ export const expectMatrixTableDefaultRuntime = async (
         await expect(cellDialog).toHaveCount(0)
     }
     await expect(page.getByTestId('interpretation-network-cell')).toHaveCount(0)
-    await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText(options.structureName)
+    await expect(page.getByTestId('interpretation-network-structure-header')).toContainText(options.structureName)
     await expectNoTechnicalLeakage(hierarchicalTable, {
         label: `Interpretation Network Matrix Table ${options.locale}`,
         checkUuidSubstrings: true,

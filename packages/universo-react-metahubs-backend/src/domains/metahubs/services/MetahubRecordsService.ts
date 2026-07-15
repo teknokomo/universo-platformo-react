@@ -5,7 +5,7 @@ import { MetahubSchemaService } from './MetahubSchemaService'
 import { MetahubObjectsService } from './MetahubObjectsService'
 import { MetahubComponentsService } from './MetahubComponentsService'
 import { isLocalizedContent, filterLocalizedContent, validateNumber } from '@universo-react/utils'
-import { ComponentDefinitionDataType, VersionedLocalizedContent } from '@universo-react/types'
+import { ComponentDefinitionDataType, normalizeInterpretationNetworkHexColor, VersionedLocalizedContent } from '@universo-react/types'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
@@ -362,6 +362,7 @@ export class MetahubRecordsService {
         if (!validation.valid) {
             throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
         }
+        const normalizedData = this.normalizeHexColorFields(input.data, components)
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -383,7 +384,7 @@ export class MetahubRecordsService {
                      _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
                  VALUES ($1, $2::jsonb, $3, NULL, $4, $5, $4, $5)
                  RETURNING *`,
-                [objectCollectionId, JSON.stringify(input.data), sortOrder, now, input.createdBy ?? null]
+                [objectCollectionId, JSON.stringify(normalizedData), sortOrder, now, input.createdBy ?? null]
             )
 
             await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
@@ -437,7 +438,7 @@ export class MetahubRecordsService {
             if (!validation.valid) {
                 throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
             }
-            updateData.data = mergedData
+            updateData.data = this.normalizeHexColorFields(mergedData, components)
         }
 
         if (input.sortOrder !== undefined) {
@@ -701,6 +702,40 @@ export class MetahubRecordsService {
         return { valid: errors.length === 0, errors }
     }
 
+    /** Normalizes the closed opaque-colour format immediately before persistence. */
+    private normalizeHexColorFields(data: Record<string, unknown>, components: RecordComponent[]): Record<string, unknown> {
+        const normalizedData = { ...data }
+        const rootComponents = components.filter((component) => !component.parentComponentId)
+
+        for (const component of rootComponents) {
+            const value = normalizedData[component.codename]
+            if (value === undefined) continue
+
+            if (component.dataType === ComponentDefinitionDataType.STRING && component.validationRules?.format === 'hexColor') {
+                normalizedData[component.codename] = normalizeInterpretationNetworkHexColor(value)
+                continue
+            }
+
+            if (component.dataType !== ComponentDefinitionDataType.TABLE || !Array.isArray(value)) continue
+
+            const childComponents = components.filter((child) => child.parentComponentId === component.id)
+            normalizedData[component.codename] = value.map((row) => {
+                if (!row || typeof row !== 'object' || Array.isArray(row)) return row
+
+                const normalizedRow = { ...(row as Record<string, unknown>) }
+                for (const child of childComponents) {
+                    if (child.dataType !== ComponentDefinitionDataType.STRING || child.validationRules?.format !== 'hexColor') continue
+                    if (normalizedRow[child.codename] !== undefined) {
+                        normalizedRow[child.codename] = normalizeInterpretationNetworkHexColor(normalizedRow[child.codename])
+                    }
+                }
+                return normalizedRow
+            })
+        }
+
+        return normalizedData
+    }
+
     private hasRequiredValue(cmp: RecordComponent, value: unknown): boolean {
         if (value === undefined || value === null) return false
         if (cmp.dataType === ComponentDefinitionDataType.TABLE) {
@@ -740,6 +775,7 @@ export class MetahubRecordsService {
 
         switch (dataType) {
             case ComponentDefinitionDataType.STRING:
+                if (rules.format === 'hexColor' && typeof value !== 'string') return 'Expected opaque hexadecimal colour'
                 if (typeof value === 'string' || isLocalizedContent(value)) break
                 return 'Expected string'
             case ComponentDefinitionDataType.NUMBER:
@@ -788,6 +824,13 @@ export class MetahubRecordsService {
         const stringValue = typeof value === 'string' ? value : this.extractLocalizedString(value)
 
         if (typeof stringValue === 'string') {
+            if (rules.format === 'hexColor') {
+                try {
+                    normalizeInterpretationNetworkHexColor(stringValue)
+                } catch {
+                    errors.push(`Field "${fieldName}": invalid format`)
+                }
+            }
             const minLength = optionalNumberRule(rules, 'minLength')
             const maxLength = optionalNumberRule(rules, 'maxLength')
             if (minLength !== undefined && stringValue.length < minLength) {
@@ -796,7 +839,7 @@ export class MetahubRecordsService {
             if (maxLength !== undefined && stringValue.length > maxLength) {
                 errors.push(`Field "${fieldName}": maximum length is ${maxLength}`)
             }
-            if (typeof rules.pattern === 'string' && rules.pattern.length > 0) {
+            if (rules.format !== 'hexColor' && typeof rules.pattern === 'string' && rules.pattern.length > 0) {
                 try {
                     const regex = new RegExp(rules.pattern)
                     if (!regex.test(stringValue)) {

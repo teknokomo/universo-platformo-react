@@ -1,7 +1,11 @@
 import { buildVLC, createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
 import {
+    normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkMatrixViewSettings,
     normalizeInterpretationNetworkTableSettings,
+    parseInterpretationNetworkHexColor,
+    resolveInterpretationNetworkDisplayColor,
+    resolveInterpretationNetworkMaximumContrastForeground,
     type InterpretationNetworkBreadcrumbDepth,
     type InterpretationNetworkMatrixView,
     type InterpretationNetworkTableProjection,
@@ -57,6 +61,9 @@ export type InterpretationNetworkWorkspaceConfig = {
     showHierarchicalTableHeaderCard?: boolean
     showMatrixTreeTotalCells?: boolean
     colorBreadcrumbsByCell?: boolean
+    splitPane?: {
+        enabled: boolean
+    }
     hierarchyRowMode?: MatrixHierarchyRowMode
     positionNumbering?: MatrixPositionNumberingConfig
     allowNewAxesInCellDialog?: boolean
@@ -79,6 +86,7 @@ export type MatrixCell = {
     materialRef: string | null
     style: {
         fill: string | null
+        text: string | null
         borderTop: string
         borderRight: string
         borderBottom: string
@@ -179,28 +187,6 @@ export const parseMatrixMode = (value: unknown): MatrixMode =>
 export const parseMatrixHierarchyLayout = (value: unknown): MatrixHierarchyLayout =>
     value === 'verticalTree' || value === 'horizontalRows' ? value : 'horizontalRows'
 
-const normalizeLegacyMatrixViewRequest = (
-    config: Record<string, unknown> | undefined,
-    matrixMode: MatrixMode
-): { allowedMatrixViews: readonly unknown[] | undefined; defaultMatrixView: unknown } => {
-    const legacyHierarchyLayout = parseMatrixHierarchyLayout(config?.hierarchyLayout)
-    const hasLegacyHierarchyLayout = config?.hierarchyLayout === 'verticalTree' || config?.hierarchyLayout === 'horizontalRows'
-    const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
-    const hasNewViewSettings = requestedViews !== undefined || config?.defaultMatrixView !== undefined
-
-    if (!hasLegacyHierarchyLayout || hasNewViewSettings || matrixMode !== 'hierarchicalCells') {
-        return {
-            allowedMatrixViews: requestedViews,
-            defaultMatrixView: config?.defaultMatrixView
-        }
-    }
-
-    return {
-        allowedMatrixViews: Array.from(new Set(['horizontalRows', legacyHierarchyLayout])),
-        defaultMatrixView: legacyHierarchyLayout
-    }
-}
-
 export const parseMatrixHierarchyRowMode = (value: unknown): MatrixHierarchyRowMode =>
     value === 'allNodes' || value === 'focusedPath' ? value : 'focusedPath'
 
@@ -242,28 +228,15 @@ const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
     showHierarchicalTableHeaderCard: true,
     showMatrixTreeTotalCells: true,
     colorBreadcrumbsByCell: true,
+    splitPane: { enabled: true },
     hierarchyRowMode: 'focusedPath',
     positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
     allowNewAxesInCellDialog: false
 }
 
-const CELL_COLOR_HEX: Record<string, string | null> = {
-    none: null,
-    gray: '#9e9e9e',
-    red: '#e53935',
-    orange: '#fb8c00',
-    yellow: '#fdd835',
-    green: '#43a047',
-    teal: '#00897b',
-    blue: '#1e88e5',
-    indigo: '#3949ab',
-    purple: '#8e24aa',
-    pink: '#d81b60',
-    black: '#212121'
-}
-
 const BORDER_STYLE_DEFAULT = '1px solid rgba(0, 0, 0, 0.12)'
 const BORDER_STYLE_NONE = '0 solid transparent'
+const DEFAULT_MATRIX_CELL_BACKGROUND = parseInterpretationNetworkHexColor('#FFFFFF')!
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value))
@@ -271,11 +244,10 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 export const toConfig = (config: Record<string, unknown> | undefined): Required<InterpretationNetworkWorkspaceConfig> => ({
     ...(() => {
         const matrixMode = parseMatrixMode(config?.matrixMode)
-        const legacyAwareViewRequest = normalizeLegacyMatrixViewRequest(config, matrixMode)
         const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
             matrixMode,
-            legacyAwareViewRequest.allowedMatrixViews ?? DEFAULT_CONFIG.allowedMatrixViews,
-            legacyAwareViewRequest.defaultMatrixView ?? DEFAULT_CONFIG.defaultMatrixView
+            Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : DEFAULT_CONFIG.allowedMatrixViews,
+            config?.defaultMatrixView ?? DEFAULT_CONFIG.defaultMatrixView
         )
         const tableSettings = normalizeInterpretationNetworkTableSettings(
             matrixMode,
@@ -302,8 +274,8 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
                         key !== 'showHierarchicalTableHeaderCard' &&
                         key !== 'showMatrixTreeTotalCells' &&
                         key !== 'colorBreadcrumbsByCell' &&
-                        key !== 'hierarchyLayout' &&
                         key !== 'hierarchyRowMode' &&
+                        key !== 'splitPane' &&
                         key !== 'allowNewAxesInCellDialog' &&
                         key !== 'positionNumbering' &&
                         typeof value === 'string' &&
@@ -313,6 +285,7 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
             matrixMode,
             ...viewSettings,
             ...tableSettings,
+            splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane),
             hierarchyRowMode: parseMatrixHierarchyRowMode(config?.hierarchyRowMode),
             positionNumbering: parseMatrixPositionNumbering(config?.positionNumbering),
             allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true
@@ -333,14 +306,22 @@ const readText = (value: unknown, locale: string): string => formatRuntimeSafeVa
 export const findColumn = (columns: RuntimeColumnLike[] | undefined, codename: string): RuntimeColumnLike | undefined =>
     (columns ?? []).find((column) => column.codename === codename || column.field === codename)
 
-const resolveField = (columns: RuntimeColumnLike[] | undefined, codename: string): string =>
-    findColumn(columns, codename)?.field ?? codename
+const resolveColumnKeys = (columns: RuntimeColumnLike[] | undefined, codename: string): string[] => {
+    const column = findColumn(columns, codename)
+    return [...new Set([column?.field, column?.id, column?.codename, codename].filter((value): value is string => Boolean(value?.trim())))]
+}
 
 export const readColumnValue = (
     row: Record<string, unknown> | undefined,
     columns: RuntimeColumnLike[] | undefined,
     codename: string
-): unknown => readRowValue(row, resolveField(columns, codename))
+): unknown => {
+    for (const key of resolveColumnKeys(columns, codename)) {
+        const value = readRowValue(row, key)
+        if (value !== undefined) return value
+    }
+    return undefined
+}
 
 export const readColumnText = (
     row: RuntimeRow | undefined,
@@ -358,34 +339,25 @@ export const resolveMatrixCellId = (
     return typeof rawCellId === 'string' && rawCellId.trim() ? rawCellId.trim() : `cell-${index}`
 }
 
-export const findOptionIdByCodename = (field: RuntimeColumnLike | undefined, codename: string): string | null =>
-    [...(field?.refOptions ?? []), ...(field?.enumOptions ?? [])].find((option) => option.codename === codename || option.id === codename)
-        ?.id ?? null
-
-const getOptionCodename = (field: RuntimeColumnLike | undefined, value: unknown): string => {
-    if (typeof value !== 'string' || !value.trim()) return 'none'
-    const normalized = value.trim()
-    const option = [...(field?.refOptions ?? []), ...(field?.enumOptions ?? [])].find(
-        (candidate) => candidate.id === normalized || candidate.codename === normalized || candidate.label === normalized
-    )
-    return option?.codename ?? normalized
-}
-
-const toBorderCss = (colorValue: unknown, widthValue: unknown, styleValue: unknown, field: RuntimeColumnLike | undefined): string => {
-    const colorCodename = getOptionCodename(field, colorValue)
+const toBorderCss = (colorValue: unknown, widthValue: unknown, styleValue: unknown): string => {
     const hasWidth = typeof widthValue === 'string' && widthValue.trim().length > 0
     const hasLineStyle = typeof styleValue === 'string' && styleValue.trim().length > 0
-    const width = hasWidth ? widthValue.trim() : '1px'
-    const lineStyle = hasLineStyle ? styleValue.trim() : 'solid'
-    const color = CELL_COLOR_HEX[colorCodename] ?? 'transparent'
+    const width = hasWidth && ['0', '1px', '2px', '3px', '4px'].includes(widthValue.trim()) ? widthValue.trim() : '1px'
+    const lineStyle =
+        hasLineStyle && ['solid', 'dashed', 'dotted', 'double', 'none'].includes(styleValue.trim()) ? styleValue.trim() : 'solid'
+    const color = resolveInterpretationNetworkDisplayColor(colorValue) ?? 'transparent'
     if ((hasWidth && width === '0') || (hasLineStyle && lineStyle === 'none')) return BORDER_STYLE_NONE
     if (!hasWidth && !hasLineStyle) return BORDER_STYLE_DEFAULT
     return `${width} ${lineStyle} ${color}`
 }
 
-export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColumnLike | undefined, locale: string): MatrixCell[] => {
+export const toMatrixRows = (
+    rawMatrixRows: unknown[],
+    matrixColumn: RuntimeColumnLike | undefined,
+    locale: string,
+    themeBackground?: unknown
+): MatrixCell[] => {
     const childColumns = matrixColumn?.childColumns ?? []
-    const colorField = (field: string) => findColumn(childColumns, field)
     const readCellValue = (rawCell: Record<string, unknown>, codename: string): unknown => readColumnValue(rawCell, childColumns, codename)
     const readCellText = (rawCell: Record<string, unknown>, codename: string): string => readText(readCellValue(rawCell, codename), locale)
 
@@ -398,7 +370,14 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
         const cellId = resolveMatrixCellId(rawCell, childColumns, index)
         const stableAxisIdentity = cellId || (typeof rawCell.id === 'string' && rawCell.id.trim() ? rawCell.id.trim() : `index-${index}`)
         const rawSortOrder = readCellValue(rawCell, '_tp_sort_order')
-        const fillCodename = getOptionCodename(colorField('CellFillColor'), readCellValue(rawCell, 'CellFillColor'))
+        const fill = resolveInterpretationNetworkDisplayColor(readCellValue(rawCell, 'CellFillColor'))
+        const rawTextColor = readCellValue(rawCell, 'TextColor')
+        const textColor = resolveInterpretationNetworkDisplayColor(rawTextColor)
+        const fallbackBackground = fill ?? resolveInterpretationNetworkDisplayColor(themeBackground) ?? DEFAULT_MATRIX_CELL_BACKGROUND
+        // Keep an authored text colour exactly as saved. Contrast is an editor advisory;
+        // runtime rendering must not silently rewrite the user's choice.
+        const text =
+            textColor ?? (fill || themeBackground ? resolveInterpretationNetworkMaximumContrastForeground(fallbackBackground) : null)
         return [
             {
                 id: cellId,
@@ -416,30 +395,27 @@ export const toMatrixRows = (rawMatrixRows: unknown[], matrixColumn: RuntimeColu
                 description: readCellText(rawCell, 'CellDescription'),
                 materialRef: typeof rawMaterialRef === 'string' && rawMaterialRef.trim() ? rawMaterialRef.trim() : null,
                 style: {
-                    fill: CELL_COLOR_HEX[fillCodename],
+                    fill,
+                    text,
                     borderTop: toBorderCss(
                         readCellValue(rawCell, 'BorderTopColor'),
                         readCellValue(rawCell, 'BorderTopWidth'),
-                        readCellValue(rawCell, 'BorderTopStyle'),
-                        colorField('BorderTopColor')
+                        readCellValue(rawCell, 'BorderTopStyle')
                     ),
                     borderRight: toBorderCss(
                         readCellValue(rawCell, 'BorderRightColor'),
                         readCellValue(rawCell, 'BorderRightWidth'),
-                        readCellValue(rawCell, 'BorderRightStyle'),
-                        colorField('BorderRightColor')
+                        readCellValue(rawCell, 'BorderRightStyle')
                     ),
                     borderBottom: toBorderCss(
                         readCellValue(rawCell, 'BorderBottomColor'),
                         readCellValue(rawCell, 'BorderBottomWidth'),
-                        readCellValue(rawCell, 'BorderBottomStyle'),
-                        colorField('BorderBottomColor')
+                        readCellValue(rawCell, 'BorderBottomStyle')
                     ),
                     borderLeft: toBorderCss(
                         readCellValue(rawCell, 'BorderLeftColor'),
                         readCellValue(rawCell, 'BorderLeftWidth'),
-                        readCellValue(rawCell, 'BorderLeftStyle'),
-                        colorField('BorderLeftColor')
+                        readCellValue(rawCell, 'BorderLeftStyle')
                     )
                 }
             }
@@ -460,8 +436,6 @@ export const buildDefaultMatrixCellData = (
         parentCellId?: string | null
     }
 ): Record<string, unknown> => {
-    const colorField = (field: string) => findColumn(childColumns, field)
-    const noneColorId = findOptionIdByCodename(colorField('CellFillColor'), 'none') ?? null
     const data: Record<string, unknown> = {}
     const setValue = (codename: string, value: unknown) => {
         data[findColumn(childColumns, codename)?.field ?? codename] = value
@@ -473,11 +447,12 @@ export const buildDefaultMatrixCellData = (
     setValue('RowLabel', labels.localizedValue ?? createLocalizedContent(locale, labels.row))
     setValue('CellValue', labels.localizedValue ?? createLocalizedContent(locale, labels.value ?? labels.column))
     setValue('CellDescription', createLocalizedContent(locale, ''))
-    setValue('CellFillColor', noneColorId)
-    setValue('BorderTopColor', noneColorId)
-    setValue('BorderRightColor', noneColorId)
-    setValue('BorderBottomColor', noneColorId)
-    setValue('BorderLeftColor', noneColorId)
+    setValue('CellFillColor', null)
+    setValue('TextColor', null)
+    setValue('BorderTopColor', null)
+    setValue('BorderRightColor', null)
+    setValue('BorderBottomColor', null)
+    setValue('BorderLeftColor', null)
     setValue('BorderTopWidth', '1px')
     setValue('BorderRightWidth', '1px')
     setValue('BorderBottomWidth', '1px')
@@ -897,6 +872,7 @@ export const isStyleColumn = (column: RuntimeColumnLike): boolean => {
     const codename = column.codename ?? column.field ?? ''
     return (
         codename === 'CellFillColor' ||
+        codename === 'TextColor' ||
         codename.startsWith('BorderTop') ||
         codename.startsWith('BorderRight') ||
         codename.startsWith('BorderBottom') ||

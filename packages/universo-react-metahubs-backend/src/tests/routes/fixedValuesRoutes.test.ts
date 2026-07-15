@@ -241,6 +241,61 @@ describe('Fixed Value Routes', () => {
         expect(response.body).toMatchObject({ id: 'constant-1', codename: 'TaxRate' })
     })
 
+    it('POST /metahub/:metahubId/set/:valueGroupId/fixed-values canonicalizes opaque hexadecimal colours', async () => {
+        mockFixedValuesService.create.mockResolvedValue({
+            id: 'constant-1',
+            valueGroupId: 'set-1',
+            codename: 'AccentColour',
+            dataType: 'STRING',
+            value: '#AABBCC'
+        })
+
+        const response = await request(buildApp())
+            .post('/metahub/metahub-1/entities/set/instance/set-1/fixed-values')
+            .send({
+                codename: testCodenameVlc('accent-colour'),
+                dataType: 'STRING',
+                name: 'Accent colour',
+                validationRules: { format: 'hexColor', pattern: '[unsafe' },
+                value: '#abc'
+            })
+            .expect(201)
+
+        expect(mockFixedValuesService.create).toHaveBeenCalledWith(
+            'metahub-1',
+            expect.objectContaining({ value: '#AABBCC', validationRules: { format: 'hexColor', pattern: '[unsafe' } }),
+            'test-user-id'
+        )
+        expect(response.body).toMatchObject({ value: '#AABBCC' })
+    })
+
+    it('PATCH /metahub/:metahubId/set/:valueGroupId/fixed-value/:fixedValueId canonicalizes opaque hexadecimal colours', async () => {
+        mockFixedValuesService.findById.mockResolvedValue({
+            id: 'constant-1',
+            valueGroupId: 'set-1',
+            codename: 'AccentColour',
+            dataType: 'STRING',
+            name: { _primary: 'en', locales: { en: { content: 'Accent colour' } } },
+            validationRules: { format: 'hexColor' },
+            uiConfig: {},
+            value: '#AABBCC'
+        })
+        mockFixedValuesService.update.mockResolvedValue({ id: 'constant-1', value: '#112233' })
+
+        const response = await request(buildApp())
+            .patch('/metahub/metahub-1/entities/set/instance/set-1/fixed-value/constant-1')
+            .send({ value: '#123' })
+            .expect(200)
+
+        expect(mockFixedValuesService.update).toHaveBeenCalledWith(
+            'metahub-1',
+            'constant-1',
+            expect.objectContaining({ value: '#112233' }),
+            'test-user-id'
+        )
+        expect(response.body).toMatchObject({ value: '#112233' })
+    })
+
     it('POST /metahub/:metahubId/set/:valueGroupId/fixed-values preserves uiConfig.sharedBehavior when provided', async () => {
         mockFixedValuesService.create.mockResolvedValue({
             id: 'constant-1',

@@ -1,5 +1,13 @@
 # Current Research
 
+## 2026-07-13: Interpretation Network configuration and runtime UX
+
+- Research artifact created: `memory-bank/research/interpretation-network-configuration-runtime-ux-research-2026-07-13.md`.
+- Core finding: the Structure multilingual edit issue is an initial-value key-resolution defect, not a limitation in the standard localized dialog; preserve the whole VLC through a field-ID/codename/runtime-key/`row.data` resolver.
+- Configuration decision (QA-corrected 2026-07-14): the template supplies a seed/source default that is materialized into an application-local effective widget configuration; the runtime consumes that materialized value and a user's pane size is transient. This is not live metahub inheritance. Add a bounded accessible separator with a visible `setLayout` reset to the effective 50/50 default.
+- Styling decision: colour `REF` fields cannot represent arbitrary values. For a disposable database, replace them with canonical `#RRGGBB | null` `STRING` values, retain palette shortcuts only in the UI, add `TextColor`, and implement default all-edge border editing without a persisted border-mode field. The shared normalizer and a new runtime-backend validation path must reject arbitrary CSS grammar at UI, child-row write, seed/fixture, and snapshot-import boundaries.
+- Evidence decision: extend the existing product generator → fixture contract → drift check → imported snapshot/visual E2E pipeline; do not hand-edit the snapshot. Browser proof must include populated Structure, labels with end ellipsis, selection outline, resize/reset, keyboard path, localization, and responsive no-overflow checks.
+
 ## 2026-07-10: Interpretation Network hierarchical Matrix Table navigation
 
 -   Research artifact created: `memory-bank/research/interpretation-network-hierarchical-table-navigation-research-2026-07-10.md`. Brief: local Platformo Interpretation Network hierarchical table brief tracked outside the repository; source TZ: local Interpretation Network hierarchical table input plus screenshot QA input.

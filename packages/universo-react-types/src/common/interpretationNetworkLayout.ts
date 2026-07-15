@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { moduleBackedWidgetConfigSchema } from './moduleBackedWidgetConfig'
 
+export const INTERPRETATION_NETWORK_SPLIT_PANE_DEFAULT = 50
+export const INTERPRETATION_NETWORK_SPLIT_PANE_MIN_PERCENT = 25
+export const INTERPRETATION_NETWORK_SPLIT_PANE_MAX_PERCENT = 75
+
 export const interpretationNetworkMatrixModes = ['hierarchicalCells', 'independentRows'] as const
 export type InterpretationNetworkMatrixMode = (typeof interpretationNetworkMatrixModes)[number]
 
@@ -50,6 +54,21 @@ export interface InterpretationNetworkTableSettings {
     showHierarchicalTableHeaderCard: boolean
     showMatrixTreeTotalCells: boolean
     colorBreadcrumbsByCell: boolean
+}
+
+export interface InterpretationNetworkSplitPaneSettings {
+    enabled: boolean
+}
+
+export const interpretationNetworkSplitPaneSettingsSchema = z
+    .object({
+        enabled: z.boolean()
+    })
+    .strict()
+
+export const normalizeInterpretationNetworkSplitPaneSettings = (value: unknown): InterpretationNetworkSplitPaneSettings => {
+    const parsed = interpretationNetworkSplitPaneSettingsSchema.safeParse(value)
+    return parsed.success ? parsed.data : { enabled: true }
 }
 
 export const normalizeInterpretationNetworkMatrixViewSettings = (
@@ -104,9 +123,6 @@ export const normalizeInterpretationNetworkTableSettings = (
     }
 }
 
-export const interpretationNetworkHierarchyLayouts = ['horizontalRows', 'verticalTree'] as const
-export type InterpretationNetworkHierarchyLayout = (typeof interpretationNetworkHierarchyLayouts)[number]
-
 export const interpretationNetworkHierarchyRowModes = ['focusedPath', 'allNodes'] as const
 export type InterpretationNetworkHierarchyRowMode = (typeof interpretationNetworkHierarchyRowModes)[number]
 
@@ -117,30 +133,6 @@ export const interpretationNetworkPositionNumberingSchema = z
         startIndex: z.number().int().min(0).max(999).optional()
     })
     .strict()
-
-const migrateDeprecatedInterpretationNetworkConfigKeys = (value: unknown): unknown => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return value
-    }
-
-    const { hierarchyLayout, ...config } = value as Record<string, unknown>
-    if (!interpretationNetworkHierarchyLayouts.includes(hierarchyLayout as InterpretationNetworkHierarchyLayout)) {
-        return config
-    }
-    if (Array.isArray(config.allowedMatrixViews) || config.defaultMatrixView !== undefined) {
-        return config
-    }
-
-    const legacyView = hierarchyLayout as InterpretationNetworkHierarchyLayout
-    const matrixMode = config.matrixMode === 'independentRows' ? 'independentRows' : 'hierarchicalCells'
-    const allowedMatrixViews = matrixMode === 'hierarchicalCells' ? ['horizontalRows', legacyView] : ['horizontalRows']
-
-    return {
-        ...config,
-        allowedMatrixViews: Array.from(new Set(allowedMatrixViews)),
-        defaultMatrixView: matrixMode === 'hierarchicalCells' ? legacyView : 'horizontalRows'
-    }
-}
 
 const interpretationNetworkWorkspaceWidgetConfigObjectSchema = moduleBackedWidgetConfigSchema
     .extend({
@@ -154,6 +146,7 @@ const interpretationNetworkWorkspaceWidgetConfigObjectSchema = moduleBackedWidge
         showHierarchicalTableHeaderCard: z.boolean().optional(),
         showMatrixTreeTotalCells: z.boolean().optional(),
         colorBreadcrumbsByCell: z.boolean().optional(),
+        splitPane: interpretationNetworkSplitPaneSettingsSchema.optional(),
         hierarchyRowMode: z.enum(interpretationNetworkHierarchyRowModes).optional(),
         positionNumbering: interpretationNetworkPositionNumberingSchema.optional(),
         allowNewAxesInCellDialog: z.boolean().optional(),
@@ -208,9 +201,6 @@ const interpretationNetworkWorkspaceWidgetConfigObjectSchema = moduleBackedWidge
         }
     })
 
-export const interpretationNetworkWorkspaceWidgetConfigSchema = z.preprocess(
-    migrateDeprecatedInterpretationNetworkConfigKeys,
-    interpretationNetworkWorkspaceWidgetConfigObjectSchema
-)
+export const interpretationNetworkWorkspaceWidgetConfigSchema = interpretationNetworkWorkspaceWidgetConfigObjectSchema
 
 export type InterpretationNetworkWorkspaceWidgetConfig = z.infer<typeof interpretationNetworkWorkspaceWidgetConfigSchema>

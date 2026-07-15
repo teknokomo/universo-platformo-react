@@ -8,15 +8,21 @@ import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { resolveInterpretationNetworkMaximumContrastForeground } from '@universo-react/types'
 import type { MatrixCell } from './model'
+
+const resolveSelectionOutlineColor = (fill: string | null): string =>
+    fill ? resolveInterpretationNetworkMaximumContrastForeground(fill) : 'primary.main'
 
 export function MatrixCellContent({
     children,
     positionLabel,
+    textColor,
     compact = false
 }: {
     children: React.ReactNode
     positionLabel?: string
+    textColor?: string | null
     compact?: boolean
 }) {
     return (
@@ -37,7 +43,7 @@ export function MatrixCellContent({
                         borderRadius: 1,
                         typography: 'caption',
                         lineHeight: 1.4,
-                        color: 'text.secondary',
+                        color: textColor ?? 'text.secondary',
                         bgcolor: 'action.hover',
                         pointerEvents: 'none'
                     }}
@@ -108,6 +114,7 @@ export function MatrixCellButton({
         disabled: disabled || isOverlay
     })
     const showDropIndicator = Boolean(dropPlacement)
+    const selectedOutlineColor = resolveSelectionOutlineColor(cell.style.fill)
 
     return (
         <Box
@@ -128,7 +135,7 @@ export function MatrixCellButton({
                 minHeight: 64,
                 borderRadius: 1,
                 bgcolor: cell.style.fill ?? 'background.paper',
-                color: 'text.primary',
+                color: cell.style.text ?? 'text.primary',
                 borderTop: isInvalidDropTarget ? '1px dashed' : cell.style.borderTop,
                 borderRight: isInvalidDropTarget ? '1px dashed' : cell.style.borderRight,
                 borderBottom: isInvalidDropTarget ? '1px dashed' : cell.style.borderBottom,
@@ -202,12 +209,13 @@ export function MatrixCellButton({
                               content: '""',
                               position: 'absolute',
                               zIndex: 4,
-                              inset: 3,
+                              inset: 0,
                               border: 2,
                               borderStyle: 'solid',
-                              borderColor: 'primary.main',
+                              borderColor: selectedOutlineColor,
                               borderRadius: 0.75,
-                              pointerEvents: 'none'
+                              pointerEvents: 'none',
+                              boxShadow: `inset 0 0 0 1px ${cell.style.text ?? 'rgba(255,255,255,0.72)'}`
                           }
                       }
                     : {})
@@ -253,7 +261,7 @@ export function MatrixCellButton({
                         whiteSpace: 'normal',
                         overflowWrap: 'anywhere',
                         borderRadius: 0,
-                        color: 'text.primary',
+                        color: cell.style.text ?? 'text.primary',
                         px: 1.5,
                         py: 0.75,
                         pr: 4.5,
@@ -262,7 +270,9 @@ export function MatrixCellButton({
                         }
                     }}
                 >
-                    <MatrixCellContent positionLabel={positionLabel}>{children}</MatrixCellContent>
+                    <MatrixCellContent positionLabel={positionLabel} textColor={cell.style.text}>
+                        {children}
+                    </MatrixCellContent>
                 </Button>
             </Stack>
             <IconButton

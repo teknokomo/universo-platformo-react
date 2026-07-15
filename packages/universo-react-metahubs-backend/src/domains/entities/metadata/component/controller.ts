@@ -93,6 +93,7 @@ const validationRulesSchema = z
         maxLength: z.number().int().min(1).max(10000).nullable().optional(),
         pattern: z.string().max(500).nullable().optional(),
         options: z.array(z.string().max(200)).max(100).nullable().optional(),
+        format: z.literal('hexColor').nullable().optional(),
         versioned: z.boolean().nullable().optional(),
         localized: z.boolean().nullable().optional(),
         precision: z.number().int().min(1).max(15).nullable().optional(),

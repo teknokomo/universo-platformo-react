@@ -8762,6 +8762,73 @@ describe('Applications Routes', () => {
             ])
         })
 
+        it('returns a stable format error when copying a parent row with a malformed persisted child colour', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const tableComponentId = '018f8a78-7b8f-7c1d-a111-222233334476'
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === tableComponentId) {
+                    return [
+                        {
+                            codename: 'CellFillColor',
+                            column_name: 'cell_fill_color',
+                            data_type: 'STRING',
+                            validation_rules: { format: 'hexColor' }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                    return [
+                        {
+                            id: tableComponentId,
+                            codename: 'InterpretationMatrix',
+                            column_name: 'interpretation_matrix',
+                            data_type: 'TABLE',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                    if (params?.[0] === runtimeRowId) return [{ id: runtimeRowId, _upl_locked: false }]
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) return [{ id: copiedRowId }]
+                if (sql.includes('FROM "app_runtime_test"."interpretation_matrix"')) {
+                    return [{ cell_fill_color: 'rgb(1,2,3)', _tp_sort_order: 0 }]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."interpretation_matrix"')) {
+                    throw new Error('Malformed persisted colours must not be inserted')
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
+                .expect(400)
+
+            expect(response.body).toEqual({ error: 'Invalid field format', code: 'INVALID_FIELD_FORMAT' })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) =>
+                    String(sql).includes('INSERT INTO "app_runtime_test"."interpretation_matrix"')
+                )
+            ).toBe(false)
+        })
+
         it('dispatches beforeCopy inside the transaction and afterCopy after commit', async () => {
             const { dataSource, applicationRepo, applicationUserRepo, txExecutor } = buildDataSource()
             const dispatchLifecycleEventSpy = jest
@@ -12056,6 +12123,88 @@ describe('Applications Routes', () => {
                         String(sql).includes('FROM "app_runtime_test"._app_components')
                 )
             ).toHaveLength(2)
+        })
+
+        it('returns a stable format error when copying a child row with a malformed persisted colour', async () => {
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(executor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM applications.rel_application_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: runtimeApplicationId,
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
+                    return [
+                        {
+                            id: runtimeApplicationId,
+                            schemaName: 'app_runtime_test',
+                            workspacesEnabled: false,
+                            settings: null
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = ')) {
+                    return [
+                        {
+                            id: 'child-fill-colour',
+                            codename: 'CellFillColor',
+                            column_name: 'cell_fill_color',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: { format: 'hexColor' }
+                        }
+                    ]
+                }
+                return txExecutor.query(sql, params)
+            })
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('LIMIT 1')) {
+                    return [{ id: runtimeChildRowId, _tp_sort_order: 0, cell_fill_color: 'rgb(1,2,3)' }]
+                }
+                if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 1 }]
+                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                    throw new Error('Malformed persisted colours must not be inserted')
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}/copy`
+                )
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .expect(400)
+
+            expect(response.body).toEqual({ error: 'Invalid field format', code: 'INVALID_FIELD_FORMAT' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_runtime_test"."items"'))
+            ).toBe(false)
         })
 
         it('keeps member role read-only for child-row mutations before touching runtime tables', async () => {

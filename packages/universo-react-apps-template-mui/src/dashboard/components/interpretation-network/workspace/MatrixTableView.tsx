@@ -19,6 +19,7 @@ import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import type { TFunction } from 'i18next'
+import { resolveInterpretationNetworkMaximumContrastForeground } from '@universo-react/types'
 import { MatrixCellContent } from '../MatrixCellButton'
 import { buildMatrixTableModel, toMatrixTableSlotId, type MatrixCell, type MatrixTableDropSlot, type MatrixTableSlot } from '../model'
 import type { MatrixDropPlacement, MatrixDropState } from '../matrixDrag'
@@ -58,6 +59,9 @@ const renderDropIndicatorSx = (dropPlacement: MatrixDropPlacement | null, invali
           }
         : {}
 
+const resolveSelectionOutlineColor = (fill: string | null): string =>
+    fill ? resolveInterpretationNetworkMaximumContrastForeground(fill) : 'primary.main'
+
 type MatrixTableCellProps = {
     t: TFunction<'interpretationNetwork'>
     slot: MatrixTableSlot
@@ -93,6 +97,7 @@ function OccupiedMatrixTableCell({
         disabled: mutationDisabled
     })
     const title = cell.title || t('workspace.emptyCell', 'Empty cell')
+    const selectedOutlineColor = resolveSelectionOutlineColor(cell.style.fill)
     const accessibleName = t('workspace.table.cellName', {
         defaultValue: '{{row}}, {{column}}, {{position}}, {{title}}',
         row: slot.row.label,
@@ -107,6 +112,7 @@ function OccupiedMatrixTableCell({
             data-testid='interpretation-network-table-cell'
             data-cell-id={cell.id}
             data-selected={selected ? 'true' : undefined}
+            data-selected-outline={selected ? 'inset' : undefined}
             data-drop-placement={dropPlacement ?? undefined}
             component='td'
             sx={{
@@ -120,13 +126,27 @@ function OccupiedMatrixTableCell({
                 borderLeft: invalidDropTarget ? '1px dashed' : cell.style.borderLeft,
                 borderColor: invalidDropTarget ? 'error.main' : undefined,
                 bgcolor: cell.style.fill ?? 'background.paper',
+                color: cell.style.text ?? 'text.primary',
                 opacity: isDragging ? 0.48 : 1,
                 transform: CSS.Transform.toString(transform),
                 transition,
-                outline: selected ? '2px solid' : 'none',
-                outlineColor: 'primary.main',
-                outlineOffset: selected ? -2 : 0,
-                ...renderDropIndicatorSx(dropPlacement, invalidDropTarget)
+                ...renderDropIndicatorSx(dropPlacement, invalidDropTarget),
+                ...(selected
+                    ? {
+                          '&::after': {
+                              content: '""',
+                              position: 'absolute',
+                              zIndex: 4,
+                              inset: 0,
+                              border: 2,
+                              borderStyle: 'solid',
+                              borderColor: selectedOutlineColor,
+                              borderRadius: 0.5,
+                              pointerEvents: 'none',
+                              boxShadow: `inset 0 0 0 1px ${cell.style.text ?? 'rgba(255,255,255,0.72)'}`
+                          }
+                      }
+                    : {})
             }}
         >
             <Stack direction='row' spacing={0} alignItems='stretch' sx={{ minHeight: 54, minWidth: 0 }}>
@@ -172,7 +192,7 @@ function OccupiedMatrixTableCell({
                         justifyContent: 'flex-start',
                         alignItems: 'stretch',
                         textAlign: 'left',
-                        color: 'text.primary',
+                        color: cell.style.text ?? 'text.primary',
                         px: 1,
                         py: 0.75,
                         pr: 4.5,
@@ -184,11 +204,11 @@ function OccupiedMatrixTableCell({
                     }}
                 >
                     <Stack spacing={0.25} sx={{ minWidth: 0, width: '100%', justifyContent: 'center' }}>
-                        <MatrixCellContent positionLabel={positionLabel} compact>
+                        <MatrixCellContent positionLabel={positionLabel} textColor={cell.style.text} compact>
                             {title}
                         </MatrixCellContent>
                         {materialCount > 0 ? (
-                            <Typography variant='caption' color='text.secondary' sx={{ lineHeight: 1.3 }}>
+                            <Typography variant='caption' sx={{ lineHeight: 1.3, color: cell.style.text ?? 'text.secondary' }}>
                                 {t('workspace.table.materialCount', {
                                     defaultValue: '{{count}} materials',
                                     count: materialCount

@@ -19,11 +19,13 @@ import {
     interpretationNetworkBreadcrumbDepthCounts,
     interpretationNetworkMatrixViews,
     normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     type InterpretationNetworkBreadcrumbDepth,
     type InterpretationNetworkHierarchyRowMode,
     type InterpretationNetworkMatrixMode,
     type InterpretationNetworkMatrixView,
+    type InterpretationNetworkSplitPaneSettings,
     type InterpretationNetworkTableProjection,
     type InterpretationNetworkToolbarLayout
 } from '@universo-react/types'
@@ -60,6 +62,7 @@ export type InterpretationNetworkMatrixSettings = {
     hierarchyRowMode: InterpretationNetworkHierarchyRowMode
     positionNumbering: InterpretationNetworkPositionNumberingSettings
     allowNewAxesInCellDialog: boolean
+    splitPane: InterpretationNetworkSplitPaneSettings
 }
 
 const normalizeMatrixPanelSettings = (settings: InterpretationNetworkMatrixSettings): InterpretationNetworkMatrixSettings => {
@@ -88,7 +91,8 @@ const normalizeMatrixPanelSettings = (settings: InterpretationNetworkMatrixSetti
             includeRoot: settings.positionNumbering.includeRoot,
             startIndex: settings.positionNumbering.startIndex
         },
-        allowNewAxesInCellDialog: settings.allowNewAxesInCellDialog === true
+        allowNewAxesInCellDialog: settings.allowNewAxesInCellDialog === true,
+        splitPane: normalizeInterpretationNetworkSplitPaneSettings(settings.splitPane)
     }
 }
 
@@ -136,6 +140,7 @@ export const MatrixSettingsPanel = ({
             localSettings.colorBreadcrumbsByCell !== normalizedSettings.colorBreadcrumbsByCell ||
             localSettings.hierarchyRowMode !== normalizedSettings.hierarchyRowMode ||
             localSettings.allowNewAxesInCellDialog !== normalizedSettings.allowNewAxesInCellDialog ||
+            localSettings.splitPane.enabled !== normalizedSettings.splitPane.enabled ||
             localSettings.positionNumbering.enabled !== normalizedSettings.positionNumbering.enabled ||
             localSettings.positionNumbering.includeRoot !== normalizedSettings.positionNumbering.includeRoot ||
             localSettings.positionNumbering.startIndex !== normalizedSettings.positionNumbering.startIndex,
@@ -819,6 +824,42 @@ export const MatrixSettingsPanel = ({
                         </Box>
                     </>
                 ) : null}
+                <Box
+                    data-testid='application-setting-matrix-resizable-panes'
+                    sx={{
+                        py: 2,
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        gap: { xs: 1.5, sm: 3 }
+                    }}
+                >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.matrix.resizablePanes', 'Resizable workspace panes')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.matrix.resizablePanesDescription',
+                                'Allow users to temporarily adjust the Structure and Materials pane widths. Their adjustment is not saved.'
+                            )}
+                        </Typography>
+                    </Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={localSettings.splitPane.enabled}
+                                disabled={isSaving}
+                                onChange={(event) =>
+                                    setLocalSettings((current) => ({
+                                        ...current,
+                                        splitPane: { enabled: event.target.checked }
+                                    }))
+                                }
+                                inputProps={testIdInputProps('application-settings-matrix-resizable-panes')}
+                            />
+                        }
+                        label={t('settings.matrix.enabled', 'Enabled')}
+                    />
+                </Box>
                 <Box
                     data-testid='application-setting-matrix-new-axes-in-cell-dialog'
                     sx={{
