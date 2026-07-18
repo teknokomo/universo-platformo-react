@@ -700,7 +700,14 @@ async function copyAllowedWorkspaceSettings(
             )
             VALUES ($1, $2, $3, $4::jsonb, NOW(), $5, NOW(), $6, 1, false, false, false)
             `,
-            [id, input.targetWorkspaceId, row.key, toJsonbParam(normalizedValue), input.actorUserId ?? null, input.actorUserId ?? null]
+            [
+                id,
+                input.targetWorkspaceId,
+                row.key,
+                JSON.stringify(normalizedValue ?? null),
+                input.actorUserId ?? null,
+                input.actorUserId ?? null
+            ]
         )
     }
 }
