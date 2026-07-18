@@ -3954,6 +3954,103 @@ describe('Applications Routes', () => {
             })
         })
 
+        it('normalizes workspace override policy when application settings are saved', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            applicationUserRepo.findOne.mockResolvedValue({
+                user_id: 'test-user-id',
+                role: 'owner'
+            })
+
+            let savedSettings: Record<string, unknown> | null = null
+
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: 'application-1',
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                if (sql.includes('UPDATE applications.obj_applications')) {
+                    savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
+
+                    return [
+                        {
+                            id: 'application-1',
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Existing App' } }
+                            },
+                            description: null,
+                            settings: savedSettings,
+                            slug: 'test-app',
+                            isPublic: false,
+                            workspacesEnabled: true,
+                            schemaName: 'app_123',
+                            schemaStatus: 'draft',
+                            schemaSyncedAt: null,
+                            schemaError: null,
+                            version: 2,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                            updatedBy: 'test-user-id'
+                        }
+                    ]
+                }
+
+                return [
+                    {
+                        id: 'application-1',
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Existing App' } }
+                        },
+                        description: null,
+                        settings: {},
+                        slug: 'test-app',
+                        isPublic: false,
+                        workspacesEnabled: true,
+                        schemaName: 'app_123',
+                        schemaStatus: 'draft',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id',
+                        connectorsCount: 0,
+                        membersCount: 1
+                    }
+                ]
+            })
+
+            const app = buildApp(dataSource)
+
+            await request(app)
+                .patch('/applications/application-1')
+                .send({
+                    settings: {
+                        workspaceOverrides: {
+                            allowedKeys: ['sectionLinksEnabled', 'sectionLinksEnabled', 'unknownSetting', 'dashboardDefaultMode'],
+                            lockedKeys: ['dashboardDefaultMode', 'unknownLocked']
+                        }
+                    }
+                })
+                .expect(200)
+
+            expect(savedSettings?.workspaceOverrides).toEqual({
+                allowedKeys: ['sectionLinksEnabled'],
+                lockedKeys: ['dashboardDefaultMode']
+            })
+        })
+
         it('should update visibility for owner', async () => {
             const { dataSource, applicationUserRepo } = buildDataSource()
             applicationUserRepo.findOne.mockResolvedValue({

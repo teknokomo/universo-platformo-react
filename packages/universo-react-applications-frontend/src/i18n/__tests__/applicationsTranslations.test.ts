@@ -22,6 +22,16 @@ describe('applications translations', () => {
         expect(getPath(ru, 'layouts.widgets.interpretationNetworkWorkspace')).toBe('Рабочая область трактовочной сети')
         expect(getPath(ru, 'layouts.widgets.playcanvasCanvas')).toBe('Холст PlayCanvas')
         expect(getPath(ru, 'layouts.widgets.learnerPlayer')).toBe('Плеер обучения')
+        expect(getPath(ru, 'layouts.editWidgetNamed')).toBe('Редактировать виджет: {{label}}')
+        expect(getPath(ru, 'layouts.interpretationNetworkEditor.title')).toBe('Рабочая область трактовочной сети')
+        expect(getPath(ru, 'layouts.workspaceSwitcherEditor.title')).toBe('Переключатель рабочих пространств')
+        expect(getPath(ru, 'layouts.widgetCustomization.application')).toBe('Настроено в приложении')
+    })
+
+    it('localizes workspace settings navigation in the applications runtime host', () => {
+        const ru = applicationsTranslations.ru.applications
+
+        expect(getPath(ru, 'workspace.settings')).toBe('Настройки')
     })
 
     it('localizes menu widget side-menu settings in the application layout editor', () => {

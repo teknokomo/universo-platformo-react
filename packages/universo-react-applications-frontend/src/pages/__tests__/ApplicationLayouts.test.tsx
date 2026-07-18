@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,7 +27,17 @@ vi.mock('react-i18next', () => ({
             const dictionary: Record<string, string> = {
                 'layouts.widgets.menuWidget': 'Menu',
                 'layouts.widgets.overviewCards': 'Overview cards',
-                'layouts.widgets.recordsTable': 'Records table'
+                'layouts.widgets.interpretationNetworkWorkspace': 'Interpretation network workspace',
+                'layouts.widgets.workspaceSwitcher': 'Workspace switcher',
+                'layouts.widgets.recordsTable': 'Records table',
+                'layouts.interpretationNetworkEditor.title': 'Interpretation network workspace',
+                'layouts.workspaceSwitcherEditor.title': 'Workspace switcher',
+                'layouts.workspaceSwitcherEditor.readOnly':
+                    'The workspace switcher uses the published application workspace state and has no widget-specific settings yet.',
+                'layouts.workspaceSwitcherEditor.hint':
+                    'Use application settings to control which workspace settings can be changed inside workspaces.',
+                'layouts.widgetCustomization.application': 'Customized in application',
+                'layouts.widgetCustomization.metahub': 'Inherited from metahub'
             }
             const template = dictionary[key] ?? fallback ?? key
             if (!params) return template
@@ -92,9 +102,12 @@ vi.mock('@universo-react/template-mui', () => ({
                       <div key={zone.zone}>
                           <h2>{zone.title}</h2>
                           {(zone.items ?? []).map((item: any) => (
-                              <button key={item.id} type='button' onClick={item.onClick}>
-                                  {item.label}
-                              </button>
+                              <div key={item.id}>
+                                  <button type='button' onClick={item.onClick}>
+                                      {item.label}
+                                  </button>
+                                  {item.inheritedLabel ? <span>{item.inheritedLabel}</span> : null}
+                              </div>
                           ))}
                       </div>
                   ))
@@ -126,6 +139,14 @@ vi.mock('@universo-react/template-mui', () => ({
                 <button type='button' onClick={onSave}>
                     Save
                 </button>
+            </div>
+        ) : null,
+    StandardDialog: ({ open, title, children, actions }: any) =>
+        open ? (
+            <div role='dialog' aria-label={title}>
+                <h2>{title}</h2>
+                <div>{children}</div>
+                {actions ? <div data-testid='standard-dialog-actions'>{actions}</div> : null}
             </div>
         ) : null,
     LocalizedInlineField: ({ label }: { label: string }) => <div>{label}</div>,
@@ -267,12 +288,39 @@ describe('ApplicationLayouts', () => {
                     config: {},
                     isActive: false,
                     version: 1
+                },
+                {
+                    id: 'widget-matrix-1',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'interpretationNetworkWorkspace',
+                    sortOrder: 1,
+                    config: {
+                        matrixMode: 'hierarchicalCells',
+                        allowedMatrixViews: ['table', 'horizontalRows'],
+                        defaultMatrixView: 'table',
+                        splitPane: { enabled: true }
+                    },
+                    isActive: true,
+                    version: 2
+                },
+                {
+                    id: 'widget-workspace-switcher-1',
+                    layoutId: 'layout-1',
+                    zone: 'left',
+                    widgetKey: 'workspaceSwitcher',
+                    sortOrder: 1,
+                    config: {},
+                    isActive: true,
+                    version: 1
                 }
             ]
         })
         apiMocks.listApplicationLayoutWidgetObject.mockResolvedValue([
             { key: 'menuWidget', allowedZones: ['left', 'center'], multiInstance: true },
-            { key: 'overviewCards', allowedZones: ['top', 'right'], multiInstance: false }
+            { key: 'overviewCards', allowedZones: ['top', 'right'], multiInstance: false },
+            { key: 'interpretationNetworkWorkspace', allowedZones: ['center'], multiInstance: true },
+            { key: 'workspaceSwitcher', allowedZones: ['left'], multiInstance: false }
         ])
         apiMocks.moveApplicationLayoutWidget.mockResolvedValue({
             id: 'widget-center-1',
@@ -309,6 +357,7 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Bottom')).toBeInTheDocument()
         expect(screen.getByText('Menu: Training')).toBeInTheDocument()
         expect(screen.getByText('Overview cards')).toBeInTheDocument()
+        expect(screen.getByText('Customized in application')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Back to applications' })).not.toBeInTheDocument()
 
@@ -395,4 +444,59 @@ describe('ApplicationLayouts', () => {
             expect(widget?.config).toEqual({})
         })
     }, 30_000)
+
+    it('opens a typed Matrix editor for interpretation network widgets and saves without raw JSON editing', async () => {
+        renderPage()
+
+        await waitFor(() => {
+            expect(screen.getByText('Homepage')).toBeInTheDocument()
+        })
+
+        fireEvent.click(screen.getByRole('button', { name: 'Interpretation network workspace' }))
+
+        expect(screen.getByRole('heading', { name: 'Interpretation network workspace' })).toBeInTheDocument()
+        expect(screen.getByTestId('application-layout-widget-customization-state')).toHaveTextContent('Customized in application')
+        expect(screen.getAllByText('Matrix mode').length).toBeGreaterThan(0)
+        expect(screen.queryByText('Widget configuration must be valid JSON.')).not.toBeInTheDocument()
+        expect(screen.queryByDisplayValue(/\{/)).not.toBeInTheDocument()
+        expect(within(screen.getByTestId('standard-dialog-actions')).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+        expect(within(screen.getByTestId('standard-dialog-actions')).getByRole('button', { name: 'Save' })).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1)
+
+        fireEvent.click(within(screen.getByTestId('application-setting-matrix-resizable-panes')).getByRole('switch'))
+        await waitFor(() => {
+            expect(screen.getByTestId('application-settings-matrix-save')).toBeEnabled()
+        })
+        fireEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(apiMocks.updateApplicationLayoutWidgetConfig).toHaveBeenCalledWith('app-1', 'layout-1', 'widget-matrix-1', {
+                expectedVersion: 2,
+                config: expect.objectContaining({
+                    matrixMode: 'hierarchicalCells',
+                    defaultMatrixView: 'table',
+                    splitPane: { enabled: false }
+                })
+            })
+        })
+    }, 30_000)
+
+    it('opens workspace switcher editor as an explicit read-only dialog instead of a no-op', async () => {
+        const user = userEvent.setup()
+        renderPage()
+
+        await waitFor(() => {
+            expect(screen.getByText('Homepage')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Workspace switcher' }))
+
+        expect(screen.getByRole('dialog', { name: 'Workspace switcher' })).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'The workspace switcher uses the published application workspace state and has no widget-specific settings yet.'
+            )
+        ).toBeInTheDocument()
+        expect(screen.queryByDisplayValue(/\{/)).not.toBeInTheDocument()
+    })
 })

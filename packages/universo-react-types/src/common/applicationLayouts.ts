@@ -1,12 +1,7 @@
 import { z } from 'zod'
 import { dashboardLayoutConfigSchema, dashboardSideMenuConfigSchema } from './dashboardLayout'
 import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES, type MenuWidgetTarget } from './metahubs'
-import {
-    moduleAttachmentKindSchema,
-    moduleBackedWidgetConfigSchema,
-    sharedBehaviorSchema,
-    widgetVisibilitySchema
-} from './moduleBackedWidgetConfig'
+import { moduleBackedWidgetConfigSchema, sharedBehaviorSchema } from './moduleBackedWidgetConfig'
 import { interpretationNetworkWorkspaceWidgetConfigSchema } from './interpretationNetworkLayout'
 import {
     ledgerProjectionDatasourceSchema,

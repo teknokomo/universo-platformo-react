@@ -23,6 +23,7 @@ import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import { sanitizeMenuHref } from '@universo-react/utils'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo-react/i18n'
@@ -63,6 +64,8 @@ const resolveIcon = (iconName?: string | null) => {
         case 'delete':
         case 'trash':
             return <DeleteRoundedIcon />
+        case 'settings':
+            return <SettingsRoundedIcon />
         case 'more':
             return <MoreHorizRoundedIcon />
         default:

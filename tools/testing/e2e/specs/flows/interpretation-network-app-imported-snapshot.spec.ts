@@ -8,7 +8,13 @@
 
 import { expect, test } from '../../fixtures/test'
 import type { Locator, Page, Response, TestInfo } from '@playwright/test'
-import { createLoggedInApiContext, disposeApiContext, updateMetahub } from '../../support/backend/api-session.mjs'
+import {
+    createLoggedInApiContext,
+    disposeApiContext,
+    listApplicationWorkspaces,
+    sendWithCsrf,
+    updateMetahub
+} from '../../support/backend/api-session.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
@@ -834,6 +840,105 @@ const expectInterpretationNetworkMatrixSettings = async (page: Page, application
     })
 }
 
+const expectMetahubAggregateWidgetSettings = async (page: Page, metahubId: string, testInfo: TestInfo): Promise<void> => {
+    await page.goto(`/metahub/${metahubId}/settings`)
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('tab', { name: 'Layouts and widgets' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Layouts and widgets' }).click()
+
+    const main = page.getByRole('main')
+    await expect(main.getByText('Interpretation Network workspace').first()).toBeVisible({ timeout: 30_000 })
+    await expect(main.getByText(/Matrix mode:/).first()).toBeVisible()
+    await expect(main.getByRole('button', { name: 'Edit settings' }).first()).toBeVisible()
+    await expectNoTechnicalLeakage(main, {
+        label: 'Metahub aggregate layout widget settings',
+        checkUuidSubstrings: true
+    })
+    await expectNoPageHorizontalOverflow(page, 'Metahub aggregate layout widget settings')
+    await attachRuntimeScreenshot(page, testInfo, 'metahub-settings-layout-widgets-desktop-1280')
+
+    await main.getByRole('button', { name: 'Edit settings' }).first().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('heading', { name: 'Interpretation Network workspace' })).toBeVisible({ timeout: 30_000 })
+    await expect(dialog.getByRole('combobox', { name: 'Matrix mode' })).toBeVisible()
+    await expect(dialog.getByText('Raw JSON')).toHaveCount(0)
+    await expectNoTechnicalLeakage(dialog, {
+        label: 'Metahub aggregate layout widget editor',
+        checkUuidSubstrings: true
+    })
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+}
+
+const expectApplicationLayoutWidgetSettings = async (page: Page, applicationId: string, testInfo: TestInfo): Promise<void> => {
+    await page.goto(`/a/${applicationId}/admin/layouts`)
+    await expect(page.getByRole('heading', { name: 'Layouts' })).toBeVisible({ timeout: 30_000 })
+    await page.getByTestId('application-layouts-list-content').getByText('Main').first().click()
+    await expect(page.getByRole('heading', { name: 'Main' })).toBeVisible({ timeout: 30_000 })
+
+    const main = page.getByRole('main')
+    const widgetCard = main
+        .getByTestId(/^layout-widget-/)
+        .filter({ hasText: 'Interpretation Network workspace' })
+        .first()
+    await expect(widgetCard).toBeVisible({ timeout: 30_000 })
+    await expect(widgetCard.getByText('Inherited from metahub')).toBeVisible()
+    await expect(widgetCard.getByText('Raw JSON')).toHaveCount(0)
+
+    await widgetCard.getByLabel('Edit widget: Interpretation Network workspace').click()
+    const dialog = page.getByRole('dialog', { name: 'Interpretation network workspace' })
+    await expect(dialog).toBeVisible({ timeout: 30_000 })
+    await expect(dialog.getByRole('combobox', { name: 'Matrix mode' })).toBeVisible()
+    await expect(dialog.getByText('Raw JSON')).toHaveCount(0)
+    await expectNoTechnicalLeakage(dialog, {
+        label: 'Application layout widget typed settings editor',
+        checkUuidSubstrings: true
+    })
+    await attachRuntimeScreenshot(page, testInfo, 'application-layout-widget-settings-dialog-desktop-1280')
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(dialog).toHaveCount(0)
+    await expectNoPageHorizontalOverflow(page, 'Application layout widget settings')
+}
+
+const expectWorkspaceSettingsLocalized = async (page: Page, api: ApiContext, applicationId: string, testInfo: TestInfo): Promise<void> => {
+    const workspaces = await listApplicationWorkspaces(api, applicationId)
+    const workspaceItems = Array.isArray(workspaces?.items) ? workspaces.items : []
+    const workspaceId = workspaceItems.find((workspace: { id?: string; isDefault?: boolean }) => workspace.isDefault === true)?.id
+    if (typeof workspaceId !== 'string') {
+        throw new Error('Interpretation Network workspace settings proof requires a default workspace id')
+    }
+
+    const application = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}`, {
+        settings: {
+            workspaceOverrides: {
+                allowedKeys: ['sectionLinksEnabled', 'dashboardDefaultMode', 'workspaceOpenBehavior'],
+                lockedKeys: []
+            }
+        }
+    })
+    if (!application.ok) {
+        throw new Error(`Updating application workspace override policy failed with ${application.status}: ${await application.text()}`)
+    }
+
+    await applyBrowserPreferences(page, { language: 'ru' })
+    await page.goto(`/a/${applicationId}/workspaces/${workspaceId}/settings`)
+    const main = page.getByRole('main')
+    await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
+    await expect(main.getByRole('heading', { name: /Настройки/ })).toBeVisible()
+    await expect(main.getByRole('heading', { name: 'Индивидуальные ссылки разделов' })).toBeVisible()
+    await expect(main.getByRole('heading', { name: 'Стартовый дашборд runtime' })).toBeVisible()
+    await expect(main.getByRole('heading', { name: 'Открытие рабочего пространства' })).toBeVisible()
+    await expect(main.getByRole('combobox', { name: 'Стартовый дашборд runtime' })).toBeVisible()
+    await expect(main.getByText(/workspace\.settingKeys|settings\.keys/)).toHaveCount(0)
+    await expectNoTechnicalLeakage(main, {
+        label: 'Russian workspace settings',
+        checkUuidSubstrings: true
+    })
+    await expectNoPageHorizontalOverflow(page, 'Russian workspace settings')
+    await attachRuntimeScreenshot(page, testInfo, 'workspace-settings-ru-desktop-1280')
+    await applyBrowserPreferences(page, { language: 'en' })
+}
+
 const saveApplicationMatrixViewSettings = async (
     page: Page,
     applicationId: string,
@@ -1238,7 +1343,10 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expect(page.getByRole('main')).not.toContainText('Conversions')
         await expect(page.getByRole('main')).not.toContainText('Event count')
         await expectRuntimeSideMenuModes(page, testInfo)
+        await expectMetahubAggregateWidgetSettings(page, metahub.id, testInfo)
+        await expectApplicationLayoutWidgetSettings(page, applicationId, testInfo)
         await expectInterpretationNetworkMatrixSettings(page, applicationId, testInfo)
+        await expectWorkspaceSettingsLocalized(page, api, applicationId, testInfo)
         await page.goto(`/a/${applicationId}`)
         await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
         await expectInterpretationNetworkStartPage(page)

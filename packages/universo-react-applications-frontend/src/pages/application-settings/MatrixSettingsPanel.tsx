@@ -101,13 +101,17 @@ export const MatrixSettingsPanel = ({
     settings,
     hasDivergentSettings,
     isSaving,
-    onSave
+    onSave,
+    renderSaveButton = true,
+    onDraftChange
 }: {
     t: Translate
     settings: InterpretationNetworkMatrixSettings
     hasDivergentSettings: boolean
     isSaving: boolean
     onSave: (settings: InterpretationNetworkMatrixSettings) => void
+    renderSaveButton?: boolean
+    onDraftChange?: (settings: InterpretationNetworkMatrixSettings, hasChanges: boolean) => void
 }) => {
     const normalizedSettings = useMemo(() => normalizeMatrixPanelSettings(settings), [settings])
     const [localSettings, setLocalSettings] = useState(() => normalizedSettings)
@@ -146,6 +150,10 @@ export const MatrixSettingsPanel = ({
             localSettings.positionNumbering.startIndex !== normalizedSettings.positionNumbering.startIndex,
         [hasDivergentSettings, localSettings, normalizedSettings]
     )
+
+    useEffect(() => {
+        onDraftChange?.(localSettings, hasChanges)
+    }, [hasChanges, localSettings, onDraftChange])
 
     return (
         <Stack spacing={2}>
@@ -900,7 +908,7 @@ export const MatrixSettingsPanel = ({
                 </Box>
             </Stack>
 
-            {hasChanges ? (
+            {renderSaveButton && hasChanges ? (
                 <SaveSettingsButton
                     testId='application-settings-matrix-save'
                     t={t}

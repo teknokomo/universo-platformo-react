@@ -7,12 +7,15 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Box, Tabs, Tab, Typography, Stack, Button, Divider, Skeleton, IconButton, Tooltip, Alert } from '@mui/material'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Box, Tabs, Tab, Typography, Stack, Button, Divider, Skeleton, IconButton, Tooltip, Alert, Chip } from '@mui/material'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SaveIcon from '@mui/icons-material/Save'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
-import { buildEntitySurfaceSettingKey, METAHUB_SETTINGS_TABS } from '@universo-react/types'
+import { buildEntitySurfaceSettingKey, DASHBOARD_LAYOUT_WIDGETS, METAHUB_SETTINGS_TABS } from '@universo-react/types'
+import type { DashboardLayoutWidgetKey } from '@universo-react/types'
 
 // project imports
 import { TemplateMainCard as MainCard, EmptyListState, APIEmptySVG, useDebouncedSearch, useConfirm } from '@universo-react/template-mui'
@@ -23,11 +26,19 @@ import type { SettingResponse, SettingsRegistryEntry } from '../api/settingsApi'
 import SettingControl from './SettingControl'
 import CodenameStylePreview from './CodenameStylePreview'
 import { getLocalizedContentText } from '../../../utils/localizedInput'
+import { listLayoutZoneWidgets, listLayouts, updateLayoutZoneWidgetConfig } from '../../layouts/api'
+import InterpretationNetworkWorkspaceWidgetEditorDialog from '../../layouts/ui/InterpretationNetworkWorkspaceWidgetEditorDialog'
+import { metahubsQueryKeys } from '../../shared'
+import type { MetahubLayout, MetahubLayoutZoneWidget } from '../../../types'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SETTING_TABS = METAHUB_SETTINGS_TABS
+const SETTING_TABS = [...METAHUB_SETTINGS_TABS, 'layouts']
 type SettingTab = string
+type LayoutWidgetSettingsItem = {
+    layout: MetahubLayout
+    widget: MetahubLayoutZoneWidget
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -76,9 +87,35 @@ const resolveBaseEntitySettingKey = (key: string): string => {
     return key
 }
 
+const widgetDefinitionsByKey = new Map(DASHBOARD_LAYOUT_WIDGETS.map((widget) => [widget.key, widget]))
+
+const resolveWidgetLabel = (t: ReturnType<typeof useTranslation<'metahubs'>>['t'], widgetKey: DashboardLayoutWidgetKey): string =>
+    t(`layouts.widgets.${widgetKey}`, {
+        defaultValue: widgetDefinitionsByKey.has(widgetKey)
+            ? widgetKey.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (value) => value.toUpperCase())
+            : t('settings.layoutWidgets.unknownWidget', 'Unknown widget')
+    })
+
+const extractWidgetSettingsSummary = (widget: MetahubLayoutZoneWidget, t: ReturnType<typeof useTranslation<'metahubs'>>['t']): string => {
+    if (widget.widgetKey !== 'interpretationNetworkWorkspace') {
+        return t('settings.layoutWidgets.openContextualEditor', 'Open the layout widget editor to change this widget.')
+    }
+
+    const config = widget.config ?? {}
+    const matrixMode = config.matrixMode === 'independentRows' ? 'independentRows' : 'hierarchicalCells'
+    const defaultView = typeof config.defaultMatrixView === 'string' ? config.defaultMatrixView : 'table'
+    return t('settings.layoutWidgets.interpretationNetworkSummary', 'Matrix mode: {{matrixMode}}. Default view: {{defaultView}}.', {
+        matrixMode: t(`settings.matrix.modes.${matrixMode}`, { defaultValue: matrixMode }),
+        defaultView: t(`settings.matrix.views.${defaultView}`, { defaultValue: defaultView })
+    })
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const SettingsPage = () => {
+    const { metahubId } = useParams<{ metahubId: string }>()
+    const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const { t, i18n } = useTranslation('metahubs')
     const { enqueueSnackbar } = useSnackbar()
 
@@ -87,17 +124,63 @@ const SettingsPage = () => {
     const updateMutation = useUpdateSettings()
     const resetMutation = useResetSetting()
 
-    // Local form state — tracks user modifications (key → new value)
-    const [localChanges, setLocalChanges] = useState<Record<string, unknown>>({})
-
     // Tabs
     const [activeTab, setActiveTab] = useState<SettingTab>('general')
     const handleTabChange = useCallback((_: React.SyntheticEvent, newValue: SettingTab) => {
         setActiveTab(newValue)
     }, [])
 
+    const layoutsQuery = useQuery({
+        queryKey: metahubId
+            ? [...metahubsQueryKeys.layoutsList(metahubId, { limit: 100, offset: 0 }), 'settings-aggregate']
+            : ['metahub-layout-settings-empty'],
+        queryFn: async () => {
+            const layoutsResponse = await listLayouts(metahubId!, { limit: 100, offset: 0 })
+            const activeLayouts = layoutsResponse.items.filter((layout) => layout.isActive)
+            const widgetGroups = await Promise.all(
+                activeLayouts.map(async (layout) => {
+                    const widgets = await listLayoutZoneWidgets(metahubId!, layout.id)
+                    return widgets
+                        .filter((widget) => widget.isActive)
+                        .map(
+                            (widget): LayoutWidgetSettingsItem => ({
+                                layout,
+                                widget
+                            })
+                        )
+                })
+            )
+            return widgetGroups.flat()
+        },
+        enabled: Boolean(metahubId) && activeTab === 'layouts',
+        staleTime: 60 * 1000
+    })
+
+    const updateWidgetConfigMutation = useMutation({
+        mutationFn: async ({ layoutId, widgetId, config }: { layoutId: string; widgetId: string; config: Record<string, unknown> }) => {
+            const response = await updateLayoutZoneWidgetConfig(metahubId!, layoutId, widgetId, config)
+            return response.data.item
+        },
+        onSuccess: async (_data, variables) => {
+            if (!metahubId) return
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutZoneWidgets(metahubId, variables.layoutId) }),
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsRoot(metahubId) })
+            ])
+            await layoutsQuery.refetch()
+            enqueueSnackbar(t('settings.layoutWidgets.saved', 'Widget settings saved'), { variant: 'success' })
+        },
+        onError: () => {
+            enqueueSnackbar(t('settings.layoutWidgets.saveError', 'Failed to save widget settings'), { variant: 'error' })
+        }
+    })
+
+    // Local form state — tracks user modifications (key → new value)
+    const [localChanges, setLocalChanges] = useState<Record<string, unknown>>({})
+
     // Search — client-side filtering with debounce
     const [searchFilter, setSearchFilter] = useState('')
+    const [editingLayoutWidget, setEditingLayoutWidget] = useState<LayoutWidgetSettingsItem | null>(null)
     const { handleSearchChange } = useDebouncedSearch({
         onSearchChange: setSearchFilter,
         delay: 300
@@ -112,8 +195,12 @@ const SettingsPage = () => {
         if (!data?.registry) return SETTING_TABS
 
         const registryTabs = new Set(data.registry.map((entry) => entry.tab))
+        registryTabs.add('layouts')
         const orderedTabs = data.meta?.tabOrder?.length ? data.meta.tabOrder : SETTING_TABS
-        return orderedTabs.filter((tab): tab is SettingTab => registryTabs.has(tab))
+        return [
+            ...orderedTabs.filter((tab): tab is SettingTab => registryTabs.has(tab)),
+            ...SETTING_TABS.filter((tab) => !orderedTabs.includes(tab) && registryTabs.has(tab))
+        ]
     }, [data?.registry, data?.meta?.tabOrder])
 
     const resolveTabLabel = useCallback(
@@ -287,6 +374,27 @@ const SettingsPage = () => {
         [confirm, resetMutation, enqueueSnackbar, t]
     )
 
+    const handleOpenWidgetEditor = useCallback(
+        (item: LayoutWidgetSettingsItem) => {
+            navigate(`/metahub/${metahubId}/resources/layouts/${item.layout.id}`)
+        },
+        [metahubId, navigate]
+    )
+
+    const handleToggleInterpretationNetworkSplitPane = useCallback(
+        (item: LayoutWidgetSettingsItem, enabled: boolean) => {
+            updateWidgetConfigMutation.mutate({
+                layoutId: item.layout.id,
+                widgetId: item.widget.id,
+                config: {
+                    ...(item.widget.config ?? {}),
+                    splitPane: { enabled }
+                }
+            })
+        },
+        [updateWidgetConfigMutation]
+    )
+
     // ── Render ───────────────────────────────────────────────────────────
 
     if (isError) {
@@ -315,7 +423,87 @@ const SettingsPage = () => {
 
             {/* Content */}
             <Box data-testid='metahub-settings-content' sx={{ py: 2 }}>
-                {isLoading ? (
+                {activeTab === 'layouts' ? (
+                    layoutsQuery.isLoading ? (
+                        <Stack spacing={2}>
+                            {[1, 2, 3].map((i) => (
+                                <Skeleton key={i} variant='rectangular' height={84} sx={{ borderRadius: 1 }} />
+                            ))}
+                        </Stack>
+                    ) : layoutsQuery.isError ? (
+                        <Alert severity='error'>{t('settings.layoutWidgets.loadError', 'Failed to load layout widget settings.')}</Alert>
+                    ) : (layoutsQuery.data ?? []).length === 0 ? (
+                        <Alert severity='info'>
+                            {t('settings.layoutWidgets.empty', 'No active layout widgets with configurable settings were found.')}
+                        </Alert>
+                    ) : (
+                        <Stack spacing={0} divider={<Divider />}>
+                            {(layoutsQuery.data ?? []).map((item) => {
+                                const layoutTitle = getLocalizedContentText(item.layout.name, i18n.language, item.layout.id)
+                                const widgetLabel = resolveWidgetLabel(t, item.widget.widgetKey)
+                                const splitPaneEnabled =
+                                    item.widget.widgetKey === 'interpretationNetworkWorkspace'
+                                        ? (item.widget.config?.splitPane as { enabled?: boolean } | undefined)?.enabled ?? true
+                                        : null
+
+                                return (
+                                    <Box
+                                        key={`${item.layout.id}:${item.widget.id}`}
+                                        sx={{
+                                            py: 2,
+                                            display: 'flex',
+                                            alignItems: { xs: 'stretch', md: 'center' },
+                                            flexDirection: { xs: 'column', md: 'row' },
+                                            gap: 2
+                                        }}
+                                    >
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Stack direction='row' spacing={1} alignItems='center' sx={{ mb: 0.5, flexWrap: 'wrap' }}>
+                                                <Typography variant='subtitle2'>{widgetLabel}</Typography>
+                                                <Chip
+                                                    size='small'
+                                                    label={t(`layouts.zones.${item.widget.zone}`, {
+                                                        defaultValue: item.widget.zone
+                                                    })}
+                                                />
+                                            </Stack>
+                                            <Typography variant='body2' color='text.secondary'>
+                                                {t('settings.layoutWidgets.layoutLabel', 'Layout: {{layout}}', { layout: layoutTitle })}
+                                            </Typography>
+                                            <Typography variant='body2' color='text.secondary'>
+                                                {extractWidgetSettingsSummary(item.widget, t)}
+                                            </Typography>
+                                        </Box>
+
+                                        <Stack
+                                            direction={{ xs: 'column', sm: 'row' }}
+                                            spacing={1}
+                                            alignItems={{ xs: 'stretch', sm: 'center' }}
+                                        >
+                                            {splitPaneEnabled !== null ? (
+                                                <SettingControl
+                                                    settingKey={`layout.widget.${item.widget.id}.splitPane`}
+                                                    valueType='boolean'
+                                                    value={splitPaneEnabled}
+                                                    onChange={(value) => handleToggleInterpretationNetworkSplitPane(item, value === true)}
+                                                    disabled={updateWidgetConfigMutation.isPending}
+                                                />
+                                            ) : null}
+                                            {item.widget.widgetKey === 'interpretationNetworkWorkspace' ? (
+                                                <Button variant='contained' onClick={() => setEditingLayoutWidget(item)}>
+                                                    {t('settings.layoutWidgets.editSettings', 'Edit settings')}
+                                                </Button>
+                                            ) : null}
+                                            <Button variant='outlined' onClick={() => handleOpenWidgetEditor(item)}>
+                                                {t('settings.layoutWidgets.openEditor', 'Open in layout')}
+                                            </Button>
+                                        </Stack>
+                                    </Box>
+                                )
+                            })}
+                        </Stack>
+                    )
+                ) : isLoading ? (
                     <Stack spacing={2}>
                         {[1, 2, 3].map((i) => (
                             <Skeleton key={i} variant='rectangular' height={60} sx={{ borderRadius: 1 }} />
@@ -420,6 +608,27 @@ const SettingsPage = () => {
                         })}
                     </Stack>
                 )}
+
+                {editingLayoutWidget?.widget.widgetKey === 'interpretationNetworkWorkspace' ? (
+                    <InterpretationNetworkWorkspaceWidgetEditorDialog
+                        open
+                        config={editingLayoutWidget.widget.config}
+                        metahubId={metahubId}
+                        layoutId={editingLayoutWidget.layout.id}
+                        widgetId={editingLayoutWidget.widget.id}
+                        showSharedBehavior={false}
+                        showScopeVisibility={false}
+                        onSave={(config) => {
+                            updateWidgetConfigMutation.mutate({
+                                layoutId: editingLayoutWidget.layout.id,
+                                widgetId: editingLayoutWidget.widget.id,
+                                config: config as Record<string, unknown>
+                            })
+                            setEditingLayoutWidget(null)
+                        }}
+                        onCancel={() => setEditingLayoutWidget(null)}
+                    />
+                ) : null}
 
                 {/* Save button */}
                 {hasChanges && (

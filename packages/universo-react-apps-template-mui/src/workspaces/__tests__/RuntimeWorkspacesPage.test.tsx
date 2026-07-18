@@ -26,18 +26,27 @@ const apiMocks = vi.hoisted(() => ({
     fetchRuntimeWorkspaces: vi.fn(),
     fetchRuntimeWorkspace: vi.fn(),
     fetchRuntimeWorkspaceMembers: vi.fn(),
+    fetchRuntimeWorkspaceSettings: vi.fn(),
     inviteRuntimeWorkspaceMember: vi.fn(),
     createRuntimeWorkspace: vi.fn(),
     updateRuntimeWorkspace: vi.fn(),
     copyRuntimeWorkspace: vi.fn(),
     deleteRuntimeWorkspace: vi.fn(),
     removeRuntimeWorkspaceMember: vi.fn(),
-    updateDefaultRuntimeWorkspace: vi.fn()
+    updateDefaultRuntimeWorkspace: vi.fn(),
+    updateRuntimeWorkspaceSettings: vi.fn()
 }))
 
 const i18nState = vi.hoisted(() => ({
     language: 'en',
     translations: {
+        en: {
+            'workspace.settingKeys.sectionLinksEnabled': 'Section-specific links',
+            'workspace.settingKeys.sectionLinksEnabled.description': 'Generate a separate URL for each application menu section.',
+            'workspace.settingKeys.dashboardDefaultMode': 'Runtime start dashboard',
+            'workspace.settingKeys.dashboardDefaultMode.description':
+                'Controls which dashboard section opens first in the published application.'
+        },
         ru: {
             'workspace.errors.userNotFound': 'Пользователь не найден'
         }
@@ -49,8 +58,8 @@ vi.mock('react-i18next', () => ({
         i18n: { language: i18nState.language },
         t: (_key: string, fallbackOrOptions?: string | Record<string, unknown>) => {
             const language = i18nState.language.split(/[-_]/)[0]?.toLowerCase() || 'en'
-            if (language === 'ru' && i18nState.translations.ru[_key]) {
-                return i18nState.translations.ru[_key]
+            if (i18nState.translations[language]?.[_key]) {
+                return i18nState.translations[language][_key]
             }
             return typeof fallbackOrOptions === 'string'
                 ? fallbackOrOptions
@@ -262,13 +271,15 @@ vi.mock('../../api/workspaces', () => ({
     fetchRuntimeWorkspaces: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaces(...args),
     fetchRuntimeWorkspace: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspace(...args),
     fetchRuntimeWorkspaceMembers: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaceMembers(...args),
+    fetchRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.fetchRuntimeWorkspaceSettings(...args),
     inviteRuntimeWorkspaceMember: (...args: unknown[]) => apiMocks.inviteRuntimeWorkspaceMember(...args),
     createRuntimeWorkspace: (...args: unknown[]) => apiMocks.createRuntimeWorkspace(...args),
     updateRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateRuntimeWorkspace(...args),
     copyRuntimeWorkspace: (...args: unknown[]) => apiMocks.copyRuntimeWorkspace(...args),
     deleteRuntimeWorkspace: (...args: unknown[]) => apiMocks.deleteRuntimeWorkspace(...args),
     removeRuntimeWorkspaceMember: (...args: unknown[]) => apiMocks.removeRuntimeWorkspaceMember(...args),
-    updateDefaultRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateDefaultRuntimeWorkspace(...args)
+    updateDefaultRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateDefaultRuntimeWorkspace(...args),
+    updateRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.updateRuntimeWorkspaceSettings(...args)
 }))
 
 const createQueryClient = () =>
@@ -380,6 +391,82 @@ describe('RuntimeWorkspacesPage', () => {
         apiMocks.copyRuntimeWorkspace.mockResolvedValue({ id: 'ws-copy' })
         apiMocks.deleteRuntimeWorkspace.mockResolvedValue(undefined)
         apiMocks.updateDefaultRuntimeWorkspace.mockResolvedValue(undefined)
+        apiMocks.fetchRuntimeWorkspaceSettings.mockResolvedValue({
+            canManage: true,
+            items: [
+                {
+                    key: 'sectionLinksEnabled',
+                    value: true,
+                    source: 'application',
+                    isInherited: true,
+                    allowed: true,
+                    version: null,
+                    definition: {
+                        key: 'sectionLinksEnabled',
+                        labelKey: 'workspace.test.sectionLinksEnabled',
+                        descriptionKey: 'workspace.test.sectionLinksEnabledDescription',
+                        tab: 'navigation',
+                        controlType: 'boolean',
+                        defaultValue: true
+                    }
+                },
+                {
+                    key: 'dashboardDefaultMode',
+                    value: 'first-menu-item',
+                    source: 'workspace',
+                    isInherited: false,
+                    allowed: true,
+                    version: 3,
+                    definition: {
+                        key: 'dashboardDefaultMode',
+                        labelKey: 'workspace.test.dashboardDefaultMode',
+                        descriptionKey: 'workspace.test.dashboardDefaultModeDescription',
+                        tab: 'navigation',
+                        controlType: 'select',
+                        defaultValue: 'layout-default',
+                        options: ['layout-default', 'first-menu-item']
+                    }
+                }
+            ]
+        })
+        apiMocks.updateRuntimeWorkspaceSettings.mockResolvedValue({
+            canManage: true,
+            items: [
+                {
+                    key: 'sectionLinksEnabled',
+                    value: false,
+                    source: 'workspace',
+                    isInherited: false,
+                    allowed: true,
+                    version: 2,
+                    definition: {
+                        key: 'sectionLinksEnabled',
+                        labelKey: 'workspace.test.sectionLinksEnabled',
+                        descriptionKey: 'workspace.test.sectionLinksEnabledDescription',
+                        tab: 'navigation',
+                        controlType: 'boolean',
+                        defaultValue: true
+                    }
+                },
+                {
+                    key: 'dashboardDefaultMode',
+                    value: 'layout-default',
+                    source: 'application',
+                    isInherited: true,
+                    allowed: true,
+                    version: null,
+                    definition: {
+                        key: 'dashboardDefaultMode',
+                        labelKey: 'workspace.test.dashboardDefaultMode',
+                        descriptionKey: 'workspace.test.dashboardDefaultModeDescription',
+                        tab: 'navigation',
+                        controlType: 'select',
+                        defaultValue: 'layout-default',
+                        options: ['layout-default', 'first-menu-item']
+                    }
+                }
+            ]
+        })
     })
 
     it('renders workspace cards without showing access management on the list route', async () => {
@@ -759,8 +846,58 @@ describe('RuntimeWorkspacesPage', () => {
         expect(screen.queryByRole('button', { name: 'Remove member' })).not.toBeInTheDocument()
     })
 
+    it('renders workspace setting controls and updates allowed overrides', async () => {
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'settings' })
+
+        expect(await screen.findByRole('heading', { name: 'Class A: Settings' })).toBeInTheDocument()
+        expect(screen.getByText('Section-specific links')).toBeInTheDocument()
+        expect(screen.queryByText('workspace.test.sectionLinksEnabled')).not.toBeInTheDocument()
+        expect(screen.queryByText('settings.keys.sectionLinksEnabled')).not.toBeInTheDocument()
+        expect(screen.getByText('Inherited from application')).toBeInTheDocument()
+        expect(screen.getByText('Overridden in this workspace')).toBeInTheDocument()
+
+        fireEvent.click(screen.getByLabelText('Section-specific links'))
+        await waitFor(() => {
+            expect(apiMocks.updateRuntimeWorkspaceSettings).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    apiBaseUrl: '/api/v1',
+                    applicationId: 'app-1',
+                    workspaceId: 'ws-shared',
+                    settings: [expect.objectContaining({ key: 'sectionLinksEnabled', value: false })],
+                    resets: []
+                })
+            )
+        })
+    })
+
+    it('does not fetch workspace settings on dashboard or access routes and keeps member fetches off settings routes', async () => {
+        renderPage({ routeWorkspaceId: 'ws-shared' })
+
+        expect(await screen.findByRole('heading', { name: 'Class A' })).toBeInTheDocument()
+        expect(apiMocks.fetchRuntimeWorkspaceSettings).not.toHaveBeenCalled()
+        expect(apiMocks.fetchRuntimeWorkspaceMembers).toHaveBeenCalledTimes(1)
+
+        cleanup()
+        apiMocks.fetchRuntimeWorkspaceMembers.mockClear()
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'access' })
+
+        expect(await screen.findByRole('heading', { name: 'Class A: Access' })).toBeInTheDocument()
+        expect(apiMocks.fetchRuntimeWorkspaceSettings).not.toHaveBeenCalled()
+        expect(apiMocks.fetchRuntimeWorkspaceMembers).toHaveBeenCalledTimes(1)
+
+        cleanup()
+        apiMocks.fetchRuntimeWorkspaceMembers.mockClear()
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'settings' })
+
+        expect(await screen.findByRole('heading', { name: 'Class A: Settings' })).toBeInTheDocument()
+        expect(apiMocks.fetchRuntimeWorkspaceSettings).toHaveBeenCalledTimes(1)
+        expect(apiMocks.fetchRuntimeWorkspaceMembers).not.toHaveBeenCalled()
+    })
+
     it('ships the Russian runtime workspace title used by published applications', () => {
         expect(ruApps.workspace.title).toBe('Рабочие пространства')
+        expect(ruApps.workspace.settingKeys.sectionLinksEnabled).toBe('Индивидуальные ссылки разделов')
+        expect(ruApps.workspace.settingKeys['learningContent.defaultView']).toBe('Вид контента по умолчанию')
         expect(ruApps.workspace.errors.userNotFound).toBe('Пользователь не найден')
         expect(ruApps.workspace.errors.lastOwnerRemovalBlocked).toBe('Нельзя удалить последнего владельца рабочего пространства')
     })

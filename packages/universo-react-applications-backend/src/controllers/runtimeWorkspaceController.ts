@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { LocalizedStringAllowEmptySchema, LocalizedStringSchema } from '@universo-react/types'
+import { LocalizedStringAllowEmptySchema, LocalizedStringSchema, workspaceSettingBatchUpdateSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelpers'
 import { findApplicationMemberByUserId, findAuthUserByEmail } from '../persistence/applicationsStore'
@@ -18,9 +18,16 @@ import {
     removeWorkspaceMember,
     listWorkspaceMembers,
     getWorkspaceMembership,
+    assertRuntimeWorkspaceExists,
     RuntimeWorkspaceError,
     RUNTIME_WORKSPACE_ERROR_CODES
 } from '../services/runtimeWorkspaceService'
+import {
+    listRuntimeWorkspaceSettings,
+    updateWorkspaceSettingOverrides,
+    WorkspaceSettingsError,
+    WORKSPACE_SETTINGS_ERROR_CODES
+} from '../services/workspaceSettingsService'
 
 const RUNTIME_WORKSPACE_API_ERROR_CODES = {
     invalidRouteParameters: 'INVALID_ROUTE_PARAMETERS',
@@ -29,6 +36,7 @@ const RUNTIME_WORKSPACE_API_ERROR_CODES = {
     workspacesDisabled: 'WORKSPACES_DISABLED',
     workspaceAccessDenied: 'WORKSPACE_ACCESS_DENIED',
     workspaceOwnerRequired: 'WORKSPACE_OWNER_REQUIRED',
+    workspaceSettingsManageRequired: 'WORKSPACE_SETTINGS_MANAGE_REQUIRED',
     userNotFound: 'USER_NOT_FOUND',
     applicationMemberRequired: 'APPLICATION_MEMBER_REQUIRED'
 } as const
@@ -103,6 +111,24 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         sendError(res, 400, 'Invalid route parameters', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRouteParameters, error.flatten())
     const sendWorkspacesDisabled = (res: Response) =>
         sendError(res, 400, 'Workspaces are not enabled for this application', RUNTIME_WORKSPACE_API_ERROR_CODES.workspacesDisabled)
+    const sendWorkspaceSettingsError = (res: Response, error: unknown): boolean => {
+        if (!(error instanceof WorkspaceSettingsError)) {
+            return false
+        }
+
+        if (error.code === WORKSPACE_SETTINGS_ERROR_CODES.settingConflict) {
+            sendRuntimeWorkspaceError(res, 409, error, error.code)
+            return true
+        }
+
+        if (error.code === WORKSPACE_SETTINGS_ERROR_CODES.settingNotAllowed) {
+            sendRuntimeWorkspaceError(res, 403, error, error.code)
+            return true
+        }
+
+        sendRuntimeWorkspaceError(res, 404, error, error.code)
+        return true
+    }
 
     const sendWorkspaceMutationError = (res: Response, error: unknown): boolean => {
         const code = getRuntimeWorkspaceErrorCode(error)
@@ -153,6 +179,58 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         }
 
         return { membership }
+    }
+
+    const requireWorkspaceSettingsAccess = async (
+        ctx: NonNullable<Awaited<ReturnType<typeof resolveRuntimeSchema>>>,
+        workspaceId: string
+    ) => {
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId)
+        if (membershipState?.membership) {
+            return {
+                error: null,
+                membership: membershipState.membership,
+                canManage: membershipState.membership.roleCodename === 'owner' || ctx.permissions.manageApplication === true
+            }
+        }
+
+        if (ctx.permissions.manageApplication !== true) {
+            return {
+                error: membershipState?.error ?? {
+                    status: 403,
+                    message: 'You do not have access to this workspace',
+                    code: RUNTIME_WORKSPACE_API_ERROR_CODES.workspaceAccessDenied
+                },
+                membership: null,
+                canManage: false
+            }
+        }
+
+        try {
+            await assertRuntimeWorkspaceExists(ctx.manager, {
+                schemaName: ctx.schemaName,
+                workspaceId
+            })
+        } catch (error) {
+            if (getRuntimeWorkspaceErrorCode(error) === RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound) {
+                return {
+                    error: {
+                        status: 404,
+                        message: getRuntimeWorkspaceErrorMessage(error),
+                        code: RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound
+                    },
+                    membership: null,
+                    canManage: false
+                }
+            }
+            throw error
+        }
+
+        return {
+            error: null,
+            membership: null,
+            canManage: true
+        }
     }
 
     const listWorkspaces = async (req: Request, res: Response) => {
@@ -316,6 +394,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
                 name: parsed.data.name,
                 description: parsed.data.description,
                 userId: ctx.userId,
+                applicationSettings: ctx.baseApplicationSettings,
                 actorUserId: ctx.userId
             })
         } catch (error) {
@@ -542,6 +621,95 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         })
     }
 
+    const listSettings = async (req: Request, res: Response) => {
+        const { applicationId } = req.params
+        const params = workspaceParamSchema.safeParse(req.params)
+        if (!params.success) {
+            return sendInvalidParams(res, params.error)
+        }
+        const { workspaceId } = params.data
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+
+        if (!ctx.workspacesEnabled) {
+            return sendWorkspacesDisabled(res)
+        }
+
+        const accessState = await requireWorkspaceSettingsAccess(ctx, workspaceId)
+        if (accessState.error) {
+            return sendMembershipStateError(res, accessState.error)
+        }
+
+        const items = await listRuntimeWorkspaceSettings(ctx.manager, {
+            schemaName: ctx.schemaName,
+            workspaceId,
+            applicationSettings: ctx.baseApplicationSettings
+        })
+
+        return res.json({
+            items,
+            canManage: accessState.canManage
+        })
+    }
+
+    const updateSettings = async (req: Request, res: Response) => {
+        const { applicationId } = req.params
+        const params = workspaceParamSchema.safeParse(req.params)
+        if (!params.success) {
+            return sendInvalidParams(res, params.error)
+        }
+        const { workspaceId } = params.data
+        const parsed = workspaceSettingBatchUpdateSchema.safeParse(req.body)
+        if (!parsed.success) {
+            return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
+        }
+
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+
+        if (!ctx.workspacesEnabled) {
+            return sendWorkspacesDisabled(res)
+        }
+
+        const accessState = await requireWorkspaceSettingsAccess(ctx, workspaceId)
+        if (accessState.error) {
+            return sendMembershipStateError(res, accessState.error)
+        }
+
+        if (!accessState.canManage) {
+            return sendError(
+                res,
+                403,
+                'Only workspace owners or application administrators can manage workspace settings',
+                RUNTIME_WORKSPACE_API_ERROR_CODES.workspaceSettingsManageRequired
+            )
+        }
+
+        try {
+            const settings = parsed.data.settings.map((setting) => ({
+                key: setting.key,
+                value: setting.value as unknown,
+                expectedVersion: setting.expectedVersion
+            }))
+            const items = await updateWorkspaceSettingOverrides(ctx.manager, {
+                schemaName: ctx.schemaName,
+                workspaceId,
+                applicationSettings: ctx.baseApplicationSettings,
+                settings,
+                resetKeys: [
+                    ...parsed.data.resetKeys.map((key) => ({ key })),
+                    ...parsed.data.resets.map((reset) => ({ key: reset.key, expectedVersion: reset.expectedVersion }))
+                ],
+                actorUserId: ctx.userId
+            })
+
+            return res.json({ items, canManage: true })
+        } catch (error) {
+            if (sendWorkspaceSettingsError(res, error)) return
+            throw error
+        }
+    }
+
     return {
         listWorkspaces,
         getWorkspace,
@@ -552,6 +720,8 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         updateDefaultWorkspace,
         inviteMember,
         deleteMember,
-        getMembers
+        getMembers,
+        listSettings,
+        updateSettings
     }
 }

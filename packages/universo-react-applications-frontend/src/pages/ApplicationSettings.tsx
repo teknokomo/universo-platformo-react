@@ -835,9 +835,11 @@ const ApplicationSettings = () => {
                         t={t}
                         unsupportedActiveRoleRulesCount={unsupportedActiveRoleRules.length}
                         rolePolicyMatrix={rolePolicyMatrix}
+                        settings={effectiveGeneralSettings}
                         hasChanges={hasGeneralChanges}
                         isSaving={saveGeneralMutation.isPending}
                         onUpdateRoleCapability={updateRoleCapability}
+                        onSettingsChange={(patch) => setGeneralChanges((prev) => ({ ...prev, ...patch }))}
                         onSave={() =>
                             saveGeneralMutation.mutate({
                                 settings: effectiveGeneralSettings,

@@ -68,6 +68,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **RuntimeWorkspacesPage**: Full workspace management section rendered inside the existing dashboard details content slot.
 -   **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, and member removal.
 -   **Navigation placement**: Published app menus can keep the workspace entry in the primary menu, move it to overflow, or hide it while preserving the standalone switcher.
+-   **Workspace Settings**: Allowed per-workspace overrides are rendered through the existing workspace page cards and use localized labels from the runtime `apps` bundle. Locked keys stay controlled by Application Settings.
 
 ### 🔌 Route Factory
 
