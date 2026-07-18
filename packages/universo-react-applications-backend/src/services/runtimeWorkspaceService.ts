@@ -1,5 +1,6 @@
 import type { DbExecutor } from '@universo-react/utils'
 import { qColumn, qSchemaTable } from '@universo-react/database'
+import { isWorkspaceSettingAllowed, parseUnifiedSettingValue } from '@universo-react/types'
 import { archiveWorkspaceScopedBusinessRows } from './applicationWorkspaces'
 
 type WorkspaceRow = {
@@ -36,6 +37,7 @@ type WorkspaceMembershipRow = {
 }
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
+const WORKSPACE_SETTINGS_TABLE = '_app_workspace_settings'
 const SYSTEM_COPY_COLUMN_EXPRESSIONS: Record<string, string> = {
     _upl_created_at: 'NOW()',
     _upl_updated_at: 'NOW()',
@@ -128,6 +130,16 @@ async function assertWorkspaceExists(
     if (!workspace) {
         throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound, 'Workspace not found')
     }
+}
+
+export async function assertRuntimeWorkspaceExists(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        workspaceId: string
+    }
+): Promise<void> {
+    await assertWorkspaceExists(executor, input)
 }
 
 export async function listUserWorkspaces(
@@ -499,6 +511,7 @@ export async function copyWorkspace(
         name: unknown
         description: unknown
         userId: string
+        applicationSettings?: Record<string, unknown> | null
         actorUserId?: string | null
     }
 ): Promise<{ id: string }> {
@@ -622,8 +635,81 @@ export async function copyWorkspace(
             }
         }
 
+        await copyAllowedWorkspaceSettings(tx, {
+            schemaName: input.schemaName,
+            sourceWorkspaceId: input.sourceWorkspaceId,
+            targetWorkspaceId: created.id,
+            applicationSettings: input.applicationSettings,
+            actorUserId: input.actorUserId
+        })
+
         return created
     })
+}
+
+async function copyAllowedWorkspaceSettings(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        sourceWorkspaceId: string
+        targetWorkspaceId: string
+        applicationSettings?: Record<string, unknown> | null
+        actorUserId?: string | null
+    }
+): Promise<void> {
+    const workspaceSettingsQt = qSchemaTable(input.schemaName, WORKSPACE_SETTINGS_TABLE)
+    const sourceRows = await executor.query<{ key: string; value: unknown }>(
+        `
+        SELECT key, value
+        FROM ${workspaceSettingsQt}
+        WHERE workspace_id = $1
+          AND ${ACTIVE_ROW_SQL}
+        ORDER BY key ASC
+        `,
+        [input.sourceWorkspaceId]
+    )
+
+    for (const row of sourceRows) {
+        if (!isWorkspaceSettingAllowed(input.applicationSettings ?? {}, row.key)) {
+            continue
+        }
+
+        let normalizedValue: unknown
+        try {
+            normalizedValue = parseUnifiedSettingValue(row.key, row.value)
+        } catch {
+            continue
+        }
+
+        const [{ id }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+        await executor.query(
+            `
+            INSERT INTO ${workspaceSettingsQt} (
+                id,
+                workspace_id,
+                key,
+                value,
+                ${qColumn('_upl_created_at')},
+                ${qColumn('_upl_created_by')},
+                ${qColumn('_upl_updated_at')},
+                ${qColumn('_upl_updated_by')},
+                ${qColumn('_upl_version')},
+                ${qColumn('_upl_deleted')},
+                ${qColumn('_app_deleted')},
+                ${qColumn('_upl_locked')}
+            )
+            VALUES ($1, $2, $3, $4::jsonb, NOW(), $5, NOW(), $6, 1, false, false, false)
+            `,
+            [
+                id,
+                input.targetWorkspaceId,
+                row.key,
+                JSON.stringify(normalizedValue ?? null),
+                input.actorUserId ?? null,
+                input.actorUserId ?? null
+            ]
+        )
+    }
 }
 
 export async function setDefaultWorkspace(

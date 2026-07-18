@@ -58,7 +58,8 @@
         "workspace": {
             "title": "Workspaces",
             "dashboard": "Dashboard",
-            "access": "Access"
+            "access": "Access",
+            "settings": "Settings"
         },
         "settings": {
             "title": "Application Settings",
@@ -117,6 +118,45 @@
             "workspaceOpenBehaviors": {
                 "last-used": "Last used workspace",
                 "default-workspace": "Default workspace"
+            },
+            "workspaceOverrides": {
+                "title": "Workspace overrides",
+                "description": "Choose which application settings workspace owners can override inside a published workspace.",
+                "resetDefaults": "Reset defaults",
+                "allowed": "Allowed",
+                "locked": "Locked"
+            },
+            "keys": {
+                "dialogSizePreset": "Popup window size",
+                "dialogSizePreset.description": "Default size for popup windows in this application control panel.",
+                "dialogAllowFullscreen": "Allow fullscreen expansion",
+                "dialogAllowFullscreen.description": "Show a header action that expands application popup windows almost to the full viewport.",
+                "dialogAllowResize": "Allow popup resize",
+                "dialogAllowResize.description": "Show a resize handle and remember the custom popup size in this browser for this application.",
+                "dialogCloseBehavior": "Popup window type",
+                "dialogCloseBehavior.description": "Choose whether application popup windows stay modal or can close when the user clicks outside the window.",
+                "sectionLinksEnabled": "Section-specific links",
+                "sectionLinksEnabled.description": "Give every application menu section its own browser URL based on the section identifier.",
+                "dashboardDefaultMode": "Runtime dashboard default",
+                "dashboardDefaultMode.description": "Choose how the published application resolves the initial dashboard section.",
+                "datasourceExecutionPolicy": "Datasource execution",
+                "datasourceExecutionPolicy.description": "Control whether layout datasources are always scoped to the active runtime workspace.",
+                "workspaceOpenBehavior": "Workspace opening",
+                "workspaceOpenBehavior.description": "Choose which workspace should open first when users enter the published application.",
+                "schemaDiffLocalizedLabels": "Localized schema change labels",
+                "schemaDiffLocalizedLabels.description": "Show entity type, entity, and field labels in the current interface language when the source metahub provides localized values.",
+                "learningContent.defaultView": "Default content view",
+                "learningContent.defaultView.description": "Choose whether workspace learning content opens as a table or card list by default.",
+                "learningContent.playerPreset.showOutline": "Show content outline",
+                "learningContent.playerPreset.showOutline.description": "Show the page outline in the workspace learning content player.",
+                "learningContent.playerPreset.showProgressHeader": "Show progress header",
+                "learningContent.playerPreset.showProgressHeader.description": "Show reading progress at the top of workspace learning content pages.",
+                "learningContent.playerPreset.completeButtonMode": "Completion button",
+                "learningContent.playerPreset.completeButtonMode.description": "Choose how learners complete workspace learning content pages.",
+                "learningContent": "Learning Content",
+                "learningContent.description": "Structured Learning Content defaults managed by the application.",
+                "rolePolicies": "Role policies",
+                "rolePolicies.description": "Application and workspace capability rules for runtime roles."
             },
             "connectorsHint": "Configure how application connectors present source metahub changes before schema synchronization.",
             "schemaDiffLocalizedLabels": "Localized schema change labels",
@@ -646,6 +686,14 @@
             "detailSourceKind": "Source: {{source}}",
             "detailSyncState": "Sync state: {{state}}",
             "detailSourceLayout": "Linked to source layout",
+            "editWidgetNamed": "Edit widget: {{label}}",
+            "removeWidgetNamed": "Remove widget: {{label}}",
+            "activateWidgetNamed": "Activate widget: {{label}}",
+            "deactivateWidgetNamed": "Deactivate widget: {{label}}",
+            "widgetCustomization": {
+                "metahub": "Inherited from metahub",
+                "application": "Customized in application"
+            },
             "zones": {
                 "top": "Top",
                 "left": "Left",
@@ -700,6 +748,14 @@
                 "conflict": "Conflict",
                 "source_removed": "Source removed",
                 "source_excluded": "Excluded"
+            },
+            "interpretationNetworkEditor": {
+                "title": "Interpretation network workspace"
+            },
+            "workspaceSwitcherEditor": {
+                "title": "Workspace switcher",
+                "readOnly": "The workspace switcher uses the published application workspace state and has no widget-specific settings yet.",
+                "hint": "Use application settings to control which workspace settings can be changed inside workspaces."
             }
         },
         "board": {

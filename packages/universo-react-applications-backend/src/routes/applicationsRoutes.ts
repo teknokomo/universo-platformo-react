@@ -115,6 +115,8 @@ export function createApplicationsRoutes(
     router.post('/:applicationId/runtime/workspaces/:workspaceId/copy', writeLimiter, asyncHandler(workspace.copyWorkspaceDetails))
     router.delete('/:applicationId/runtime/workspaces/:workspaceId', writeLimiter, asyncHandler(workspace.deleteWorkspaceDetails))
     router.patch('/:applicationId/runtime/workspaces/:workspaceId/default', writeLimiter, asyncHandler(workspace.updateDefaultWorkspace))
+    router.get('/:applicationId/runtime/workspaces/:workspaceId/settings', readLimiter, asyncHandler(workspace.listSettings))
+    router.put('/:applicationId/runtime/workspaces/:workspaceId/settings', writeLimiter, asyncHandler(workspace.updateSettings))
     router.get('/:applicationId/runtime/workspaces/:workspaceId/members', readLimiter, asyncHandler(workspace.getMembers))
     router.post('/:applicationId/runtime/workspaces/:workspaceId/members', writeLimiter, asyncHandler(workspace.inviteMember))
     router.delete('/:applicationId/runtime/workspaces/:workspaceId/members/:userId', writeLimiter, asyncHandler(workspace.deleteMember))

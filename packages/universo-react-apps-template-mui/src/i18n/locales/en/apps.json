@@ -285,6 +285,60 @@
         "dashboardDescription": "Workspace overview and current access state.",
         "access": "Access",
         "accessDescription": "Workspace members and roles.",
+        "settings": "Settings",
+        "settingsDescription": "Workspace-level overrides for application settings.",
+        "settingsLoadError": "Failed to load workspace settings",
+        "settingsReadOnly": "You can view inherited settings, but only workspace owners can change them.",
+        "settingsEmpty": "No workspace-level settings are available.",
+        "settingsReset": "Use application value",
+        "settingsInheritedFromApplication": "Inherited from application",
+        "settingsOverriddenInWorkspace": "Overridden in this workspace",
+        "settingsBooleanEnabled": "Enabled",
+        "settingsBooleanDisabled": "Disabled",
+        "settingsStructuredReadonly": "This structured setting is managed in application settings.",
+        "settingSources": {
+            "default": "Default",
+            "metahub": "Metahub",
+            "application": "Application",
+            "workspace": "Workspace"
+        },
+        "settingKeys": {
+            "sectionLinksEnabled": "Section-specific links",
+            "sectionLinksEnabled.description": "Generate a separate URL for each application menu section.",
+            "dashboardDefaultMode": "Runtime start dashboard",
+            "dashboardDefaultMode.description": "Controls which dashboard section opens first in the published application.",
+            "workspaceOpenBehavior": "Workspace opening behavior",
+            "workspaceOpenBehavior.description": "Controls which workspace opens first when a user enters the published application.",
+            "learningContent.defaultView": "Default content view",
+            "learningContent.defaultView.description": "Choose whether workspace learning content opens as a table or cards.",
+            "learningContent.playerPreset.showOutline": "Show outline",
+            "learningContent.playerPreset.showOutline.description": "Show the page outline in the workspace learning content player.",
+            "learningContent.playerPreset.showProgressHeader": "Show progress",
+            "learningContent.playerPreset.showProgressHeader.description": "Show reading progress at the top of workspace learning content pages.",
+            "learningContent.playerPreset.completeButtonMode": "Completion button",
+            "learningContent.playerPreset.completeButtonMode.description": "Choose how users complete workspace learning content pages."
+        },
+        "settingOptions": {
+            "dashboardDefaultMode": {
+                "layoutDefault": "Layout default",
+                "firstMenuItem": "First menu item"
+            },
+            "workspaceOpenBehavior": {
+                "lastUsed": "Last used workspace",
+                "defaultWorkspace": "Default workspace"
+            },
+            "learningContent": {
+                "defaultView": {
+                    "table": "Table",
+                    "cards": "Cards"
+                },
+                "completeButtonMode": {
+                    "manual": "Manual",
+                    "autoAfterOpen": "Automatically after opening",
+                    "hidden": "Hidden"
+                }
+            }
+        },
         "memberCardView": "Member card view",
         "memberListView": "Member list view",
         "open": "Open",
@@ -335,6 +389,8 @@
             "workspacesDisabled": "Workspaces are not enabled for this application",
             "emailInvalid": "Enter a valid email address.",
             "invalidRequestBody": "Invalid request body",
+            "settingNotAllowed": "This workspace setting is locked",
+            "settingVersionConflict": "This workspace setting changed. Reload and try again.",
             "personalMutationBlocked": "Personal workspace cannot be changed",
             "personalDeleteBlocked": "Personal workspace cannot be deleted"
         },

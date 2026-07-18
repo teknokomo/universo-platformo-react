@@ -211,7 +211,7 @@ describe('runtimeWorkspaceService', () => {
 
     it('copies workspace rows with a temporary id mapping and remaps uuid references after insert', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
-        const generatedIds = ['workspace-copy', 'relation-copy']
+        const generatedIds = ['workspace-copy', 'relation-copy', 'setting-copy']
 
         txExecutor.query.mockImplementation(async (sql: string) => {
             if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
@@ -257,6 +257,10 @@ describe('runtimeWorkspaceService', () => {
                 return [{ column_name: 'module_id' }]
             }
 
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_settings"`)) {
+                return [{ key: 'sectionLinksEnabled', value: false }]
+            }
+
             return []
         })
 
@@ -266,6 +270,10 @@ describe('runtimeWorkspaceService', () => {
             name: vlc('Workspace copy'),
             description: vlc('Workspace copy description'),
             userId: 'user-1',
+            applicationSettings: {
+                sectionLinksEnabled: true,
+                workspaceOverrides: { allowedKeys: ['sectionLinksEnabled'], lockedKeys: [] }
+            },
             actorUserId: 'user-1'
         })
 
@@ -284,6 +292,73 @@ describe('runtimeWorkspaceService', () => {
         expect(insertCall?.[0]).toEqual(expect.stringContaining('$3::uuid'))
         expect(insertCall?.[0]).toEqual(expect.stringContaining('false'))
         expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('target."module_id" = id_map.old_id'), ['workspace-copy'])
+        expect(txExecutor.query).toHaveBeenCalledWith(
+            expect.stringContaining(`SELECT key, value\n        FROM "${schemaName}"."_app_workspace_settings"`),
+            ['workspace-source']
+        )
+        expect(txExecutor.query).toHaveBeenCalledWith(
+            expect.stringContaining(`INSERT INTO "${schemaName}"."_app_workspace_settings"`),
+            expect.arrayContaining(['workspace-copy', 'sectionLinksEnabled', 'false', 'user-1'])
+        )
+    })
+
+    it('filters locked workspace setting overrides while copying a workspace', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const generatedIds = ['workspace-copy', 'relation-copy', 'setting-copy']
+
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
+                return [{ id: 'workspace-source' }]
+            }
+
+            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                return [{ id: generatedIds.shift() }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                return [{ id: 'role-owner' }]
+            }
+
+            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_settings"`)) {
+                return [
+                    { key: 'sectionLinksEnabled', value: false },
+                    { key: 'dashboardDefaultMode', value: 'first-menu-item' },
+                    { key: 'unknownSetting', value: true }
+                ]
+            }
+
+            return []
+        })
+
+        await copyWorkspace(executor, {
+            schemaName,
+            sourceWorkspaceId: 'workspace-source',
+            name: vlc('Workspace copy'),
+            description: vlc('Workspace copy description'),
+            userId: 'user-1',
+            applicationSettings: {
+                sectionLinksEnabled: true,
+                dashboardDefaultMode: 'layout-default',
+                workspaceOverrides: { allowedKeys: ['sectionLinksEnabled'], lockedKeys: ['dashboardDefaultMode'] }
+            },
+            actorUserId: 'user-1'
+        })
+
+        const workspaceSettingInsertCalls = txExecutor.query.mock.calls.filter(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspace_settings"`)
+        )
+        expect(workspaceSettingInsertCalls).toHaveLength(1)
+        expect(workspaceSettingInsertCalls[0]?.[1]).toEqual(
+            expect.arrayContaining(['workspace-copy', 'sectionLinksEnabled', 'false', 'user-1'])
+        )
     })
 
     it('fails closed when setting a default workspace for a non-member', async () => {

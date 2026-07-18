@@ -285,6 +285,60 @@
         "dashboardDescription": "Обзор рабочего пространства и текущего состояния доступа.",
         "access": "Доступ",
         "accessDescription": "Участники рабочего пространства и их роли.",
+        "settings": "Настройки",
+        "settingsDescription": "Переопределения настроек приложения на уровне рабочего пространства.",
+        "settingsLoadError": "Не удалось загрузить настройки рабочего пространства",
+        "settingsReadOnly": "Вы можете просматривать унаследованные настройки, но изменять их могут только владельцы рабочего пространства.",
+        "settingsEmpty": "Нет настроек, доступных на уровне рабочего пространства.",
+        "settingsReset": "Использовать значение приложения",
+        "settingsInheritedFromApplication": "Унаследовано от приложения",
+        "settingsOverriddenInWorkspace": "Переопределено в рабочем пространстве",
+        "settingsBooleanEnabled": "Включено",
+        "settingsBooleanDisabled": "Отключено",
+        "settingsStructuredReadonly": "Эта структурная настройка управляется в настройках приложения.",
+        "settingSources": {
+            "default": "По умолчанию",
+            "metahub": "Метахаб",
+            "application": "Приложение",
+            "workspace": "Рабочее пространство"
+        },
+        "settingKeys": {
+            "sectionLinksEnabled": "Индивидуальные ссылки разделов",
+            "sectionLinksEnabled.description": "Формировать отдельный URL для каждого раздела меню приложения.",
+            "dashboardDefaultMode": "Стартовый дашборд runtime",
+            "dashboardDefaultMode.description": "Определяет, какой раздел дашборда открывается первым в опубликованном приложении.",
+            "workspaceOpenBehavior": "Открытие рабочего пространства",
+            "workspaceOpenBehavior.description": "Определяет, какое рабочее пространство открывается первым при входе пользователя в опубликованное приложение.",
+            "learningContent.defaultView": "Вид контента по умолчанию",
+            "learningContent.defaultView.description": "Выберите, открывается ли учебный контент в рабочем пространстве как таблица или карточки.",
+            "learningContent.playerPreset.showOutline": "Показывать содержание",
+            "learningContent.playerPreset.showOutline.description": "Показывать содержание страницы в проигрывателе учебного контента рабочего пространства.",
+            "learningContent.playerPreset.showProgressHeader": "Показывать прогресс",
+            "learningContent.playerPreset.showProgressHeader.description": "Показывать прогресс чтения сверху на страницах учебного контента рабочего пространства.",
+            "learningContent.playerPreset.completeButtonMode": "Кнопка завершения",
+            "learningContent.playerPreset.completeButtonMode.description": "Выберите, как пользователи завершают страницы учебного контента рабочего пространства."
+        },
+        "settingOptions": {
+            "dashboardDefaultMode": {
+                "layoutDefault": "По умолчанию из макета",
+                "firstMenuItem": "Первый пункт меню"
+            },
+            "workspaceOpenBehavior": {
+                "lastUsed": "Последнее использованное",
+                "defaultWorkspace": "Рабочее пространство по умолчанию"
+            },
+            "learningContent": {
+                "defaultView": {
+                    "table": "Таблица",
+                    "cards": "Карточки"
+                },
+                "completeButtonMode": {
+                    "manual": "Вручную",
+                    "autoAfterOpen": "Автоматически после открытия",
+                    "hidden": "Скрыто"
+                }
+            }
+        },
         "memberCardView": "Карточки участников",
         "memberListView": "Список участников",
         "open": "Открыть",
@@ -335,6 +389,8 @@
             "workspacesDisabled": "Рабочие пространства не включены для этого приложения",
             "emailInvalid": "Введите корректный email.",
             "invalidRequestBody": "Некорректные данные запроса",
+            "settingNotAllowed": "Эта настройка рабочего пространства заблокирована",
+            "settingVersionConflict": "Эта настройка рабочего пространства изменилась. Обновите данные и попробуйте снова.",
             "personalMutationBlocked": "Личное рабочее пространство нельзя изменить",
             "personalDeleteBlocked": "Личное рабочее пространство нельзя удалить"
         },

@@ -57,6 +57,18 @@ Metahub behavior is controlled by more than one settings layer, and the layers a
 | Entity layout behavior  | Selected entity layout config | `showCreateButton`, `searchMode`, and create/edit/copy behavior for the chosen entity layout.                |
 | Application settings    | Application record            | Application control-panel dialogs only, not metahub authoring dialogs.                                       |
 
+## Unified Layout And Widget Settings
+
+Metahub Settings also exposes layout/widget settings that are stored in the same layout widget configuration used by contextual layout editing.
+For example, the Interpretation Network workspace widget can be configured either from the layout editor or from the aggregated Settings view, and both surfaces show the same current state because they read and save the same widget config.
+
+This avoids a separate settings copy:
+
+-   metahub layout/widget settings are canonical defaults for future publications and applications;
+-   entity-specific layouts can still refine behavior for a selected entity scope;
+-   the aggregated Settings view is a convenience surface for finding the same settings in one place;
+-   typed editors are used for supported widgets, so normal authoring surfaces do not expose raw widget JSON.
+
 ## Resources Workspace Scope
 
 The cross-cutting authoring entrypoint now lives on the dedicated resources workspace under `/resources`.

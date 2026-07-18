@@ -52,6 +52,18 @@ Application dialog settings affect the application control panel under `/a/:appl
 They do not change the public runtime on `/a/:applicationId`.
 They also do not replace metahub authoring settings or the global `/admin` dialog settings.
 
+## Application-Level Widget Customization
+
+Application layouts are materialized from the linked metahub publication.
+Application admins can tune supported widget settings on the materialized layout without changing the source metahub template.
+For the Interpretation Network workspace widget, the layout widget settings button opens the same typed Matrix settings contract used by the control-panel Settings page.
+
+The layout surface shows whether a widget is still inherited from the metahub publication or has been customized in the application.
+After a widget is customized, published runtime behavior uses the application-level widget config until the application is updated from a newer publication.
+
+Workspace override policy is configured at the application layer.
+Only settings allowed by that policy are visible and mutable inside individual runtime workspaces; locked settings continue to use the application value.
+
 ## Workspace-Aware Runtime Model
 
 When `workspacesEnabled` is on, runtime working data is scoped to the user's current workspace.
@@ -64,8 +76,9 @@ This keeps applications aligned with the broader platform goal of collaborative 
 1. Link the application to a publication.
 2. Run schema sync or create the runtime schema when needed.
 3. Open Application Settings to tune control-panel behavior and workspace limits.
-4. Use connectors, migrations, and other control-panel dialogs under the saved presentation contract.
-5. Open the final runtime route to verify the published user experience.
+4. Tune materialized layout/widget settings when the deployed instance needs application-specific behavior.
+5. Use connectors, migrations, and other control-panel dialogs under the saved presentation contract.
+6. Open the final runtime route to verify the published user experience.
 
 ## Quiz Example
 

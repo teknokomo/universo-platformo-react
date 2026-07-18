@@ -106,7 +106,12 @@ const ApplicationRuntime = () => {
         !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
     const routeWorkspaceId =
         isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[1] ?? '') ? runtimeRouteSegments[1] : null
-    const workspaceRouteSection = isWorkspacesRoute && runtimeRouteSegments[2] === 'access' ? 'access' : 'dashboard'
+    const workspaceRouteSection =
+        isWorkspacesRoute && runtimeRouteSegments[2] === 'access'
+            ? 'access'
+            : isWorkspacesRoute && runtimeRouteSegments[2] === 'settings'
+            ? 'settings'
+            : 'dashboard'
 
     const adapter = useMemo(() => (applicationId ? createRuntimeAdapter(applicationId) : null), [applicationId])
 
@@ -816,6 +821,17 @@ const ApplicationRuntime = () => {
                   selected: isWorkspacesRoute && workspaceRouteSection === 'access'
               }
             : null
+    const workspaceSettingsMenuItem: DashboardMenuItem | null =
+        workspaceMenuItem && routeWorkspaceId
+            ? {
+                  id: 'runtime-workspace-settings',
+                  label: t('workspace.settings', 'Settings'),
+                  icon: 'settings',
+                  kind: 'link',
+                  href: `/a/${applicationId}/workspaces/${routeWorkspaceId}/settings`,
+                  selected: isWorkspacesRoute && workspaceRouteSection === 'settings'
+              }
+            : null
     const sectionLinksEnabled = state.appData.settings?.sectionLinksEnabled !== false
 
     const appendWorkspaceMenuItem = (slot?: DashboardMenuSlot): DashboardMenuSlot | undefined => {
@@ -840,7 +856,8 @@ const ApplicationRuntime = () => {
             ...normalizedBaseItems,
             ...(hasWorkspaceRootItem ? [] : [workspaceMenuItem]),
             ...(workspaceDashboardMenuItem ? [workspaceDashboardMenuItem] : []),
-            ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : [])
+            ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : []),
+            ...(workspaceSettingsMenuItem ? [workspaceSettingsMenuItem] : [])
         ]
         return {
             ...slot,

@@ -18,6 +18,7 @@ import { ensureApplicationAccess, resolveEffectiveRoleCapabilities, resolveEffec
 import { findApplicationSchemaInfo } from '../persistence/applicationsStore'
 import type { RuntimeWorkspaceAccess } from '../services/applicationWorkspaces'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../services/applicationWorkspaces'
+import { resolveEffectiveApplicationSettingsForWorkspace } from '../services/workspaceSettingsService'
 import { getRequestDbExecutor, getRequestDbSession } from '../utils'
 
 // ---------------------------------------------------------------------------
@@ -763,6 +764,7 @@ export interface RuntimeSchemaContext {
     workflowCapabilities: WorkflowCapabilityMap
     currentWorkspaceId: string | null
     workspacesEnabled: boolean
+    baseApplicationSettings: Record<string, unknown>
     applicationSettings: Record<string, unknown>
 }
 
@@ -1014,8 +1016,9 @@ export const resolveRuntimeSchema = async (
         res.status(400).json({ error: 'Application schema is not configured' })
         return null
     }
-    const permissions = resolveEffectiveRolePermissions(role, application.settings ?? {})
-    const workflowCapabilities = resolveEffectiveRoleCapabilities(role, application.settings ?? {})
+    const baseApplicationSettings = application.settings ?? {}
+    const permissions = resolveEffectiveRolePermissions(role, baseApplicationSettings)
+    const workflowCapabilities = resolveEffectiveRoleCapabilities(role, baseApplicationSettings)
 
     const schemaName = application.schemaName
     if (!IDENTIFIER_REGEX.test(schemaName)) {
@@ -1056,6 +1059,15 @@ export const resolveRuntimeSchema = async (
         await setRuntimeWorkspaceContext(ds, currentWorkspaceId)
     }
 
+    const applicationSettings =
+        application.workspacesEnabled && currentWorkspaceId
+            ? await resolveEffectiveApplicationSettingsForWorkspace(ds, {
+                  schemaName,
+                  workspaceId: currentWorkspaceId,
+                  applicationSettings: baseApplicationSettings
+              })
+            : baseApplicationSettings
+
     return {
         schemaName,
         schemaIdent: quoteIdentifier(schemaName),
@@ -1066,7 +1078,8 @@ export const resolveRuntimeSchema = async (
         workflowCapabilities,
         currentWorkspaceId,
         workspacesEnabled: application.workspacesEnabled,
-        applicationSettings: application.settings ?? {}
+        baseApplicationSettings,
+        applicationSettings
     }
 }
 

@@ -40,6 +40,7 @@ import {
     LayoutAuthoringList,
     LayoutAuthoringDetails,
     LayoutStateChips,
+    StandardDialog,
     ViewHeaderMUI as ViewHeader,
     EDITABLE_SIDE_MENU_MODES,
     normalizeSideMenuConfig
@@ -55,9 +56,15 @@ import type {
     ObjectCollectionRuntimeViewConfig,
     MenuWidgetConfig,
     DashboardSideMenuMode,
-    DashboardSideMenuConfig
+    DashboardSideMenuConfig,
+    InterpretationNetworkWorkspaceWidgetConfig
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES } from '@universo-react/types'
+import {
+    DASHBOARD_LAYOUT_ZONES,
+    normalizeInterpretationNetworkMatrixViewSettings,
+    normalizeInterpretationNetworkSplitPaneSettings,
+    normalizeInterpretationNetworkTableSettings
+} from '@universo-react/types'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
     normalizeObjectCollectionRuntimeViewConfig,
@@ -83,6 +90,7 @@ import { applicationsQueryKeys } from '../api/queryKeys'
 import ApplicationColumnsContainerEditorDialog from '../components/layouts/ApplicationColumnsContainerEditorDialog'
 import ApplicationMenuWidgetEditorDialog from '../components/layouts/ApplicationMenuWidgetEditorDialog'
 import ApplicationWidgetBehaviorEditorDialog from '../components/layouts/ApplicationWidgetBehaviorEditorDialog'
+import { MatrixSettingsPanel, type InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
 import { STORAGE_KEYS } from '../constants/storage'
 import { useViewPreference } from '../hooks/useViewPreference'
 
@@ -127,6 +135,121 @@ const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set([
     'pageViewsChart',
     'resourcePreview'
 ])
+
+const parseMatrixMode = (value: unknown): InterpretationNetworkMatrixSettings['matrixMode'] =>
+    value === 'independentRows' || value === 'hierarchicalCells' ? value : 'hierarchicalCells'
+
+const parseHierarchyRowMode = (value: unknown): InterpretationNetworkMatrixSettings['hierarchyRowMode'] =>
+    value === 'allNodes' || value === 'focusedPath' ? value : 'focusedPath'
+
+const parsePositionNumbering = (value: unknown): InterpretationNetworkMatrixSettings['positionNumbering'] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { enabled: true, includeRoot: true, startIndex: 1 }
+    }
+
+    const record = value as Record<string, unknown>
+    const startIndex = record.startIndex
+    return {
+        enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+        includeRoot: typeof record.includeRoot === 'boolean' ? record.includeRoot : true,
+        startIndex: typeof startIndex === 'number' && Number.isInteger(startIndex) && startIndex >= 0 ? startIndex : 1
+    }
+}
+
+const parseInterpretationNetworkMatrixSettings = (
+    config: Record<string, unknown> | null | undefined
+): InterpretationNetworkMatrixSettings => {
+    const matrixMode = parseMatrixMode(config?.matrixMode)
+    const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
+    const defaultAllowedMatrixViews =
+        matrixMode === 'hierarchicalCells' ? (['table', 'horizontalRows', 'verticalTree'] as const) : (['table', 'horizontalRows'] as const)
+    const tableSettings = normalizeInterpretationNetworkTableSettings(
+        matrixMode,
+        config?.tableProjection,
+        config?.breadcrumbDepth,
+        config?.toolbarLayout,
+        config?.showHierarchicalTableHeaders,
+        config?.showHierarchicalTableHeaderCard,
+        config?.showMatrixTreeTotalCells,
+        config?.colorBreadcrumbsByCell
+    )
+
+    return {
+        matrixMode,
+        ...normalizeInterpretationNetworkMatrixViewSettings(
+            matrixMode,
+            requestedViews ?? defaultAllowedMatrixViews,
+            config?.defaultMatrixView ?? 'table'
+        ),
+        tableProjection: tableSettings.tableProjection,
+        breadcrumbDepth: tableSettings.breadcrumbDepth,
+        toolbarLayout: tableSettings.toolbarLayout,
+        showHierarchicalTableHeaders: tableSettings.showHierarchicalTableHeaders,
+        showHierarchicalTableHeaderCard: tableSettings.showHierarchicalTableHeaderCard,
+        showMatrixTreeTotalCells: tableSettings.showMatrixTreeTotalCells,
+        colorBreadcrumbsByCell: tableSettings.colorBreadcrumbsByCell,
+        hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
+        positionNumbering: parsePositionNumbering(config?.positionNumbering),
+        allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true,
+        splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane)
+    }
+}
+
+const normalizeInterpretationNetworkMatrixSettingsForSave = (
+    settings: InterpretationNetworkMatrixSettings
+): InterpretationNetworkMatrixSettings => {
+    const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
+        settings.matrixMode,
+        settings.allowedMatrixViews,
+        settings.defaultMatrixView
+    )
+    const tableSettings = normalizeInterpretationNetworkTableSettings(
+        settings.matrixMode,
+        settings.tableProjection,
+        settings.breadcrumbDepth,
+        settings.toolbarLayout,
+        settings.showHierarchicalTableHeaders,
+        settings.showHierarchicalTableHeaderCard,
+        settings.showMatrixTreeTotalCells,
+        settings.colorBreadcrumbsByCell
+    )
+
+    return {
+        ...settings,
+        ...viewSettings,
+        ...tableSettings,
+        splitPane: normalizeInterpretationNetworkSplitPaneSettings(settings.splitPane)
+    }
+}
+
+const mergeInterpretationNetworkMatrixSettings = (
+    config: Record<string, unknown> | null | undefined,
+    settings: InterpretationNetworkMatrixSettings
+): InterpretationNetworkWorkspaceWidgetConfig => {
+    const normalized = normalizeInterpretationNetworkMatrixSettingsForSave(settings)
+
+    return {
+        ...(config ?? {}),
+        matrixMode: normalized.matrixMode,
+        allowedMatrixViews: normalized.allowedMatrixViews,
+        defaultMatrixView: normalized.defaultMatrixView,
+        tableProjection: normalized.tableProjection,
+        breadcrumbDepth: normalized.breadcrumbDepth,
+        toolbarLayout: normalized.toolbarLayout,
+        showHierarchicalTableHeaders: normalized.showHierarchicalTableHeaders,
+        showHierarchicalTableHeaderCard: normalized.showHierarchicalTableHeaderCard,
+        showMatrixTreeTotalCells: normalized.showMatrixTreeTotalCells,
+        colorBreadcrumbsByCell: normalized.colorBreadcrumbsByCell,
+        hierarchyRowMode: normalized.hierarchyRowMode,
+        positionNumbering: normalized.positionNumbering,
+        allowNewAxesInCellDialog: normalized.allowNewAxesInCellDialog,
+        splitPane: normalized.splitPane
+    }
+}
+
+const isApplicationCustomizedLayoutWidget = (layout: ApplicationLayout): boolean =>
+    layout.sourceKind === 'application' || layout.syncState === 'local_modified'
+
 const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
     return normalizeSideMenuConfig(
         (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined) as MenuWidgetConfig['sideMenu']
@@ -158,11 +281,15 @@ const ApplicationLayouts = () => {
     const [layoutDescriptionEn, setLayoutDescriptionEn] = useState('')
     const [layoutDescriptionRu, setLayoutDescriptionRu] = useState('')
     const [editingWidget, setEditingWidget] = useState<ApplicationLayoutWidget | null>(null)
-    const [widgetConfigValue, setWidgetConfigValue] = useState('{}')
-    const [widgetConfigError, setWidgetConfigError] = useState<string | null>(null)
     const [menuEditorZone, setMenuEditorZone] = useState<DashboardLayoutZone | null>(null)
     const [columnsEditorZone, setColumnsEditorZone] = useState<DashboardLayoutZone | null>(null)
     const [behaviorEditingWidget, setBehaviorEditingWidget] = useState<ApplicationLayoutWidget | null>(null)
+    const [interpretationNetworkEditingWidget, setInterpretationNetworkEditingWidget] = useState<ApplicationLayoutWidget | null>(null)
+    const [interpretationNetworkInitialSettings, setInterpretationNetworkInitialSettings] =
+        useState<InterpretationNetworkMatrixSettings | null>(null)
+    const [interpretationNetworkDraft, setInterpretationNetworkDraft] = useState<InterpretationNetworkMatrixSettings | null>(null)
+    const [interpretationNetworkDraftHasChanges, setInterpretationNetworkDraftHasChanges] = useState(false)
+    const [workspaceSwitcherEditingWidget, setWorkspaceSwitcherEditingWidget] = useState<ApplicationLayoutWidget | null>(null)
     const layoutDetailQueryKey =
         applicationId && layoutId ? applicationsQueryKeys.layoutDetail(applicationId, layoutId) : ['application-layout-detail-empty']
 
@@ -324,7 +451,6 @@ const ApplicationLayouts = () => {
         },
         onSuccess: async () => {
             setEditingWidget(null)
-            setWidgetConfigError(null)
             await invalidateLayouts()
         }
     })
@@ -388,23 +514,6 @@ const ApplicationLayouts = () => {
             }
         })
         setEditingLayout(null)
-    }
-
-    const openWidgetConfigEditor = (widget: ApplicationLayoutWidget) => {
-        setEditingWidget(widget)
-        setWidgetConfigError(null)
-        setWidgetConfigValue(JSON.stringify(widget.config ?? {}, null, 2))
-    }
-
-    const handleWidgetConfigSave = () => {
-        if (!editingWidget) return
-        try {
-            const parsed = JSON.parse(widgetConfigValue) as Record<string, unknown>
-            setWidgetConfigError(null)
-            updateWidgetConfigMutation.mutate({ widget: editingWidget, config: parsed })
-        } catch {
-            setWidgetConfigError(t('layouts.widgetConfigInvalid', 'Widget configuration must be valid JSON.'))
-        }
     }
 
     const openMenu = (event: React.MouseEvent<HTMLElement>, layout: ApplicationLayout) => {
@@ -576,7 +685,36 @@ const ApplicationLayouts = () => {
                 return
             }
 
-            openWidgetConfigEditor(widget)
+            if (widget.widgetKey === 'interpretationNetworkWorkspace') {
+                const initialSettings = parseInterpretationNetworkMatrixSettings(widget.config)
+                setInterpretationNetworkEditingWidget(widget)
+                setInterpretationNetworkInitialSettings(initialSettings)
+                setInterpretationNetworkDraft(initialSettings)
+                setInterpretationNetworkDraftHasChanges(false)
+                return
+            }
+
+            if (widget.widgetKey === 'workspaceSwitcher') {
+                setWorkspaceSwitcherEditingWidget(widget)
+                return
+            }
+        }
+
+        const closeInterpretationNetworkEditor = () => {
+            setInterpretationNetworkEditingWidget(null)
+            setInterpretationNetworkInitialSettings(null)
+            setInterpretationNetworkDraft(null)
+            setInterpretationNetworkDraftHasChanges(false)
+        }
+
+        const saveInterpretationNetworkEditor = () => {
+            if (!interpretationNetworkEditingWidget || !interpretationNetworkDraft) return
+
+            updateWidgetConfigMutation.mutate({
+                widget: interpretationNetworkEditingWidget,
+                config: mergeInterpretationNetworkMatrixSettings(interpretationNetworkEditingWidget.config, interpretationNetworkDraft)
+            })
+            closeInterpretationNetworkEditor()
         }
 
         const handleAddWidgetRequest = (zone: DashboardLayoutZone, widgetKey: ApplicationLayoutWidgetMutation['widgetKey']) => {
@@ -900,38 +1038,53 @@ const ApplicationLayouts = () => {
                                 key: item.key,
                                 label: widgetLabelByKey[item.key] ?? item.key
                             })),
-                            items: widgetsByZone[zone].map((widget) => ({
-                                id: widget.id,
-                                label: getWidgetChipLabel(widget),
-                                isActive: widget.isActive,
-                                draggable: !moveWidgetMutation.isPending,
-                                moveActions: DASHBOARD_LAYOUT_ZONES.filter((targetZone) => targetZone !== widget.zone).map(
-                                    (targetZone) => ({
-                                        key: `${widget.id}-${targetZone}`,
-                                        testId: `layout-widget-move-${widget.id}-${targetZone}`,
-                                        label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
-                                        onClick: () =>
-                                            moveWidgetMutation.mutate({
-                                                widget,
-                                                targetZone,
-                                                targetIndex: widgetsByZone[targetZone].length
-                                            })
-                                    })
-                                ),
-                                onEdit: () => openStructuredWidgetEditor(widget),
-                                onClick: () => openStructuredWidgetEditor(widget),
-                                onRemove: () => deleteWidgetMutation.mutate(widget.id),
-                                onToggleActive: (active) =>
-                                    toggleWidgetMutation.mutate({
-                                        widgetId: widget.id,
-                                        isActive: active
-                                    }),
-                                editTooltip: tc('actions.edit', 'Edit'),
-                                removeTooltip: tc('actions.delete', 'Delete'),
-                                toggleActiveTooltip: widget.isActive
-                                    ? t('layouts.deactivate', 'Deactivate')
-                                    : t('layouts.activate', 'Activate')
-                            }))
+                            items: widgetsByZone[zone].map((widget) => {
+                                const label = getWidgetChipLabel(widget)
+
+                                return {
+                                    id: widget.id,
+                                    label,
+                                    isActive: widget.isActive,
+                                    draggable: !moveWidgetMutation.isPending,
+                                    moveActions: DASHBOARD_LAYOUT_ZONES.filter((targetZone) => targetZone !== widget.zone).map(
+                                        (targetZone) => ({
+                                            key: `${widget.id}-${targetZone}`,
+                                            testId: `layout-widget-move-${widget.id}-${targetZone}`,
+                                            label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
+                                            onClick: () =>
+                                                moveWidgetMutation.mutate({
+                                                    widget,
+                                                    targetZone,
+                                                    targetIndex: widgetsByZone[targetZone].length
+                                                })
+                                        })
+                                    ),
+                                    onEdit: () => openStructuredWidgetEditor(widget),
+                                    onClick: () => openStructuredWidgetEditor(widget),
+                                    onRemove: () => deleteWidgetMutation.mutate(widget.id),
+                                    onToggleActive: (active) =>
+                                        toggleWidgetMutation.mutate({
+                                            widgetId: widget.id,
+                                            isActive: active
+                                        }),
+                                    editTooltip: tc('actions.edit', 'Edit'),
+                                    removeTooltip: tc('actions.delete', 'Delete'),
+                                    toggleActiveTooltip: widget.isActive
+                                        ? t('layouts.deactivate', 'Deactivate')
+                                        : t('layouts.activate', 'Activate'),
+                                    editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
+                                    removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
+                                    toggleActiveAriaLabel: widget.isActive
+                                        ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
+                                        : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
+                                    inheritedLabel:
+                                        widget.widgetKey === 'interpretationNetworkWorkspace'
+                                            ? isApplicationCustomizedLayoutWidget(layout)
+                                                ? t('layouts.widgetCustomization.application', 'Customized in application')
+                                                : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
+                                            : undefined
+                                }
+                            })
                         }))}
                     />
                 </Box>
@@ -1004,6 +1157,83 @@ const ApplicationLayouts = () => {
                     }}
                     onCancel={() => setBehaviorEditingWidget(null)}
                 />
+
+                <StandardDialog
+                    open={Boolean(interpretationNetworkEditingWidget)}
+                    onClose={closeInterpretationNetworkEditor}
+                    title={t('layouts.interpretationNetworkEditor.title', 'Interpretation network workspace')}
+                    maxWidth='md'
+                    dialogContentProps={{ dividers: true }}
+                    actions={
+                        <>
+                            <Button onClick={closeInterpretationNetworkEditor}>{tc('actions.cancel', 'Cancel')}</Button>
+                            <Button
+                                data-testid='application-settings-matrix-save'
+                                onClick={saveInterpretationNetworkEditor}
+                                variant='contained'
+                                disabled={updateWidgetConfigMutation.isPending || !interpretationNetworkDraftHasChanges}
+                            >
+                                {tc('actions.save', 'Save')}
+                            </Button>
+                        </>
+                    }
+                >
+                    <Box sx={{ pt: 1 }}>
+                        {interpretationNetworkEditingWidget && interpretationNetworkInitialSettings ? (
+                            <Stack spacing={2}>
+                                <Alert severity='info' data-testid='application-layout-widget-customization-state'>
+                                    {isApplicationCustomizedLayoutWidget(layout)
+                                        ? t('layouts.widgetCustomization.application', 'Customized in application')
+                                        : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')}
+                                </Alert>
+                                <MatrixSettingsPanel
+                                    t={t}
+                                    settings={interpretationNetworkInitialSettings}
+                                    hasDivergentSettings={false}
+                                    isSaving={updateWidgetConfigMutation.isPending}
+                                    onSave={(settings) => {
+                                        updateWidgetConfigMutation.mutate({
+                                            widget: interpretationNetworkEditingWidget,
+                                            config: mergeInterpretationNetworkMatrixSettings(
+                                                interpretationNetworkEditingWidget.config,
+                                                settings
+                                            )
+                                        })
+                                        closeInterpretationNetworkEditor()
+                                    }}
+                                    renderSaveButton={false}
+                                    onDraftChange={(settings, hasChanges) => {
+                                        setInterpretationNetworkDraft(settings)
+                                        setInterpretationNetworkDraftHasChanges(hasChanges)
+                                    }}
+                                />
+                            </Stack>
+                        ) : null}
+                    </Box>
+                </StandardDialog>
+
+                <StandardDialog
+                    open={Boolean(workspaceSwitcherEditingWidget)}
+                    onClose={() => setWorkspaceSwitcherEditingWidget(null)}
+                    title={t('layouts.workspaceSwitcherEditor.title', 'Workspace switcher')}
+                    maxWidth='sm'
+                    actions={<Button onClick={() => setWorkspaceSwitcherEditingWidget(null)}>{tc('actions.close', 'Close')}</Button>}
+                >
+                    <Stack spacing={1.5}>
+                        <Alert severity='info' data-testid='application-layout-workspace-switcher-readonly'>
+                            {t(
+                                'layouts.workspaceSwitcherEditor.readOnly',
+                                'The workspace switcher uses the published application workspace state and has no widget-specific settings yet.'
+                            )}
+                        </Alert>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'layouts.workspaceSwitcherEditor.hint',
+                                'Use application settings to control which workspace settings can be changed inside workspaces.'
+                            )}
+                        </Typography>
+                    </Stack>
+                </StandardDialog>
             </Stack>
         )
     }
@@ -1259,34 +1489,6 @@ const ApplicationLayouts = () => {
                 <DialogActions>
                     <Button onClick={() => setEditingLayout(null)}>{tc('actions.cancel', 'Cancel')}</Button>
                     <Button onClick={handleLayoutSave} variant='contained' disabled={updateMutation.isPending}>
-                        {tc('actions.save', 'Save')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <Dialog open={Boolean(editingWidget)} onClose={() => setEditingWidget(null)} fullWidth maxWidth='md'>
-                <DialogTitle>
-                    {editingWidget ? `${tc('actions.edit', 'Edit')}: ${editingWidget.widgetKey}` : tc('actions.edit', 'Edit')}
-                </DialogTitle>
-                <DialogContent>
-                    <Stack spacing={1} sx={{ mt: 1 }}>
-                        <Typography variant='body2' color='text.secondary'>
-                            {t('layouts.widgetEditorDescription', 'Edit the widget configuration for advanced cases.')}
-                        </Typography>
-                        <TextField
-                            multiline
-                            minRows={16}
-                            fullWidth
-                            value={widgetConfigValue}
-                            onChange={(event) => setWidgetConfigValue(event.target.value)}
-                            error={Boolean(widgetConfigError)}
-                            helperText={widgetConfigError}
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setEditingWidget(null)}>{tc('actions.cancel', 'Cancel')}</Button>
-                    <Button onClick={handleWidgetConfigSave} variant='contained' disabled={updateWidgetConfigMutation.isPending}>
                         {tc('actions.save', 'Save')}
                     </Button>
                 </DialogActions>

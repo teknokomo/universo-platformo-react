@@ -1,4 +1,8 @@
-import { sanitizeApplicationLearningContentSettings, sanitizeApplicationRolePolicySettingsForSupportedScopes } from '@universo-react/types'
+import {
+    normalizeApplicationWorkspaceOverridePolicy,
+    sanitizeApplicationLearningContentSettings,
+    sanitizeApplicationRolePolicySettingsForSupportedScopes
+} from '@universo-react/types'
 import type { ApplicationDialogSettings } from '../types'
 
 export const EDITABLE_APPLICATION_DIALOG_SETTING_KEYS = [
@@ -12,7 +16,8 @@ export const EDITABLE_APPLICATION_DIALOG_SETTING_KEYS = [
     'workspaceOpenBehavior',
     'schemaDiffLocalizedLabels',
     'learningContent',
-    'rolePolicies'
+    'rolePolicies',
+    'workspaceOverrides'
 ] as const
 
 export const DEFAULT_APPLICATION_DIALOG_SETTINGS: ApplicationDialogSettings = {
@@ -38,7 +43,10 @@ export const sanitizeApplicationDialogSettingsForSave = (settings: ApplicationDi
         datasourceExecutionPolicy: settings.datasourceExecutionPolicy,
         workspaceOpenBehavior: settings.workspaceOpenBehavior,
         schemaDiffLocalizedLabels: settings.schemaDiffLocalizedLabels !== false,
-        ...(settings.rolePolicies ? { rolePolicies: sanitizeApplicationRolePolicySettingsForSupportedScopes(settings.rolePolicies) } : {})
+        ...(settings.rolePolicies ? { rolePolicies: sanitizeApplicationRolePolicySettingsForSupportedScopes(settings.rolePolicies) } : {}),
+        ...(settings.workspaceOverrides
+            ? { workspaceOverrides: normalizeApplicationWorkspaceOverridePolicy({ workspaceOverrides: settings.workspaceOverrides }) }
+            : {})
     }
 
     if (settings.learningContent) {

@@ -14,6 +14,9 @@ const mockAddWorkspaceMember = jest.fn()
 const mockRemoveWorkspaceMember = jest.fn()
 const mockListWorkspaceMembers = jest.fn()
 const mockGetWorkspaceMembership = jest.fn()
+const mockAssertRuntimeWorkspaceExists = jest.fn()
+const mockListRuntimeWorkspaceSettings = jest.fn()
+const mockUpdateWorkspaceSettingOverrides = jest.fn()
 
 jest.mock('../../shared/runtimeHelpers', () => ({
     __esModule: true,
@@ -50,11 +53,33 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
     addWorkspaceMember: (...args: unknown[]) => mockAddWorkspaceMember(...args),
     removeWorkspaceMember: (...args: unknown[]) => mockRemoveWorkspaceMember(...args),
     listWorkspaceMembers: (...args: unknown[]) => mockListWorkspaceMembers(...args),
-    getWorkspaceMembership: (...args: unknown[]) => mockGetWorkspaceMembership(...args)
+    getWorkspaceMembership: (...args: unknown[]) => mockGetWorkspaceMembership(...args),
+    assertRuntimeWorkspaceExists: (...args: unknown[]) => mockAssertRuntimeWorkspaceExists(...args)
+}))
+
+jest.mock('../../services/workspaceSettingsService', () => ({
+    __esModule: true,
+    WORKSPACE_SETTINGS_ERROR_CODES: {
+        settingNotAllowed: 'WORKSPACE_SETTING_NOT_ALLOWED',
+        settingConflict: 'WORKSPACE_SETTING_VERSION_CONFLICT',
+        settingNotFound: 'WORKSPACE_SETTING_NOT_FOUND'
+    },
+    WorkspaceSettingsError: class WorkspaceSettingsError extends Error {
+        code: string
+
+        constructor(code: string, message: string) {
+            super(message)
+            this.name = 'WorkspaceSettingsError'
+            this.code = code
+        }
+    },
+    listRuntimeWorkspaceSettings: (...args: unknown[]) => mockListRuntimeWorkspaceSettings(...args),
+    updateWorkspaceSettingOverrides: (...args: unknown[]) => mockUpdateWorkspaceSettingOverrides(...args)
 }))
 
 import { createRuntimeWorkspaceController } from '../../controllers/runtimeWorkspaceController'
 import { RuntimeWorkspaceError, RUNTIME_WORKSPACE_ERROR_CODES } from '../../services/runtimeWorkspaceService'
+import { WorkspaceSettingsError, WORKSPACE_SETTINGS_ERROR_CODES } from '../../services/workspaceSettingsService'
 
 function createResponse() {
     const json = jest.fn()
@@ -89,7 +114,29 @@ describe('runtimeWorkspaceController', () => {
         userId: 'user-1',
         role: 'owner',
         workspacesEnabled: true,
-        currentWorkspaceId: workspaceId
+        currentWorkspaceId: workspaceId,
+        baseApplicationSettings: {
+            sectionLinksEnabled: true,
+            workspaceOverrides: {
+                allowedKeys: ['sectionLinksEnabled'],
+                lockedKeys: []
+            }
+        },
+        applicationSettings: {
+            sectionLinksEnabled: false,
+            workspaceOverrides: {
+                allowedKeys: ['sectionLinksEnabled'],
+                lockedKeys: []
+            }
+        },
+        permissions: {
+            manageMembers: true,
+            manageApplication: false,
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            readReports: true
+        }
     }
 
     beforeEach(() => {
@@ -97,6 +144,9 @@ describe('runtimeWorkspaceController', () => {
         mockRuntimeQuery.mockReset()
         mockRuntimeQuery.mockResolvedValue([])
         mockResolveRuntimeSchema.mockResolvedValue(baseCtx)
+        mockAssertRuntimeWorkspaceExists.mockReset()
+        mockListRuntimeWorkspaceSettings.mockReset()
+        mockUpdateWorkspaceSettingOverrides.mockReset()
     })
 
     it('lists workspaces for a workspace-enabled application', async () => {
@@ -560,6 +610,168 @@ describe('runtimeWorkspaceController', () => {
         expect(res.status).toHaveBeenCalledWith(404)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
             expect.objectContaining({ error: 'Role "member" not found', code: 'WORKSPACE_ROLE_NOT_FOUND' })
+        )
+    })
+
+    it('lists workspace settings with manage visibility based on owner role or app permissions', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'member',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockListRuntimeWorkspaceSettings.mockResolvedValue([
+            {
+                key: 'sectionLinksEnabled',
+                value: true,
+                source: 'application',
+                isInherited: true,
+                definition: { key: 'sectionLinksEnabled' },
+                allowed: true,
+                version: 1
+            }
+        ])
+
+        await controller.listSettings(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListRuntimeWorkspaceSettings).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            workspaceId,
+            applicationSettings: baseCtx.baseApplicationSettings
+        })
+        expect(res.json).toHaveBeenCalledWith({
+            items: [
+                expect.objectContaining({
+                    key: 'sectionLinksEnabled',
+                    allowed: true,
+                    version: 1
+                })
+            ],
+            canManage: false
+        })
+    })
+
+    it('allows application administrators to manage workspace settings without workspace membership', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue({
+            ...baseCtx,
+            permissions: { ...baseCtx.permissions, manageApplication: true }
+        })
+        mockGetWorkspaceMembership.mockResolvedValue(null)
+        mockAssertRuntimeWorkspaceExists.mockResolvedValue(undefined)
+        mockListRuntimeWorkspaceSettings.mockResolvedValue([
+            {
+                key: 'sectionLinksEnabled',
+                value: true,
+                source: 'application',
+                isInherited: true,
+                definition: { key: 'sectionLinksEnabled' },
+                allowed: true,
+                version: null
+            }
+        ])
+
+        await controller.listSettings(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockAssertRuntimeWorkspaceExists).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            workspaceId
+        })
+        expect(mockListRuntimeWorkspaceSettings).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            workspaceId,
+            applicationSettings: baseCtx.baseApplicationSettings
+        })
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                canManage: true
+            })
+        )
+    })
+
+    it('rejects workspace settings updates for non-managers and maps workspace setting conflicts', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'member',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+
+        await controller.updateSettings(
+            {
+                params: { applicationId: 'app-1', workspaceId },
+                body: {
+                    settings: [{ key: 'sectionLinksEnabled', value: false }]
+                }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                error: 'Only workspace owners or application administrators can manage workspace settings',
+                code: 'WORKSPACE_SETTINGS_MANAGE_REQUIRED'
+            })
+        )
+
+        mockResolveRuntimeSchema.mockResolvedValue({
+            ...baseCtx,
+            permissions: { ...baseCtx.permissions, manageApplication: true }
+        })
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'member',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockUpdateWorkspaceSettingOverrides.mockRejectedValue(
+            new WorkspaceSettingsError(
+                WORKSPACE_SETTINGS_ERROR_CODES.settingConflict,
+                'Workspace setting "sectionLinksEnabled" version conflict'
+            )
+        )
+
+        await controller.updateSettings(
+            {
+                params: { applicationId: 'app-1', workspaceId },
+                body: {
+                    settings: [{ key: 'sectionLinksEnabled', value: false }]
+                }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenLastCalledWith(409)
+        expect(res.status.mock.results.at(-1)?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                error: 'Workspace setting "sectionLinksEnabled" version conflict',
+                code: 'WORKSPACE_SETTING_VERSION_CONFLICT'
+            })
         )
     })
 })

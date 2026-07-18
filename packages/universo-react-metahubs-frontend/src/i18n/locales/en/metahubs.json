@@ -2630,7 +2630,8 @@
             "object": "Objects",
             "set": "Sets",
             "enumeration": "Enumerations",
-            "page": "Pages"
+            "page": "Pages",
+            "layouts": "Layouts and widgets"
         },
         "search": "Search settings...",
         "save": "Save Changes",
@@ -2850,6 +2851,29 @@
         },
         "common": {
             "placeholder": "Settings for this section will be available in future versions."
+        },
+        "matrix": {
+            "modes": {
+                "hierarchicalCells": "Hierarchical cells",
+                "independentRows": "Independent rows"
+            },
+            "views": {
+                "table": "Table view",
+                "horizontalRows": "Horizontal rows",
+                "verticalTree": "Vertical tree"
+            }
+        },
+        "layoutWidgets": {
+            "unknownWidget": "Unknown widget",
+            "openContextualEditor": "Open the layout widget editor to change this widget.",
+            "interpretationNetworkSummary": "Matrix mode: {{matrixMode}}. Default view: {{defaultView}}.",
+            "layoutLabel": "Layout: {{layout}}",
+            "editSettings": "Edit settings",
+            "openEditor": "Open in layout",
+            "saved": "Widget settings saved",
+            "saveError": "Failed to save widget settings",
+            "loadError": "Failed to load layout widget settings.",
+            "empty": "No active layout widgets with configurable settings were found."
         }
     },
     "export": {

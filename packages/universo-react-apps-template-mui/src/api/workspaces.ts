@@ -1,6 +1,15 @@
 import { z } from 'zod'
 import { fetchWithCsrf } from './api'
 
+const settingDefinitionSchema = z.object({
+    key: z.string(),
+    labelKey: z.string(),
+    descriptionKey: z.string(),
+    tab: z.string(),
+    controlType: z.enum(['boolean', 'select', 'number', 'string', 'structured']),
+    options: z.array(z.string()).optional()
+})
+
 const workspaceSchema = z.object({
     id: z.string(),
     name: z.unknown(),
@@ -35,10 +44,27 @@ const workspaceMembersResponseSchema = z.object({
     offset: z.number().default(0)
 })
 
+const runtimeWorkspaceSettingSchema = z.object({
+    key: z.string(),
+    value: z.unknown(),
+    source: z.enum(['default', 'metahub', 'application', 'workspace']),
+    isInherited: z.boolean(),
+    allowed: z.boolean(),
+    version: z.number().nullable(),
+    definition: settingDefinitionSchema
+})
+
+const runtimeWorkspaceSettingsResponseSchema = z.object({
+    items: z.array(runtimeWorkspaceSettingSchema),
+    canManage: z.boolean().default(false)
+})
+
 export type RuntimeWorkspace = z.infer<typeof workspaceSchema>
 export type RuntimeWorkspaceMember = z.infer<typeof workspaceMemberSchema>
 export type RuntimeWorkspaceListResponse = z.infer<typeof workspaceListResponseSchema>
 export type RuntimeWorkspaceMembersResponse = z.infer<typeof workspaceMembersResponseSchema>
+export type RuntimeWorkspaceSetting = z.infer<typeof runtimeWorkspaceSettingSchema>
+export type RuntimeWorkspaceSettingsResponse = z.infer<typeof runtimeWorkspaceSettingsResponseSchema>
 
 export class RuntimeWorkspaceApiError extends Error {
     code?: string
@@ -266,4 +292,50 @@ export async function removeRuntimeWorkspaceMember(options: {
     if (!response.ok) {
         await throwRuntimeWorkspaceApiError(response, 'Failed to remove workspace member')
     }
+}
+
+export async function fetchRuntimeWorkspaceSettings(options: {
+    apiBaseUrl: string
+    applicationId: string
+    workspaceId: string
+}): Promise<RuntimeWorkspaceSettingsResponse> {
+    const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/settings`)
+
+    const response = await fetch(url.toString(), { credentials: 'include' })
+    if (!response.ok) {
+        await throwRuntimeWorkspaceApiError(response, 'Failed to load workspace settings')
+    }
+
+    const parsed = runtimeWorkspaceSettingsResponseSchema.safeParse(await response.json())
+    if (!parsed.success) {
+        throw new Error('Workspace settings response validation failed')
+    }
+    return parsed.data
+}
+
+export async function updateRuntimeWorkspaceSettings(options: {
+    apiBaseUrl: string
+    applicationId: string
+    workspaceId: string
+    settings?: Array<{ key: string; value: unknown; expectedVersion?: number }>
+    resets?: Array<{ key: string; expectedVersion?: number }>
+}): Promise<RuntimeWorkspaceSettingsResponse> {
+    const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/settings`)
+    const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            settings: options.settings ?? [],
+            resets: options.resets ?? []
+        })
+    })
+    if (!response.ok) {
+        await throwRuntimeWorkspaceApiError(response, 'Failed to update workspace settings')
+    }
+
+    const parsed = runtimeWorkspaceSettingsResponseSchema.safeParse(await response.json())
+    if (!parsed.success) {
+        throw new Error('Workspace settings response validation failed')
+    }
+    return parsed.data
 }

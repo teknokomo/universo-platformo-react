@@ -490,7 +490,20 @@ describe('DashboardApp', () => {
 
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:access`)
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access`
+            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access|Settings:false:/a/${applicationId}/workspaces/${workspaceId}/settings`
+        )
+    })
+
+    it('routes workspace settings in standalone published apps', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const workspaceId = '00000000-0000-7000-8000-000000000111'
+        window.history.pushState({}, '', `/a/${applicationId}/workspaces/${workspaceId}/settings`)
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:settings`)
+        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
+            `Settings:true:/a/${applicationId}/workspaces/${workspaceId}/settings`
         )
     })
 

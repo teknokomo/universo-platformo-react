@@ -1,6 +1,7 @@
 import type {
     ApplicationMembershipState,
     ApplicationLearningContentSettings,
+    ApplicationWorkspaceOverridePolicy,
     ApplicationRolePolicySettings,
     DialogCloseBehavior,
     DialogSizePreset,
@@ -48,6 +49,7 @@ export interface ApplicationDialogSettings {
     schemaDiffLocalizedLabels: boolean
     rolePolicies?: ApplicationRolePolicySettings
     learningContent?: ApplicationLearningContentSettings
+    workspaceOverrides?: ApplicationWorkspaceOverridePolicy
 }
 
 export interface ApplicationMember {

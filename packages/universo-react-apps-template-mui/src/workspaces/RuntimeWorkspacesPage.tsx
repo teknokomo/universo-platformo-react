@@ -14,9 +14,11 @@ import {
     DialogContent,
     DialogTitle,
     Divider,
+    FormControlLabel,
     IconButton,
     Menu,
     MenuItem,
+    Switch,
     Stack,
     TextField,
     Tooltip,
@@ -29,6 +31,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import GroupAddRoundedIcon from '@mui/icons-material/GroupAddRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import { emailSchema } from '@universo-react/types'
 import { createLocalizedContent, updateLocalizedContentLocale } from '@universo-react/utils'
@@ -50,13 +53,16 @@ import {
     deleteRuntimeWorkspace,
     fetchRuntimeWorkspace,
     fetchRuntimeWorkspaceMembers,
+    fetchRuntimeWorkspaceSettings,
     fetchRuntimeWorkspaces,
     inviteRuntimeWorkspaceMember,
     removeRuntimeWorkspaceMember,
     updateRuntimeWorkspace,
     updateDefaultRuntimeWorkspace,
+    updateRuntimeWorkspaceSettings,
     type RuntimeWorkspace,
-    type RuntimeWorkspaceMember
+    type RuntimeWorkspaceMember,
+    type RuntimeWorkspaceSetting
 } from '../api/workspaces'
 import { appQueryKeys, workspaceQueryKeys } from '../api/mutations'
 
@@ -65,7 +71,7 @@ interface RuntimeWorkspacesPageProps {
     apiBaseUrl: string
     locale: string
     routeWorkspaceId?: string | null
-    routeSection?: 'dashboard' | 'access'
+    routeSection?: 'dashboard' | 'access' | 'settings'
     onNavigate?: (href: string) => void
 }
 
@@ -80,6 +86,7 @@ type MemberViewRow = FlowListTableData & RuntimeWorkspaceMember & { name: string
 type ViewMode = 'card' | 'list'
 type WorkspaceFormPayload = { name: unknown; description: unknown }
 type WorkspaceErrorTranslation = { key: string; fallback: string }
+type SettingValueOption = { value: string; label: string }
 
 const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = {
     USER_NOT_FOUND: { key: 'workspace.errors.userNotFound', fallback: 'User not found' },
@@ -100,6 +107,11 @@ const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = 
     INVALID_REQUEST_BODY: { key: 'workspace.errors.invalidRequestBody', fallback: 'Invalid request body' },
     INVALID_ROUTE_PARAMETERS: { key: 'workspace.errors.invalidRequestBody', fallback: 'Invalid request body' },
     WORKSPACE_ROLE_NOT_FOUND: { key: 'workspace.errors.roleNotFound', fallback: 'Workspace role not found' },
+    WORKSPACE_SETTING_NOT_ALLOWED: { key: 'workspace.errors.settingNotAllowed', fallback: 'This workspace setting is locked' },
+    WORKSPACE_SETTING_VERSION_CONFLICT: {
+        key: 'workspace.errors.settingVersionConflict',
+        fallback: 'This workspace setting changed. Reload and try again.'
+    },
     PERSONAL_WORKSPACE_MUTATION_BLOCKED: {
         key: 'workspace.errors.personalMutationBlocked',
         fallback: 'Personal workspace cannot be changed'
@@ -121,6 +133,45 @@ const LEGACY_WORKSPACE_ERROR_TRANSLATIONS: Array<[string, WorkspaceErrorTranslat
 ]
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+
+const SETTING_OPTION_LABELS: Record<string, WorkspaceErrorTranslation> = {
+    'dashboardDefaultMode.layout-default': {
+        key: 'workspace.settingOptions.dashboardDefaultMode.layoutDefault',
+        fallback: 'Layout default'
+    },
+    'dashboardDefaultMode.first-menu-item': {
+        key: 'workspace.settingOptions.dashboardDefaultMode.firstMenuItem',
+        fallback: 'First menu item'
+    },
+    'workspaceOpenBehavior.last-used': {
+        key: 'workspace.settingOptions.workspaceOpenBehavior.lastUsed',
+        fallback: 'Last used workspace'
+    },
+    'workspaceOpenBehavior.default-workspace': {
+        key: 'workspace.settingOptions.workspaceOpenBehavior.defaultWorkspace',
+        fallback: 'Default workspace'
+    },
+    'learningContent.defaultView.table': {
+        key: 'workspace.settingOptions.learningContent.defaultView.table',
+        fallback: 'Table'
+    },
+    'learningContent.defaultView.cards': {
+        key: 'workspace.settingOptions.learningContent.defaultView.cards',
+        fallback: 'Cards'
+    },
+    'learningContent.playerPreset.completeButtonMode.manual': {
+        key: 'workspace.settingOptions.learningContent.completeButtonMode.manual',
+        fallback: 'Manual'
+    },
+    'learningContent.playerPreset.completeButtonMode.autoAfterOpen': {
+        key: 'workspace.settingOptions.learningContent.completeButtonMode.autoAfterOpen',
+        fallback: 'Automatically after opening'
+    },
+    'learningContent.playerPreset.completeButtonMode.hidden': {
+        key: 'workspace.settingOptions.learningContent.completeButtonMode.hidden',
+        fallback: 'Hidden'
+    }
+}
 
 const readName = (value: unknown, locale: string): string => {
     if (typeof value === 'string') return value
@@ -194,6 +245,19 @@ const readWorkspaceRoleChangeValue = (value: unknown): 'owner' | 'member' => {
 }
 
 const appendCopySuffix = (value: string, locale: string): string => `${value} ${locale.startsWith('ru') ? '(копия)' : '(copy)'}`
+
+const readCheckboxChangeValue = (value: unknown): boolean => {
+    if (typeof value === 'boolean') return value
+    if (!value || typeof value !== 'object') return false
+    const target = (value as { target?: { checked?: unknown } }).target
+    return target?.checked === true
+}
+
+const readNumericInputValue = (value: unknown): number => {
+    const rawValue = readInputChangeValue(value)
+    const parsed = Number(rawValue)
+    return Number.isFinite(parsed) ? parsed : 0
+}
 
 const toPagination = (limit: number, offset: number, total: number) => {
     const currentPage = Math.floor(offset / limit) + 1
@@ -290,13 +354,25 @@ export function RuntimeWorkspacesPage({
         queryKey: routeWorkspaceId
             ? workspaceQueryKeys.members(applicationId, routeWorkspaceId, memberParams)
             : ['runtime-workspace-members', applicationId, 'none'],
-        enabled: Boolean(routeWorkspaceId),
+        enabled: Boolean(routeWorkspaceId) && (routeSection === 'access' || routeSection === 'dashboard'),
         queryFn: () =>
             fetchRuntimeWorkspaceMembers({
                 apiBaseUrl,
                 applicationId,
                 workspaceId: routeWorkspaceId!,
                 params: memberParams
+            })
+    })
+    const settingsQuery = useQuery({
+        queryKey: routeWorkspaceId
+            ? workspaceQueryKeys.settings(applicationId, routeWorkspaceId)
+            : ['runtime-workspace-settings', applicationId, 'none'],
+        enabled: Boolean(routeWorkspaceId) && routeSection === 'settings',
+        queryFn: () =>
+            fetchRuntimeWorkspaceSettings({
+                apiBaseUrl,
+                applicationId,
+                workspaceId: routeWorkspaceId!
             })
     })
 
@@ -379,6 +455,42 @@ export function RuntimeWorkspacesPage({
     const defaultMutation = useMutation({
         mutationFn: (workspaceId: string) => updateDefaultRuntimeWorkspace({ apiBaseUrl, applicationId, workspaceId }),
         onSuccess: invalidateWorkspaceData
+    })
+
+    const settingsMutation = useMutation({
+        mutationFn: (input: { setting?: RuntimeWorkspaceSetting; reset?: RuntimeWorkspaceSetting; value?: unknown }) =>
+            updateRuntimeWorkspaceSettings({
+                apiBaseUrl,
+                applicationId,
+                workspaceId: routeWorkspaceId!,
+                settings: input.setting
+                    ? [
+                          {
+                              key: input.setting.key,
+                              value: input.value,
+                              ...(input.setting.version ? { expectedVersion: input.setting.version } : {})
+                          }
+                      ]
+                    : [],
+                resets: input.reset
+                    ? [
+                          {
+                              key: input.reset.key,
+                              ...(input.reset.version ? { expectedVersion: input.reset.version } : {})
+                          }
+                      ]
+                    : []
+            }),
+        onSuccess: async (data) => {
+            if (routeWorkspaceId) {
+                queryClient.setQueryData(workspaceQueryKeys.settings(applicationId, routeWorkspaceId), data)
+            }
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['runtime', applicationId] }),
+                queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
+            ])
+        },
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const inviteMutation = useMutation({
@@ -831,9 +943,71 @@ export function RuntimeWorkspacesPage({
         </>
     )
 
+    const renderWorkspaceSettings = () => (
+        <>
+            <ViewHeader
+                title={workspaceName ? `${workspaceName}: ${t('workspace.settings', 'Settings')}` : t('workspace.settings', 'Settings')}
+                description={t('workspace.settingsDescription', 'Workspace-level overrides for application settings.')}
+                controlsWrap
+            />
+
+            {!selectedWorkspace && !selectedWorkspaceIsLoading && selectedWorkspaceLoadFailed ? (
+                <Alert severity='error'>{t('workspace.errorLoad', 'Failed to load workspaces')}</Alert>
+            ) : !selectedWorkspace && !selectedWorkspaceIsLoading ? (
+                <Alert severity='warning'>{t('workspace.notFound', 'Workspace not found')}</Alert>
+            ) : settingsQuery.isLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                </Box>
+            ) : settingsQuery.isError ? (
+                <Alert severity='error'>{t('workspace.settingsLoadError', 'Failed to load workspace settings')}</Alert>
+            ) : (
+                <Stack spacing={2}>
+                    {formError ? <Alert severity='error'>{formError}</Alert> : null}
+                    {settingsQuery.data?.canManage ? null : (
+                        <Alert severity='info'>
+                            {t('workspace.settingsReadOnly', 'You can view inherited settings, but only workspace owners can change them.')}
+                        </Alert>
+                    )}
+                    {!settingsQuery.data ? (
+                        <Alert severity='warning'>{t('workspace.settingsLoadError', 'Failed to load workspace settings')}</Alert>
+                    ) : settingsQuery.data.items.filter((setting) => setting.allowed).length === 0 ? (
+                        <Alert severity='info'>{t('workspace.settingsEmpty', 'No workspace-level settings are available.')}</Alert>
+                    ) : (
+                        <Stack spacing={2}>
+                            {settingsQuery.data.items
+                                .filter((setting) => setting.allowed)
+                                .map((setting) => (
+                                    <WorkspaceSettingCard
+                                        key={setting.key}
+                                        setting={setting}
+                                        canManage={settingsQuery.data?.canManage === true && !settingsMutation.isPending}
+                                        onChange={(value) => {
+                                            setFormError(null)
+                                            settingsMutation.mutate({ setting, value })
+                                        }}
+                                        onReset={() => {
+                                            setFormError(null)
+                                            settingsMutation.mutate({ reset: setting })
+                                        }}
+                                    />
+                                ))}
+                        </Stack>
+                    )}
+                </Stack>
+            )}
+        </>
+    )
+
     return (
         <Box data-testid='runtime-workspaces-page' sx={{ width: '100%', minWidth: 0 }}>
-            {routeWorkspaceId ? (routeSection === 'access' ? renderWorkspaceAccess() : renderWorkspaceDashboard()) : renderWorkspaceList()}
+            {routeWorkspaceId
+                ? routeSection === 'access'
+                    ? renderWorkspaceAccess()
+                    : routeSection === 'settings'
+                    ? renderWorkspaceSettings()
+                    : renderWorkspaceDashboard()
+                : renderWorkspaceList()}
 
             <Menu
                 open={Boolean(workspaceMenuAnchor)}
@@ -1047,6 +1221,171 @@ function WorkspaceMetricCard({ title, value }: { title: string; value: string })
                 <Typography variant='h5' component='p' sx={{ overflowWrap: 'anywhere' }}>
                     {value}
                 </Typography>
+            </CardContent>
+        </Card>
+    )
+}
+
+function WorkspaceSettingCard({
+    setting,
+    canManage,
+    onChange,
+    onReset
+}: {
+    setting: RuntimeWorkspaceSetting
+    canManage: boolean
+    onChange: (value: unknown) => void
+    onReset: () => void
+}) {
+    const { t } = useTranslation('apps')
+    const definition = setting.definition
+    const label = t(`workspace.settingKeys.${setting.key}`, {
+        defaultValue: t(definition.labelKey, { defaultValue: definition.key })
+    })
+    const description = t(`workspace.settingKeys.${setting.key}.description`, {
+        defaultValue: t(definition.descriptionKey, { defaultValue: definition.key })
+    })
+    const sourceLabel = setting.isInherited
+        ? t('workspace.settingsInheritedFromApplication', 'Inherited from application')
+        : t('workspace.settingsOverriddenInWorkspace', 'Overridden in this workspace')
+    const sourceChipLabel = t(`workspace.settingSources.${setting.source}`, setting.source)
+    const optionItems = useMemo<SettingValueOption[]>(
+        () =>
+            (definition.options ?? []).map((option) => {
+                const translation = SETTING_OPTION_LABELS[`${definition.key}.${option}`]
+                return {
+                    value: option,
+                    label: translation ? t(translation.key, translation.fallback) : option
+                }
+            }),
+        [definition.key, definition.options, t]
+    )
+    const normalizedValue = setting.value === undefined || setting.value === null ? '' : setting.value
+
+    const renderControl = () => {
+        switch (definition.controlType) {
+            case 'boolean':
+                return (
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={normalizedValue === true}
+                                disabled={!canManage}
+                                onChange={(event) => onChange(readCheckboxChangeValue(event))}
+                                slotProps={{
+                                    input: {
+                                        'aria-label': label
+                                    }
+                                }}
+                            />
+                        }
+                        label={
+                            normalizedValue === true
+                                ? t('workspace.settingsBooleanEnabled', 'Enabled')
+                                : t('workspace.settingsBooleanDisabled', 'Disabled')
+                        }
+                    />
+                )
+            case 'select':
+                return (
+                    <TextField
+                        select
+                        size='small'
+                        fullWidth
+                        label={label}
+                        value={typeof normalizedValue === 'string' ? normalizedValue : ''}
+                        disabled={!canManage}
+                        inputProps={{ 'data-testid': `runtime-workspace-setting-${setting.key}` }}
+                        onChange={(event) => onChange(readInputChangeValue(event))}
+                    >
+                        {optionItems.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                                {option.label}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+                )
+            case 'number':
+                return (
+                    <TextField
+                        type='number'
+                        size='small'
+                        fullWidth
+                        label={label}
+                        value={typeof normalizedValue === 'number' ? normalizedValue : 0}
+                        disabled={!canManage}
+                        inputProps={{ 'data-testid': `runtime-workspace-setting-${setting.key}` }}
+                        onChange={(event) => onChange(readNumericInputValue(event))}
+                    />
+                )
+            case 'string':
+                return (
+                    <TextField
+                        size='small'
+                        fullWidth
+                        label={label}
+                        value={typeof normalizedValue === 'string' ? normalizedValue : ''}
+                        disabled={!canManage}
+                        inputProps={{ 'data-testid': `runtime-workspace-setting-${setting.key}` }}
+                        onChange={(event) => onChange(readInputChangeValue(event))}
+                    />
+                )
+            case 'structured':
+            default:
+                return (
+                    <Alert severity='info' sx={{ width: '100%' }}>
+                        {t('workspace.settingsStructuredReadonly', 'This structured setting is managed in application settings.')}
+                    </Alert>
+                )
+        }
+    }
+
+    return (
+        <Card
+            variant='outlined'
+            data-testid='runtime-workspace-setting-card'
+            sx={{
+                borderRadius: 1,
+                width: '100%',
+                minWidth: 0
+            }}
+        >
+            <CardContent>
+                <Stack spacing={2}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant='subtitle1' component='h2' sx={{ overflowWrap: 'anywhere' }}>
+                                {label}
+                            </Typography>
+                            <Typography variant='body2' color='text.secondary' sx={{ overflowWrap: 'anywhere' }}>
+                                {description}
+                            </Typography>
+                        </Box>
+                        <Stack direction='row' spacing={1} useFlexGap flexWrap='wrap'>
+                            <Chip size='small' variant='outlined' label={sourceChipLabel} />
+                            <Chip
+                                size='small'
+                                color={setting.isInherited ? 'default' : 'primary'}
+                                variant={setting.isInherited ? 'outlined' : 'filled'}
+                                label={sourceLabel}
+                            />
+                        </Stack>
+                    </Stack>
+
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>{renderControl()}</Box>
+                        <Button
+                            variant='outlined'
+                            size='small'
+                            startIcon={<RestartAltRoundedIcon />}
+                            data-testid={`runtime-workspace-setting-reset-${setting.key}`}
+                            disabled={!canManage || setting.isInherited}
+                            onClick={onReset}
+                        >
+                            {t('workspace.settingsReset', 'Use application value')}
+                        </Button>
+                    </Stack>
+                </Stack>
             </CardContent>
         </Card>
     )

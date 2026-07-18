@@ -20,6 +20,48 @@
 -   [x] T7. Update fixture generator/import/runtime browser flows, focused visual/a11y checks, E2E wrapper, EN/RU docs, package READMEs, and required project checks.
 -   [ ] T8. Run formatting, focused tests/builds, local-minimal-Supabase Playwright proof, guards, OntoIndex diff verification, Thermos/autoreview, and record completed progress. Formatting, focused tests/builds, guards, and OntoIndex have run; browser proof is blocked by an already running local app server on port 3100, and Thermos/autoreview did not finish within the interactive window.
 
+---
+
+# Unified Settings and Workspace Overrides (2026-07-16)
+
+> Status: completed
+> Source plan: `memory-bank/plan/unified-settings-and-workspace-overrides-plan-2026-07-16.md`
+
+## Architecture Record
+
+-   Shared settings contract lives in `packages/universo-react-types` and is the single source of truth for metahub, application, and workspace settings metadata.
+-   Metahub remains canonical for defaults, application control panel stores materialized defaults, and workspace stores explicit overrides.
+-   Workspace overrides use a dedicated persistence boundary and do not reuse `_app_settings` blindly.
+-   Runtime UI stays on existing `@universo-react/apps-template-mui` primitives; no new legacy UI fork is introduced for published apps.
+-   All user-facing text must remain localized.
+-   UUID v7 is required for new persisted rows.
+
+## Checklist
+
+-   [x] U1. Add the shared settings registry/contract and normalized effective-value helpers in `packages/universo-react-types`.
+-   [x] U2. Add dedicated workspace override persistence, API routes, request-scoped store helpers, and optimistic version semantics.
+-   [x] U3. Refactor metahub settings surfaces to use the shared registry while preserving contextual editors and aggregated settings views.
+-   [x] U4. Refactor application settings/layouts to consume the shared contract and remove raw JSON fallback behavior on normal surfaces.
+-   [x] U5. Add workspace settings routing and UI in both runtime hosts with allowed-key gating and reset-to-application behavior.
+-   [x] U6. Update i18n, package READMEs, and GitBook docs for the three-layer settings model.
+-   [x] U7. Add/refresh tests across Vitest, Jest, and Playwright, including Interpretation Network coverage and minimal local Supabase proof.
+-   [x] U8. Run formatting, lint, builds, browser proof, OntoIndex diff verification, and Thermos/autoreview; close out progress with evidence. Formatting, focused Jest/Vitest, lint, package builds, guards, docs checks, `git diff --check`, OntoIndex diff verification, and the full minimal-local-Supabase Interpretation Network verification wrapper passed. The E2E wrapper now recreates the local E2E Supabase profile between fixture generation and browser verification so generated fixed-schema state cannot leak into the browser proof.
+
+### QA remediation slice (2026-07-17)
+
+-   [x] Q1. Allow application administrators to manage workspace settings even when they are not members of the target workspace, while keeping non-admin/non-member access fail-closed.
+-   [x] Q2. Normalize `workspaceOverrides` on backend application settings updates so unknown, duplicate, and locked keys cannot persist.
+-   [x] Q3. Filter copied workspace setting overrides against the current application workspace policy.
+-   [x] Q4. Ensure published runtime workspace settings resolve localized labels/options from the `apps` bundle and do not show raw i18n keys.
+-   [x] Q5. Re-run focused backend/frontend tests and record remaining evidence gaps. The enhanced Interpretation Network browser flow passes against minimal local Supabase; route Jest can require a non-sandbox listener permission in restricted environments.
+
+### QA remediation slice (2026-07-18)
+
+-   [ ] Q6. Align the application Interpretation Network widget editor with the shared template dialog footer pattern and localized application text.
+-   [ ] Q7. Make the application workspace switcher widget edit action deterministic instead of clicking into an empty handler.
+-   [ ] Q8. Fix published-app Russian workspace Settings menu localization in the standalone runtime host.
+-   [ ] Q9. Strengthen component and Playwright coverage so localized labels, footer actions, and workspace switcher behavior are asserted directly.
+
 ## MMOOMM fixture drift follow-up (2026-07-15)
 
 -   [x] M4. Investigate the next Node 22 drift failure: PlayCanvas material asset metadata emitted `meta: null` while the authored fixture omitted the optional field.

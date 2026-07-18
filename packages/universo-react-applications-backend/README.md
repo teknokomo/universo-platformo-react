@@ -66,9 +66,10 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 ## Package Surface
 
 -   `createApplicationsRoutes(...)` mounts CRUD, connector, membership, and runtime-sync routes.
--   The route surface now includes public join/leave flows and settings endpoints for per-workspace object limits.
+-   The route surface now includes public join/leave flows, settings endpoints for per-workspace object limits, and runtime workspace settings endpoints under `/applications/:applicationId/runtime/workspaces/:workspaceId/settings`.
 -   Runtime Ledger endpoints are mounted under `/applications/:applicationId/runtime/ledgers` and keep append/reverse/query behavior separate from generic Object row CRUD.
 -   Application layout endpoints are mounted under `/applications/:applicationId/layouts` and `/applications/:applicationId/layout-scopes`.
+-   Workspace setting overrides are filtered by the current application workspace override policy during update and copy flows, and application administrators can manage them without being workspace members.
 -   `initializeRateLimiters()` prepares package-level rate limiting before route creation.
 -   Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.
 -   Platform migration definitions stay in the package migration surface instead of route handlers.

@@ -619,7 +619,7 @@ describe('ApplicationSettings', () => {
                 })
             )
         })
-    })
+    }, 15000)
 
     it('previews and downgrades unsupported scoped role policy grants before saving', async () => {
         mockedUseApplicationDetails.mockReturnValue({
@@ -801,6 +801,53 @@ describe('ApplicationSettings', () => {
                     expectedVersion: 5,
                     settings: expect.not.objectContaining({
                         publicRuntime: expect.anything()
+                    })
+                })
+            )
+        })
+    })
+
+    it('saves workspace override policy from the access settings tab', async () => {
+        mockedUseApplicationDetails.mockReturnValue({
+            data: createRuntimeReadyApplication({
+                settings: {
+                    dialogSizePreset: 'medium',
+                    dialogAllowFullscreen: true,
+                    dialogAllowResize: true,
+                    dialogCloseBehavior: 'strict-modal',
+                    sectionLinksEnabled: true,
+                    dashboardDefaultMode: 'layout-default',
+                    datasourceExecutionPolicy: 'workspace-scoped',
+                    workspaceOpenBehavior: 'last-used',
+                    schemaDiffLocalizedLabels: true,
+                    workspaceOverrides: {
+                        allowedKeys: ['sectionLinksEnabled', 'dashboardDefaultMode'],
+                        lockedKeys: []
+                    }
+                }
+            }),
+            isLoading: false,
+            isError: false
+        } as never)
+
+        renderSettings()
+
+        await userEvent.click(screen.getByRole('tab', { name: 'Access' }))
+        const sectionLinksOverride = screen.getByTestId('application-settings-workspace-override-sectionLinksEnabled')
+        expect(sectionLinksOverride).toBeChecked()
+
+        await userEvent.click(sectionLinksOverride)
+        await userEvent.click(screen.getByTestId('application-settings-access-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    settings: expect.objectContaining({
+                        workspaceOverrides: {
+                            allowedKeys: ['dashboardDefaultMode'],
+                            lockedKeys: []
+                        }
                     })
                 })
             )

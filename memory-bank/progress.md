@@ -59,6 +59,22 @@
 
 ---
 
+## 2026-07-17 - Unified Settings And Workspace Overrides Implementation
+
+Implemented the unified settings and workspace override remediation slice.
+
+-   Added a shared `@universo-react/types` settings registry with normalized application settings, workspace override policy, effective-setting resolution, and workspace setting batch schemas.
+-   Added dedicated runtime workspace setting persistence in `_app_workspace_settings`, with parameterized SQL through `DbExecutor`, UUID v7 row creation, advisory per-setting locks, optimistic version checks, allowed-key gating, reset-to-application semantics, and copy filtering against the current application policy.
+-   Updated application settings and backend sanitization so `workspaceOverrides` removes unknown keys, removes duplicates, and prevents locked keys from remaining allowed.
+-   Added runtime workspace settings routes and `apps-template-mui` UI using existing dashboard/workspace primitives; Russian labels are resolved from the `apps` bundle instead of raw i18n keys.
+-   Added metahub aggregate layout/widget settings so Interpretation Network widget settings are visible from the global Metahub Settings surface and still save to the same layout widget config used by contextual layout editing.
+-   Added application layout widget typed editing for `interpretationNetworkWorkspace`, removed normal-surface raw JSON fallback, and added inherited/customized status labels for materialized widgets.
+-   Updated EN/RU GitBook docs and package README notes for the three-layer settings model.
+-   Strengthened focused Vitest/Jest coverage and the imported Interpretation Network Playwright flow for metahub aggregate widget settings, application layout widget settings, and RU workspace settings.
+-   Validation passed: focused shared-types/metahubs/applications/apps-template Vitest, focused applications-backend Jest services/controllers, package lint for applications frontend, metahubs frontend, apps-template MUI, and applications backend, package builds for types, applications frontend, metahubs frontend, apps-template MUI, and applications backend, Prettier checks, docs i18n, GitBook link and screenshot-asset checks, apps-template isolation guard, runtime fork guard, `git diff --check`, OntoIndex diff verification, Playwright spec listing, and the full minimal-local-Supabase Interpretation Network verification wrapper. The wrapper now recreates the local E2E Supabase profile between fixture generation and browser verification to prevent generated fixed-schema state from leaking into the browser proof. Backend route Jest can require non-sandbox listener execution in restricted environments because Supertest opens a local listener.
+
+---
+
 ## 2026-07-12 - Interpretation Network Hierarchical Table Visual Follow-Up Closure
 
 Closed the hierarchical Matrix Table visual follow-up for published Interpretation Network apps.

@@ -47,6 +47,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Dialog Forms**: Modal forms for creating and editing entities
 -   **Tabbed Application Forms**: Create, edit, and copy dialogs reuse the shared `General / Parameters` pattern
 -   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. Interpretation Network Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
+-   **Layout Widget Customization**: Supported materialized widgets can be customized from the Application Layouts screen with typed editors and an inherited/customized status label instead of raw JSON.
 
 ### 🧭 Interpretation Network Matrix Settings
 
@@ -55,6 +56,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   Table opens with the hierarchy-first `hierarchicalPath` projection by default: breadcrumbs represent the parent path and the current level's children become rows. `independentAxes` remains available as a secondary row/column projection.
 -   Breadcrumb depth is configurable as the full path or a finite trailing depth, and toolbar layout remains horizontal by default with vertical layout as an explicit opt-in.
 -   Save applies one coherent configuration to all active Interpretation Network workspace widgets. If the widgets currently disagree, the UI shows a localized warning and normalizes the saved state instead of presenting raw JSON or widget IDs.
+-   The Application Layouts widget settings action opens the same typed Matrix editor for a selected materialized widget and marks whether that widget is inherited from the metahub or customized in the application.
 -   Matrix view settings do not create or edit workspace content. Structures, cells, Relations, Materials, and table templates remain authored in the published workspace.
 -   Narrow screens stack settings controls, use full-width inputs, and keep validation and snackbar feedback localized.
 

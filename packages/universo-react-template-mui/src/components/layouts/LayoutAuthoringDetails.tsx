@@ -19,8 +19,11 @@ export type LayoutAuthoringWidgetRow = {
     draggable?: boolean
     inheritedLabel?: string
     editTooltip?: string
+    editAriaLabel?: string
     removeTooltip?: string
+    removeAriaLabel?: string
     toggleActiveTooltip?: string
+    toggleActiveAriaLabel?: string
     moveActions?: Array<{
         key: string
         label: string
@@ -73,8 +76,11 @@ function SortableLayoutWidgetChip({
     onEdit,
     onToggleActive,
     editTooltip,
+    editAriaLabel,
     removeTooltip,
+    removeAriaLabel,
     toggleActiveTooltip,
+    toggleActiveAriaLabel,
     inheritedLabel,
     moveActions,
     moveWidgetLabel
@@ -174,7 +180,12 @@ function SortableLayoutWidgetChip({
             ) : null}
             {onEdit ? (
                 <Tooltip title={editTooltip || ''} arrow>
-                    <IconButton size='small' data-testid={`layout-widget-edit-${id}`} onClick={onEdit}>
+                    <IconButton
+                        size='small'
+                        data-testid={`layout-widget-edit-${id}`}
+                        aria-label={editAriaLabel || editTooltip}
+                        onClick={onEdit}
+                    >
                         <EditRoundedIcon fontSize='small' />
                     </IconButton>
                 </Tooltip>
@@ -184,6 +195,7 @@ function SortableLayoutWidgetChip({
                     <IconButton
                         size='small'
                         data-testid={`layout-widget-toggle-${id}`}
+                        aria-label={toggleActiveAriaLabel || toggleActiveTooltip}
                         onClick={() => onToggleActive(!isActive)}
                         sx={!isActive ? { color: 'text.disabled' } : undefined}
                     >
@@ -193,7 +205,12 @@ function SortableLayoutWidgetChip({
             ) : null}
             {onRemove ? (
                 <Tooltip title={removeTooltip || ''} arrow>
-                    <IconButton size='small' data-testid={`layout-widget-remove-${id}`} onClick={onRemove}>
+                    <IconButton
+                        size='small'
+                        data-testid={`layout-widget-remove-${id}`}
+                        aria-label={removeAriaLabel || removeTooltip}
+                        onClick={onRemove}
+                    >
                         <CloseRoundedIcon fontSize='small' />
                     </IconButton>
                 </Tooltip>

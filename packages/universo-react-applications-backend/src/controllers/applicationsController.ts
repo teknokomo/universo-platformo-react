@@ -4,6 +4,8 @@ import type { VersionedLocalizedContent } from '@universo-react/types'
 import {
     applicationLearningContentSettingsSchema,
     applicationRolePolicySettingsSchema,
+    applicationWorkspaceOverridePolicySchema,
+    normalizeApplicationWorkspaceOverridePolicy,
     sanitizeApplicationRolePolicySettingsForSupportedScopes
 } from '@universo-react/types'
 import { ApplicationMembershipState } from '@universo-react/types'
@@ -172,6 +174,7 @@ const applicationDialogSettingsSchema = z
         schemaDiffLocalizedLabels: z.boolean().optional(),
         learningContent: applicationLearningContentSettingsSchema.optional(),
         rolePolicies: applicationRolePolicySettingsSchema.optional(),
+        workspaceOverrides: applicationWorkspaceOverridePolicySchema.optional(),
         applicationLayouts: z
             .object({
                 readRoles: z
@@ -197,7 +200,10 @@ const sanitizeApplicationSettingsUpdate = (
     settings: z.infer<typeof applicationSettingsUpdateSchema>
 ): z.infer<typeof applicationSettingsUpdateSchema> => ({
     ...settings,
-    ...(settings.rolePolicies ? { rolePolicies: sanitizeApplicationRolePolicySettingsForSupportedScopes(settings.rolePolicies) } : {})
+    ...(settings.rolePolicies ? { rolePolicies: sanitizeApplicationRolePolicySettingsForSupportedScopes(settings.rolePolicies) } : {}),
+    ...(settings.workspaceOverrides !== undefined
+        ? { workspaceOverrides: normalizeApplicationWorkspaceOverridePolicy({ workspaceOverrides: settings.workspaceOverrides }) }
+        : {})
 })
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))

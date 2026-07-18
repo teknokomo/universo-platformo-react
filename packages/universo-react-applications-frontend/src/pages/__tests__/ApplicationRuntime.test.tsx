@@ -688,8 +688,17 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:access`)
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces|Dashboard:false:/a/app-1/workspaces/${workspaceId}|Access:true:/a/app-1/workspaces/${workspaceId}/access`
+            `Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces|Dashboard:false:/a/app-1/workspaces/${workspaceId}|Access:true:/a/app-1/workspaces/${workspaceId}/access|Settings:false:/a/app-1/workspaces/${workspaceId}/settings`
         )
+    })
+
+    it('passes workspace settings route parameters and selects settings navigation', () => {
+        const workspaceId = '00000000-0000-7000-8000-000000000111'
+
+        renderRuntimePageAt(`/applications/app-1/runtime/workspaces/${workspaceId}/settings`)
+
+        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:settings`)
+        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(`Settings:true:/a/app-1/workspaces/${workspaceId}/settings`)
     })
 
     it('does not duplicate Workspaces when the runtime menu already provides the root workspace link', () => {

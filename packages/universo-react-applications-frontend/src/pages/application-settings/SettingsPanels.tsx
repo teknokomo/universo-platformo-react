@@ -16,6 +16,11 @@ import {
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import type { TFunction } from 'i18next'
+import {
+    getDefaultWorkspaceOverrideAllowedKeys,
+    listWorkspaceOverridableSettings,
+    normalizeApplicationWorkspaceOverridePolicy
+} from '@universo-react/types'
 import type { ApplicationDialogSettings, ApplicationRole, ApplicationWorkspaceLimitItem } from '../../types'
 
 export type ApplicationCapabilityKey =
@@ -458,111 +463,196 @@ export const AccessSettingsPanel = ({
     t,
     unsupportedActiveRoleRulesCount,
     rolePolicyMatrix,
+    settings,
     hasChanges,
     isSaving,
     onUpdateRoleCapability,
+    onSettingsChange,
     onSave
 }: {
     t: Translate
     unsupportedActiveRoleRulesCount: number
     rolePolicyMatrix: Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>>
+    settings: ApplicationDialogSettings
     hasChanges: boolean
     isSaving: boolean
     onUpdateRoleCapability: (role: ApplicationRole, capability: ApplicationCapabilityKey, checked: boolean) => void
+    onSettingsChange: SettingsChange
     onSave: SaveHandler
-}) => (
-    <Stack spacing={2}>
-        <Alert severity='info'>
-            {t(
-                'settings.accessHint',
-                'Configure generic application and workspace capabilities for each application role. These rules are enforced by the runtime API.'
-            )}
-        </Alert>
-        {unsupportedActiveRoleRulesCount > 0 ? (
-            <Alert severity='warning' data-testid='application-settings-unsupported-scope-warning'>
+}) => {
+    const workspacePolicy = normalizeApplicationWorkspaceOverridePolicy({ workspaceOverrides: settings.workspaceOverrides })
+    const defaultAllowedKeys = getDefaultWorkspaceOverrideAllowedKeys()
+    const workspaceSettings = listWorkspaceOverridableSettings()
+    const updateWorkspaceAllowedKey = (key: string, checked: boolean) => {
+        const nextAllowed = checked ? [...workspacePolicy.allowedKeys, key] : workspacePolicy.allowedKeys.filter((item) => item !== key)
+        onSettingsChange({
+            workspaceOverrides: {
+                allowedKeys: Array.from(new Set(nextAllowed)),
+                lockedKeys: workspacePolicy.lockedKeys.filter((item) => item !== key)
+            }
+        })
+    }
+
+    const resetWorkspacePolicy = () => {
+        onSettingsChange({
+            workspaceOverrides: {
+                allowedKeys: defaultAllowedKeys,
+                lockedKeys: []
+            }
+        })
+    }
+
+    return (
+        <Stack spacing={2}>
+            <Alert severity='info'>
                 {t(
-                    'settings.unsupportedScopeWarning',
-                    'Some imported role policy grants use scopes that are not implemented yet. They will be saved as deny rules until scoped predicates are available.'
+                    'settings.accessHint',
+                    'Configure generic application and workspace capabilities for each application role. These rules are enforced by the runtime API.'
                 )}
             </Alert>
-        ) : null}
+            {unsupportedActiveRoleRulesCount > 0 ? (
+                <Alert severity='warning' data-testid='application-settings-unsupported-scope-warning'>
+                    {t(
+                        'settings.unsupportedScopeWarning',
+                        'Some imported role policy grants use scopes that are not implemented yet. They will be saved as deny rules until scoped predicates are available.'
+                    )}
+                </Alert>
+            ) : null}
 
-        <Box sx={{ overflowX: 'auto' }}>
-            <Box
-                data-testid='application-settings-role-policy-grid'
-                sx={{
-                    minWidth: 760,
-                    display: 'grid',
-                    gridTemplateColumns: `minmax(220px, 1.25fr) repeat(${APPLICATION_ROLE_ORDER.length}, minmax(120px, 1fr))`,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    overflow: 'hidden'
-                }}
-            >
-                <Box sx={{ p: 1.5, bgcolor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
-                    <Typography variant='subtitle2'>{t('settings.capabilityColumn', 'Capability')}</Typography>
-                </Box>
-                {APPLICATION_ROLE_ORDER.map((role) => (
-                    <Box
-                        key={role}
-                        sx={{
-                            p: 1.5,
-                            bgcolor: 'background.default',
-                            borderBottom: 1,
-                            borderLeft: 1,
-                            borderColor: 'divider',
-                            textAlign: 'center'
-                        }}
-                    >
-                        <Typography variant='subtitle2'>
-                            {t(`settings.roles.${role}`, role.charAt(0).toUpperCase() + role.slice(1))}
-                        </Typography>
+            <Box sx={{ overflowX: 'auto' }}>
+                <Box
+                    data-testid='application-settings-role-policy-grid'
+                    sx={{
+                        minWidth: 760,
+                        display: 'grid',
+                        gridTemplateColumns: `minmax(220px, 1.25fr) repeat(${APPLICATION_ROLE_ORDER.length}, minmax(120px, 1fr))`,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        overflow: 'hidden'
+                    }}
+                >
+                    <Box sx={{ p: 1.5, bgcolor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
+                        <Typography variant='subtitle2'>{t('settings.capabilityColumn', 'Capability')}</Typography>
                     </Box>
-                ))}
-
-                {APPLICATION_CAPABILITIES.map((capability) => (
-                    <Box key={capability.key} sx={{ display: 'contents' }}>
-                        <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider' }}>
-                            <Typography variant='body2' sx={{ fontWeight: 600 }}>
-                                {t(capability.labelKey, capability.fallback)}
-                            </Typography>
-                            <Typography variant='caption' color='text.secondary'>
-                                {capability.capability}
+                    {APPLICATION_ROLE_ORDER.map((role) => (
+                        <Box
+                            key={role}
+                            sx={{
+                                p: 1.5,
+                                bgcolor: 'background.default',
+                                borderBottom: 1,
+                                borderLeft: 1,
+                                borderColor: 'divider',
+                                textAlign: 'center'
+                            }}
+                        >
+                            <Typography variant='subtitle2'>
+                                {t(`settings.roles.${role}`, role.charAt(0).toUpperCase() + role.slice(1))}
                             </Typography>
                         </Box>
-                        {APPLICATION_ROLE_ORDER.map((role) => (
-                            <Box
-                                key={`${role}-${capability.key}`}
-                                sx={{
-                                    p: 1,
-                                    borderTop: 1,
-                                    borderLeft: 1,
-                                    borderColor: 'divider',
-                                    display: 'flex',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <Switch
-                                    data-testid={`application-settings-role-policy-${role}-${capability.key}`}
-                                    checked={rolePolicyMatrix[role][capability.key]}
-                                    onChange={(event) => onUpdateRoleCapability(role, capability.key, event.target.checked)}
-                                    slotProps={{
-                                        input: {
-                                            'aria-label': `${role} ${capability.capability}`
-                                        }
-                                    }}
-                                />
-                            </Box>
-                        ))}
-                    </Box>
-                ))}
-            </Box>
-        </Box>
+                    ))}
 
-        {hasChanges ? <SaveSettingsButton testId='application-settings-access-save' t={t} disabled={isSaving} onSave={onSave} /> : null}
-    </Stack>
-)
+                    {APPLICATION_CAPABILITIES.map((capability) => (
+                        <Box key={capability.key} sx={{ display: 'contents' }}>
+                            <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                                <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                                    {t(capability.labelKey, capability.fallback)}
+                                </Typography>
+                                <Typography variant='caption' color='text.secondary'>
+                                    {capability.capability}
+                                </Typography>
+                            </Box>
+                            {APPLICATION_ROLE_ORDER.map((role) => (
+                                <Box
+                                    key={`${role}-${capability.key}`}
+                                    sx={{
+                                        p: 1,
+                                        borderTop: 1,
+                                        borderLeft: 1,
+                                        borderColor: 'divider',
+                                        display: 'flex',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    <Switch
+                                        data-testid={`application-settings-role-policy-${role}-${capability.key}`}
+                                        checked={rolePolicyMatrix[role][capability.key]}
+                                        onChange={(event) => onUpdateRoleCapability(role, capability.key, event.target.checked)}
+                                        slotProps={{
+                                            input: {
+                                                'aria-label': `${role} ${capability.capability}`
+                                            }
+                                        }}
+                                    />
+                                </Box>
+                            ))}
+                        </Box>
+                    ))}
+                </Box>
+            </Box>
+
+            <Box data-testid='application-settings-workspace-override-policy'>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, mb: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant='subtitle2'>{t('settings.workspaceOverrides.title', 'Workspace overrides')}</Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'settings.workspaceOverrides.description',
+                                'Choose which application settings workspace owners can override inside a published workspace.'
+                            )}
+                        </Typography>
+                    </Box>
+                    <Button variant='outlined' size='small' onClick={resetWorkspacePolicy}>
+                        {t('settings.workspaceOverrides.resetDefaults', 'Reset defaults')}
+                    </Button>
+                </Stack>
+
+                <Stack spacing={0} divider={<Divider />} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+                    {workspaceSettings.map((definition) => (
+                        <Box
+                            key={definition.key}
+                            sx={{
+                                p: 2,
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) auto' },
+                                gap: 2,
+                                alignItems: 'center'
+                            }}
+                        >
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                                    {t(definition.labelKey, definition.key)}
+                                </Typography>
+                                <Typography variant='caption' color='text.secondary'>
+                                    {t(definition.descriptionKey, definition.key)}
+                                </Typography>
+                            </Box>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={workspacePolicy.allowedKeys.includes(definition.key)}
+                                        onChange={(event) => updateWorkspaceAllowedKey(definition.key, event.target.checked)}
+                                        slotProps={{
+                                            input: testIdInputProps(`application-settings-workspace-override-${definition.key}`)
+                                        }}
+                                    />
+                                }
+                                label={
+                                    workspacePolicy.allowedKeys.includes(definition.key)
+                                        ? t('settings.workspaceOverrides.allowed', 'Allowed')
+                                        : t('settings.workspaceOverrides.locked', 'Locked')
+                                }
+                            />
+                        </Box>
+                    ))}
+                </Stack>
+            </Box>
+
+            {hasChanges ? <SaveSettingsButton testId='application-settings-access-save' t={t} disabled={isSaving} onSave={onSave} /> : null}
+        </Stack>
+    )
+}
 
 export const LimitsSettingsPanel = ({
     t,
