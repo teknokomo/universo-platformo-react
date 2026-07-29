@@ -32,6 +32,7 @@ export interface MatrixWorkspaceBridgeProps {
     disabled: boolean
     axisActionsDisabled?: boolean
     addCellDisabled?: boolean
+    canSaveTemplate?: boolean
     savingCell: boolean
     movingCell: boolean
     errors: { rows: unknown; saveCell: unknown; moveCell: unknown }
@@ -40,6 +41,7 @@ export interface MatrixWorkspaceBridgeProps {
     deletingCell: boolean
     sensors: SensorDescriptor<SensorOptions>[]
     onChangeMatrixView: (view: MatrixView) => void
+    onOpenSaveTemplate?: () => void
     actions: {
         openCellDialog: (
             mode: 'create-child' | 'create-cell' | 'create-row' | 'edit',
@@ -87,6 +89,7 @@ export function MatrixWorkspaceBridge({
     disabled,
     axisActionsDisabled,
     addCellDisabled,
+    canSaveTemplate,
     savingCell,
     movingCell,
     errors,
@@ -95,6 +98,7 @@ export function MatrixWorkspaceBridge({
     deletingCell,
     sensors,
     onChangeMatrixView,
+    onOpenSaveTemplate,
     actions
 }: MatrixWorkspaceBridgeProps) {
     return (
@@ -124,6 +128,7 @@ export function MatrixWorkspaceBridge({
             matrixMutationsDisabled={disabled}
             matrixAxisActionsDisabled={axisActionsDisabled}
             addCellDisabled={addCellDisabled}
+            canSaveTemplate={canSaveTemplate}
             isSavingCell={savingCell}
             isMovingCell={movingCell}
             matrixRowsError={errors.rows}
@@ -137,6 +142,7 @@ export function MatrixWorkspaceBridge({
             isDeletingCell={deletingCell}
             sensors={sensors}
             onChangeMatrixView={onChangeMatrixView}
+            onOpenSaveTemplate={onOpenSaveTemplate}
             onOpenCellDialog={actions.openCellDialog}
             onAddTableRow={actions.addTableRow}
             onAddTableColumn={actions.addTableColumn}

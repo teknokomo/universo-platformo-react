@@ -1149,6 +1149,7 @@ export class SchemaGenerator {
                 table.string('widget_key', 100).notNullable()
                 table.integer('sort_order').notNullable().defaultTo(1)
                 table.jsonb('config').notNullable().defaultTo('{}')
+                table.jsonb('source_config').nullable()
                 table.boolean('is_active').notNullable().defaultTo(true)
                 table.uuid('source_widget_id').nullable()
                 table.uuid('source_base_widget_id').nullable()
@@ -1193,6 +1194,7 @@ export class SchemaGenerator {
             await knex.raw(`
                 ALTER TABLE "${schemaName}"."_app_widgets"
                 ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true,
+                ADD COLUMN IF NOT EXISTS "source_config" JSONB NULL,
                 ADD COLUMN IF NOT EXISTS "source_widget_id" UUID NULL,
                 ADD COLUMN IF NOT EXISTS "source_base_widget_id" UUID NULL,
                 ADD COLUMN IF NOT EXISTS "source_content_hash" TEXT NULL,

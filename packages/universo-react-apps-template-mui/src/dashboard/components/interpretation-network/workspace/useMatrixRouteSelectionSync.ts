@@ -10,6 +10,7 @@ export function useMatrixRouteSelectionSync({
     queryFetching,
     routeStructureId,
     routeCellId,
+    singleSystemMode = false,
     concepts,
     interpretations,
     structureSummaries,
@@ -37,6 +38,7 @@ export function useMatrixRouteSelectionSync({
     queryFetching: boolean
     routeStructureId: string | null
     routeCellId: string | null
+    singleSystemMode?: boolean
     concepts: RuntimeRow[]
     interpretations: RuntimeRow[]
     structureSummaries: StructureSummary[]
@@ -78,6 +80,7 @@ export function useMatrixRouteSelectionSync({
     useEffect(() => {
         if (queryLoading || queryFetching) return
         if (!routeStructureId) {
+            if (singleSystemMode) return
             if (selectedConceptId) {
                 setSelectedConceptId(null)
                 setSelectedInterpretationId(null)
@@ -116,6 +119,7 @@ export function useMatrixRouteSelectionSync({
         queryLoading,
         routeCellId,
         routeStructureId,
+        singleSystemMode,
         selectMatrixCell,
         selectedCellId,
         selectedConceptId,

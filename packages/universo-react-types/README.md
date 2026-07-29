@@ -65,6 +65,7 @@ Ledgers classify ordinary field definitions through `fieldRoles` and use source 
 `common/applicationLayouts` is the authoritative cross-package contract for the `interpretationNetworkWorkspace` widget:
 
 -   `matrixMode` describes data semantics: `hierarchicalCells` or `independentRows`.
+-   `structureMode` describes Structure navigation: `multiple` shows the Structure list, while `singleSystem` opens one server-owned Matrix directly.
 -   `allowedMatrixViews` is a non-empty subset of the peer views `table`, `horizontalRows`, and `verticalTree`.
 -   `defaultMatrixView` must be present in the allowed set.
 -   `tableProjection` is `hierarchicalPath` by default and may be changed to `independentAxes` for the secondary row/column table.

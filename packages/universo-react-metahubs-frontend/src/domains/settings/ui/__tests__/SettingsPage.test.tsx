@@ -15,6 +15,9 @@ const layoutsApiMocks = vi.hoisted(() => ({
     listLayoutZoneWidgets: vi.fn(),
     updateLayoutZoneWidgetConfig: vi.fn()
 }))
+const snackbarMocks = vi.hoisted(() => ({
+    enqueueSnackbar: vi.fn()
+}))
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -36,6 +39,8 @@ vi.mock('react-i18next', () => ({
                 'settings.layoutWidgets.layoutLabel': 'Layout: {{layout}}',
                 'settings.layoutWidgets.editSettings': 'Edit settings',
                 'settings.layoutWidgets.openEditor': 'Open in layout',
+                'settings.layoutWidgets.saved': 'Widget settings saved',
+                'settings.layoutWidgets.saveError': 'Failed to save widget settings',
                 'layouts.widgets.interpretationNetworkWorkspace': 'Interpretation network workspace',
                 'layouts.interpretationNetworkEditor.title': 'Interpretation network workspace',
                 'layouts.interpretationNetworkEditor.displayTitle': 'Matrix views',
@@ -74,7 +79,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('notistack', () => ({
-    useSnackbar: () => ({ enqueueSnackbar: vi.fn() })
+    useSnackbar: () => ({ enqueueSnackbar: snackbarMocks.enqueueSnackbar })
 }))
 
 vi.mock('@universo-react/template-mui', () => ({
@@ -371,5 +376,55 @@ describe('SettingsPage', () => {
         await waitFor(() => {
             expect(screen.getByText('Layout detail route')).toBeInTheDocument()
         })
+    })
+
+    it('keeps the widget editor open after a failed save and closes it only after a successful retry', async () => {
+        const user = userEvent.setup()
+        layoutsApiMocks.listLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Main layout' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    version: 1
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        layoutsApiMocks.listLayoutZoneWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'center',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { matrixMode: 'hierarchicalCells', defaultMatrixView: 'table' },
+                isActive: true
+            }
+        ])
+        layoutsApiMocks.updateLayoutZoneWidgetConfig.mockRejectedValueOnce(new Error('save failed'))
+
+        renderPage()
+        await user.click(screen.getByRole('tab', { name: 'Layouts and widgets' }))
+        await user.click(await screen.findByRole('button', { name: 'Edit settings' }))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            expect(snackbarMocks.enqueueSnackbar).toHaveBeenCalledWith('Failed to save widget settings', { variant: 'error' })
+        })
+        expect(screen.getByRole('dialog', { name: 'Interpretation network workspace' })).toBeInTheDocument()
+
+        layoutsApiMocks.updateLayoutZoneWidgetConfig.mockResolvedValueOnce({ data: { item: {} } })
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Interpretation network workspace' })).not.toBeInTheDocument()
+        })
+        expect(snackbarMocks.enqueueSnackbar).toHaveBeenCalledWith('Widget settings saved', { variant: 'success' })
     })
 })

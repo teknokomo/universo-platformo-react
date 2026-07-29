@@ -27,6 +27,8 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Expose generic runtime Ledger metadata, fact append/reversal, fact listing, and projection query routes for standard `ledger` entities without making Ledgers normal row-CRUD sections.
 -   Provide a generic runtime report runner for Object-backed report definitions. The runner validates shared report contracts, resolves table and column identifiers from published metadata, parameterizes SQL values, and fails closed for unavailable fields.
 -   Execute published runtime modules through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` modules and reuses runtime row helpers, workspace context, and permission maps.
+-   Own strict transactional Interpretation Network commands for single-system bootstrap, template aggregates, Material attachment, and Matrix cell creation/movement while keeping Matrix identifiers and placement fields server-owned.
+-   Enforce Interpretation Network authorization and isolation at the command boundary: template save/instantiate require create+edit, metadata updates require edit, deletion requires delete, and application/workspace mismatches fail closed. Template copies regenerate UUID v7 row/cell/material identities, exclude Relations and file cloning, and only retain ordinary external URLs as authored values inside copied Material `Body`.
 -   Expose `ctx.ledger` to runtime modules only when `ledger.read` or `ledger.write` capabilities are declared.
 -   Persist schema sync state in `applications.obj_applications` through SQL-first stores.
 -   Keep runtime release metadata in the same central sync-state surface.
@@ -70,6 +72,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Runtime Ledger endpoints are mounted under `/applications/:applicationId/runtime/ledgers` and keep append/reverse/query behavior separate from generic Object row CRUD.
 -   Application layout endpoints are mounted under `/applications/:applicationId/layouts` and `/applications/:applicationId/layout-scopes`.
 -   Workspace setting overrides are filtered by the current application workspace override policy during update and copy flows, and application administrators can manage them without being workspace members.
+-   Materialized layout widgets retain the latest metahub baseline in nullable `_app_widgets.source_config`; application admins can atomically reset effective widget configuration with optimistic concurrency, and removed source widgets cannot restore stale settings.
 -   `initializeRateLimiters()` prepares package-level rate limiting before route creation.
 -   Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.
 -   Platform migration definitions stay in the package migration surface instead of route handlers.

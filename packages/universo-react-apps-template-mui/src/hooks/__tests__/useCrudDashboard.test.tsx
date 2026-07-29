@@ -205,6 +205,87 @@ describe('useCrudDashboard optimistic mutations', () => {
         }
     })
 
+    it('gives a metadata-resolved route section precedence over the start menu during bootstrap', async () => {
+        const fetchList = vi.fn().mockImplementation(async ({ sectionId, objectCollectionId }) => {
+            const activeId = sectionId ?? objectCollectionId ?? 'intro-section'
+            return {
+                ...createAppData(),
+                section: createRuntimeSection(activeId, activeId === 'structure-section' ? 'Structures' : 'Start'),
+                objectCollection: createRuntimeSection(activeId, activeId === 'structure-section' ? 'Structures' : 'Start'),
+                activeSectionId: activeId,
+                activeObjectCollectionId: activeId,
+                sections: [createRuntimeSection('intro-section', 'Start'), createRuntimeSection('structure-section', 'Structures')],
+                objectCollections: [
+                    createRuntimeSection('intro-section', 'Start'),
+                    createRuntimeSection('structure-section', 'Structures')
+                ],
+                menus: [
+                    {
+                        id: 'menu-1',
+                        widgetId: 'widget-1',
+                        showTitle: false,
+                        title: 'Main',
+                        startSectionId: 'intro-section',
+                        items: [
+                            {
+                                id: 'intro',
+                                kind: 'section',
+                                title: 'Start',
+                                sectionId: 'intro-section',
+                                objectCollectionId: 'intro-section',
+                                isActive: true
+                            },
+                            {
+                                id: 'structures',
+                                kind: 'section',
+                                title: 'Structures',
+                                sectionId: 'structure-section',
+                                objectCollectionId: 'structure-section',
+                                isActive: true
+                            }
+                        ],
+                        overflowItems: []
+                    }
+                ],
+                activeMenuId: 'menu-1'
+            } satisfies AppDataResponse
+        })
+        const adapter = createAdapter({ fetchList })
+        const { getState, rerender } = renderCrudDashboard(adapter, {
+            resolvePreferredSectionId: (appData) =>
+                appData.sections.some((section) => section.id === 'structure-section') ? 'structure-section' : undefined
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(
+                expect.objectContaining({ sectionId: 'structure-section', objectCollectionId: 'structure-section' })
+            )
+        })
+        expect(getState().selectedSectionId).toBe('structure-section')
+        expect(getState().selectedObjectCollectionId).toBe('structure-section')
+        expect(
+            fetchList.mock.calls.some(
+                ([request]) => request.sectionId === 'intro-section' || request.objectCollectionId === 'intro-section'
+            )
+        ).toBe(false)
+
+        await act(async () => {
+            getState().onSelectObjectCollection('intro-section')
+        })
+        await waitFor(() => {
+            expect(getState().selectedSectionId).toBe('intro-section')
+            expect(getState().selectedObjectCollectionId).toBe('intro-section')
+        })
+
+        await act(async () => {
+            rerender({ resolvePreferredSectionId: () => undefined })
+            getState().onSelectObjectCollection('intro-section')
+        })
+        await waitFor(() => {
+            expect(getState().selectedSectionId).toBe('intro-section')
+        })
+    })
+
     it('applies create-target defaults only to safe writable create fields', async () => {
         const adapter = createAdapter({
             fetchList: vi.fn().mockResolvedValue({
@@ -376,7 +457,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                 section: accessLinksSection,
                 objectCollection: accessLinksSection,
                 sections: [accessLinksSection, welcomeSection],
-                objectCollections: [accessLinksSection],
+                objectCollections: [accessLinksSection, welcomeSection],
                 activeSectionId: 'access-links',
                 activeObjectCollectionId: 'access-links',
                 columns: [
@@ -448,7 +529,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                 section: welcomeSection,
                 objectCollection: accessLinksSection,
                 sections: [accessLinksSection, welcomeSection],
-                objectCollections: [accessLinksSection],
+                objectCollections: [accessLinksSection, welcomeSection],
                 activeSectionId: 'welcome-page',
                 activeObjectCollectionId: undefined,
                 columns: [],

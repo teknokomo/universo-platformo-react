@@ -11,10 +11,23 @@
 
 import { interpretationNetworkTemplate } from '../domains/templates/data/interpretation-network.template'
 import { INTERPRETATION_NETWORK_STAGE2 } from '../domains/templates/data/interpretation-network.stage2'
+import { builtinTemplates } from '../domains/templates/data'
 
 const findWidget = (widgets: Array<{ widgetKey: string }>, key: string) => widgets.find((w) => w.widgetKey === key)
 
 describe('interpretation-network template shape', () => {
+    it('keeps the exact seven built-in metahub templates registered', () => {
+        expect(builtinTemplates.map((template) => template.codename)).toEqual([
+            'basic',
+            'basic-demo',
+            'empty',
+            'lms',
+            '1c-compatible',
+            'playcanvas',
+            'interpretation-network'
+        ])
+    })
+
     it('declares a single default main layout with templateKey dashboard', () => {
         const layouts = interpretationNetworkTemplate.seed.layouts ?? []
         const main = layouts.find((layout) => layout.codename === 'main')
@@ -39,6 +52,11 @@ describe('interpretation-network template shape', () => {
                       materialTitleField?: string
                       tableTemplateCodename?: string
                       tableProjection?: string
+                      structureMode?: string
+                      templatePanel?: {
+                          showInStructureList?: boolean
+                          showInMatrix?: boolean
+                      }
                       breadcrumbDepth?: { mode?: string }
                       toolbarLayout?: string
                       showHierarchicalTableHeaders?: boolean
@@ -55,6 +73,11 @@ describe('interpretation-network template shape', () => {
         expect(findWidget(left, 'workspaceSwitcher')).toBeDefined()
         expect(workspace?.config).toMatchObject({
             matrixMode: 'hierarchicalCells',
+            structureMode: 'multiple',
+            templatePanel: {
+                showInStructureList: true,
+                showInMatrix: true
+            },
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
             tableProjection: 'hierarchicalPath',
@@ -136,11 +159,30 @@ describe('interpretation-network template shape', () => {
         expect(interpretationNetworkTemplate.seed.elements).toBeUndefined()
     })
 
+    it('Structure carries a hidden server-owned SystemKey for single-system runtime mode', () => {
+        const structure = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Structure')
+        const systemKey = structure?.components?.find((c) => c.codename === 'SystemKey')
+        expect(systemKey?.dataType).toBe('STRING')
+        expect(systemKey?.validationRules).toMatchObject({ maxLength: 64 })
+        expect(systemKey?.uiConfig).toMatchObject({
+            hidden: true,
+            gridHidden: true,
+            formHidden: true,
+            serverOwned: true
+        })
+    })
+
     it('TableTemplate is a workspace-authored Object with a TABLE TemplateMatrix', () => {
         const tableTemplate = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'TableTemplate')
         expect(tableTemplate?.kind).toBe('object')
         expect(tableTemplate?.config).toEqual(expect.objectContaining({ recordBehavior: 'reference' }))
         expect(tableTemplate?.components?.find((c) => c.codename === 'Name')?.isDisplayComponent).toBe(true)
+        expect(tableTemplate?.components?.find((c) => c.codename === 'MaterialPolicy')?.uiConfig).toMatchObject({
+            hidden: true,
+            gridHidden: true,
+            formHidden: true,
+            serverOwned: true
+        })
         const matrix = tableTemplate?.components?.find((c) => c.codename === 'TemplateMatrix')
         expect(matrix?.dataType).toBe('TABLE')
         expect(matrix?.childComponents?.map((c) => c.codename)).toEqual(
@@ -165,10 +207,16 @@ describe('interpretation-network template shape', () => {
         expect(material?.config).toEqual(expect.objectContaining({ recordBehavior: 'reference' }))
         const title = material?.components?.find((c) => c.codename === 'Title')
         const body = material?.components?.find((c) => c.codename === 'Body')
+        const templateOwnerId = material?.components?.find((c) => c.codename === 'TemplateOwnerId')
         expect(title?.isDisplayComponent).toBe(true)
         expect(title?.validationRules).toMatchObject({ localized: true, versioned: true })
         expect(body?.dataType).toBe('JSON')
         expect(body?.uiConfig).toMatchObject({ widget: 'editorjsBlockContent', gridHidden: true })
+        expect(templateOwnerId).toMatchObject({
+            dataType: 'STRING',
+            validationRules: { maxLength: 64 },
+            uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+        })
     })
 
     it('Interpretation entity specifies the TABLE InterpretationMatrix with 23 child components', () => {
@@ -187,7 +235,8 @@ describe('interpretation-network template shape', () => {
         expect(codenames).toContain('MaterialRef')
         expect(matrix?.childComponents?.find((c) => c.codename === 'MaterialRef')).toMatchObject({
             targetEntityCodename: 'Material',
-            targetEntityKind: 'object'
+            targetEntityKind: 'object',
+            uiConfig: { serverOwned: true }
         })
         for (const codename of [
             'CellFillColor',
@@ -228,7 +277,7 @@ describe('interpretation-network template shape', () => {
         const material = INTERPRETATION_NETWORK_STAGE2.seedEntities.find((e) => e.codename === 'Material')
         const matrix = interpretation?.components?.find((c) => c.codename === 'InterpretationMatrix')
 
-        expect(structure?.components?.map((c) => c.codename)).toEqual(['Name', 'Description'])
+        expect(structure?.components?.map((c) => c.codename)).toEqual(['Name', 'Description', 'SystemKey'])
         expect(structure?.components?.find((c) => c.codename === 'Name')).toMatchObject({
             name: expect.objectContaining({
                 locales: expect.objectContaining({
@@ -245,6 +294,16 @@ describe('interpretation-network template shape', () => {
         expect(structure?.components?.find((c) => c.codename === 'Description')?.validationRules).toMatchObject({
             localized: true,
             versioned: true
+        })
+        expect(structure?.components?.find((c) => c.codename === 'SystemKey')).toMatchObject({
+            dataType: 'STRING',
+            validationRules: { maxLength: 64 },
+            uiConfig: {
+                hidden: true,
+                gridHidden: true,
+                formHidden: true,
+                serverOwned: true
+            }
         })
         expect(structure?.components?.find((c) => c.codename === 'Context')).toBeUndefined()
         expect(interpretation?.components?.find((c) => c.codename === 'Title')?.validationRules).toMatchObject({

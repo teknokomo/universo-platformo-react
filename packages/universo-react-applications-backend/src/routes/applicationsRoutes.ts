@@ -9,6 +9,8 @@ import { createRuntimeLedgersController } from '../controllers/runtimeLedgersCon
 import { createRuntimeReportsController } from '../controllers/runtimeReportsController'
 import { createRuntimeModulesController } from '../controllers/runtimeModulesController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
+import { createRuntimeInterpretationNetworkController } from '../controllers/runtimeInterpretationNetworkController'
+import { createRuntimeInterpretationNetworkMatrixController } from '../controllers/runtimeInterpretationNetworkMatrixController'
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
 import { createRuntimePlayCanvasController } from '../controllers/runtimePlayCanvasController'
 
@@ -28,6 +30,8 @@ export function createApplicationsRoutes(
     const reports = createRuntimeReportsController(getDbExecutor)
     const runtimeModules = createRuntimeModulesController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
+    const interpretationNetwork = createRuntimeInterpretationNetworkController(getDbExecutor)
+    const interpretationNetworkMatrix = createRuntimeInterpretationNetworkMatrixController(getDbExecutor)
     const layouts = createApplicationLayoutsController(getDbExecutor)
     const playCanvasRuntime = createRuntimePlayCanvasController(getDbExecutor)
 
@@ -59,6 +63,7 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/layouts/:layoutId/zone-widgets/object', readLimiter, asyncHandler(layouts.listWidgetObject))
     router.put('/:applicationId/layouts/:layoutId/zone-widget', writeLimiter, asyncHandler(layouts.upsertWidget))
     router.patch('/:applicationId/layouts/zone-widgets/config/batch', writeLimiter, asyncHandler(layouts.updateWidgetConfigsBatch))
+    router.post('/:applicationId/layouts/zone-widgets/config/reset', writeLimiter, asyncHandler(layouts.resetWidgetConfigsBatch))
     router.patch('/:applicationId/layouts/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(layouts.moveWidget))
     router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/config', writeLimiter, asyncHandler(layouts.updateWidgetConfig))
     router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/toggle-active', writeLimiter, asyncHandler(layouts.toggleWidget))
@@ -73,6 +78,59 @@ export function createApplicationsRoutes(
     // ── Runtime rows ──
     router.get('/:applicationId/runtime', readLimiter, asyncHandler(runtime.getRuntime))
     router.get('/:applicationId/runtime/playcanvas-manifests', readLimiter, asyncHandler(playCanvasRuntime.listManifests))
+    router.get('/:applicationId/runtime/interpretation-network', readLimiter, asyncHandler(interpretationNetwork.getRuntime))
+    router.post(
+        '/:applicationId/runtime/interpretation-network/system-structure/ensure',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.ensureSystemStructure)
+    )
+    router.get('/:applicationId/runtime/interpretation-network/templates', readLimiter, asyncHandler(interpretationNetwork.listTemplates))
+    router.get(
+        '/:applicationId/runtime/interpretation-network/templates/:templateId',
+        readLimiter,
+        asyncHandler(interpretationNetwork.getTemplateDetail)
+    )
+    router.post('/:applicationId/runtime/interpretation-network/templates', writeLimiter, asyncHandler(interpretationNetwork.saveTemplate))
+    router.patch(
+        '/:applicationId/runtime/interpretation-network/templates/:templateId',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.updateTemplate)
+    )
+    router.delete(
+        '/:applicationId/runtime/interpretation-network/templates/:templateId',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.deleteTemplate)
+    )
+    router.post(
+        '/:applicationId/runtime/interpretation-network/templates/:templateId/instantiate',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.instantiateTemplate)
+    )
+    router.post(
+        '/:applicationId/runtime/interpretation-network/materials',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.createMaterial)
+    )
+    router.post(
+        '/:applicationId/runtime/interpretation-network/structures',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.createStructure)
+    )
+    router.post(
+        '/:applicationId/runtime/interpretation-network/matrix/cells',
+        writeLimiter,
+        asyncHandler(interpretationNetworkMatrix.createCell)
+    )
+    router.post(
+        '/:applicationId/runtime/interpretation-network/matrix/cells/move',
+        writeLimiter,
+        asyncHandler(interpretationNetworkMatrix.moveCells)
+    )
+    router.delete(
+        '/:applicationId/runtime/interpretation-network/structures/:structureId',
+        writeLimiter,
+        asyncHandler(interpretationNetwork.deleteStructure)
+    )
     router.post('/:applicationId/runtime/datasources/records/union', readLimiter, asyncHandler(runtime.listRecordsUnionDatasource))
     router.get('/:applicationId/runtime/rows/:rowId', readLimiter, asyncHandler(runtime.getRow))
     router.post('/:applicationId/runtime/rows', writeLimiter, asyncHandler(runtime.createRow))

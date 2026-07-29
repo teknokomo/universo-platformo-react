@@ -8,6 +8,9 @@ export const INTERPRETATION_NETWORK_SPLIT_PANE_MAX_PERCENT = 75
 export const interpretationNetworkMatrixModes = ['hierarchicalCells', 'independentRows'] as const
 export type InterpretationNetworkMatrixMode = (typeof interpretationNetworkMatrixModes)[number]
 
+export const interpretationNetworkStructureModes = ['multiple', 'singleSystem'] as const
+export type InterpretationNetworkStructureMode = (typeof interpretationNetworkStructureModes)[number]
+
 export const interpretationNetworkMatrixViews = ['table', 'horizontalRows', 'verticalTree'] as const
 export type InterpretationNetworkMatrixView = (typeof interpretationNetworkMatrixViews)[number]
 
@@ -60,15 +63,40 @@ export interface InterpretationNetworkSplitPaneSettings {
     enabled: boolean
 }
 
+export interface InterpretationNetworkTemplatePanelSettings {
+    showInStructureList: boolean
+    showInMatrix: boolean
+}
+
 export const interpretationNetworkSplitPaneSettingsSchema = z
     .object({
         enabled: z.boolean()
     })
     .strict()
 
+export const interpretationNetworkTemplatePanelSettingsSchema = z
+    .object({
+        showInStructureList: z.boolean().optional(),
+        showInMatrix: z.boolean().optional()
+    })
+    .strict()
+
+export const parseInterpretationNetworkStructureMode = (value: unknown): InterpretationNetworkStructureMode =>
+    value === 'singleSystem' ? 'singleSystem' : 'multiple'
+
 export const normalizeInterpretationNetworkSplitPaneSettings = (value: unknown): InterpretationNetworkSplitPaneSettings => {
     const parsed = interpretationNetworkSplitPaneSettingsSchema.safeParse(value)
     return parsed.success ? parsed.data : { enabled: true }
+}
+
+export const normalizeInterpretationNetworkTemplatePanelSettings = (value: unknown): InterpretationNetworkTemplatePanelSettings => {
+    const parsed = interpretationNetworkTemplatePanelSettingsSchema.safeParse(value)
+    return parsed.success
+        ? {
+              showInStructureList: parsed.data.showInStructureList !== false,
+              showInMatrix: parsed.data.showInMatrix !== false
+          }
+        : { showInStructureList: true, showInMatrix: true }
 }
 
 export const normalizeInterpretationNetworkMatrixViewSettings = (
@@ -136,6 +164,7 @@ export const interpretationNetworkPositionNumberingSchema = z
 
 const interpretationNetworkWorkspaceWidgetConfigObjectSchema = moduleBackedWidgetConfigSchema
     .extend({
+        structureMode: z.enum(interpretationNetworkStructureModes).optional(),
         matrixMode: z.enum(interpretationNetworkMatrixModes).optional(),
         allowedMatrixViews: z.array(z.enum(interpretationNetworkMatrixViews)).min(1).max(3).optional(),
         defaultMatrixView: z.enum(interpretationNetworkMatrixViews).optional(),
@@ -147,6 +176,7 @@ const interpretationNetworkWorkspaceWidgetConfigObjectSchema = moduleBackedWidge
         showMatrixTreeTotalCells: z.boolean().optional(),
         colorBreadcrumbsByCell: z.boolean().optional(),
         splitPane: interpretationNetworkSplitPaneSettingsSchema.optional(),
+        templatePanel: interpretationNetworkTemplatePanelSettingsSchema.optional(),
         hierarchyRowMode: z.enum(interpretationNetworkHierarchyRowModes).optional(),
         positionNumbering: interpretationNetworkPositionNumberingSchema.optional(),
         allowNewAxesInCellDialog: z.boolean().optional(),

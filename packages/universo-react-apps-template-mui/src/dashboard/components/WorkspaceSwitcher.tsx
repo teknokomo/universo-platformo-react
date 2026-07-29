@@ -163,7 +163,11 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
             displayEmpty
             fullWidth={variant === 'sidebar'}
             disabled={switchMutation.isPending || isLoading}
-            inputProps={{ 'aria-label': t('workspace.switch', 'Switch workspace') }}
+            inputProps={{
+                'aria-label': t('workspace.switch', 'Switch workspace'),
+                'aria-hidden': true,
+                tabIndex: -1
+            }}
             title={t('workspace.switch', 'Switch workspace')}
             renderValue={() => (
                 <Stack direction='row' alignItems='center' sx={{ minWidth: 0, width: '100%' }}>

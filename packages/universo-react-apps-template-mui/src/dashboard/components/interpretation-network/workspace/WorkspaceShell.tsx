@@ -25,6 +25,7 @@ export interface WorkspaceShellProps {
     details: DetailsPaneBridgeProps
     dialogs: WorkspaceDialogsBridgeProps
     splitPaneEnabled?: boolean
+    singleSystemMode?: boolean
     structureReturnFocusId?: string | null
     onBackToStructureList?: () => void
 }
@@ -34,6 +35,7 @@ export function WorkspaceShell({
     details,
     dialogs,
     splitPaneEnabled = false,
+    singleSystemMode = false,
     structureReturnFocusId,
     onBackToStructureList
 }: WorkspaceShellProps) {
@@ -96,7 +98,7 @@ export function WorkspaceShell({
 
     return (
         <Stack data-testid='interpretation-network-workspace' spacing={2} sx={{ minWidth: 0, width: '100%', pt: 2 }}>
-            {structure.selectedConcept ? (
+            {!singleSystemMode && structure.selectedConcept ? (
                 <Paper variant='outlined' data-testid='interpretation-network-structure-header' sx={{ p: 1.25, borderRadius: 1 }}>
                     <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
                         <IconButton
@@ -136,7 +138,15 @@ export function WorkspaceShell({
                 spacing={splitPaneEnabled && desktop ? 0 : 2}
                 sx={{ minWidth: 0, alignItems: 'stretch' }}
             >
-                <StructurePane {...structure} hideSelectedHeader paneSx={paneSx} onStructureOpenControl={registerStructureOpenControl} />
+                <StructurePane
+                    {...structure}
+                    singleSystemMode={singleSystemMode}
+                    hideSelectedHeader={
+                        Boolean(!singleSystemMode && structure.selectedConcept) || singleSystemMode || structure.hideSelectedHeader
+                    }
+                    paneSx={paneSx}
+                    onStructureOpenControl={registerStructureOpenControl}
+                />
                 {splitPaneEnabled && desktop ? (
                     <Stack
                         component='div'

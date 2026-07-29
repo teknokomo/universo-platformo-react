@@ -273,6 +273,7 @@ describe('LayoutDetails interpretation network widget editor', () => {
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(updateLayoutZoneWidgetConfig).toHaveBeenCalledWith('metahub-1', 'layout-1', 'widget-network', {
+            structureMode: 'multiple',
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows'],
             defaultMatrixView: 'table',
@@ -285,6 +286,7 @@ describe('LayoutDetails interpretation network widget editor', () => {
             colorBreadcrumbsByCell: true,
             allowNewAxesInCellDialog: false,
             conceptCodename: 'concepts',
+            templatePanel: { showInStructureList: true, showInMatrix: true },
             splitPane: { enabled: true }
         })
     })

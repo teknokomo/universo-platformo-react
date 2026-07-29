@@ -44,8 +44,10 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 ## Interpretation Network Template Contract
 
 -   The dedicated Interpretation Network template composes the existing Hub, Object, Page, Set, and Enumeration presets; it does not add a platform entity kind.
--   Its `interpretationNetworkWorkspace` widget carries the canonical peer Matrix views through `allowedMatrixViews` and `defaultMatrixView`, validated by `@universo-react/types`.
+-   Its `interpretationNetworkWorkspace` widget carries the canonical Structure mode and peer Matrix views through `structureMode`, `allowedMatrixViews`, and `defaultMatrixView`, validated by `@universo-react/types`.
+-   `templatePanel.showInStructureList` and `templatePanel.showInMatrix` are canonical metahub defaults and both start as `true`. Applications may override or reset those materialized widget values; workspaces do not override them. With both `false`, templates remain workspace data without a published template UI.
 -   The metahub owns these seeded defaults. A materialized Application may override them for one deployment, while workspace users create Structures, cells, Relations, Materials, and table templates.
+-   `Structure.SystemKey`, `TableTemplate.MaterialPolicy`, and `Material.TemplateOwnerId` are hidden server-owned runtime fields used by the single-system Structure and transactional template copy/cleanup commands. Matrix `MaterialRef` is server-owned and may only be changed through the aggregate Material workflow.
 -   Template and fixture contract tests require a coherent non-empty subset of `table`, `horizontalRows`, and `verticalTree`, with an allowed default, and reject unrelated demo or configuration-specific widgets.
 -   Matrix records expose user-authored `RowLabel`, `ColLabel`, `CellValue`, and multiline `CellDescription`; UUID v7 identity, parent/axis keys, and persisted order remain system-owned.
 -   The change is configuration-only: the schema version, template version, and minimum structure version are not increased.

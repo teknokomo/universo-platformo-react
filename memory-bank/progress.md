@@ -59,6 +59,33 @@
 
 ---
 
+## 2026-07-21 - Interpretation Network Single System Structure And Templates Implementation
+
+Implemented the Interpretation Network single-system structure and template workflow without schema or metahub template version bumps.
+
+-   Added the shared `structureMode: multiple | singleSystem` widget configuration contract and surfaced it in metahub widget settings and Application Matrix settings with localized EN/RU labels, validation, and tests.
+-   Updated the Interpretation Network template defaults and generated fixture so the published `Structures` entry opens the system Matrix directly in single-system mode, without the structure list, structure title header, or back-to-Structures chrome.
+-   Added backend Interpretation Network aggregate command boundaries for idempotent single-system structure creation and workspace-local structure templates. The commands resolve runtime schema metadata server-side, use request-scoped executors, parameterized SQL, UUID v7, transactions, advisory locks, permission gates, and fail-closed validation.
+-   Added a dedicated aggregate Material creation command for selected Matrix cells so the backend owns the server-managed `CellId` link and updates the Matrix `MaterialRef` atomically instead of weakening the generic runtime row server-owned-field contract.
+-   Added published-app template actions: saving the current structure as a template with optional attached materials and creating a new structure from a template in multi-structure mode. Single-system mode keeps exactly one visible system structure and hides create-from-template.
+-   Updated the isolated `@universo-react/apps-template-mui` runtime with template-first MUI dialogs, route behavior, query invalidation, localized validation, no raw system IDs on normal surfaces, and no dependency on legacy UI packages.
+-   Updated `tools/fixtures/metahubs-interpretation-network-app-snapshot.json`, fixture contract/drift checks, generator/import/visual Playwright coverage, OpenAPI docs, EN/RU GitBook docs, and package READMEs.
+-   Validation passed: full minimal-local-Supabase Interpretation Network verification wrapper, fixture generator, fixture contract, fixture drift, imported snapshot flow, visual browser proof, docs i18n and GitBook screenshot-asset checks, apps-template isolation guard, runtime no-LMS-forks guard, focused apps-template Vitest 69/69, focused applications-backend Jest 32/32, apps-template build/lint, applications-backend build/lint, Prettier check for the updated E2E flow, and `git diff --check`.
+-   Closeout caveats: OntoIndex diff verification/pre-commit audit saw the intentionally broad dirty worktree and reported high-risk/degraded scope for manual review before commit. Thermos/autoreview was attempted; the sandboxed helper could not write Codex state, and the escalated rerun was blocked by policy because it would export a large private diff to an external review engine.
+
+## 2026-07-21 - Interpretation Network Template UX QA Remediation
+
+Closed the user-reported template UX defects in the published Interpretation Network runtime after full rebuild/import testing.
+
+-   Replaced the bespoke Save Template/Create From Template dialogs with the standard `apps-template-mui` `FormDialog` contract: localized Name and Description fields, multiline Description, normal action footer spacing, and structured option rows for template copy behavior.
+-   Merged create-from-template into the normal Create Structure dialog through a Templates tab. The workflow now requires a new localized Structure name before creation and avoids stale edit data in create mode.
+-   Moved Save as Template into the Matrix toolbar icon actions and the Structures list row/card action menu instead of keeping a large in-matrix button.
+-   Added Templates tabs for management in the Structures context and next to Matrix, with default visibility in both places and application/metahub settings for placement control.
+-   Added view/edit/delete template actions using localized dialogs and the shared destructive confirmation contract.
+-   Strengthened focused tests for template dialog accessibility, localized controls, template create/update/delete actions, and create-from-template validation.
+-   Validation passed: app-template focused template Vitest, application-settings focused Vitest, app-template lint/build, `git diff --check`, full minimal-local-Supabase Interpretation Network verification wrapper with fixture generator/contract/drift, imported snapshot flow, visual browser proof, docs i18n check, GitBook screenshot asset check, and clean local Supabase shutdown.
+-   Closeout caveat: OntoIndex CLI is unavailable on PATH, so MCP OntoIndex was used. MCP `gn_verify_diff` intentionally failed narrow expected-file verification because this implementation spans the broader approved plan. MCP `gn_pre_commit_audit` returned `DO-NOT-COMMIT` due high-risk blast radius in `apps-template-mui/src/api/api.ts` and the large Playwright flow; this is a manual-review gate, not a test failure.
+
 ## 2026-07-17 - Unified Settings And Workspace Overrides Implementation
 
 Implemented the unified settings and workspace override remediation slice.
@@ -770,3 +797,18 @@ All verified ✅ (colyseus-client/server Vitest, applications-backend realtime J
 -   **2026-07-15: Interpretation Network Authored Text Colour Rendering Fix** — Runtime matrix row decoding now preserves every valid saved `TextColor` (including deliberately low-contrast white or red values) and only computes an automatic foreground when the field is absent. Added model regression coverage for white-on-orange, red-on-dark, malformed values, theme fallback, and rendered MatrixWorkspace DOM styles. Validation: model Vitest 37/37, MatrixWorkspace and workspace/widget suites passed, apps-template lint/build, fixture contract and drift checks, and `git diff --check`. Browser E2E for this focused colour assertion remains pending because the imported snapshot flow does not yet expose a stable cell-style editing fixture.
 -   **2026-07-15: MMOOMM PlayCanvas Fixture Drift Gate Repair** — The Node 22 GitHub Actions build failed in `check:mmoomm-app-fixture-drift` because PlayCanvas scene-local material serialization injected `metadata.editorDocument.version` (an optimistic-concurrency revision) into generated assets, while the tracked authored fixture correctly omitted it. The drift normalizer now ignores only that field at `assets/<index>/metadata/editorDocument/version`; all other metadata and asset differences remain strict. The tracked fixture was not regenerated. Validation: MMOOMM fixture contract and drift checks pass against the generated artifact, apps-template/metahubs builds and lint pass, and `git diff --check` passes.
 -   **2026-07-15: MMOOMM PlayCanvas Asset Metadata Drift Follow-Up** — The next Node 22 build exposed a second semantically empty serialization difference: generated material assets contained `assets/<index>/metadata/meta: null`, while the authored fixture omitted the optional field. The drift normalizer now drops this value only for PlayCanvas asset metadata records with the expected asset shape; unrelated `meta` values and authored asset fields remain strict. Validation: fixture contract and drift checks pass, a synthetic `metadata.meta: null` regression passes, apps-template/metahubs lint and builds pass, and `git diff --check` passes. The tracked fixture remains unchanged.
+
+# Interpretation Network OpenAPI and reset conflict closeout (2026-07-29)
+
+-   Finalized the reset API contract with a strict request, typed response, exact invalid-batch response, and explicit stale/source/metadata/structure-transition conflict variants.
+-   Added localized stale-reset feedback to both Application Layouts and Application Settings and covered the dialog-preserving retry state with a frontend regression test.
+-   Updated English and Russian guides and package documentation to define latest materialized source, atomic reset, source-less widget, synchronization, and conflict behavior.
+-   Verified REST OpenAPI validation and bundling, Applications frontend lint/build and tests, Types build, Prettier, and `git diff --check`. OntoIndex impact/diff verification could not run because the pinned CLI is not installed in this workspace.
+
+# Interpretation Network final implementation closeout (2026-07-29)
+
+-   Closed the remaining reset-to-metahub contract with nullable `_app_widgets.source_config`, typed `sourceConfig` / `isCustomized` DTO fields, latest-source synchronization, an atomic owner/admin reset endpoint, optimistic versions, fail-closed structure-mode checks, and a consistent advisory-lock order across widget mutations and sync.
+-   Added strict reset OpenAPI request/response/conflict schemas, stale and missing-metadata localized feedback, English/Russian template-placement strings, and regression coverage for an unsafe reset from effective `multiple` to source `singleSystem` while ordinary Structures exist.
+-   Decomposed Application Layouts below the project file-size gate and centralized Matrix settings comparison logic. The isolated published runtime remains on `@universo-react/apps-template-mui`, with no dependency on legacy feature UI packages.
+-   Focused validation passed: Types 27/27, Schema DDL 47/47, Applications backend 30/30, Applications frontend Matrix/settings 42/42, fixture contract and drift, REST OpenAPI validation, docs i18n and links, apps-template isolation, runtime fork guard, package builds/lints, Prettier, and `git diff --check`.
+-   The sandbox blocked a new live Playwright run before browser launch because the hosted Supabase DNS lookup failed and local Docker access is unavailable. OntoIndex MCP inspected the complete broad implementation diff and reported no missing required tests; its formal result remained `FAIL` because the verification call intentionally had no expected-file allowlist for the pre-existing dirty tree. Thermos/autoreview could not initialize its read-only Codex state database. No product checks were skipped or weakened to hide those environmental limits.

@@ -12,6 +12,7 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
+import IconButton from '@mui/material/IconButton'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
@@ -24,6 +25,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import SaveAltRoundedIcon from '@mui/icons-material/SaveAltRounded'
 import TableRowsRoundedIcon from '@mui/icons-material/TableRowsRounded'
 import ViewColumnRoundedIcon from '@mui/icons-material/ViewColumnRounded'
 import type { SensorDescriptor, SensorOptions } from '@dnd-kit/core'
@@ -47,6 +49,12 @@ import { HierarchicalMatrixTableView } from './HierarchicalMatrixTableView'
 import { MatrixTableView } from './MatrixTableView'
 
 const fixedDropTargetsStrategy: SortingStrategy = () => null
+
+const toMenuAnchorPosition = (anchor: HTMLElement | null) => {
+    if (!anchor) return undefined
+    const rect = anchor.getBoundingClientRect()
+    return { top: rect.bottom, left: rect.left }
+}
 
 const renderTreeTotalLabel = (t: TFunction<'interpretationNetwork'>, count: number): string =>
     t('workspace.hierarchicalTable.totalCells', {
@@ -88,6 +96,7 @@ export interface MatrixWorkspaceProps {
     matrixMutationsDisabled: boolean
     matrixAxisActionsDisabled?: boolean
     addCellDisabled?: boolean
+    canSaveTemplate?: boolean
     isSavingCell: boolean
     isMovingCell: boolean
     matrixRowsError: unknown
@@ -101,6 +110,7 @@ export interface MatrixWorkspaceProps {
     isDeletingCell: boolean
     sensors: SensorDescriptor<SensorOptions>[]
     onChangeMatrixView: (view: MatrixView) => void
+    onOpenSaveTemplate?: () => void
     onOpenCellDialog: (
         mode: 'create-child' | 'create-cell' | 'create-row' | 'edit',
         cellId?: string,
@@ -146,6 +156,7 @@ export function MatrixWorkspace({
     matrixMutationsDisabled,
     matrixAxisActionsDisabled = matrixMutationsDisabled,
     addCellDisabled = false,
+    canSaveTemplate = false,
     isSavingCell,
     isMovingCell,
     matrixRowsError,
@@ -159,6 +170,7 @@ export function MatrixWorkspace({
     isDeletingCell,
     sensors,
     onChangeMatrixView,
+    onOpenSaveTemplate,
     onOpenCellDialog,
     onAddTableRow,
     onAddTableColumn,
@@ -178,6 +190,8 @@ export function MatrixWorkspace({
     const tableAxisAddDisabled = matrixAxisActionsDisabled || isSavingCell || hierarchicalMatrixIsEmpty
     const showIndependentRowAdd = matrixMode === 'independentRows' && matrixView === 'horizontalRows'
     const independentRowAddDisabled = matrixMutationsDisabled || isSavingCell || isMovingCell || !selectedCell
+    const cellMenuOpen = Boolean(cellMenuAnchor?.isConnected)
+    const cellMenuAnchorPosition = toMenuAnchorPosition(cellMenuAnchor)
 
     const isHorizontalHierarchy = matrixMode === 'hierarchicalCells' && matrixView === 'horizontalRows'
     const buildCellAccessibleLabel = (cell: MatrixCell): string =>
@@ -340,23 +354,55 @@ export function MatrixWorkspace({
                     ) : null}
                 </Stack>
                 {matrixMode === 'hierarchicalCells' ? (
-                    <Button
-                        type='button'
-                        variant='contained'
-                        startIcon={<AddRoundedIcon />}
-                        disabled={hierarchicalAddDisabled}
-                        sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
-                        title={
-                            !selectedCell || hierarchicalMatrixIsEmpty
-                                ? t('workspace.cell.addChildDisabled', 'Select a cell before adding a child.')
-                                : undefined
-                        }
-                        onClick={() => onOpenCellDialog('create-child', selectedCell?.id)}
-                    >
-                        {t('workspace.cell.add', 'Add')}
-                    </Button>
+                    <Stack direction='row' spacing={1} alignItems='center'>
+                        {canSaveTemplate ? (
+                            <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
+                                <span>
+                                    <IconButton
+                                        type='button'
+                                        aria-label={t('workspace.template.saveAsTemplate', 'Save as template')}
+                                        disabled={!onOpenSaveTemplate}
+                                        onClick={onOpenSaveTemplate}
+                                        sx={{ width: 40, height: 40 }}
+                                    >
+                                        <SaveAltRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                        ) : null}
+                        <Button
+                            type='button'
+                            variant='contained'
+                            startIcon={<AddRoundedIcon />}
+                            disabled={hierarchicalAddDisabled}
+                            sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                            title={
+                                !selectedCell || hierarchicalMatrixIsEmpty
+                                    ? t('workspace.cell.addChildDisabled', 'Select a cell before adding a child.')
+                                    : undefined
+                            }
+                            onClick={() => onOpenCellDialog('create-child', selectedCell?.id)}
+                        >
+                            {t('workspace.cell.add', 'Add')}
+                        </Button>
+                    </Stack>
                 ) : (
-                    <>
+                    <Stack direction='row' spacing={1} alignItems='center'>
+                        {canSaveTemplate ? (
+                            <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
+                                <span>
+                                    <IconButton
+                                        type='button'
+                                        aria-label={t('workspace.template.saveAsTemplate', 'Save as template')}
+                                        disabled={!onOpenSaveTemplate}
+                                        onClick={onOpenSaveTemplate}
+                                        sx={{ width: 40, height: 40 }}
+                                    >
+                                        <SaveAltRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                        ) : null}
                         {showIndependentRowAdd ? (
                             <Button
                                 type='button'
@@ -389,7 +435,7 @@ export function MatrixWorkspace({
                         >
                             {t('workspace.cell.add', 'Add')}
                         </Button>
-                    </>
+                    </Stack>
                 )}
             </Stack>
             {matrixRowsError ? (
@@ -541,7 +587,7 @@ export function MatrixWorkspace({
                     </Paper>
                 ) : null}
             </Box>
-            <Menu anchorEl={cellMenuAnchor} open={Boolean(cellMenuAnchor)} onClose={onCloseCellMenu}>
+            <Menu anchorReference='anchorPosition' anchorPosition={cellMenuAnchorPosition} open={cellMenuOpen} onClose={onCloseCellMenu}>
                 <MenuItem disabled={!menuCell || !canEditContent} onClick={() => openMenuCellDialogAfterMenuClose('edit')}>
                     <EditRoundedIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('workspace.cell.edit', 'Edit')}

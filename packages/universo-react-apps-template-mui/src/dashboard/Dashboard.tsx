@@ -155,6 +155,7 @@ export type DashboardMenusMap = { [widgetId: string]: DashboardMenuSlot }
 
 export interface ZoneWidgetItem {
     id: string
+    layoutId?: string
     widgetKey: string
     sortOrder: number
     config: Record<string, unknown>

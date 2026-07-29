@@ -13,7 +13,7 @@ import { useMutation, type QueryClient } from '@tanstack/react-query'
 import { useCallback, useRef, type MutableRefObject } from 'react'
 import type { TFunction } from 'i18next'
 import type { InterpretationNetworkTableProjection } from '@universo-react/types'
-import { batchUpdateTabularRows } from '../../../../api/api'
+import { moveInterpretationNetworkMatrixCells, type InterpretationNetworkMatrixCellPlacement } from '../../../../api/interpretationNetwork'
 import { buildMatrixMoveUpdates } from '../matrixMove'
 import { resolveMatrixDropState, type MatrixDropDestination, type MatrixDropPlacement, type MatrixDropState } from '../matrixDrag'
 import {
@@ -51,9 +51,9 @@ export function useMatrixWorkspaceActions({
     apiBaseUrl,
     applicationId,
     workspaceId,
-    interpretationSectionId,
+    widgetId,
+    layoutId,
     selectedInterpretationId,
-    matrixColumnId,
     matrixChildColumns,
     matrixRowsSnapshotRef,
     setMatrixDropState,
@@ -76,9 +76,9 @@ export function useMatrixWorkspaceActions({
     apiBaseUrl?: string | null
     applicationId?: string | null
     workspaceId?: string | null
-    interpretationSectionId?: string | null
+    widgetId?: string | null
+    layoutId?: string | null
     selectedInterpretationId?: string | null
-    matrixColumnId?: string | null
     matrixChildColumns?: RuntimeColumnLike[]
     matrixRowsSnapshotRef: MatrixRowsSnapshotRef
     setMatrixDropState: (state: MatrixDropState) => void
@@ -115,14 +115,7 @@ export function useMatrixWorkspaceActions({
             destination?: MatrixDropDestination
         }) => {
             if (!canEditContent) throw new Error('permission-denied')
-            if (
-                !apiBaseUrl ||
-                !applicationId ||
-                !interpretationSectionId ||
-                !selectedInterpretationId ||
-                !matrixColumnId ||
-                sourceCellId === targetCellId
-            ) {
+            if (!apiBaseUrl || !applicationId || !selectedInterpretationId || sourceCellId === targetCellId) {
                 return null
             }
             const { cells: currentMatrixCells, rawRowsByCellId: currentRawMatrixRowsByCellId } = matrixRowsSnapshotRef.current
@@ -142,14 +135,42 @@ export function useMatrixWorkspaceActions({
             })
             if (!movePlan) return null
 
-            await batchUpdateTabularRows({
+            const systemFieldNames = new Set(
+                ['ParentCellId', 'RowKey', 'ColKey', '_tp_sort_order'].flatMap((codename) => [
+                    codename,
+                    matrixChildColumns?.find((column) => column.codename === codename)?.field
+                ])
+            )
+            const readSystemValue = (data: Record<string, unknown>, codename: string): unknown => {
+                const physicalField = matrixChildColumns?.find((column) => column.codename === codename)?.field
+                return data[codename] ?? (physicalField ? data[physicalField] : undefined)
+            }
+            await moveInterpretationNetworkMatrixCells({
                 apiBaseUrl,
                 applicationId,
                 workspaceId,
-                parentRecordId: selectedInterpretationId,
-                componentId: matrixColumnId,
-                objectCollectionId: interpretationSectionId,
-                updates: movePlan.updates
+                interpretationId: selectedInterpretationId,
+                updates: movePlan.updates.map((update) => {
+                    const parentCellId = readSystemValue(update.data, 'ParentCellId')
+                    const rowKey = readSystemValue(update.data, 'RowKey')
+                    const colKey = readSystemValue(update.data, 'ColKey')
+                    const sortOrder = readSystemValue(update.data, '_tp_sort_order')
+                    const placement: InterpretationNetworkMatrixCellPlacement = {
+                        ...(parentCellId === null || typeof parentCellId === 'string' ? { parentCellId } : {}),
+                        ...(typeof rowKey === 'string' && rowKey.trim() ? { rowKey: rowKey.trim() } : {}),
+                        ...(typeof colKey === 'string' && colKey.trim() ? { colKey: colKey.trim() } : {}),
+                        ...(typeof sortOrder === 'number' && Number.isInteger(sortOrder) && sortOrder >= 0 ? { sortOrder } : {})
+                    }
+                    const data = Object.fromEntries(Object.entries(update.data).filter(([field]) => field && !systemFieldNames.has(field)))
+                    return {
+                        matrixRowId: update.childRowId,
+                        expectedVersion: update.expectedVersion,
+                        placement,
+                        ...(Object.keys(data).length > 0 ? { data } : {})
+                    }
+                }),
+                widgetId,
+                layoutId
             })
             return { selectedCellIdAfterMove: movePlan.selectedCellIdAfterMove }
         },

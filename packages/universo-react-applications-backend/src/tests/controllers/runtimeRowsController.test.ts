@@ -4,6 +4,7 @@ import type { Request, Response } from 'express'
 const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
 const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
+const mockResolveInterpretationNetworkRuntimeSurface = jest.fn()
 
 jest.mock('../../shared/runtimeHelpers', () => {
     const actual = jest.requireActual('../../shared/runtimeHelpers')
@@ -14,6 +15,10 @@ jest.mock('../../shared/runtimeHelpers', () => {
         resolveRuntimeSchema: (...args: unknown[]) => mockResolveRuntimeSchema(...args)
     }
 })
+
+jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkSurface', () => ({
+    resolveInterpretationNetworkRuntimeSurface: (...args: unknown[]) => mockResolveInterpretationNetworkRuntimeSurface(...args)
+}))
 
 import {
     createRuntimeRowsController,
@@ -64,6 +69,27 @@ const runtimeObjectCollectionRows = [
     }
 ]
 
+const mutableRuntimeComponents = [
+    {
+        id: 'name-component',
+        codename: 'Name',
+        column_name: 'name',
+        data_type: 'STRING',
+        is_required: false,
+        validation_rules: {},
+        ui_config: {}
+    },
+    {
+        id: 'system-key-component',
+        codename: 'SystemKey',
+        column_name: 'system_key',
+        data_type: 'STRING',
+        is_required: false,
+        validation_rules: {},
+        ui_config: { hidden: true, formHidden: true, serverOwned: true }
+    }
+]
+
 function createRuntimeMutationHarness() {
     const { executor } = createMockDbExecutor()
     const controller = createRuntimeRowsController(() => executor)
@@ -88,6 +114,11 @@ function createRuntimeMutationHarness() {
         currentWorkspaceId: null,
         workspacesEnabled: false,
         applicationSettings: {}
+    })
+    mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+        featureState: 'ready',
+        structureMode: 'multiple',
+        resolvedObjects: { Structure: mutableObjectCollectionId }
     })
     executor.query.mockImplementation(async (sql: string) => {
         if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) {
@@ -174,6 +205,366 @@ describe('runtimeRowsController object collection target resolution', () => {
         expect(executedSql).not.toMatch(/\bUPDATE\b/i)
         expect(executedSql).not.toMatch(/\bDELETE\b/i)
         expect(executedSql).not.toContain('runtime_schema."structure"')
+    })
+})
+
+describe('runtimeRowsController server-owned field enforcement', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockRuntimeQuery.mockReset()
+        mockRuntimeQuery.mockResolvedValue([])
+    })
+
+    it.each([
+        {
+            label: 'create',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.createRow(
+                    createRuntimeRequest({
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { SystemKey: 'primary' } }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'bulk update',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.bulkUpdateRow(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { SystemKey: 'primary' }, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'single-cell update',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.updateCell(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: { objectCollectionId: mutableObjectCollectionId, field: 'system_key', value: 'primary', expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'copy override',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.copyRow(
+                    createRuntimeRequest({
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { SystemKey: 'primary' }, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        }
+    ])('rejects client-supplied server-owned fields for $label', async ({ run }) => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) {
+                return runtimeObjectCollectionRows
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) {
+                return mutableRuntimeComponents
+            }
+            if (sql.includes('SELECT *')) {
+                return [{ id: '019f2000-0000-7000-8000-000000000002', _upl_version: 1 }]
+            }
+            return []
+        })
+
+        await run(controller, res)
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Field is server-owned: SystemKey'
+        })
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toMatch(/\bINSERT\s+INTO\s+runtime_schema\."structure"/i)
+        expect(executedSql).not.toMatch(/\bUPDATE\s+runtime_schema\."structure"/i)
+    })
+
+    it('preserves generic copy behavior when no Interpretation Network widget is active', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        const insertId = '019f2000-0000-7000-8000-000000000003'
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'missing-widget',
+            structureMode: 'multiple',
+            resolvedObjects: {}
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Source',
+                        system_key: 'primary',
+                        _upl_version: 1
+                    }
+                ]
+            }
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('AS protected')) return [{ protected: false }]
+            if (sql.includes('INSERT INTO runtime_schema."structure"')) return [{ id: insertId }]
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.copyRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(201)
+        const insertCall = executor.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))
+        expect(String(insertCall?.[0])).toContain('("name", "system_key", _upl_created_by)')
+        expect(insertCall?.[1]).toEqual(['Source', 'primary', 'user-1'])
+    })
+})
+
+describe('runtimeRowsController single-system Structure protection', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockRuntimeQuery.mockReset()
+        mockRuntimeQuery.mockResolvedValue([])
+    })
+
+    it('blocks generic Structure creation while single-system mode is active', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('AS protected')) return [{ protected: true }]
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.createRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Hidden duplicate' } }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Structure aggregates are managed by Interpretation Network single-structure mode',
+            code: 'INTERPRETATION_NETWORK_GENERIC_CREATE_FORBIDDEN'
+        })
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+    })
+
+    it('fails closed when multiple active Interpretation Network widgets make a Structure update ambiguous', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ambiguous-widget',
+            structureMode: 'multiple',
+            resolvedObjects: {}
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Main',
+                        system_key: 'primary',
+                        _upl_version: 1
+                    }
+                ]
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.bulkUpdateRow(
+            createRuntimeRequest({
+                method: 'PATCH',
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Renamed' }, expectedVersion: 1 }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Interpretation Network runtime widget context is ambiguous',
+            code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
+        })
+    })
+
+    it('blocks updates of the primary Structure only while single-system mode is active', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            structureMode: 'singleSystem',
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Main',
+                        system_key: 'primary',
+                        _upl_version: 1
+                    }
+                ]
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.bulkUpdateRow(
+            createRuntimeRequest({
+                method: 'PATCH',
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Renamed' }, expectedVersion: 1 }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ code: 'INTERPRETATION_NETWORK_SYSTEM_STRUCTURE_IMMUTABLE' })
+        )
+    })
+
+    it('rechecks Interpretation Network copy protection inside the transaction', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface
+            .mockResolvedValueOnce({
+                featureState: 'ready',
+                structureMode: 'multiple',
+                resolvedObjects: { Structure: mutableObjectCollectionId }
+            })
+            .mockResolvedValue({
+                featureState: 'ready',
+                structureMode: 'singleSystem',
+                resolvedObjects: { Structure: mutableObjectCollectionId }
+            })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Main',
+                        system_key: 'primary',
+                        _upl_version: 1
+                    }
+                ]
+            }
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('AS protected')) return [{ protected: false }]
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.copyRow(createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 } }), res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Interpretation Network aggregates must be copied with dedicated commands',
+            code: 'INTERPRETATION_NETWORK_GENERIC_COPY_FORBIDDEN'
+        })
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+    })
+
+    it('requires dedicated commands to copy an Interpretation Network aggregate', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            structureMode: 'multiple',
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Source',
+                        system_key: null,
+                        _upl_version: 1
+                    }
+                ]
+            }
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('AS protected')) return [{ protected: false }]
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.copyRow(createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 } }), res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Interpretation Network aggregates must be copied with dedicated commands',
+            code: 'INTERPRETATION_NETWORK_GENERIC_COPY_FORBIDDEN'
+        })
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+    })
+
+    it('blocks restoring the primary Structure while single-system mode is active', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            structureMode: 'singleSystem',
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) {
+                return runtimeObjectCollectionRows.map((row) => ({ ...row, lifecycle_contract: { deleteMode: 'soft' } }))
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('AS protected')) return [{ protected: false }]
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Main',
+                        system_key: 'primary',
+                        _upl_version: 1,
+                        _upl_deleted: true,
+                        _app_deleted: false
+                    }
+                ]
+            }
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.restoreRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ code: 'INTERPRETATION_NETWORK_SYSTEM_STRUCTURE_IMMUTABLE' })
+        )
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE runtime_schema."structure"'))).toBe(false)
     })
 })
 

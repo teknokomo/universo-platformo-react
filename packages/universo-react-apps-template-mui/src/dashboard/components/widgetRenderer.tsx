@@ -3328,7 +3328,14 @@ export function renderWidget(
         case 'relationBuilder':
             return <RuntimeRelationBuilderWidget key={widget.id} config={widget.config} />
         case 'interpretationNetworkWorkspace':
-            return <InterpretationNetworkWorkspaceWidget key={widget.id} config={widget.config} />
+            return (
+                <InterpretationNetworkWorkspaceWidget
+                    key={widget.id}
+                    config={widget.config}
+                    widgetId={widget.id}
+                    layoutId={widget.layoutId}
+                />
+            )
         case 'detailsTabs':
             return <DetailsTabsWidget key={widget.id} config={widget.config} menus={menus} fallbackMenu={fallbackMenu} depth={depth} />
         case 'quizWidget':
@@ -3356,6 +3363,7 @@ export function renderWidget(
                             {col.widgets.map((w, wIdx) => {
                                 const inner: ZoneWidgetItem = {
                                     id: w.id ?? `${col.id}-w${wIdx}`,
+                                    layoutId: widget.layoutId,
                                     widgetKey: w.widgetKey,
                                     sortOrder: typeof w.sortOrder === 'number' ? w.sortOrder : wIdx,
                                     config: w.config ?? {}

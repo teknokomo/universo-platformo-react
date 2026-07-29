@@ -64,7 +64,126 @@ const buildLearningContentCreateDefaultContext = (appData: AppDataResponse | und
 
 const readCurrentRouteSource = (): string => {
     if (typeof window === 'undefined') return ''
-    return `${window.location.pathname}${window.location.hash}`
+    return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
+const readCurrentRoutePathname = (routeSource: string): string => {
+    if (typeof window === 'undefined') return ''
+    return routeSource.split(/[?#]/, 1)[0] ?? window.location.pathname
+}
+
+const hasMatrixCellRouteParam = (routeSource: string): boolean => {
+    const searchStart = routeSource.indexOf('?')
+    if (searchStart === -1) return false
+
+    const hashStart = routeSource.indexOf('#', searchStart)
+    const search = routeSource.slice(searchStart + 1, hashStart === -1 ? undefined : hashStart)
+    return new URLSearchParams(search).has('matrixCell')
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const readStringArrayConfig = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return []
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
+}
+
+const normalizeRuntimeKey = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase()
+
+const resolveSectionRecord = (
+    appData: AppDataResponse | undefined,
+    sectionId: string | null | undefined
+): AppDataResponse['objectCollection'] | undefined => {
+    if (!appData || !sectionId) return undefined
+
+    const candidates = [...(appData.sections ?? []), ...(appData.objectCollections ?? [])]
+    return candidates.find((candidate) => candidate.id === sectionId)
+}
+
+const getLoadedRuntimeSectionId = (appData: AppDataResponse | undefined): string | null =>
+    appData?.section?.id ?? appData?.activeSectionId ?? appData?.objectCollection?.id ?? appData?.activeObjectCollectionId ?? null
+
+const buildRouteProjectedAppData = (
+    appData: AppDataResponse | undefined,
+    currentRuntimeSection: AppDataResponse['objectCollection'] | undefined,
+    currentRuntimeSectionId: string | null
+): AppDataResponse | undefined => {
+    if (!appData || !currentRuntimeSection || !currentRuntimeSectionId) return undefined
+    if (getLoadedRuntimeSectionId(appData) === currentRuntimeSectionId) return undefined
+
+    const hasTable = typeof currentRuntimeSection.tableName === 'string' && currentRuntimeSection.tableName.trim().length > 0
+
+    return {
+        ...appData,
+        section: currentRuntimeSection,
+        objectCollection: currentRuntimeSection,
+        activeSectionId: currentRuntimeSectionId,
+        activeObjectCollectionId: hasTable ? currentRuntimeSectionId : null,
+        columns: [],
+        rows: [],
+        pagination: {
+            ...appData.pagination,
+            total: 0,
+            offset: 0
+        }
+    }
+}
+
+const resolveSingleSystemMatrixSectionId = (appData: AppDataResponse | undefined): string | null => {
+    if (!appData) return null
+
+    const workspaceWidget = appData.zoneWidgets?.center?.find((widget) => widget.widgetKey === 'interpretationNetworkWorkspace')
+    const visibleFor = isRecord(workspaceWidget?.config?.visibleFor) ? workspaceWidget.config.visibleFor : undefined
+    if (!visibleFor) return null
+
+    const sectionIds = readStringArrayConfig(visibleFor.sectionIds)
+    const sectionCodenames = readStringArrayConfig(visibleFor.sectionCodenames).map(normalizeRuntimeKey)
+    const objectCollectionIds = readStringArrayConfig(visibleFor.objectCollectionIds)
+    const objectCollectionCodenames = readStringArrayConfig(visibleFor.objectCollectionCodenames).map(normalizeRuntimeKey)
+
+    const menuSectionTargets = new Set(
+        (appData.menus ?? [])
+            .flatMap((menu) => [...(menu.items ?? []), ...(menu.overflowItems ?? [])])
+            .filter((item) => item.isActive !== false && item.kind === 'section')
+            .flatMap((item) => [item.sectionId, item.objectCollectionId])
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    )
+    const preferMenuTarget = (ids: string[]): string | null => {
+        const uniqueIds = Array.from(new Set(ids))
+        return uniqueIds.find((id) => menuSectionTargets.has(id)) ?? uniqueIds[0] ?? null
+    }
+
+    const matchingSectionIds = (appData.sections ?? [])
+        .filter((section) => sectionIds.includes(section.id) || sectionCodenames.includes(normalizeRuntimeKey(section.codename)))
+        .map((section) => section.id)
+    const matchingObjectCollectionIds = (appData.objectCollections ?? [])
+        .filter(
+            (objectCollection) =>
+                objectCollectionIds.includes(objectCollection.id) ||
+                objectCollectionCodenames.includes(normalizeRuntimeKey(objectCollection.codename))
+        )
+        .map((objectCollection) => objectCollection.id)
+    const tableBackedObjectCollectionIds = (appData.objectCollections ?? [])
+        .filter(
+            (objectCollection) =>
+                matchingObjectCollectionIds.includes(objectCollection.id) &&
+                typeof objectCollection.tableName === 'string' &&
+                objectCollection.tableName.trim().length > 0
+        )
+        .map((objectCollection) => objectCollection.id)
+    const tableBackedSectionIds = (appData.sections ?? [])
+        .filter(
+            (section) =>
+                matchingSectionIds.includes(section.id) && typeof section.tableName === 'string' && section.tableName.trim().length > 0
+        )
+        .map((section) => section.id)
+
+    return preferMenuTarget([
+        ...tableBackedObjectCollectionIds,
+        ...tableBackedSectionIds,
+        ...matchingObjectCollectionIds,
+        ...matchingSectionIds
+    ])
 }
 
 const toStandaloneSectionLinkMenuItem = (
@@ -102,15 +221,28 @@ export default function DashboardApp(props: DashboardAppProps) {
         window.history.pushState(null, '', href)
         setRouteSource(readCurrentRouteSource())
     }, [])
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined
 
+        const handleRouteChange = () => {
+            setRouteSource(readCurrentRouteSource())
+        }
+
+        window.addEventListener('popstate', handleRouteChange)
+        return () => {
+            window.removeEventListener('popstate', handleRouteChange)
+        }
+    }, [])
+
+    const routePathname = readCurrentRoutePathname(routeSource)
     const isWorkspacesRoute = useMemo(() => {
-        return /\/a\/[0-9a-fA-F-]{16,}\/workspaces/.test(routeSource)
-    }, [routeSource])
+        return /\/a\/[0-9a-fA-F-]{16,}\/workspaces/.test(routePathname)
+    }, [routePathname])
     const runtimeRouteSegments = useMemo(() => {
         const marker = `/a/${props.applicationId}`
-        const suffix = routeSource.startsWith(marker) ? routeSource.slice(marker.length) : ''
+        const suffix = routePathname.startsWith(marker) ? routePathname.slice(marker.length) : ''
         return suffix.split('/').filter(Boolean)
-    }, [props.applicationId, routeSource])
+    }, [props.applicationId, routePathname])
     const routeSectionId =
         !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
     const routeWorkspaceId =
@@ -126,28 +258,78 @@ export default function DashboardApp(props: DashboardAppProps) {
         () => createStandaloneAdapter({ apiBaseUrl: props.apiBaseUrl, applicationId: props.applicationId }),
         [props.apiBaseUrl, props.applicationId]
     )
+    const resolveRoutePreferredSectionId = useCallback(
+        (appData: AppDataResponse): string | undefined => {
+            if (!hasMatrixCellRouteParam(routeSource)) return undefined
+            return resolveSingleSystemMatrixSectionId(appData) ?? undefined
+        },
+        [routeSource]
+    )
 
     const state = useCrudDashboard({
         adapter,
         locale: props.locale,
         initialSectionId: routeSectionId,
+        resolvePreferredSectionId: resolveRoutePreferredSectionId,
         createDefaultContext: buildLearningContentCreateDefaultContext
     })
 
-    const detailsTitle = isWorkspacesRoute ? t('workspace.title', 'Workspaces') : state.appData?.objectCollection.name ?? 'Details'
     const contentPermissions = state.appData?.permissions
     const canCreateContent = contentPermissions?.createContent === true
     const canEditContent = contentPermissions?.editContent === true
     const canDeleteContent = contentPermissions?.deleteContent === true
     const showCreateButton = state.appData?.objectCollection.runtimeConfig?.showCreateButton !== false && canCreateContent
-    const activeObjectCollectionRuntimeConfig = state.appData?.objectCollection.runtimeConfig
     const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
+    const hasStaleSectionRoute =
+        Boolean(routeSectionId) && Boolean(state.appData?.activeSectionId) && state.appData?.activeSectionId !== routeSectionId
+    const runtimeAppData = state.rawAppData ?? state.appData
+    const matrixRouteSectionId = useMemo(
+        () => (hasMatrixCellRouteParam(routeSource) ? resolveSingleSystemMatrixSectionId(runtimeAppData) : null),
+        [routeSource, runtimeAppData]
+    )
+    const currentRuntimeSectionId =
+        routeSectionId ??
+        matrixRouteSectionId ??
+        state.selectedSectionId ??
+        state.selectedObjectCollectionId ??
+        state.activeSectionId ??
+        state.activeObjectCollectionId ??
+        null
+    const currentRuntimeSection = useMemo(
+        () => resolveSectionRecord(runtimeAppData, currentRuntimeSectionId),
+        [currentRuntimeSectionId, runtimeAppData]
+    )
+    const routeProjectedAppData = useMemo(
+        () => buildRouteProjectedAppData(runtimeAppData, currentRuntimeSection, currentRuntimeSectionId),
+        [currentRuntimeSection, currentRuntimeSectionId, runtimeAppData]
+    )
+    const detailsAppData = routeProjectedAppData ?? (hasStaleSectionRoute ? undefined : state.appData)
+    const dashboardZoneWidgets = routeProjectedAppData?.zoneWidgets ?? runtimeAppData?.zoneWidgets ?? state.appData?.zoneWidgets
+    const detailsTitle = isWorkspacesRoute
+        ? t('workspace.title', 'Workspaces')
+        : detailsAppData?.objectCollection.name ?? currentRuntimeSection?.name ?? state.appData?.objectCollection.name ?? 'Details'
+    const activeObjectCollectionRuntimeConfig = detailsAppData?.objectCollection.runtimeConfig
+    const currentRuntimeObjectCollectionId =
+        currentRuntimeSection?.id ??
+        routeSectionId ??
+        state.selectedObjectCollectionId ??
+        state.selectedSectionId ??
+        state.activeObjectCollectionId ??
+        state.activeSectionId ??
+        null
     const learningContentSettings = useMemo(
-        () => sanitizeApplicationLearningContentSettings(state.appData?.settings?.learningContent as Record<string, unknown> | undefined),
-        [state.appData?.settings?.learningContent]
+        () => sanitizeApplicationLearningContentSettings(detailsAppData?.settings?.learningContent as Record<string, unknown> | undefined),
+        [detailsAppData?.settings?.learningContent]
     )
     const currentSectionId =
-        state.appData?.activeObjectCollectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId ?? null
+        routeSectionId ??
+        state.selectedObjectCollectionId ??
+        state.selectedSectionId ??
+        state.activeObjectCollectionId ??
+        state.activeSectionId ??
+        state.appData?.activeObjectCollectionId ??
+        state.appData?.activeSectionId ??
+        null
     const [pendingCreateTarget, setPendingCreateTarget] = useState<{
         sectionId: string
         createDefaults?: DashboardCreateTarget['createDefaults']
@@ -312,8 +494,8 @@ export default function DashboardApp(props: DashboardAppProps) {
             ) : null,
         [isWorkspacesRoute, navigate, props.apiBaseUrl, props.applicationId, props.locale, routeWorkspaceId, workspaceRouteSection]
     )
-    const pageProgressTargetObjectCodename = state.appData?.objectCollection.codename ?? state.appData?.section?.codename ?? null
-    const pageProgressTargetRecordId = currentSectionId
+    const pageProgressTargetObjectCodename = detailsAppData?.objectCollection.codename ?? detailsAppData?.section?.codename ?? null
+    const pageProgressTargetRecordId = detailsAppData?.section?.id ?? detailsAppData?.objectCollection?.id ?? currentRuntimeSectionId
     const handlePageProgressChange = useCallback(
         async (payload: { action: 'view' | 'complete' }) => {
             if (!pageProgressTargetObjectCodename || !pageProgressTargetRecordId) return
@@ -332,23 +514,23 @@ export default function DashboardApp(props: DashboardAppProps) {
         () => ({
             title: detailsTitle,
             applicationId: props.applicationId,
-            sectionId: state.appData?.activeSectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId ?? null,
-            sectionCodename: state.appData?.section?.codename ?? null,
-            objectCollectionId: currentSectionId,
-            objectCollectionCodename: state.appData?.objectCollection.codename ?? null,
-            sections: state.appData?.sections ?? [],
-            objectCollections: state.appData?.objectCollections ?? [],
+            sectionId: currentRuntimeSectionId,
+            sectionCodename: currentRuntimeSection?.codename ?? detailsAppData?.section?.codename ?? null,
+            objectCollectionId: currentRuntimeObjectCollectionId,
+            objectCollectionCodename: currentRuntimeSection?.codename ?? detailsAppData?.objectCollection.codename ?? null,
+            sections: detailsAppData?.sections ?? [],
+            objectCollections: detailsAppData?.objectCollections ?? [],
             apiBaseUrl: props.apiBaseUrl,
             locale: props.locale,
             currentWorkspaceId,
             runtimeAccessMode: 'member',
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled,
-            permissions: state.appData?.permissions,
+            permissions: detailsAppData?.permissions,
             content: workspacePageContent,
             rows: state.rows,
             columns: state.columns,
-            runtimeColumns: state.appData?.columns,
+            runtimeColumns: detailsAppData?.columns,
             loading: state.isLoading,
             rowCount: state.rowCount,
             paginationModel: state.paginationModel,
@@ -360,7 +542,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             searchValue: state.searchValue,
             onSearchValueChange: state.setSearchValue,
             pageSizeOptions: state.pageSizeOptions,
-            pageBlocks: state.appData?.objectCollection.pageBlocks ?? state.appData?.section?.pageBlocks,
+            pageBlocks: detailsAppData?.objectCollection.pageBlocks ?? detailsAppData?.section?.pageBlocks,
             pagePlayer: {
                 showOutline: learningContentSettings.playerPreset?.showOutline !== false,
                 showProgressHeader: learningContentSettings.playerPreset?.showProgressHeader !== false,
@@ -369,7 +551,7 @@ export default function DashboardApp(props: DashboardAppProps) {
                     'learning-content-progress',
                     props.applicationId,
                     currentWorkspaceId ?? 'global',
-                    currentSectionId ?? 'unknown'
+                    currentRuntimeSectionId ?? currentSectionId ?? 'unknown'
                 ].join(':'),
                 onProgressChange: handlePageProgressChange
             },
@@ -394,22 +576,22 @@ export default function DashboardApp(props: DashboardAppProps) {
         }),
         [
             detailsTitle,
-            state.appData?.activeSectionId,
-            state.appData?.section?.codename,
-            state.appData?.objectCollection.codename,
-            state.appData?.sections,
-            state.appData?.objectCollections,
-            state.selectedObjectCollectionId,
-            state.activeObjectCollectionId,
+            currentRuntimeSection,
+            currentRuntimeObjectCollectionId,
+            currentRuntimeSectionId,
+            detailsAppData?.section?.codename,
+            detailsAppData?.objectCollection.codename,
+            detailsAppData?.sections,
+            detailsAppData?.objectCollections,
             state.appData?.objectCollection.runtimeConfig?.searchMode,
             currentWorkspaceId,
             currentSectionId,
             workspacesEnabled,
-            state.appData?.permissions,
+            detailsAppData?.permissions,
             state.canPersistRowReorder,
             state.rows,
             state.columns,
-            state.appData?.columns,
+            detailsAppData?.columns,
             state.isLoading,
             state.handlePersistRowReorder,
             state.isReordering,
@@ -423,8 +605,8 @@ export default function DashboardApp(props: DashboardAppProps) {
             state.searchValue,
             state.setSearchValue,
             state.pageSizeOptions,
-            state.appData?.objectCollection.pageBlocks,
-            state.appData?.section?.pageBlocks,
+            detailsAppData?.objectCollection.pageBlocks,
+            detailsAppData?.section?.pageBlocks,
             learningContentSettings.playerPreset?.showOutline,
             learningContentSettings.playerPreset?.showProgressHeader,
             learningContentSettings.playerPreset?.completeButtonMode,
@@ -549,7 +731,7 @@ export default function DashboardApp(props: DashboardAppProps) {
         <AppMainLayout>
             <Dashboard
                 layoutConfig={runtimeLayoutConfig}
-                zoneWidgets={state.appData?.zoneWidgets}
+                zoneWidgets={dashboardZoneWidgets}
                 menu={menuSlot}
                 menus={menusMap}
                 details={details}

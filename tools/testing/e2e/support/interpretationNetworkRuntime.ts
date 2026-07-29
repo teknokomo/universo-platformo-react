@@ -54,6 +54,8 @@ type RuntimeData = {
     rows?: Array<Record<string, unknown>>
 }
 
+const SYSTEM_STRUCTURE_KEY = 'primary'
+
 /**
  * Waits for a Interpretation Network metahub Object collection by display codename.
  */
@@ -175,6 +177,34 @@ const expectRuntimeRowWithFieldTextAbsent = (data: RuntimeData, fieldCodename: s
     ).toBe(false)
 }
 
+const expectOnlySingleSystemStructureIfPresent = (structures: RuntimeData): void => {
+    const rows = structures.rows ?? []
+    expect(rows.length, 'Fresh Interpretation Network Structures may only include the hidden single-system structure').toBeLessThanOrEqual(
+        1
+    )
+    if (rows.length === 0) return
+
+    const systemKeyField = resolveRuntimeField(structures, 'SystemKey')
+    expect(
+        getRuntimeValue(rows[0], systemKeyField),
+        'Fresh Interpretation Network single-system Structure must use the hidden primary system key'
+    ).toBe(SYSTEM_STRUCTURE_KEY)
+}
+
+const expectOnlySingleSystemMatrixIfPresent = (interpretations: RuntimeData): void => {
+    const rows = interpretations.rows ?? []
+    expect(
+        rows.length,
+        'Fresh Interpretation Network Interpretations may only include the hidden single-system matrix'
+    ).toBeLessThanOrEqual(1)
+    if (rows.length === 0) return
+
+    const titleField = resolveRuntimeField(interpretations, 'Title')
+    expect(getRuntimeValue(rows[0], titleField), 'Fresh Interpretation Network single-system matrix must use the hidden system title').toBe(
+        'System matrix'
+    )
+}
+
 const expectRuntimeSectionAvailable = (data: RuntimeData, codename: string, label: string): void => {
     const sections = data.sections ?? []
     expect(
@@ -249,8 +279,8 @@ export async function expectInterpretationNetworkRuntimeDataReady(
     const materialRefColumn = findRuntimeColumn(matrixColumn?.childColumns, 'MaterialRef')
     expect(materialRefColumn?.dataType, 'InterpretationMatrix.MaterialRef must be a REF runtime child column').toBe('REF')
 
-    expect(structures.rows ?? [], 'Fresh Interpretation Network Structures must start without demo structures').toHaveLength(0)
-    expect(interpretations.rows ?? [], 'Fresh Interpretation Network Interpretations must start without demo pages').toHaveLength(0)
+    expectOnlySingleSystemStructureIfPresent(structures)
+    expectOnlySingleSystemMatrixIfPresent(interpretations)
     expect(relations.rows ?? [], 'Fresh Interpretation Network Relations must start empty').toHaveLength(0)
     expectRuntimeRowWithFieldTextAbsent(structures, 'Name', 'Gravity', 'Interpretation Network Structures')
     expectRuntimeRowWithFieldTextAbsent(interpretations, 'Title', 'Attraction between masses', 'Interpretation Network Interpretations')
@@ -267,7 +297,7 @@ export async function expectInterpretationNetworkRuntimeDataReady(
         limit: 20,
         offset: 0
     })) as RuntimeData
-    expect(getColumnCodenames(tableTemplates)).toEqual(expect.arrayContaining(['Name', 'Description', 'TemplateMatrix']))
+    expect(getColumnCodenames(tableTemplates)).toEqual(expect.arrayContaining(['Name', 'Description', 'MaterialPolicy', 'TemplateMatrix']))
     expect(tableTemplates.rows ?? [], 'Fresh Interpretation Network TableTemplate records must start empty').toHaveLength(0)
     expectRuntimeRowWithFieldTextAbsent(tableTemplates, 'Name', 'Basic interpretation matrix', 'Interpretation Network TableTemplates')
 

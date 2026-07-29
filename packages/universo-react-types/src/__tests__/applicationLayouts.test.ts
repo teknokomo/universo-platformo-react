@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
     applicationLayoutWidgetConfigBatchMutationSchema,
+    applicationLayoutWidgetResetBatchMutationSchema,
+    applicationLayoutWidgetSchema,
     INTERPRETATION_NETWORK_SPLIT_PANE_DEFAULT,
     INTERPRETATION_NETWORK_SPLIT_PANE_MAX_PERCENT,
     INTERPRETATION_NETWORK_SPLIT_PANE_MIN_PERCENT,
@@ -12,6 +14,69 @@ import {
 } from '../common/applicationLayouts'
 
 describe('application layout widget config contracts', () => {
+    it('parses source-aware widget customization fields with safe defaults', () => {
+        const baseWidget = {
+            id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+            layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+            zone: 'center',
+            widgetKey: 'interpretationNetworkWorkspace',
+            sortOrder: 1,
+            config: { structureMode: 'multiple' },
+            isActive: true
+        }
+
+        expect(applicationLayoutWidgetSchema.parse(baseWidget)).toMatchObject({
+            sourceConfig: null,
+            isCustomized: false
+        })
+        expect(
+            applicationLayoutWidgetSchema.parse({
+                ...baseWidget,
+                sourceConfig: { structureMode: 'singleSystem' },
+                isCustomized: true
+            })
+        ).toMatchObject({
+            sourceConfig: { structureMode: 'singleSystem' },
+            isCustomized: true
+        })
+    })
+
+    it('validates scoped reset batches and rejects duplicate widgets', () => {
+        const update = {
+            layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+            widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+            expectedVersion: 2
+        }
+
+        expect(applicationLayoutWidgetResetBatchMutationSchema.parse({ updates: [update] })).toEqual({ updates: [update] })
+        expect(
+            applicationLayoutWidgetResetBatchMutationSchema.safeParse({
+                updates: [update, { ...update, layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a2' }]
+            }).success
+        ).toBe(false)
+        expect(
+            applicationLayoutWidgetResetBatchMutationSchema.safeParse({
+                updates: [{ ...update, layoutId: 'not-a-uuid' }]
+            }).success
+        ).toBe(false)
+        expect(applicationLayoutWidgetResetBatchMutationSchema.safeParse({ updates: [] }).success).toBe(false)
+        expect(
+            applicationLayoutWidgetResetBatchMutationSchema.safeParse({
+                updates: [{ ...update, widgetId: 'not-a-uuid' }]
+            }).success
+        ).toBe(false)
+        expect(
+            applicationLayoutWidgetResetBatchMutationSchema.safeParse({
+                updates: [{ ...update, expectedVersion: 0 }]
+            }).success
+        ).toBe(false)
+        expect(
+            applicationLayoutWidgetResetBatchMutationSchema.safeParse({
+                updates: [{ ...update, unexpected: true }]
+            }).success
+        ).toBe(false)
+    })
+
     it('rejects non-UUID layout IDs in widget config batch mutations', () => {
         const result = applicationLayoutWidgetConfigBatchMutationSchema.safeParse({
             updates: [
@@ -60,6 +125,11 @@ describe('application layout widget config contracts', () => {
                     sectionCodenames: ['Structure'],
                     objectCollectionCodenames: ['Structure']
                 },
+                structureMode: 'singleSystem',
+                templatePanel: {
+                    showInStructureList: true,
+                    showInMatrix: false
+                },
                 matrixMode: 'hierarchicalCells',
                 allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
                 defaultMatrixView: 'table',
@@ -98,6 +168,11 @@ describe('application layout widget config contracts', () => {
                 tableTemplateMatrixField: 'TemplateMatrix'
             })
         ).toMatchObject({
+            structureMode: 'singleSystem',
+            templatePanel: {
+                showInStructureList: true,
+                showInMatrix: false
+            },
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',
@@ -131,6 +206,13 @@ describe('application layout widget config contracts', () => {
                 objectCollectionCodenames: ['Structure']
             }
         })
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                matrixMode: 'hierarchicalCells',
+                structureMode: 'oneMainStructure'
+            })
+        ).toThrow()
+
         expect(() =>
             parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
                 matrixMode: 'hierarchicalCells',
@@ -254,6 +336,26 @@ describe('application layout widget config contracts', () => {
         expect(normalizeInterpretationNetworkMatrixViewSettings('hierarchicalCells', ['unknown'], 'unknown')).toEqual({
             allowedMatrixViews: ['table'],
             defaultMatrixView: 'table'
+        })
+    })
+
+    it('normalizes Interpretation Network structure mode at UI and runtime boundaries', () => {
+        expect(parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {})).toEqual({
+            visibleFor: undefined
+        })
+        expect(
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                structureMode: 'multiple'
+            })
+        ).toEqual({
+            structureMode: 'multiple'
+        })
+        expect(
+            parseApplicationLayoutWidgetConfig('interpretationNetworkWorkspace', {
+                structureMode: 'singleSystem'
+            })
+        ).toEqual({
+            structureMode: 'singleSystem'
         })
     })
 

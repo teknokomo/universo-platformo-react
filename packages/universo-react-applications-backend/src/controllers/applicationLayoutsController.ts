@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { applicationLayoutWidgetConfigBatchMutationSchema } from '@universo-react/types'
+import { applicationLayoutWidgetConfigBatchMutationSchema, applicationLayoutWidgetResetBatchMutationSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { getRequestDbExecutor } from '../utils'
@@ -18,6 +18,7 @@ import {
     listApplicationLayoutWidgets,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
+    resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     updateApplicationLayout,
     updateApplicationLayoutWidgetConfig,
@@ -65,6 +66,13 @@ const handleKnownError = (res: Response, error: unknown): boolean => {
     }
     if (message === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT') {
         res.status(409).json({ error: message })
+        return true
+    }
+    if (
+        message === 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST' ||
+        message === 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+    ) {
+        res.status(409).json({ error: message, code: message })
         return true
     }
     return false
@@ -268,6 +276,22 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
             }
             try {
                 const items = await updateApplicationLayoutWidgetConfigsBatch(ctx.executor, ctx.schemaName, parsedBody.data, ctx.userId)
+                res.json({ items })
+            } catch (error) {
+                if (!handleKnownError(res, error)) throw error
+            }
+        },
+
+        async resetWidgetConfigsBatch(req: Request, res: Response) {
+            const ctx = await ensureSchema(req, res)
+            if (!ctx) return
+            const parsedBody = applicationLayoutWidgetResetBatchMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_WIDGET_RESET_BATCH_INVALID' })
+                return
+            }
+            try {
+                const items = await resetApplicationLayoutWidgetConfigsBatch(ctx.executor, ctx.schemaName, parsedBody.data, ctx.userId)
                 res.json({ items })
             } catch (error) {
                 if (!handleKnownError(res, error)) throw error

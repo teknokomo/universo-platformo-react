@@ -10,15 +10,13 @@ import {
     workflowActionSchema,
     readLocalizedTextValue
 } from '@universo-react/types'
-import type { RuntimeRecordCommand, RuntimeRestoreTarget } from './types'
+import { extractErrorMessage, fetchWithCsrf } from './client'
+export { buildAppsApiUrl, extractErrorMessage, fetchWithCsrf } from './client'
+export * from './runtimeRows'
 
 export type { DashboardLayoutConfig } from '@universo-react/types'
 
-const AUTH_CSRF_STORAGE_KEY = 'up.auth.csrf'
-
-let csrfTokenPromise: Promise<string> | null = null
-
-const runtimePermissionsSchema = z
+export const runtimePermissionsSchema = z
     .object({
         manageMembers: z.boolean().optional().default(false),
         manageApplication: z.boolean().optional().default(false),
@@ -28,114 +26,6 @@ const runtimePermissionsSchema = z
         readReports: z.boolean().optional().default(false)
     })
     .default({})
-
-const getSessionStorage = (): Storage | null => {
-    try {
-        return typeof window !== 'undefined' ? window.sessionStorage : null
-    } catch {
-        return null
-    }
-}
-
-function buildApiUrl(apiBaseUrl: string, path: string): string {
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const apiPath = `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`
-
-    if (/^https?:\/\//i.test(normalizedBase)) {
-        return new URL(apiPath).toString()
-    }
-
-    return new URL(apiPath, window.location.origin).toString()
-}
-
-const getStoredCsrfToken = (): string | null => getSessionStorage()?.getItem(AUTH_CSRF_STORAGE_KEY) ?? null
-
-const clearStoredCsrfToken = (): void => {
-    getSessionStorage()?.removeItem(AUTH_CSRF_STORAGE_KEY)
-}
-
-const storeCsrfToken = (token: string): void => {
-    getSessionStorage()?.setItem(AUTH_CSRF_STORAGE_KEY, token)
-}
-
-async function resolveCsrfToken(apiBaseUrl: string): Promise<string> {
-    const stored = getStoredCsrfToken()
-    if (stored) {
-        return stored
-    }
-
-    if (!csrfTokenPromise) {
-        csrfTokenPromise = (async () => {
-            const response = await fetch(buildApiUrl(apiBaseUrl, '/auth/csrf'), { credentials: 'include' })
-            if (!response.ok) {
-                throw new Error(await extractErrorMessage(response, 'CSRF token request failed'))
-            }
-
-            const payload = (await response.json()) as { csrfToken?: unknown }
-            if (typeof payload?.csrfToken !== 'string' || payload.csrfToken.trim().length === 0) {
-                throw new Error('CSRF token response is invalid')
-            }
-
-            storeCsrfToken(payload.csrfToken)
-            return payload.csrfToken
-        })().finally(() => {
-            csrfTokenPromise = null
-        })
-    }
-
-    return csrfTokenPromise
-}
-
-export async function fetchWithCsrf(apiBaseUrl: string, input: string, init: RequestInit = {}): Promise<Response> {
-    const method = (init.method ?? 'GET').toUpperCase()
-    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-        return fetch(input, {
-            ...init,
-            credentials: init.credentials ?? 'include'
-        })
-    }
-
-    const applyRequest = async (csrfToken: string): Promise<Response> => {
-        const headers = new Headers(init.headers ?? {})
-        headers.set('X-CSRF-Token', csrfToken)
-
-        return fetch(input, {
-            ...init,
-            credentials: init.credentials ?? 'include',
-            headers
-        })
-    }
-
-    let response = await applyRequest(await resolveCsrfToken(apiBaseUrl))
-    if (response.status !== 419) {
-        return response
-    }
-
-    clearStoredCsrfToken()
-    response = await applyRequest(await resolveCsrfToken(apiBaseUrl))
-    return response
-}
-
-/**
- * Extract a human-readable error message from an HTTP response body.
- * Tries to parse JSON and pull `error` / `message` fields; falls back to raw text.
- */
-async function extractErrorMessage(res: Response, fallbackPrefix: string): Promise<string> {
-    const text = await res.text().catch(() => '')
-    if (text) {
-        try {
-            const json = JSON.parse(text)
-            const msg = json?.error ?? json?.message ?? json?.detail
-            if (typeof msg === 'string' && msg.trim().length > 0) {
-                return `${fallbackPrefix} (${res.status}): ${msg}`
-            }
-        } catch {
-            // Not JSON — use raw text
-        }
-        return `${fallbackPrefix} (${res.status}): ${text}`
-    }
-    return `${fallbackPrefix} (${res.status}): ${res.statusText}`
-}
 
 const runtimeObjectCollectionSchema = z.object({
     id: z.string(),
@@ -162,6 +52,51 @@ const runtimeRefOptionSchema = z.object({
     sortOrder: z.number().optional()
 })
 
+const runtimeColumnChildSchema = z.object({
+    id: z.string(),
+    codename: z.string(),
+    field: z.string(),
+    dataType: z.string(),
+    headerName: z.string(),
+    isRequired: z.boolean().optional().default(false),
+    isDisplayComponent: z.boolean().optional(),
+    validationRules: z.record(z.unknown()).optional().default({}),
+    uiConfig: z.record(z.unknown()).optional().default({}),
+    refTargetEntityId: z.string().nullable().optional(),
+    refTargetEntityKind: z.string().nullable().optional(),
+    refTargetConstantId: z.string().nullable().optional(),
+    refOptions: z.array(runtimeRefOptionSchema).optional(),
+    enumOptions: z.array(runtimeRefOptionSchema).optional()
+})
+
+const runtimeColumnSchema = runtimeColumnChildSchema.extend({
+    dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE']),
+    childColumns: z.array(runtimeColumnChildSchema).optional()
+})
+
+const runtimeZoneWidgetSchema = z.object({
+    id: z.string(),
+    layoutId: z.string().optional(),
+    widgetKey: z.string(),
+    sortOrder: z.number(),
+    config: z.record(z.unknown()).optional().default({}),
+    isActive: z.boolean().optional().default(true)
+})
+
+const runtimeMenuItemSchema = z.object({
+    id: z.string(),
+    kind: z.enum(['section', 'hub', 'link']),
+    title: z.string(),
+    icon: z.string().nullable().optional(),
+    href: z.string().nullable().optional(),
+    sectionId: z.string().nullable().optional(),
+    objectCollectionId: z.string().nullable().optional(),
+    hubId: z.string().nullable().optional(),
+    treeEntityId: z.string().nullable().optional(),
+    sortOrder: z.number().optional().default(0),
+    isActive: z.boolean().optional().default(true)
+})
+
 export const appDataResponseSchema = z.object({
     section: runtimeObjectCollectionSchema.optional(),
     objectCollection: runtimeObjectCollectionSchema,
@@ -170,42 +105,8 @@ export const appDataResponseSchema = z.object({
     activeSectionId: z.string().optional(),
     activeObjectCollectionId: z.string().nullable().optional(),
     columns: z.array(
-        z.object({
-            id: z.string(),
-            codename: z.string(),
-            field: z.string(),
-            dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE']),
-            headerName: z.string(),
-            isRequired: z.boolean().optional().default(false),
-            isDisplayComponent: z.boolean().optional(),
-            validationRules: z.record(z.unknown()).optional().default({}),
-            uiConfig: z.record(z.unknown()).optional().default({}),
-            refTargetEntityId: z.string().nullable().optional(),
-            refTargetEntityKind: z.string().nullable().optional(),
-            refTargetConstantId: z.string().nullable().optional(),
-            refOptions: z.array(runtimeRefOptionSchema).optional(),
-            enumOptions: z.array(runtimeRefOptionSchema).optional(),
-            // Child column definitions for TABLE-type components
-            childColumns: z
-                .array(
-                    z.object({
-                        id: z.string(),
-                        codename: z.string(),
-                        field: z.string(),
-                        dataType: z.string(),
-                        headerName: z.string(),
-                        isRequired: z.boolean().optional().default(false),
-                        isDisplayComponent: z.boolean().optional(),
-                        validationRules: z.record(z.unknown()).optional().default({}),
-                        uiConfig: z.record(z.unknown()).optional().default({}),
-                        refTargetEntityId: z.string().nullable().optional(),
-                        refTargetEntityKind: z.string().nullable().optional(),
-                        refTargetConstantId: z.string().nullable().optional(),
-                        refOptions: z.array(runtimeRefOptionSchema).optional(),
-                        enumOptions: z.array(runtimeRefOptionSchema).optional()
-                    })
-                )
-                .optional()
+        runtimeColumnSchema.extend({
+            dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE'])
         })
     ),
     rows: z.array(z.record(z.unknown()).and(z.object({ id: z.string() }))),
@@ -230,39 +131,9 @@ export const appDataResponseSchema = z.object({
     layoutConfig: dashboardLayoutConfigSchema,
     zoneWidgets: z
         .object({
-            left: z.array(
-                z.object({
-                    id: z.string(),
-                    widgetKey: z.string(),
-                    sortOrder: z.number(),
-                    config: z.record(z.unknown()).optional().default({}),
-                    isActive: z.boolean().optional().default(true)
-                })
-            ),
-            right: z
-                .array(
-                    z.object({
-                        id: z.string(),
-                        widgetKey: z.string(),
-                        sortOrder: z.number(),
-                        config: z.record(z.unknown()).optional().default({}),
-                        isActive: z.boolean().optional().default(true)
-                    })
-                )
-                .optional()
-                .default([]),
-            center: z
-                .array(
-                    z.object({
-                        id: z.string(),
-                        widgetKey: z.string(),
-                        sortOrder: z.number(),
-                        config: z.record(z.unknown()).optional().default({}),
-                        isActive: z.boolean().optional().default(true)
-                    })
-                )
-                .optional()
-                .default([])
+            left: z.array(runtimeZoneWidgetSchema),
+            right: z.array(runtimeZoneWidgetSchema).optional().default([]),
+            center: z.array(runtimeZoneWidgetSchema).optional().default([])
         })
         .optional(),
     menus: z
@@ -278,39 +149,8 @@ export const appDataResponseSchema = z.object({
                 maxPrimaryItems: z.number().nullable().optional(),
                 overflowLabelKey: z.string().nullable().optional(),
                 workspacePlacement: z.enum(['primary', 'overflow', 'hidden']).optional().default('primary'),
-                items: z.array(
-                    z.object({
-                        id: z.string(),
-                        kind: z.enum(['section', 'hub', 'link']),
-                        title: z.string(),
-                        icon: z.string().nullable().optional(),
-                        href: z.string().nullable().optional(),
-                        sectionId: z.string().nullable().optional(),
-                        objectCollectionId: z.string().nullable().optional(),
-                        hubId: z.string().nullable().optional(),
-                        treeEntityId: z.string().nullable().optional(),
-                        sortOrder: z.number().optional().default(0),
-                        isActive: z.boolean().optional().default(true)
-                    })
-                ),
-                overflowItems: z
-                    .array(
-                        z.object({
-                            id: z.string(),
-                            kind: z.enum(['section', 'hub', 'link']),
-                            title: z.string(),
-                            icon: z.string().nullable().optional(),
-                            href: z.string().nullable().optional(),
-                            sectionId: z.string().nullable().optional(),
-                            objectCollectionId: z.string().nullable().optional(),
-                            hubId: z.string().nullable().optional(),
-                            treeEntityId: z.string().nullable().optional(),
-                            sortOrder: z.number().optional().default(0),
-                            isActive: z.boolean().optional().default(true)
-                        })
-                    )
-                    .optional()
-                    .default([])
+                items: z.array(runtimeMenuItemSchema),
+                overflowItems: z.array(runtimeMenuItemSchema).optional().default([])
             })
         )
         .optional()
@@ -381,6 +221,18 @@ export type RuntimeLedgerFactsResponse = z.infer<typeof runtimeLedgerFactsRespon
 export type RuntimeLedgerProjectionResponse = z.infer<typeof runtimeLedgerProjectionResponseSchema>
 export type RuntimeReportRunResponse = z.infer<typeof runtimeReportRunResponseSchema>
 export type RuntimePlayCanvasManifestResponse = z.infer<typeof runtimePlayCanvasManifestsResponseSchema>
+
+/** Build the base API URL for a given application's runtime endpoint. */
+const buildAppApiUrl = (apiBaseUrl: string, applicationId: string, path = ''): string => {
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const apiPath = `${normalizedBase}/applications/${applicationId}/runtime${path}`
+
+    if (/^https?:\/\//i.test(normalizedBase)) {
+        return new URL(apiPath).toString()
+    }
+
+    return new URL(apiPath, window.location.origin).toString()
+}
 
 export async function fetchAppData(options: {
     apiBaseUrl: string
@@ -478,8 +330,7 @@ export async function fetchRuntimeRecordsUnion(options: {
     workspaceId?: string | null
 }): Promise<AppDataResponse> {
     const { apiBaseUrl, applicationId, datasource, limit, offset, locale, workspaceId } = options
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/datasources/records/union`))
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/datasources/records/union'))
     if (workspaceId?.trim()) {
         url.searchParams.set('workspaceId', workspaceId.trim())
     }
@@ -567,8 +418,7 @@ export async function fetchRuntimeLedgers(options: {
     applicationId: string
 }): Promise<RuntimeLedgerMetadataResponse[]> {
     const { apiBaseUrl, applicationId } = options
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const url = buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/ledgers`)
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/ledgers')
 
     const res = await fetch(url, { credentials: 'include' })
     if (!res.ok) {
@@ -615,8 +465,7 @@ export async function fetchRuntimeLedgerFacts(options: {
 }): Promise<RuntimeLedgerFactsResponse> {
     const { apiBaseUrl, applicationId, limit, offset } = options
     const ledgerId = await resolveRuntimeLedgerId(options)
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/ledgers/${ledgerId}/facts`))
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, `/ledgers/${ledgerId}/facts`))
     url.searchParams.set('limit', String(limit))
     url.searchParams.set('offset', String(offset))
 
@@ -644,8 +493,7 @@ export async function fetchRuntimeLedgerProjection(options: {
 }): Promise<RuntimeLedgerProjectionResponse> {
     const { apiBaseUrl, applicationId, projectionCodename, filters, limit, offset } = options
     const ledgerId = await resolveRuntimeLedgerId(options)
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const url = buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/ledgers/${ledgerId}/query`)
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/ledgers/${ledgerId}/query`)
 
     const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
         method: 'POST',
@@ -675,8 +523,7 @@ export async function runRuntimeReport(options: {
     workspaceId?: string | null
 }): Promise<RuntimeReportRunResponse> {
     const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, locale, workspaceId } = options
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/reports/run`))
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/reports/run'))
     if (workspaceId?.trim()) {
         url.searchParams.set('workspaceId', workspaceId.trim())
     }
@@ -716,8 +563,7 @@ export async function exportRuntimeReportCsv(options: {
     workspaceId?: string | null
 }): Promise<Blob> {
     const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, locale, workspaceId } = options
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/reports/export`))
+    const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/reports/export'))
     if (workspaceId?.trim()) {
         url.searchParams.set('workspaceId', workspaceId.trim())
     }
@@ -739,590 +585,4 @@ export async function exportRuntimeReportCsv(options: {
     }
 
     return res.blob()
-}
-
-/** Build the base API URL for a given application's runtime endpoint. */
-function buildAppApiUrl(apiBaseUrl: string, applicationId: string, path = ''): string {
-    return buildApiUrl(apiBaseUrl, `/applications/${applicationId}/runtime${path}`)
-}
-
-/** Fetch a single row (raw data, VLC not resolved — for edit forms). */
-export async function fetchAppRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    objectCollectionId?: string
-    sectionId?: string
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
-    if (resolvedSectionId) {
-        url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
-    }
-
-    const res = await fetch(url, { credentials: 'include' })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Fetch row failed'))
-    }
-    return res.json()
-}
-
-/** Create a new row. Returns the created row with its id. */
-export async function createAppRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    objectCollectionId?: string
-    sectionId?: string
-    workspaceId?: string | null
-    data: Record<string, unknown>
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, data } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, '/rows')
-    if (workspaceId?.trim()) {
-        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
-    }
-
-    const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Create row failed'))
-    }
-    return res.json()
-}
-
-/** Update an existing row (bulk update via /rows/:rowId). */
-export async function updateAppRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    objectCollectionId?: string
-    sectionId?: string
-    workspaceId?: string | null
-    data: Record<string, unknown>
-    expectedVersion?: number
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, data, expectedVersion } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
-    if (workspaceId?.trim()) {
-        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
-    }
-
-    const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Update row failed'))
-    }
-    return res.json()
-}
-
-/** Soft-delete a row. */
-export async function deleteAppRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    objectCollectionId?: string
-    sectionId?: string
-    workspaceId?: string | null
-    expectedVersion?: number
-}): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
-    const params = new URLSearchParams()
-    if (workspaceId?.trim()) {
-        params.set('workspaceId', workspaceId.trim())
-    }
-    if (resolvedSectionId) {
-        params.set('objectCollectionId', resolvedSectionId)
-    }
-    if (typeof expectedVersion === 'number') {
-        params.set('expectedVersion', String(expectedVersion))
-    }
-    const queryString = params.toString()
-    if (queryString) {
-        url += `?${queryString}`
-    }
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Delete row failed'))
-    }
-}
-
-/** Remove a just-created row as server-validated compensation for a failed composite create flow. */
-export async function compensateCreatedAppRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    objectCollectionId?: string
-    sectionId?: string
-    workspaceId?: string | null
-}): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/compensate-create`)
-    if (workspaceId?.trim()) {
-        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
-    }
-    const body: Record<string, unknown> = { expectedVersion: 1 }
-    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Compensate created row failed'))
-    }
-}
-
-/** Restore a soft-deleted row. */
-export async function restoreAppRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    objectCollectionId?: string
-    sectionId?: string
-    expectedVersion?: number
-    restoreTarget?: RuntimeRestoreTarget
-}): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, expectedVersion, restoreTarget } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const body: Record<string, unknown> = {}
-    if (resolvedSectionId) {
-        body.objectCollectionId = resolvedSectionId
-    }
-    if (typeof expectedVersion === 'number') {
-        body.expectedVersion = expectedVersion
-    }
-    if (restoreTarget) {
-        body.restoreTarget = restoreTarget
-    }
-
-    const res = await fetchWithCsrf(apiBaseUrl, buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/restore`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Restore row failed'))
-    }
-}
-
-/** Copy an existing row. */
-export async function copyAppRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    objectCollectionId?: string
-    sectionId?: string
-    workspaceId?: string | null
-    copyChildTables?: boolean
-    data?: Record<string, unknown>
-    expectedVersion?: number
-}): Promise<Record<string, unknown>> {
-    const {
-        apiBaseUrl,
-        applicationId,
-        rowId,
-        objectCollectionId,
-        sectionId,
-        workspaceId,
-        copyChildTables = true,
-        data,
-        expectedVersion
-    } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`)
-    if (workspaceId?.trim()) {
-        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
-    }
-    const body: Record<string, unknown> = { copyChildTables }
-    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-    if (data && Object.keys(data).length > 0) body.data = data
-    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Copy row failed'))
-    }
-    return res.json()
-}
-
-export async function runAppRecordCommand(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    command: RuntimeRecordCommand
-    objectCollectionId?: string
-    sectionId?: string
-    expectedVersion?: number
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, command, objectCollectionId, sectionId, expectedVersion } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/${command}`)
-    const body: Record<string, unknown> = {}
-    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Record command failed'))
-    }
-    return res.json()
-}
-
-export async function runAppWorkflowAction(options: {
-    apiBaseUrl: string
-    applicationId: string
-    rowId: string
-    actionCodename: string
-    objectCollectionId?: string
-    sectionId?: string
-    expectedVersion: number
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, actionCodename, objectCollectionId, sectionId, expectedVersion } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`)
-    const body: Record<string, unknown> = { expectedVersion }
-    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Workflow action failed'))
-    }
-    return res.json()
-}
-
-export async function updateLearningContentProgress(options: {
-    apiBaseUrl: string
-    applicationId: string
-    targetObjectCodename: string
-    targetRecordId: string
-    action?: 'view' | 'complete'
-}): Promise<{ persisted: boolean; reason?: string; progressPercent?: number; status?: string }> {
-    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId, action = 'view' } = options
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/progress/content')
-    const body: Record<string, unknown> = { targetObjectCodename, targetRecordId, action }
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Update learning content progress failed'))
-    }
-    return res.json()
-}
-
-export async function recalculateLearningContentProgress(options: {
-    apiBaseUrl: string
-    applicationId: string
-    targetObjectCodename: string
-    targetRecordId: string
-}): Promise<{ persisted: boolean; action?: string; targetObjectCodename?: string; targetRecordId?: string }> {
-    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId } = options
-    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/progress/content')
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetObjectCodename, targetRecordId, action: 'recalculate' })
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Recalculate learning content progress failed'))
-    }
-    return res.json()
-}
-
-/** Persist a complete row order for runtime objects that explicitly enable row reordering. */
-export async function reorderAppRows(options: {
-    apiBaseUrl: string
-    applicationId: string
-    objectCollectionId?: string
-    sectionId?: string
-    workspaceId?: string | null
-    orderedRowIds: string[]
-    expectedVersionsByRowId?: Record<string, number>
-}): Promise<void> {
-    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const body: Record<string, unknown> = { orderedRowIds }
-    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-    if (expectedVersionsByRowId && Object.keys(expectedVersionsByRowId).length > 0) {
-        body.expectedVersionsByRowId = expectedVersionsByRowId
-    }
-
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, '/rows/reorder')
-    if (workspaceId?.trim()) {
-        url += `?workspaceId=${encodeURIComponent(workspaceId.trim())}`
-    }
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Reorder rows failed'))
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tabular (TABLE component child rows) API helpers
-// ---------------------------------------------------------------------------
-
-/** Zod schema for the tabular child rows API response. */
-export const tabularRowsResponseSchema = z.object({
-    items: z.array(z.record(z.unknown()).and(z.object({ id: z.string() }))),
-    total: z.number()
-})
-
-export type TabularRowsResponse = z.infer<typeof tabularRowsResponseSchema>
-
-/** Fetch child rows for a TABLE component. */
-export async function fetchTabularRows(options: {
-    apiBaseUrl: string
-    applicationId: string
-    parentRecordId: string
-    componentId: string
-    objectCollectionId: string
-    sectionId?: string
-    workspaceId?: string | null
-}): Promise<TabularRowsResponse> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
-    if (workspaceId?.trim()) {
-        params.set('workspaceId', workspaceId.trim())
-    }
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}`)
-    url += `?${params.toString()}`
-
-    const res = await fetch(url, { credentials: 'include' })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Fetch tabular rows failed'))
-    }
-    const json = await res.json()
-    const parsed = tabularRowsResponseSchema.safeParse(json)
-    if (!parsed.success) {
-        throw new Error('Tabular rows response validation failed')
-    }
-    return parsed.data
-}
-
-/** Create a new child row in a TABLE component. */
-export async function createTabularRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    parentRecordId: string
-    componentId: string
-    objectCollectionId: string
-    sectionId?: string
-    workspaceId?: string | null
-    data: Record<string, unknown>
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, data } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
-    if (workspaceId?.trim()) {
-        params.set('workspaceId', workspaceId.trim())
-    }
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}`)
-    url += `?${params.toString()}`
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data })
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Create tabular row failed'))
-    }
-    return res.json()
-}
-
-/** Update a child row in a TABLE component. */
-export async function updateTabularRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    parentRecordId: string
-    componentId: string
-    objectCollectionId: string
-    sectionId?: string
-    workspaceId?: string | null
-    childRowId: string
-    data: Record<string, unknown>
-    expectedVersion?: number
-}): Promise<Record<string, unknown>> {
-    const {
-        apiBaseUrl,
-        applicationId,
-        parentRecordId,
-        componentId,
-        objectCollectionId,
-        sectionId,
-        workspaceId,
-        childRowId,
-        data,
-        expectedVersion
-    } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
-    if (workspaceId?.trim()) {
-        params.set('workspaceId', workspaceId.trim())
-    }
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
-    url += `?${params.toString()}`
-    const body: Record<string, unknown> = { data }
-    if (typeof expectedVersion === 'number') {
-        body.expectedVersion = expectedVersion
-    }
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Update tabular row failed'))
-    }
-    return res.json()
-}
-
-/** Atomically update multiple child rows in a TABLE component. */
-export async function batchUpdateTabularRows(options: {
-    apiBaseUrl: string
-    applicationId: string
-    parentRecordId: string
-    componentId: string
-    objectCollectionId: string
-    sectionId?: string
-    workspaceId?: string | null
-    updates: Array<{ childRowId: string; data: Record<string, unknown>; expectedVersion?: number }>
-    uniformUpdates?: Array<{
-        rows: Array<{ childRowId: string; expectedVersion?: number }>
-        data: Record<string, unknown>
-    }>
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, updates, uniformUpdates } =
-        options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
-    if (workspaceId?.trim()) {
-        params.set('workspaceId', workspaceId.trim())
-    }
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/batch`)
-    url += `?${params.toString()}`
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates, ...(uniformUpdates?.length ? { uniformUpdates } : {}) })
-    })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Batch update tabular rows failed'))
-    }
-    return res.json()
-}
-
-/** Delete a child row in a TABLE component. */
-export async function deleteTabularRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    parentRecordId: string
-    componentId: string
-    objectCollectionId: string
-    sectionId?: string
-    workspaceId?: string | null
-    childRowId: string
-    expectedVersion?: number
-}): Promise<void> {
-    const {
-        apiBaseUrl,
-        applicationId,
-        parentRecordId,
-        componentId,
-        objectCollectionId,
-        sectionId,
-        workspaceId,
-        childRowId,
-        expectedVersion
-    } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
-    if (workspaceId?.trim()) {
-        params.set('workspaceId', workspaceId.trim())
-    }
-    if (expectedVersion !== undefined) {
-        params.set('expectedVersion', String(expectedVersion))
-    }
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
-    url += `?${params.toString()}`
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Delete tabular row failed'))
-    }
-}
-
-/** Copy a child row in a TABLE component. */
-export async function copyTabularRow(options: {
-    apiBaseUrl: string
-    applicationId: string
-    parentRecordId: string
-    componentId: string
-    objectCollectionId: string
-    sectionId?: string
-    workspaceId?: string | null
-    childRowId: string
-}): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, workspaceId, childRowId } = options
-    const resolvedSectionId = sectionId ?? objectCollectionId
-    const params = new URLSearchParams({ objectCollectionId: resolvedSectionId })
-    if (workspaceId?.trim()) {
-        params.set('workspaceId', workspaceId.trim())
-    }
-    let url = buildAppApiUrl(
-        apiBaseUrl,
-        applicationId,
-        `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}/copy`
-    )
-    url += `?${params.toString()}`
-
-    const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'POST' })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Copy tabular row failed'))
-    }
-    return res.json()
 }

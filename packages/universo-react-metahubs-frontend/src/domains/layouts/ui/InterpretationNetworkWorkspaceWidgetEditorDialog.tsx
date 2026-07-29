@@ -19,9 +19,12 @@ import {
     normalizeInterpretationNetworkMatrixViewSettings,
     normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
+    normalizeInterpretationNetworkTemplatePanelSettings,
+    parseInterpretationNetworkStructureMode,
     type InterpretationNetworkMatrixMode,
     type InterpretationNetworkHierarchyRowMode,
     type InterpretationNetworkMatrixView,
+    type InterpretationNetworkStructureMode,
     type InterpretationNetworkTableProjection,
     type InterpretationNetworkToolbarLayout,
     type InterpretationNetworkWorkspaceWidgetConfig
@@ -38,7 +41,7 @@ export interface InterpretationNetworkWorkspaceWidgetEditorDialogProps {
     widgetId?: string | null
     showSharedBehavior?: boolean
     showScopeVisibility?: boolean
-    onSave: (config: InterpretationNetworkWorkspaceWidgetConfig) => void
+    onSave: (config: InterpretationNetworkWorkspaceWidgetConfig) => Promise<void> | void
     onCancel: () => void
 }
 
@@ -66,8 +69,10 @@ const normalizeConfig = (config?: InterpretationNetworkWorkspaceWidgetConfig | n
 
     return {
         ...current,
+        structureMode: parseInterpretationNetworkStructureMode(current.structureMode),
         ...viewSettings,
         splitPane: normalizeInterpretationNetworkSplitPaneSettings(current.splitPane),
+        templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(current.templatePanel),
         ...normalizeInterpretationNetworkTableSettings(
             matrixMode,
             current.tableProjection,
@@ -150,12 +155,15 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
             hideDefaultFields
             onClose={onCancel}
             onSave={() => onSave(normalizeConfig(draft))}
+            autoCloseOnSuccess={false}
             saveButtonText={t('common:save', 'Save')}
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
                 <Stack spacing={2.5}>
                     <Stack spacing={0.5}>
-                        <Typography variant='subtitle2'>{t('layouts.interpretationNetworkEditor.displayTitle', 'Matrix views')}</Typography>
+                        <Typography variant='subtitle2'>
+                            {t('layouts.interpretationNetworkEditor.displayTitle', 'Matrix display')}
+                        </Typography>
                         <Typography variant='body2' color='text.secondary'>
                             {t(
                                 'layouts.interpretationNetworkEditor.description',
@@ -163,6 +171,37 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                             )}
                         </Typography>
                     </Stack>
+
+                    <FormControl fullWidth>
+                        <InputLabel id={`${defaultMatrixViewLabelId}-structure-mode`}>
+                            {t('layouts.interpretationNetworkEditor.structureMode', 'Structure mode')}
+                        </InputLabel>
+                        <Select
+                            labelId={`${defaultMatrixViewLabelId}-structure-mode`}
+                            value={draft.structureMode ?? 'multiple'}
+                            label={t('layouts.interpretationNetworkEditor.structureMode', 'Structure mode')}
+                            onChange={(event) => {
+                                const structureMode = event.target.value as InterpretationNetworkStructureMode
+                                setDraft((current) => ({
+                                    ...current,
+                                    structureMode
+                                }))
+                            }}
+                        >
+                            <MenuItem value='multiple'>
+                                {t('layouts.interpretationNetworkEditor.structureModes.multiple', 'Multiple structures')}
+                            </MenuItem>
+                            <MenuItem value='singleSystem'>
+                                {t('layouts.interpretationNetworkEditor.structureModes.singleSystem', 'One system structure')}
+                            </MenuItem>
+                        </Select>
+                        <FormHelperText>
+                            {t(
+                                'layouts.interpretationNetworkEditor.structureModeHelp',
+                                'Multiple structures shows the Structure list. One system structure opens the Matrix directly and hides the internal Structure name.'
+                            )}
+                        </FormHelperText>
+                    </FormControl>
 
                     <FormControl fullWidth>
                         <InputLabel id={`${defaultMatrixViewLabelId}-matrix-mode`}>
@@ -602,6 +641,52 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                             'When enabled, users can temporarily adjust the Structure and Materials pane widths. Their adjustment is not saved.'
                         )}
                     </FormHelperText>
+
+                    <Stack spacing={0.5}>
+                        <Typography variant='subtitle2'>
+                            {t('layouts.interpretationNetworkEditor.templatePanel', 'Template panels')}
+                        </Typography>
+                        <Typography variant='body2' color='text.secondary'>
+                            {t(
+                                'layouts.interpretationNetworkEditor.templatePanelHelp',
+                                'Choose where saved table templates are visible in published workspaces.'
+                            )}
+                        </Typography>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={normalizeInterpretationNetworkTemplatePanelSettings(draft.templatePanel).showInStructureList}
+                                    onChange={(event) =>
+                                        setDraft((current) => ({
+                                            ...current,
+                                            templatePanel: {
+                                                ...normalizeInterpretationNetworkTemplatePanelSettings(current.templatePanel),
+                                                showInStructureList: event.target.checked
+                                            }
+                                        }))
+                                    }
+                                />
+                            }
+                            label={t('layouts.interpretationNetworkEditor.templatePanelStructureList', 'Show next to Structures')}
+                        />
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={normalizeInterpretationNetworkTemplatePanelSettings(draft.templatePanel).showInMatrix}
+                                    onChange={(event) =>
+                                        setDraft((current) => ({
+                                            ...current,
+                                            templatePanel: {
+                                                ...normalizeInterpretationNetworkTemplatePanelSettings(current.templatePanel),
+                                                showInMatrix: event.target.checked
+                                            }
+                                        }))
+                                    }
+                                />
+                            }
+                            label={t('layouts.interpretationNetworkEditor.templatePanelMatrix', 'Show next to Matrix')}
+                        />
+                    </Stack>
 
                     {showSharedBehavior ? <LayoutWidgetSharedBehaviorFields value={draft} onChange={setDraft} /> : null}
                     {showScopeVisibility && metahubId && layoutId && widgetId ? (

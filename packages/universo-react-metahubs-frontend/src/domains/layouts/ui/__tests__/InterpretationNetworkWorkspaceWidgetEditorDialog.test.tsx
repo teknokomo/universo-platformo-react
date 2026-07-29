@@ -70,6 +70,24 @@ const renderDialog = (props: Partial<ComponentProps<typeof InterpretationNetwork
 }
 
 describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
+    it('saves the single system Structure mode from the metahub widget editor', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog()
+
+        await user.click(screen.getByRole('combobox', { name: 'Structure mode' }))
+        await user.click(screen.getByRole('option', { name: 'One system structure' }))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                structureMode: 'singleSystem',
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table'
+            })
+        )
+    })
+
     it('enables peer Matrix views and saves a normalized default view', async () => {
         const user = userEvent.setup()
         const { onSave } = renderDialog()
@@ -297,6 +315,35 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
                 allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
                 defaultMatrixView: 'table',
                 splitPane: { enabled: false },
+                allowNewAxesInCellDialog: false
+            })
+        )
+    })
+
+    it('saves template panel placement defaults through the shared configuration contract', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({
+            config: {
+                matrixMode: 'hierarchicalCells',
+                templatePanel: { showInStructureList: true, showInMatrix: true }
+            }
+        })
+
+        const structureListToggle = screen.getByRole('checkbox', { name: 'Show next to Structures' })
+        const matrixToggle = screen.getByRole('checkbox', { name: 'Show next to Matrix' })
+        expect(structureListToggle).toBeChecked()
+        expect(matrixToggle).toBeChecked()
+
+        await user.click(structureListToggle)
+        await user.click(matrixToggle)
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                defaultMatrixView: 'table',
+                templatePanel: { showInStructureList: false, showInMatrix: false },
                 allowNewAxesInCellDialog: false
             })
         )

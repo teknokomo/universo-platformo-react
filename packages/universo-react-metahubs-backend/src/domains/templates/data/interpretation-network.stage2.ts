@@ -9,7 +9,7 @@
 //     child-component definition for the InterpretationMatrix TABLE
 //     (CellId, CellFillColor, TextColor, per-side Border*Color/Width/Style, MaterialRef)
 //   - `INTERPRETATION_NETWORK_STRUCTURE_OBJECT_COMPONENTS` — Structure Object preset
-//     (Name, Description)
+//     (Name, Description, hidden SystemKey)
 //   - `INTERPRETATION_NETWORK_INTERPRETATION_OBJECT_COMPONENTS` — Interpretation Object
 //     preset (Title, ParentStructure, Context, InterpretationMatrix TABLE)
 //   - `INTERPRETATION_NETWORK_RELATION_OBJECT_COMPONENTS` — Relation Object preset
@@ -279,7 +279,7 @@ const INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS: TemplateSee
         sortOrder: 23,
         targetEntityCodename: 'Material',
         targetEntityKind: 'object',
-        uiConfig: { enumPresentationMode: 'label' }
+        uiConfig: { enumPresentationMode: 'label', serverOwned: true }
     }
 ]
 
@@ -300,6 +300,18 @@ const INTERPRETATION_NETWORK_STRUCTURE_OBJECT_COMPONENTS: TemplateSeedComponent[
         sortOrder: 2,
         validationRules: { localized: true, versioned: true },
         uiConfig: { widget: 'textarea', rows: 4 }
+    },
+    {
+        codename: 'SystemKey',
+        dataType: 'STRING',
+        name: vlc('System Key', 'Системный ключ'),
+        description: vlc(
+            'Server-owned hidden key for the single system Structure mode.',
+            'Скрытый серверный ключ для режима одной системной структуры.'
+        ),
+        sortOrder: 3,
+        validationRules: { maxLength: 64 },
+        uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
     }
 ]
 
@@ -362,6 +374,18 @@ const INTERPRETATION_NETWORK_TABLE_TEMPLATE_OBJECT_COMPONENTS: TemplateSeedCompo
         uiConfig: { widget: 'textarea', rows: 4 }
     },
     {
+        codename: 'MaterialPolicy',
+        dataType: 'STRING',
+        name: vlc('Material policy', 'Политика материалов'),
+        description: vlc(
+            'Server-owned hidden policy that records whether this template includes copied cell materials.',
+            'Скрытая серверная политика, фиксирующая, включает ли шаблон скопированные материалы ячеек.'
+        ),
+        sortOrder: 3,
+        validationRules: { maxLength: 32 },
+        uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+    },
+    {
         codename: 'TemplateMatrix',
         dataType: 'TABLE',
         name: vlc('Template Matrix', 'Шаблон матрицы'),
@@ -369,7 +393,7 @@ const INTERPRETATION_NETWORK_TABLE_TEMPLATE_OBJECT_COMPONENTS: TemplateSeedCompo
             'Workspace-authored reusable matrix structure. Users can copy it and use it as a starting point for Interpretation matrices.',
             'Переиспользуемая структура матрицы, создаваемая в рабочем пространстве. Пользователи могут копировать её и использовать как основу матриц трактовок.'
         ),
-        sortOrder: 3,
+        sortOrder: 4,
         validationRules: { minRows: 0, maxRows: 5000, maxChildComponents: 23, matrixUniqueCoordinates: true },
         childComponents: INTERPRETATION_NETWORK_INTERPRETATION_MATRIX_CHILD_COMPONENTS
     }
@@ -485,6 +509,18 @@ const INTERPRETATION_NETWORK_MATERIAL_OBJECT_COMPONENTS: TemplateSeedComponent[]
         dataType: 'STRING',
         name: vlc('Cell ID', 'ID ячейки'),
         sortOrder: 4,
+        validationRules: { maxLength: 64 },
+        uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+    },
+    {
+        codename: 'TemplateOwnerId',
+        dataType: 'STRING',
+        name: vlc('Template owner ID', 'ID шаблона-владельца'),
+        description: vlc(
+            'Server-owned provenance for a Material copied into a reusable table template.',
+            'Серверный признак происхождения материала, скопированного в переиспользуемый шаблон таблицы.'
+        ),
+        sortOrder: 5,
         validationRules: { maxLength: 64 },
         uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
     }

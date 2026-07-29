@@ -7,6 +7,7 @@ export interface InterpretationNetworkWorkspaceContentProps {
     details: WorkspaceShellProps['details']
     dialogs: WorkspaceShellProps['dialogs']
     splitPaneEnabled?: boolean
+    singleSystemMode?: boolean
     structureReturnFocusId?: string | null
     onBackToStructureList?: () => void
 }
@@ -17,6 +18,7 @@ export function InterpretationNetworkWorkspaceContent({
     details,
     dialogs,
     splitPaneEnabled,
+    singleSystemMode,
     structureReturnFocusId,
     onBackToStructureList
 }: InterpretationNetworkWorkspaceContentProps) {
@@ -29,6 +31,7 @@ export function InterpretationNetworkWorkspaceContent({
             details={details}
             dialogs={dialogs}
             splitPaneEnabled={splitPaneEnabled}
+            singleSystemMode={singleSystemMode}
             structureReturnFocusId={structureReturnFocusId}
             onBackToStructureList={onBackToStructureList}
         />

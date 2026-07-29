@@ -14,7 +14,7 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded'
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded'
-import { useState, type MouseEvent } from 'react'
+import { useState, type MouseEvent, type ReactNode } from 'react'
 import { evaluateWorkflowActionAvailability, readLocalizedTextValue, type WorkflowAction } from '@universo-react/types'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
 import { RuntimeRecordStateChip, canRunRuntimeRecordCommand, isRuntimeRecordBehaviorCommandable } from './RuntimeRecordState'
@@ -30,6 +30,8 @@ export interface RowActionsMenuProps {
         canCopy?: boolean
         canDelete?: boolean
     }
+    /** Optional feature-specific actions rendered before the standard CRUD actions. */
+    customActions?: ReactNode
 }
 
 export interface RowActionsMenuLabels {
@@ -130,7 +132,7 @@ const isWorkflowActionVisible = (
  * Extracts the duplicated `<Menu>` JSX from both `DashboardApp`
  * and `ApplicationRuntime`.
  */
-export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuProps) {
+export function RowActionsMenu({ state, labels, permissions, customActions }: RowActionsMenuProps) {
     const [pendingWorkflowConfirmation, setPendingWorkflowConfirmation] = useState<PendingWorkflowConfirmation | null>(null)
     const canEdit = permissions?.canEdit === true
     const canCopy = permissions?.canCopy === true
@@ -148,7 +150,7 @@ export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuPro
         : []
     const isWorkflowActionPending = Boolean(state.isWorkflowActionPending)
 
-    if (!canEdit && !canCopy && !canDelete && !canShowRecordCommands && workflowActions.length === 0) {
+    if (!canEdit && !canCopy && !canDelete && !canShowRecordCommands && workflowActions.length === 0 && !customActions) {
         return null
     }
 
@@ -204,8 +206,8 @@ export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuPro
     return (
         <>
             <Menu
-                open={Boolean(state.menuAnchorEl)}
-                anchorEl={state.menuAnchorEl}
+                open={Boolean(state.menuAnchorEl?.isConnected)}
+                anchorEl={state.menuAnchorEl?.isConnected ? state.menuAnchorEl : null}
                 onClose={state.handleCloseMenu}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -274,6 +276,8 @@ export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuPro
                     </MenuItem>
                 ))}
                 {(hasRecordActions || hasWorkflowActions) && hasCrudActions ? <Divider /> : null}
+                {customActions}
+                {customActions && hasCrudActions ? <Divider /> : null}
                 {canEdit ? (
                     <MenuItem
                         onClick={() => {
