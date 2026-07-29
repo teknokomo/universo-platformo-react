@@ -286,6 +286,40 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
     })
 
+    it('shows a resolved union section whose response owns a different active collection', async () => {
+        const unionSection = {
+            id: 'learning-content',
+            codename: 'ContentProjects',
+            tableName: null,
+            name: 'Learning Content'
+        }
+        const targetCollection = createRuntimeSection('content-pages', 'Pages')
+        const fetchList = vi.fn().mockImplementation(async ({ sectionId }) => ({
+            ...createAppData(),
+            section: unionSection,
+            objectCollection: targetCollection,
+            activeSectionId: targetCollection.id,
+            activeObjectCollectionId: targetCollection.id,
+            sections: [unionSection, targetCollection],
+            objectCollections: [targetCollection],
+            rows: sectionId === unionSection.id ? [{ id: 'page-1', name: 'Operations handbook' }] : [],
+            pagination: { total: sectionId === unionSection.id ? 1 : 0, limit: 20, offset: 0 }
+        }))
+        const adapter = createAdapter({ fetchList })
+        const { getState } = renderCrudDashboard(adapter, { initialSectionId: unionSection.id })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(
+                expect.objectContaining({ sectionId: unionSection.id, objectCollectionId: undefined })
+            )
+            expect(getState().isFetching).toBe(false)
+        })
+
+        expect(getState().selectedSectionId).toBe(unionSection.id)
+        expect(getState().appData?.section?.id).toBe(unionSection.id)
+        expect(getState().rows).toEqual([expect.objectContaining({ id: 'page-1', name: 'Operations handbook' })])
+    })
+
     it('applies create-target defaults only to safe writable create fields', async () => {
         const adapter = createAdapter({
             fetchList: vi.fn().mockResolvedValue({

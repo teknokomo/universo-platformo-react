@@ -70,6 +70,41 @@ describe('MenuContent sanitizeHref', () => {
         expect(onSelectObjectCollection).toHaveBeenCalledWith('object-structure')
     })
 
+    it('does not run stale section callbacks after client-side runtime-link navigation', () => {
+        const onSelectSection = vi.fn()
+        const onSelectObjectCollection = vi.fn()
+        const onPopState = vi.fn()
+        window.history.pushState({}, '', '/a/app-1/intro')
+        window.addEventListener('popstate', onPopState)
+
+        render(
+            <MenuContent
+                menu={{
+                    items: [
+                        {
+                            id: 'learning-content',
+                            label: 'Learning Content',
+                            kind: 'link',
+                            href: '/a/app-1/learning-content-section',
+                            sectionId: 'learning-content-section',
+                            objectCollectionId: 'learning-content-object'
+                        }
+                    ],
+                    onSelectSection,
+                    onSelectObjectCollection
+                }}
+            />
+        )
+
+        fireEvent.click(screen.getByRole('link', { name: 'Learning Content' }))
+
+        expect(window.location.pathname).toBe('/a/app-1/learning-content-section')
+        expect(onPopState).toHaveBeenCalledTimes(1)
+        expect(onSelectSection).not.toHaveBeenCalled()
+        expect(onSelectObjectCollection).not.toHaveBeenCalled()
+        window.removeEventListener('popstate', onPopState)
+    })
+
     it('marks a safe link item as current when its href matches the current location', () => {
         window.history.pushState({}, '', '/a/app-1/reports')
 

@@ -777,7 +777,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             initialMenuSectionId !== backendActiveSectionId
     )
     const isResolvingSelectedSection = Boolean(
-        appData && selectedSectionId && backendActiveSectionId && selectedSectionId !== backendActiveSectionId
+        appData && selectedSectionId && backendActiveSectionId && selectedSectionId !== backendActiveSectionId && listQuery.isFetching
     )
     const isSuppressingStaleSectionData = isResolvingInitialMenuSection || isResolvingSelectedSection
     const displayAppData = isSuppressingStaleSectionData ? undefined : appData

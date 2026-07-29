@@ -222,10 +222,13 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                                         ? { component: 'a' as const, href: sanitizeHref(item.href) }
                                         : {})}
                                     onClick={(event) => {
-                                        if (item.kind === 'link' && tryNavigateRuntimeLink(item.href)) {
+                                        const handledRuntimeLink = item.kind === 'link' && tryNavigateRuntimeLink(item.href)
+                                        if (handledRuntimeLink) {
                                             event.preventDefault()
                                         }
-                                        handleItemSelect(item)
+                                        if (!handledRuntimeLink) {
+                                            handleItemSelect(item)
+                                        }
                                     }}
                                     sx={{
                                         borderRadius: 1,
@@ -278,10 +281,13 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                                     ? { component: 'a' as const, href: sanitizeHref(item.href) }
                                     : {})}
                                 onClick={(event) => {
-                                    if (item.kind === 'link' && tryNavigateRuntimeLink(item.href)) {
+                                    const handledRuntimeLink = item.kind === 'link' && tryNavigateRuntimeLink(item.href)
+                                    if (handledRuntimeLink) {
                                         event.preventDefault()
                                     }
-                                    handleItemSelect(item)
+                                    if (!handledRuntimeLink) {
+                                        handleItemSelect(item)
+                                    }
                                     setOverflowAnchor(null)
                                 }}
                             >
