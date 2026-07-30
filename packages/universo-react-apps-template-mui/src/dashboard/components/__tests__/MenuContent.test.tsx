@@ -105,7 +105,7 @@ describe('MenuContent sanitizeHref', () => {
         window.removeEventListener('popstate', onPopState)
     })
 
-    it('reselects a runtime section when its link already matches the current route', () => {
+    it('leaves a same-route runtime link inert instead of issuing a conflicting section selection', () => {
         const onSelectSection = vi.fn()
         const onSelectObjectCollection = vi.fn()
         const onPopState = vi.fn()
@@ -135,13 +135,12 @@ describe('MenuContent sanitizeHref', () => {
 
         expect(window.location.pathname).toBe('/a/app-1/learning-content-section')
         expect(onPopState).not.toHaveBeenCalled()
-        expect(onSelectObjectCollection).toHaveBeenCalledOnce()
-        expect(onSelectObjectCollection).toHaveBeenCalledWith('learning-content-object')
+        expect(onSelectObjectCollection).not.toHaveBeenCalled()
         expect(onSelectSection).not.toHaveBeenCalled()
         window.removeEventListener('popstate', onPopState)
     })
 
-    it('reselects an overflow runtime section when its link already matches the current route', () => {
+    it('leaves a same-route overflow runtime link inert', () => {
         const onSelectSection = vi.fn()
         const onPopState = vi.fn()
         window.history.pushState({}, '', '/a/app-1/reports-section')
@@ -171,8 +170,7 @@ describe('MenuContent sanitizeHref', () => {
 
         expect(window.location.pathname).toBe('/a/app-1/reports-section')
         expect(onPopState).not.toHaveBeenCalled()
-        expect(onSelectSection).toHaveBeenCalledOnce()
-        expect(onSelectSection).toHaveBeenCalledWith('reports-section')
+        expect(onSelectSection).not.toHaveBeenCalled()
         expect(screen.queryByRole('menuitem', { name: 'Reports' })).not.toBeInTheDocument()
         window.removeEventListener('popstate', onPopState)
     })

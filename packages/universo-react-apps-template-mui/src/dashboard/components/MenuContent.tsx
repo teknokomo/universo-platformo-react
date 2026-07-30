@@ -226,7 +226,7 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                                         if (runtimeLinkResult !== 'unhandled') {
                                             event.preventDefault()
                                         }
-                                        if (runtimeLinkResult !== 'navigated') {
+                                        if (runtimeLinkResult === 'unhandled') {
                                             handleItemSelect(item)
                                         }
                                     }}
@@ -285,7 +285,7 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                                     if (runtimeLinkResult !== 'unhandled') {
                                         event.preventDefault()
                                     }
-                                    if (runtimeLinkResult !== 'navigated') {
+                                    if (runtimeLinkResult === 'unhandled') {
                                         handleItemSelect(item)
                                     }
                                     setOverflowAnchor(null)

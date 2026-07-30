@@ -432,6 +432,13 @@ async function clickNavigation(page: Page, label: string) {
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
 }
 
+async function clickNavigationAndExpectText(page: Page, label: string, expectedText: string) {
+    await clickNavigation(page, label)
+    await expect(page.locator('main').getByText(expectedText, { exact: false }).first(), `Navigation item ${label} target`).toBeVisible({
+        timeout: 30_000
+    })
+}
+
 async function openNavigation(page: Page, label: string) {
     const item = page
         .getByRole('link', { name: label })
@@ -550,8 +557,8 @@ async function captureGettingAroundGuide(page: Page, locale: Locale, application
     }
     await expect(workspaceDialog, `${locale} workspace create dialog closed`).toHaveCount(0, { timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'getting-around', 1, page.locator('body'))
-    await clickNavigation(page, labels.courses)
-    await openNavigation(page, labels.tracks)
+    await clickNavigationAndExpectText(page, labels.courses, locale === 'en' ? 'General' : 'Общее')
+    await clickNavigationAndExpectText(page, labels.tracks, locale === 'en' ? 'Steps' : 'Шаги')
     await captureDocsStepScreenshot(page, locale, 'getting-around', 2, page.locator('body'))
     await clickNavigation(page, labels.learningContent)
     await fillVisibleSearch(page, locale, locale === 'en' ? 'course' : 'курс')
@@ -714,7 +721,7 @@ async function captureResourcesGuide(page: Page, locale: Locale, applicationId: 
 
 async function captureCoursesGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
-    await clickNavigation(page, labels.courses)
+    await clickNavigationAndExpectText(page, labels.courses, locale === 'en' ? 'General' : 'Общее')
     await captureDocsScreenshot(page, locale, 'courses', page.locator('main').first())
     await page.getByRole('tab', { name: locale === 'en' ? 'General' : 'Общее' }).click()
     await captureDocsStepScreenshot(page, locale, 'courses', 1, page.locator('body'))
