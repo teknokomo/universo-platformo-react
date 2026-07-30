@@ -13,7 +13,14 @@
 import fs from 'fs'
 import path from 'path'
 import { test, expect } from '../../fixtures/test'
-import { createLoggedInApiContext, createMetahub, disposeApiContext } from '../../support/backend/api-session.mjs'
+import {
+    createLoggedInApiContext,
+    createMetahub,
+    disposeApiContext,
+    listLayouts,
+    listLayoutZoneWidgets,
+    sendWithCsrf
+} from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
 import { buildSnapshotEnvelope, buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo-react/utils'
@@ -33,6 +40,32 @@ const resolveFixtureOutputPath = () =>
     explicitFixtureOutputPath
         ? path.resolve(repoRoot, explicitFixtureOutputPath)
         : path.join(FIXTURES_DIR, INTERPRETATION_NETWORK_FIXTURE_FILENAME)
+
+const configureInterpretationNetworkProductFixture = async (api: ApiContext, metahubId: string) => {
+    const layoutsPayload = await listLayouts(api, metahubId, { limit: 100, offset: 0 })
+    const layouts = Array.isArray(layoutsPayload?.items) ? layoutsPayload.items : []
+    const layout = layouts.find((candidate) => candidate?.isDefault === true) ?? layouts[0]
+    expect(layout?.id).toBeTruthy()
+
+    const widgetsPayload = await listLayoutZoneWidgets(api, metahubId, layout.id)
+    const widgets = Array.isArray(widgetsPayload?.items) ? widgetsPayload.items : []
+    const workspaceWidget = widgets.find((candidate) => candidate?.widgetKey === 'interpretationNetworkWorkspace')
+    expect(workspaceWidget?.id).toBeTruthy()
+
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/layout/${layout.id}/zone-widget/${workspaceWidget.id}/config`,
+        {
+            config: {
+                ...(workspaceWidget.config && typeof workspaceWidget.config === 'object' ? workspaceWidget.config : {}),
+                structureMode: 'singleSystem',
+                templatePanel: { showInStructureList: true, showInMatrix: true }
+            }
+        }
+    )
+    expect(response.ok).toBe(true)
+}
 
 test.describe('Metahubs Interpretation Network App Export', () => {
     let api: ApiContext
@@ -72,6 +105,11 @@ test.describe('Metahubs Interpretation Network App Export', () => {
             name: metahubName.en,
             codename: INTERPRETATION_NETWORK_CANONICAL_METAHUB.codename.en
         })
+
+        // Configure the metahub through its real authoring API before export. This
+        // proves that the committed fixture is a valid product round trip instead
+        // of a post-export JSON mutation.
+        await configureInterpretationNetworkProductFixture(api, metahub.id)
 
         const cookieHeader = Array.from((api.cookies as Map<string, string>).entries())
             .map(([name, value]: [string, string]) => `${name}=${value}`)

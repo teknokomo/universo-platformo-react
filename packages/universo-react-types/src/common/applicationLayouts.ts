@@ -667,6 +667,8 @@ export const applicationLayoutWidgetSchema = z.object({
     widgetKey: applicationLayoutWidgetKeySchema,
     sortOrder: z.number().int(),
     config: z.record(z.unknown()).default({}),
+    sourceConfig: z.record(z.unknown()).nullable().default(null),
+    isCustomized: z.boolean().default(false),
     isActive: z.boolean(),
     version: z.number().int().positive().optional()
 })
@@ -768,6 +770,37 @@ export const applicationLayoutWidgetConfigBatchMutationSchema = z.object({
         })
 })
 export type ApplicationLayoutWidgetConfigBatchMutation = z.infer<typeof applicationLayoutWidgetConfigBatchMutationSchema>
+
+export const applicationLayoutWidgetResetBatchMutationSchema = z
+    .object({
+        updates: z
+            .array(
+                z
+                    .object({
+                        layoutId: z.string().uuid(),
+                        widgetId: z.string().uuid(),
+                        expectedVersion: z.number().int().positive().optional()
+                    })
+                    .strict()
+            )
+            .min(1)
+            .max(100)
+            .superRefine((updates, ctx) => {
+                const seen = new Set<string>()
+                updates.forEach((update, index) => {
+                    if (seen.has(update.widgetId)) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            message: 'Duplicate widgetId',
+                            path: [index, 'widgetId']
+                        })
+                    }
+                    seen.add(update.widgetId)
+                })
+            })
+    })
+    .strict()
+export type ApplicationLayoutWidgetResetBatchMutation = z.infer<typeof applicationLayoutWidgetResetBatchMutationSchema>
 
 export const applicationLayoutWidgetMoveMutationSchema = z.object({
     widgetId: z.string(),

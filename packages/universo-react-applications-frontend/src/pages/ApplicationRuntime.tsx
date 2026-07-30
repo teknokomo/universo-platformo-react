@@ -66,6 +66,48 @@ const buildLearningContentCreateDefaultContext = (appData: AppDataResponse | und
     }
 }
 
+const normalizeRuntimeKey = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase()
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const readStringArrayConfig = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return []
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
+}
+
+const resolveSingleSystemMatrixSectionId = (appData: AppDataResponse | undefined): string | undefined => {
+    if (!appData) return undefined
+
+    const workspaceWidget = appData.zoneWidgets?.center?.find((widget) => widget.widgetKey === 'interpretationNetworkWorkspace')
+    const visibleFor = isRecord(workspaceWidget?.config?.visibleFor) ? workspaceWidget.config.visibleFor : undefined
+    if (!visibleFor) return undefined
+
+    const sectionIds = readStringArrayConfig(visibleFor.sectionIds)
+    const sectionCodenames = readStringArrayConfig(visibleFor.sectionCodenames).map(normalizeRuntimeKey)
+    const objectCollectionIds = readStringArrayConfig(visibleFor.objectCollectionIds)
+    const objectCollectionCodenames = readStringArrayConfig(visibleFor.objectCollectionCodenames).map(normalizeRuntimeKey)
+    const menuSectionTargets = new Set(
+        (appData.menus ?? [])
+            .flatMap((menu) => [...(menu.items ?? []), ...(menu.overflowItems ?? [])])
+            .filter((item) => item.isActive !== false && item.kind === 'section')
+            .flatMap((item) => [item.sectionId, item.objectCollectionId])
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    )
+    const matchingIds = [...(appData.objectCollections ?? []), ...(appData.sections ?? [])]
+        .filter(
+            (candidate) =>
+                sectionIds.includes(candidate.id) ||
+                objectCollectionIds.includes(candidate.id) ||
+                sectionCodenames.includes(normalizeRuntimeKey(candidate.codename)) ||
+                objectCollectionCodenames.includes(normalizeRuntimeKey(candidate.codename))
+        )
+        .sort((left, right) => Number(Boolean(right.tableName)) - Number(Boolean(left.tableName)))
+        .map((candidate) => candidate.id)
+    const uniqueIds = Array.from(new Set(matchingIds))
+
+    return uniqueIds.find((id) => menuSectionTargets.has(id)) ?? uniqueIds[0]
+}
+
 const toRuntimeSectionLinkMenuItem = (
     item: DashboardMenuItem,
     applicationId: string,
@@ -114,6 +156,11 @@ const ApplicationRuntime = () => {
             : 'dashboard'
 
     const adapter = useMemo(() => (applicationId ? createRuntimeAdapter(applicationId) : null), [applicationId])
+    const hasMatrixCellRoute = searchParams.has('matrixCell')
+    const resolveRoutePreferredSectionId = useCallback(
+        (appData: AppDataResponse): string | undefined => (hasMatrixCellRoute ? resolveSingleSystemMatrixSectionId(appData) : undefined),
+        [hasMatrixCellRoute]
+    )
 
     // Inline cell mutation for BOOLEAN checkboxes (section id passed dynamically).
     const updateCellMutation = useUpdateRuntimeCell({ applicationId })
@@ -177,6 +224,7 @@ const ApplicationRuntime = () => {
         pageSizeOptions: [10, 25, 50, 100],
         staleTime: 30_000,
         initialSectionId: routeSectionId,
+        resolvePreferredSectionId: resolveRoutePreferredSectionId,
         cellRenderers,
         createDefaultContext: buildLearningContentCreateDefaultContext
     })

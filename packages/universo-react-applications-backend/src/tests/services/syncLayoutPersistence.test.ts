@@ -1,4 +1,5 @@
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import type { DbExecutor } from '@universo-react/utils'
 
 type StoredRow = Record<string, unknown>
 
@@ -14,7 +15,17 @@ type MockSyncKnex = {
 }
 
 const mockEnsureSystemTables = jest.fn(async () => undefined)
+const mockSyncExecutor: DbExecutor = {
+    query: jest.fn(),
+    transaction: jest.fn(),
+    isReleased: jest.fn(() => false)
+}
 let currentKnex: MockSyncKnex
+
+jest.mock('@universo-react/database', () => {
+    const actual = jest.requireActual('@universo-react/database')
+    return { ...actual, createKnexExecutor: () => mockSyncExecutor }
+})
 
 jest.mock('../../ddl', () => ({
     getApplicationSyncKnex: () => currentKnex,
@@ -190,6 +201,7 @@ const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widgetRows?:
 describe('syncLayoutPersistence', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        ;(mockSyncExecutor.query as jest.Mock).mockResolvedValue([])
         currentKnex = createMockSyncKnex()
     })
 
@@ -288,6 +300,171 @@ describe('syncLayoutPersistence', () => {
         expect(currentKnex.layoutRows[0]?.source_snapshot_hash).toBe('snapshot-new')
         expect(currentKnex.layoutRows[0]?.sync_state).toBe('local_modified')
         expect(currentKnex.widgetRows[0]?.config).toEqual({ columns: ['legacy'] })
+    })
+
+    it('keeps an application-owned Interpretation Network mode override during metahub re-sync', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: 'layout-1',
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: { showHeader: false },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    owner_id: null,
+                    source_kind: 'metahub',
+                    source_layout_id: 'layout-1',
+                    source_snapshot_hash: 'snapshot-old',
+                    source_content_hash: 'old-source-hash',
+                    local_content_hash: 'local-custom-hash',
+                    sync_state: 'local_modified',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ],
+            widgetRows: [
+                {
+                    id: 'widget-1',
+                    layout_id: 'layout-1',
+                    zone: 'center',
+                    widget_key: 'interpretationNetworkWorkspace',
+                    sort_order: 1,
+                    config: { structureMode: 'multiple', templatePanel: { showInStructureList: false, showInMatrix: true } },
+                    is_active: true,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+        const snapshot: PublishedApplicationSnapshot = {
+            ...createSnapshot(),
+            layoutZoneWidgets: [
+                {
+                    id: 'widget-1',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'interpretationNetworkWorkspace',
+                    sortOrder: 1,
+                    config: { structureMode: 'singleSystem', templatePanel: { showInStructureList: true, showInMatrix: true } },
+                    isActive: true
+                }
+            ]
+        }
+
+        await persistPublishedLayouts({
+            schemaName: 'app_schema',
+            snapshotHash: 'snapshot-new',
+            snapshot,
+            userId: 'user-1',
+            layoutResolutionPolicy: { bySourceLayoutId: { 'layout-1': 'keep_local' } }
+        })
+        await persistPublishedWidgets({ schemaName: 'app_schema', snapshot, userId: 'user-1' })
+
+        expect(currentKnex.widgetRows[0]?.config).toEqual({
+            structureMode: 'multiple',
+            templatePanel: { showInStructureList: false, showInMatrix: true }
+        })
+        expect(currentKnex.widgetRows[0]?.source_config).toEqual({
+            structureMode: 'singleSystem',
+            templatePanel: { showInStructureList: true, showInMatrix: true }
+        })
+    })
+
+    it('removes the reset source when a metahub widget disappears from a locally modified layout', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: 'layout-1',
+                    source_kind: 'metahub',
+                    sync_state: 'local_modified',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ],
+            widgetRows: [
+                {
+                    id: 'widget-1',
+                    layout_id: 'layout-1',
+                    source_base_widget_id: null,
+                    widget_key: 'interpretationNetworkWorkspace',
+                    config: { structureMode: 'multiple' },
+                    source_config: { structureMode: 'singleSystem' },
+                    is_active: true,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+        const snapshot: PublishedApplicationSnapshot = {
+            ...createSnapshot(),
+            layoutZoneWidgets: []
+        }
+
+        await persistPublishedWidgets({ schemaName: 'app_schema', snapshot, userId: 'user-1' })
+
+        expect(currentKnex.widgetRows[0]).toMatchObject({
+            config: { structureMode: 'multiple' },
+            source_config: null
+        })
+    })
+
+    it('blocks an inherited sync transition to single-system mode before mutating widgets', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: 'layout-1',
+                    source_kind: 'metahub',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ],
+            widgetRows: [
+                {
+                    id: 'widget-1',
+                    layout_id: 'layout-1',
+                    source_base_widget_id: null,
+                    widget_key: 'interpretationNetworkWorkspace',
+                    config: { structureMode: 'multiple', conceptCodename: 'Structure' },
+                    is_active: true,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+        const snapshot: PublishedApplicationSnapshot = {
+            ...createSnapshot(),
+            layoutZoneWidgets: [
+                {
+                    id: 'widget-1',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'interpretationNetworkWorkspace',
+                    sortOrder: 1,
+                    config: { structureMode: 'singleSystem', conceptCodename: 'Structure' },
+                    isActive: true
+                }
+            ]
+        }
+        ;(mockSyncExecutor.query as jest.Mock)
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ objectId: 'structure-object', tableName: 'structure' }])
+            .mockResolvedValueOnce([{ columnName: 'system_key' }])
+            .mockResolvedValueOnce([{ count: 1 }])
+
+        await expect(
+            persistPublishedWidgets({ schemaName: 'app_018f8a787b8f7c1da111222233334444', snapshot, userId: 'user-1' })
+        ).rejects.toThrow('APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST')
+
+        expect(currentKnex.widgetRows[0]?.config).toEqual({ structureMode: 'multiple', conceptCodename: 'Structure' })
+        expect(mockSyncExecutor.query).toHaveBeenCalledTimes(4)
     })
 
     it('persists inherited scoped widgets with UUID v7 ids and stable base widget links', async () => {

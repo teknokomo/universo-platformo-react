@@ -1,34 +1,34 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useTheme } from '@mui/material/styles'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { createLocalizedContent, normalizeLocale } from '@universo-react/utils'
+import { normalizeLocale } from '@universo-react/utils'
+import { fetchAppData, fetchAppRow, updateAppRow } from '../../api/api'
 import {
-    batchUpdateTabularRows,
-    compensateCreatedAppRow,
-    createAppRow,
-    createTabularRow,
-    deleteAppRow,
-    deleteTabularRow,
-    fetchAppData,
-    fetchAppRow,
-    updateAppRow,
-    updateTabularRow
-} from '../../api/api'
+    createInterpretationNetworkMaterial,
+    deleteInterpretationNetworkStructure,
+    ensureInterpretationNetworkSystemStructure
+} from '../../api/interpretationNetwork'
 import '../../i18n/interpretationNetwork'
 import { useDashboardDetails } from '../DashboardDetailsContext'
-import { formatRuntimeSafeValue } from '../../utils/displayValue'
 import { type MatrixDropState } from './interpretation-network/matrixDrag'
-import { type StructureSummary, type StructureViewMode } from './interpretation-network/workspace/StructurePane'
+import { type StructureViewMode } from './interpretation-network/workspace/StructurePane'
 import { RuntimeContextMissing, WorkspaceError, WorkspaceLoading } from './interpretation-network/workspace/WorkspaceStatus'
 import { buildMatrixMenuMoves } from './interpretation-network/workspace/matrixMenuMoves'
-import { InterpretationNetworkWorkspaceContent } from './interpretation-network/workspace/InterpretationNetworkWorkspaceContent'
+import {
+    InterpretationNetworkWorkspaceView,
+    type InterpretationNetworkWorkspaceViewProps
+} from './interpretation-network/workspace/InterpretationNetworkWorkspaceView'
 import { useCellDialogActions } from './interpretation-network/workspace/useCellDialogActions'
+import { useCellMutations } from './interpretation-network/workspace/useCellMutations'
 import { useInterpretationNetworkWorkspaceState } from './interpretation-network/workspace/useInterpretationNetworkWorkspaceState'
 import { useMatrixRouteSelectionSync } from './interpretation-network/workspace/useMatrixRouteSelectionSync'
 import { useMatrixWorkspaceActions } from './interpretation-network/workspace/useMatrixWorkspaceActions'
 import { useStructureRoute } from './interpretation-network/workspace/useStructureRoute'
+import { useInterpretationNetworkTemplateCommands } from './interpretation-network/workspace/useInterpretationNetworkTemplateCommands'
+import { useRuntimeSelectionActions } from './interpretation-network/workspace/useRuntimeSelectionActions'
+import { useStructureMutations } from './interpretation-network/workspace/useStructureMutations'
 import {
     EMPTY_MATRIX_DROP_STATE,
     type CellDialogMode,
@@ -36,20 +36,35 @@ import {
     type MaterialDialogMode,
     type StructureDialogMode
 } from './interpretation-network/workspace/workspaceState'
-import { fetchAllWorkspaceData, readRuntimeRowVersion, readSubmittedText } from './interpretation-network/workspace/workspaceRuntime'
 import {
-    buildCellCreateData,
-    MATRIX_CELL_PLACEMENT_FIELD,
-    mergeCellCreateData,
-    readMatrixCellPlacement,
-    resolveCellCreateSystemFields,
-    type MatrixCellPlacement
-} from './interpretation-network/matrixCellData'
-import { createStructureWithRootMatrix } from './interpretation-network/structureActions'
-import { findColumn, getSectionId, readColumnValue, toConfig, type MatrixView } from './interpretation-network/model'
+    fetchAllWorkspaceData,
+    fetchSingleWorkspaceRowData,
+    readRuntimeRowVersion,
+    readSubmittedText
+} from './interpretation-network/workspace/workspaceRuntime'
+import { hasRouteStructureId } from './interpretation-network/workspace/workspaceRuntime'
+import { type MatrixCellPlacement } from './interpretation-network/matrixCellData'
+import { getSectionId, toConfig, type MatrixView } from './interpretation-network/model'
 
-export default function InterpretationNetworkWorkspaceWidget({ config }: { config?: Record<string, unknown> }) {
+export default function InterpretationNetworkWorkspaceWidget({
+    config,
+    widgetId,
+    layoutId
+}: {
+    config?: Record<string, unknown>
+    widgetId?: string | null
+    layoutId?: string | null
+}) {
     const widgetConfig = useMemo(() => toConfig(config), [config])
+    const singleSystemMode = widgetConfig.structureMode === 'singleSystem'
+    const fallbackInstanceId = useId()
+    const a11yIdPrefix = useMemo(() => {
+        const instanceKey = [layoutId, widgetId]
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+            .join('-')
+        const safeInstanceKey = (instanceKey || fallbackInstanceId).replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
+        return `interpretation-network-${safeInstanceKey || 'workspace'}`
+    }, [fallbackInstanceId, layoutId, widgetId])
     const theme = useTheme()
     const details = useDashboardDetails()
     const { t, i18n } = useTranslation('interpretationNetwork')
@@ -65,17 +80,42 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                 apiBaseUrl: details!.apiBaseUrl!,
                 applicationId: details!.applicationId!,
                 workspaceId: details?.currentWorkspaceId,
-                locale
+                locale,
+                widgetId,
+                layoutId
             }
-            const [concepts, interpretations, materials] = await Promise.all([
-                fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.conceptCodename }),
-                fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.interpretationCodename }),
-                fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.materialCodename })
-            ])
+            const [concepts, interpretations, materials] = singleSystemMode
+                ? await (async () => {
+                      const systemConcepts = await fetchSingleWorkspaceRowData(
+                          fetchAppData,
+                          { ...base, objectCollectionCodename: widgetConfig.conceptCodename },
+                          [{ field: 'SystemKey', operator: 'equals', value: 'primary' }]
+                      )
+                      const systemStructureId = systemConcepts.rows[0]?.id
+                      const [systemInterpretations, systemMaterials] = await Promise.all([
+                          fetchSingleWorkspaceRowData(
+                              fetchAppData,
+                              { ...base, objectCollectionCodename: widgetConfig.interpretationCodename },
+                              [
+                                  {
+                                      field: widgetConfig.interpretationParentField,
+                                      operator: 'equals',
+                                      value: systemStructureId ?? '00000000-0000-0000-0000-000000000000'
+                                  }
+                              ]
+                          ),
+                          fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.materialCodename })
+                      ])
+                      return [systemConcepts, systemInterpretations, systemMaterials] as const
+                  })()
+                : await Promise.all([
+                      fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.conceptCodename }),
+                      fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.interpretationCodename }),
+                      fetchAllWorkspaceData(fetchAppData, { ...base, objectCollectionCodename: widgetConfig.materialCodename })
+                  ])
             return { concepts, interpretations, materials }
         }
     })
-
     const [structureDialogMode, setStructureDialogMode] = useState<StructureDialogMode | null>(null)
     const [selectedInterpretationId, setSelectedInterpretationId] = useState<string | null>(null)
     const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null)
@@ -113,6 +153,8 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const [cellDeleteId, setCellDeleteId] = useState<string | null>(null)
     const [matrixDropState, setMatrixDropState] = useState<MatrixDropState>(EMPTY_MATRIX_DROP_STATE)
     const [structureDialogError, setStructureDialogError] = useState<string | null>(null)
+    const [structureListTab, setStructureListTab] = useState<'structures' | 'templates'>('structures')
+    const [structureDetailTab, setStructureDetailTab] = useState<'matrix' | 'templates'>('matrix')
     const [structureDeleteError, setStructureDeleteError] = useState<string | null>(null)
     const [materialDialogError, setMaterialDialogError] = useState<string | null>(null)
     const [cellDialogError, setCellDialogError] = useState<string | null>(null)
@@ -121,13 +163,65 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const canCreateContent = details?.permissions?.createContent === true
     const canEditContent = details?.permissions?.editContent === true
     const canDeleteContent = details?.permissions?.deleteContent === true
+    const closeStructureMenu = useCallback(() => {
+        setStructureMenuAnchor(null)
+        setStructureMenuId(null)
+    }, [])
+
+    useEffect(() => {
+        if (!widgetConfig.templatePanel.showInStructureList) {
+            setStructureListTab((current) => (current === 'templates' ? 'structures' : current))
+        }
+        if (!widgetConfig.templatePanel.showInMatrix) {
+            setStructureDetailTab((current) => (current === 'templates' ? 'matrix' : current))
+        }
+    }, [widgetConfig.templatePanel.showInMatrix, widgetConfig.templatePanel.showInStructureList])
 
     const { routeStructureId, routeCellId, navigateToStructure, navigateToCell } = useStructureRoute({
         applicationId: details?.applicationId,
         conceptSectionId: getSectionId(query.data?.concepts),
-        navigate: details?.navigate
+        navigate: details?.navigate,
+        singleMode: singleSystemMode
     })
 
+    const handleEnsureSystemStructureSuccess = useCallback(
+        async (result: { structureId: string; interpretationId: string; rootCellId: string }) => {
+            const refreshed = await query.refetch()
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
+            setSelectedConceptId(result.structureId)
+            setSelectedInterpretationId(result.interpretationId)
+            if (routeCellId) {
+                setPendingSelectedCellId(routeCellId)
+            } else {
+                const systemInterpretation =
+                    refreshed.data?.interpretations.rows.find((row) => row.id === result.interpretationId) ??
+                    query.data?.interpretations.rows.find((row) => row.id === result.interpretationId)
+                const rootCellId = result.rootCellId.trim()
+                if (systemInterpretation && rootCellId) {
+                    setPendingSelectedCellId(rootCellId)
+                }
+            }
+        },
+        [query, queryClient, routeCellId]
+    )
+
+    const ensureSystemStructureMutation = useMutation({
+        mutationFn: () =>
+            ensureInterpretationNetworkSystemStructure({
+                apiBaseUrl: details!.apiBaseUrl!,
+                applicationId: details!.applicationId!,
+                workspaceId: details?.currentWorkspaceId,
+                locale,
+                widgetId,
+                layoutId
+            }),
+        onSuccess: handleEnsureSystemStructureSuccess
+    })
+    const ensureSystemStructureRef = useRef(ensureSystemStructureMutation.mutate)
+
+    useEffect(() => {
+        ensureSystemStructureRef.current = ensureSystemStructureMutation.mutate
+    }, [ensureSystemStructureMutation.mutate])
     const workspaceState = useInterpretationNetworkWorkspaceState({
         data: query.data,
         details,
@@ -198,6 +292,44 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         matrixCellIds,
         matrixDragPreview
     } = workspaceState
+    const {
+        templatesQuery,
+        templateDialogMode,
+        setTemplateDialogMode,
+        structureCreateSource,
+        setStructureCreateSource,
+        structureCreateTemplateId,
+        setStructureCreateTemplateId,
+        templateActionId,
+        templateDialogError,
+        setTemplateDialogError,
+        selectedTemplateForDialog,
+        saveTemplateMutation,
+        updateTemplateMutation,
+        deleteTemplateMutation,
+        closeTemplateDialog,
+        openSaveTemplateDialog,
+        openEditTemplateDialog,
+        requestDeleteTemplate,
+        templateDetailQuery,
+        openTemplateDetail,
+        closeTemplateDetail
+    } = useInterpretationNetworkTemplateCommands({
+        apiBaseUrl: details?.apiBaseUrl,
+        applicationId: details?.applicationId,
+        workspaceId: details?.currentWorkspaceId,
+        widgetId,
+        layoutId,
+        enabled,
+        locale,
+        canCreateContent,
+        canEditContent,
+        canDeleteContent,
+        selectedConcept,
+        structureSummaries,
+        closeStructureMenu,
+        t
+    })
     const clearMaterialSelection = useCallback(() => {
         setSelectedMaterialId(null)
         setOpenedMaterialId(null)
@@ -209,19 +341,19 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         (cellId: string | null, options: { replace?: boolean; updateRoute?: boolean } = {}) => {
             setSelectedCellId(cellId)
             clearMaterialSelection()
-            if (options.updateRoute !== false && routeStructureId) {
+            if (options.updateRoute !== false && (singleSystemMode || routeStructureId)) {
                 navigateToCell(cellId, options)
             }
         },
-        [clearMaterialSelection, navigateToCell, routeStructureId]
+        [clearMaterialSelection, navigateToCell, routeStructureId, singleSystemMode]
     )
     const syncRouteCell = useCallback(
         (cellId: string | null, options: { replace?: boolean } = {}) => {
-            if (routeStructureId) {
+            if (singleSystemMode || routeStructureId) {
                 navigateToCell(cellId, options)
             }
         },
-        [navigateToCell, routeStructureId]
+        [navigateToCell, routeStructureId, singleSystemMode]
     )
 
     useMatrixRouteSelectionSync({
@@ -229,6 +361,7 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         queryFetching: query.isFetching,
         routeStructureId,
         routeCellId,
+        singleSystemMode,
         concepts,
         interpretations,
         structureSummaries,
@@ -252,102 +385,93 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         setOpenedMaterialId,
         syncRouteCell
     })
-    const createStructureMutation = useMutation({
-        mutationFn: async (data: Record<string, unknown>) =>
-            createStructureWithRootMatrix({
-                data,
-                canCreateContent,
-                canEditContent,
-                apiBaseUrl: details?.apiBaseUrl,
-                applicationId: details?.applicationId,
-                workspaceId: details?.currentWorkspaceId,
-                conceptSectionId: getSectionId(query.data?.concepts),
-                interpretationSectionId,
-                locale,
-                widgetConfig,
-                structureFields,
-                matrixColumn,
-                defaultStructureName: t('workspace.structure.newName', 'New structure'),
-                matrixTitle: (name) =>
-                    t('workspace.structure.newInterpretationTitle', {
-                        defaultValue: '{{name}} matrix',
-                        name
-                    })
-            }),
-        onSuccess: async (created) => {
-            setStructureDialogMode(null)
-            clearEditingStructure()
-            setStructureDialogError(null)
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
-            let createdConceptId: string | null = null
-            if (created?.concept && typeof created.concept.id === 'string') {
-                createdConceptId = created.concept.id
-                setSelectedConceptId(createdConceptId)
-            }
-            if (created?.interpretation && typeof created.interpretation.id === 'string') {
-                setSelectedInterpretationId(created.interpretation.id)
-                selectMatrixCell(null, { replace: true })
-            }
-            if (createdConceptId) {
-                navigateToStructure(createdConceptId)
-            }
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
-        },
-        onError: () => {
-            setStructureDialogError(t('workspace.structure.error', 'Failed to create structure'))
+
+    const singleSystemStructure =
+        singleSystemMode && ensureSystemStructureMutation.data?.structureId
+            ? structureSummaries.find((structure) => structure.id === ensureSystemStructureMutation.data?.structureId)
+            : singleSystemMode
+            ? structureSummaries[0]
+            : undefined
+
+    useEffect(() => {
+        if (!singleSystemMode || !enabled || query.isLoading || query.isFetching || ensureSystemStructureMutation.isPending) return
+        if (!ensureSystemStructureMutation.data && !ensureSystemStructureMutation.error) {
+            ensureSystemStructureRef.current()
         }
-    })
-    const updateStructureMutation = useMutation({
-        mutationFn: async (data: Record<string, unknown>) => {
-            if (!canEditContent || !editingStructureId) throw new Error('permission-denied')
-            const conceptSectionId = getSectionId(query.data?.concepts)
-            if (!details?.apiBaseUrl || !details.applicationId || !conceptSectionId) return null
-            return updateAppRow({
-                apiBaseUrl: details.apiBaseUrl,
-                applicationId: details.applicationId,
-                workspaceId: details.currentWorkspaceId,
-                objectCollectionId: conceptSectionId,
-                rowId: editingStructureId,
-                data,
-                expectedVersion: readRuntimeRowVersion(editingStructure)
-            })
-        },
-        onSuccess: async () => {
-            setStructureDialogMode(null)
-            clearEditingStructure()
-            setStructureDialogError(null)
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
-        },
-        onError: () => {
-            setStructureDialogError(t('workspace.structure.updateError', 'Failed to update structure'))
+    }, [
+        enabled,
+        ensureSystemStructureMutation.data,
+        ensureSystemStructureMutation.error,
+        ensureSystemStructureMutation.isPending,
+        query.isFetching,
+        query.isLoading,
+        singleSystemMode
+    ])
+
+    useEffect(() => {
+        if (!singleSystemMode || query.isLoading || query.isFetching || !singleSystemStructure) return
+        if (selectedConceptId !== singleSystemStructure.id) {
+            setSelectedConceptId(singleSystemStructure.id)
         }
+        if (selectedInterpretationId !== singleSystemStructure.interpretationId) {
+            setSelectedInterpretationId(singleSystemStructure.interpretationId)
+        }
+    }, [query.isFetching, query.isLoading, selectedConceptId, selectedInterpretationId, singleSystemMode, singleSystemStructure])
+
+    useEffect(() => {
+        if (
+            !singleSystemMode ||
+            !details?.applicationId ||
+            !getSectionId(query.data?.concepts) ||
+            !hasRouteStructureId(details.applicationId)
+        ) {
+            return
+        }
+        navigateToStructure(null, { replace: true, focusedCellId: routeCellId })
+    }, [details?.applicationId, navigateToStructure, query.data?.concepts, routeCellId, singleSystemMode])
+    const { createStructureMutation, updateStructureMutation } = useStructureMutations({
+        t,
+        queryClient,
+        canCreateContent,
+        canEditContent,
+        singleSystemMode,
+        apiBaseUrl: details?.apiBaseUrl,
+        applicationId: details?.applicationId,
+        workspaceId: details?.currentWorkspaceId,
+        widgetId,
+        layoutId,
+        locale,
+        concepts: query.data?.concepts,
+        structureFields,
+        structureCreateSource,
+        structureCreateTemplateId,
+        templates: templatesQuery.data?.items ?? [],
+        editingStructureId,
+        editingStructure,
+        clearEditingStructure,
+        setStructureDialogMode,
+        setStructureCreateSource,
+        setStructureCreateTemplateId,
+        setStructureDialogError,
+        setSelectedConceptId,
+        setSelectedInterpretationId,
+        selectMatrixCell,
+        navigateToStructure
     })
     const deleteStructure = structureDeleteId ? structureSummaries.find((structure) => structure.id === structureDeleteId) : undefined
     const deleteStructureMutation = useMutation({
         mutationFn: async () => {
             if (!canDeleteContent || !structureDeleteId) throw new Error('permission-denied')
             if (!details?.apiBaseUrl || !details.applicationId) return null
-            const conceptSectionId = getSectionId(query.data?.concepts)
-            if (!conceptSectionId) return null
-            await deleteAppRow({
+            await deleteInterpretationNetworkStructure({
                 apiBaseUrl: details.apiBaseUrl,
                 applicationId: details.applicationId,
                 workspaceId: details.currentWorkspaceId,
-                objectCollectionId: conceptSectionId,
-                rowId: structureDeleteId,
-                expectedVersion: readRuntimeRowVersion(deleteStructure?.row)
+                structureId: structureDeleteId,
+                expectedVersion: readRuntimeRowVersion(deleteStructure?.row),
+                widgetId,
+                layoutId
             })
-            if (deleteStructure?.interpretationId && interpretationSectionId) {
-                const interpretation = interpretations.find((row) => row.id === deleteStructure.interpretationId)
-                await deleteAppRow({
-                    apiBaseUrl: details.apiBaseUrl,
-                    applicationId: details.applicationId,
-                    workspaceId: details.currentWorkspaceId,
-                    objectCollectionId: interpretationSectionId,
-                    rowId: deleteStructure.interpretationId,
-                    expectedVersion: readRuntimeRowVersion(interpretation)
-                })
-            }
             return null
         },
         onSuccess: async () => {
@@ -369,172 +493,6 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             setStructureDeleteError(t('workspace.structure.deleteError', 'Failed to delete structure'))
         }
     })
-    const saveCellMutation = useMutation({
-        mutationFn: async ({ mode, data }: { mode: CellDialogMode; data: Record<string, unknown> }) => {
-            if (!canEditContent) throw new Error('permission-denied')
-            if (
-                !details?.apiBaseUrl ||
-                !details.applicationId ||
-                !interpretationSectionId ||
-                !selectedInterpretation?.id ||
-                !matrixColumn?.id
-            ) {
-                return null
-            }
-            const normalizedLocale = normalizeLocale(locale)
-            const { [MATRIX_CELL_PLACEMENT_FIELD]: _placementField, __axisName: axisName, ...submittedData } = data
-            const sourceCellIdForSubmit = cellDialogSourceCellId ?? selectedCellId
-            const sourceCellFromSnapshot = sourceCellIdForSubmit
-                ? matrixRowsSnapshotRef.current.cells.find((cell) => cell.id === sourceCellIdForSubmit)
-                : undefined
-            const sourceRawCellFromSnapshot = sourceCellFromSnapshot
-                ? matrixRowsSnapshotRef.current.rawRowsByCellId.get(sourceCellFromSnapshot.id)
-                : undefined
-            if (mode === 'edit') {
-                if (!sourceRawCellFromSnapshot?.id) throw new Error('cell-not-selected')
-                const sourceCell = sourceCellFromSnapshot
-                const rowLabelField = findColumn(matrixColumn.childColumns, 'RowLabel')?.field ?? 'RowLabel'
-                const colLabelField = findColumn(matrixColumn.childColumns, 'ColLabel')?.field ?? 'ColLabel'
-                if (sourceCell && !readSubmittedText(submittedData[rowLabelField], normalizedLocale)) {
-                    submittedData[rowLabelField] = sourceCell.rowLabelValue ?? createLocalizedContent(normalizedLocale, sourceCell.rowLabel)
-                }
-                if (sourceCell && !readSubmittedText(submittedData[colLabelField], normalizedLocale)) {
-                    submittedData[colLabelField] = sourceCell.colLabelValue ?? createLocalizedContent(normalizedLocale, sourceCell.colLabel)
-                }
-                const axisValueChanged = (field: string, fallbackField: string): boolean => {
-                    if (!Object.prototype.hasOwnProperty.call(submittedData, field)) return false
-                    const previousValue = sourceRawCellFromSnapshot[field] ?? sourceRawCellFromSnapshot[fallbackField]
-                    return (
-                        formatRuntimeSafeValue(submittedData[field], normalizedLocale) !==
-                        formatRuntimeSafeValue(previousValue, normalizedLocale)
-                    )
-                }
-                const rowLabelChanged = axisValueChanged(rowLabelField, 'RowLabel')
-                const colLabelChanged = axisValueChanged(colLabelField, 'ColLabel')
-                const buildAxisRows = (axis: 'row' | 'column') =>
-                    sourceCell
-                        ? matrixRowsSnapshotRef.current.cells
-                              .filter(
-                                  (cell) =>
-                                      cell.id !== sourceCell.id &&
-                                      (axis === 'row' ? cell.rowKey === sourceCell.rowKey : cell.colKey === sourceCell.colKey)
-                              )
-                              .flatMap((cell) => {
-                                  const rawCell = matrixRowsSnapshotRef.current.rawRowsByCellId.get(cell.id)
-                                  return rawCell && typeof rawCell.id === 'string'
-                                      ? [
-                                            {
-                                                childRowId: rawCell.id,
-                                                expectedVersion: readRuntimeRowVersion(rawCell)
-                                            }
-                                        ]
-                                      : []
-                              })
-                        : []
-                const uniformUpdates = [
-                    ...(rowLabelChanged && submittedData[rowLabelField] !== undefined
-                        ? [{ rows: buildAxisRows('row'), data: { [rowLabelField]: submittedData[rowLabelField] } }]
-                        : []),
-                    ...(colLabelChanged && submittedData[colLabelField] !== undefined
-                        ? [{ rows: buildAxisRows('column'), data: { [colLabelField]: submittedData[colLabelField] } }]
-                        : [])
-                ].filter((group) => group.rows.length > 0)
-                const saved = await batchUpdateTabularRows({
-                    apiBaseUrl: details.apiBaseUrl,
-                    applicationId: details.applicationId,
-                    workspaceId: details.currentWorkspaceId,
-                    parentRecordId: selectedInterpretation.id,
-                    componentId: matrixColumn.id,
-                    objectCollectionId: interpretationSectionId,
-                    updates: [
-                        {
-                            childRowId: sourceRawCellFromSnapshot.id,
-                            data: submittedData,
-                            expectedVersion: readRuntimeRowVersion(sourceRawCellFromSnapshot)
-                        }
-                    ],
-                    uniformUpdates
-                })
-                return { saved, selectedCellIdAfterSave: sourceCellFromSnapshot?.id ?? null }
-            }
-
-            const source = sourceCellFromSnapshot
-            const placement = readMatrixCellPlacement(data) ?? activeCellDialogPlacement ?? undefined
-            if (mode === 'create-child') {
-                if (!source) throw new Error('cell-not-selected')
-                if (placement?.parentCellId !== undefined && placement.parentCellId !== source.id) {
-                    throw new Error('cell-parent-mismatch')
-                }
-            }
-            if (typeof axisName === 'string' && axisName.trim()) {
-                const titleField = findColumn(matrixColumn.childColumns, 'CellValue')?.field ?? 'CellValue'
-                submittedData[titleField] = createLocalizedContent(normalizedLocale, axisName.trim())
-            }
-            if (mode === 'create-child') {
-                const titleField = findColumn(matrixColumn.childColumns, 'CellValue')?.field ?? 'CellValue'
-                const rowLabelField = findColumn(matrixColumn.childColumns, 'RowLabel')?.field ?? 'RowLabel'
-                const colLabelField = findColumn(matrixColumn.childColumns, 'ColLabel')?.field ?? 'ColLabel'
-                const titleValue = submittedData[titleField]
-                if (readSubmittedText(titleValue, normalizedLocale)) {
-                    if (!readSubmittedText(submittedData[rowLabelField], normalizedLocale)) {
-                        submittedData[rowLabelField] = titleValue
-                    }
-                    if (!readSubmittedText(submittedData[colLabelField], normalizedLocale)) {
-                        submittedData[colLabelField] = titleValue
-                    }
-                }
-            }
-            const baseData = buildCellCreateData({
-                mode,
-                childColumns: matrixColumn.childColumns,
-                locale: normalizedLocale,
-                source,
-                existingCells: matrixRowsSnapshotRef.current.cells,
-                placement
-            })
-            const saved = await createTabularRow({
-                apiBaseUrl: details.apiBaseUrl,
-                applicationId: details.applicationId,
-                workspaceId: details.currentWorkspaceId,
-                parentRecordId: selectedInterpretation.id,
-                componentId: matrixColumn.id,
-                objectCollectionId: interpretationSectionId,
-                data: mergeCellCreateData(submittedData, baseData, resolveCellCreateSystemFields(matrixColumn.childColumns))
-            })
-            const createdRow = saved && typeof saved === 'object' && saved.item && typeof saved.item === 'object' ? saved.item : saved
-            const rawPersistedCellId = readColumnValue(createdRow as Record<string, unknown>, matrixColumn.childColumns, 'CellId')
-            const persistedCellId = typeof rawPersistedCellId === 'string' ? rawPersistedCellId.trim() : ''
-            const rawGeneratedCellId = readColumnValue(baseData, matrixColumn.childColumns, 'CellId')
-            const generatedCellId = persistedCellId || (typeof rawGeneratedCellId === 'string' ? rawGeneratedCellId.trim() : '')
-            return {
-                saved,
-                generatedCellId,
-                selectedCellIdAfterSave: mode === 'create-child' ? source?.id ?? null : null,
-                pendingSelectedCellId: generatedCellId
-            }
-        },
-        onSuccess: async (result) => {
-            setCellDialogMode(null)
-            setAxisDialogKind(null)
-            setCellDialogSourceCellId(null)
-            setCellDialogPlacement(null)
-            setCellDialogError(null)
-            if (result && typeof result === 'object' && 'selectedCellIdAfterSave' in result) {
-                const rawCellId = result.selectedCellIdAfterSave
-                if (typeof rawCellId === 'string' && rawCellId.trim()) {
-                    selectMatrixCell(rawCellId.trim(), { replace: true })
-                }
-            }
-            if (result && typeof result === 'object' && 'pendingSelectedCellId' in result) {
-                const rawCellId = result.pendingSelectedCellId
-                setPendingSelectedCellId(typeof rawCellId === 'string' && rawCellId.trim() ? rawCellId.trim() : null)
-            }
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
-        },
-        onError: () => {
-            setCellDialogError(t('workspace.cell.error', 'Failed to update matrix cells'))
-        }
-    })
     const matrixMutationsDisabled =
         !canEditContent || !selectedInterpretation || !matrixColumn?.id || matrixRowsQuery.isError || matrixRowsQuery.isFetching
     const matrixAxisActionsDisabled = !canEditContent || !selectedInterpretation || !matrixColumn?.id || matrixRowsQuery.isError
@@ -551,9 +509,9 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
         apiBaseUrl: details?.apiBaseUrl,
         applicationId: details?.applicationId,
         workspaceId: details?.currentWorkspaceId,
-        interpretationSectionId,
+        widgetId,
+        layoutId,
         selectedInterpretationId: selectedInterpretation?.id,
-        matrixColumnId: matrixColumn?.id,
         matrixChildColumns: matrixColumn?.childColumns,
         matrixRowsSnapshotRef,
         setMatrixDropState,
@@ -588,55 +546,40 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
     const saveMaterialMetadataMutation = useMutation({
         mutationFn: async (data: Record<string, unknown>) => {
             if (!details?.apiBaseUrl || !details.applicationId || !materialSectionId) return null
-            if (!selectedInterpretation?.id || !matrixColumn?.id || !selectedRawCell?.id || !interpretationSectionId) {
+            if (!selectedInterpretation?.id || !matrixColumn?.id || !selectedRawCell?.id || !selectedCell?.id || !interpretationSectionId) {
                 throw new Error('cell-not-selected')
             }
 
             if (materialDialogMode === 'edit') {
                 const targetMaterialId = editingMaterialId
                 if (!canEditContent || !targetMaterialId) throw new Error('permission-denied')
+                const targetMaterial =
+                    cellMaterials.find((material) => material.id === targetMaterialId) ??
+                    materials.find((material) => material.id === targetMaterialId)
                 return updateAppRow({
                     apiBaseUrl: details.apiBaseUrl,
                     applicationId: details.applicationId,
                     workspaceId: details.currentWorkspaceId,
                     objectCollectionId: materialSectionId,
                     rowId: targetMaterialId,
-                    data
+                    data,
+                    expectedVersion: readRuntimeRowVersion(targetMaterial)
                 })
             }
 
             if (!canCreateContent || !canEditContent) throw new Error('permission-denied')
-            const materialCellIdField = findColumn(query.data?.materials.columns, 'CellId')?.field ?? 'CellId'
-            const matrixMaterialRefField = findColumn(matrixColumn.childColumns, 'MaterialRef')?.field ?? 'MaterialRef'
-            const material = await createAppRow({
+            const material = await createInterpretationNetworkMaterial({
                 apiBaseUrl: details.apiBaseUrl,
                 applicationId: details.applicationId,
                 workspaceId: details.currentWorkspaceId,
-                objectCollectionId: materialSectionId,
-                data: { ...data, [materialCellIdField]: selectedCell?.id ?? null }
+                interpretationId: selectedInterpretation.id,
+                matrixRowId: selectedRawCell.id,
+                cellId: selectedCell.id,
+                data,
+                expectedVersion: readRuntimeRowVersion(selectedRawCell),
+                widgetId,
+                layoutId
             })
-            if (typeof material.id === 'string') {
-                await updateTabularRow({
-                    apiBaseUrl: details.apiBaseUrl,
-                    applicationId: details.applicationId,
-                    workspaceId: details.currentWorkspaceId,
-                    parentRecordId: selectedInterpretation.id,
-                    componentId: matrixColumn.id,
-                    objectCollectionId: interpretationSectionId,
-                    childRowId: selectedRawCell.id,
-                    data: { [matrixMaterialRefField]: material.id },
-                    expectedVersion: readRuntimeRowVersion(selectedRawCell)
-                }).catch(async (error) => {
-                    await compensateCreatedAppRow({
-                        apiBaseUrl: details.apiBaseUrl!,
-                        applicationId: details.applicationId!,
-                        workspaceId: details.currentWorkspaceId,
-                        rowId: material.id as string,
-                        objectCollectionId: materialSectionId
-                    }).catch(() => undefined)
-                    throw error
-                })
-            }
             return material
         },
         onSuccess: async (saved) => {
@@ -664,7 +607,8 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
                 workspaceId: details.currentWorkspaceId,
                 objectCollectionId: materialSectionId,
                 rowId: openedMaterialId,
-                data
+                data,
+                expectedVersion: readRuntimeRowVersion(selectedMaterial)
             })
         },
         onSuccess: async () => {
@@ -675,105 +619,82 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             setMaterialDialogError(t('workspace.material.error', 'Failed to save material'))
         }
     })
-    const deleteCellMutation = useMutation({
-        mutationFn: async () => {
-            if (
-                !canDeleteContent ||
-                !details?.apiBaseUrl ||
-                !details.applicationId ||
-                !interpretationSectionId ||
-                !selectedInterpretation?.id ||
-                !matrixColumn?.id ||
-                !deleteCell ||
-                !deleteRawCell?.id
-            ) {
-                throw new Error('permission-denied')
-            }
-            if (matrixRowsSnapshotRef.current.cells.some((cell) => cell.parentCellId === deleteCell.id)) {
-                throw new Error('cell-has-children')
-            }
-            if (widgetConfig.matrixMode === 'hierarchicalCells' && deleteCell.id === rootCellId) {
-                throw new Error('cell-is-root')
-            }
-            return deleteTabularRow({
-                apiBaseUrl: details.apiBaseUrl,
-                applicationId: details.applicationId,
-                workspaceId: details.currentWorkspaceId,
-                parentRecordId: selectedInterpretation.id,
-                componentId: matrixColumn.id,
-                objectCollectionId: interpretationSectionId,
-                childRowId: deleteRawCell.id,
-                expectedVersion: readRuntimeRowVersion(deleteRawCell)
-            })
-        },
-        onSuccess: async () => {
-            if (cellDeleteId === selectedCellId) {
-                selectMatrixCell(null, { replace: true })
-            }
-            setCellDeleteId(null)
-            setCellDeleteError(null)
-            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
-        },
-        onError: (error) => {
-            setCellDeleteError(
-                error instanceof Error && error.message === 'cell-has-children'
-                    ? t('workspace.cell.deleteHasChildren', 'Move or delete child cells before deleting this cell.')
-                    : error instanceof Error && error.message === 'cell-is-root'
-                    ? t('workspace.cell.deleteRoot', 'The root cell cannot be deleted.')
-                    : t('workspace.cell.deleteError', 'Failed to delete cell')
-            )
-        }
+    const { saveCellMutation, deleteCellMutation } = useCellMutations({
+        t,
+        queryClient,
+        canEditContent,
+        canDeleteContent,
+        apiBaseUrl: details?.apiBaseUrl,
+        applicationId: details?.applicationId,
+        workspaceId: details?.currentWorkspaceId,
+        locale,
+        interpretationSectionId,
+        selectedInterpretationId: selectedInterpretation?.id,
+        matrixColumn,
+        selectedCellId,
+        deleteCell,
+        deleteRawCell,
+        cellDialogSourceCellId,
+        activeCellDialogPlacement: activeCellDialogPlacement ?? undefined,
+        widgetMatrixMode: widgetConfig.matrixMode,
+        rootCellId,
+        matrixRowsSnapshotRef,
+        readRuntimeRowVersion,
+        readSubmittedText,
+        selectMatrixCell,
+        setPendingSelectedCellId,
+        setCellDialogMode,
+        setAxisDialogKind,
+        setCellDialogSourceCellId,
+        setCellDialogPlacement: (placement) => setCellDialogPlacement(placement ?? null),
+        setCellDialogError,
+        cellDeleteId,
+        setCellDeleteId,
+        setCellDeleteError
+    })
+    const { openStructure, backToStructureList, openCreateStructureDialog } = useRuntimeSelectionActions({
+        templates: templatesQuery.data?.items ?? [],
+        setStructureDialogError,
+        clearEditingStructure,
+        setStructureCreateSource,
+        setStructureCreateTemplateId,
+        setStructureDialogMode,
+        setStructureReturnFocusId,
+        setSelectedConceptId,
+        setSelectedInterpretationId,
+        setSelectedMaterialId,
+        setOpenedMaterialId,
+        setMaterialDialogMode,
+        setEditingMaterialId,
+        selectMatrixCell,
+        navigateToStructure
     })
 
     if (!enabled) {
         return <RuntimeContextMissing message={t('workspace.missingRuntimeContext', 'Runtime context is not available yet.')} />
     }
 
-    if (query.isLoading) {
+    if (query.isLoading || (singleSystemMode && ensureSystemStructureMutation.isPending && !singleSystemStructure)) {
         return <WorkspaceLoading label={t('workspace.loading', 'Loading interpretation network')} />
     }
 
-    if (query.error) {
+    if (query.error || (singleSystemMode && ensureSystemStructureMutation.error)) {
         return (
             <WorkspaceError
-                error={query.error}
+                error={query.error ?? ensureSystemStructureMutation.error}
                 fallback={t('workspace.error', 'Failed to load interpretation workspace')}
                 locale={locale}
             />
         )
     }
 
-    const openStructure = (structure: StructureSummary) => {
-        setStructureReturnFocusId(structure.id)
-        setSelectedConceptId(structure.id)
-        setSelectedInterpretationId(structure.interpretationId)
-        selectMatrixCell(null, { replace: true })
-        setSelectedMaterialId(null)
-        setOpenedMaterialId(null)
-        setMaterialDialogMode(null)
-        setEditingMaterialId(null)
-        navigateToStructure(structure.id)
+    if (singleSystemMode && (!singleSystemStructure || !selectedInterpretation)) {
+        return <WorkspaceLoading label={t('workspace.loading', 'Loading interpretation network')} />
     }
-    const backToStructureList = () => {
-        setSelectedConceptId(null)
-        setSelectedInterpretationId(null)
-        selectMatrixCell(null, { replace: true })
-        setSelectedMaterialId(null)
-        setOpenedMaterialId(null)
-        navigateToStructure(null)
-    }
-    const openCreateStructureDialog = () => {
-        setStructureDialogError(null)
-        clearEditingStructure()
-        setStructureDialogMode('create')
-    }
+
     const closeCellMenu = () => {
         setCellMenuAnchor(null)
         setCellMenuCellId(null)
-    }
-    const closeStructureMenu = () => {
-        setStructureMenuAnchor(null)
-        setStructureMenuId(null)
     }
     const menuMoves = buildMatrixMenuMoves({
         t,
@@ -787,215 +708,264 @@ export default function InterpretationNetworkWorkspaceWidget({ config }: { confi
             handleMoveCell(menuCell.id, target.id, placement)
         }
     })
-    return (
-        <InterpretationNetworkWorkspaceContent
-            matrix={
-                selectedInterpretation
-                    ? {
-                          t,
-                          locale,
-                          mode: widgetConfig.matrixMode,
-                          matrixView: effectiveMatrixView,
-                          allowedMatrixViews: widgetConfig.allowedMatrixViews,
-                          tableProjection: widgetConfig.tableProjection,
-                          toolbarLayout: widgetConfig.toolbarLayout,
-                          showHierarchicalTableHeaders: widgetConfig.showHierarchicalTableHeaders,
-                          showHierarchicalTableHeaderCard: widgetConfig.showHierarchicalTableHeaderCard,
-                          showMatrixTreeTotalCells: widgetConfig.showMatrixTreeTotalCells,
-                          colorBreadcrumbsByCell: widgetConfig.colorBreadcrumbsByCell,
-                          hierarchyRows: hierarchicalMatrixRows,
-                          hierarchicalTableModel,
-                          positionLabels: matrixPositionLabels,
-                          cells: matrixCells,
-                          visibleCells: visibleMatrixCells,
-                          rows: matrixRows,
-                          materialCountByCellId,
-                          cellIds: matrixCellIds,
-                          selectedCell,
-                          dropState: matrixDropState,
-                          dragPreview: matrixDragPreview,
-                          disabled: matrixMutationsDisabled,
-                          axisActionsDisabled: matrixAxisActionsDisabled,
-                          addCellDisabled,
-                          savingCell: saveCellMutation.isPending,
-                          movingCell: moveCellMutation.isPending,
-                          errors: { rows: matrixRowsQuery.error, saveCell: saveCellMutation.error, moveCell: moveCellMutation.error },
-                          permissions: { canEditContent, canDeleteContent },
-                          menu: { anchor: cellMenuAnchor, cell: menuCell, moves: menuMoves },
-                          deletingCell: deleteCellMutation.isPending,
-                          sensors,
-                          onChangeMatrixView: setMatrixViewOverride,
-                          actions: {
-                              openCellDialog,
-                              addTableRow: () => openTableAxisDialog('row'),
-                              addTableColumn: () => openTableAxisDialog('column'),
-                              moveSelectedToSlot: moveSelectedToTableSlot,
-                              selectCell: selectMatrixCell,
-                              openCellMenu: (anchor, cellId) => {
-                                  setCellMenuAnchor(anchor)
-                                  setCellMenuCellId(cellId)
-                              },
-                              closeCellMenu,
-                              requestDeleteCell: (cellId) => {
-                                  setCellDeleteError(null)
-                                  setCellDeleteId(cellId)
-                              },
-                              dragStart: matrixDragHandlers.dragStart,
-                              dragMove: matrixDragHandlers.dragMove,
-                              dragOver: matrixDragHandlers.dragOver,
-                              dragCancel: matrixDragHandlers.dragCancel,
-                              dragEnd: matrixDragHandlers.dragEnd
-                          }
-                      }
-                    : null
+    const viewProps: InterpretationNetworkWorkspaceViewProps = {
+        matrix: selectedInterpretation
+            ? {
+                  t,
+                  locale,
+                  mode: widgetConfig.matrixMode,
+                  matrixView: effectiveMatrixView,
+                  allowedMatrixViews: widgetConfig.allowedMatrixViews,
+                  tableProjection: widgetConfig.tableProjection,
+                  toolbarLayout: widgetConfig.toolbarLayout,
+                  showHierarchicalTableHeaders: widgetConfig.showHierarchicalTableHeaders,
+                  showHierarchicalTableHeaderCard: widgetConfig.showHierarchicalTableHeaderCard,
+                  showMatrixTreeTotalCells: widgetConfig.showMatrixTreeTotalCells,
+                  colorBreadcrumbsByCell: widgetConfig.colorBreadcrumbsByCell,
+                  hierarchyRows: hierarchicalMatrixRows,
+                  hierarchicalTableModel,
+                  positionLabels: matrixPositionLabels,
+                  cells: matrixCells,
+                  visibleCells: visibleMatrixCells,
+                  rows: matrixRows,
+                  materialCountByCellId,
+                  cellIds: matrixCellIds,
+                  selectedCell,
+                  dropState: matrixDropState,
+                  dragPreview: matrixDragPreview,
+                  disabled: matrixMutationsDisabled,
+                  axisActionsDisabled: matrixAxisActionsDisabled,
+                  addCellDisabled,
+                  savingCell: saveCellMutation.isPending,
+                  movingCell: moveCellMutation.isPending,
+                  errors: { rows: matrixRowsQuery.error, saveCell: saveCellMutation.error, moveCell: moveCellMutation.error },
+                  permissions: { canEditContent, canDeleteContent },
+                  menu: { anchor: cellMenuAnchor, cell: menuCell, moves: menuMoves },
+                  deletingCell: deleteCellMutation.isPending,
+                  sensors,
+                  onChangeMatrixView: setMatrixViewOverride,
+                  canSaveTemplate: canCreateContent && canEditContent && Boolean(selectedConcept),
+                  onOpenSaveTemplate: () => openSaveTemplateDialog(selectedConcept?.id),
+                  actions: {
+                      openCellDialog,
+                      addTableRow: () => openTableAxisDialog('row'),
+                      addTableColumn: () => openTableAxisDialog('column'),
+                      moveSelectedToSlot: moveSelectedToTableSlot,
+                      selectCell: selectMatrixCell,
+                      openCellMenu: (anchor, cellId) => {
+                          setCellMenuAnchor(anchor)
+                          setCellMenuCellId(cellId)
+                      },
+                      closeCellMenu,
+                      requestDeleteCell: (cellId) => {
+                          setCellDeleteError(null)
+                          setCellDeleteId(cellId)
+                      },
+                      dragStart: matrixDragHandlers.dragStart,
+                      dragMove: matrixDragHandlers.dragMove,
+                      dragOver: matrixDragHandlers.dragOver,
+                      dragCancel: matrixDragHandlers.dragCancel,
+                      dragEnd: matrixDragHandlers.dragEnd
+                  }
+              }
+            : null,
+        structure: {
+            a11yIdPrefix,
+            t,
+            selectedConcept,
+            conceptColumns: query.data?.concepts.columns,
+            conceptNameField: widgetConfig.conceptNameField,
+            locale,
+            structureFilter,
+            structureViewMode,
+            filteredStructures,
+            templates: templatesQuery.data?.items ?? [],
+            structureListTab,
+            structureDetailTab,
+            showTemplatesInStructureList: widgetConfig.templatePanel.showInStructureList,
+            showTemplatesInMatrix: widgetConfig.templatePanel.showInMatrix,
+            dataGridLocaleText,
+            canCreateStructure: !singleSystemMode && canCreateContent && canEditContent,
+            canSaveTemplate: canCreateContent && canEditContent,
+            canCreateFromTemplate: !singleSystemMode && canCreateContent && canEditContent && Boolean(templatesQuery.data?.items.length),
+            templateLoading: templatesQuery.isLoading || templatesQuery.isFetching,
+            templateDetailLoading: templateDetailQuery.isLoading || templateDetailQuery.isFetching,
+            templateDetailError: templateDetailQuery.isError,
+            templateDetail: templateDetailQuery.data,
+            structureFieldsReady: structureFields.length > 0,
+            createStructureError: Boolean(createStructureMutation.error),
+            normalizedStructureFilter,
+            structureMenuAnchor,
+            structureMenuId,
+            canEditStructure: !singleSystemMode && canEditContent,
+            canDeleteStructure: !singleSystemMode && canDeleteContent,
+            canEditTemplate: canEditContent,
+            canDeleteTemplate: canDeleteContent && !deleteTemplateMutation.isPending,
+            onFilterChange: setStructureFilter,
+            onViewModeChange: (viewMode) => {
+                closeStructureMenu()
+                setStructureViewMode(viewMode)
+            },
+            onStructureListTabChange: setStructureListTab,
+            onStructureDetailTabChange: setStructureDetailTab,
+            onOpenCreateStructure: openCreateStructureDialog,
+            onOpenSaveTemplateForStructure: openSaveTemplateDialog,
+            onEditTemplate: openEditTemplateDialog,
+            onDeleteTemplate: requestDeleteTemplate,
+            onOpenTemplate: openTemplateDetail,
+            onCloseTemplate: closeTemplateDetail,
+            onOpenStructure: openStructure,
+            onOpenStructureMenu: (anchor, structureId) => {
+                setStructureMenuAnchor(anchor)
+                setStructureMenuId(structureId)
+            },
+            onCloseStructureMenu: closeStructureMenu,
+            onEditStructure: async (structureId) => {
+                closeStructureMenu()
+                setStructureDialogError(null)
+                const conceptSectionId = getSectionId(query.data?.concepts)
+                if (!details?.apiBaseUrl || !details.applicationId || !conceptSectionId) {
+                    setStructureDialogError(t('workspace.structure.updateError', 'Failed to update structure'))
+                    return
+                }
+                try {
+                    const rawRecord = await fetchAppRow({
+                        apiBaseUrl: details.apiBaseUrl,
+                        applicationId: details.applicationId,
+                        rowId: structureId,
+                        objectCollectionId: conceptSectionId
+                    })
+                    setEditingStructureData(rawRecord)
+                    setEditingStructureId(structureId)
+                    setStructureDialogMode('edit')
+                } catch {
+                    setStructureDialogError(t('workspace.structure.updateError', 'Failed to update structure'))
+                }
+            },
+            onDeleteStructure: (structureId) => {
+                closeStructureMenu()
+                setStructureDeleteError(null)
+                setStructureDeleteId(structureId)
+            },
+            onBackToList: backToStructureList
+        },
+        splitPaneEnabled: widgetConfig.splitPane.enabled,
+        singleSystemMode,
+        structureReturnFocusId,
+        onBackToStructureList: backToStructureList,
+        details: {
+            t,
+            locale,
+            selectedCell,
+            selectedMaterial,
+            cellMaterials,
+            selectedMaterialId,
+            openedMaterialId,
+            materialBodyField,
+            materialBodyValue: materialEditorInitialData[materialBodyField?.id ?? ''],
+            dataGridLocaleText,
+            canCreateContent,
+            canEditContent,
+            materialSectionId,
+            isSavingMaterial: saveMaterialMetadataMutation.isPending || saveMaterialBodyMutation.isPending,
+            materialEditorError: materialDialogError,
+            materials,
+            materialColumns: query.data?.materials.columns,
+            materialTitleField: widgetConfig.materialTitleField,
+            saveMaterialBodyMutation,
+            actions: {
+                setMaterialDialogError,
+                setEditingMaterialId,
+                setMaterialDialogMode,
+                setSelectedMaterialId,
+                setOpenedMaterialId
             }
-            structure={{
-                t,
-                selectedConcept,
-                conceptColumns: query.data?.concepts.columns,
-                conceptNameField: widgetConfig.conceptNameField,
-                locale,
-                structureFilter,
-                structureViewMode,
-                filteredStructures,
-                dataGridLocaleText,
-                canCreateStructure: canCreateContent && canEditContent,
-                structureFieldsReady: structureFields.length > 0,
-                createStructureError: Boolean(createStructureMutation.error),
-                normalizedStructureFilter,
-                structureMenuAnchor,
-                structureMenuId,
-                canEditStructure: canEditContent,
-                canDeleteStructure: canDeleteContent,
-                onFilterChange: setStructureFilter,
-                onViewModeChange: setStructureViewMode,
-                onOpenCreateStructure: openCreateStructureDialog,
-                onOpenStructure: openStructure,
-                onOpenStructureMenu: (anchor, structureId) => {
-                    setStructureMenuAnchor(anchor)
-                    setStructureMenuId(structureId)
-                },
-                onCloseStructureMenu: closeStructureMenu,
-                onEditStructure: async (structureId) => {
-                    closeStructureMenu()
-                    setStructureDialogError(null)
-                    const conceptSectionId = getSectionId(query.data?.concepts)
-                    if (!details?.apiBaseUrl || !details.applicationId || !conceptSectionId) {
-                        setStructureDialogError(t('workspace.structure.updateError', 'Failed to update structure'))
-                        return
-                    }
-                    try {
-                        const rawRecord = await fetchAppRow({
-                            apiBaseUrl: details.apiBaseUrl,
-                            applicationId: details.applicationId,
-                            rowId: structureId,
-                            objectCollectionId: conceptSectionId
-                        })
-                        setEditingStructureData(rawRecord)
-                        setEditingStructureId(structureId)
-                        setStructureDialogMode('edit')
-                    } catch {
-                        setStructureDialogError(t('workspace.structure.updateError', 'Failed to update structure'))
-                    }
-                },
-                onDeleteStructure: (structureId) => {
-                    closeStructureMenu()
-                    setStructureDeleteError(null)
-                    setStructureDeleteId(structureId)
-                },
-                onBackToList: backToStructureList
-            }}
-            splitPaneEnabled={widgetConfig.splitPane.enabled}
-            structureReturnFocusId={structureReturnFocusId}
-            onBackToStructureList={backToStructureList}
-            details={{
-                t,
-                locale,
-                selectedCell,
-                selectedMaterial,
-                cellMaterials,
-                selectedMaterialId,
-                openedMaterialId,
-                materialBodyField,
-                materialBodyValue: materialEditorInitialData[materialBodyField?.id ?? ''],
-                dataGridLocaleText,
-                canCreateContent,
-                canEditContent,
-                materialSectionId,
-                isSavingMaterial: saveMaterialMetadataMutation.isPending || saveMaterialBodyMutation.isPending,
-                materialEditorError: materialDialogError,
-                materials,
-                materialColumns: query.data?.materials.columns,
-                materialTitleField: widgetConfig.materialTitleField,
-                saveMaterialBodyMutation,
-                actions: {
-                    setMaterialDialogError,
-                    setEditingMaterialId,
-                    setMaterialDialogMode,
-                    setSelectedMaterialId,
-                    setOpenedMaterialId
-                }
-            }}
-            dialogs={{
-                t,
-                locale,
-                structure: {
-                    mode: structureDialogMode,
-                    fields: structureFields,
-                    initialData: structureInitialData,
-                    error: structureDialogError,
-                    deleteId: structureDeleteId,
-                    deleteStructure,
-                    deleteError: structureDeleteError
-                },
-                material: {
-                    mode: materialDialogMode,
-                    fields: materialFields,
-                    initialData: materialInitialData,
-                    error: materialDialogError
-                },
-                cell: {
-                    mode: cellDialogMode,
-                    axisDialogKind,
-                    fields: cellMetadataFields,
-                    styleFields,
-                    initialData: cellDialogInitialData,
-                    axisOptions: matrixAxisOptions,
-                    placement: activeCellDialogPlacement,
-                    allowNewAxesInCellDialog: widgetConfig.allowNewAxesInCellDialog,
-                    hideAxisLabelFields:
-                        widgetConfig.matrixMode === 'hierarchicalCells' && widgetConfig.tableProjection === 'hierarchicalPath',
-                    error: cellDialogError,
-                    deleteId: cellDeleteId,
-                    deleteCell,
-                    deleteError: cellDeleteError
-                },
-                mutations: {
-                    createStructure: createStructureMutation,
-                    updateStructure: updateStructureMutation,
-                    deleteStructure: deleteStructureMutation,
-                    saveMaterialMetadata: saveMaterialMetadataMutation,
-                    saveCell: saveCellMutation,
-                    deleteCell: deleteCellMutation
-                },
-                actions: {
-                    setStructureDialogMode,
-                    setEditingStructureId: setEditingStructureIdForDialogs,
-                    setStructureDialogError,
-                    setStructureDeleteId,
-                    setStructureDeleteError,
-                    setMaterialDialogMode,
-                    setEditingMaterialId,
-                    setMaterialDialogError,
-                    setCellDialogMode,
-                    setCellDialogSourceCellId,
-                    setCellDialogPlacement,
-                    setAxisDialogKind,
-                    setCellDialogError,
-                    setCellDeleteId,
-                    setCellDeleteError
-                }
-            }}
-        />
-    )
+        },
+        dialogs: {
+            a11yIdPrefix,
+            t,
+            locale,
+            structure: {
+                mode: structureDialogMode,
+                fields: structureFields,
+                initialData: structureInitialData,
+                createSource: structureCreateSource,
+                createTemplateId: structureCreateTemplateId,
+                templates: templatesQuery.data?.items ?? [],
+                error: structureDialogError,
+                deleteId: structureDeleteId,
+                deleteStructure,
+                deleteError: structureDeleteError
+            },
+            template: {
+                mode: templateDialogMode,
+                error: templateDialogError,
+                initialData:
+                    templateDialogMode === 'edit' && selectedTemplateForDialog
+                        ? {
+                              templateName: selectedTemplateForDialog.name,
+                              description: selectedTemplateForDialog.description ?? undefined,
+                              templatePolicy: selectedTemplateForDialog.includesMaterials ? 'withMaterials' : 'structureOnly'
+                          }
+                        : { templatePolicy: 'structureOnly' },
+                deleteId: templateActionId && templateDialogMode === null ? templateActionId : null,
+                deleteTemplate: templateActionId && templateDialogMode === null ? selectedTemplateForDialog : undefined
+            },
+            material: {
+                mode: materialDialogMode,
+                fields: materialFields,
+                initialData: materialInitialData,
+                error: materialDialogError
+            },
+            cell: {
+                mode: cellDialogMode,
+                axisDialogKind,
+                fields: cellMetadataFields,
+                styleFields,
+                initialData: cellDialogInitialData,
+                axisOptions: matrixAxisOptions,
+                placement: activeCellDialogPlacement,
+                allowNewAxesInCellDialog: widgetConfig.allowNewAxesInCellDialog,
+                hideAxisLabelFields: widgetConfig.matrixMode === 'hierarchicalCells' && widgetConfig.tableProjection === 'hierarchicalPath',
+                error: cellDialogError,
+                deleteId: cellDeleteId,
+                deleteCell,
+                deleteError: cellDeleteError
+            },
+            mutations: {
+                createStructure: createStructureMutation,
+                updateStructure: updateStructureMutation,
+                deleteStructure: deleteStructureMutation,
+                saveTemplate: saveTemplateMutation,
+                updateTemplate: updateTemplateMutation,
+                deleteTemplate: deleteTemplateMutation,
+                saveMaterialMetadata: saveMaterialMetadataMutation,
+                saveCell: saveCellMutation,
+                deleteCell: deleteCellMutation
+            },
+            actions: {
+                setStructureDialogMode,
+                setStructureCreateSource,
+                setStructureCreateTemplateId,
+                setEditingStructureId: setEditingStructureIdForDialogs,
+                setStructureDialogError,
+                setStructureDeleteId,
+                setStructureDeleteError,
+                setTemplateDialogMode,
+                setTemplateDialogError,
+                closeTemplateDialog,
+                setMaterialDialogMode,
+                setEditingMaterialId,
+                setMaterialDialogError,
+                setCellDialogMode,
+                setCellDialogSourceCellId,
+                setCellDialogPlacement,
+                setAxisDialogKind,
+                setCellDialogError,
+                setCellDeleteId,
+                setCellDeleteError
+            }
+        }
+    }
+    return <InterpretationNetworkWorkspaceView {...viewProps} />
 }

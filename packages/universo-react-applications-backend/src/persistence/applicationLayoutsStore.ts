@@ -7,6 +7,7 @@ import {
     applicationLayoutWidgetConfigMutationSchema,
     applicationLayoutWidgetMoveMutationSchema,
     applicationLayoutWidgetMutationSchema,
+    applicationLayoutWidgetResetBatchMutationSchema,
     applicationLayoutWidgetToggleMutationSchema,
     parseApplicationLayoutWidgetConfig,
     type ApplicationLayout,
@@ -19,11 +20,16 @@ import {
     type ApplicationLayoutWidgetConfigMutation,
     type ApplicationLayoutWidgetMoveMutation,
     type ApplicationLayoutWidgetMutation,
+    type ApplicationLayoutWidgetResetBatchMutation,
     type ApplicationLayoutWidgetToggleMutation
 } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils/database'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
+import {
+    assertInterpretationNetworkSingleSystemTransitionAllowed,
+    lockInterpretationNetworkStructureMode
+} from '../shared/interpretationNetworkStructureModeGuard'
 
 const GLOBAL_SCOPE_ID = 'global'
 const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = ['left', 'top', 'right', 'bottom', 'center']
@@ -57,6 +63,8 @@ interface WidgetRow {
     widget_key: string
     sort_order: number
     config: Record<string, unknown>
+    source_config: Record<string, unknown> | null
+    is_customized: boolean
     is_active: boolean
     version: number
 }
@@ -106,6 +114,8 @@ const mapWidget = (row: WidgetRow): ApplicationLayoutWidget => ({
     widgetKey: row.widget_key as ApplicationLayoutWidget['widgetKey'],
     sortOrder: row.sort_order,
     config: isRecord(row.config) ? row.config : {},
+    sourceConfig: isRecord(row.source_config) ? row.source_config : null,
+    isCustomized: row.is_customized === true,
     isActive: row.is_active,
     version: row.version
 })
@@ -142,6 +152,8 @@ const widgetSelect = (widgetsTable: string): string => `
       widget_key,
       sort_order,
       config,
+      source_config,
+      (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,
       is_active,
       COALESCE(_upl_version, 1)::int AS version
     FROM ${widgetsTable}
@@ -616,6 +628,7 @@ export async function upsertApplicationLayoutWidget(
         throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
     const config = assertApplicationLayoutWidgetConfig(data.widgetKey, data.config ?? {})
     return executor.transaction(async (tx) => {
+        await lockInterpretationNetworkStructureMode(tx, schemaName)
         await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}:widgets`])
         if (!definition.multiInstance) {
             const existing = await tx.query<WidgetRow>(
@@ -626,6 +639,17 @@ export async function upsertApplicationLayoutWidget(
             )
             if (existing[0]) return mapWidget(existing[0])
         }
+        await assertInterpretationNetworkSingleSystemTransitionAllowed(
+            tx,
+            schemaName,
+            [
+                {
+                    current: null,
+                    next: { widgetKey: data.widgetKey, config, isActive: true }
+                }
+            ],
+            { lockAlreadyHeld: true }
+        )
         const rows = await tx.query<WidgetRow>(
             `
             INSERT INTO ${widgetsTable} (layout_id, zone, widget_key, sort_order, config, is_active, _upl_created_by, _upl_updated_by)
@@ -649,6 +673,7 @@ export async function updateApplicationLayoutWidgetConfig(
     const data = applicationLayoutWidgetConfigMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     return executor.transaction(async (tx) => {
+        await lockInterpretationNetworkStructureMode(tx, schemaName)
         await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:widget:${widgetId}`])
         const current = await tx.query<WidgetRow>(
             `${widgetSelect(widgetsTable)} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1`,
@@ -656,6 +681,21 @@ export async function updateApplicationLayoutWidgetConfig(
         )
         if (!current[0]) return null
         const config = assertApplicationLayoutWidgetConfig(String(current[0].widget_key), data.config)
+        await assertInterpretationNetworkSingleSystemTransitionAllowed(
+            tx,
+            schemaName,
+            [
+                {
+                    current: {
+                        widgetKey: current[0].widget_key,
+                        config: current[0].config,
+                        isActive: current[0].is_active
+                    },
+                    next: { widgetKey: current[0].widget_key, config, isActive: current[0].is_active }
+                }
+            ],
+            { lockAlreadyHeld: true }
+        )
         const rows = await tx.query<WidgetRow>(
             `
             UPDATE ${widgetsTable}
@@ -685,6 +725,7 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
     const updates = [...data.updates].sort((left, right) => left.widgetId.localeCompare(right.widgetId))
 
     return executor.transaction(async (tx) => {
+        await lockInterpretationNetworkStructureMode(tx, schemaName)
         for (const update of updates) {
             await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
                 `${schemaName}:layout-widget:${update.layoutId}:${update.widgetId}`
@@ -714,6 +755,24 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
             validatedConfigs.set(update.widgetId, assertApplicationLayoutWidgetConfig(current.widget_key, update.config))
         }
 
+        await assertInterpretationNetworkSingleSystemTransitionAllowed(
+            tx,
+            schemaName,
+            updates.map((update) => ({
+                current: {
+                    widgetKey: currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!.widget_key,
+                    config: currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!.config,
+                    isActive: currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!.is_active
+                },
+                next: {
+                    widgetKey: currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!.widget_key,
+                    config: validatedConfigs.get(update.widgetId)!,
+                    isActive: currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!.is_active
+                }
+            })),
+            { lockAlreadyHeld: true }
+        )
+
         const saved: ApplicationLayoutWidget[] = []
         const touchedLayoutIds = new Set<string>()
         for (const update of updates) {
@@ -732,6 +791,93 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             saved.push(mapWidget(rows[0]))
             touchedLayoutIds.add(String(rows[0].layout_id))
+        }
+
+        for (const layoutId of touchedLayoutIds) {
+            await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
+        }
+        return saved
+    })
+}
+
+export async function resetApplicationLayoutWidgetConfigsBatch(
+    executor: DbExecutor,
+    schemaName: string,
+    input: ApplicationLayoutWidgetResetBatchMutation,
+    userId: string | null
+): Promise<ApplicationLayoutWidget[]> {
+    const data = applicationLayoutWidgetResetBatchMutationSchema.parse(input)
+    const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
+    const updates = [...data.updates].sort((left, right) => left.widgetId.localeCompare(right.widgetId))
+
+    return executor.transaction(async (tx) => {
+        await lockInterpretationNetworkStructureMode(tx, schemaName)
+        for (const update of updates) {
+            await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                `${schemaName}:layout-widget:${update.layoutId}:${update.widgetId}`
+            ])
+        }
+
+        const currentRows = await tx.query<WidgetRow>(
+            `${widgetSelect(widgetsTable)}
+             WHERE (layout_id, id) IN (
+                   SELECT requested.layout_id, requested.widget_id
+                   FROM UNNEST($1::uuid[], $2::uuid[]) AS requested(layout_id, widget_id)
+             )
+               AND source_config IS NOT NULL
+               AND _upl_deleted = false
+               AND _app_deleted = false
+             ORDER BY id
+             FOR UPDATE`,
+            [updates.map((update) => update.layoutId), updates.map((update) => update.widgetId)]
+        )
+        const currentByScopedId = new Map(currentRows.map((row) => [`${row.layout_id}:${row.id}`, row]))
+
+        for (const update of updates) {
+            const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)
+            if (!current || (update.expectedVersion !== undefined && current.version !== update.expectedVersion)) {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            }
+            assertApplicationLayoutWidgetConfig(current.widget_key, current.source_config)
+        }
+
+        await assertInterpretationNetworkSingleSystemTransitionAllowed(
+            tx,
+            schemaName,
+            updates.map((update) => {
+                const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!
+                return {
+                    current: { widgetKey: current.widget_key, config: current.config, isActive: current.is_active },
+                    next: { widgetKey: current.widget_key, config: current.source_config ?? {}, isActive: current.is_active }
+                }
+            }),
+            { lockAlreadyHeld: true }
+        )
+
+        const saved: ApplicationLayoutWidget[] = []
+        const touchedLayoutIds = new Set<string>()
+        for (const update of updates) {
+            const rows = await tx.query<WidgetRow>(
+                `
+                UPDATE ${widgetsTable}
+                SET config = source_config,
+                    _upl_updated_at = NOW(),
+                    _upl_updated_by = $3,
+                    _upl_version = COALESCE(_upl_version, 1) + 1
+                WHERE id = $1
+                  AND layout_id = $2
+                  AND source_config IS NOT NULL
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
+                RETURNING *,
+                          false AS is_customized,
+                          COALESCE(_upl_version, 1)::int AS version
+                `,
+                [update.widgetId, update.layoutId, userId]
+            )
+            if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            saved.push(mapWidget(rows[0]))
+            touchedLayoutIds.add(update.layoutId)
         }
 
         for (const layoutId of touchedLayoutIds) {
@@ -855,7 +1001,28 @@ export async function toggleApplicationLayoutWidget(
     const data = applicationLayoutWidgetToggleMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     return executor.transaction(async (tx) => {
+        await lockInterpretationNetworkStructureMode(tx, schemaName)
         await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:widget:${widgetId}`])
+        const current = await tx.query<WidgetRow>(
+            `${widgetSelect(widgetsTable)} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1 FOR UPDATE`,
+            [widgetId]
+        )
+        if (!current[0]) return null
+        await assertInterpretationNetworkSingleSystemTransitionAllowed(
+            tx,
+            schemaName,
+            [
+                {
+                    current: {
+                        widgetKey: current[0].widget_key,
+                        config: current[0].config,
+                        isActive: current[0].is_active
+                    },
+                    next: { widgetKey: current[0].widget_key, config: current[0].config, isActive: data.isActive }
+                }
+            ],
+            { lockAlreadyHeld: true }
+        )
         const rows = await tx.query<WidgetRow>(
             `
             UPDATE ${widgetsTable}

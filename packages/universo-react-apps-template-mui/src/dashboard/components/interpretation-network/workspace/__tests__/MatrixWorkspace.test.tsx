@@ -548,18 +548,17 @@ describe('MatrixWorkspace', () => {
 
         const { rerender } = renderWithQueryClient(<CellEditDialog {...baseProps} />)
         const dialog = await screen.findByRole('dialog', { name: 'Edit cell' })
-        await userEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        fireEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
         const editSidesButton = within(dialog).getByRole('button', { name: 'Edit sides separately' })
         expect(editSidesButton).toBeInTheDocument()
 
         // Explicitly enter advanced mode, then make every side equal. The editor
         // must keep the user's chosen mode instead of collapsing mid-edit.
-        await userEvent.click(editSidesButton)
+        fireEvent.click(editSidesButton)
         expect(within(dialog).getByRole('button', { name: 'Edit all sides together' })).toBeInTheDocument()
         const rightBorderHex = document.getElementById('BorderRightColor-hex')
         expect(rightBorderHex).toBeInstanceOf(HTMLInputElement)
-        await userEvent.clear(rightBorderHex as HTMLInputElement)
-        await userEvent.type(rightBorderHex as HTMLInputElement, '#000000')
+        fireEvent.change(rightBorderHex as HTMLInputElement, { target: { value: '#000000' } })
         fireEvent.blur(rightBorderHex as HTMLInputElement)
         expect(within(dialog).getByRole('button', { name: 'Edit all sides together' })).toBeInTheDocument()
 
@@ -577,9 +576,8 @@ describe('MatrixWorkspace', () => {
                 />
             </QueryClientProvider>
         )
-        await userEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
-
-        expect(await within(dialog).findByRole('button', { name: 'Edit all sides together' })).toBeInTheDocument()
+        fireEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
+        await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Edit all sides together' })).toBeInTheDocument())
     })
 
     it('keeps the adjusted split-pane size when the selected structure row is refreshed with the same id', () => {

@@ -23,6 +23,7 @@ vi.mock('../../api/applications', () => ({
     listApplicationLayoutScopes: vi.fn(),
     listApplicationLayouts: vi.fn(),
     listApplicationLayoutWidgets: vi.fn(),
+    resetApplicationLayoutWidgetConfigsBatch: vi.fn(),
     updateApplicationLayoutWidgetConfigsBatch: vi.fn(),
     updateApplicationWorkspaceLimits: vi.fn(),
     updateApplication: vi.fn()
@@ -48,6 +49,7 @@ import {
     listApplicationLayoutScopes,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
+    resetApplicationLayoutWidgetConfigsBatch,
     updateApplication,
     updateApplicationLayoutWidgetConfigsBatch,
     updateApplicationWorkspaceLimits
@@ -58,6 +60,7 @@ const mockedGetApplicationWorkspaceLimits = vi.mocked(getApplicationWorkspaceLim
 const mockedListApplicationLayoutScopes = vi.mocked(listApplicationLayoutScopes)
 const mockedListApplicationLayouts = vi.mocked(listApplicationLayouts)
 const mockedListApplicationLayoutWidgets = vi.mocked(listApplicationLayoutWidgets)
+const mockedResetApplicationLayoutWidgetConfigsBatch = vi.mocked(resetApplicationLayoutWidgetConfigsBatch)
 const mockedUpdateApplication = vi.mocked(updateApplication)
 const mockedUpdateApplicationLayoutWidgetConfigsBatch = vi.mocked(updateApplicationLayoutWidgetConfigsBatch)
 const mockedUpdateApplicationWorkspaceLimits = vi.mocked(updateApplicationWorkspaceLimits)
@@ -207,6 +210,7 @@ describe('ApplicationSettings', () => {
         mockedListApplicationLayoutScopes.mockResolvedValue([])
         mockedListApplicationLayoutWidgets.mockResolvedValue([])
         mockedUpdateApplicationLayoutWidgetConfigsBatch.mockResolvedValue([] as never)
+        mockedResetApplicationLayoutWidgetConfigsBatch.mockResolvedValue([] as never)
         mockedUpdateApplicationWorkspaceLimits.mockResolvedValue([])
     })
 
@@ -1381,6 +1385,8 @@ describe('ApplicationSettings', () => {
         })
 
         await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-structure-mode')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'One system structure' }))
         await userEvent.click(within(screen.getByTestId('application-setting-matrix-mode')).getByRole('combobox'))
         await userEvent.click(screen.getByRole('option', { name: 'Independent rows' }))
         expect(screen.getByRole('checkbox', { name: 'Vertical tree' })).toBeDisabled()
@@ -1389,41 +1395,47 @@ describe('ApplicationSettings', () => {
         expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).not.toHaveBeenCalled()
         await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
 
-        await waitFor(() => {
-            expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledWith(
-                'app-1',
-                expect.objectContaining({
-                    updates: [
-                        expect.objectContaining({
-                            layoutId: 'layout-1',
-                            widgetId: 'widget-1',
-                            config: expect.objectContaining({
-                                matrixMode: 'independentRows',
-                                allowedMatrixViews: ['table', 'horizontalRows'],
-                                defaultMatrixView: 'table',
-                                tableProjection: 'independentAxes',
-                                breadcrumbDepth: { mode: 'last', count: 4 },
-                                toolbarLayout: 'vertical',
-                                hierarchyRowMode: 'allNodes',
-                                positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
-                                allowNewAxesInCellDialog: false,
-                                serverModuleCodename: 'interpretation-runtime',
-                                conceptCodename: 'Structure',
-                                relationCodename: 'Interpretation',
-                                tableTemplateCodename: 'Interpretation Network Matrix',
-                                visibleFor: {
-                                    sectionCodenames: ['Structure'],
-                                    objectCollectionCodenames: ['Structure']
-                                }
-                            }),
-                            expectedVersion: 7
-                        })
-                    ]
-                })
-            )
-        })
+        await waitFor(
+            () => {
+                expect(mockedUpdateApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledWith(
+                    'app-1',
+                    expect.objectContaining({
+                        updates: [
+                            expect.objectContaining({
+                                layoutId: 'layout-1',
+                                widgetId: 'widget-1',
+                                config: expect.objectContaining({
+                                    matrixMode: 'independentRows',
+                                    allowedMatrixViews: ['table', 'horizontalRows'],
+                                    defaultMatrixView: 'table',
+                                    tableProjection: 'independentAxes',
+                                    breadcrumbDepth: { mode: 'last', count: 4 },
+                                    toolbarLayout: 'vertical',
+                                    hierarchyRowMode: 'allNodes',
+                                    positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
+                                    allowNewAxesInCellDialog: false,
+                                    templatePanel: { showInStructureList: true, showInMatrix: true },
+                                    serverModuleCodename: 'interpretation-runtime',
+                                    conceptCodename: 'Structure',
+                                    relationCodename: 'Interpretation',
+                                    tableTemplateCodename: 'Interpretation Network Matrix',
+                                    visibleFor: {
+                                        sectionCodenames: ['Structure'],
+                                        objectCollectionCodenames: ['Structure']
+                                    }
+                                }),
+                                expectedVersion: 7
+                            })
+                        ]
+                    })
+                )
+            },
+            { timeout: 10000 }
+        )
         const savedConfig = getLastMatrixBatchUpdate('widget-1').config as Record<string, unknown>
         expect(savedConfig).toMatchObject({
+            structureMode: 'singleSystem',
+            templatePanel: { showInStructureList: true, showInMatrix: true },
             serverModuleCodename: 'interpretation-runtime',
             relationCodename: 'Interpretation',
             tableTemplateCodename: 'Interpretation Network Matrix'
@@ -1446,6 +1458,187 @@ describe('ApplicationSettings', () => {
             queryClient.getQueryState(['interpretationNetworkWorkspaceMatrix', 'app-1', 'workspace-1', 'structure-1', 'matrix-column'])
                 ?.isInvalidated
         ).toBe(true)
+    })
+
+    it('restores the refreshed metahub Matrix settings for customized widgets', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'metahub',
+                    syncState: 'local_modified',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { structureMode: 'multiple' },
+                sourceConfig: { structureMode: 'singleSystem' },
+                isCustomized: true,
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockedResetApplicationLayoutWidgetConfigsBatch.mockResolvedValue([
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { structureMode: 'singleSystem' },
+                sourceConfig: { structureMode: 'singleSystem' },
+                isCustomized: false,
+                isActive: true,
+                version: 8
+            }
+        ] as never)
+
+        renderSettings()
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-reset'))
+
+        await waitFor(() => {
+            expect(mockedResetApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledWith('app-1', {
+                updates: [
+                    {
+                        layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                        widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                        expectedVersion: 7
+                    }
+                ]
+            })
+        })
+    })
+
+    it('reports incomplete Structure metadata when restoring metahub Matrix settings fails', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'metahub',
+                    syncState: 'local_modified',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { structureMode: 'multiple' },
+                sourceConfig: { structureMode: 'singleSystem' },
+                isCustomized: true,
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockedResetApplicationLayoutWidgetConfigsBatch.mockRejectedValue({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: {
+                    error: 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING',
+                    code: 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+                }
+            }
+        })
+
+        renderSettings()
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-reset'))
+
+        expect(
+            await screen.findByText('Single-system mode cannot be enabled because the Structure metadata is incomplete.')
+        ).toBeInTheDocument()
+    })
+
+    it('reloads current Matrix state and reports a stale restore conflict', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'metahub',
+                    syncState: 'local_modified',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { structureMode: 'multiple' },
+                sourceConfig: { structureMode: 'singleSystem' },
+                isCustomized: true,
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockedResetApplicationLayoutWidgetConfigsBatch.mockRejectedValue({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: { error: 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT' }
+            }
+        })
+
+        renderSettings()
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-reset'))
+
+        expect(
+            await screen.findByText('Matrix settings changed while you were editing. Reload the current values and try again.')
+        ).toBeInTheDocument()
+        await waitFor(() => expect(mockedListApplicationLayouts).toHaveBeenCalledTimes(2))
     })
 
     it('restores the hierarchical table projection default when switching back from independent rows', async () => {
@@ -1712,6 +1905,83 @@ describe('ApplicationSettings', () => {
                 }),
                 expectedVersion: 7
             })
+        })
+    }, 15_000)
+
+    it('saves the Matrix template panel placement settings through widget config', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: 'layout-1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 1
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: 'widget-1',
+                layoutId: 'layout-1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: {
+                    matrixMode: 'hierarchicalCells',
+                    allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
+                    defaultMatrixView: 'table',
+                    templatePanel: { showInStructureList: true, showInMatrix: true }
+                },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockSavedBatchWidgets({ 'widget-1': 'layout-1' })
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        const structureListToggle = screen.getByRole('checkbox', { name: 'Show next to Structures' })
+        const matrixToggle = screen.getByRole('checkbox', { name: 'Show next to Matrix' })
+        expect(structureListToggle).toBeChecked()
+        expect(matrixToggle).toBeChecked()
+
+        await userEvent.click(structureListToggle)
+        await userEvent.click(matrixToggle)
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(getLastMatrixBatchUpdate('widget-1')).toMatchObject({
+                config: expect.objectContaining({
+                    templatePanel: { showInStructureList: false, showInMatrix: false }
+                }),
+                expectedVersion: 7
+            })
+        })
+    }, 15_000)
+
+    it('renders Matrix template panel placement settings in Russian', async () => {
+        expect(applicationsRu.applications.settings.matrix.templatePanel).toBe('Разделы шаблонов')
+        expect(applicationsRu.applications.settings.matrix.templatePanelDescription).toContain('опубликованном приложении')
+        expect(applicationsRu.applications.settings.matrix.templatePanelLocations).toEqual({
+            structureList: 'Показывать рядом со Структурами',
+            matrix: 'Показывать рядом с Матрицей'
+        })
+        expect(applicationsEn.applications.settings.matrix.templatePanelLocations).toEqual({
+            structureList: 'Show next to Structures',
+            matrix: 'Show next to Matrix'
         })
     }, 15_000)
 
@@ -2520,6 +2790,66 @@ describe('ApplicationSettings', () => {
         await waitFor(() => {
             expect(mockedListApplicationLayoutWidgets.mock.calls.length).toBeGreaterThan(2)
         })
+    }, 15_000)
+
+    it('shows a localized warning when ordinary Structures block single-system mode', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333345e1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'application',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344e1',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345e1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { structureMode: 'multiple', matrixMode: 'hierarchicalCells' },
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockedUpdateApplicationLayoutWidgetConfigsBatch.mockRejectedValue({
+            isAxiosError: true,
+            message: 'Request failed with status code 409',
+            response: {
+                status: 409,
+                data: {
+                    error: 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST',
+                    code: 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
+                }
+            }
+        })
+
+        renderSettings()
+
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-structure-mode')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'One system structure' }))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        expect(
+            await screen.findByText('Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.')
+        ).toBeInTheDocument()
+        expect(screen.queryByText('Matrix settings saved')).not.toBeInTheDocument()
     }, 15_000)
 
     it('does not load limits while schema provisioning is still pending', async () => {

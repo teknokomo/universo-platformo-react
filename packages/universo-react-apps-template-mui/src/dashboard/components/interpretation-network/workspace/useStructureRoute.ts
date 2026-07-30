@@ -5,10 +5,11 @@ type UseStructureRouteOptions = {
     applicationId?: string | null
     conceptSectionId?: string | null
     navigate?: (path: string) => void
+    singleMode?: boolean
 }
 
-export function useStructureRoute({ applicationId, conceptSectionId, navigate }: UseStructureRouteOptions) {
-    const [routeStructureId, setRouteStructureId] = useState<string | null>(() => readRouteStructureId(applicationId))
+export function useStructureRoute({ applicationId, conceptSectionId, navigate, singleMode = false }: UseStructureRouteOptions) {
+    const [routeStructureId, setRouteStructureId] = useState<string | null>(() => (singleMode ? null : readRouteStructureId(applicationId)))
     const [routeCellId, setRouteCellId] = useState<string | null>(() => readRouteMatrixCellId())
 
     const navigateToStructure = useCallback(
@@ -16,8 +17,9 @@ export function useStructureRoute({ applicationId, conceptSectionId, navigate }:
             const nextPath = buildStructureRuntimePath(
                 applicationId ?? undefined,
                 conceptSectionId,
-                structureId,
-                options.focusedCellId ?? null
+                singleMode ? null : structureId,
+                options.focusedCellId ?? null,
+                { includeStructureSection: !singleMode }
             )
             if (!nextPath || typeof window === 'undefined') return
 
@@ -25,28 +27,30 @@ export function useStructureRoute({ applicationId, conceptSectionId, navigate }:
             if (nextPath !== currentPath) {
                 if (options.replace) {
                     window.history.replaceState(null, '', nextPath)
+                    window.dispatchEvent(new PopStateEvent('popstate'))
                 } else if (navigate) {
                     navigate(nextPath)
                 } else {
                     window.history.pushState(null, '', nextPath)
+                    window.dispatchEvent(new PopStateEvent('popstate'))
                 }
             }
-            setRouteStructureId(structureId)
+            setRouteStructureId(singleMode ? null : structureId)
             setRouteCellId(options.focusedCellId ?? null)
         },
-        [applicationId, conceptSectionId, navigate]
+        [applicationId, conceptSectionId, navigate, singleMode]
     )
 
     const navigateToCell = useCallback(
         (cellId: string | null, options: { replace?: boolean } = {}) => {
-            navigateToStructure(routeStructureId, { ...options, focusedCellId: cellId })
+            navigateToStructure(singleMode ? null : routeStructureId, { ...options, focusedCellId: cellId })
         },
-        [navigateToStructure, routeStructureId]
+        [navigateToStructure, routeStructureId, singleMode]
     )
 
     useEffect(() => {
         const handlePopState = () => {
-            setRouteStructureId(readRouteStructureId(applicationId))
+            setRouteStructureId(singleMode ? null : readRouteStructureId(applicationId))
             setRouteCellId(readRouteMatrixCellId())
         }
 
@@ -54,7 +58,7 @@ export function useStructureRoute({ applicationId, conceptSectionId, navigate }:
         if (typeof window === 'undefined') return undefined
         window.addEventListener('popstate', handlePopState)
         return () => window.removeEventListener('popstate', handlePopState)
-    }, [applicationId])
+    }, [applicationId, singleMode])
 
     return { routeStructureId, routeCellId, navigateToStructure, navigateToCell }
 }

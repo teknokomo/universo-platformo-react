@@ -2816,7 +2816,8 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/Conflict"
+          $ref: "#/components/responses/ApplicationInterpretationNetworkStructureModeConf\
+            lict"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -2827,6 +2828,52 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/layouts/zone-widgets/config/reset:
+    post:
+      tags:
+        - Applications
+      summary: Restore application layout widgets from the current metahub baseline
+      description: Owner/admin-only atomic reset of inherited layout widgets to their
+        latest materialized metahub sourceConfig. Every widgetId may occur only
+        once in the batch. Application-authored or source-less widgets, stale
+        expectedVersion values, incomplete Interpretation Network metadata, and
+        unsafe single-system transitions fail the entire batch.
+      operationId: Applications_post_applications_applicationId_layouts_zone_widgets_config_reset
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationLayoutWidgetBatchResponse"
+        "400":
+          $ref: "#/components/responses/ApplicationLayoutWidgetResetBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ApplicationLayoutWidgetResetConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationLayoutWidgetResetBatchRequest"
       security: *a1
   /applications/{applicationId}/leave:
     post:
@@ -3161,6 +3208,610 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/interpretation-network
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_interpretation_network
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkRuntimeSurface"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/materials:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/materials
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_materials
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "201":
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkMaterialCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkMaterialCreateRequest"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/matrix/cells:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/matrix/cells
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_matrix_cells
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "201":
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkMatrixCellCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkMatrixCellCreateRequest"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/matrix/cells/move:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/matrix/cells/move
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_matrix_cells_move
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkMatrixCellMoveResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkMatrixCellMoveRequest"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/structures:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/structures
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_structures
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "201":
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkStructureCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkStructureCreateRequest"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/structures/{structureId}:
+    delete:
+      tags:
+        - Applications
+      summary: DELETE
+        /applications/{applicationId}/runtime/interpretation-network/structures/{structureId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_delete_applications_applicationId_runtime_interpretation_network_structures_structureId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: structureId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: structureId path parameter.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkVersionedDeleteRequest"
+  /applications/{applicationId}/runtime/interpretation-network/system-structure/ensure:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/system-structure/ensure
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_system_structure_ensure
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkSystemStructure"
+        "201":
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkSystemStructure"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkEnsureSystemStructureRequest"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/templates:
+    get:
+      tags:
+        - Applications
+      summary: GET
+        /applications/{applicationId}/runtime/interpretation-network/templates
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_interpretation_network_templates
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkTemplateList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/templates
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_templates
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "201":
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkTemplateSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkTemplateSaveRequest"
+      security: *a1
+  /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}:
+    get:
+      tags:
+        - Applications
+      summary: GET
+        /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_interpretation_network_templates_templateId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: templateId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkTemplateDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    patch:
+      tags:
+        - Applications
+      summary: PATCH
+        /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_patch_applications_applicationId_runtime_interpretation_network_templates_templateId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: templateId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkTemplateSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkTemplateUpdateRequest"
+      security: *a1
+    delete:
+      tags:
+        - Applications
+      summary: DELETE
+        /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_delete_applications_applicationId_runtime_interpretation_network_templates_templateId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: templateId path parameter.
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkVersionedDeleteRequest"
+  /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}/instantiate:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}/instantiate
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_interpretation_network_templates_templateId_instantiate
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: templateId path parameter.
+      responses:
+        "201":
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationNetworkTemplateInstantiateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InterpretationNetworkConflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationNetworkTemplateInstantiateRequest"
       security: *a1
   /applications/{applicationId}/runtime/ledgers:
     get:
@@ -14685,6 +15336,599 @@ components:
       additionalProperties: true
       description: Generic JSON object used where the route inventory is current but
         payload-specific schemas remain handler-defined.
+    ApplicationLayoutWidgetResetBatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        updates:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: Widgets to reset atomically. Each widgetId may appear only once in
+            the batch, regardless of layoutId.
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              layoutId:
+                type: string
+                format: uuid
+              widgetId:
+                type: string
+                format: uuid
+              expectedVersion:
+                type: integer
+                minimum: 1
+            required:
+              - layoutId
+              - widgetId
+      required:
+        - updates
+    ApplicationLayoutWidgetBatchResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApplicationLayoutWidget"
+      required:
+        - items
+    ApplicationLayoutWidget:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        layoutId:
+          type: string
+          format: uuid
+        zone:
+          type: string
+          enum:
+            - left
+            - top
+            - right
+            - bottom
+            - center
+        widgetKey:
+          type: string
+        sortOrder:
+          type: integer
+        config:
+          type: object
+          additionalProperties: true
+        sourceConfig:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: "null"
+        isCustomized:
+          type: boolean
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+      required:
+        - id
+        - layoutId
+        - zone
+        - widgetKey
+        - sortOrder
+        - config
+        - sourceConfig
+        - isCustomized
+        - isActive
+        - version
+    InterpretationNetworkLocalizedContentEntry:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - content
+        - version
+        - isActive
+        - createdAt
+        - updatedAt
+    InterpretationNetworkLocalizedString:
+      type: object
+      additionalProperties: false
+      properties:
+        _schema:
+          type: string
+          enum:
+            - "1"
+        _primary:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+        locales:
+          type: object
+          minProperties: 1
+          propertyNames:
+            pattern: ^[a-z]{2}(-[A-Z]{2})?$
+          additionalProperties:
+            $ref: "#/components/schemas/InterpretationNetworkLocalizedContentEntry"
+      required:
+        - _schema
+        - _primary
+        - locales
+    InterpretationNetworkLocalizedStringInput:
+      oneOf:
+        - type: string
+        - $ref: "#/components/schemas/InterpretationNetworkLocalizedString"
+      description: Localized text accepted either as a plain primary-locale string or
+        canonical VLC data.
+    InterpretationNetworkExpectedVersion:
+      type: integer
+      minimum: 1
+      description: Optimistic-lock version. A stale version produces an HTTP 409 conflict.
+    InterpretationNetworkRuntimeSurface:
+      type: object
+      additionalProperties: false
+      properties:
+        applicationId:
+          type: string
+        workspaceId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        featureState:
+          type: string
+          enum:
+            - ready
+            - missing-widget
+            - missing-metadata
+        missing:
+          type: array
+          items:
+            type: string
+        structureMode:
+          type: string
+          enum:
+            - multiple
+            - singleSystem
+        widgetKey:
+          type: string
+          enum:
+            - interpretationNetworkWorkspace
+      required:
+        - applicationId
+        - workspaceId
+        - featureState
+        - missing
+        - structureMode
+        - widgetKey
+    InterpretationNetworkEnsureSystemStructureRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        locale:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+    InterpretationNetworkSystemStructure:
+      type: object
+      additionalProperties: false
+      properties:
+        structureId:
+          type: string
+          format: uuid
+        interpretationId:
+          type: string
+          format: uuid
+        rootCellId:
+          type: string
+          format: uuid
+        created:
+          type: boolean
+        canCreate:
+          type: boolean
+      required:
+        - structureId
+        - interpretationId
+        - rootCellId
+        - created
+        - canCreate
+    InterpretationNetworkTemplateSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedString"
+        description:
+          oneOf:
+            - $ref: "#/components/schemas/InterpretationNetworkLocalizedString"
+            - type: "null"
+        includesMaterials:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+      required:
+        - id
+        - name
+        - description
+        - includesMaterials
+        - version
+    InterpretationNetworkTemplateList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterpretationNetworkTemplateSummary"
+      required:
+        - items
+    InterpretationNetworkTemplateDetail:
+      allOf:
+        - $ref: "#/components/schemas/InterpretationNetworkTemplateSummary"
+        - type: object
+          additionalProperties: false
+          properties:
+            matrix:
+              type: object
+              additionalProperties: false
+              properties:
+                cellCount:
+                  type: integer
+                  minimum: 0
+                rootCount:
+                  type: integer
+                  minimum: 0
+                maxDepth:
+                  type: integer
+                  minimum: 0
+              required:
+                - cellCount
+                - rootCount
+                - maxDepth
+            materialCount:
+              type: integer
+              minimum: 0
+          required:
+            - matrix
+            - materialCount
+    InterpretationNetworkTemplateSaveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceStructureId:
+          type: string
+          format: uuid
+        templateName:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        description:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        includeMaterials:
+          type: boolean
+        expectedVersion:
+          $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
+        locale:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+      required:
+        - sourceStructureId
+        - templateName
+        - includeMaterials
+    InterpretationNetworkTemplateUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        templateName:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        description:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        expectedVersion:
+          $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
+        locale:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+      required:
+        - templateName
+    InterpretationNetworkVersionedDeleteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedVersion:
+          $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
+    InterpretationNetworkTemplateInstantiateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        structureName:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        description:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        expectedVersion:
+          $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
+        locale:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+      required:
+        - structureName
+    InterpretationNetworkTemplateInstantiateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        structureId:
+          type: string
+          format: uuid
+        interpretationId:
+          type: string
+          format: uuid
+      required:
+        - structureId
+        - interpretationId
+    InterpretationNetworkMaterialCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        interpretationId:
+          type: string
+          format: uuid
+        matrixRowId:
+          type: string
+          format: uuid
+        cellId:
+          type: string
+          minLength: 1
+          maxLength: 255
+        data:
+          type: object
+          additionalProperties: true
+        expectedVersion:
+          $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
+      required:
+        - interpretationId
+        - matrixRowId
+        - cellId
+        - data
+    InterpretationNetworkMaterialCreateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+        matrixRowId:
+          type: string
+          minLength: 1
+      required:
+        - id
+        - matrixRowId
+    InterpretationNetworkStructureCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        description:
+          $ref: "#/components/schemas/InterpretationNetworkLocalizedStringInput"
+        locale:
+          type: string
+          pattern: ^[a-z]{2}(-[A-Z]{2})?$
+      required:
+        - name
+    InterpretationNetworkStructureCreateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        structureId:
+          type: string
+          format: uuid
+        interpretationId:
+          type: string
+          format: uuid
+        rootCellId:
+          type: string
+          format: uuid
+      required:
+        - structureId
+        - interpretationId
+        - rootCellId
+    InterpretationNetworkMatrixCellPlacement:
+      type: object
+      additionalProperties: false
+      properties:
+        parentCellId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        rowKey:
+          type: string
+        colKey:
+          type: string
+        sortOrder:
+          type: integer
+          minimum: 0
+    InterpretationNetworkMatrixCellCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        interpretationId:
+          type: string
+          format: uuid
+        data:
+          type: object
+          additionalProperties: true
+        placement:
+          $ref: "#/components/schemas/InterpretationNetworkMatrixCellPlacement"
+      required:
+        - interpretationId
+        - data
+        - placement
+    InterpretationNetworkMatrixCellCreateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - created
+        item:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - status
+        - item
+    InterpretationNetworkMatrixCellMoveUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        matrixRowId:
+          type: string
+          format: uuid
+        expectedVersion:
+          $ref: "#/components/schemas/InterpretationNetworkExpectedVersion"
+        placement:
+          $ref: "#/components/schemas/InterpretationNetworkMatrixCellPlacement"
+        data:
+          type: object
+          additionalProperties: true
+          description: Optional user-authored field updates; server-owned placement fields
+            are rejected here.
+      required:
+        - matrixRowId
+        - placement
+    InterpretationNetworkMatrixCellMoveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        interpretationId:
+          type: string
+          format: uuid
+        updates:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/InterpretationNetworkMatrixCellMoveUpdate"
+      required:
+        - interpretationId
+        - updates
+    InterpretationNetworkMatrixCellMoveResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+        updated:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - status
+        - updated
+    InterpretationNetworkError:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          pattern: ^INTERPRETATION_NETWORK_
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - error
+        - code
+    ApplicationInterpretationNetworkStructureModeError:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+          enum:
+            - APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST
+        code:
+          type: string
+          enum:
+            - APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST
+        details:
+          type: object
+          additionalProperties: true
+      anyOf:
+        - required:
+            - error
+        - required:
+            - code
+    ApplicationLayoutWidgetResetBadRequestError:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+          enum:
+            - APPLICATION_LAYOUT_WIDGET_RESET_BATCH_INVALID
+      required:
+        - error
+    ApplicationLayoutWidgetResetConflictError:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            error:
+              type: string
+              enum:
+                - APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT
+          required:
+            - error
+        - type: object
+          additionalProperties: false
+          properties:
+            error:
+              type: string
+              enum:
+                - APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST
+            code:
+              type: string
+              enum:
+                - APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST
+          required:
+            - error
+            - code
+        - type: object
+          additionalProperties: false
+          properties:
+            error:
+              type: string
+              enum:
+                - APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING
+            code:
+              type: string
+              enum:
+                - APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING
+          required:
+            - error
+            - code
     VersionedLocalizedContent:
       type: object
       additionalProperties:
@@ -16193,6 +17437,35 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ApiError"
+    InterpretationNetworkConflict:
+      description: The Interpretation Network mutation conflicts with current state,
+        including stale expectedVersion values and single-system invariant
+        violations.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InterpretationNetworkError"
+    ApplicationInterpretationNetworkStructureModeConflict:
+      description: The requested Matrix widget batch would activate single-system mode
+        while ordinary Structures remain in an active workspace.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApplicationInterpretationNetworkStructureModeError"
+    ApplicationLayoutWidgetResetConflict:
+      description: The reset conflicts with a stale widget version, a missing current
+        metahub baseline, missing Interpretation Network metadata, or ordinary
+        Structures that prevent single-system mode.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApplicationLayoutWidgetResetConflictError"
+    ApplicationLayoutWidgetResetBadRequest:
+      description: The reset batch payload is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApplicationLayoutWidgetResetBadRequestError"
     TooManyRequests:
       description: Rate limit exceeded.
       content:

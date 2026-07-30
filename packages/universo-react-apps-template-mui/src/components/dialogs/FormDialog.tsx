@@ -220,6 +220,8 @@ export interface FormDialogProps {
     error?: string | null
     requireAnyValue?: boolean
     emptyStateText?: string
+    contentHeader?: React.ReactNode
+    contentHeaderId?: string
     saveButtonText?: string
     savingButtonText?: string
     cancelButtonText?: string
@@ -262,6 +264,7 @@ export interface FormDialogProps {
         helperText?: string
         fieldIds: string[]
     }>
+    hiddenFieldIds?: string[]
 }
 
 const normalizeLocale = (locale?: string) => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
@@ -879,6 +882,8 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     error = null,
     requireAnyValue = false,
     emptyStateText,
+    contentHeader,
+    contentHeaderId,
     saveButtonText,
     savingButtonText,
     cancelButtonText,
@@ -898,7 +903,8 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     objectCollections = EMPTY_OBJECT_COLLECTIONS,
     currentWorkspaceId = null,
     resourceSourceTypes,
-    wizardSteps
+    wizardSteps,
+    hiddenFieldIds
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [blockEditorErrors, setBlockEditorErrors] = useState<Record<string, string | null>>({})
@@ -911,6 +917,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
     const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
     const fieldById = useMemo(() => new Map(fields.map((field) => [field.id, field])), [fields])
+    const hiddenFieldIdSet = useMemo(() => new Set(hiddenFieldIds ?? []), [hiddenFieldIds])
     const fieldByLookupKey = useMemo(() => {
         const result = new Map<string, FieldConfig>()
         for (const field of fields) {
@@ -1483,7 +1490,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const hasMissingRequired = useMemo(
         () =>
             fields.some((field) => {
-                if (isHiddenField(field, formData)) return false
+                if (hiddenFieldIdSet.has(field.id) || isHiddenField(field, formData)) return false
                 const required = isFieldRequired(field, formData)
                 if (field.type === 'TABLE' && required) {
                     // TABLE required: must have at least max(1, minRows) rows
@@ -1502,19 +1509,20 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     return true
                 return false
             }),
-        [fields, formData, hasAutoResolvedPageResourceSource, resolveValuePresent]
+        [fields, formData, hasAutoResolvedPageResourceSource, hiddenFieldIdSet, resolveValuePresent]
     )
 
     const hasValidationErrors = useMemo(
         () =>
             fields.some(
                 (field) =>
+                    !hiddenFieldIdSet.has(field.id) &&
                     !isHiddenField(field, formData) &&
                     (Boolean(getFieldError(field, formData[field.id])) ||
                         Boolean(blockEditorErrors[field.id]) ||
                         Boolean(inlineFieldErrors[field.id]))
             ),
-        [blockEditorErrors, fields, formData, getFieldError, inlineFieldErrors]
+        [blockEditorErrors, fields, formData, getFieldError, hiddenFieldIdSet, inlineFieldErrors]
     )
 
     const hasMissingRequiredForFields = useCallback(
@@ -1564,7 +1572,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 payload[field.id] = derivedValue
                 return
             }
-            if (isConditionallyHiddenField(field, formData)) return
+            if (hiddenFieldIdSet.has(field.id) || isConditionallyHiddenField(field, formData)) return
             const value = formData[field.id]
             const autoResolvedPageSource = buildAutoResolvedPageResourceSource(field, value, formData)
             if (autoResolvedPageSource) {
@@ -1583,7 +1591,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             }
         })
         return payload
-    }, [buildAutoResolvedPageResourceSource, fields, formData, normalizedLocale, resolveValuePresent])
+    }, [buildAutoResolvedPageResourceSource, fields, formData, hiddenFieldIdSet, normalizedLocale, resolveValuePresent])
 
     const handleSubmit = async () => {
         if (hasMissingRequired) return
@@ -2623,7 +2631,10 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         }
     }
 
-    const visibleFields = useMemo(() => fields.filter((field) => !isHiddenField(field, formData)), [fields, formData])
+    const visibleFields = useMemo(
+        () => fields.filter((field) => !hiddenFieldIdSet.has(field.id) && !isHiddenField(field, formData)),
+        [fields, formData, hiddenFieldIdSet]
+    )
     const normalizedWizardSteps = useMemo(() => {
         const fieldIds = new Set(visibleFields.map((field) => field.id))
         return (wizardSteps ?? [])
@@ -2655,6 +2666,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const formBody = (
         <Stack spacing={2} sx={surface === 'page' ? undefined : { mt: 1 }}>
             {error && <Alert severity='error'>{error}</Alert>}
+            {contentHeader ? <Box id={contentHeaderId}>{contentHeader}</Box> : null}
             {hasWizard ? (
                 <Stack spacing={1}>
                     <Stepper activeStep={activeWizardStep} alternativeLabel sx={{ mb: 0.5 }}>
@@ -2749,7 +2761,14 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     }
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth={dialogMaxWidth} fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth={dialogMaxWidth}
+            fullWidth
+            aria-describedby={contentHeaderId}
+            PaperProps={{ sx: { borderRadius: 1 } }}
+        >
             <DialogTitle>{title}</DialogTitle>
             <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>{formBody}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>

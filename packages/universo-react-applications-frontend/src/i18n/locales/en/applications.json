@@ -194,6 +194,23 @@
             "limitsSaveError": "Failed to save limits",
             "matrixHint": "Configure the interpretation matrix workspace installed in this application layout.",
             "matrix": {
+                "reset": "Restore metahub settings",
+                "resetSuccess": "Metahub settings restored",
+                "resetError": "Failed to restore metahub settings",
+                "resetConflict": "Matrix settings changed while you were editing. Reload the current values and try again.",
+                "resetUnavailable": "No inherited metahub settings are available.",
+                "structureMode": "Structure mode",
+                "structureModeDescription": "Choose whether users work with several named structures or one system structure that opens the Matrix directly.",
+                "structureModes": {
+                    "multiple": "Multiple structures",
+                    "singleSystem": "One system structure"
+                },
+                "templatePanel": "Template panels",
+                "templatePanelDescription": "Choose where workspace table templates are shown in the published application.",
+                "templatePanelLocations": {
+                    "structureList": "Show next to Structures",
+                    "matrix": "Show next to Matrix"
+                },
                 "mode": "Matrix mode",
                 "modeDescription": "Choose whether matrix cells use hierarchical parent-child grouping or independent row cells.",
                 "modes": {
@@ -261,6 +278,8 @@
                 "startIndexDescription": "Choose the first number used for each sibling group.",
                 "saved": "Matrix settings saved",
                 "saveError": "Failed to save matrix settings",
+                "singleSystemStructuresExist": "Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.",
+                "singleSystemMetadataMissing": "Single-system mode cannot be enabled because the Structure metadata is incomplete.",
                 "divergentSettings": "Active Matrix widgets currently use different settings. Saving will normalize every active widget to the values shown here.",
                 "widgetMissing": "Matrix workspace widget is not installed in this application."
             },
@@ -750,7 +769,8 @@
                 "source_excluded": "Excluded"
             },
             "interpretationNetworkEditor": {
-                "title": "Interpretation network workspace"
+                "title": "Interpretation network workspace",
+                "saveError": "Failed to save widget settings"
             },
             "workspaceSwitcherEditor": {
                 "title": "Workspace switcher",

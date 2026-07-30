@@ -1,48 +1,17 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    FormControl,
-    FormControlLabel,
-    IconButton,
-    InputLabel,
-    Menu,
-    MenuItem,
-    Select,
-    Stack,
-    Switch,
-    TextField,
-    Typography
-} from '@mui/material'
+import { Alert, Box, CircularProgress, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
-import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
-import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
-import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import ToggleOnRoundedIcon from '@mui/icons-material/ToggleOnRounded'
-import ToggleOffRoundedIcon from '@mui/icons-material/ToggleOffRounded'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
+import { useSnackbar } from 'notistack'
 import { useCommonTranslations } from '@universo-react/i18n'
 import {
     LayoutAuthoringList,
     LayoutAuthoringDetails,
     LayoutStateChips,
-    StandardDialog,
     ViewHeaderMUI as ViewHeader,
-    EDITABLE_SIDE_MENU_MODES,
     normalizeSideMenuConfig
 } from '@universo-react/template-mui'
 import type {
@@ -55,18 +24,12 @@ import type {
     DashboardLayoutZone,
     ObjectCollectionRuntimeViewConfig,
     MenuWidgetConfig,
-    DashboardSideMenuMode,
-    DashboardSideMenuConfig,
-    InterpretationNetworkWorkspaceWidgetConfig
+    DashboardSideMenuConfig
 } from '@universo-react/types'
-import {
-    DASHBOARD_LAYOUT_ZONES,
-    normalizeInterpretationNetworkMatrixViewSettings,
-    normalizeInterpretationNetworkSplitPaneSettings,
-    normalizeInterpretationNetworkTableSettings
-} from '@universo-react/types'
+import { DASHBOARD_LAYOUT_ZONES } from '@universo-react/types'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
+    extractAxiosError,
     normalizeObjectCollectionRuntimeViewConfig,
     setObjectCollectionLayoutBehaviorConfig
 } from '@universo-react/utils'
@@ -81,18 +44,24 @@ import {
     listApplicationLayoutWidgetObject,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
+    resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     upsertApplicationLayoutWidget,
     updateApplicationLayout,
     updateApplicationLayoutWidgetConfig
 } from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
-import ApplicationColumnsContainerEditorDialog from '../components/layouts/ApplicationColumnsContainerEditorDialog'
-import ApplicationMenuWidgetEditorDialog from '../components/layouts/ApplicationMenuWidgetEditorDialog'
-import ApplicationWidgetBehaviorEditorDialog from '../components/layouts/ApplicationWidgetBehaviorEditorDialog'
-import { MatrixSettingsPanel, type InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
+import type { InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
 import { STORAGE_KEYS } from '../constants/storage'
 import { useViewPreference } from '../hooks/useViewPreference'
+import { LayoutRuntimeSettingsPanels } from './application-layouts/LayoutRuntimeSettingsPanels'
+import { ApplicationLayoutListDialogs } from './application-layouts/ApplicationLayoutListDialogs'
+import { ApplicationLayoutWidgetEditors } from './application-layouts/ApplicationLayoutWidgetEditors'
+import { ApplicationLayoutListMenu } from './application-layouts/ApplicationLayoutListMenu'
+import {
+    mergeInterpretationNetworkMatrixSettings,
+    parseInterpretationNetworkMatrixSettings
+} from './application-layouts/interpretationNetworkWidgetSettings'
 
 const resolveLocalizedText = (value: unknown, locale: string, fallback: string): string => {
     if (!value || typeof value !== 'object') return fallback
@@ -136,119 +105,13 @@ const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set([
     'resourcePreview'
 ])
 
-const parseMatrixMode = (value: unknown): InterpretationNetworkMatrixSettings['matrixMode'] =>
-    value === 'independentRows' || value === 'hierarchicalCells' ? value : 'hierarchicalCells'
-
-const parseHierarchyRowMode = (value: unknown): InterpretationNetworkMatrixSettings['hierarchyRowMode'] =>
-    value === 'allNodes' || value === 'focusedPath' ? value : 'focusedPath'
-
-const parsePositionNumbering = (value: unknown): InterpretationNetworkMatrixSettings['positionNumbering'] => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return { enabled: true, includeRoot: true, startIndex: 1 }
-    }
-
-    const record = value as Record<string, unknown>
-    const startIndex = record.startIndex
-    return {
-        enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
-        includeRoot: typeof record.includeRoot === 'boolean' ? record.includeRoot : true,
-        startIndex: typeof startIndex === 'number' && Number.isInteger(startIndex) && startIndex >= 0 ? startIndex : 1
-    }
-}
-
-const parseInterpretationNetworkMatrixSettings = (
-    config: Record<string, unknown> | null | undefined
-): InterpretationNetworkMatrixSettings => {
-    const matrixMode = parseMatrixMode(config?.matrixMode)
-    const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
-    const defaultAllowedMatrixViews =
-        matrixMode === 'hierarchicalCells' ? (['table', 'horizontalRows', 'verticalTree'] as const) : (['table', 'horizontalRows'] as const)
-    const tableSettings = normalizeInterpretationNetworkTableSettings(
-        matrixMode,
-        config?.tableProjection,
-        config?.breadcrumbDepth,
-        config?.toolbarLayout,
-        config?.showHierarchicalTableHeaders,
-        config?.showHierarchicalTableHeaderCard,
-        config?.showMatrixTreeTotalCells,
-        config?.colorBreadcrumbsByCell
-    )
-
-    return {
-        matrixMode,
-        ...normalizeInterpretationNetworkMatrixViewSettings(
-            matrixMode,
-            requestedViews ?? defaultAllowedMatrixViews,
-            config?.defaultMatrixView ?? 'table'
-        ),
-        tableProjection: tableSettings.tableProjection,
-        breadcrumbDepth: tableSettings.breadcrumbDepth,
-        toolbarLayout: tableSettings.toolbarLayout,
-        showHierarchicalTableHeaders: tableSettings.showHierarchicalTableHeaders,
-        showHierarchicalTableHeaderCard: tableSettings.showHierarchicalTableHeaderCard,
-        showMatrixTreeTotalCells: tableSettings.showMatrixTreeTotalCells,
-        colorBreadcrumbsByCell: tableSettings.colorBreadcrumbsByCell,
-        hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
-        positionNumbering: parsePositionNumbering(config?.positionNumbering),
-        allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true,
-        splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane)
-    }
-}
-
-const normalizeInterpretationNetworkMatrixSettingsForSave = (
-    settings: InterpretationNetworkMatrixSettings
-): InterpretationNetworkMatrixSettings => {
-    const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
-        settings.matrixMode,
-        settings.allowedMatrixViews,
-        settings.defaultMatrixView
-    )
-    const tableSettings = normalizeInterpretationNetworkTableSettings(
-        settings.matrixMode,
-        settings.tableProjection,
-        settings.breadcrumbDepth,
-        settings.toolbarLayout,
-        settings.showHierarchicalTableHeaders,
-        settings.showHierarchicalTableHeaderCard,
-        settings.showMatrixTreeTotalCells,
-        settings.colorBreadcrumbsByCell
-    )
-
-    return {
-        ...settings,
-        ...viewSettings,
-        ...tableSettings,
-        splitPane: normalizeInterpretationNetworkSplitPaneSettings(settings.splitPane)
-    }
-}
-
-const mergeInterpretationNetworkMatrixSettings = (
-    config: Record<string, unknown> | null | undefined,
-    settings: InterpretationNetworkMatrixSettings
-): InterpretationNetworkWorkspaceWidgetConfig => {
-    const normalized = normalizeInterpretationNetworkMatrixSettingsForSave(settings)
-
-    return {
-        ...(config ?? {}),
-        matrixMode: normalized.matrixMode,
-        allowedMatrixViews: normalized.allowedMatrixViews,
-        defaultMatrixView: normalized.defaultMatrixView,
-        tableProjection: normalized.tableProjection,
-        breadcrumbDepth: normalized.breadcrumbDepth,
-        toolbarLayout: normalized.toolbarLayout,
-        showHierarchicalTableHeaders: normalized.showHierarchicalTableHeaders,
-        showHierarchicalTableHeaderCard: normalized.showHierarchicalTableHeaderCard,
-        showMatrixTreeTotalCells: normalized.showMatrixTreeTotalCells,
-        colorBreadcrumbsByCell: normalized.colorBreadcrumbsByCell,
-        hierarchyRowMode: normalized.hierarchyRowMode,
-        positionNumbering: normalized.positionNumbering,
-        allowNewAxesInCellDialog: normalized.allowNewAxesInCellDialog,
-        splitPane: normalized.splitPane
-    }
-}
-
 const isApplicationCustomizedLayoutWidget = (layout: ApplicationLayout): boolean =>
     layout.sourceKind === 'application' || layout.syncState === 'local_modified'
+
+const isCustomizedWidget = (layout: ApplicationLayout, widget: ApplicationLayoutWidget): boolean =>
+    widget.sourceConfig !== undefined
+        ? widget.sourceConfig !== null && widget.isCustomized === true
+        : isApplicationCustomizedLayoutWidget(layout)
 
 const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
     return normalizeSideMenuConfig(
@@ -265,6 +128,7 @@ const ApplicationLayouts = () => {
     const { applicationId, layoutId } = useParams<{ applicationId: string; layoutId?: string }>()
     const { t, i18n } = useTranslation('applications')
     const { t: tc } = useCommonTranslations()
+    const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
     const navigate = useNavigate()
 
@@ -444,13 +308,74 @@ const ApplicationLayouts = () => {
 
             return { previousDetail }
         },
-        onError: (_error, _variables, context) => {
+        onError: (error, _variables, context) => {
             if (context?.previousDetail) {
                 queryClient.setQueryData(layoutDetailQueryKey, context.previousDetail)
             }
+            const apiError = extractAxiosError(error)
+            const message =
+                apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
+                    ? t(
+                          'settings.matrix.singleSystemStructuresExist',
+                          'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.'
+                      )
+                    : apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+                    ? t(
+                          'settings.matrix.singleSystemMetadataMissing',
+                          'Single-system mode cannot be enabled because the Structure metadata is incomplete.'
+                      )
+                    : t('layouts.interpretationNetworkEditor.saveError', 'Failed to save widget settings')
+            enqueueSnackbar(message, { variant: 'error' })
         },
         onSuccess: async () => {
             setEditingWidget(null)
+            setBehaviorEditingWidget(null)
+            setInterpretationNetworkEditingWidget(null)
+            setInterpretationNetworkInitialSettings(null)
+            setInterpretationNetworkDraft(null)
+            setInterpretationNetworkDraftHasChanges(false)
+            await invalidateLayouts()
+        }
+    })
+
+    const resetWidgetConfigMutation = useMutation({
+        mutationFn: (widget: ApplicationLayoutWidget) =>
+            resetApplicationLayoutWidgetConfigsBatch(String(applicationId), {
+                updates: [
+                    {
+                        layoutId: String(layoutId),
+                        widgetId: widget.id,
+                        ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
+                    }
+                ]
+            }),
+        onError: (error) => {
+            const apiError = extractAxiosError(error)
+            const message =
+                apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
+                    ? t(
+                          'settings.matrix.singleSystemStructuresExist',
+                          'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.'
+                      )
+                    : apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+                    ? t(
+                          'settings.matrix.singleSystemMetadataMissing',
+                          'Single-system mode cannot be enabled because the Structure metadata is incomplete.'
+                      )
+                    : apiError.message === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'
+                    ? t(
+                          'settings.matrix.resetConflict',
+                          'Matrix settings changed while you were editing. Reload the current values and try again.'
+                      )
+                    : t('settings.matrix.resetError', 'Failed to restore metahub settings')
+            enqueueSnackbar(message, { variant: 'error' })
+        },
+        onSuccess: async () => {
+            setInterpretationNetworkEditingWidget(null)
+            setInterpretationNetworkInitialSettings(null)
+            setInterpretationNetworkDraft(null)
+            setInterpretationNetworkDraftHasChanges(false)
+            enqueueSnackbar(t('settings.matrix.resetSuccess', 'Metahub settings restored'), { variant: 'success' })
             await invalidateLayouts()
         }
     })
@@ -714,7 +639,6 @@ const ApplicationLayouts = () => {
                 widget: interpretationNetworkEditingWidget,
                 config: mergeInterpretationNetworkMatrixSettings(interpretationNetworkEditingWidget.config, interpretationNetworkDraft)
             })
-            closeInterpretationNetworkEditor()
         }
 
         const handleAddWidgetRequest = (zone: DashboardLayoutZone, widgetKey: ApplicationLayoutWidgetMutation['widgetKey']) => {
@@ -789,247 +713,15 @@ const ApplicationLayouts = () => {
                         onDragEnd={handleDragEnd}
                         onAddWidgetRequest={handleAddWidgetRequest}
                         beforeZonesContent={
-                            <Stack spacing={2}>
-                                <PaperSection
-                                    title={
-                                        layout.scopeEntityId
-                                            ? t('layouts.objectBehaviorTitleObject', 'Entity runtime behavior')
-                                            : t('layouts.objectBehaviorTitleGlobal', 'Default entity runtime behavior')
-                                    }
-                                    description={
-                                        layout.scopeEntityId
-                                            ? t(
-                                                  'layouts.objectBehaviorDescriptionObject',
-                                                  'This scoped layout overrides the create/search behavior inherited from its global base layout.'
-                                              )
-                                            : t(
-                                                  'layouts.objectBehaviorDescriptionGlobal',
-                                                  'These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.'
-                                              )
-                                    }
-                                >
-                                    <Stack spacing={1.5}>
-                                        <FormControlLabel
-                                            control={
-                                                <Switch
-                                                    checked={objectBehaviorConfig.showCreateButton}
-                                                    onChange={(_, checked) =>
-                                                        void handleObjectBehaviorChange({ showCreateButton: checked })
-                                                    }
-                                                />
-                                            }
-                                            label={t('layouts.showCreateButton', 'Show create button')}
-                                        />
-                                        <FormControl size='small' sx={{ minWidth: 220 }}>
-                                            <InputLabel>{t('layouts.searchMode', 'Search mode')}</InputLabel>
-                                            <Select
-                                                value={objectBehaviorConfig.searchMode}
-                                                label={t('layouts.searchMode', 'Search mode')}
-                                                onChange={(event) =>
-                                                    void handleObjectBehaviorChange({
-                                                        searchMode: event.target.value as ObjectCollectionRuntimeViewConfig['searchMode']
-                                                    })
-                                                }
-                                            >
-                                                <MenuItem value='page-local'>{t('layouts.searchModePageLocal', 'Page-local')}</MenuItem>
-                                                <MenuItem value='server'>{t('layouts.searchModeServer', 'Server')}</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <FormControl size='small' sx={{ minWidth: 220 }}>
-                                            <InputLabel>{t('layouts.createSurface', 'Create form type')}</InputLabel>
-                                            <Select
-                                                value={objectBehaviorConfig.createSurface}
-                                                label={t('layouts.createSurface', 'Create form type')}
-                                                onChange={(event) =>
-                                                    void handleObjectBehaviorChange({
-                                                        createSurface: event.target
-                                                            .value as ObjectCollectionRuntimeViewConfig['createSurface']
-                                                    })
-                                                }
-                                            >
-                                                <MenuItem value='dialog'>{t('layouts.surfaceDialog', 'Dialog')}</MenuItem>
-                                                <MenuItem value='page'>{t('layouts.surfacePage', 'Page')}</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <FormControl size='small' sx={{ minWidth: 220 }}>
-                                            <InputLabel>{t('layouts.editSurface', 'Edit form type')}</InputLabel>
-                                            <Select
-                                                value={objectBehaviorConfig.editSurface}
-                                                label={t('layouts.editSurface', 'Edit form type')}
-                                                onChange={(event) =>
-                                                    void handleObjectBehaviorChange({
-                                                        editSurface: event.target.value as ObjectCollectionRuntimeViewConfig['editSurface']
-                                                    })
-                                                }
-                                            >
-                                                <MenuItem value='dialog'>{t('layouts.surfaceDialog', 'Dialog')}</MenuItem>
-                                                <MenuItem value='page'>{t('layouts.surfacePage', 'Page')}</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <FormControl size='small' sx={{ minWidth: 220 }}>
-                                            <InputLabel>{t('layouts.copySurface', 'Copy form type')}</InputLabel>
-                                            <Select
-                                                value={objectBehaviorConfig.copySurface}
-                                                label={t('layouts.copySurface', 'Copy form type')}
-                                                onChange={(event) =>
-                                                    void handleObjectBehaviorChange({
-                                                        copySurface: event.target.value as ObjectCollectionRuntimeViewConfig['copySurface']
-                                                    })
-                                                }
-                                            >
-                                                <MenuItem value='dialog'>{t('layouts.surfaceDialog', 'Dialog')}</MenuItem>
-                                                <MenuItem value='page'>{t('layouts.surfacePage', 'Page')}</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <FormControlLabel
-                                            control={
-                                                <Switch
-                                                    checked={objectBehaviorConfig.enableRowReordering}
-                                                    onChange={(_, checked) =>
-                                                        void handleObjectBehaviorChange({
-                                                            enableRowReordering: checked
-                                                        })
-                                                    }
-                                                />
-                                            }
-                                            label={t('layouts.enableRowReordering', 'Enable row reordering')}
-                                        />
-                                    </Stack>
-                                </PaperSection>
-
-                                <PaperSection
-                                    title={t('layouts.viewSettings', 'Application View Settings')}
-                                    description={t(
-                                        'layouts.viewSettingsDescription',
-                                        'Control how the runtime list view behaves for this layout.'
-                                    )}
-                                >
-                                    <Stack spacing={1.5}>
-                                        <FormControlLabel
-                                            control={
-                                                <Switch
-                                                    checked={Boolean(layout.config?.showViewToggle)}
-                                                    onChange={(_, checked) => void handleViewSettingChange('showViewToggle', checked)}
-                                                />
-                                            }
-                                            label={t('layouts.showViewToggle', 'Card/table view toggle')}
-                                        />
-                                        <FormControl size='small' sx={{ minWidth: 180 }}>
-                                            <InputLabel>{t('layouts.defaultViewMode', 'Default view mode')}</InputLabel>
-                                            <Select
-                                                value={(layout.config?.defaultViewMode as string) || 'table'}
-                                                label={t('layouts.defaultViewMode', 'Default view mode')}
-                                                onChange={(event) => void handleViewSettingChange('defaultViewMode', event.target.value)}
-                                            >
-                                                <MenuItem value='table'>{t('layouts.viewModeTable', 'Table')}</MenuItem>
-                                                <MenuItem value='card'>{t('layouts.viewModeCard', 'Card')}</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <FormControlLabel
-                                            control={
-                                                <Switch
-                                                    checked={Boolean(layout.config?.showFilterBar)}
-                                                    onChange={(_, checked) => void handleViewSettingChange('showFilterBar', checked)}
-                                                />
-                                            }
-                                            label={t('layouts.showFilterBar', 'Search/filter bar')}
-                                        />
-                                        <FormControl size='small' sx={{ minWidth: 180 }}>
-                                            <InputLabel>{t('layouts.cardColumns', 'Card columns')}</InputLabel>
-                                            <Select
-                                                value={Number(layout.config?.cardColumns) || 3}
-                                                label={t('layouts.cardColumns', 'Card columns')}
-                                                onChange={(event) =>
-                                                    void handleViewSettingChange('cardColumns', Number(event.target.value))
-                                                }
-                                            >
-                                                <MenuItem value={2}>2</MenuItem>
-                                                <MenuItem value={3}>3</MenuItem>
-                                                <MenuItem value={4}>4</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <FormControl size='small' sx={{ minWidth: 180 }}>
-                                            <InputLabel>{t('layouts.rowHeight', 'Row height')}</InputLabel>
-                                            <Select
-                                                value={String(layout.config?.rowHeight ?? 'compact')}
-                                                label={t('layouts.rowHeight', 'Row height')}
-                                                onChange={(event) => {
-                                                    const value = event.target.value
-                                                    const nextValue =
-                                                        value === 'compact' ? undefined : value === 'auto' ? 'auto' : Number(value)
-                                                    void handleViewSettingChange('rowHeight', nextValue)
-                                                }}
-                                            >
-                                                <MenuItem value='compact'>{t('layouts.rowHeightCompact', 'Compact (default)')}</MenuItem>
-                                                <MenuItem value='52'>{t('layouts.rowHeightNormal', 'Normal (52px)')}</MenuItem>
-                                                <MenuItem value='auto'>{t('layouts.rowHeightAuto', 'Auto (multi-line)')}</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <Box sx={{ width: '100%' }}>
-                                            <Divider sx={{ mb: 1.5 }} />
-                                            <Typography variant='subtitle2' sx={{ mb: 1 }}>
-                                                {t('layouts.sideMenu.title', 'Side menu display')}
-                                            </Typography>
-                                            <Stack spacing={1}>
-                                                {EDITABLE_SIDE_MENU_MODES.map((mode) => {
-                                                    const isChecked = sideMenuConfig.availableModes.includes(mode)
-                                                    const isLastAvailableMode = isChecked && sideMenuConfig.availableModes.length === 1
-
-                                                    return (
-                                                        <FormControlLabel
-                                                            key={mode}
-                                                            control={
-                                                                <Switch
-                                                                    checked={isChecked}
-                                                                    disabled={isLastAvailableMode}
-                                                                    onChange={(_, checked) => {
-                                                                        const nextModes = checked
-                                                                            ? [...sideMenuConfig.availableModes, mode]
-                                                                            : sideMenuConfig.availableModes.filter(
-                                                                                  (value) => value !== mode
-                                                                              )
-                                                                        void handleSideMenuConfigChange({ availableModes: nextModes })
-                                                                    }}
-                                                                />
-                                                            }
-                                                            label={t(`layouts.sideMenu.modes.${mode}`, mode)}
-                                                        />
-                                                    )
-                                                })}
-                                                <FormControl size='small' sx={{ minWidth: 180 }}>
-                                                    <InputLabel>{t('layouts.sideMenu.primaryMode', 'Primary display mode')}</InputLabel>
-                                                    <Select
-                                                        value={sideMenuConfig.primaryMode}
-                                                        label={t('layouts.sideMenu.primaryMode', 'Primary display mode')}
-                                                        onChange={(event) =>
-                                                            void handleSideMenuConfigChange({
-                                                                primaryMode: event.target.value as DashboardSideMenuMode
-                                                            })
-                                                        }
-                                                    >
-                                                        {sideMenuConfig.availableModes.map((mode) => (
-                                                            <MenuItem key={mode} value={mode}>
-                                                                {t(`layouts.sideMenu.modes.${mode}`, mode)}
-                                                            </MenuItem>
-                                                        ))}
-                                                    </Select>
-                                                </FormControl>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            checked={sideMenuConfig.rememberUserChoice ?? true}
-                                                            onChange={(_, checked) =>
-                                                                void handleSideMenuConfigChange({ rememberUserChoice: checked })
-                                                            }
-                                                        />
-                                                    }
-                                                    label={t('layouts.sideMenu.rememberUserChoice', 'Remember user choice')}
-                                                />
-                                            </Stack>
-                                        </Box>
-                                    </Stack>
-                                </PaperSection>
-                            </Stack>
+                            <LayoutRuntimeSettingsPanels
+                                t={t}
+                                layout={layout}
+                                objectBehaviorConfig={objectBehaviorConfig}
+                                sideMenuConfig={sideMenuConfig}
+                                onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
+                                onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                            />
                         }
                         zones={DASHBOARD_LAYOUT_ZONES.map((zone) => ({
                             zone,
@@ -1079,7 +771,7 @@ const ApplicationLayouts = () => {
                                         : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
                                     inheritedLabel:
                                         widget.widgetKey === 'interpretationNetworkWorkspace'
-                                            ? isApplicationCustomizedLayoutWidget(layout)
+                                            ? isCustomizedWidget(layout, widget)
                                                 ? t('layouts.widgetCustomization.application', 'Customized in application')
                                                 : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
                                             : undefined
@@ -1089,17 +781,28 @@ const ApplicationLayouts = () => {
                     />
                 </Box>
 
-                <ApplicationMenuWidgetEditorDialog
-                    open={Boolean(menuEditorZone)}
-                    config={editingWidget?.widgetKey === 'menuWidget' ? (editingWidget.config as MenuWidgetConfig) : null}
+                <ApplicationLayoutWidgetEditors
+                    t={t}
+                    tc={tc}
+                    menuEditorZone={menuEditorZone}
+                    columnsEditorZone={columnsEditorZone}
+                    editingWidget={editingWidget}
+                    behaviorEditingWidget={behaviorEditingWidget}
+                    interpretationNetworkEditingWidget={interpretationNetworkEditingWidget}
+                    interpretationNetworkInitialSettings={interpretationNetworkInitialSettings}
+                    interpretationNetworkDraftHasChanges={interpretationNetworkDraftHasChanges}
+                    workspaceSwitcherEditingWidget={workspaceSwitcherEditingWidget}
                     sectionOptions={sectionOptions}
-                    onSave={(config) => {
+                    datasourceSectionOptions={datasourceSectionOptions}
+                    isSavingWidget={updateWidgetConfigMutation.isPending}
+                    isResettingWidget={resetWidgetConfigMutation.isPending}
+                    isInterpretationNetworkCustomized={
+                        interpretationNetworkEditingWidget ? isCustomizedWidget(layout, interpretationNetworkEditingWidget) : false
+                    }
+                    onSaveMenu={(config) => {
                         if (!menuEditorZone) return
                         if (editingWidget?.widgetKey === 'menuWidget') {
-                            updateWidgetConfigMutation.mutate({
-                                widget: editingWidget,
-                                config: config as Record<string, unknown>
-                            })
+                            updateWidgetConfigMutation.mutate({ widget: editingWidget, config: config as Record<string, unknown> })
                         } else {
                             addWidgetMutation.mutate({
                                 zone: menuEditorZone,
@@ -1110,22 +813,14 @@ const ApplicationLayouts = () => {
                         setMenuEditorZone(null)
                         setEditingWidget(null)
                     }}
-                    onCancel={() => {
+                    onCancelMenu={() => {
                         setMenuEditorZone(null)
                         setEditingWidget(null)
                     }}
-                />
-
-                <ApplicationColumnsContainerEditorDialog
-                    open={Boolean(columnsEditorZone)}
-                    config={editingWidget?.widgetKey === 'columnsContainer' ? (editingWidget.config as ColumnsContainerConfig) : null}
-                    onSave={(config) => {
+                    onSaveColumns={(config) => {
                         if (!columnsEditorZone) return
                         if (editingWidget?.widgetKey === 'columnsContainer') {
-                            updateWidgetConfigMutation.mutate({
-                                widget: editingWidget,
-                                config: config as Record<string, unknown>
-                            })
+                            updateWidgetConfigMutation.mutate({ widget: editingWidget, config: config as Record<string, unknown> })
                         } else {
                             addWidgetMutation.mutate({
                                 zone: columnsEditorZone,
@@ -1136,104 +831,32 @@ const ApplicationLayouts = () => {
                         setColumnsEditorZone(null)
                         setEditingWidget(null)
                     }}
-                    onCancel={() => {
+                    onCancelColumns={() => {
                         setColumnsEditorZone(null)
                         setEditingWidget(null)
                     }}
-                />
-
-                <ApplicationWidgetBehaviorEditorDialog
-                    open={Boolean(behaviorEditingWidget)}
-                    widgetKey={behaviorEditingWidget?.widgetKey}
-                    config={behaviorEditingWidget?.config as Record<string, unknown> | undefined}
-                    sectionOptions={datasourceSectionOptions}
-                    onSave={(config) => {
-                        if (!behaviorEditingWidget) return
-                        updateWidgetConfigMutation.mutate({
-                            widget: behaviorEditingWidget,
-                            config
-                        })
-                        setBehaviorEditingWidget(null)
+                    onSaveBehavior={(config) => {
+                        if (behaviorEditingWidget) updateWidgetConfigMutation.mutate({ widget: behaviorEditingWidget, config })
                     }}
-                    onCancel={() => setBehaviorEditingWidget(null)}
+                    onCancelBehavior={() => setBehaviorEditingWidget(null)}
+                    onCloseInterpretationNetwork={closeInterpretationNetworkEditor}
+                    onSaveInterpretationNetwork={saveInterpretationNetworkEditor}
+                    onSaveInterpretationNetworkSettings={(settings) => {
+                        if (!interpretationNetworkEditingWidget) return
+                        updateWidgetConfigMutation.mutate({
+                            widget: interpretationNetworkEditingWidget,
+                            config: mergeInterpretationNetworkMatrixSettings(interpretationNetworkEditingWidget.config, settings)
+                        })
+                    }}
+                    onResetInterpretationNetwork={() => {
+                        if (interpretationNetworkEditingWidget) resetWidgetConfigMutation.mutate(interpretationNetworkEditingWidget)
+                    }}
+                    onInterpretationNetworkDraftChange={(settings, hasChanges) => {
+                        setInterpretationNetworkDraft(settings)
+                        setInterpretationNetworkDraftHasChanges(hasChanges)
+                    }}
+                    onCloseWorkspaceSwitcher={() => setWorkspaceSwitcherEditingWidget(null)}
                 />
-
-                <StandardDialog
-                    open={Boolean(interpretationNetworkEditingWidget)}
-                    onClose={closeInterpretationNetworkEditor}
-                    title={t('layouts.interpretationNetworkEditor.title', 'Interpretation network workspace')}
-                    maxWidth='md'
-                    dialogContentProps={{ dividers: true }}
-                    actions={
-                        <>
-                            <Button onClick={closeInterpretationNetworkEditor}>{tc('actions.cancel', 'Cancel')}</Button>
-                            <Button
-                                data-testid='application-settings-matrix-save'
-                                onClick={saveInterpretationNetworkEditor}
-                                variant='contained'
-                                disabled={updateWidgetConfigMutation.isPending || !interpretationNetworkDraftHasChanges}
-                            >
-                                {tc('actions.save', 'Save')}
-                            </Button>
-                        </>
-                    }
-                >
-                    <Box sx={{ pt: 1 }}>
-                        {interpretationNetworkEditingWidget && interpretationNetworkInitialSettings ? (
-                            <Stack spacing={2}>
-                                <Alert severity='info' data-testid='application-layout-widget-customization-state'>
-                                    {isApplicationCustomizedLayoutWidget(layout)
-                                        ? t('layouts.widgetCustomization.application', 'Customized in application')
-                                        : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')}
-                                </Alert>
-                                <MatrixSettingsPanel
-                                    t={t}
-                                    settings={interpretationNetworkInitialSettings}
-                                    hasDivergentSettings={false}
-                                    isSaving={updateWidgetConfigMutation.isPending}
-                                    onSave={(settings) => {
-                                        updateWidgetConfigMutation.mutate({
-                                            widget: interpretationNetworkEditingWidget,
-                                            config: mergeInterpretationNetworkMatrixSettings(
-                                                interpretationNetworkEditingWidget.config,
-                                                settings
-                                            )
-                                        })
-                                        closeInterpretationNetworkEditor()
-                                    }}
-                                    renderSaveButton={false}
-                                    onDraftChange={(settings, hasChanges) => {
-                                        setInterpretationNetworkDraft(settings)
-                                        setInterpretationNetworkDraftHasChanges(hasChanges)
-                                    }}
-                                />
-                            </Stack>
-                        ) : null}
-                    </Box>
-                </StandardDialog>
-
-                <StandardDialog
-                    open={Boolean(workspaceSwitcherEditingWidget)}
-                    onClose={() => setWorkspaceSwitcherEditingWidget(null)}
-                    title={t('layouts.workspaceSwitcherEditor.title', 'Workspace switcher')}
-                    maxWidth='sm'
-                    actions={<Button onClick={() => setWorkspaceSwitcherEditingWidget(null)}>{tc('actions.close', 'Close')}</Button>}
-                >
-                    <Stack spacing={1.5}>
-                        <Alert severity='info' data-testid='application-layout-workspace-switcher-readonly'>
-                            {t(
-                                'layouts.workspaceSwitcherEditor.readOnly',
-                                'The workspace switcher uses the published application workspace state and has no widget-specific settings yet.'
-                            )}
-                        </Alert>
-                        <Typography variant='body2' color='text.secondary'>
-                            {t(
-                                'layouts.workspaceSwitcherEditor.hint',
-                                'Use application settings to control which workspace settings can be changed inside workspaces.'
-                            )}
-                        </Typography>
-                    </Stack>
-                </StandardDialog>
             </Stack>
         )
     }
@@ -1329,187 +952,46 @@ const ApplicationLayouts = () => {
                 listContentTestId='application-layouts-list-content'
             />
 
-            <Menu
-                open={Boolean(menuState.anchorEl)}
+            <ApplicationLayoutListMenu
+                t={t}
+                tc={tc}
                 anchorEl={menuState.anchorEl}
+                layout={menuLayout}
                 onClose={closeMenu}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <MenuItem
-                    onClick={() => {
-                        if (menuLayout) {
-                            navigate(`/a/${applicationId}/admin/layouts/${menuLayout.id}`)
-                        }
-                        closeMenu()
-                    }}
-                >
-                    <SettingsRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {t('actions.open', 'Open')}
-                </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        if (menuLayout) {
-                            openLayoutEditor(menuLayout)
-                        }
-                        closeMenu()
-                    }}
-                >
-                    <EditRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {tc('actions.edit', 'Edit')}
-                </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        if (menuLayout) {
-                            copyMutation.mutate(menuLayout)
-                        }
-                        closeMenu()
-                    }}
-                >
-                    <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {tc('actions.copy', 'Copy')}
-                </MenuItem>
-                <Divider />
-                <MenuItem
-                    disabled={!menuLayout?.isActive || Boolean(menuLayout?.isDefault)}
-                    onClick={() => {
-                        if (menuLayout) {
-                            updateMutation.mutate({
-                                layout: menuLayout,
-                                data: { isDefault: true }
-                            })
-                        }
-                        closeMenu()
-                    }}
-                >
-                    <StarRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {t('layouts.makeDefault', 'Make default')}
-                </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        if (menuLayout) {
-                            updateMutation.mutate({
-                                layout: menuLayout,
-                                data: { isActive: !menuLayout.isActive }
-                            })
-                        }
-                        closeMenu()
-                    }}
-                >
-                    {menuLayout?.isActive ? (
-                        <ToggleOffRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    ) : (
-                        <ToggleOnRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    )}
-                    {menuLayout?.isActive ? t('layouts.deactivate', 'Deactivate') : t('layouts.activate', 'Activate')}
-                </MenuItem>
-                <Divider />
-                <MenuItem
-                    onClick={() => {
-                        if (menuLayout) {
-                            deleteMutation.mutate(menuLayout)
-                        }
-                        closeMenu()
-                    }}
-                    sx={{ color: 'error.main' }}
-                >
-                    <DeleteRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {tc('actions.delete', 'Delete')}
-                </MenuItem>
-            </Menu>
+                onOpen={(layout) => navigate(`/a/${applicationId}/admin/layouts/${layout.id}`)}
+                onEdit={openLayoutEditor}
+                onCopy={(layout) => copyMutation.mutate(layout)}
+                onMakeDefault={(layout) => updateMutation.mutate({ layout, data: { isDefault: true } })}
+                onToggleActive={(layout) => updateMutation.mutate({ layout, data: { isActive: !layout.isActive } })}
+                onDelete={(layout) => deleteMutation.mutate(layout)}
+            />
 
-            <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth='sm'>
-                <DialogTitle>{t('layouts.create', 'Create layout')}</DialogTitle>
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField
-                            label={t('layouts.name', 'Name')}
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            fullWidth
-                        />
-                        <FormControl fullWidth>
-                            <InputLabel>{t('layouts.scope', 'Scope')}</InputLabel>
-                            <Select
-                                value={scopeId}
-                                label={t('layouts.scope', 'Scope')}
-                                onChange={(event) => setScopeId(event.target.value)}
-                            >
-                                {(scopesQuery.data ?? []).map((scope) => (
-                                    <MenuItem key={scope.id} value={scope.id}>
-                                        {scope.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setCreateOpen(false)}>{tc('actions.cancel', 'Cancel')}</Button>
-                    <Button onClick={handleCreate} variant='contained' disabled={createMutation.isPending}>
-                        {t('layouts.create', 'Create layout')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <Dialog open={Boolean(editingLayout)} onClose={() => setEditingLayout(null)} fullWidth maxWidth='sm'>
-                <DialogTitle>{tc('actions.edit', 'Edit')}</DialogTitle>
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField
-                            label='Name (EN)'
-                            value={layoutNameEn}
-                            onChange={(event) => setLayoutNameEn(event.target.value)}
-                            fullWidth
-                        />
-                        <TextField
-                            label='Name (RU)'
-                            value={layoutNameRu}
-                            onChange={(event) => setLayoutNameRu(event.target.value)}
-                            fullWidth
-                        />
-                        <TextField
-                            label='Description (EN)'
-                            value={layoutDescriptionEn}
-                            onChange={(event) => setLayoutDescriptionEn(event.target.value)}
-                            fullWidth
-                            multiline
-                            minRows={2}
-                        />
-                        <TextField
-                            label='Description (RU)'
-                            value={layoutDescriptionRu}
-                            onChange={(event) => setLayoutDescriptionRu(event.target.value)}
-                            fullWidth
-                            multiline
-                            minRows={2}
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setEditingLayout(null)}>{tc('actions.cancel', 'Cancel')}</Button>
-                    <Button onClick={handleLayoutSave} variant='contained' disabled={updateMutation.isPending}>
-                        {tc('actions.save', 'Save')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            <ApplicationLayoutListDialogs
+                t={t}
+                tc={tc}
+                scopes={scopesQuery.data ?? []}
+                createOpen={createOpen}
+                setCreateOpen={setCreateOpen}
+                name={name}
+                setName={setName}
+                scopeId={scopeId}
+                setScopeId={setScopeId}
+                onCreate={handleCreate}
+                isCreating={createMutation.isPending}
+                editingLayout={editingLayout}
+                setEditingLayout={setEditingLayout}
+                nameEn={layoutNameEn}
+                setNameEn={setLayoutNameEn}
+                nameRu={layoutNameRu}
+                setNameRu={setLayoutNameRu}
+                descriptionEn={layoutDescriptionEn}
+                setDescriptionEn={setLayoutDescriptionEn}
+                descriptionRu={layoutDescriptionRu}
+                setDescriptionRu={setLayoutDescriptionRu}
+                onSave={handleLayoutSave}
+                isSaving={updateMutation.isPending}
+            />
         </Stack>
-    )
-}
-
-function PaperSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
-    return (
-        <Card variant='outlined' sx={{ borderRadius: 1 }}>
-            <CardContent>
-                <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
-                    {title}
-                </Typography>
-                <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-                    {description}
-                </Typography>
-                {children}
-            </CardContent>
-        </Card>
     )
 }
 

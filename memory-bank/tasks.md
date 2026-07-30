@@ -1,3 +1,89 @@
+# Interpretation Network Final QA Remediation (2026-07-22)
+
+> Status: complete_with_environmental_limits
+> Source QA: comprehensive implementation review against the 2026-07-19 research/spec/input and the 2026-07-20 plan
+
+## Final OpenAPI and reset-conflict remediation (2026-07-29)
+
+-   [x] Describe the reset endpoint as an owner/admin-only atomic restore from the latest materialized metahub source.
+-   [x] Publish exact reset request, typed widget response, strict 400 contract, and a three-variant 409 `oneOf` in generated OpenAPI.
+-   [x] Localize stale optimistic-version reset feedback and keep the Matrix editor open for retry.
+-   [x] Align EN/RU user guides and Applications frontend READMEs with latest-source, atomic, source-less, and conflict semantics.
+-   [x] Validate OpenAPI, lint/build affected packages, run the Applications frontend test suite, and verify formatting.
+
+## Security and UX contract
+
+-   Single-system bootstrap is an idempotent server operation authorized by legitimate read access; it never grants generic authoring capability.
+-   Browser payloads contain business intent only. Runtime Object/TABLE metadata and physical identifiers are resolved by the backend.
+-   System-owned child fields and the active single-system aggregate cannot be mutated through generic row APIs.
+-   Structure/template create, copy, and delete operations are atomic, workspace/RLS scoped, optimistic-version aware, and fail closed on malformed graphs or stale Material references.
+-   Template Materials carry sufficient provenance for deterministic cleanup without affecting independent user Materials.
+-   Published UI reuses apps-template MUI primitives, exposes an accessible template detail workflow, remains localized, and has no page-level horizontal overflow.
+-   Focused Playwright scenarios encode both material policies, lifecycle, permissions, direct navigation/history, isolation, responsive rendering, and source immutability against minimal local Supabase. A fresh browser run is an explicit environmental limit in this closeout.
+
+## Checklist
+
+-   [x] FQ0. Keep metahub and application Interpretation Network settings dialogs open on failed saves, close only after success, restore optimistic state, and show localized single-system transition and reset errors. Materialized widgets now keep `sourceConfig`, and owner/admin users can atomically restore the latest metahub baseline with optimistic concurrency.
+-   [x] FQ1. Replace browser-authored Matrix system fields with atomic server-owned create/move commands that resolve trusted metadata, generate UUID v7 identifiers, validate placement, and preserve optimistic concurrency.
+-   [x] FQ2. Enforce `createContent` for generic child inserts and protect single-system Structure/Interpretation rows across every generic create/update/copy/delete path, with direct permission and invariant tests.
+-   [x] FQ3. Add an atomic backend preflight for switching an application to `singleSystem`, block conflicting active Structures with localized feedback, and scope runtime surface resolution to the actual active layout/widget.
+-   [x] FQ4. Harden request schemas, empty `RETURNING` handling, stale-version 409 responses, lifecycle logging, OpenAPI contracts, graph/Material ownership, UUID remapping, and transaction-safe copy/delete behavior.
+-   [x] FQ5. Refactor oversized child-row, Interpretation Network service, and Application Layouts modules into cohesive boundaries without compatibility shims or schema/template version bumps.
+-   [x] FQ6. Complete standard template management UX, localized placement controls, stale-reset feedback, and focused Vitest/Jest coverage. Existing unrelated MUI Select `anchorEl` warnings remain test-environment noise outside this feature slice.
+-   [x] FQ7. Add PostgreSQL-oriented service/store coverage and focused Playwright journeys for concurrency, rollback, permissions, isolation, cell authoring/moves, both template material policies, history, responsive overflow, and screenshots. The current sandbox prevented a fresh live run because external Supabase DNS and local Docker were unavailable; the browser suite remains discoverable and encoded without skips.
+-   [x] FQ8. Update EN/RU GitBook docs, package READMEs, fixture contracts, generated OpenAPI, memory-bank progress, and exact implementation evidence.
+-   [x] FQ9. Run Prettier, focused lint/build/tests, fixture contract/drift, docs, isolation guards, and diff checks. OntoIndex MCP diff verification inspected the full broad dirty tree and found no missing required test evidence, but formally returned `FAIL` because no expected-file allowlist was supplied. Minimal-local-Supabase browser verification and Thermos/autoreview were attempted but blocked by Docker permissions and the read-only Codex state database; these are recorded as verification limits rather than product debt.
+
+---
+
+# Interpretation Network Template UX QA Remediation (2026-07-21)
+
+> Status: completed
+> Source QA: user-reported published-app template dialog/action placement defects after rebuilding and importing `tools/fixtures/metahubs-interpretation-network-app-snapshot.json`
+
+## UI Contract
+
+-   Structure template save/create flows must reuse the standard `apps-template-mui` form/dialog behavior and localized field controls. Name and Description are localized values, and Description is multiline.
+-   Structure creation remains one workflow. In multiple-structure mode, the standard Create Structure dialog includes a Templates tab for selecting a saved template; there is no separate "Create from template" button or separate create-from-template dialog.
+-   Saving a structure as a template is available as an icon action next to the Matrix Add action and as a row/card action menu item in the Structures list.
+-   Template management is visible through Templates tabs in the Structures section and next to Matrix where configured. Defaults show both locations. Users with read access can inspect templates; users with edit/delete content permissions can edit/delete templates.
+-   Backend aggregate commands keep runtime schema metadata server-side, accept localized title/description payloads, use request-scoped executors, parameterized SQL, UUID v7, optimistic versions, transactions, and fail-closed permission checks.
+
+## Checklist
+
+-   [x] R1. Stabilize the remediation scope, run required impact checks, and confirm UX/backend blast radius before edits.
+-   [x] R2. Extend shared Interpretation Network settings contracts and metahub/application settings UI for template tab placement defaults.
+-   [x] R3. Extend backend template command schemas/services/routes/client APIs for localized save/instantiate, template update, and template delete.
+-   [x] R4. Replace bespoke template dialogs with standard FormDialog-based flows and move create-from-template into the Create Structure dialog Templates tab.
+-   [x] R5. Add template management tabs/lists in Structures and Matrix surfaces, plus save-as-template icon/menu placement.
+-   [x] R6. Strengthen single-system invariants and read-only bootstrap behavior where safe.
+-   [x] R7. Update EN/RU i18n, docs/READMEs, fixture contract/generator/snapshot expectations, and tests.
+-   [x] R8. Run formatting, focused tests/builds, fixture checks, local minimal-Supabase Playwright proof where available, OntoIndex diff verification, and Thermos/autoreview closeout. Focused app-template/application-settings checks, app-template build/lint, `git diff --check`, and the full minimal-local-Supabase Interpretation Network verification wrapper passed. OntoIndex MCP pre-commit audit reports high-risk scope for `api.ts` and the large Playwright flow because the overall implementation diff is intentionally broad and must receive manual review before commit.
+
+---
+
+# Interpretation Network Single System Structure And Workspace Templates (2026-07-20)
+
+> Status: completed
+> Source plan: `memory-bank/plan/interpretation-network-single-structure-and-templates-plan-2026-07-20.md`
+
+## Architecture Record
+
+-   `structureMode` belongs to the Interpretation Network widget config at metahub level and may be overridden in Application Settings; workspace overrides are intentionally not supported.
+-   Published runtime UI stays inside `@universo-react/apps-template-mui` and reuses the existing Matrix, MUI shell, dialog, and query invalidation patterns.
+-   Runtime aggregate commands resolve schema/table/column metadata server-side only, use request-scoped executors, parameterized SQL, UUID v7, transaction boundaries, and fail-closed permission checks.
+-   The Interpretation Network template keeps the current Object-backed model and does not bump schema or template versions.
+
+## Checklist
+
+-   [x] IN1. Stabilize the inherited worktree, fix partial syntax/schema defects, and record OntoIndex impact for the edited symbols.
+-   [x] IN2. Finish shared `structureMode` contracts, metahub template metadata, metahub widget UI, application settings/layout UI, EN/RU i18n, and focused tests.
+-   [x] IN3. Implement backend runtime aggregate command boundary for single-system ensure and workspace-local table templates with strict schemas, permissions, RLS-aware executors, transactions, and tests.
+-   [x] IN4. Finish published runtime single-system routing/screen behavior and add template save/create dialogs using existing MUI primitives and localized text.
+-   [x] IN5. Update Playwright generator/fixture contracts, regenerate `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` through Playwright, and add browser proof flows/screenshots.
+-   [x] IN6. Update GitBook docs and relevant READMEs in EN/RU.
+-   [x] IN7. Run formatting, lint, focused unit/service/component tests, fixture checks, local minimal-Supabase Playwright proof, OntoIndex diff verification, Thermos/autoreview, and record progress. Focused package checks, fixture contract/drift guards, docs checks, app-template isolation, runtime fork guard, `git diff --check`, and the full minimal-local-Supabase Interpretation Network verification wrapper passed. OntoIndex reported the intentionally broad dirty worktree as high-risk/degraded and requiring manual review before commit. Thermos/autoreview was attempted; the sandboxed helper failed on readonly Codex state, and the escalated rerun was blocked by policy because it would export a large private diff to an external review engine.
+
 # Interpretation Network Configuration and Runtime UX (2026-07-14)
 
 > Status: completed

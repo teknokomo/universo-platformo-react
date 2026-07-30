@@ -6,12 +6,14 @@
  */
 
 import stableStringify from 'json-stable-stringify'
+import { createKnexExecutor } from '@universo-react/database'
 import type { DDLServices } from '@universo-react/schema-ddl'
 import type { ApplicationLayoutChange, ApplicationLayoutSyncResolution } from '@universo-react/types'
 import { generateUuidV7 } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncTransaction, getApplicationSyncDdlServices, getApplicationSyncKnex } from '../../ddl'
 import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
+import { assertInterpretationNetworkSingleSystemTransitionAllowed } from '../../shared/interpretationNetworkStructureModeGuard'
 import {
     type PersistedAppLayout,
     type PersistedAppLayoutZoneWidget,
@@ -395,6 +397,7 @@ export async function persistPublishedLayouts(options: {
                                         widget_key: widget.widgetKey,
                                         sort_order: widget.sortOrder,
                                         config: widget.config,
+                                        source_config: widget.config,
                                         is_active: widget.isActive !== false,
                                         source_widget_id: widget.sourceBaseWidgetId ?? widget.id,
                                         source_base_widget_id: widget.sourceBaseWidgetId ?? null,
@@ -596,26 +599,41 @@ export async function persistPublishedWidgets(options: {
     const nextRows = normalizeSnapshotLayoutZoneWidgets(snapshot)
 
     const applyPersist = async (activeTrx: ApplicationSyncTransaction) => {
-        const syncableLayouts = await activeTrx
+        const inheritedLayouts = await activeTrx
             .withSchema(schemaName)
             .from('_app_layouts')
             .where({ _upl_deleted: false, _app_deleted: false, source_kind: 'metahub', is_source_excluded: false })
-            .where({ sync_state: 'clean' })
-            .select(['id'])
-        const syncableLayoutIds = new Set(syncableLayouts.map((row) => String(row.id)))
-        const syncableRows = nextRows.filter((row) => syncableLayoutIds.has(row.layoutId))
+            .select(['id', 'sync_state'])
+        const inheritedLayoutIds = new Set(inheritedLayouts.map((row) => String(row.id)))
+        const cleanLayoutIds = new Set(inheritedLayouts.filter((row) => String(row.sync_state) === 'clean').map((row) => String(row.id)))
+        const syncableRows = nextRows.filter((row) => inheritedLayoutIds.has(row.layoutId))
         const existingRows = await activeTrx
             .withSchema(schemaName)
             .from('_app_widgets')
             .where({ _upl_deleted: false, _app_deleted: false })
-            .select(['id', 'layout_id', 'source_base_widget_id'])
+            .select(['id', 'layout_id', 'source_base_widget_id', 'widget_key', 'config', 'is_active'])
         const existingIds = new Set(existingRows.map((row) => String(row.id)))
+        const existingById = new Map(existingRows.map((row) => [String(row.id), row]))
         const existingInheritedIdsByKey = new Map(
             existingRows
                 .filter((row) => typeof row.layout_id === 'string' && typeof row.source_base_widget_id === 'string')
                 .map((row) => [`${String(row.layout_id)}:${String(row.source_base_widget_id)}`, String(row.id)])
         )
         const nextPersistedIds: string[] = []
+        const pendingRows: Array<{
+            persistedRowId: string
+            payload: {
+                layout_id: string
+                zone: PersistedAppLayoutZoneWidget['zone']
+                widget_key: string
+                sort_order: number
+                config: Record<string, unknown>
+                source_config: Record<string, unknown>
+                is_active: boolean
+                source_widget_id: string
+                source_base_widget_id: string | null
+            }
+        }> = []
 
         for (const row of syncableRows) {
             const inheritedKey = row.sourceBaseWidgetId ? `${row.layoutId}:${row.sourceBaseWidgetId}` : null
@@ -623,23 +641,60 @@ export async function persistPublishedWidgets(options: {
             const persistedRowId = existingInheritedId ?? (row.sourceBaseWidgetId ? generateUuidV7() : row.id)
             nextPersistedIds.push(persistedRowId)
 
+            const current = existingById.get(persistedRowId)
             const payload = {
                 layout_id: row.layoutId,
                 zone: row.zone,
                 widget_key: row.widgetKey,
                 sort_order: row.sortOrder,
                 config: row.config,
+                source_config: row.config,
                 is_active: row.isActive !== false,
                 source_widget_id: row.sourceBaseWidgetId ?? row.id,
                 source_base_widget_id: row.sourceBaseWidgetId ?? null
             }
+            pendingRows.push({ persistedRowId, payload })
+        }
+
+        const transitions: Parameters<typeof assertInterpretationNetworkSingleSystemTransitionAllowed>[2] = pendingRows.map(
+            ({ persistedRowId, payload }) => {
+                const current = existingById.get(persistedRowId)
+                const preserveApplicationOverride = current && !cleanLayoutIds.has(payload.layout_id)
+                return {
+                    current: current
+                        ? {
+                              widgetKey: String(current.widget_key),
+                              config: isRecord(current.config) ? current.config : {},
+                              isActive: current.is_active !== false
+                          }
+                        : null,
+                    next: preserveApplicationOverride
+                        ? {
+                              widgetKey: String(current.widget_key),
+                              config: isRecord(current.config) ? current.config : {},
+                              isActive: current.is_active !== false
+                          }
+                        : { widgetKey: payload.widget_key, config: payload.config, isActive: payload.is_active }
+                }
+            }
+        )
+        await assertInterpretationNetworkSingleSystemTransitionAllowed(createKnexExecutor(activeTrx), schemaName, transitions)
+
+        for (const { persistedRowId, payload } of pendingRows) {
             if (existingIds.has(persistedRowId)) {
+                const preserveApplicationOverride = !cleanLayoutIds.has(payload.layout_id)
                 await activeTrx
                     .withSchema(schemaName)
                     .from('_app_widgets')
                     .where({ id: persistedRowId, _upl_deleted: false, _app_deleted: false })
                     .update({
                         ...payload,
+                        ...(preserveApplicationOverride
+                            ? {
+                                  config: existingById.get(persistedRowId)?.config,
+                                  is_active: existingById.get(persistedRowId)?.is_active
+                              }
+                            : {}),
                         _upl_updated_at: now,
                         _upl_updated_by: userId ?? null,
                         _upl_version: activeTrx.raw('_upl_version + 1')
@@ -666,12 +721,32 @@ export async function persistPublishedWidgets(options: {
             }
         }
 
+        const locallyModifiedLayoutIds = inheritedLayouts.filter((row) => String(row.sync_state) !== 'clean').map((row) => String(row.id))
+        if (locallyModifiedLayoutIds.length > 0) {
+            let removedSourceWidgets = activeTrx
+                .withSchema(schemaName)
+                .from('_app_widgets')
+                .where({ _upl_deleted: false, _app_deleted: false })
+                .whereIn('layout_id', locallyModifiedLayoutIds)
+
+            if (nextPersistedIds.length > 0) {
+                removedSourceWidgets = removedSourceWidgets.whereNotIn('id', nextPersistedIds)
+            }
+
+            await removedSourceWidgets.update({
+                source_config: null,
+                _upl_updated_at: now,
+                _upl_updated_by: userId ?? null,
+                _upl_version: activeTrx.raw('_upl_version + 1')
+            })
+        }
+
         if (nextPersistedIds.length > 0) {
             await activeTrx
                 .withSchema(schemaName)
                 .from('_app_widgets')
                 .where({ _upl_deleted: false, _app_deleted: false })
-                .whereIn('layout_id', Array.from(syncableLayoutIds))
+                .whereIn('layout_id', Array.from(cleanLayoutIds))
                 .whereNotIn('id', nextPersistedIds)
                 .del()
         } else {
@@ -679,7 +754,7 @@ export async function persistPublishedWidgets(options: {
                 .withSchema(schemaName)
                 .from('_app_widgets')
                 .where({ _upl_deleted: false, _app_deleted: false })
-                .whereIn('layout_id', Array.from(syncableLayoutIds))
+                .whereIn('layout_id', Array.from(cleanLayoutIds))
                 .del()
         }
     }

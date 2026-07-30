@@ -290,7 +290,7 @@ import { ColumnsContainerEditorDialog } from '@universo-react/metahubs-frontend'
 
 ### Interpretation Network Workspace Widget Settings
 
-The layout authoring screen includes a focused editor for the Interpretation Network workspace widget. Metahub authors can manage `allowedMatrixViews` and `defaultMatrixView` without editing raw widget JSON. The editor preserves the shared widget behavior and entity visibility controls used by other layout widgets and delegates coherence to the shared `@universo-react/types` contract.
+The layout authoring screen includes a focused editor for the Interpretation Network workspace widget. Metahub authors can manage `structureMode`, `allowedMatrixViews`, `defaultMatrixView`, `templatePanel.showInStructureList`, and `templatePanel.showInMatrix` without editing raw widget JSON. Both template placements default to enabled; disabling both keeps templates as workspace data while removing every template UI entry point. `structureMode: "singleSystem"` configures the published app to open one server-owned Matrix directly instead of showing the Structure list. The editor preserves the shared widget behavior and entity visibility controls used by other layout widgets and delegates coherence to the shared `@universo-react/types` contract.
 The Metahub Settings page also aggregates supported layout/widget settings and saves them back to the same widget config, so authors can use either the contextual layout editor or the global Settings surface without creating duplicate state.
 
 ### MetahubMigrationGuard

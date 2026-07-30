@@ -1,13 +1,17 @@
 import { buildVLC, createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
 import {
     normalizeInterpretationNetworkSplitPaneSettings,
+    normalizeInterpretationNetworkTemplatePanelSettings,
     normalizeInterpretationNetworkMatrixViewSettings,
     normalizeInterpretationNetworkTableSettings,
+    parseInterpretationNetworkStructureMode,
     parseInterpretationNetworkHexColor,
     resolveInterpretationNetworkDisplayColor,
     resolveInterpretationNetworkMaximumContrastForeground,
     type InterpretationNetworkBreadcrumbDepth,
     type InterpretationNetworkMatrixView,
+    type InterpretationNetworkStructureMode,
+    type InterpretationNetworkTemplatePanelSettings,
     type InterpretationNetworkTableProjection,
     type InterpretationNetworkToolbarLayout
 } from '@universo-react/types'
@@ -51,6 +55,7 @@ export type InterpretationNetworkWorkspaceConfig = {
     tableTemplateNameField?: string
     tableTemplateDescriptionField?: string
     tableTemplateMatrixField?: string
+    structureMode?: InterpretationNetworkStructureMode
     matrixMode?: MatrixMode
     allowedMatrixViews?: InterpretationNetworkMatrixView[]
     defaultMatrixView?: InterpretationNetworkMatrixView
@@ -64,6 +69,7 @@ export type InterpretationNetworkWorkspaceConfig = {
     splitPane?: {
         enabled: boolean
     }
+    templatePanel?: InterpretationNetworkTemplatePanelSettings
     hierarchyRowMode?: MatrixHierarchyRowMode
     positionNumbering?: MatrixPositionNumberingConfig
     allowNewAxesInCellDialog?: boolean
@@ -218,6 +224,7 @@ const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
     tableTemplateNameField: 'Name',
     tableTemplateDescriptionField: 'Description',
     tableTemplateMatrixField: 'TemplateMatrix',
+    structureMode: 'multiple',
     matrixMode: 'hierarchicalCells',
     allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
     defaultMatrixView: 'table',
@@ -229,6 +236,7 @@ const DEFAULT_CONFIG: Required<InterpretationNetworkWorkspaceConfig> = {
     showMatrixTreeTotalCells: true,
     colorBreadcrumbsByCell: true,
     splitPane: { enabled: true },
+    templatePanel: { showInStructureList: true, showInMatrix: true },
     hierarchyRowMode: 'focusedPath',
     positionNumbering: { enabled: true, includeRoot: true, startIndex: 1 },
     allowNewAxesInCellDialog: false
@@ -265,6 +273,7 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
                 Object.entries(config ?? {}).filter(
                     ([key, value]) =>
                         key !== 'matrixMode' &&
+                        key !== 'structureMode' &&
                         key !== 'allowedMatrixViews' &&
                         key !== 'defaultMatrixView' &&
                         key !== 'tableProjection' &&
@@ -276,16 +285,19 @@ export const toConfig = (config: Record<string, unknown> | undefined): Required<
                         key !== 'colorBreadcrumbsByCell' &&
                         key !== 'hierarchyRowMode' &&
                         key !== 'splitPane' &&
+                        key !== 'templatePanel' &&
                         key !== 'allowNewAxesInCellDialog' &&
                         key !== 'positionNumbering' &&
                         typeof value === 'string' &&
                         value.trim().length > 0
                 )
             ),
+            structureMode: parseInterpretationNetworkStructureMode(config?.structureMode),
             matrixMode,
             ...viewSettings,
             ...tableSettings,
             splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane),
+            templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(config?.templatePanel),
             hierarchyRowMode: parseMatrixHierarchyRowMode(config?.hierarchyRowMode),
             positionNumbering: parseMatrixPositionNumbering(config?.positionNumbering),
             allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true

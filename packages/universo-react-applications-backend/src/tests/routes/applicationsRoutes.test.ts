@@ -534,6 +534,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeMenuWidgetId,
+                            layout_id: runtimeLayoutId,
                             widget_key: 'menuWidget',
                             sort_order: 0,
                             zone: 'left',
@@ -587,6 +588,11 @@ describe('Applications Routes', () => {
                 availableModes: ['compact', 'overlay'],
                 primaryMode: 'compact',
                 rememberUserChoice: false
+            })
+            expect(response.body.zoneWidgets.left[0]).toMatchObject({
+                id: runtimeMenuWidgetId,
+                layoutId: runtimeLayoutId,
+                widgetKey: 'menuWidget'
             })
             expect(response.body.menus[0]).toMatchObject({
                 startPage: runtimePageId,

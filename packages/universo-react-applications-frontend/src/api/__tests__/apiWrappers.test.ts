@@ -87,6 +87,27 @@ describe('applications-frontend api wrappers', () => {
         api.deleteApplication('m1')
         expect(del).toHaveBeenCalledWith('/applications/m1')
 
+        post.mockResolvedValueOnce({ data: { items: [{ id: 'widget-1', isCustomized: false }] } })
+        const resetWidgets = await api.resetApplicationLayoutWidgetConfigsBatch('app-1', {
+            updates: [
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    expectedVersion: 2
+                }
+            ]
+        })
+        expect(post).toHaveBeenCalledWith('/applications/app-1/layouts/zone-widgets/config/reset', {
+            updates: [
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    expectedVersion: 2
+                }
+            ]
+        })
+        expect(resetWidgets).toEqual([{ id: 'widget-1', isCustomized: false }])
+
         await api.getApplicationRuntime('app-1', {
             limit: 25,
             offset: 50,

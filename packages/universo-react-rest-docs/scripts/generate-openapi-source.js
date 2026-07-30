@@ -411,6 +411,151 @@ const successResponse = (schemaName, description = 'Successful response.') => ({
 
 const createdResponse = (schemaName) => successResponse(schemaName, 'Successful create or action response.')
 
+const interpretationNetworkOperationOverrides = {
+    'PATCH /applications/{applicationId}/layouts/zone-widgets/config/batch': {
+        responses: {
+            409: { $ref: '#/components/responses/ApplicationInterpretationNetworkStructureModeConflict' }
+        }
+    },
+    'POST /applications/{applicationId}/layouts/zone-widgets/config/reset': {
+        summary: 'Restore application layout widgets from the current metahub baseline',
+        description:
+            'Owner/admin-only atomic reset of inherited layout widgets to their latest materialized metahub sourceConfig. Every widgetId may occur only once in the batch. Application-authored or source-less widgets, stale expectedVersion values, incomplete Interpretation Network metadata, and unsafe single-system transitions fail the entire batch.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutWidgetResetBatchRequest')
+        },
+        responses: {
+            200: successResponse('ApplicationLayoutWidgetBatchResponse'),
+            400: { $ref: '#/components/responses/ApplicationLayoutWidgetResetBadRequest' },
+            409: { $ref: '#/components/responses/ApplicationLayoutWidgetResetConflict' }
+        },
+        removeResponses: ['201']
+    },
+    'GET /applications/{applicationId}/runtime/interpretation-network': {
+        responses: {
+            200: successResponse('InterpretationNetworkRuntimeSurface')
+        }
+    },
+    'POST /applications/{applicationId}/runtime/interpretation-network/system-structure/ensure': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkEnsureSystemStructureRequest')
+        },
+        responses: {
+            200: successResponse('InterpretationNetworkSystemStructure'),
+            201: createdResponse('InterpretationNetworkSystemStructure'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        }
+    },
+    'GET /applications/{applicationId}/runtime/interpretation-network/templates': {
+        responses: {
+            200: successResponse('InterpretationNetworkTemplateList')
+        }
+    },
+    'POST /applications/{applicationId}/runtime/interpretation-network/templates': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkTemplateSaveRequest')
+        },
+        responses: {
+            201: createdResponse('InterpretationNetworkTemplateSummary'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['200']
+    },
+    'GET /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}': {
+        responses: {
+            200: successResponse('InterpretationNetworkTemplateDetail')
+        }
+    },
+    'PATCH /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkTemplateUpdateRequest')
+        },
+        responses: {
+            200: successResponse('InterpretationNetworkTemplateSummary'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        }
+    },
+    'DELETE /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}': {
+        requestBody: {
+            required: false,
+            ...jsonSchemaRef('InterpretationNetworkVersionedDeleteRequest')
+        },
+        responses: {
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['200']
+    },
+    'POST /applications/{applicationId}/runtime/interpretation-network/templates/{templateId}/instantiate': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkTemplateInstantiateRequest')
+        },
+        responses: {
+            201: createdResponse('InterpretationNetworkTemplateInstantiateResponse'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['200']
+    },
+    'POST /applications/{applicationId}/runtime/interpretation-network/materials': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkMaterialCreateRequest')
+        },
+        responses: {
+            201: createdResponse('InterpretationNetworkMaterialCreateResponse'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['200']
+    },
+    'POST /applications/{applicationId}/runtime/interpretation-network/structures': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkStructureCreateRequest')
+        },
+        responses: {
+            201: createdResponse('InterpretationNetworkStructureCreateResponse'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['200']
+    },
+    'DELETE /applications/{applicationId}/runtime/interpretation-network/structures/{structureId}': {
+        requestBody: {
+            required: false,
+            ...jsonSchemaRef('InterpretationNetworkVersionedDeleteRequest')
+        },
+        responses: {
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['200']
+    },
+    'POST /applications/{applicationId}/runtime/interpretation-network/matrix/cells': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkMatrixCellCreateRequest')
+        },
+        responses: {
+            201: createdResponse('InterpretationNetworkMatrixCellCreateResponse'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['200']
+    },
+    'POST /applications/{applicationId}/runtime/interpretation-network/matrix/cells/move': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('InterpretationNetworkMatrixCellMoveRequest')
+        },
+        responses: {
+            200: successResponse('InterpretationNetworkMatrixCellMoveResponse'),
+            409: { $ref: '#/components/responses/InterpretationNetworkConflict' }
+        },
+        removeResponses: ['201']
+    }
+}
+
 const playCanvasProjectFileSourcePathQueryParameter = {
     name: 'sourcePath',
     in: 'query',
@@ -458,6 +603,7 @@ const playCanvasAssetExpectedCurrentChecksumQueryParameter = {
 }
 
 const packageOperationOverrides = {
+    ...interpretationNetworkOperationOverrides,
     'GET /metahub/{metahubId}/packages': {
         responses: {
             200: successResponse('MetahubPackageAttachmentListResponse')
@@ -569,6 +715,8 @@ const applyOperationOverride = (openApiOperation, method, openApiPath) => {
 
     return {
         ...openApiOperation,
+        ...('summary' in override ? { summary: override.summary } : {}),
+        ...('description' in override ? { description: override.description } : {}),
         ...('requestBody' in override ? { requestBody: override.requestBody } : {}),
         ...('parameters' in override
             ? {
@@ -711,6 +859,422 @@ const buildSpec = () => {
                     additionalProperties: true,
                     description:
                         'Generic JSON object used where the route inventory is current but payload-specific schemas remain handler-defined.'
+                },
+                ApplicationLayoutWidgetResetBatchRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        updates: {
+                            type: 'array',
+                            minItems: 1,
+                            maxItems: 100,
+                            description:
+                                'Widgets to reset atomically. Each widgetId may appear only once in the batch, regardless of layoutId.',
+                            items: {
+                                type: 'object',
+                                additionalProperties: false,
+                                properties: {
+                                    layoutId: { type: 'string', format: 'uuid' },
+                                    widgetId: { type: 'string', format: 'uuid' },
+                                    expectedVersion: { type: 'integer', minimum: 1 }
+                                },
+                                required: ['layoutId', 'widgetId']
+                            }
+                        }
+                    },
+                    required: ['updates']
+                },
+                ApplicationLayoutWidgetBatchResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/ApplicationLayoutWidget' }
+                        }
+                    },
+                    required: ['items']
+                },
+                ApplicationLayoutWidget: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        layoutId: { type: 'string', format: 'uuid' },
+                        zone: { type: 'string', enum: ['left', 'top', 'right', 'bottom', 'center'] },
+                        widgetKey: { type: 'string' },
+                        sortOrder: { type: 'integer' },
+                        config: { type: 'object', additionalProperties: true },
+                        sourceConfig: {
+                            oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }]
+                        },
+                        isCustomized: { type: 'boolean' },
+                        isActive: { type: 'boolean' },
+                        version: { type: 'integer', minimum: 1 }
+                    },
+                    required: [
+                        'id',
+                        'layoutId',
+                        'zone',
+                        'widgetKey',
+                        'sortOrder',
+                        'config',
+                        'sourceConfig',
+                        'isCustomized',
+                        'isActive',
+                        'version'
+                    ]
+                },
+                InterpretationNetworkLocalizedContentEntry: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        content: { type: 'string' },
+                        version: { type: 'integer', minimum: 1 },
+                        isActive: { type: 'boolean' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' }
+                    },
+                    required: ['content', 'version', 'isActive', 'createdAt', 'updatedAt']
+                },
+                InterpretationNetworkLocalizedString: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        _schema: { type: 'string', enum: ['1'] },
+                        _primary: { type: 'string', pattern: '^[a-z]{2}(-[A-Z]{2})?$' },
+                        locales: {
+                            type: 'object',
+                            minProperties: 1,
+                            propertyNames: { pattern: '^[a-z]{2}(-[A-Z]{2})?$' },
+                            additionalProperties: { $ref: '#/components/schemas/InterpretationNetworkLocalizedContentEntry' }
+                        }
+                    },
+                    required: ['_schema', '_primary', 'locales']
+                },
+                InterpretationNetworkLocalizedStringInput: {
+                    oneOf: [{ type: 'string' }, { $ref: '#/components/schemas/InterpretationNetworkLocalizedString' }],
+                    description: 'Localized text accepted either as a plain primary-locale string or canonical VLC data.'
+                },
+                InterpretationNetworkExpectedVersion: {
+                    type: 'integer',
+                    minimum: 1,
+                    description: 'Optimistic-lock version. A stale version produces an HTTP 409 conflict.'
+                },
+                InterpretationNetworkRuntimeSurface: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        applicationId: { type: 'string' },
+                        workspaceId: { type: ['string', 'null'], format: 'uuid' },
+                        featureState: { type: 'string', enum: ['ready', 'missing-widget', 'missing-metadata'] },
+                        missing: { type: 'array', items: { type: 'string' } },
+                        structureMode: { type: 'string', enum: ['multiple', 'singleSystem'] },
+                        widgetKey: { type: 'string', enum: ['interpretationNetworkWorkspace'] }
+                    },
+                    required: ['applicationId', 'workspaceId', 'featureState', 'missing', 'structureMode', 'widgetKey']
+                },
+                InterpretationNetworkEnsureSystemStructureRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        locale: { type: 'string', pattern: '^[a-z]{2}(-[A-Z]{2})?$' }
+                    }
+                },
+                InterpretationNetworkSystemStructure: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        structureId: { type: 'string', format: 'uuid' },
+                        interpretationId: { type: 'string', format: 'uuid' },
+                        rootCellId: { type: 'string', format: 'uuid' },
+                        created: { type: 'boolean' },
+                        canCreate: { type: 'boolean' }
+                    },
+                    required: ['structureId', 'interpretationId', 'rootCellId', 'created', 'canCreate']
+                },
+                InterpretationNetworkTemplateSummary: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        name: { $ref: '#/components/schemas/InterpretationNetworkLocalizedString' },
+                        description: {
+                            oneOf: [{ $ref: '#/components/schemas/InterpretationNetworkLocalizedString' }, { type: 'null' }]
+                        },
+                        includesMaterials: { type: 'boolean' },
+                        version: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['id', 'name', 'description', 'includesMaterials', 'version']
+                },
+                InterpretationNetworkTemplateList: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        items: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/InterpretationNetworkTemplateSummary' }
+                        }
+                    },
+                    required: ['items']
+                },
+                InterpretationNetworkTemplateDetail: {
+                    allOf: [
+                        { $ref: '#/components/schemas/InterpretationNetworkTemplateSummary' },
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                matrix: {
+                                    type: 'object',
+                                    additionalProperties: false,
+                                    properties: {
+                                        cellCount: { type: 'integer', minimum: 0 },
+                                        rootCount: { type: 'integer', minimum: 0 },
+                                        maxDepth: { type: 'integer', minimum: 0 }
+                                    },
+                                    required: ['cellCount', 'rootCount', 'maxDepth']
+                                },
+                                materialCount: { type: 'integer', minimum: 0 }
+                            },
+                            required: ['matrix', 'materialCount']
+                        }
+                    ]
+                },
+                InterpretationNetworkTemplateSaveRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        sourceStructureId: { type: 'string', format: 'uuid' },
+                        templateName: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        description: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        includeMaterials: { type: 'boolean' },
+                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' },
+                        locale: { type: 'string', pattern: '^[a-z]{2}(-[A-Z]{2})?$' }
+                    },
+                    required: ['sourceStructureId', 'templateName', 'includeMaterials']
+                },
+                InterpretationNetworkTemplateUpdateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        templateName: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        description: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' },
+                        locale: { type: 'string', pattern: '^[a-z]{2}(-[A-Z]{2})?$' }
+                    },
+                    required: ['templateName']
+                },
+                InterpretationNetworkVersionedDeleteRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' }
+                    }
+                },
+                InterpretationNetworkTemplateInstantiateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        structureName: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        description: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' },
+                        locale: { type: 'string', pattern: '^[a-z]{2}(-[A-Z]{2})?$' }
+                    },
+                    required: ['structureName']
+                },
+                InterpretationNetworkTemplateInstantiateResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        structureId: { type: 'string', format: 'uuid' },
+                        interpretationId: { type: 'string', format: 'uuid' }
+                    },
+                    required: ['structureId', 'interpretationId']
+                },
+                InterpretationNetworkMaterialCreateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        interpretationId: { type: 'string', format: 'uuid' },
+                        matrixRowId: { type: 'string', format: 'uuid' },
+                        cellId: { type: 'string', minLength: 1, maxLength: 255 },
+                        data: { type: 'object', additionalProperties: true },
+                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' }
+                    },
+                    required: ['interpretationId', 'matrixRowId', 'cellId', 'data']
+                },
+                InterpretationNetworkMaterialCreateResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', minLength: 1 },
+                        matrixRowId: { type: 'string', minLength: 1 }
+                    },
+                    required: ['id', 'matrixRowId']
+                },
+                InterpretationNetworkStructureCreateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        name: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        description: { $ref: '#/components/schemas/InterpretationNetworkLocalizedStringInput' },
+                        locale: { type: 'string', pattern: '^[a-z]{2}(-[A-Z]{2})?$' }
+                    },
+                    required: ['name']
+                },
+                InterpretationNetworkStructureCreateResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        structureId: { type: 'string', format: 'uuid' },
+                        interpretationId: { type: 'string', format: 'uuid' },
+                        rootCellId: { type: 'string', format: 'uuid' }
+                    },
+                    required: ['structureId', 'interpretationId', 'rootCellId']
+                },
+                InterpretationNetworkMatrixCellPlacement: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        parentCellId: { type: ['string', 'null'], format: 'uuid' },
+                        rowKey: { type: 'string' },
+                        colKey: { type: 'string' },
+                        sortOrder: { type: 'integer', minimum: 0 }
+                    }
+                },
+                InterpretationNetworkMatrixCellCreateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        interpretationId: { type: 'string', format: 'uuid' },
+                        data: { type: 'object', additionalProperties: true },
+                        placement: { $ref: '#/components/schemas/InterpretationNetworkMatrixCellPlacement' }
+                    },
+                    required: ['interpretationId', 'data', 'placement']
+                },
+                InterpretationNetworkMatrixCellCreateResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        status: { type: 'string', enum: ['created'] },
+                        item: { type: 'object', additionalProperties: true }
+                    },
+                    required: ['id', 'status', 'item']
+                },
+                InterpretationNetworkMatrixCellMoveUpdate: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        matrixRowId: { type: 'string', format: 'uuid' },
+                        expectedVersion: { $ref: '#/components/schemas/InterpretationNetworkExpectedVersion' },
+                        placement: { $ref: '#/components/schemas/InterpretationNetworkMatrixCellPlacement' },
+                        data: {
+                            type: 'object',
+                            additionalProperties: true,
+                            description: 'Optional user-authored field updates; server-owned placement fields are rejected here.'
+                        }
+                    },
+                    required: ['matrixRowId', 'placement']
+                },
+                InterpretationNetworkMatrixCellMoveRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        interpretationId: { type: 'string', format: 'uuid' },
+                        updates: {
+                            type: 'array',
+                            minItems: 1,
+                            items: { $ref: '#/components/schemas/InterpretationNetworkMatrixCellMoveUpdate' }
+                        }
+                    },
+                    required: ['interpretationId', 'updates']
+                },
+                InterpretationNetworkMatrixCellMoveResponse: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        status: { type: 'string', enum: ['ok'] },
+                        updated: { type: 'array', items: { type: 'string', format: 'uuid' } }
+                    },
+                    required: ['status', 'updated']
+                },
+                InterpretationNetworkError: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        error: { type: 'string' },
+                        code: { type: 'string', pattern: '^INTERPRETATION_NETWORK_' },
+                        details: { type: 'object', additionalProperties: true }
+                    },
+                    required: ['error', 'code']
+                },
+                ApplicationInterpretationNetworkStructureModeError: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        error: {
+                            type: 'string',
+                            enum: ['APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST']
+                        },
+                        code: {
+                            type: 'string',
+                            enum: ['APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST']
+                        },
+                        details: { type: 'object', additionalProperties: true }
+                    },
+                    anyOf: [{ required: ['error'] }, { required: ['code'] }]
+                },
+                ApplicationLayoutWidgetResetBadRequestError: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        error: { type: 'string', enum: ['APPLICATION_LAYOUT_WIDGET_RESET_BATCH_INVALID'] }
+                    },
+                    required: ['error']
+                },
+                ApplicationLayoutWidgetResetConflictError: {
+                    oneOf: [
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                error: { type: 'string', enum: ['APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'] }
+                            },
+                            required: ['error']
+                        },
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                error: {
+                                    type: 'string',
+                                    enum: ['APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST']
+                                },
+                                code: {
+                                    type: 'string',
+                                    enum: ['APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST']
+                                }
+                            },
+                            required: ['error', 'code']
+                        },
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                error: {
+                                    type: 'string',
+                                    enum: ['APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING']
+                                },
+                                code: {
+                                    type: 'string',
+                                    enum: ['APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING']
+                                }
+                            },
+                            required: ['error', 'code']
+                        }
+                    ]
                 },
                 VersionedLocalizedContent: {
                     type: 'object',
@@ -1798,6 +2362,41 @@ const buildSpec = () => {
                     content: {
                         'application/json': {
                             schema: { $ref: '#/components/schemas/ApiError' }
+                        }
+                    }
+                },
+                InterpretationNetworkConflict: {
+                    description:
+                        'The Interpretation Network mutation conflicts with current state, including stale expectedVersion values and single-system invariant violations.',
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/InterpretationNetworkError' }
+                        }
+                    }
+                },
+                ApplicationInterpretationNetworkStructureModeConflict: {
+                    description:
+                        'The requested Matrix widget batch would activate single-system mode while ordinary Structures remain in an active workspace.',
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/ApplicationInterpretationNetworkStructureModeError' }
+                        }
+                    }
+                },
+                ApplicationLayoutWidgetResetConflict: {
+                    description:
+                        'The reset conflicts with a stale widget version, a missing current metahub baseline, missing Interpretation Network metadata, or ordinary Structures that prevent single-system mode.',
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/ApplicationLayoutWidgetResetConflictError' }
+                        }
+                    }
+                },
+                ApplicationLayoutWidgetResetBadRequest: {
+                    description: 'The reset batch payload is invalid.',
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/ApplicationLayoutWidgetResetBadRequestError' }
                         }
                     }
                 },

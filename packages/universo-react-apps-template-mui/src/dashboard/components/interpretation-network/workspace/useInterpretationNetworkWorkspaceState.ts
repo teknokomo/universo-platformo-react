@@ -49,6 +49,7 @@ type WorkspaceWidgetConfig = {
     materialTitleField: string
     matrixField: string
     matrixMode: 'hierarchicalCells' | 'independentRows'
+    structureMode: 'multiple' | 'singleSystem'
     hierarchyRowMode: 'focusedPath' | 'allNodes'
     positionNumbering: { enabled: boolean; includeRoot: boolean; startIndex: number }
     allowedMatrixViews: MatrixView[]
@@ -133,7 +134,16 @@ export function useInterpretationNetworkWorkspaceState({
     const materialFields = useMemo(
         () =>
             (data?.materials.columns ?? [])
-                .filter((column) => [widgetConfig.materialTitleField, 'Description'].includes(column.codename ?? column.field ?? ''))
+                .filter((column) => {
+                    const key = column.codename ?? column.field ?? ''
+                    const uiConfig = column.uiConfig ?? {}
+                    return (
+                        [widgetConfig.materialTitleField, 'Description'].includes(key) &&
+                        uiConfig.hidden !== true &&
+                        uiConfig.formHidden !== true &&
+                        uiConfig.serverOwned !== true
+                    )
+                })
                 .map(toFieldConfig)
                 .filter((field) => field.id),
         [data?.materials.columns, widgetConfig.materialTitleField]
@@ -322,7 +332,7 @@ export function useInterpretationNetworkWorkspaceState({
             Object.fromEntries(
                 structureFields.map((field) => [
                     field.id,
-                    dialogs.structureDialogMode === 'edit'
+                    dialogs.structureDialogMode !== 'create'
                         ? editingStructureRawData?.[field.codename ?? field.id] ??
                           editingStructureRawData?.[field.id] ??
                           readColumnValue(editingStructure, data?.concepts.columns, field.codename ?? field.id)

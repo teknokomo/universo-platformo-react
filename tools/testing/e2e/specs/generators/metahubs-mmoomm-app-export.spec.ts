@@ -365,7 +365,6 @@ const createStandardEntityThroughBrowser = async (
     if (!createdId) {
         throw new Error(`Create ${kind} response did not contain an id`)
     }
-    await expect(page.getByText(values.name, { exact: true }).first()).toBeVisible()
     return createdId
 }
 
@@ -383,6 +382,8 @@ const createObjectCollectionsThroughBrowser = async (page: Page, metahubId: stri
                 return payload.items?.some((item: { id?: string }) => item.id === createdId) ?? false
             })
             .toBe(true)
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await expect(page.getByText(entity.name, { exact: true }).first()).toBeVisible({ timeout: 60_000 })
     }
 }
 
@@ -430,6 +431,8 @@ const createMovementCommandsThroughBrowser = async (page: Page, metahubId: strin
             return payload.items?.some((item: { id?: string }) => item.id === enumerationId) ?? false
         })
         .toBe(true)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('Movement Commands', { exact: true }).first()).toBeVisible({ timeout: 60_000 })
 
     for (const command of [
         { codename: 'MoveToPoint', name: 'Move to point', isDefault: true },
@@ -491,6 +494,8 @@ const createSimulationConstantsThroughBrowser = async (page: Page, metahubId: st
             return payload.items?.some((item: { id?: string }) => item.id === setId) ?? false
         })
         .toBe(true)
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('Flight Simulation Constants', { exact: true }).first()).toBeVisible({ timeout: 60_000 })
 
     for (const constant of [
         { codename: 'CruiseSpeedMetersPerSecond', name: 'Cruise speed, m/s', value: 36 },

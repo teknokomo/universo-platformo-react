@@ -6,6 +6,7 @@ The **Interpretation Network** template adds a real interpretation-network works
 -   Two closed enumerations — **Context** and **RelationType** — for interpretation context and typed graph edges.
 -   A reusable **interpretationNetworkWorkspace** runtime widget in `packages/universo-react-apps-template-mui` that renders the workspace using the original MUI template primitives.
 -   A hierarchy-first Matrix mode where each new cell is created as a child of an existing cell, starting from the root **Universe** cell.
+-   A configurable Structure navigation mode: a normal multi-Structure list or a single system Structure that opens the Matrix directly.
 -   Three configurable peer Matrix views: **Table**, **Horizontal rows**, and **Vertical tree**.
 -   A product Playwright generator that emits `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` and a strict fixture contract that rejects unrelated dashboard widgets.
 
@@ -28,11 +29,11 @@ The workspace is intentionally operational, not decorative. It reuses shared run
 
 ### Layer ownership
 
-| Layer                     | Owns                                                                                                                                                                                                                                                           |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Metahub                   | Canonical `interpretationNetworkWorkspace` defaults, including Matrix views, Table presentation, breadcrumb behaviour, and `splitPane.enabled`.                                               |
-| Application control panel | Deployment-specific overrides for active materialized Interpretation Network widgets, including whether users may resize the two panes.                                                           |
-| Published workspace       | User-authored Structures, matrix cells, Relations, Materials, table templates, selection state, and a user's transient pane widths.                                                              |
+| Layer                     | Owns                                                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metahub                   | Canonical `interpretationNetworkWorkspace` defaults, including Matrix views, Table presentation, breadcrumb behaviour, and `splitPane.enabled`.            |
+| Application control panel | Deployment-specific overrides for active materialized Interpretation Network widgets, including Structure mode and whether users may resize the two panes. |
+| Published workspace       | User-authored Structures, matrix cells, Relations, Materials, table templates, selection state, and a user's transient pane widths.                        |
 
 The shared contract lives in `@universo-react/types`: `matrixMode` describes data semantics, while `allowedMatrixViews` and `defaultMatrixView` configure the peer views `table`, `horizontalRows`, and `verticalTree`. `tableProjection`, `breadcrumbDepth`, `toolbarLayout`, `showHierarchicalTableHeaders`, `showHierarchicalTableHeaderCard`, and `colorBreadcrumbsByCell` tune the Table experience. At least one view is required and the default must be allowed. `verticalTree` requires hierarchical cells; the other two views also support independent rows.
 
@@ -68,8 +69,15 @@ Display settings are separate from data semantics:
 -   `showHierarchicalTableHeaderCard` — enabled by default, keeping the focused parent cell as a separated context card above the row table.
 -   `colorBreadcrumbsByCell` — enabled by default so breadcrumb boxes carry the same fill color as their source cells.
 -   `splitPane.enabled` — enabled by the template. Application Settings may disable it for a deployment without changing the source metahub.
+-   `templatePanel.showInStructureList` — `true` by default. Shows **Templates** beside **Structures** in the multi-Structure catalog.
+-   `templatePanel.showInMatrix` — `true` by default. Shows **Templates** beside **Matrix** while a Structure is open, including the single-system Matrix.
+-   `structureMode` — `multiple` by default. `singleSystem` hides the Structure list and selected Structure header, ensures one server-owned system Structure, repairs stale Structure URL segments, and opens the Matrix directly.
 
-The application settings page derives the Matrix tab from active materialized widgets. It can enable compatible views, choose the default, and enable or disable pane resizing for the deployed instance. If several active widgets disagree, the settings surface warns the administrator and saves one normalized configuration to all of them. LMS-only settings such as Learning Content are not shown for the Interpretation Network unless the connected metahub publication actually materializes matching runtime configuration.
+If both template-panel flags are `false`, templates remain workspace-scoped data and API isolation still applies, but the published application exposes no template list, detail, create-from-template, or save-as-template surface. These flags are canonical metahub widget defaults. Application Settings may override them for the materialized deployment and can reset the widget to its metahub value; there is no workspace-level override.
+
+The application settings page derives the Matrix tab from active materialized widgets. It can switch Structure mode, enable compatible views, choose the default, control template placement, and enable or disable pane resizing for the deployed instance. If several active widgets disagree, the settings surface warns the administrator and saves one normalized configuration to all of them. LMS-only settings such as Learning Content are not shown for the Interpretation Network unless the connected metahub publication actually materializes matching runtime configuration.
+
+Restoring metahub settings is an owner/admin action over all active inherited Interpretation Network widgets. The server atomically restores the latest `source_config` materialized by publication/application synchronization, not the value that existed when the application was first created. An application-authored widget without a source cannot be restored. If any widget version is stale, metadata is incomplete, or a reset to `singleSystem` would leave ordinary Structures, the whole reset is refused; reload the current settings, resolve the reported conflict, and retry.
 
 ## Two-pane workspace tour
 
@@ -79,6 +87,7 @@ The published application renders:
 -   interpretation workspace: the `interpretationNetworkWorkspace` widget;
 -   before opening a structure: the structure list and Create structure action;
 -   after opening a structure: a parent Structure header with its title and a return action above both panes;
+-   in single-system mode: the Matrix immediately, without the Structure list, Structure title, or return action;
 -   matrix content: the Structure pane; and
 -   materials: the Materials pane for the selected matrix cell.
 
@@ -118,11 +127,22 @@ Materials use the Page-like object contract with title, description, and Editor.
 
 Stage 1 includes a workspace-scoped table-template flow. Users can create or copy a reusable matrix template inside the workspace and instantiate visible matrix rows from it without metahub-authoring access.
 
+Users with both create and edit content permissions can save the currently opened Structure as a template. The dialog offers two policies:
+
+-   structure only — copies Matrix rows, hierarchy, row/column keys, labels, style, and descriptions;
+-   with materials — also clones Materials attached to cells and remaps all cell/material references to fresh UUID v7 values.
+
+Creating a new visible Structure from a template is available in multi-Structure mode. In single-system mode, creating another Structure from a template is hidden, while saving the current system Matrix as a template remains available for permitted users.
+
+Template authorization follows the existing runtime permissions: saving and instantiating require both `createContent` and `editContent`; metadata changes require `editContent`; deletion requires `deleteContent`. A template can only read or write rows from its current application and workspace. Guessed IDs from another workspace or application fail closed.
+
+The copy boundary is intentional. Template creation copies Matrix rows and, for **with materials**, the authored Material `Title`, `Description`, and stored `Body`; every copied row, `CellId`, `MaterialRef`, and template-owned Material receives a fresh UUID v7. Relations are not copied. Binary objects and external files are not downloaded or cloned. Ordinary external URLs already authored inside the stored Material `Body` remain content values in that copied body.
+
 ## Limitations
 
 -   No IPFS/IPNS/content-addressed publication in Stage 1.
 -   No new schema or metahub template version bump.
--   No persisted user pane ratio or dynamic metahub-to-runtime inheritance.
+-   No persisted user pane ratio or live metahub-to-runtime propagation; metahub changes reach `source_config` only through publication/application synchronization.
 -   Existing platform workspace roles remain sufficient for Stage 1.
 
 ## Next steps

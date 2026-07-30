@@ -383,6 +383,53 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.triggerRerender = undefined
     })
 
+    it('resolves the Structure section as the preferred target for a Matrix deep link', () => {
+        renderRuntimePageAt('/applications/app-1/runtime?matrixCell=019fa968-aac3-7ce7-9717-79e7c6c6e77e')
+
+        const structureSection = {
+            id: 'structure-section',
+            codename: 'Structure',
+            tableName: 'obj_structure'
+        }
+        const introSection = {
+            id: 'intro-section',
+            codename: 'InterpretationNetworkIntro',
+            tableName: null
+        }
+        const appData = {
+            zoneWidgets: {
+                left: [],
+                right: [],
+                center: [
+                    {
+                        id: 'matrix-widget',
+                        widgetKey: 'interpretationNetworkWorkspace',
+                        config: {
+                            visibleFor: {
+                                sectionCodenames: ['Structure'],
+                                objectCollectionCodenames: ['Structure']
+                            }
+                        }
+                    }
+                ]
+            },
+            menus: [
+                {
+                    id: 'main-menu',
+                    items: [
+                        { id: 'intro', kind: 'section', sectionId: introSection.id, isActive: true },
+                        { id: 'structures', kind: 'section', sectionId: structureSection.id, isActive: true }
+                    ],
+                    overflowItems: []
+                }
+            ],
+            sections: [introSection, structureSection],
+            objectCollections: [introSection, structureSection]
+        }
+
+        expect(runtimeMocks.capturedCrudOptions.resolvePreferredSectionId(appData)).toBe(structureSection.id)
+    })
+
     it('shows loading state before runtime data is available', () => {
         runtimeMocks.dashboardStateOverrides = {
             isLoading: true,

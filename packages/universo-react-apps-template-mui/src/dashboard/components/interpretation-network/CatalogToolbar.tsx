@@ -94,17 +94,18 @@ export function CatalogToolbar({
                     </ToggleButton>
                 </ToggleButtonGroup>
                 <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
-                <Button
-                    type='button'
-                    size='small'
-                    variant='contained'
-                    startIcon={<AddRoundedIcon />}
-                    disabled={createDisabled}
-                    onClick={onCreate}
-                    sx={{ height: 40, minHeight: 40, flexShrink: 0 }}
-                >
-                    {createLabel}
-                </Button>
+                {createDisabled ? null : (
+                    <Button
+                        type='button'
+                        size='small'
+                        variant='contained'
+                        startIcon={<AddRoundedIcon />}
+                        onClick={onCreate}
+                        sx={{ height: 40, minHeight: 40, flexShrink: 0 }}
+                    >
+                        {createLabel}
+                    </Button>
+                )}
             </Stack>
         </Stack>
     )

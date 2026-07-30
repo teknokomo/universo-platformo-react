@@ -115,6 +115,11 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
                 sectionCodenames: ['Structure'],
                 objectCollectionCodenames: ['Structure']
             },
+            structureMode: 'multiple',
+            templatePanel: {
+                showInStructureList: true,
+                showInMatrix: true
+            },
             matrixMode: 'hierarchicalCells',
             allowedMatrixViews: ['table', 'horizontalRows', 'verticalTree'],
             defaultMatrixView: 'table',

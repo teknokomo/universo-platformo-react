@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DashboardApp from '../DashboardApp'
 import { createStandaloneAdapter } from '../../api/adapters'
@@ -33,7 +33,9 @@ vi.mock('../../dashboard/Dashboard', () => ({
     default: ({
         details,
         layoutConfig,
-        menu
+        menu,
+        menus,
+        zoneWidgets
     }: {
         details?: {
             title?: string
@@ -48,6 +50,8 @@ vi.mock('../../dashboard/Dashboard', () => ({
                 onProgressChange?: (payload: { action: 'view' | 'complete' }) => void
             }
             tableDefaults?: unknown
+            rows?: Array<Record<string, unknown>>
+            runtimeColumns?: Array<Record<string, unknown>>
             onOpenCreateTarget?: (target: {
                 id: string
                 label: string
@@ -62,19 +66,30 @@ vi.mock('../../dashboard/Dashboard', () => ({
         }
         layoutConfig?: Record<string, unknown>
         menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
+        menus?: Record<string, { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }>
+        zoneWidgets?: Record<string, unknown>
     }) => (
         <div data-testid='dashboard-app'>
             <div data-testid='dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
             <div data-testid='dashboard-menu'>
                 {menu?.items?.map((item) => `${item.label}:${Boolean(item.selected)}:${item.href ?? ''}`).join('|')}
             </div>
+            <div data-testid='dashboard-menus'>{JSON.stringify(menus ?? {})}</div>
             <div data-testid='dashboard-title'>{details?.title}</div>
+            <div data-testid='dashboard-details-context'>
+                {details?.sectionId ?? ''}:{details?.sectionCodename ?? ''}:{details?.objectCollectionId ?? ''}:
+                {details?.objectCollectionCodename ?? ''}
+            </div>
             <div data-testid='dashboard-actions'>{details?.actions}</div>
             <div data-testid='dashboard-content'>{details?.content}</div>
             <div data-testid='dashboard-page-blocks'>{String(details?.pageBlocks?.length ?? 0)}</div>
             <div data-testid='dashboard-page-progress-handler'>{String(typeof details?.pagePlayer?.onProgressChange === 'function')}</div>
             <div data-testid='dashboard-page-player'>{JSON.stringify(details?.pagePlayer ?? {})}</div>
             <div data-testid='dashboard-table-defaults'>{JSON.stringify(details?.tableDefaults ?? {})}</div>
+            <div data-testid='dashboard-rows'>{JSON.stringify(details?.rows ?? [])}</div>
+            <div data-testid='dashboard-runtime-columns'>{JSON.stringify(details?.runtimeColumns ?? [])}</div>
+            <div data-testid='dashboard-row-count'>{String(details?.rowCount ?? '')}</div>
+            <div data-testid='dashboard-zone-widgets'>{JSON.stringify(zoneWidgets ?? {})}</div>
             <button
                 data-testid='dashboard-open-link-target'
                 onClick={() =>
@@ -221,6 +236,10 @@ describe('DashboardApp', () => {
 
     it('passes runtime page blocks and Learning Content player settings to the dashboard', () => {
         dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: 'page-1',
+            selectedObjectCollectionId: 'page-1',
+            activeSectionId: 'page-1',
+            activeObjectCollectionId: 'page-1',
             appData: {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
@@ -479,6 +498,530 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showSessionsChart":false')
         expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showPageViewsChart":false')
         expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showDetailsTable":false')
+    })
+
+    it('reacts to internal runtime link navigation without a full page reload', async () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        window.history.pushState({}, '', `/a/${applicationId}`)
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Standalone details')
+
+        act(() => {
+            window.history.pushState({}, '', `/a/${applicationId}/workspaces`)
+            window.dispatchEvent(new PopStateEvent('popstate'))
+        })
+
+        await waitFor(() => {
+            expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Workspaces')
+        })
+        expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}`)
+    })
+
+    it('uses the interpretation workspace visibility target as standalone context for direct root Matrix routes', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        window.history.pushState({}, '', `/a/${applicationId}?matrixCell=00000000-0000-7000-8000-000000000099`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: undefined,
+            selectedObjectCollectionId: undefined,
+            activeSectionId: 'start-section',
+            activeObjectCollectionId: 'start-section',
+            appData: {
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: [
+                        {
+                            id: 'interpretation-network',
+                            widgetKey: 'interpretationNetworkWorkspace',
+                            sortOrder: 1,
+                            config: {
+                                visibleFor: {
+                                    sectionCodenames: ['Structure'],
+                                    objectCollectionCodenames: ['Structure']
+                                }
+                            }
+                        }
+                    ]
+                },
+                menus: [
+                    {
+                        id: 'main-menu',
+                        widgetId: 'runtime-workspace-menu-widget',
+                        showTitle: false,
+                        title: 'Main',
+                        startSectionId: 'start-section',
+                        items: [
+                            {
+                                id: 'start',
+                                kind: 'section',
+                                title: 'Start',
+                                sectionId: 'start-section',
+                                sortOrder: 0,
+                                isActive: true
+                            },
+                            {
+                                id: 'structures',
+                                kind: 'section',
+                                title: 'Structures',
+                                sectionId: 'structure-section',
+                                sortOrder: 1,
+                                isActive: true
+                            }
+                        ]
+                    }
+                ],
+                activeMenuId: 'main-menu',
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: true,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    name: 'Start',
+                    codename: 'Start'
+                },
+                activeObjectCollectionId: 'start-section',
+                activeSectionId: 'start-section',
+                objectCollections: [
+                    { id: 'start-section', name: 'Start', codename: 'Start' },
+                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
+                ],
+                sections: [
+                    { id: 'start-section', name: 'Start', codename: 'Start' },
+                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
+                ]
+            },
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [
+                    {
+                        id: 'start',
+                        label: 'Start',
+                        kind: 'section',
+                        sectionId: 'start-section',
+                        selected: true
+                    },
+                    {
+                        id: 'structures',
+                        label: 'Structures',
+                        kind: 'section',
+                        sectionId: 'structure-section',
+                        selected: false
+                    }
+                ]
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Structure')
+        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent('structure-section:Structure:structure-section:Structure')
+        expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('0')
+    })
+
+    it('projects root Matrix routes even when the dashboard state still points to the Intro page', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        window.history.pushState({}, '', `/a/${applicationId}?matrixCell=00000000-0000-7000-8000-000000000099`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: 'start-section',
+            selectedObjectCollectionId: 'start-section',
+            activeSectionId: 'start-section',
+            activeObjectCollectionId: undefined,
+            appData: {
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: [
+                        {
+                            id: 'interpretation-network',
+                            widgetKey: 'interpretationNetworkWorkspace',
+                            sortOrder: 1,
+                            config: {
+                                structureMode: 'singleSystem',
+                                visibleFor: {
+                                    sectionCodenames: ['Structure'],
+                                    objectCollectionCodenames: ['Structure']
+                                }
+                            }
+                        }
+                    ]
+                },
+                menus: [
+                    {
+                        id: 'main-menu',
+                        widgetId: 'runtime-workspace-menu-widget',
+                        showTitle: false,
+                        title: 'Main',
+                        startSectionId: 'start-section',
+                        items: [
+                            {
+                                id: 'start',
+                                kind: 'section',
+                                title: 'Start',
+                                sectionId: 'start-section',
+                                sortOrder: 0,
+                                isActive: true
+                            },
+                            {
+                                id: 'structures',
+                                kind: 'section',
+                                title: 'Structures',
+                                sectionId: 'structure-section',
+                                objectCollectionId: 'structure-section',
+                                sortOrder: 1,
+                                isActive: true
+                            }
+                        ]
+                    }
+                ],
+                activeMenuId: 'main-menu',
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: true,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    id: 'start-section',
+                    name: 'Start',
+                    codename: 'InterpretationNetworkIntro',
+                    tableName: null,
+                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
+                },
+                section: {
+                    id: 'start-section',
+                    name: 'Start',
+                    codename: 'InterpretationNetworkIntro',
+                    tableName: null,
+                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
+                },
+                activeObjectCollectionId: null,
+                activeSectionId: 'start-section',
+                objectCollections: [
+                    { id: 'start-section', name: 'Start', codename: 'InterpretationNetworkIntro', tableName: null },
+                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
+                ],
+                sections: [
+                    { id: 'start-section', name: 'Start', codename: 'InterpretationNetworkIntro', tableName: null },
+                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
+                ],
+                rows: [],
+                columns: [],
+                pagination: { total: 0, limit: 50, offset: 0 }
+            },
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [
+                    {
+                        id: 'start',
+                        label: 'Start',
+                        kind: 'section',
+                        sectionId: 'start-section',
+                        selected: true
+                    },
+                    {
+                        id: 'structures',
+                        label: 'Structures',
+                        kind: 'section',
+                        sectionId: 'structure-section',
+                        objectCollectionId: 'structure-section',
+                        selected: false
+                    }
+                ]
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Structure')
+        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent('structure-section:Structure:structure-section:Structure')
+        expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('0')
+        expect(dashboardMocks.onSelectObjectCollection).not.toHaveBeenCalled()
+    })
+
+    it('projects the route section context while stale Intro page data is still loaded', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        window.history.pushState({}, '', `/a/${applicationId}/structure-section`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: 'structure-section',
+            selectedObjectCollectionId: undefined,
+            activeSectionId: 'structure-section',
+            activeObjectCollectionId: undefined,
+            appData: {
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: [
+                        {
+                            id: 'interpretation-network',
+                            widgetKey: 'interpretationNetworkWorkspace',
+                            sortOrder: 1,
+                            config: {
+                                visibleFor: {
+                                    sectionCodenames: ['Structure'],
+                                    objectCollectionCodenames: ['Structure']
+                                }
+                            }
+                        }
+                    ]
+                },
+                menus: [
+                    {
+                        id: 'main-menu',
+                        widgetId: 'runtime-workspace-menu-widget',
+                        showTitle: false,
+                        title: 'Main',
+                        startSectionId: 'start-section',
+                        items: [
+                            {
+                                id: 'start',
+                                kind: 'section',
+                                title: 'Start',
+                                sectionId: 'start-section',
+                                sortOrder: 0,
+                                isActive: true
+                            },
+                            {
+                                id: 'structures',
+                                kind: 'section',
+                                title: 'Structures',
+                                sectionId: 'structure-section',
+                                objectCollectionId: 'structure-section',
+                                sortOrder: 1,
+                                isActive: true
+                            }
+                        ]
+                    }
+                ],
+                activeMenuId: 'main-menu',
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: true,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    id: 'start-section',
+                    name: 'Start',
+                    codename: 'Start',
+                    tableName: null,
+                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
+                },
+                section: {
+                    id: 'start-section',
+                    name: 'Start',
+                    codename: 'Start',
+                    tableName: null,
+                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
+                },
+                activeObjectCollectionId: null,
+                activeSectionId: 'start-section',
+                objectCollections: [
+                    { id: 'start-section', name: 'Start', codename: 'Start', tableName: null },
+                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
+                ],
+                sections: [
+                    { id: 'start-section', name: 'Start', codename: 'Start', tableName: null },
+                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
+                ],
+                rows: [{ id: 'intro-row', title: 'Intro row' }],
+                columns: [{ id: 'intro-title', field: 'title', codename: 'Title', dataType: 'STRING', headerName: 'Title' }],
+                pagination: { total: 1, limit: 50, offset: 0 }
+            },
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [
+                    {
+                        id: 'start',
+                        label: 'Start',
+                        kind: 'section',
+                        sectionId: 'start-section',
+                        selected: true
+                    },
+                    {
+                        id: 'structures',
+                        label: 'Structures',
+                        kind: 'section',
+                        sectionId: 'structure-section',
+                        objectCollectionId: 'structure-section',
+                        selected: false
+                    }
+                ]
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Structure')
+        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent('structure-section:Structure:structure-section:Structure')
+        expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('0')
+    })
+
+    it('renders a resolved union datasource when its active target differs from the aggregate route section', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const aggregateSectionId = '00000000-0000-7000-8000-000000000010'
+        const targetSectionId = '00000000-0000-7000-8000-000000000011'
+        window.history.pushState({}, '', `/a/${applicationId}/${aggregateSectionId}`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: aggregateSectionId,
+            selectedObjectCollectionId: undefined,
+            activeSectionId: aggregateSectionId,
+            activeObjectCollectionId: targetSectionId,
+            rows: [{ id: 'resource-1', title: 'Operations handbook' }],
+            appData: {
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: [
+                        {
+                            id: 'union-table',
+                            widgetKey: 'detailsTable',
+                            sortOrder: 1,
+                            config: {
+                                datasource: {
+                                    kind: 'records.union',
+                                    targets: [{ objectCollectionId: targetSectionId }]
+                                }
+                            }
+                        }
+                    ]
+                },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: false,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    id: targetSectionId,
+                    name: 'Pages',
+                    codename: 'Page',
+                    tableName: 'obj_page'
+                },
+                section: {
+                    id: aggregateSectionId,
+                    name: 'Learning Content',
+                    codename: 'ContentProjects',
+                    tableName: null
+                },
+                activeObjectCollectionId: targetSectionId,
+                activeSectionId: targetSectionId,
+                objectCollections: [{ id: targetSectionId, name: 'Pages', codename: 'Page', tableName: 'obj_page' }],
+                sections: [
+                    { id: aggregateSectionId, name: 'Learning Content', codename: 'ContentProjects', tableName: null },
+                    { id: targetSectionId, name: 'Pages', codename: 'Page', tableName: 'obj_page' }
+                ],
+                rows: [{ id: 'resource-1', title: 'Operations handbook' }],
+                columns: [{ id: 'title-column', field: 'title', codename: 'Title', dataType: 'STRING', headerName: 'Title' }],
+                pagination: { total: 1, limit: 50, offset: 0 }
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Pages')
+        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent(
+            `${aggregateSectionId}:ContentProjects:${aggregateSectionId}:ContentProjects`
+        )
+        expect(screen.getByTestId('dashboard-rows')).toHaveTextContent('Operations handbook')
+        expect(screen.getByTestId('dashboard-runtime-columns')).toHaveTextContent('title-column')
+    })
+
+    it('does not accept an unresolved runtime route merely because stale data contains a union datasource', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const missingSectionId = '00000000-0000-7000-8000-000000000099'
+        window.history.pushState({}, '', `/a/${applicationId}/${missingSectionId}`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: missingSectionId,
+            activeSectionId: 'object-1',
+            activeObjectCollectionId: 'object-1',
+            rows: [{ id: 'stale-row', title: 'Stale union content' }],
+            rowCount: 42,
+            appData: {
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: [
+                        {
+                            id: 'stale-union-table',
+                            widgetKey: 'detailsTable',
+                            sortOrder: 1,
+                            config: { datasource: { kind: 'records.union', targets: [{ objectCollectionId: 'object-1' }] } }
+                        }
+                    ]
+                },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: false,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: { id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' },
+                section: { id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' },
+                activeObjectCollectionId: 'object-1',
+                activeSectionId: 'object-1',
+                objectCollections: [{ id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' }],
+                sections: [{ id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' }],
+                rows: [{ id: 'stale-row', title: 'Stale union content' }],
+                columns: [{ id: 'title-column', field: 'title', codename: 'Title', dataType: 'STRING', headerName: 'Title' }],
+                pagination: { total: 1, limit: 50, offset: 0 }
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-rows')).not.toHaveTextContent('Stale union content')
+        expect(screen.getByTestId('dashboard-runtime-columns')).not.toHaveTextContent('title-column')
+        expect(screen.getByTestId('dashboard-row-count')).toBeEmptyDOMElement()
+        expect(screen.getByTestId('dashboard-zone-widgets')).not.toHaveTextContent('stale-union-table')
+    })
+
+    it('does not render stale section data for an unresolved runtime route', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const missingSectionId = '00000000-0000-7000-8000-000000000099'
+        window.history.pushState({}, '', `/a/${applicationId}/${missingSectionId}`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: missingSectionId,
+            activeSectionId: 'object-1',
+            activeObjectCollectionId: 'object-1',
+            rows: [{ id: 'stale-row', title: 'Stale content' }]
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Standalone details')
+        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent(`${missingSectionId}::${missingSectionId}:`)
+        expect(screen.getByTestId('dashboard-rows')).not.toHaveTextContent('Stale content')
     })
 
     it('renders workspace detail navigation in standalone published apps', () => {

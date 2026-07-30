@@ -2,7 +2,7 @@
 //
 // Verifies:
 //   1. The published app opens the Interpretation Network start Page and menu.
-//   2. The Structures workspace starts empty after schema sync.
+//   2. The Structures workspace opens the single-system Matrix directly after schema sync.
 //   3. Browser runtime surfaces do not leak raw UUIDs/JSON and do not
 //      throw console/page/API 500 regressions.
 
@@ -11,6 +11,7 @@ import type { Locator, Page, Response, TestInfo } from '@playwright/test'
 import {
     createLoggedInApiContext,
     disposeApiContext,
+    getApplicationRuntime,
     listApplicationWorkspaces,
     sendWithCsrf,
     updateMetahub
@@ -71,10 +72,22 @@ const codenameVlc = (content: string) => {
 
 const getRuntimeRowsUrl = (response: Response): URL => new URL(response.url())
 
-const matchesRuntimeRowsCreate = (response: Response, applicationId: string, workspaceId: string): boolean => {
+const matchesInterpretationNetworkStructureCreate = (response: Response, applicationId: string, workspaceId: string): boolean => {
     if (response.request().method() !== 'POST') return false
     const url = getRuntimeRowsUrl(response)
-    return url.pathname === `/api/v1/applications/${applicationId}/runtime/rows` && url.searchParams.get('workspaceId') === workspaceId
+    return (
+        url.pathname === `/api/v1/applications/${applicationId}/runtime/interpretation-network/structures` &&
+        url.searchParams.get('workspaceId') === workspaceId
+    )
+}
+
+const matchesInterpretationNetworkMaterialCreate = (response: Response, applicationId: string, workspaceId: string): boolean => {
+    if (response.request().method() !== 'POST') return false
+    const url = getRuntimeRowsUrl(response)
+    return (
+        url.pathname === `/api/v1/applications/${applicationId}/runtime/interpretation-network/materials` &&
+        url.searchParams.get('workspaceId') === workspaceId
+    )
 }
 
 const matchesApplicationLayoutWidgetConfigUpdate = (response: Response, applicationId: string): boolean => {
@@ -87,6 +100,27 @@ const matchesApplicationLayoutWidgetConfigUpdate = (response: Response, applicat
         url.pathname.startsWith(`/api/v1/applications/${applicationId}/layouts/`) &&
         url.pathname.includes('/zone-widget/') &&
         url.pathname.endsWith('/config')
+    )
+}
+
+const matchesApplicationLayoutWidgetConfigReset = (response: Response, applicationId: string): boolean => {
+    if (response.request().method() !== 'POST') return false
+    const url = getRuntimeRowsUrl(response)
+    return url.pathname === `/api/v1/applications/${applicationId}/layouts/zone-widgets/config/reset`
+}
+
+const matchesTemplateSave = (response: Response, applicationId: string): boolean => {
+    if (response.request().method() !== 'POST') return false
+    const url = getRuntimeRowsUrl(response)
+    return url.pathname === `/api/v1/applications/${applicationId}/runtime/interpretation-network/templates`
+}
+
+const matchesTemplateInstantiate = (response: Response, applicationId: string): boolean => {
+    if (response.request().method() !== 'POST') return false
+    const url = getRuntimeRowsUrl(response)
+    return (
+        url.pathname.startsWith(`/api/v1/applications/${applicationId}/runtime/interpretation-network/templates/`) &&
+        url.pathname.endsWith('/instantiate')
     )
 }
 
@@ -104,6 +138,53 @@ const hasLocalizedPayloadValue = (payload: unknown, expectedText: string, locale
     })
 }
 
+const getInterpretationNetworkWidgetConfig = async (api: ApiContext, applicationId: string): Promise<Record<string, unknown>> => {
+    const runtime = (await getApplicationRuntime(api, applicationId)) as {
+        zoneWidgets?: Record<string, Array<{ widgetKey?: string; config?: Record<string, unknown> }>>
+    }
+    const widgets = Object.values(runtime.zoneWidgets ?? {}).flat()
+    const widget = widgets.find((candidate) => candidate.widgetKey === 'interpretationNetworkWorkspace')
+    return widget?.config && typeof widget.config === 'object' && !Array.isArray(widget.config) ? widget.config : {}
+}
+
+const setInterpretationNetworkWidgetConfig = async (
+    api: ApiContext,
+    applicationId: string,
+    patch: Record<string, unknown>
+): Promise<void> => {
+    const runtime = (await getApplicationRuntime(api, applicationId)) as {
+        zoneWidgets?: Record<string, Array<{ id?: string; widgetKey?: string; config?: Record<string, unknown>; layoutId?: string }>>
+    }
+    const widgets = Object.values(runtime.zoneWidgets ?? {}).flat()
+    const updates = widgets
+        .filter((candidate) => candidate.widgetKey === 'interpretationNetworkWorkspace' && typeof candidate.id === 'string')
+        .map((widget) => ({
+            layoutId: widget.layoutId,
+            widgetId: widget.id,
+            config: {
+                ...(widget.config ?? {}),
+                ...patch
+            }
+        }))
+    if (updates.length === 0) {
+        throw new Error('Interpretation Network runtime widget config was not found')
+    }
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/layouts/zone-widgets/config/batch`, {
+        updates
+    })
+    if (!response.ok) {
+        throw new Error(`Updating Interpretation Network widget config failed with ${response.status}: ${await response.text()}`)
+    }
+}
+
+const setInterpretationNetworkStructureMode = async (
+    api: ApiContext,
+    applicationId: string,
+    structureMode: 'multiple' | 'singleSystem'
+): Promise<void> => {
+    await setInterpretationNetworkWidgetConfig(api, applicationId, { structureMode })
+}
+
 const expectInterpretationNetworkStartPage = async (page: Page): Promise<void> => {
     const menu = getVisibleRuntimeNavigation(page)
     await expect(menu).toBeVisible()
@@ -115,24 +196,44 @@ const expectInterpretationNetworkStartPage = async (page: Page): Promise<void> =
     await expect(page.getByTestId('interpretation-network-workspace')).toHaveCount(0)
 }
 
-const expectEmptyStructuresWorkspace = async (page: Page): Promise<void> => {
+const expectSingleSystemMatrixWorkspace = async (page: Page, locale: 'en' | 'ru' = 'en'): Promise<void> => {
+    const labels =
+        locale === 'ru'
+            ? {
+                  saveAsTemplate: 'Сохранить как шаблон',
+                  createFromTemplate: 'Создать из шаблона',
+                  create: 'Создать',
+                  matrix: 'Матрица',
+                  templates: 'Шаблоны'
+              }
+            : {
+                  saveAsTemplate: 'Save as template',
+                  createFromTemplate: 'Create from template',
+                  create: 'Create',
+                  matrix: 'Matrix',
+                  templates: 'Templates'
+              }
     const main = page.getByRole('main')
     await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('heading', { name: 'Structures' })).toBeVisible()
-    await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('textbox', { name: 'Filter by title' })).toBeVisible()
-    await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Table view' })).toBeVisible()
-    await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Card view' })).toBeVisible()
-    await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Create' })).toBeVisible()
-    await expect(page.getByTestId('interpretation-network-structure-pane')).not.toContainText(
-        'Create a structure to start working with the matrix.'
-    )
-    await expect(page.getByTestId('interpretation-network-details-pane')).toContainText('How to work with structures')
-    await expect(page.getByTestId('interpretation-network-details-pane')).toContainText(
-        'Create or select a structure on the left. After you open a structure, select a matrix cell to manage its materials here.'
-    )
-    await expect(page.getByTestId('interpretation-network-details-pane')).not.toContainText('Materials')
-    await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toHaveCount(0)
-    await expect(main.getByRole('button', { name: 'Create' })).toBeVisible()
+    const structurePane = page.getByTestId('interpretation-network-structure-pane')
+    await expect(page.getByTestId('interpretation-network-matrix-workspace')).toBeVisible({ timeout: 30_000 })
+    await expect(structurePane.getByRole('heading', { name: 'Structures' })).toHaveCount(0)
+    await expect(structurePane.getByRole('heading', { name: 'Структуры' })).toHaveCount(0)
+    await expect(structurePane.getByRole('textbox', { name: 'Filter by title' })).toHaveCount(0)
+    await expect(structurePane.getByRole('textbox', { name: 'Фильтр по названию' })).toHaveCount(0)
+    await expect(structurePane.getByRole('button', { name: 'Create' })).toHaveCount(0)
+    await expect(structurePane.getByRole('button', { name: 'Создать' })).toHaveCount(0)
+    await expect(structurePane.getByRole('tab', { name: labels.matrix })).toBeVisible()
+    await expect(structurePane.getByRole('tab', { name: labels.templates })).toBeVisible()
+    await expect(page.getByTestId('interpretation-network-structure-header')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Structures' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Структуры' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Universe|Вселенная/ }).first()).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(structurePane.getByRole('button', { name: labels.saveAsTemplate })).toBeVisible()
+    await expect(structurePane.getByRole('button', { name: labels.createFromTemplate })).toHaveCount(0)
+    await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: labels.create })).toBeVisible()
     await expect(main.getByRole('button', { name: 'Add page' })).toHaveCount(0)
     await expect(main.getByText('Gravity', { exact: false })).toHaveCount(0)
     await expect(main.getByText('Gravity material', { exact: false })).toHaveCount(0)
@@ -424,17 +525,17 @@ const expectRuntimeSideMenuModes = async (page: Page, testInfo: TestInfo): Promi
 
 const expectStructuresOverlayUsesFullRail = async (page: Page, testInfo: TestInfo): Promise<void> => {
     await page.setViewportSize({ width: 1920, height: 1080 })
-    await expectEmptyStructuresWorkspace(page)
+    await expectSingleSystemMatrixWorkspace(page)
     await expectStructuresVisualRails(page, 'Interpretation Network Structures wide side menu 1920', { left: 264, rightInset: 24 })
     await expect(page.getByRole('button', { name: 'Enable compact menu' })).toBeVisible()
     await page.getByRole('button', { name: 'Enable compact menu' }).click()
     await expect(page.getByRole('button', { name: 'Enable wide menu' })).toBeVisible()
-    await expectEmptyStructuresWorkspace(page)
+    await expectSingleSystemMatrixWorkspace(page)
     await expectStructuresVisualRails(page, 'Interpretation Network Structures compact side menu 1920', { left: 96, rightInset: 24 })
     await attachRuntimeScreenshot(page, testInfo, 'side-menu-compact-structures-desktop-1920')
     await page.getByRole('button', { name: 'Enable wide menu' }).click()
     await expect(page.getByRole('button', { name: 'Enable compact menu' })).toBeVisible()
-    await expectEmptyStructuresWorkspace(page)
+    await expectSingleSystemMatrixWorkspace(page)
     await expect(page.getByRole('button', { name: 'Use overlay menu' })).toBeVisible()
     await page.getByRole('button', { name: 'Use overlay menu' }).click()
 
@@ -450,7 +551,7 @@ const expectStructuresOverlayUsesFullRail = async (page: Page, testInfo: TestInf
     await page.keyboard.press('Escape')
     await expect(overlayNavigation).toBeHidden()
     await expect(page.getByTestId('runtime-overlay-menu-edge-control')).toBeVisible()
-    await expectEmptyStructuresWorkspace(page)
+    await expectSingleSystemMatrixWorkspace(page)
     await expectOverlayContentUsesFullRail(page, 'Interpretation Network Structures closed overlay 1920')
     await expectStructuresVisualRails(page, 'Interpretation Network Structures closed overlay 1920', { left: 24, rightInset: 24 })
     await expectToolbarAlignedWithContent(page, 'Interpretation Network Structures closed overlay toolbar 1920')
@@ -462,7 +563,7 @@ const expectStructuresOverlayUsesFullRail = async (page: Page, testInfo: TestInf
     await page.getByRole('button', { name: 'Use docked menu' }).click()
     await expect(overlayNavigation).toBeHidden()
     await expect(getDockedRuntimeNavigation(page)).toBeVisible()
-    await expectEmptyStructuresWorkspace(page)
+    await expectSingleSystemMatrixWorkspace(page)
 }
 
 const fillOptionalStructureDialogFields = async (dialog: Locator, values: { name: string; description: string }): Promise<void> => {
@@ -605,10 +706,17 @@ const waitForMatrixMoveResponse = (page: Page, applicationId: string, timeout = 
         page,
         (response) =>
             response.request().method() === 'POST' &&
-            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
-            response.url().includes('/tabular/') &&
-            response.url().includes('/batch'),
+            new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/runtime/interpretation-network/matrix/cells/move`,
         { label: 'Moving matrix cell by drag and drop', timeout }
+    )
+
+const waitForMatrixCellCreateResponse = (page: Page, applicationId: string, timeout = 15_000) =>
+    waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/runtime/interpretation-network/matrix/cells`,
+        { label: 'Creating an Interpretation Network Matrix cell', timeout }
     )
 
 const expectMatrixCellMoveNotSwapWithNewAxesCellDialog = async (page: Page, applicationId: string): Promise<void> => {
@@ -642,16 +750,24 @@ const expectMatrixCellMoveNotSwapWithNewAxesCellDialog = async (page: Page, appl
     await firstChildDialog.getByRole('textbox', { name: 'New column name' }).fill('E2E primary column')
     await firstChildDialog.getByRole('textbox', { name: 'Title' }).fill('E2E first child cell')
     await firstChildDialog.getByRole('textbox', { name: 'Description' }).fill('E2E first child description')
-    const addFirstChildRequest = waitForSettledMutationResponse(
-        page,
-        (response) =>
-            response.request().method() === 'POST' &&
-            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
-            response.url().includes('/tabular/'),
-        { label: 'Creating first hierarchical matrix child' }
-    )
+    const addFirstChildRequest = waitForMatrixCellCreateResponse(page, applicationId, 30_000)
     await firstChildDialog.getByRole('button', { name: 'Create' }).click()
-    expect((await addFirstChildRequest).ok()).toBe(true)
+    const addFirstChildResponse = await addFirstChildRequest
+    expect(addFirstChildResponse.ok()).toBe(true)
+    const addFirstChildPayload = addFirstChildResponse.request().postDataJSON() as {
+        data?: Record<string, unknown>
+        placement?: { parentCellId?: string | null; rowKey?: string; colKey?: string; sortOrder?: number }
+    }
+    expect(addFirstChildPayload.data).not.toHaveProperty('CellId')
+    expect(addFirstChildPayload.data).not.toHaveProperty('ParentCellId')
+    expect(addFirstChildPayload.data).not.toHaveProperty('RowKey')
+    expect(addFirstChildPayload.data).not.toHaveProperty('ColKey')
+    expect(addFirstChildPayload.placement?.parentCellId).toBe(rootCellId)
+    expect(addFirstChildPayload.placement?.sortOrder).toBeGreaterThanOrEqual(0)
+    const addFirstChildResult = (await addFirstChildResponse.json()) as { id?: string; status?: string; item?: unknown }
+    expect(addFirstChildResult.id).toMatch(/^[0-9a-f-]{36}$/i)
+    expect(addFirstChildResult.status).toBe('created')
+    expect(addFirstChildResult.item).toBeTruthy()
     await expect(firstChildDialog).toHaveCount(0)
     await expect(page.getByTestId('interpretation-network-cell').filter({ hasText: 'E2E first child cell' })).toBeVisible({
         timeout: 30_000
@@ -671,16 +787,19 @@ const expectMatrixCellMoveNotSwapWithNewAxesCellDialog = async (page: Page, appl
     await secondChildDialog.getByRole('textbox', { name: 'New column name' }).fill('E2E secondary column')
     await secondChildDialog.getByRole('textbox', { name: 'Title' }).fill('E2E second child cell')
     await secondChildDialog.getByRole('textbox', { name: 'Description' }).fill('E2E second child description')
-    const addSecondChildRequest = waitForSettledMutationResponse(
-        page,
-        (response) =>
-            response.request().method() === 'POST' &&
-            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
-            response.url().includes('/tabular/'),
-        { label: 'Creating second hierarchical matrix child' }
-    )
+    const addSecondChildRequest = waitForMatrixCellCreateResponse(page, applicationId, 30_000)
     await secondChildDialog.getByRole('button', { name: 'Create' }).click()
-    expect((await addSecondChildRequest).ok()).toBe(true)
+    const addSecondChildResponse = await addSecondChildRequest
+    expect(addSecondChildResponse.ok()).toBe(true)
+    const addSecondChildPayload = addSecondChildResponse.request().postDataJSON() as {
+        data?: Record<string, unknown>
+        placement?: { parentCellId?: string | null; rowKey?: string; colKey?: string; sortOrder?: number }
+    }
+    expect(addSecondChildPayload.data).not.toHaveProperty('CellId')
+    expect(addSecondChildPayload.data).not.toHaveProperty('ParentCellId')
+    expect(addSecondChildPayload.data).not.toHaveProperty('RowKey')
+    expect(addSecondChildPayload.data).not.toHaveProperty('ColKey')
+    expect(addSecondChildPayload.placement?.parentCellId).toBe(rootCellId)
     await expect(secondChildDialog).toHaveCount(0)
     await expect(page.getByRole('main')).not.toContainText(/New row|New cell/)
     await expect(page.getByTestId('interpretation-network-matrix-row')).toHaveCount(2, { timeout: 30_000 })
@@ -699,13 +818,23 @@ const expectMatrixCellMoveNotSwapWithNewAxesCellDialog = async (page: Page, appl
     await dragMatrixCellByPointer(sourceCell, targetCell, 'before')
     const moveResponse = await moveRequest
     expect(moveResponse.ok()).toBe(true)
-    const movePayload = moveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
+    const movePayload = moveResponse.request().postDataJSON() as {
+        updates?: Array<{ placement?: { parentCellId?: string | null; sortOrder?: number }; data?: Record<string, unknown> }>
+    }
     expect(
         Array.isArray(movePayload.updates) ? movePayload.updates.length : 0,
         'drag/drop move must update moved cell without swapping'
     ).toBeGreaterThanOrEqual(1)
-    expect(movePayload.updates?.[0]?.data, 'dragged sibling reorder must not reparent the moved cell').not.toHaveProperty('ParentCellId')
-    expect(movePayload.updates?.[0]?.data?._tp_sort_order, 'dragged sibling reorder must persist the new sibling order').toBe(0)
+    expect(movePayload.updates?.[0]?.data ?? {}, 'Matrix move command must not send server-owned parent data').not.toHaveProperty(
+        'ParentCellId'
+    )
+    expect(movePayload.updates?.[0]?.data ?? {}, 'Matrix move command must not send server-owned order data').not.toHaveProperty(
+        '_tp_sort_order'
+    )
+    expect(movePayload.updates?.[0]?.placement, 'dragged sibling reorder must not reparent the moved cell').not.toHaveProperty(
+        'parentCellId'
+    )
+    expect(movePayload.updates?.[0]?.placement?.sortOrder, 'dragged sibling reorder must persist the new sibling order').toBe(0)
 
     await expect
         .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
@@ -724,8 +853,13 @@ const expectMatrixCellMoveNotSwapWithNewAxesCellDialog = async (page: Page, appl
     await page.keyboard.press('Enter')
     const keyboardMoveResponse = await keyboardMoveRequest
     expect(keyboardMoveResponse.ok()).toBe(true)
-    const keyboardMovePayload = keyboardMoveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
-    expect(keyboardMovePayload.updates?.[0]?.data, 'menu move must not reparent the moved cell').not.toHaveProperty('ParentCellId')
+    const keyboardMovePayload = keyboardMoveResponse.request().postDataJSON() as {
+        updates?: Array<{ placement?: { parentCellId?: string | null }; data?: Record<string, unknown> }>
+    }
+    expect(keyboardMovePayload.updates?.[0]?.data ?? {}, 'Matrix move command must not send server-owned parent data').not.toHaveProperty(
+        'ParentCellId'
+    )
+    expect(keyboardMovePayload.updates?.[0]?.placement, 'menu move must not reparent the moved cell').not.toHaveProperty('parentCellId')
 
     await expect
         .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
@@ -744,9 +878,17 @@ const expectMatrixCellMoveNotSwapWithNewAxesCellDialog = async (page: Page, appl
     await dragMatrixCellByPointer(childDropSource, childDropTarget, 'child', { axis: 'vertical' })
     const childMoveResponse = await childMoveRequest
     expect(childMoveResponse.ok()).toBe(true)
-    const childMovePayload = childMoveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
-    expect(childMovePayload.updates?.[0]?.data?.ParentCellId, 'center drop must reparent the moved cell').toBe(firstChildId)
-    expect(childMovePayload.updates?.[0]?.data?._tp_sort_order, 'first child under a new parent must start at sibling order zero').toBe(0)
+    const childMovePayload = childMoveResponse.request().postDataJSON() as {
+        updates?: Array<{ placement?: { parentCellId?: string | null; sortOrder?: number }; data?: Record<string, unknown> }>
+    }
+    expect(childMovePayload.updates?.[0]?.data ?? {}, 'Matrix move command must not send server-owned parent data').not.toHaveProperty(
+        'ParentCellId'
+    )
+    expect(childMovePayload.updates?.[0]?.data ?? {}, 'Matrix move command must not send server-owned order data').not.toHaveProperty(
+        '_tp_sort_order'
+    )
+    expect(childMovePayload.updates?.[0]?.placement?.parentCellId, 'center drop must reparent the moved cell').toBe(firstChildId)
+    expect(childMovePayload.updates?.[0]?.placement?.sortOrder, 'first child under a new parent must start at sibling order zero').toBe(0)
 
     await expect
         .poll(() => readMatrixRowCellTexts(page), { timeout: 30_000 })
@@ -823,6 +965,7 @@ const expectInterpretationNetworkMatrixSettings = async (page: Page, application
     await page.getByRole('tab', { name: 'Matrix' }).click()
     await expect(page.getByRole('tab', { name: 'Matrix' })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('combobox', { name: 'Matrix mode' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Structure mode' })).toBeVisible()
     await expect(page.getByRole('option', { name: 'Hierarchical cells' })).toHaveCount(0)
     await expectNoTechnicalLeakage(page.getByRole('main'), {
         label: 'Interpretation Network application Matrix settings',
@@ -838,6 +981,106 @@ const expectInterpretationNetworkMatrixSettings = async (page: Page, application
             await expect(page.getByRole('combobox', { name: 'Matrix mode' })).toBeVisible({ timeout: 30_000 })
         }
     })
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto(`/a/${applicationId}/admin/settings`)
+    await expect(page.getByRole('heading', { name: 'Application Settings' })).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('tab', { name: 'Matrix' }).click()
+
+    const structureMode = page.getByRole('combobox', { name: 'Structure mode' })
+    const showNextToMatrix = page.getByRole('checkbox', { name: 'Show next to Matrix' })
+    await expect(structureMode).toContainText('One system structure')
+    await expect(showNextToMatrix).toBeChecked()
+    await structureMode.click()
+    await page.getByRole('option', { name: 'Multiple structures' }).click()
+    await showNextToMatrix.uncheck()
+
+    const overrideResponsePromise = waitForSettledMutationResponse(
+        page,
+        (response) => matchesApplicationLayoutWidgetConfigUpdate(response, applicationId),
+        { label: 'Overriding inherited Interpretation Network settings before reset' }
+    )
+    await page.getByTestId('application-settings-matrix-save').click()
+    const overrideResponse = await overrideResponsePromise
+    expect(overrideResponse.ok(), 'Application Matrix override must succeed before reset').toBe(true)
+    const overridePayload = overrideResponse.request().postDataJSON() as {
+        updates?: Array<{ config?: Record<string, unknown> }>
+    }
+    expect(overridePayload.updates?.length, 'Application Matrix override must update inherited widgets').toBeGreaterThan(0)
+    for (const update of overridePayload.updates ?? []) {
+        expect(update.config).toEqual(
+            expect.objectContaining({
+                structureMode: 'multiple',
+                templatePanel: expect.objectContaining({ showInMatrix: false })
+            })
+        )
+    }
+    await expect(page.getByTestId('application-settings-matrix-reset')).toBeVisible({ timeout: 30_000 })
+
+    await page.reload()
+    await page.getByRole('tab', { name: 'Matrix' }).click()
+    await expect(page.getByRole('combobox', { name: 'Structure mode' })).toContainText('Multiple structures')
+    await expect(page.getByRole('checkbox', { name: 'Show next to Matrix' })).not.toBeChecked()
+
+    await page.goto(`/a/${applicationId}`)
+    await expectInterpretationNetworkStartPage(page)
+    const overriddenNavigation = getVisibleRuntimeNavigation(page)
+    await getRuntimeNavigationItem(overriddenNavigation, 'Structures').click()
+    const overriddenStructurePane = page.getByTestId('interpretation-network-structure-pane')
+    await expect(overriddenStructurePane.getByRole('heading', { name: 'Structures' })).toBeVisible({ timeout: 30_000 })
+    await expect(overriddenStructurePane.getByRole('button', { name: 'Create', exact: true })).toBeVisible()
+    await expect(overriddenStructurePane.getByRole('tab', { name: 'Templates' })).toBeVisible()
+    await expect(overriddenStructurePane.getByRole('tab', { name: 'Matrix' })).toHaveCount(0)
+    await expectNoPageHorizontalOverflow(page, 'Interpretation Network application override runtime')
+
+    await page.goto(`/a/${applicationId}/admin/settings`)
+    await page.getByRole('tab', { name: 'Matrix' }).click()
+    const resetResponsePromise = waitForSettledMutationResponse(
+        page,
+        (response) => matchesApplicationLayoutWidgetConfigReset(response, applicationId),
+        { label: 'Restoring inherited Interpretation Network settings' }
+    )
+    await page.getByTestId('application-settings-matrix-reset').click()
+    const resetResponse = await resetResponsePromise
+    expect(resetResponse.ok(), 'Restoring inherited Interpretation Network settings must succeed').toBe(true)
+    const resetPayload = resetResponse.request().postDataJSON() as {
+        updates?: Array<{ layoutId?: string; widgetId?: string; expectedVersion?: number; config?: unknown }>
+    }
+    expect(resetPayload.updates?.length, 'Reset must include every inherited Interpretation Network widget').toBeGreaterThan(0)
+    for (const update of resetPayload.updates ?? []) {
+        expect(update).toEqual({
+            layoutId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+            widgetId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+            expectedVersion: expect.any(Number)
+        })
+        expect(update.expectedVersion).toBeGreaterThan(0)
+        expect(update).not.toHaveProperty('config')
+    }
+    const resetBody = (await resetResponse.json()) as {
+        items?: Array<{ config?: Record<string, unknown>; sourceConfig?: Record<string, unknown> | null; isCustomized?: boolean }>
+    }
+    expect(resetBody.items?.length, 'Reset response must return restored widgets').toBe(resetPayload.updates?.length)
+    for (const item of resetBody.items ?? []) {
+        expect(item.isCustomized).toBe(false)
+        expect(item.config).toEqual(expect.objectContaining({ structureMode: 'singleSystem' }))
+        expect(item.config?.templatePanel).toEqual(expect.objectContaining({ showInStructureList: true, showInMatrix: true }))
+        expect(item.config).toEqual(item.sourceConfig)
+    }
+    await expect(page.getByText('Metahub settings restored')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('application-settings-matrix-reset')).toHaveCount(0, { timeout: 30_000 })
+
+    await page.reload()
+    await page.getByRole('tab', { name: 'Matrix' }).click()
+    await expect(page.getByRole('combobox', { name: 'Structure mode' })).toContainText('One system structure')
+    await expect(page.getByRole('checkbox', { name: 'Show next to Matrix' })).toBeChecked()
+
+    await page.goto(`/a/${applicationId}`)
+    await expectInterpretationNetworkStartPage(page)
+    const restoredNavigation = getVisibleRuntimeNavigation(page)
+    await getRuntimeNavigationItem(restoredNavigation, 'Structures').click()
+    await expectSingleSystemMatrixWorkspace(page)
+    await expectNoPageHorizontalOverflow(page, 'Restored Interpretation Network metahub settings runtime')
+    await attachRuntimeScreenshot(page, testInfo, 'application-settings-matrix-reset-runtime-desktop-1280')
 }
 
 const expectMetahubAggregateWidgetSettings = async (page: Page, metahubId: string, testInfo: TestInfo): Promise<void> => {
@@ -895,7 +1138,7 @@ const expectApplicationLayoutWidgetSettings = async (page: Page, applicationId: 
         checkUuidSubstrings: true
     })
     await attachRuntimeScreenshot(page, testInfo, 'application-layout-widget-settings-dialog-desktop-1280')
-    await dialog.getByRole('button', { name: 'Close' }).click()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toHaveCount(0)
     await expectNoPageHorizontalOverflow(page, 'Application layout widget settings')
 }
@@ -1147,14 +1390,7 @@ const expectIndependentRowsTableDrop = async (
     const rowDialog = page.getByRole('dialog', { name: 'Add row' })
     await expect(rowDialog).toBeVisible()
     await rowDialog.getByRole('textbox', { name: 'Row name' }).fill('E2E independent target row')
-    const addRowRequest = waitForSettledMutationResponse(
-        page,
-        (response) =>
-            response.request().method() === 'POST' &&
-            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
-            response.url().includes('/tabular/'),
-        { label: 'Creating independent Matrix Table target row' }
-    )
+    const addRowRequest = waitForMatrixCellCreateResponse(page, applicationId, 30_000)
     await rowDialog.getByRole('button', { name: 'Create' }).click()
     expect((await addRowRequest).ok()).toBe(true)
     await expect(rowDialog).toHaveCount(0)
@@ -1174,14 +1410,22 @@ const expectIndependentRowsTableDrop = async (
     await moveSelectedMatrixTableCellToEmptySlotByKeyboard(sourceCell, independentTarget)
     const moveResponse = await moveRequest
     expect(moveResponse.ok()).toBe(true)
-    const movePayload = moveResponse.request().postDataJSON() as { updates?: Array<{ data?: Record<string, unknown> }> }
-    expect(movePayload.updates?.[0]?.data).toEqual(
+    const movePayload = moveResponse.request().postDataJSON() as {
+        updates?: Array<{
+            data?: Record<string, unknown>
+            placement?: { rowKey?: string; colKey?: string; sortOrder?: number }
+        }>
+    }
+    expect(movePayload.updates?.[0]?.placement).toEqual(
         expect.objectContaining({
-            RowKey: expect.any(String),
-            ColKey: expect.any(String),
-            _tp_sort_order: expect.any(Number)
+            rowKey: expect.any(String),
+            colKey: expect.any(String),
+            sortOrder: expect.any(Number)
         })
     )
+    expect(movePayload.updates?.[0]?.data ?? {}).not.toHaveProperty('RowKey')
+    expect(movePayload.updates?.[0]?.data ?? {}).not.toHaveProperty('ColKey')
+    expect(movePayload.updates?.[0]?.data ?? {}).not.toHaveProperty('_tp_sort_order')
     await saveApplicationMatrixViewSettings(page, applicationId, {
         matrixMode: 'Hierarchical cells',
         table: true,
@@ -1358,38 +1602,89 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         const workspaceMenu = getVisibleRuntimeNavigation(page)
         await expect(workspaceMenu.getByRole('link', { name: 'Structures' })).toBeVisible()
         await workspaceMenu.getByRole('link', { name: 'Structures' }).click()
-        await expectEmptyStructuresWorkspace(page)
+        await expectSingleSystemMatrixWorkspace(page)
         await expectStructuresOverlayUsesFullRail(page, testInfo)
         await expectNoPageHorizontalOverflow(page, 'Interpretation Network workspace shell')
         await expectRuntimeUxViewportMatrix(page, 'Interpretation Network workspace shell', {
             beforeEachViewport: async () => {
-                await expectEmptyStructuresWorkspace(page)
+                await expectSingleSystemMatrixWorkspace(page)
             }
         })
 
         const runtimeSections = await expectInterpretationNetworkRuntimeDataReady(api, applicationId)
         await page.setViewportSize({ width: 1280, height: 900 })
-        await expectEmptyStructuresWorkspace(page)
+        await expectSingleSystemMatrixWorkspace(page)
         await expectEqualDesktopPaneWidths(page, 'Empty Interpretation Network workspace')
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.reload()
-        await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('heading', { name: 'Структуры' })).toBeVisible()
+        await expectSingleSystemMatrixWorkspace(page, 'ru')
         await expect(
-            page.getByTestId('interpretation-network-structure-pane').getByRole('textbox', { name: 'Фильтр по названию' })
+            page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Сохранить как шаблон' })
         ).toBeVisible()
-        await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Табличный вид' })).toBeVisible()
-        await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Карточки' })).toBeVisible()
-        await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Создать' })).toBeVisible()
-        await expectEqualDesktopPaneWidths(page, 'RU empty Interpretation Network workspace')
+        await expectEqualDesktopPaneWidths(page, 'RU single-system Interpretation Network workspace')
         await applyBrowserPreferences(page, { language: 'en' })
         await page.reload()
-        await expectEmptyStructuresWorkspace(page)
+        await expectSingleSystemMatrixWorkspace(page)
         const activeWorkspaceId = await getVisibleWorkspaceSwitcher(page).locator('input').inputValue()
         expect(activeWorkspaceId, 'Interpretation Network workspace mutation checks need the active workspace id').toMatch(
             /^[0-9a-f-]{36}$/i
         )
-        await page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Create' }).click()
+        const saveTemplateButton = page
+            .getByTestId('interpretation-network-structure-pane')
+            .getByRole('button', { name: 'Save as template' })
+        await saveTemplateButton.click()
+        const saveTemplateDialog = page.getByRole('dialog', { name: 'Save structure as template' })
+        await expect(saveTemplateDialog).toBeVisible({ timeout: 30_000 })
+        await expect(saveTemplateDialog.getByRole('button', { name: 'Save' })).toBeDisabled()
+        await expectSemanticFieldControls(saveTemplateDialog, { longTextLabels: ['Description'] })
+        await saveTemplateDialog.getByRole('textbox', { name: 'Template name' }).fill('Reusable E2E template')
+        await saveTemplateDialog.getByRole('textbox', { name: 'Description' }).fill('Template created by the browser flow.')
+        await saveTemplateDialog.getByRole('radio', { name: 'Structure and materials' }).check()
+        const saveTemplateRequest = waitForSettledMutationResponse(page, (response) => matchesTemplateSave(response, applicationId), {
+            label: 'Saving Interpretation Network structure template'
+        })
+        await saveTemplateDialog.getByRole('button', { name: 'Save' }).click()
+        expect((await saveTemplateRequest).ok()).toBe(true)
+        await expect(saveTemplateDialog).toHaveCount(0)
+
+        await setInterpretationNetworkStructureMode(api, applicationId, 'multiple')
+        await page.reload()
+        const structurePane = page.getByTestId('interpretation-network-structure-pane')
+        await expect(structurePane.getByRole('heading', { name: 'Structures' })).toBeVisible({ timeout: 30_000 })
+        await expect(structurePane.getByRole('button', { name: 'Create from template' })).toHaveCount(0)
+        await structurePane.getByRole('button', { name: 'Create', exact: true }).click()
+        const createStructureDialog = page.getByRole('dialog', { name: 'Create structure' })
+        await expect(createStructureDialog).toBeVisible({ timeout: 30_000 })
+        await createStructureDialog.getByRole('tab', { name: 'Templates' }).click()
+        await expect(createStructureDialog.getByRole('button', { name: 'Create' })).toBeDisabled()
+        await expectSemanticFieldControls(createStructureDialog, { longTextLabels: ['Description'] })
+        await expect(createStructureDialog.getByRole('combobox', { name: 'Template' })).toContainText('Reusable E2E template')
+        await createStructureDialog.getByRole('textbox', { name: 'Name', exact: true }).fill('E2E structure from template')
+        await createStructureDialog.getByRole('textbox', { name: 'Description' }).fill('Created from a saved template.')
+        const instantiateTemplateRequest = waitForSettledMutationResponse(
+            page,
+            (response) => matchesTemplateInstantiate(response, applicationId),
+            {
+                label: 'Instantiating Interpretation Network structure template'
+            }
+        )
+        await createStructureDialog.getByRole('button', { name: 'Create' }).click()
+        const instantiateTemplateResponse = await instantiateTemplateRequest
+        expect(instantiateTemplateResponse.ok()).toBe(true)
+        await expect(createStructureDialog).toHaveCount(0)
+        await expect(page.getByTestId('interpretation-network-structure-header')).toContainText('E2E structure from template', {
+            timeout: 30_000
+        })
+        await page.getByTestId('interpretation-network-structure-header').getByRole('button', { name: 'Structures' }).click()
+        await expect(structurePane.getByRole('button', { name: 'E2E structure from template', exact: true })).toBeVisible({
+            timeout: 30_000
+        })
+        await expectNoTechnicalLeakage(page.getByRole('main'), {
+            label: 'Interpretation Network template browser flow',
+            checkUuidSubstrings: true
+        })
+
+        await page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Create', exact: true }).click()
         const structureDialog = page.getByRole('dialog', { name: 'Create structure' })
         await expect(structureDialog).toBeVisible({ timeout: 30_000 })
         if ((await structureDialog.getByRole('textbox', { name: 'Description', exact: true }).count()) > 0) {
@@ -1401,18 +1696,35 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         })
         const createStructureRequest = waitForSettledMutationResponse(
             page,
-            (response) => matchesRuntimeRowsCreate(response, applicationId, activeWorkspaceId),
+            (response) => matchesInterpretationNetworkStructureCreate(response, applicationId, activeWorkspaceId),
             { label: 'Creating Interpretation Network structure' }
         )
         await structureDialog.getByRole('button', { name: 'Create' }).click()
         const createStructureResponse = await createStructureRequest
         expect(createStructureResponse.ok()).toBe(true)
-        const createdStructure = (await createStructureResponse.json()) as { id?: string }
-        expect(createdStructure.id, 'created structure id must be returned by runtime create').toMatch(/^[0-9a-f-]{36}$/i)
+        const createdStructure = (await createStructureResponse.json()) as {
+            structureId?: string
+            interpretationId?: string
+            rootCellId?: string
+        }
+        expect(createdStructure.structureId, 'created structure id must be returned by the aggregate command').toMatch(/^[0-9a-f-]{36}$/i)
+        expect(createdStructure.interpretationId, 'created interpretation id must be returned by the aggregate command').toMatch(
+            /^[0-9a-f-]{36}$/i
+        )
+        expect(createdStructure.rootCellId, 'created root CellId must be returned by the aggregate command').toMatch(/^[0-9a-f-]{36}$/i)
+        const createStructurePayload = createStructureResponse.request().postDataJSON() as Record<string, unknown>
+        expect(createStructurePayload).toEqual(
+            expect.objectContaining({
+                name: expect.any(Object),
+                locale: expect.any(String)
+            })
+        )
+        expect(createStructurePayload).not.toHaveProperty('SystemKey')
+        expect(createStructurePayload).not.toHaveProperty('ParentStructure')
+        expect(createStructurePayload).not.toHaveProperty('CellId')
         await expect(structureDialog).toHaveCount(0)
         await expect(page.getByTestId('interpretation-network-structure-header')).toContainText(createdStructureName, { timeout: 30_000 })
         await page.getByTestId('interpretation-network-structure-header').getByRole('button', { name: 'Structures' }).click()
-        const structurePane = page.getByTestId('interpretation-network-structure-pane')
         await structurePane.getByRole('button', { name: `Structure actions: ${createdStructureName}` }).click()
         await page.getByRole('menuitem', { name: 'Edit' }).click()
         const editStructureDialog = page.getByRole('dialog', { name: 'Edit structure' })
@@ -1429,7 +1741,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expect(page).toHaveURL(
             new RegExp(
                 `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.structureSectionId)}/${escapeRegExp(
-                    createdStructure.id ?? ''
+                    createdStructure.structureId ?? ''
                 )}(?:[?#].*)?$`
             )
         )
@@ -1446,14 +1758,19 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             verticalTree: false,
             defaultView: 'Horizontal rows'
         })
-        await expectHorizontalRowsOnlyMatrixRuntime(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
+        await expectHorizontalRowsOnlyMatrixRuntime(
+            page,
+            applicationId,
+            runtimeSections.structureSectionId,
+            createdStructure.structureId ?? ''
+        )
         await saveApplicationMatrixViewSettings(page, applicationId, {
             table: true,
             horizontalRows: true,
             verticalTree: true,
             defaultView: 'Table view'
         })
-        await page.goto(`/a/${applicationId}/${runtimeSections.structureSectionId}/${createdStructure.id ?? ''}`)
+        await page.goto(`/a/${applicationId}/${runtimeSections.structureSectionId}/${createdStructure.structureId ?? ''}`)
         await expectMatrixTableDefaultRuntime(page, { locale: 'en', structureName: createdStructureName, rootOnly: true })
         const matrixDisplayToggle = page
             .getByTestId('interpretation-network-matrix-toolbar')
@@ -1474,7 +1791,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expect(page).toHaveURL(
             new RegExp(
                 `/a/${escapeRegExp(applicationId)}/${escapeRegExp(runtimeSections.structureSectionId)}/${escapeRegExp(
-                    createdStructure.id ?? ''
+                    createdStructure.structureId ?? ''
                 )}(?:[?#].*)?$`
             )
         )
@@ -1500,11 +1817,21 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             defaultView: 'Table view',
             allowNewAxesInCellDialog: true
         })
-        await page.goto(`/a/${applicationId}/${runtimeSections.structureSectionId}/${createdStructure.id ?? ''}`)
+        await page.goto(`/a/${applicationId}/${runtimeSections.structureSectionId}/${createdStructure.structureId ?? ''}`)
         await expectMatrixCellMoveNotSwapWithNewAxesCellDialog(page, applicationId)
-        await expectHierarchicalTableHasNoFreeSlotDrop(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
-        await expectVerticalToolbarAndFiniteBreadcrumbs(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
-        await expectIndependentRowsTableDrop(page, applicationId, runtimeSections.structureSectionId, createdStructure.id ?? '')
+        await expectHierarchicalTableHasNoFreeSlotDrop(
+            page,
+            applicationId,
+            runtimeSections.structureSectionId,
+            createdStructure.structureId ?? ''
+        )
+        await expectVerticalToolbarAndFiniteBreadcrumbs(
+            page,
+            applicationId,
+            runtimeSections.structureSectionId,
+            createdStructure.structureId ?? ''
+        )
+        await expectIndependentRowsTableDrop(page, applicationId, runtimeSections.structureSectionId, createdStructure.structureId ?? '')
         await page.getByRole('button', { name: 'Horizontal rows' }).click()
         await cells.first().click()
         await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toBeVisible()
@@ -1528,7 +1855,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
             page.getByTestId('interpretation-network-details-pane').getByRole('textbox', { name: 'Filter by title' })
         ).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Relations' })).toHaveCount(0)
-        await expect(page.getByRole('tab', { name: 'Templates' })).toHaveCount(0)
+        await expect(page.getByTestId('interpretation-network-details-pane').getByRole('tab', { name: 'Templates' })).toHaveCount(0)
 
         await page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' }).click()
         const materialDialog = page.getByRole('dialog', { name: 'Add material' })
@@ -1540,7 +1867,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         })
         const createMaterialRequest = waitForSettledMutationResponse(
             page,
-            (response) => matchesRuntimeRowsCreate(response, applicationId, activeWorkspaceId),
+            (response) => matchesInterpretationNetworkMaterialCreate(response, applicationId, activeWorkspaceId),
             { label: 'Creating Interpretation Network material' }
         )
         await materialDialog.getByRole('button', { name: 'Create' }).click()

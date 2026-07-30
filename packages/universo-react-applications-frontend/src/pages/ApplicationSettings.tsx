@@ -6,7 +6,9 @@ import {
     RESOURCE_TYPES,
     collectUnsupportedActiveCapabilityRules,
     normalizeInterpretationNetworkMatrixViewSettings,
+    parseInterpretationNetworkStructureMode,
     normalizeInterpretationNetworkSplitPaneSettings,
+    normalizeInterpretationNetworkTemplatePanelSettings,
     normalizeInterpretationNetworkTableSettings,
     sanitizeApplicationLearningContentSettings
 } from '@universo-react/types'
@@ -15,13 +17,12 @@ import type {
     ApplicationLayout,
     ApplicationLayoutWidget,
     ApplicationRolePolicySettings,
-    InterpretationNetworkMatrixMode,
-    InterpretationNetworkMatrixView,
     ResourceType,
     RoleCapabilityRule
 } from '@universo-react/types'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
+import { extractAxiosError } from '@universo-react/utils'
 import {
     TemplateMainCard as MainCard,
     ViewHeaderMUI as ViewHeader,
@@ -38,6 +39,7 @@ import {
     type ApplicationCapabilityKey
 } from './application-settings/SettingsPanels'
 import { MatrixSettingsPanel, type InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
+import { areInterpretationNetworkMatrixSettingsEqual } from './application-layouts/interpretationNetworkWidgetSettings'
 import { ContentSettingsPanel } from './application-settings/ContentSettingsPanel'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
@@ -46,6 +48,7 @@ import {
     listApplicationLayoutScopes,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
+    resetApplicationLayoutWidgetConfigsBatch,
     updateApplication,
     updateApplicationLayoutWidgetConfigsBatch,
     updateApplicationWorkspaceLimits
@@ -229,7 +232,7 @@ const listWritableInterpretationNetworkWidgets = (
     state?: MaterializedApplicationLayoutState
 ): Array<ApplicationLayoutWidget & { layout: ApplicationLayout }> => listInterpretationNetworkWidgets(state)
 
-const parseMatrixMode = (value: unknown): InterpretationNetworkMatrixMode =>
+const parseMatrixMode = (value: unknown): InterpretationNetworkMatrixSettings['matrixMode'] =>
     value === 'independentRows' || value === 'hierarchicalCells' ? value : 'hierarchicalCells'
 
 const parseHierarchyRowMode = (value: unknown): InterpretationNetworkMatrixSettings['hierarchyRowMode'] =>
@@ -251,9 +254,8 @@ const parsePositionNumbering = (value: unknown): InterpretationNetworkMatrixSett
 const parseMatrixSettings = (config: Record<string, unknown> | null | undefined): InterpretationNetworkMatrixSettings => {
     const matrixMode = parseMatrixMode(config?.matrixMode)
     const requestedViews = Array.isArray(config?.allowedMatrixViews) ? config.allowedMatrixViews : undefined
-    const defaultAllowedMatrixViews: InterpretationNetworkMatrixView[] =
-        matrixMode === 'hierarchicalCells' ? ['table', 'horizontalRows', 'verticalTree'] : ['table', 'horizontalRows']
-    const allowedMatrixViews = requestedViews ?? defaultAllowedMatrixViews
+    const defaultAllowedMatrixViews =
+        matrixMode === 'hierarchicalCells' ? (['table', 'horizontalRows', 'verticalTree'] as const) : (['table', 'horizontalRows'] as const)
     const tableSettings = normalizeInterpretationNetworkTableSettings(
         matrixMode,
         config?.tableProjection,
@@ -266,8 +268,13 @@ const parseMatrixSettings = (config: Record<string, unknown> | null | undefined)
     )
 
     return {
+        structureMode: parseInterpretationNetworkStructureMode(config?.structureMode),
         matrixMode,
-        ...normalizeInterpretationNetworkMatrixViewSettings(matrixMode, allowedMatrixViews, config?.defaultMatrixView ?? 'table'),
+        ...normalizeInterpretationNetworkMatrixViewSettings(
+            matrixMode,
+            requestedViews ?? defaultAllowedMatrixViews,
+            config?.defaultMatrixView ?? 'table'
+        ),
         tableProjection: tableSettings.tableProjection,
         breadcrumbDepth: tableSettings.breadcrumbDepth,
         toolbarLayout: tableSettings.toolbarLayout,
@@ -278,7 +285,8 @@ const parseMatrixSettings = (config: Record<string, unknown> | null | undefined)
         hierarchyRowMode: parseHierarchyRowMode(config?.hierarchyRowMode),
         positionNumbering: parsePositionNumbering(config?.positionNumbering),
         allowNewAxesInCellDialog: config?.allowNewAxesInCellDialog === true,
-        splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane)
+        splitPane: normalizeInterpretationNetworkSplitPaneSettings(config?.splitPane),
+        templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(config?.templatePanel)
     }
 }
 
@@ -291,6 +299,7 @@ const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
     'visibleFor',
     'sharedBehavior',
     'serverModuleCodename',
+    'structureMode',
     'matrixMode',
     'allowedMatrixViews',
     'defaultMatrixView',
@@ -305,6 +314,7 @@ const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
     'positionNumbering',
     'allowNewAxesInCellDialog',
     'splitPane',
+    'templatePanel',
     'conceptCodename',
     'conceptNameField',
     'conceptDescriptionField',
@@ -327,27 +337,6 @@ const sanitizeWidgetConfigForSave = (config: Record<string, unknown> | null | un
     )
 }
 
-const areMatrixSettingsEqual = (left: InterpretationNetworkMatrixSettings, right: InterpretationNetworkMatrixSettings): boolean =>
-    left.matrixMode === right.matrixMode &&
-    left.allowedMatrixViews.length === right.allowedMatrixViews.length &&
-    left.allowedMatrixViews.every((view, index) => view === right.allowedMatrixViews[index]) &&
-    left.defaultMatrixView === right.defaultMatrixView &&
-    left.tableProjection === right.tableProjection &&
-    left.breadcrumbDepth.mode === right.breadcrumbDepth.mode &&
-    (left.breadcrumbDepth.mode !== 'last' ||
-        (right.breadcrumbDepth.mode === 'last' && left.breadcrumbDepth.count === right.breadcrumbDepth.count)) &&
-    left.toolbarLayout === right.toolbarLayout &&
-    left.showHierarchicalTableHeaders === right.showHierarchicalTableHeaders &&
-    left.showHierarchicalTableHeaderCard === right.showHierarchicalTableHeaderCard &&
-    left.showMatrixTreeTotalCells === right.showMatrixTreeTotalCells &&
-    left.colorBreadcrumbsByCell === right.colorBreadcrumbsByCell &&
-    left.hierarchyRowMode === right.hierarchyRowMode &&
-    left.allowNewAxesInCellDialog === right.allowNewAxesInCellDialog &&
-    left.splitPane.enabled === right.splitPane.enabled &&
-    left.positionNumbering.enabled === right.positionNumbering.enabled &&
-    left.positionNumbering.includeRoot === right.positionNumbering.includeRoot &&
-    left.positionNumbering.startIndex === right.positionNumbering.startIndex
-
 const normalizeMatrixSettingsForSave = (settings: InterpretationNetworkMatrixSettings): InterpretationNetworkMatrixSettings => {
     const viewSettings = normalizeInterpretationNetworkMatrixViewSettings(
         settings.matrixMode,
@@ -368,7 +357,9 @@ const normalizeMatrixSettingsForSave = (settings: InterpretationNetworkMatrixSet
     return {
         ...settings,
         ...viewSettings,
-        ...tableSettings
+        ...tableSettings,
+        splitPane: normalizeInterpretationNetworkSplitPaneSettings(settings.splitPane),
+        templatePanel: normalizeInterpretationNetworkTemplatePanelSettings(settings.templatePanel)
     }
 }
 
@@ -490,6 +481,7 @@ const ApplicationSettings = () => {
                     widgetId: widget.id,
                     config: {
                         ...sanitizeWidgetConfigForSave(widget.config),
+                        structureMode: normalizedSettings.structureMode,
                         matrixMode: normalizedSettings.matrixMode,
                         allowedMatrixViews: normalizedSettings.allowedMatrixViews,
                         defaultMatrixView: normalizedSettings.defaultMatrixView,
@@ -503,7 +495,8 @@ const ApplicationSettings = () => {
                         hierarchyRowMode: normalizedSettings.hierarchyRowMode,
                         positionNumbering: normalizedSettings.positionNumbering,
                         allowNewAxesInCellDialog: normalizedSettings.allowNewAxesInCellDialog,
-                        splitPane: normalizedSettings.splitPane
+                        splitPane: normalizedSettings.splitPane,
+                        templatePanel: normalizedSettings.templatePanel
                     },
                     ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
                 }))
@@ -547,7 +540,8 @@ const ApplicationSettings = () => {
                                                 hierarchyRowMode: savedSettings.hierarchyRowMode,
                                                 positionNumbering: savedSettings.positionNumbering,
                                                 allowNewAxesInCellDialog: savedSettings.allowNewAxesInCellDialog,
-                                                splitPane: savedSettings.splitPane
+                                                splitPane: savedSettings.splitPane,
+                                                templatePanel: savedSettings.templatePanel
                                             },
                                             layout: widget.layout
                                         }
@@ -561,10 +555,74 @@ const ApplicationSettings = () => {
             await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
             enqueueSnackbar(t('settings.matrix.saved', 'Matrix settings saved'), { variant: 'success' })
         },
-        onError: async () => {
+        onError: async (error: unknown) => {
             setMatrixSettingsOverride(null)
             await materializedLayoutsQuery.refetch({ throwOnError: false }).catch(() => undefined)
-            enqueueSnackbar(t('settings.matrix.saveError', 'Failed to save matrix settings'), { variant: 'error' })
+            const apiError = extractAxiosError(error)
+            const message =
+                apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
+                    ? t(
+                          'settings.matrix.singleSystemStructuresExist',
+                          'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.'
+                      )
+                    : apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+                    ? t(
+                          'settings.matrix.singleSystemMetadataMissing',
+                          'Single-system mode cannot be enabled because the Structure metadata is incomplete.'
+                      )
+                    : t('settings.matrix.saveError', 'Failed to save matrix settings')
+            enqueueSnackbar(message, { variant: 'error' })
+        }
+    })
+
+    const resetMatrixMutation = useMutation({
+        mutationKey: ['applications', 'settings', 'matrix', 'reset'],
+        mutationFn: async () => {
+            const widgets = listWritableInterpretationNetworkWidgets(materializedLayoutState).filter(
+                (widget) => widget.sourceConfig !== null
+            )
+            if (widgets.length === 0) {
+                throw new Error(t('settings.matrix.resetUnavailable', 'No inherited metahub settings are available.'))
+            }
+            return resetApplicationLayoutWidgetConfigsBatch(applicationId!, {
+                updates: widgets.map((widget) => ({
+                    layoutId: widget.layout.id,
+                    widgetId: widget.id,
+                    ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
+                }))
+            })
+        },
+        onSuccess: async () => {
+            if (!applicationId) return
+            setMatrixSettingsOverride(null)
+            await queryClient.invalidateQueries({ queryKey: ['applications', applicationId, 'settings', 'materialized-layouts'] })
+            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.layouts(applicationId) })
+            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(applicationId) })
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspace'] })
+            await queryClient.invalidateQueries({ queryKey: ['interpretationNetworkWorkspaceMatrix'] })
+            enqueueSnackbar(t('settings.matrix.resetSuccess', 'Metahub settings restored'), { variant: 'success' })
+        },
+        onError: async (error: unknown) => {
+            await materializedLayoutsQuery.refetch({ throwOnError: false }).catch(() => undefined)
+            const apiError = extractAxiosError(error)
+            const message =
+                apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
+                    ? t(
+                          'settings.matrix.singleSystemStructuresExist',
+                          'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.'
+                      )
+                    : apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+                    ? t(
+                          'settings.matrix.singleSystemMetadataMissing',
+                          'Single-system mode cannot be enabled because the Structure metadata is incomplete.'
+                      )
+                    : apiError.message === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'
+                    ? t(
+                          'settings.matrix.resetConflict',
+                          'Matrix settings changed while you were editing. Reload the current values and try again.'
+                      )
+                    : t('settings.matrix.resetError', 'Failed to restore metahub settings')
+            enqueueSnackbar(message, { variant: 'error' })
         }
     })
 
@@ -595,7 +653,7 @@ const ApplicationSettings = () => {
     const matrixWidgetSettings = parseMatrixSettings(matrixWidget?.config)
     const hasDivergentMatrixSettings = matrixWidgets
         .slice(1)
-        .some((widget) => !areMatrixSettingsEqual(matrixWidgetSettings, parseMatrixSettings(widget.config)))
+        .some((widget) => !areInterpretationNetworkMatrixSettingsEqual(matrixWidgetSettings, parseMatrixSettings(widget.config)))
     const matrixWidgetIdentity = matrixWidget ? `${matrixWidget.layout.id}:${matrixWidget.id}:${matrixWidget.version ?? 'unknown'}` : null
     const matrixSettings = matrixSettingsOverride ?? matrixWidgetSettings
     const shouldStripHiddenLearningContent = materializedLayoutsQuery.isSuccess && !hasLearningContentCapability
@@ -796,6 +854,9 @@ const ApplicationSettings = () => {
                         hasDivergentSettings={hasDivergentMatrixSettings}
                         isSaving={saveMatrixMutation.isPending}
                         onSave={(settings) => saveMatrixMutation.mutate(settings)}
+                        showResetButton={matrixWidgets.some((widget) => widget.isCustomized && widget.sourceConfig !== null)}
+                        isResetting={resetMatrixMutation.isPending}
+                        onReset={() => resetMatrixMutation.mutate()}
                     />
                 ) : activeTab === 'learningContent' && hasLearningContentCapability ? (
                     <ContentSettingsPanel

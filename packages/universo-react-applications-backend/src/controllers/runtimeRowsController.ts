@@ -33,15 +33,21 @@ import {
 import { generateChildTableName } from '@universo-react/schema-ddl'
 import { getObjectWorkspaceLimit, getObjectWorkspaceUsage, enforceObjectWorkspaceLimit } from '../services/applicationWorkspaces'
 import {
+    dispatchRuntimeLifecycle,
+    dispatchRuntimeLifecycleAfterCommit,
+    type RuntimeLifecycleDispatchRequest
+} from '../services/runtimeLifecycleDispatch'
+import {
     assertRuntimeRecordMutable,
     isRuntimeRecordBehaviorEnabled,
     normalizeRuntimeRecordBehavior,
     RuntimeRecordCommandService
 } from '../services/runtimeRecordBehavior'
-import { RuntimeModulesService } from '../services/runtimeModulesService'
 import { RuntimePostingMovementService } from '../services/runtimePostingMovements'
 import { applyWorkflowAction, type WorkflowStatusValueMap } from '../services/runtimeWorkflowActions'
 import type { RolePermission } from '../routes/guards'
+import { INTERPRETATION_NETWORK_WIDGET_KEY, SYSTEM_STRUCTURE_KEY } from '../services/interpretationNetwork/runtimeInterpretationNetworkCore'
+import { resolveInterpretationNetworkRuntimeSurface } from '../services/interpretationNetwork/runtimeInterpretationNetworkSurface'
 import {
     UpdateFailure,
     IDENTIFIER_REGEX,
@@ -84,6 +90,7 @@ import {
     ensureRuntimePermission,
     type RuntimeDataType,
     type RuntimeRefOption,
+    type RuntimeSchemaContext,
     type RuntimeTableChildComponentMeta,
     type SetConstantUiConfig
 } from '../shared/runtimeHelpers'
@@ -625,6 +632,148 @@ const readRuntimeAttrStringValue = (row: Record<string, unknown>, attr: RuntimeO
     if (!attr) return null
     const value = row[attr.column_name] ?? row[resolveRuntimeCodenameText(attr.codename)]
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+const isRuntimeServerOwnedAttr = (attr: { ui_config?: Record<string, unknown> | null }): boolean => attr.ui_config?.serverOwned === true
+
+const findRuntimeSystemKeyAttr = (
+    attrs: Array<{ codename: unknown; column_name: string; ui_config?: Record<string, unknown> | null }>
+): { column_name: string } | undefined =>
+    attrs.find((attr) => attr.codename === 'SystemKey' && IDENTIFIER_REGEX.test(attr.column_name) && isRuntimeServerOwnedAttr(attr))
+
+const assertNotProtectedSystemStructureRuntimeRow = async (
+    manager: DbExecutor,
+    ctx: Pick<RuntimeSchemaContext, 'schemaName' | 'schemaIdent' | 'currentWorkspaceId'>,
+    applicationId: string,
+    objectCollectionId: string,
+    attrs: Array<{ codename: unknown; column_name: string; ui_config?: Record<string, unknown> | null }>,
+    row: Record<string, unknown>
+): Promise<void> => {
+    const systemKeyAttr = findRuntimeSystemKeyAttr(attrs)
+    const surface = await resolveInterpretationNetworkRuntimeSurface(manager, {
+        applicationId,
+        schemaName: ctx.schemaName,
+        workspaceId: ctx.currentWorkspaceId
+    })
+    if (surface.featureState === 'ambiguous-widget') {
+        throw new UpdateFailure(409, {
+            error: 'Interpretation Network runtime widget context is ambiguous',
+            code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
+        })
+    }
+    if (surface.featureState !== 'ready' || surface.structureMode !== 'singleSystem') return
+    if (surface.resolvedObjects.Structure === objectCollectionId) {
+        if (!systemKeyAttr || String(row[systemKeyAttr.column_name] ?? '').trim() !== SYSTEM_STRUCTURE_KEY) return
+        throw new UpdateFailure(409, {
+            error: 'System Structure is managed by Interpretation Network single-structure mode',
+            code: 'INTERPRETATION_NETWORK_SYSTEM_STRUCTURE_IMMUTABLE'
+        })
+    }
+    if (surface.resolvedObjects.Interpretation !== objectCollectionId) return
+
+    const parentStructureAttr = attrs.find((attr) => attr.codename === 'ParentStructure' && IDENTIFIER_REGEX.test(attr.column_name))
+    const structureId = parentStructureAttr ? String(row[parentStructureAttr.column_name] ?? '').trim() : ''
+    const structureContract = 'contracts' in surface ? surface.contracts.Structure : undefined
+    const structureKeyAttr = structureContract
+        ? Object.values(structureContract.fields).find((field) => field.codename === 'SystemKey')
+        : undefined
+    if (!structureId || !structureKeyAttr || !IDENTIFIER_REGEX.test(structureKeyAttr.column_name)) return
+    const structureRows = await manager.query<Record<string, unknown>>(
+        `
+        SELECT ${quoteIdentifier(structureKeyAttr.column_name)}
+        FROM ${ctx.schemaIdent}.${quoteIdentifier(structureContract!.object.table_name)}
+        WHERE id = $1
+          AND _upl_deleted = false
+          AND _app_deleted = false
+          ${ctx.currentWorkspaceId ? 'AND workspace_id = $2' : ''}
+        LIMIT 1
+        `,
+        ctx.currentWorkspaceId ? [structureId, ctx.currentWorkspaceId] : [structureId]
+    )
+    if (String(structureRows[0]?.[structureKeyAttr.column_name] ?? '').trim() !== SYSTEM_STRUCTURE_KEY) return
+    throw new UpdateFailure(409, {
+        error: 'System Interpretation is managed by Interpretation Network single-structure mode',
+        code: 'INTERPRETATION_NETWORK_SYSTEM_INTERPRETATION_IMMUTABLE'
+    })
+}
+
+const assertInterpretationNetworkGenericCreateAllowed = async (
+    manager: DbExecutor,
+    ctx: Pick<RuntimeSchemaContext, 'schemaName' | 'currentWorkspaceId'>,
+    applicationId: string,
+    objectCollectionId: string
+): Promise<void> => {
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${ctx.schemaName}:interpretation-network:structure-mode`])
+    const protectedRows = await manager.query<{ protected: boolean }>(
+        `
+        SELECT EXISTS (
+            SELECT 1
+            FROM ${quoteIdentifier(ctx.schemaName)}._app_widgets widget
+            INNER JOIN ${quoteIdentifier(ctx.schemaName)}._app_layouts layout ON layout.id = widget.layout_id
+            INNER JOIN ${quoteIdentifier(ctx.schemaName)}._app_objects object_row ON object_row.id = $1
+            WHERE widget.widget_key = $2
+              AND widget.config->>'structureMode' = 'singleSystem'
+              AND widget.is_active = true
+              AND widget._upl_deleted = false
+              AND widget._app_deleted = false
+              AND layout.is_active = true
+              AND layout._upl_deleted = false
+              AND layout._app_deleted = false
+              AND object_row._upl_deleted = false
+              AND object_row._app_deleted = false
+              AND ${runtimeCodenameTextSql('object_row.codename')} IN (
+                  COALESCE(NULLIF(widget.config->>'conceptCodename', ''), 'Structure'),
+                  COALESCE(NULLIF(widget.config->>'interpretationCodename', ''), 'Interpretation')
+              )
+        ) AS protected
+        `,
+        [objectCollectionId, INTERPRETATION_NETWORK_WIDGET_KEY]
+    )
+    if (protectedRows[0]?.protected !== true) return
+    throw new UpdateFailure(409, {
+        error: 'Structure aggregates are managed by Interpretation Network single-structure mode',
+        code: 'INTERPRETATION_NETWORK_GENERIC_CREATE_FORBIDDEN'
+    })
+}
+
+const assertInterpretationNetworkGenericCopyAllowed = async (
+    manager: DbExecutor,
+    ctx: Pick<RuntimeSchemaContext, 'schemaName' | 'currentWorkspaceId'>,
+    applicationId: string,
+    objectCollectionId: string
+): Promise<void> => {
+    const surface = await resolveInterpretationNetworkRuntimeSurface(manager, {
+        applicationId,
+        schemaName: ctx.schemaName,
+        workspaceId: ctx.currentWorkspaceId
+    })
+    if (surface.featureState === 'ambiguous-widget') {
+        throw new UpdateFailure(409, {
+            error: 'Interpretation Network runtime widget context is ambiguous',
+            code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
+        })
+    }
+    if (surface.featureState !== 'ready' || !Object.values(surface.resolvedObjects).includes(objectCollectionId)) return
+    throw new UpdateFailure(409, {
+        error: 'Interpretation Network aggregates must be copied with dedicated commands',
+        code: 'INTERPRETATION_NETWORK_GENERIC_COPY_FORBIDDEN'
+    })
+}
+
+const hasRuntimeServerOwnedInput = (
+    data: Record<string, unknown>,
+    attr: { column_name: string; codename: unknown; ui_config?: Record<string, unknown> | null }
+): boolean => isRuntimeServerOwnedAttr(attr) && getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
+
+const rejectRuntimeServerOwnedInput = (
+    res: Response,
+    data: Record<string, unknown>,
+    attr: { column_name: string; codename: unknown; ui_config?: Record<string, unknown> | null },
+    fieldPath?: string
+): boolean => {
+    if (!hasRuntimeServerOwnedInput(data, attr)) return false
+    res.status(400).json({ error: `Field is server-owned: ${fieldPath ?? formatRuntimeFieldLabel(attr.codename)}` })
+    return true
 }
 
 const readRuntimeDateOrderRules = (config: Record<string, unknown> | null | undefined): RuntimeDateOrderRule[] => {
@@ -4198,69 +4347,9 @@ const collectTouchedComponentIds = (
     return [...touched]
 }
 
-const dispatchRuntimeLifecycle = async (params: {
-    manager: DbExecutor
-    applicationId: string
-    schemaName: string
-    objectCollection: { id: string; codename: unknown }
-    currentWorkspaceId?: string | null
-    currentUserId?: string | null
-    permissions?: Record<RolePermission, boolean>
-    componentIds?: string[]
-    payload: {
-        eventName:
-            | 'beforeCreate'
-            | 'afterCreate'
-            | 'beforeUpdate'
-            | 'afterUpdate'
-            | 'beforeDelete'
-            | 'afterDelete'
-            | 'beforeCopy'
-            | 'afterCopy'
-            | 'beforePost'
-            | 'afterPost'
-            | 'beforeUnpost'
-            | 'afterUnpost'
-            | 'beforeVoid'
-            | 'afterVoid'
-        row?: Record<string, unknown> | null
-        previousRow?: Record<string, unknown> | null
-        patch?: Record<string, unknown> | null
-        metadata?: Record<string, unknown>
-    }
-}): Promise<unknown[]> => {
-    const modulesService = new RuntimeModulesService()
-
-    return modulesService.dispatchLifecycleEvent({
-        executor: params.manager,
-        applicationId: params.applicationId,
-        schemaName: params.schemaName,
-        attachmentKind: 'object',
-        attachmentId: params.objectCollection.id,
-        entityCodename: resolveRuntimeCodenameText(params.objectCollection.codename),
-        currentWorkspaceId: params.currentWorkspaceId ?? null,
-        currentUserId: params.currentUserId ?? null,
-        permissions: params.permissions ?? null,
-        componentIds: params.componentIds,
-        payload: params.payload
-    })
-}
-
-type RuntimeLifecycleDispatchRequest = Omit<Parameters<typeof dispatchRuntimeLifecycle>[0], 'manager'>
 type RuntimePostingMovementWriteResult = {
     postingMovements: Array<{ ledgerCodename: string; facts: Array<{ id: string; idempotent?: boolean }> }>
     postingReversals: Array<{ ledgerCodename: string; facts: Array<{ id: string }> }>
-}
-
-const dispatchRuntimeLifecycleAfterCommit = (manager: DbExecutor, request: RuntimeLifecycleDispatchRequest | null) => {
-    if (!request) return
-
-    void dispatchRuntimeLifecycle({
-        manager,
-        ...request
-    }).catch((error) => {
-        console.error(`[runtimeRowsController] ${request.payload.eventName} lifecycle hook failed`, error)
-    })
 }
 
 // ---------------------------------------------------------------------------
@@ -4960,6 +5049,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         // Zone widgets for runtime UI (sidebar + center composition).
         type ZoneWidgetItem = {
             id: string
+            layoutId: string
             widgetKey: string
             sortOrder: number
             config: Record<string, unknown>
@@ -4985,7 +5075,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (zoneWidgetsExists && selectedLayout.layoutId) {
                 const widgetRows = (await manager.query(
                     `
-              SELECT id, widget_key, sort_order, config, zone
+              SELECT id, layout_id, widget_key, sort_order, config, zone
               FROM ${schemaIdent}._app_widgets
               WHERE layout_id = $1
                 AND zone IN ('left', 'right', 'center')
@@ -4997,6 +5087,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     [selectedLayout.layoutId]
                 )) as Array<{
                     id: string
+                    layout_id: string
                     widget_key: string
                     sort_order: number
                     config: Record<string, unknown> | null
@@ -5006,6 +5097,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 for (const row of widgetRows) {
                     const mapped = {
                         id: row.id,
+                        layoutId: row.layout_id,
                         widgetKey: row.widget_key,
                         sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
                         config: row.config && typeof row.config === 'object' ? row.config : {}
@@ -5660,6 +5752,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const cmp = attrs.find((a) => a.column_name === field)
         if (!cmp) return res.status(404).json({ error: 'Component not found' })
+        if (isRuntimeServerOwnedAttr(cmp)) {
+            return res.status(400).json({
+                error: `Field is server-owned: ${formatRuntimeFieldLabel(cmp.codename)}`
+            })
+        }
         if (!RUNTIME_WRITABLE_TYPES.has(cmp.data_type)) {
             return res.status(400).json({
                 error: `Field type ${cmp.data_type} is not editable`
@@ -5753,6 +5850,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 if (previousRow._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Record is locked' })
                 }
+                await assertNotProtectedSystemStructureRuntimeRow(txManager, ctx, applicationId, objectCollection.id, attrs, previousRow)
                 assertRuntimeRecordMutable(objectCollection.config, previousRow)
 
                 const referenceValidationError = await validateRuntimeRecordPickerReferences({
@@ -5963,6 +6061,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             const attrLabel = formatRuntimeFieldLabel(cmp.codename)
             const { value: raw } = getRuntimeInputValue(data, cmp.column_name, cmp.codename)
             if (raw === undefined) continue
+            if (rejectRuntimeServerOwnedInput(res, data, cmp, attrLabel)) return
             let normalizedRaw = raw
 
             if (
@@ -6092,6 +6191,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
 
                     const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
+                    if (rejectRuntimeServerOwnedInput(res, rowData, cAttr, childFieldPath)) return
                     const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationKind(cAttr.target_object_kind)
                     const { hasUserValue: hasChildUserValue, value: childInputValue } = getRuntimeInputValue(
                         rowData,
@@ -6395,6 +6495,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         error: 'Record is locked'
                     })
                 }
+                await assertNotProtectedSystemStructureRuntimeRow(txManager, ctx, applicationId, objectCollection.id, attrs, previousRow)
                 assertRuntimeRecordMutable(objectCollection.config, previousRow)
 
                 const referenceValidationError = await validateRuntimeRecordPickerReferences({
@@ -6530,8 +6631,18 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         // Build column→value pairs from input data
         const columnValues: Array<{ column: string; value: unknown }> = []
         const safeAttrs = attrs.filter(
-            (a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type) && a.data_type !== 'TABLE'
+            (a) =>
+                IDENTIFIER_REGEX.test(a.column_name) &&
+                RUNTIME_WRITABLE_TYPES.has(a.data_type) &&
+                a.data_type !== 'TABLE' &&
+                !isRuntimeServerOwnedAttr(a)
         )
+        const serverOwnedInputAttr = attrs.find((attr) => hasRuntimeServerOwnedInput(data, attr))
+        if (serverOwnedInputAttr) {
+            return res.status(400).json({
+                error: `Field is server-owned: ${formatRuntimeFieldLabel(serverOwnedInputAttr.codename)}`
+            })
+        }
 
         for (const cmp of safeAttrs) {
             const attrLabel = formatRuntimeFieldLabel(cmp.codename)
@@ -6785,6 +6896,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     for (const cAttr of childAttrsResult) {
                         if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
                         const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
+                        if (rejectRuntimeServerOwnedInput(res, rowData, cAttr, childFieldPath)) return
                         const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationKind(cAttr.target_object_kind)
                         const { hasUserValue, value: childInputValue } = getRuntimeInputValue(rowData, cAttr.column_name, cAttr.codename)
                         let cRaw = childInputValue
@@ -6896,6 +7008,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         let afterCreateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performCreate = async (mgr: DbExecutor): Promise<string> => {
+            await assertInterpretationNetworkGenericCreateAllowed(mgr, ctx, applicationId, objectCollection.id)
             if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
                 const limitState = await enforceObjectWorkspaceLimit(mgr, {
                     schemaName: ctx.schemaName,
@@ -7141,6 +7254,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (sourceRows.length === 0) return res.status(404).json({ error: 'Row not found' })
         if (sourceRows[0]._upl_locked) return res.status(423).json({ error: 'Record is locked' })
         const sourceRow = sourceRows[0]
+        try {
+            await assertNotProtectedSystemStructureRuntimeRow(ctx.manager, ctx, applicationId, objectCollection.id, attrs, sourceRow)
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                return res.status(error.statusCode).json(error.body)
+            }
+            throw error
+        }
         if (parsedBody.data.expectedVersion !== undefined) {
             const actualVersion = Number(sourceRow._upl_version ?? 1)
             if (actualVersion !== parsedBody.data.expectedVersion) {
@@ -7172,6 +7293,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
         if (Object.keys(copyOverrideData).length > 0) {
+            const serverOwnedOverrideAttr = nonTableAttrs.find((attr) => hasRuntimeServerOwnedInput(copyOverrideData, attr))
+            if (serverOwnedOverrideAttr) {
+                return res.status(400).json({
+                    error: `Field is server-owned: ${formatRuntimeFieldLabel(serverOwnedOverrideAttr.codename)}`
+                })
+            }
             for (const cmp of nonTableAttrs) {
                 const attrLabel = formatRuntimeFieldLabel(cmp.codename)
                 const { hasUserValue, value: inputValue } = getRuntimeInputValue(copyOverrideData, cmp.column_name, cmp.codename)
@@ -7323,6 +7450,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         let afterCopyLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performCopy = async (mgr: DbExecutor) => {
+            await assertInterpretationNetworkGenericCreateAllowed(mgr, ctx, applicationId, objectCollection.id)
+            await assertInterpretationNetworkGenericCopyAllowed(mgr, ctx, applicationId, objectCollection.id)
             const transactionalSourceValues: unknown[] = [rowId]
             const transactionalSourceAccessClause = await buildRuntimeRecordAccessClause({
                 manager: mgr,
@@ -7357,6 +7486,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (transactionalSourceRow._upl_locked) {
                 throw new UpdateFailure(423, { error: 'Record is locked' })
             }
+            await assertNotProtectedSystemStructureRuntimeRow(mgr, ctx, applicationId, objectCollection.id, attrs, transactionalSourceRow)
             if (parsedBody.data.expectedVersion !== undefined) {
                 const actualVersion = Number(transactionalSourceRow._upl_version ?? 1)
                 if (actualVersion !== parsedBody.data.expectedVersion) {
@@ -7446,7 +7576,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                     const childAttrs = (await mgr.query(
                         `
-              SELECT codename, column_name, data_type, validation_rules
+              SELECT codename, column_name, data_type, validation_rules, ui_config
               FROM ${ctx.schemaIdent}._app_components
               WHERE parent_component_id = $1
                 AND _upl_deleted = false
@@ -7459,9 +7589,13 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         column_name: string
                         data_type?: string | null
                         validation_rules?: Record<string, unknown>
+                        ui_config?: Record<string, unknown> | null
                     }>
 
-                    const validChildColumns = childAttrs.map((cmp) => cmp.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
+                    const validChildColumns = childAttrs
+                        .filter((cmp) => !isRuntimeServerOwnedAttr(cmp))
+                        .map((cmp) => cmp.column_name)
+                        .filter((column) => IDENTIFIER_REGEX.test(column))
                     const childAttrsByColumn = new Map(childAttrs.map((cmp) => [cmp.column_name, cmp]))
                     const sourceChildRows = (await mgr.query(
                         `
@@ -8047,6 +8181,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     error: 'Record is locked'
                 })
             }
+            await assertNotProtectedSystemStructureRuntimeRow(mgr, ctx, applicationId, objectCollection.id, attrs, sourceRow)
             if (expectedVersion !== undefined) {
                 const actualVersion = Number(sourceRow._upl_version ?? 1)
                 if (actualVersion !== expectedVersion) {
@@ -8234,6 +8369,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         try {
             await ctx.manager.transaction(async (txManager) => {
+                await assertInterpretationNetworkGenericCreateAllowed(txManager, ctx, applicationId, objectCollection.id)
                 const sourceValues: unknown[] = [rowId]
                 const sourceAccessClause = await buildRuntimeRecordAccessClause({
                     manager: txManager,
@@ -8272,6 +8408,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         error: 'Record is locked'
                     })
                 }
+                await assertNotProtectedSystemStructureRuntimeRow(txManager, ctx, applicationId, objectCollection.id, attrs, sourceRow)
                 if (parsedBody.data.expectedVersion !== undefined) {
                     const actualVersion = Number(sourceRow._upl_version ?? 1)
                     if (actualVersion !== parsedBody.data.expectedVersion) {

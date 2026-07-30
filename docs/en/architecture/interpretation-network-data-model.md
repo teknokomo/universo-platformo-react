@@ -13,6 +13,8 @@ Stage 1 ships the runtime model directly in the product fixture and in the works
 -   `Context` and `RelationType` enumerations define interpretation context and relation labels.
 -   `TableTemplate` workspace records let users create or copy reusable matrix structures inside the published app.
 
+`Structure.SystemKey` is a hidden, server-owned field. It is used only by the runtime aggregate command that ensures the single system Structure for deployments configured with `structureMode: "singleSystem"`. It is not shown in the Structure list, cards, dialogs, exported user-facing labels, or normal matrix screens.
+
 ## Cell attributes
 
 Each Interpretation Matrix cell uses flat fields rather than nested JSON:
@@ -36,6 +38,8 @@ Metadata declares this semantic validation through `validationRules.format: 'hex
 
 The runtime cell dialog lets users name the row, column, and cell and enter the optional multiline description. Creating a cell in an existing row may inherit its row label; creating a row in an existing column may inherit its column label. The user can change inherited labels before saving. Placeholder text such as “New row” or “New cell” is never persisted as authored content.
 
+Cell creation and movement use dedicated transactional Interpretation Network commands rather than generic TABLE-child insertion or batch movement. The browser submits user-authored cell fields plus a logical `placement` intent. The server generates `CellId`, resolves and validates the parent and axis keys, applies sibling order, validates the complete Matrix for duplicate IDs, duplicate intersections, missing parents, and cycles, and then persists the result atomically. A stale `expectedVersion` or invalid Matrix state fails closed with HTTP `409`; the generic child-row API continues to reject these server-owned fields.
+
 The default `interpretationNetworkWorkspace` widget config uses `matrixMode: "hierarchicalCells"`. In this mode the first cell created with a Structure is `Universe` / `Вселенная`, and all following cells can participate in the parent/child hierarchy. The `independentRows` mode keeps an explicit row/column presentation for configurations that choose it.
 
 ## Matrix display settings
@@ -52,10 +56,13 @@ Matrix display settings are widget configuration, not cell data:
 -   `showHierarchicalTableHeaderCard` defaults to `true`, keeping the focused parent cell as a separated context card above the row table before it moves into breadcrumbs.
 -   `colorBreadcrumbsByCell` defaults to `true`, so breadcrumb boxes use the same configured fill as their source cells and use a separate hover/focus treatment for navigation feedback.
 -   `splitPane` has only `{ enabled: boolean }`. It controls whether desktop users may resize the Structure and Materials panes. The template default is enabled; no ratio is persisted.
+-   `structureMode` controls Structure navigation. `multiple` shows the Structure list first. `singleSystem` creates or reuses one hidden system Structure and opens the Matrix directly when the user chooses the Structures workspace action.
 
 The authoritative schema and normalizers live in `@universo-react/types` (`common/applicationLayouts`). Matrix views are alternative presentations of one Matrix, not separate Matrix and Table features. At least one view is required, duplicates are invalid, and the default must be allowed. `verticalTree` requires `hierarchicalCells`; `table` and `horizontalRows` also support `independentRows`. The template seeds canonical settings at the metahub layer; the Application control panel may override them for the deployed instance; workspace users switch among allowed views and temporarily resize panes while authoring content.
 
 These fields do not require a database migration, a new entity preset, or a metahub template version bump.
+
+Materialized application widgets keep the current metahub widget configuration separately in `_app_widgets.source_config`. Application overrides change only the effective `config`. Every metahub refresh updates `source_config` to the latest published value while preserving a local override; an atomic reset then copies that current source into `config` with optimistic-version and single-system invariant checks. If the source widget is removed, `source_config` becomes `null` and reset is unavailable instead of restoring a stale baseline. Workspaces do not add another override layer.
 
 ## UI contract
 
@@ -65,13 +72,17 @@ The localized Structure edit dialog receives the full versioned localized conten
 
 Cell styles use the scoped editor. A fill or text change is checked against the effective MUI foreground/background pair and is rejected with localized guidance if normal-size text is below WCAG AA 4.5:1. For untrusted externally stored malformed or inaccessible values, rendering falls back to black or white with maximum contrast against the resolved background without modifying data. Borders apply uniformly to all sides by default; an explicit advanced mode permits separate sides. Selection and focus retain an edge-aligned, unclipped non-colour signal.
 
-Application settings do not infer Interpretation Network behavior from hardcoded LMS defaults. The settings page reads active materialized layout widgets; Matrix settings and `splitPane.enabled` are saved back to the `interpretationNetworkWorkspace` widget config, while Learning Content remains visible only for applications whose runtime state actually contains that configuration.
+Application settings do not infer Interpretation Network behavior from hardcoded LMS defaults. The settings page reads active materialized layout widgets; Matrix settings, `splitPane.enabled`, and `structureMode` are saved back to the `interpretationNetworkWorkspace` widget config, while Learning Content remains visible only for applications whose runtime state actually contains that configuration.
 
 The `table`, `horizontalRows`, and `verticalTree` views present the same cell records. By default, Table view is hierarchy-first: the selected cell path becomes clickable cell-coloured breadcrumbs, the focused parent becomes the current table context, direct children become rows, and column headers are hidden unless enabled explicitly. Breadcrumb labels preserve their beginning and ellipsize their end when constrained; their accessible names remain complete. Breadcrumb clicks update selection, route state, visible children, and the Materials pane. When `tableProjection` is `independentAxes`, Table view uses user-authored `RowLabel` and `ColLabel` values as semantic headers; a missing `(RowKey, ColKey)` intersection remains an empty, localized table cell and is not persisted as a new record. User-facing surfaces hide UUIDs, axis keys, parent IDs, sort order, raw JSON, and internal product names.
 
 ## Workspace templates
 
-A workspace-scoped table template can be created or copied inside the published app and then reused to instantiate a visible matrix. This is part of the Stage-1 product contract.
+A workspace-scoped table template can be created or copied inside the published app and then reused to instantiate a visible matrix. Users with both create and edit content permissions can save the selected Structure as a template. The save dialog asks whether the template should contain only the matrix structure or also the Materials attached to its cells.
+
+Template rows copy the Matrix data into `TableTemplate.TemplateMatrix`; `TableTemplate.MaterialPolicy` records whether attached Materials were included. When Materials are included, the runtime clones Material records, records their hidden server-owned `TemplateOwnerId` provenance, and remaps `CellId`/`MaterialRef` values to fresh UUID v7 identifiers so the template and the source Structure do not share editable runtime rows. Template deletion uses that provenance inside the aggregate transaction to remove only Materials owned by the deleted template.
+
+Instantiating a template is available only in `structureMode: "multiple"`, because single-system deployments intentionally do not create additional visible Structures. Saving the current single system Matrix as a reusable template remains available to users with sufficient permissions.
 
 ## Constraints
 

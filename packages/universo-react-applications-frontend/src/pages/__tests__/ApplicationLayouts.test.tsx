@@ -13,11 +13,19 @@ const apiMocks = vi.hoisted(() => ({
     toggleApplicationLayoutWidget: vi.fn(),
     upsertApplicationLayoutWidget: vi.fn(),
     deleteApplicationLayoutWidget: vi.fn(),
+    resetApplicationLayoutWidgetConfigsBatch: vi.fn(),
     updateApplicationLayoutWidgetConfig: vi.fn(),
     createApplicationLayout: vi.fn(),
     updateApplicationLayout: vi.fn(),
     deleteApplicationLayout: vi.fn(),
     copyApplicationLayout: vi.fn()
+}))
+const snackbarMocks = vi.hoisted(() => ({
+    enqueueSnackbar: vi.fn()
+}))
+
+vi.mock('notistack', () => ({
+    useSnackbar: () => ({ enqueueSnackbar: snackbarMocks.enqueueSnackbar })
 }))
 
 vi.mock('react-i18next', () => ({
@@ -37,7 +45,13 @@ vi.mock('react-i18next', () => ({
                 'layouts.workspaceSwitcherEditor.hint':
                     'Use application settings to control which workspace settings can be changed inside workspaces.',
                 'layouts.widgetCustomization.application': 'Customized in application',
-                'layouts.widgetCustomization.metahub': 'Inherited from metahub'
+                'layouts.widgetCustomization.metahub': 'Inherited from metahub',
+                'layouts.interpretationNetworkEditor.saveError': 'Failed to save widget settings',
+                'settings.matrix.singleSystemStructuresExist':
+                    'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.',
+                'settings.matrix.reset': 'Restore metahub settings',
+                'settings.matrix.singleSystemMetadataMissing':
+                    'Single-system mode cannot be enabled because the Structure metadata is incomplete.'
             }
             const template = dictionary[key] ?? fallback ?? key
             if (!params) return template
@@ -163,6 +177,7 @@ vi.mock('../../api/applications', () => ({
     toggleApplicationLayoutWidget: apiMocks.toggleApplicationLayoutWidget,
     upsertApplicationLayoutWidget: apiMocks.upsertApplicationLayoutWidget,
     deleteApplicationLayoutWidget: apiMocks.deleteApplicationLayoutWidget,
+    resetApplicationLayoutWidgetConfigsBatch: apiMocks.resetApplicationLayoutWidgetConfigsBatch,
     updateApplicationLayoutWidgetConfig: apiMocks.updateApplicationLayoutWidgetConfig,
     createApplicationLayout: apiMocks.createApplicationLayout,
     updateApplicationLayout: apiMocks.updateApplicationLayout,
@@ -301,6 +316,13 @@ describe('ApplicationLayouts', () => {
                         defaultMatrixView: 'table',
                         splitPane: { enabled: true }
                     },
+                    sourceConfig: {
+                        matrixMode: 'hierarchicalCells',
+                        allowedMatrixViews: ['table'],
+                        defaultMatrixView: 'table',
+                        splitPane: { enabled: false }
+                    },
+                    isCustomized: true,
                     isActive: true,
                     version: 2
                 },
@@ -335,6 +357,7 @@ describe('ApplicationLayouts', () => {
         apiMocks.toggleApplicationLayoutWidget.mockResolvedValue({})
         apiMocks.upsertApplicationLayoutWidget.mockResolvedValue({})
         apiMocks.deleteApplicationLayoutWidget.mockResolvedValue(undefined)
+        apiMocks.resetApplicationLayoutWidgetConfigsBatch.mockResolvedValue([])
         apiMocks.updateApplicationLayoutWidgetConfig.mockResolvedValue({})
         apiMocks.createApplicationLayout.mockResolvedValue({})
         apiMocks.updateApplicationLayout.mockResolvedValue({})
@@ -462,6 +485,7 @@ describe('ApplicationLayouts', () => {
         expect(within(screen.getByTestId('standard-dialog-actions')).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
         expect(within(screen.getByTestId('standard-dialog-actions')).getByRole('button', { name: 'Save' })).toBeInTheDocument()
         expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1)
+        expect(screen.getByTestId('application-settings-matrix-reset')).toHaveTextContent('Restore metahub settings')
 
         fireEvent.click(within(screen.getByTestId('application-setting-matrix-resizable-panes')).getByRole('switch'))
         await waitFor(() => {
@@ -479,6 +503,109 @@ describe('ApplicationLayouts', () => {
                 })
             })
         })
+    }, 30_000)
+
+    it('restores the current metahub config from the typed Matrix layout editor', async () => {
+        renderPage()
+
+        await waitFor(() => {
+            expect(screen.getByText('Homepage')).toBeInTheDocument()
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'Interpretation network workspace' }))
+        fireEvent.click(screen.getByTestId('application-settings-matrix-reset'))
+
+        await waitFor(() => {
+            expect(apiMocks.resetApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledWith('app-1', {
+                updates: [{ layoutId: 'layout-1', widgetId: 'widget-matrix-1', expectedVersion: 2 }]
+            })
+        })
+        expect(screen.queryByRole('dialog', { name: 'Interpretation network workspace' })).not.toBeInTheDocument()
+    })
+
+    it('keeps the Matrix editor open and reports incomplete metadata when reset is unsafe', async () => {
+        apiMocks.resetApplicationLayoutWidgetConfigsBatch.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: {
+                    error: 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING',
+                    code: 'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+                }
+            }
+        })
+        renderPage()
+
+        await waitFor(() => expect(screen.getByText('Homepage')).toBeInTheDocument())
+        fireEvent.click(screen.getByRole('button', { name: 'Interpretation network workspace' }))
+        fireEvent.click(screen.getByTestId('application-settings-matrix-reset'))
+
+        await waitFor(() => {
+            expect(snackbarMocks.enqueueSnackbar).toHaveBeenCalledWith(
+                'Single-system mode cannot be enabled because the Structure metadata is incomplete.',
+                { variant: 'error' }
+            )
+        })
+        expect(screen.getByRole('dialog', { name: 'Interpretation network workspace' })).toBeInTheDocument()
+    })
+
+    it('keeps the Matrix editor open and reports a stale reset conflict', async () => {
+        apiMocks.resetApplicationLayoutWidgetConfigsBatch.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: { error: 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT' }
+            }
+        })
+        renderPage()
+
+        await waitFor(() => expect(screen.getByText('Homepage')).toBeInTheDocument())
+        fireEvent.click(screen.getByRole('button', { name: 'Interpretation network workspace' }))
+        fireEvent.click(screen.getByTestId('application-settings-matrix-reset'))
+
+        await waitFor(() => {
+            expect(snackbarMocks.enqueueSnackbar).toHaveBeenCalledWith(
+                'Matrix settings changed while you were editing. Reload the current values and try again.',
+                { variant: 'error' }
+            )
+        })
+        expect(screen.getByRole('dialog', { name: 'Interpretation network workspace' })).toBeInTheDocument()
+    })
+
+    it('keeps the Matrix editor open and shows a localized transition error until a retry succeeds', async () => {
+        apiMocks.updateApplicationLayoutWidgetConfig.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: {
+                    error: 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST',
+                    code: 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
+                }
+            }
+        })
+        renderPage()
+
+        await waitFor(() => {
+            expect(screen.getByText('Homepage')).toBeInTheDocument()
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'Interpretation network workspace' }))
+        fireEvent.click(within(screen.getByTestId('application-setting-matrix-resizable-panes')).getByRole('switch'))
+        fireEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(snackbarMocks.enqueueSnackbar).toHaveBeenCalledWith(
+                'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.',
+                { variant: 'error' }
+            )
+        })
+        expect(screen.getByRole('dialog', { name: 'Interpretation network workspace' })).toBeInTheDocument()
+
+        apiMocks.updateApplicationLayoutWidgetConfig.mockResolvedValueOnce({})
+        fireEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Interpretation network workspace' })).not.toBeInTheDocument()
+        })
+        expect(apiMocks.updateApplicationLayoutWidgetConfig).toHaveBeenCalledTimes(2)
     }, 30_000)
 
     it('opens workspace switcher editor as an explicit read-only dialog instead of a no-op', async () => {

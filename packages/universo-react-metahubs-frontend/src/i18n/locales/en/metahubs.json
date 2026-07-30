@@ -504,6 +504,8 @@
             "title": "Interpretation network workspace",
             "displayTitle": "Matrix display",
             "description": "Choose which matrix views are available in the published application and which view opens by default.",
+            "structureMode": "Structure mode",
+            "structureModeHelp": "Multiple structures keep the named structure list. One system structure opens the Matrix directly and hides the system structure name.",
             "matrixMode": "Matrix mode",
             "matrixModeHelp": "Hierarchical cells are the default. Separate rows and columns keep the secondary Matrix table mode available.",
             "availableViewsHelp": "Select at least one Matrix view. Vertical tree requires hierarchical cells.",
@@ -538,6 +540,10 @@
             "matrixModes": {
                 "hierarchicalCells": "Hierarchical cells",
                 "independentRows": "Separate rows and columns"
+            },
+            "structureModes": {
+                "multiple": "Multiple structures",
+                "singleSystem": "One system structure"
             },
             "breadcrumbDepthOptions": {
                 "full": "Full path",

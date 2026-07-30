@@ -168,6 +168,7 @@ const SettingsPage = () => {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsRoot(metahubId) })
             ])
             await layoutsQuery.refetch()
+            setEditingLayoutWidget(null)
             enqueueSnackbar(t('settings.layoutWidgets.saved', 'Widget settings saved'), { variant: 'success' })
         },
         onError: () => {
@@ -618,14 +619,13 @@ const SettingsPage = () => {
                         widgetId={editingLayoutWidget.widget.id}
                         showSharedBehavior={false}
                         showScopeVisibility={false}
-                        onSave={(config) => {
-                            updateWidgetConfigMutation.mutate({
+                        onSave={(config) =>
+                            updateWidgetConfigMutation.mutateAsync({
                                 layoutId: editingLayoutWidget.layout.id,
                                 widgetId: editingLayoutWidget.widget.id,
                                 config: config as Record<string, unknown>
                             })
-                            setEditingLayoutWidget(null)
-                        }}
+                        }
                         onCancel={() => setEditingLayoutWidget(null)}
                     />
                 ) : null}

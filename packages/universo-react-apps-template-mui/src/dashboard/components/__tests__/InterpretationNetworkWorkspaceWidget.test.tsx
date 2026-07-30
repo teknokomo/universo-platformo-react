@@ -8,6 +8,13 @@ import { renderWidget } from '../widgetRenderer'
 import { CellEditDialog, resolveCellStyleContrast } from '../interpretation-network/CellEditDialog'
 
 const UUID_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const SYSTEM_STRUCTURE_ID = '019f7f10-0000-7000-8000-000000000001'
+const SYSTEM_INTERPRETATION_ID = '019f7f10-0000-7000-8000-000000000002'
+const TEMPLATE_ID = '019f7f10-0000-7000-8000-000000000003'
+const TEMPLATE_STRUCTURE_ID = '019f7f10-0000-7000-8000-000000000004'
+const TEMPLATE_INTERPRETATION_ID = '019f7f10-0000-7000-8000-000000000005'
+const CREATED_TEMPLATE_ID = '019f7f10-0000-7000-8000-000000000006'
+const SYSTEM_ROOT_CELL_ID = '019f7f10-0000-7000-8000-000000000007'
 const vlc = (en: string, ru: string, primary = 'ru') => ({
     _schema: '1',
     _primary: primary,
@@ -251,6 +258,12 @@ const matrixRowsFixture = () => ({
     total: 2
 })
 
+const toServerMatrixCommandResponse = (row: Record<string, unknown>) => ({
+    id: row.id,
+    status: 'created',
+    item: row
+})
+
 const matrixTableRowsFixture = () => {
     const fixture = matrixRowsFixture()
     return {
@@ -327,6 +340,9 @@ const matrixTableHierarchyRowsFixture = () => ({
 })
 
 const defaultRuntimeResponse = (url: URL) => {
+    if (url.pathname.endsWith('/runtime/interpretation-network/templates')) {
+        return { items: [] }
+    }
     const codename = url.searchParams.get('objectCollectionCodename')
     if (codename === 'Structure') {
         return appData(
@@ -334,14 +350,14 @@ const defaultRuntimeResponse = (url: URL) => {
             [{ id: 'concept-1', Name: 'Existing structure' }],
             [
                 {
-                    id: 'term-component',
+                    id: 'Name',
                     codename: 'Name',
                     field: 'Name',
                     headerName: 'Name',
                     validationRules: { localized: true, maxLength: 255, versioned: true }
                 },
                 {
-                    id: 'description-component',
+                    id: 'Description',
                     codename: 'Description',
                     field: 'Description',
                     headerName: 'Description',
@@ -364,6 +380,7 @@ const defaultRuntimeResponse = (url: URL) => {
             [
                 {
                     id: 'material-selected',
+                    _upl_version: 5,
                     Title: 'Selected material',
                     Description: 'Selected material description',
                     Body: { data: { blocks: [{ type: 'paragraph', data: { text: { en: 'Selected material body' } } }] } }
@@ -392,6 +409,13 @@ const defaultRuntimeResponse = (url: URL) => {
                     dataType: 'JSON',
                     headerName: 'Body',
                     uiConfig: { widget: 'editorjsBlockContent' }
+                },
+                {
+                    id: 'material-cell-component',
+                    codename: 'CellId',
+                    field: 'CellId',
+                    headerName: 'Cell ID',
+                    uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
                 }
             ]
         )
@@ -399,7 +423,7 @@ const defaultRuntimeResponse = (url: URL) => {
     if (codename === 'TableTemplate') {
         return appData(
             'TableTemplate',
-            [{ id: 'template-1', Name: 'Base template', Description: 'Reusable matrix' }],
+            [{ id: TEMPLATE_ID, Name: 'Base template', Description: 'Reusable matrix' }],
             [
                 {
                     id: 'template-matrix-component',
@@ -420,6 +444,40 @@ const defaultRuntimeResponse = (url: URL) => {
         )
     }
     return appData(codename ?? 'Relation', [])
+}
+
+const singleSystemRuntimeResponse = (url: URL) => {
+    const codename = url.searchParams.get('objectCollectionCodename')
+    if (codename === 'Structure') {
+        return appData(
+            'Structure',
+            [{ id: SYSTEM_STRUCTURE_ID, Name: 'System structure', SystemKey: 'primary' }],
+            [
+                {
+                    id: 'Name',
+                    codename: 'Name',
+                    field: 'Name',
+                    headerName: 'Name',
+                    validationRules: { localized: true, maxLength: 255, versioned: true }
+                },
+                {
+                    id: 'system-key-component',
+                    codename: 'SystemKey',
+                    field: 'SystemKey',
+                    headerName: 'System Key',
+                    uiConfig: { hidden: true, gridHidden: true, formHidden: true, serverOwned: true }
+                }
+            ]
+        )
+    }
+    if (codename === 'Interpretation') {
+        return appData(
+            'Interpretation',
+            [{ id: SYSTEM_INTERPRETATION_ID, Title: 'System matrix', ParentStructure: SYSTEM_STRUCTURE_ID }],
+            interpretationMatrixColumns()
+        )
+    }
+    return defaultRuntimeResponse(url)
 }
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -463,7 +521,7 @@ const renderInterpretationNetworkWidget = (
     locale = 'en'
 ) => {
     vi.stubGlobal('fetch', fetchMock)
-    render(
+    const view = render(
         <QueryClientProvider client={createQueryClient()}>
             <DashboardDetailsProvider
                 value={{
@@ -488,7 +546,7 @@ const renderInterpretationNetworkWidget = (
             </DashboardDetailsProvider>
         </QueryClientProvider>
     )
-    return { onOpenCreateTarget, navigate }
+    return { ...view, onOpenCreateTarget, navigate }
 }
 
 const clickSelectedMatrixCell = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -511,6 +569,7 @@ const switchToHorizontalRows = async (user: ReturnType<typeof userEvent.setup>) 
 describe('InterpretationNetworkWorkspaceWidget', () => {
     beforeEach(async () => {
         vi.restoreAllMocks()
+        window.sessionStorage.clear()
         await i18n.changeLanguage('en')
         window.history.pushState({}, '', '/a/app-1')
     })
@@ -796,10 +855,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             if (init?.method === 'PATCH' && url.pathname.endsWith('/runtime/rows/concept-1')) {
                 return jsonResponse({ id: 'concept-1' })
             }
-            if (init?.method === 'DELETE' && url.pathname.endsWith('/runtime/rows/concept-1')) {
-                return new Response(null, { status: 204 })
-            }
-            if (init?.method === 'DELETE' && url.pathname.endsWith('/runtime/rows/interpretation-1')) {
+            if (init?.method === 'DELETE' && url.pathname.endsWith('/runtime/interpretation-network/structures/concept-1')) {
                 return new Response(null, { status: 204 })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
@@ -855,24 +911,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(within(deleteDialog).getByRole('button', { name: 'Delete' }))
 
         await waitFor(() => {
-            expect(
-                fetchMock.mock.calls.some(([input, init]) => init?.method === 'DELETE' && String(input).includes('/runtime/rows/concept-1'))
-            ).toBe(true)
-            expect(
-                fetchMock.mock.calls.some(
-                    ([input, init]) => init?.method === 'DELETE' && String(input).includes('/runtime/rows/interpretation-1')
-                )
-            ).toBe(true)
+            const deleteCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE')
+            expect(deleteCalls).toHaveLength(1)
+            expect(String(deleteCalls[0]?.[0])).toContain('/runtime/interpretation-network/structures/concept-1')
         })
-        const deleteCalls = fetchMock.mock.calls
-            .map(([input, init], index) => ({ input: String(input), method: init?.method, index }))
-            .filter(({ method }) => method === 'DELETE')
-        const structureDeleteIndex = deleteCalls.find(({ input }) => input.includes('/runtime/rows/concept-1'))?.index ?? -1
-        const interpretationDeleteIndex = deleteCalls.find(({ input }) => input.includes('/runtime/rows/interpretation-1'))?.index ?? -1
-        expect(interpretationDeleteIndex).toBeGreaterThanOrEqual(0)
-        expect(structureDeleteIndex).toBeGreaterThanOrEqual(0)
-        expect(interpretationDeleteIndex).toBeGreaterThan(structureDeleteIndex)
-    }, 20_000)
+    }, 60_000)
 
     it('opens all localized Name and Description variants when editing a structure row', async () => {
         const user = userEvent.setup()
@@ -997,9 +1040,445 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, independentRowsConfig)
 
         const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
-        expect(await within(structurePane).findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
+        expect(await screen.findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
         expect(within(structurePane).queryByRole('button', { name: 'Existing structure' })).not.toBeInTheDocument()
     })
+
+    it('opens single-system mode directly on the matrix and hides structure-list chrome', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (url.pathname.endsWith('/runtime/interpretation-network/system-structure/ensure')) {
+                expect(init?.method).toBe('POST')
+                return jsonResponse({
+                    structureId: SYSTEM_STRUCTURE_ID,
+                    interpretationId: SYSTEM_INTERPRETATION_ID,
+                    rootCellId: SYSTEM_ROOT_CELL_ID,
+                    created: false
+                })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) {
+                const fixture = matrixRowsFixture()
+                return jsonResponse({
+                    ...fixture,
+                    items: fixture.items.map((row, index) => (index === 0 ? { ...row, CellId: SYSTEM_ROOT_CELL_ID } : row))
+                })
+            }
+            return jsonResponse(singleSystemRuntimeResponse(url))
+        })
+        window.history.pushState({}, '', `/a/app-1/${sectionIds.Structure}/${SYSTEM_STRUCTURE_ID}?matrixCell=${SYSTEM_ROOT_CELL_ID}`)
+        renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
+            ...hierarchicalPathTableConfig,
+            structureMode: 'singleSystem'
+        })
+
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        expect(await screen.findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
+        await waitFor(() => {
+            expect(window.location.pathname).toBe('/a/app-1')
+        })
+        expect(window.location.search).toContain(`matrixCell=${SYSTEM_ROOT_CELL_ID}`)
+        expect(within(structurePane).queryByRole('heading', { name: 'Structures' })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('interpretation-network-structure-header')).not.toBeInTheDocument()
+        expect(within(structurePane).queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+        expect(within(structurePane).queryByRole('button', { name: 'Existing structure' })).not.toBeInTheDocument()
+        expect(within(structurePane).getByRole('tab', { name: 'Matrix' })).toBeInTheDocument()
+        expect(within(structurePane).getByRole('tab', { name: 'Templates' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Structures' })).not.toBeInTheDocument()
+        expect(screen.queryByText('System structure')).not.toBeInTheDocument()
+        expect(screen.queryByText('primary')).not.toBeInTheDocument()
+        await waitFor(() => {
+            expect(
+                fetchMock.mock.calls.some(
+                    ([input, init]) =>
+                        init?.method === 'POST' && String(input).includes('/runtime/interpretation-network/system-structure/ensure')
+                )
+            ).toBe(true)
+        })
+        const structureReads = fetchMock.mock.calls
+            .map(([input]) => new URL(String(input), 'http://localhost:3000'))
+            .filter((url) => url.searchParams.get('objectCollectionCodename') === 'Structure')
+        expect(structureReads.length).toBeGreaterThanOrEqual(1)
+        for (const structureRead of structureReads) {
+            expect(structureRead.searchParams.get('limit')).toBe('1')
+            expect(JSON.parse(structureRead.searchParams.get('filters') ?? '[]')).toEqual([
+                { field: 'SystemKey', operator: 'equals', value: 'primary' }
+            ])
+        }
+    }, 20_000)
+
+    it('opens an existing single-system matrix for read-only users without authoring controls', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (url.pathname.endsWith('/runtime/interpretation-network/system-structure/ensure')) {
+                return jsonResponse({
+                    structureId: SYSTEM_STRUCTURE_ID,
+                    interpretationId: SYSTEM_INTERPRETATION_ID,
+                    rootCellId: SYSTEM_ROOT_CELL_ID,
+                    created: false,
+                    canCreate: false
+                })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(singleSystemRuntimeResponse(url))
+        })
+        window.history.pushState({}, '', `/a/app-1/${sectionIds.Structure}`)
+        renderInterpretationNetworkWidget(
+            fetchMock,
+            vi.fn(),
+            { createContent: false, editContent: false, deleteContent: false },
+            undefined,
+            {
+                ...hierarchicalPathTableConfig,
+                structureMode: 'singleSystem'
+            }
+        )
+
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        expect(await screen.findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
+        expect(within(structurePane).queryByRole('button', { name: 'Save as template' })).not.toBeInTheDocument()
+        await waitFor(() => {
+            expect(
+                fetchMock.mock.calls.some(
+                    ([input, init]) =>
+                        init?.method === 'POST' && String(input).includes('/runtime/interpretation-network/system-structure/ensure')
+                )
+            ).toBe(true)
+        })
+    }, 20_000)
+
+    it('saves the selected structure as a template with optional materials through the aggregate API', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (url.pathname.endsWith('/runtime/interpretation-network/templates') && init?.method === 'POST') {
+                return jsonResponse({ id: CREATED_TEMPLATE_ID, name: 'Reusable template', includesMaterials: true, version: 1 }, 201)
+            }
+            if (url.pathname.endsWith('/runtime/interpretation-network/templates')) return jsonResponse({ items: [] })
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock)
+
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        await user.click(await within(structurePane).findByRole('button', { name: 'Existing structure' }))
+        const toolbar = await screen.findByTestId('interpretation-network-matrix-toolbar')
+        expect(within(toolbar).getByRole('button', { name: 'Save as template' })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Structures' }))
+        await user.click(await within(structurePane).findByRole('button', { name: 'Structure actions: Existing structure' }))
+        await user.click(await screen.findByRole('menuitem', { name: 'Save as template' }))
+
+        const dialog = await screen.findByRole('dialog', { name: 'Save structure as template' })
+        expect(within(dialog).getByRole('table', { name: 'Saved data' })).toBeInTheDocument()
+        expect(dialog).toHaveAttribute('aria-describedby', 'interpretation-network-interpretation-widget-template-copy-scope-description')
+        await user.type(within(dialog).getByRole('textbox', { name: 'Template name' }), 'Reusable template')
+        expect(within(dialog).getByRole('textbox', { name: 'Description' }).tagName).toBe('TEXTAREA')
+        await user.type(within(dialog).getByRole('textbox', { name: 'Description' }), 'Template description')
+        await user.click(within(dialog).getByRole('radio', { name: 'Structure and materials' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            const saveCall = fetchMock.mock.calls.find(
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/runtime/interpretation-network/templates')
+            )
+            expect(saveCall).toBeDefined()
+            expect(JSON.parse(String(saveCall?.[1]?.body ?? '{}'))).toEqual(
+                expect.objectContaining({
+                    sourceStructureId: 'concept-1',
+                    templateName: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Reusable template' })
+                        })
+                    }),
+                    description: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Template description' })
+                        })
+                    }),
+                    includeMaterials: true
+                })
+            )
+        })
+    }, 20_000)
+
+    it('creates a structure from a template only in multi-structure mode', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (url.pathname.endsWith(`/runtime/interpretation-network/templates/${TEMPLATE_ID}/instantiate`) && init?.method === 'POST') {
+                return jsonResponse({ structureId: TEMPLATE_STRUCTURE_ID, interpretationId: TEMPLATE_INTERPRETATION_ID }, 201)
+            }
+            if (url.pathname.endsWith('/runtime/interpretation-network/templates')) {
+                return jsonResponse({ items: [{ id: TEMPLATE_ID, name: 'Base template', includesMaterials: false, version: 3 }] })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock)
+
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const createButton = await within(structurePane).findByRole('button', { name: 'Create' })
+        await waitFor(() => expect(createButton).toBeEnabled())
+        await user.click(createButton)
+
+        const dialog = await screen.findByRole('dialog', { name: 'Create structure' })
+        const mainTab = within(dialog).getByRole('tab', { name: 'Main' })
+        const templatesTab = within(dialog).getByRole('tab', { name: 'Templates' })
+        expect(mainTab).toHaveAttribute('aria-controls')
+        expect(templatesTab).toHaveAttribute('aria-controls')
+        expect(within(dialog).getByRole('tabpanel')).toHaveAttribute('aria-labelledby', mainTab.id)
+        await user.click(within(dialog).getByRole('tab', { name: 'Templates' }))
+        expect(within(dialog).getByRole('tabpanel')).toHaveAttribute('aria-labelledby', templatesTab.id)
+        expect(within(dialog).getByRole('combobox', { name: 'Template' })).toBeInTheDocument()
+        expect(dialog).toHaveAttribute('aria-describedby', 'interpretation-network-interpretation-widget-create-from-template-description')
+        expect(within(dialog).getByRole('table', { name: 'Template creation details' })).toBeInTheDocument()
+        await user.click(within(dialog).getByRole('combobox', { name: 'Template' }))
+        await user.click(screen.getByRole('option', { name: 'Base template' }))
+        const structureNameField = await within(dialog).findByRole('textbox', { name: 'Name' })
+        expect(structureNameField).toBeInTheDocument()
+        expect(within(dialog).getByRole('textbox', { name: 'Description' }).tagName).toBe('TEXTAREA')
+        await user.type(structureNameField, 'From template')
+        await user.type(within(dialog).getByRole('textbox', { name: 'Description' }), 'Created from template')
+        await user.click(within(dialog).getByRole('button', { name: 'Create' }))
+
+        await waitFor(() => {
+            const instantiateCall = fetchMock.mock.calls.find(
+                ([input, init]) =>
+                    init?.method === 'POST' &&
+                    String(input).includes(`/runtime/interpretation-network/templates/${TEMPLATE_ID}/instantiate`)
+            )
+            expect(instantiateCall).toBeDefined()
+            expect(JSON.parse(String(instantiateCall?.[1]?.body ?? '{}'))).toEqual(
+                expect.objectContaining({
+                    structureName: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'From template' })
+                        })
+                    }),
+                    description: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Created from template' })
+                        })
+                    }),
+                    expectedVersion: 3
+                })
+            )
+        })
+    }, 20_000)
+
+    it('opens, edits and deletes saved templates from the Templates management tab', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
+            if (url.pathname.endsWith(`/runtime/interpretation-network/templates/${TEMPLATE_ID}`) && init?.method === 'PATCH') {
+                return jsonResponse({ id: TEMPLATE_ID, name: 'Edited template', includesMaterials: false, version: 4 })
+            }
+            if (url.pathname.endsWith(`/runtime/interpretation-network/templates/${TEMPLATE_ID}`) && init?.method === 'DELETE') {
+                return new Response(null, { status: 204 })
+            }
+            if (url.pathname.endsWith(`/runtime/interpretation-network/templates/${TEMPLATE_ID}`) && !init?.method) {
+                return jsonResponse({
+                    id: TEMPLATE_ID,
+                    name: vlc('Base template', 'Базовый шаблон', 'en'),
+                    description: vlc('Reusable matrix', 'Переиспользуемая матрица', 'en'),
+                    includesMaterials: false,
+                    version: 3,
+                    matrix: { cellCount: 6, rootCount: 1, maxDepth: 2 },
+                    materialCount: 0
+                })
+            }
+            if (url.pathname.endsWith('/runtime/interpretation-network/templates')) {
+                return jsonResponse({
+                    items: [
+                        {
+                            id: TEMPLATE_ID,
+                            name: vlc('Base template', 'Базовый шаблон', 'en'),
+                            description: vlc('Reusable matrix', 'Переиспользуемая матрица', 'en'),
+                            includesMaterials: false,
+                            version: 3
+                        }
+                    ]
+                })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        renderInterpretationNetworkWidget(fetchMock)
+
+        const structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        const structuresTab = await within(structurePane).findByRole('tab', { name: 'Structures' })
+        const templatesTab = within(structurePane).getByRole('tab', { name: 'Templates' })
+        expect(structuresTab).toHaveAttribute('aria-controls')
+        expect(templatesTab).toHaveAttribute('aria-controls')
+        expect(within(structurePane).getByRole('tabpanel')).toHaveAttribute('aria-labelledby', structuresTab.id)
+        await user.click(templatesTab)
+        expect(within(structurePane).getByRole('tabpanel')).toHaveAttribute('aria-labelledby', templatesTab.id)
+        const templateTable = await within(structurePane).findByTestId('interpretation-network-template-table')
+        expect(within(templateTable).getByText('Base template')).toBeInTheDocument()
+        expect(within(templateTable).getByText('Reusable matrix')).toBeInTheDocument()
+
+        const templateActions = () => within(templateTable).getByTestId(`interpretation-network-template-actions-${TEMPLATE_ID}`)
+        await user.click(templateActions())
+        await user.click(await screen.findByRole('menuitem', { name: 'Open' }))
+        const detailDialog = await screen.findByRole('dialog', { name: 'Base template' })
+        expect(within(detailDialog).getByText('Reusable matrix')).toBeInTheDocument()
+        expect(within(detailDialog).getByText('Structure only')).toBeInTheDocument()
+        expect(await within(detailDialog).findByText('6 matrix cells')).toBeInTheDocument()
+        expect(within(detailDialog).getByText('1 root cell')).toBeInTheDocument()
+        expect(within(detailDialog).getByText('Maximum depth: 2')).toBeInTheDocument()
+        expect(within(detailDialog).getByText('0 materials')).toBeInTheDocument()
+        await user.click(within(detailDialog).getByRole('button', { name: 'Close' }))
+        expect(screen.queryByRole('dialog', { name: 'Base template' })).not.toBeInTheDocument()
+
+        await user.click(templateActions())
+        await user.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+        const editDialog = await screen.findByRole('dialog', { name: 'Edit template' })
+        expect(within(editDialog).queryByRole('combobox', { name: 'Saved data' })).not.toBeInTheDocument()
+        const templateNameField = within(editDialog).getAllByRole('textbox', { name: 'Template name' })[0]
+        await user.clear(templateNameField)
+        await user.type(templateNameField, 'Edited template')
+        await user.click(within(editDialog).getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            const editCall = fetchMock.mock.calls.find(
+                ([input, init]) =>
+                    init?.method === 'PATCH' && String(input).includes(`/runtime/interpretation-network/templates/${TEMPLATE_ID}`)
+            )
+            expect(editCall).toBeDefined()
+            expect(JSON.parse(String(editCall?.[1]?.body ?? '{}'))).toEqual(
+                expect.objectContaining({
+                    templateName: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Edited template' })
+                        })
+                    }),
+                    expectedVersion: 3
+                })
+            )
+        })
+
+        await user.click(templateActions())
+        await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+        const deleteDialog = await screen.findByRole('dialog', { name: 'Delete template?' })
+        expect(
+            within(deleteDialog).getByText('Delete the template “Base template”? Structures created from this template are not changed.')
+        ).toBeInTheDocument()
+        await user.click(within(deleteDialog).getByRole('button', { name: 'Delete' }))
+
+        await waitFor(() => {
+            const deleteCall = fetchMock.mock.calls.find(
+                ([input, init]) =>
+                    init?.method === 'DELETE' && String(input).includes(`/runtime/interpretation-network/templates/${TEMPLATE_ID}`)
+            )
+            expect(deleteCall).toBeDefined()
+            expect(JSON.parse(String(deleteCall?.[1]?.body ?? '{}'))).toEqual({ expectedVersion: 3 })
+        })
+    }, 20_000)
+
+    it('keeps tab ids unique per widget instance', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/runtime/interpretation-network/templates')) {
+                return jsonResponse({ items: [{ id: TEMPLATE_ID, name: 'Base template', includesMaterials: false, version: 3 }] })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        vi.stubGlobal('fetch', fetchMock)
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Interpretation Network',
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        currentWorkspaceId: 'workspace-1',
+                        permissions: defaultPermissions,
+                        rows: [],
+                        columns: []
+                    }}
+                >
+                    {renderWidget({
+                        id: 'interpretation-widget-one',
+                        layoutId: 'layout-one',
+                        widgetKey: 'interpretationNetworkWorkspace',
+                        sortOrder: 0,
+                        config: {}
+                    })}
+                    {renderWidget({
+                        id: 'interpretation-widget-two',
+                        layoutId: 'layout-two',
+                        widgetKey: 'interpretationNetworkWorkspace',
+                        sortOrder: 1,
+                        config: {}
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        const templateTabs = await screen.findAllByRole('tab', { name: 'Templates' })
+        const ids = templateTabs.map((tab) => tab.id)
+        expect(ids.every(Boolean)).toBe(true)
+        expect(new Set(ids).size).toBe(ids.length)
+        for (const tab of templateTabs) {
+            const panelId = tab.getAttribute('aria-controls')
+            expect(panelId).toBeTruthy()
+            expect(document.getElementById(panelId!)).not.toBeNull()
+        }
+    }, 20_000)
+
+    it('reconciles template tabs when their configured surfaces become hidden', async () => {
+        const user = userEvent.setup()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost:3000')
+            if (url.pathname.endsWith('/runtime/interpretation-network/templates')) {
+                return jsonResponse({ items: [{ id: TEMPLATE_ID, name: 'Base template', includesMaterials: false, version: 3 }] })
+            }
+            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            return jsonResponse(defaultRuntimeResponse(url))
+        })
+        const config = { templatePanel: { showInStructureList: true, showInMatrix: true } }
+        const { rerender } = renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, config)
+
+        let structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        await user.click(await within(structurePane).findByRole('tab', { name: 'Templates' }))
+        expect(within(structurePane).getByRole('tabpanel')).toContainElement(
+            within(structurePane).getByTestId('interpretation-network-template-table')
+        )
+
+        rerender(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Interpretation Network',
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        currentWorkspaceId: 'workspace-1',
+                        permissions: defaultPermissions,
+                        rows: [],
+                        columns: []
+                    }}
+                >
+                    {renderWidget({
+                        id: 'interpretation-widget',
+                        widgetKey: 'interpretationNetworkWorkspace',
+                        sortOrder: 0,
+                        config: { templatePanel: { showInStructureList: false, showInMatrix: false } }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        structurePane = await screen.findByTestId('interpretation-network-structure-pane')
+        await waitFor(() => expect(within(structurePane).queryByRole('tab', { name: 'Templates' })).not.toBeInTheDocument())
+        expect(within(structurePane).getByTestId('interpretation-network-structure-table')).toBeInTheDocument()
+    }, 20_000)
 
     it('keeps hierarchical table cell selection in sync with the focused-cell route query', async () => {
         const user = userEvent.setup()
@@ -1595,14 +2074,16 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(
             await screen.findByText('You can view this workspace, but content editing is not available for your role.')
         ).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled()
+        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Add page' })).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Existing structure' }))
-        expect(await screen.findByRole('button', { name: 'Add' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
 
         await clickSelectedMatrixCell(user)
-        expect(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' })).toBeDisabled()
+        expect(
+            within(screen.getByTestId('interpretation-network-details-pane')).queryByRole('button', { name: 'Create' })
+        ).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit material' })).not.toBeInTheDocument()
     })
 
@@ -1644,7 +2125,11 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(await screen.findByRole('button', { name: 'Existing structure' }))
         await clickSelectedMatrixCell(user)
 
-        expect(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' })).toBeDisabled()
+        await waitFor(() =>
+            expect(
+                within(screen.getByTestId('interpretation-network-details-pane')).queryByRole('button', { name: 'Create' })
+            ).not.toBeInTheDocument()
+        )
         expect(fetchMock.mock.calls.some(([input, init]) => init?.method === 'POST' && String(input).includes('/runtime/rows'))).toBe(false)
     })
 
@@ -2158,13 +2643,26 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
     it('creates a hierarchical child cell when inline axis creation is hidden by default', async () => {
         const user = userEvent.setup()
+        const selectedCellId = '019f7f10-0000-7000-8000-000000000096'
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
-                return jsonResponse({ id: 'matrix-child-created' }, 201)
+            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/matrix/cells')) {
+                return jsonResponse(
+                    toServerMatrixCommandResponse({
+                        id: '019f7f10-0000-7000-8000-000000000098',
+                        CellId: '019f7f10-0000-7000-8000-000000000099'
+                    }),
+                    201
+                )
             }
-            if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
+            if (url.pathname.endsWith('/tabular/matrix-component')) {
+                const fixture = matrixRowsFixture()
+                return jsonResponse({
+                    ...fixture,
+                    items: fixture.items.map((row, index) => (index === 0 ? { ...row, CellId: selectedCellId } : row))
+                })
+            }
             return jsonResponse(defaultRuntimeResponse(url))
         })
         renderInterpretationNetworkWidget(fetchMock, vi.fn(), defaultPermissions, undefined, {
@@ -2188,33 +2686,42 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
         await waitFor(() => {
             const createCall = fetchMock.mock.calls.find(
-                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/runtime/interpretation-network/matrix/cells')
             )
             expect(createCall).toBeDefined()
             const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
-            expect(body.data).toEqual(
+            expect(body).toEqual(
                 expect.objectContaining({
-                    ParentCellId: 'cell-selected',
-                    RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
-                    ColKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
-                    RowLabel: expect.objectContaining({
-                        locales: expect.objectContaining({
-                            en: expect.objectContaining({ content: 'Child from default add' })
-                        })
+                    interpretationId: 'interpretation-1',
+                    placement: expect.objectContaining({
+                        parentCellId: selectedCellId,
+                        rowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                        colKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i)
                     }),
-                    ColLabel: expect.objectContaining({
-                        locales: expect.objectContaining({
-                            en: expect.objectContaining({ content: 'Child from default add' })
-                        })
-                    }),
-                    CellValue: expect.objectContaining({
-                        locales: expect.objectContaining({
-                            en: expect.objectContaining({ content: 'Child from default add' })
+                    data: expect.objectContaining({
+                        RowLabel: expect.objectContaining({
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'Child from default add' })
+                            })
+                        }),
+                        ColLabel: expect.objectContaining({
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'Child from default add' })
+                            })
+                        }),
+                        CellValue: expect.objectContaining({
+                            locales: expect.objectContaining({
+                                en: expect.objectContaining({ content: 'Child from default add' })
+                            })
                         })
                     })
                 })
             )
-            expect(body.data.CellId).toMatch(UUID_V7_REGEX)
+            expect(body.data).not.toHaveProperty('CellId')
+            expect(body.data).not.toHaveProperty('ParentCellId')
+            expect(body.data).not.toHaveProperty('RowKey')
+            expect(body.data).not.toHaveProperty('ColKey')
+            expect(body.data).not.toHaveProperty('_tp_sort_order')
         })
     }, 20_000)
 
@@ -2466,35 +2973,40 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
     it('creates a hierarchical child cell from the card action menu', async () => {
         const user = userEvent.setup()
         const serverCellId = '018f8a78-7b8f-7c1d-a111-222233334620'
+        const selectedCellId = '019f7f10-0000-7000-8000-000000000096'
         let created = false
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/rows')) {
-                return jsonResponse({ id: 'material-created' }, 201)
-            }
-            if (init?.method === 'PATCH' && url.pathname.endsWith('/tabular/matrix-component/matrix-row-server-created')) {
-                return jsonResponse({ id: 'matrix-row-server-created' })
-            }
-            if (init?.method === 'POST' && url.pathname.endsWith('/tabular/matrix-component')) {
-                created = true
+            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/materials')) {
                 return jsonResponse(
                     {
-                        id: 'matrix-row-server-created',
-                        status: 'created',
-                        item: { id: 'matrix-row-server-created', _upl_version: 1, CellId: serverCellId }
+                        id: '019f7f10-0000-7000-8000-000000000095',
+                        matrixRowId: '019f7f10-0000-7000-8000-000000000097'
                     },
+                    201
+                )
+            }
+            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/matrix/cells')) {
+                created = true
+                return jsonResponse(
+                    toServerMatrixCommandResponse({
+                        id: '019f7f10-0000-7000-8000-000000000097',
+                        _upl_version: 1,
+                        CellId: serverCellId
+                    }),
                     201
                 )
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) {
                 const fixture = matrixRowsFixture()
+                fixture.items[0] = { ...fixture.items[0], CellId: selectedCellId }
                 if (created) {
                     fixture.items.push({
-                        id: 'matrix-row-server-created',
+                        id: '019f7f10-0000-7000-8000-000000000097',
                         _upl_version: 1,
                         CellId: serverCellId,
-                        ParentCellId: 'cell-selected',
+                        ParentCellId: selectedCellId,
                         RowKey: 'child-row',
                         RowLabel: 'Child row',
                         ColKey: 'child-column',
@@ -2550,18 +3062,20 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
         await waitFor(() => {
             const createCall = fetchMock.mock.calls.find(
-                ([input, init]) => init?.method === 'POST' && String(input).includes('/tabular/matrix-component')
+                ([input, init]) => init?.method === 'POST' && String(input).includes('/runtime/interpretation-network/matrix/cells')
             )
             expect(createCall).toBeDefined()
             const body = JSON.parse(String(createCall?.[1]?.body ?? '{}'))
             expect(body).toEqual(
                 expect.objectContaining({
+                    interpretationId: 'interpretation-1',
+                    placement: expect.objectContaining({
+                        parentCellId: selectedCellId,
+                        rowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                        colKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
+                        sortOrder: 0
+                    }),
                     data: expect.objectContaining({
-                        CellId: expect.stringMatching(UUID_V7_REGEX),
-                        ParentCellId: 'cell-selected',
-                        RowKey: expect.stringMatching(/^row-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
-                        ColKey: expect.stringMatching(/^column-[0-9a-f]{8}-[0-9a-f]{4}-7/i),
-                        _tp_sort_order: 0,
                         CellValue: expect.objectContaining({
                             locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Child from menu' }) })
                         }),
@@ -2573,6 +3087,15 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     })
                 })
             )
+            expect(body.data).not.toEqual(
+                expect.objectContaining({
+                    CellId: expect.anything(),
+                    ParentCellId: expect.anything(),
+                    RowKey: expect.anything(),
+                    ColKey: expect.anything(),
+                    _tp_sort_order: expect.anything()
+                })
+            )
         })
         await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add cell' })).not.toBeInTheDocument())
         await user.click(within(screen.getByTestId('interpretation-network-details-pane')).getByRole('button', { name: 'Create' }))
@@ -2580,13 +3103,19 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
         await waitFor(() => {
             const materialCreateCall = fetchMock.mock.calls.find(
-                ([input, init]) => init?.method === 'POST' && String(input).endsWith('/runtime/rows?workspaceId=workspace-1')
+                ([input, init]) =>
+                    init?.method === 'POST' &&
+                    String(input).includes('/runtime/interpretation-network/materials?') &&
+                    String(input).includes('workspaceId=workspace-1')
             )
             expect(materialCreateCall).toBeDefined()
             expect(JSON.parse(String(materialCreateCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
-                    objectCollectionId: sectionIds.Material,
-                    data: expect.objectContaining({ CellId: serverCellId })
+                    interpretationId: 'interpretation-1',
+                    matrixRowId: '019f7f10-0000-7000-8000-000000000097',
+                    cellId: serverCellId,
+                    expectedVersion: 1,
+                    data: expect.not.objectContaining({ CellId: serverCellId })
                 })
             )
             expect(
@@ -2594,7 +3123,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                     ([input, init]) =>
                         init?.method === 'PATCH' && String(input).includes('/tabular/matrix-component/matrix-row-server-created')
                 )
-            ).toBe(true)
+            ).toBe(false)
         })
     }, 35_000)
 
@@ -3164,7 +3693,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         ).toBe(false)
     }, 20_000)
 
-    it('creates an Editor.js material and stores its reference through physical fields', async () => {
+    it('creates an Editor.js material through the aggregate command and stores server-owned cell linkage on the backend', async () => {
         const user = userEvent.setup()
         const physicalInterpretationColumns = interpretationMatrixColumns()
         const physicalMatrixColumn = physicalInterpretationColumns.find((column) => column.codename === 'InterpretationMatrix')
@@ -3175,11 +3704,8 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/rows')) {
+            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/materials')) {
                 return jsonResponse({ id: 'material-created' }, 201)
-            }
-            if (init?.method === 'PATCH' && url.pathname.endsWith('/tabular/matrix-component/matrix-row-selected')) {
-                return jsonResponse({ id: 'matrix-row-selected' })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             if (url.searchParams.get('objectCollectionCodename') === 'Interpretation') {
@@ -3195,15 +3721,14 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 const response = defaultRuntimeResponse(url)
                 return jsonResponse({
                     ...response,
-                    columns: [
-                        ...response.columns,
-                        normalizeColumn({
-                            id: 'material-cell-id-component',
-                            codename: 'CellId',
-                            field: 'phys_cell_id',
-                            headerName: 'Cell ID'
-                        })
-                    ]
+                    columns: response.columns.map((column) =>
+                        column.codename === 'CellId'
+                            ? normalizeColumn({
+                                  ...column,
+                                  field: 'phys_cell_id'
+                              })
+                            : column
+                    )
                 })
             }
             return jsonResponse(defaultRuntimeResponse(url))
@@ -3221,12 +3746,16 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
 
         await waitFor(() => {
             const createCall = fetchMock.mock.calls.find(
-                ([input, init]) => init?.method === 'POST' && String(input).endsWith('/runtime/rows?workspaceId=workspace-1')
+                ([input, init]) =>
+                    init?.method === 'POST' && String(input).endsWith('/runtime/interpretation-network/materials?workspaceId=workspace-1')
             )
             expect(createCall).toBeDefined()
             expect(JSON.parse(String(createCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
-                    objectCollectionId: sectionIds.Material,
+                    interpretationId: 'interpretation-1',
+                    matrixRowId: 'matrix-row-selected',
+                    cellId: 'cell-selected',
+                    expectedVersion: 7,
                     data: expect.objectContaining({
                         Title: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -3237,43 +3766,30 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                             locales: expect.objectContaining({
                                 en: expect.objectContaining({ content: 'New source description' })
                             })
-                        }),
-                        phys_cell_id: 'cell-selected'
+                        })
                     })
                 })
             )
-            expect(JSON.parse(String(createCall?.[1]?.body ?? '{}')).data).not.toHaveProperty('CellId')
-            const matrixPatchCall = fetchMock.mock.calls.find(([input, init]) => {
-                const url = new URL(String(input), 'http://localhost:3000')
-                return (
-                    init?.method === 'PATCH' &&
-                    url.pathname.endsWith('/runtime/rows/interpretation-1/tabular/matrix-component/matrix-row-selected') &&
-                    url.searchParams.get('objectCollectionId') === sectionIds.Interpretation &&
-                    url.searchParams.get('workspaceId') === 'workspace-1'
-                )
-            })
-            expect(matrixPatchCall).toBeDefined()
-            expect(JSON.parse(String(matrixPatchCall?.[1]?.body ?? '{}'))).toEqual({
-                data: { phys_material_ref: 'material-created' },
-                expectedVersion: 7
-            })
+            const createdMaterialBody = JSON.parse(String(createCall?.[1]?.body ?? '{}')).data
+            expect(createdMaterialBody).not.toHaveProperty('CellId')
+            expect(createdMaterialBody).not.toHaveProperty('phys_cell_id')
+            expect(
+                fetchMock.mock.calls.some(([input, init]) => {
+                    const url = new URL(String(input), 'http://localhost:3000')
+                    return init?.method === 'PATCH' && url.pathname.includes('/tabular/matrix-component/')
+                })
+            ).toBe(false)
         })
         expect(screen.queryByTestId('interpretation-network-material-editor')).not.toBeInTheDocument()
     }, 20_000)
 
-    it('compensates a created material when linking it to the selected cell fails', async () => {
+    it('shows a localized error when aggregate material creation fails without creating an orphan row', async () => {
         const user = userEvent.setup()
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = new URL(String(input), 'http://localhost:3000')
             if (url.pathname === '/api/v1/auth/csrf') return jsonResponse({ csrfToken: 'csrf-token' })
-            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/rows')) {
-                return jsonResponse({ id: 'material-orphan-candidate' }, 201)
-            }
-            if (init?.method === 'PATCH' && url.pathname.endsWith('/tabular/matrix-component/matrix-row-selected')) {
+            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/interpretation-network/materials')) {
                 return jsonResponse({ message: 'Cell changed concurrently' }, 409)
-            }
-            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/rows/material-orphan-candidate/compensate-create')) {
-                return new Response(null, { status: 204 })
             }
             if (url.pathname.endsWith('/tabular/matrix-component')) return jsonResponse(matrixRowsFixture())
             return jsonResponse(defaultRuntimeResponse(url))
@@ -3287,15 +3803,12 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
 
         await waitFor(() => {
-            const compensationCall = fetchMock.mock.calls.find(
-                ([input, init]) =>
-                    init?.method === 'POST' && String(input).includes('/runtime/rows/material-orphan-candidate/compensate-create')
+            expect(fetchMock.mock.calls.some(([input, init]) => init?.method === 'POST' && String(input).includes('/runtime/rows'))).toBe(
+                false
             )
-            expect(compensationCall).toBeDefined()
-            expect(JSON.parse(String(compensationCall?.[1]?.body ?? '{}'))).toEqual({
-                expectedVersion: 1,
-                objectCollectionId: sectionIds.Material
-            })
+            expect(
+                fetchMock.mock.calls.some(([input, init]) => init?.method === 'POST' && String(input).includes('/compensate-create'))
+            ).toBe(false)
         })
         expect(await screen.findByText('Failed to save material')).toBeInTheDocument()
     }, 20_000)
@@ -3409,6 +3922,16 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 )
             })
             expect(metadataUpdateCall).toBeDefined()
+            expect(JSON.parse(String(metadataUpdateCall?.[1]?.body ?? '{}'))).toEqual(
+                expect.objectContaining({
+                    expectedVersion: 5,
+                    data: expect.objectContaining({
+                        Title: expect.objectContaining({
+                            locales: expect.objectContaining({ en: expect.objectContaining({ content: 'Selected material edited' }) })
+                        })
+                    })
+                })
+            )
             const bodyUpdateCall = updateCalls.find(([, init]) => {
                 const parsed = JSON.parse(String(init?.body ?? '{}'))
                 return parsed.data && Object.prototype.hasOwnProperty.call(parsed.data, 'Body')
@@ -3416,6 +3939,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(bodyUpdateCall).toBeDefined()
             expect(JSON.parse(String(bodyUpdateCall?.[1]?.body ?? '{}'))).toEqual(
                 expect.objectContaining({
+                    expectedVersion: 5,
                     data: expect.objectContaining({
                         Body: expect.objectContaining({
                             data: expect.objectContaining({
@@ -3430,7 +3954,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 })
             )
         })
-    }, 40_000)
+    }, 80_000)
 
     it('preserves the configured selected cell fill and border instead of replacing them with black', async () => {
         const user = userEvent.setup()

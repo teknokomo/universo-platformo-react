@@ -76,6 +76,12 @@ export const fetchAllWorkspaceData = async (
     }
 }
 
+export const fetchSingleWorkspaceRowData = async (
+    fetchAppDataFn: typeof fetchAppData,
+    base: Omit<WorkspaceDataRequest, 'limit' | 'offset'>,
+    filters: WorkspaceDataRequest['filters']
+): Promise<AppDataResponse> => fetchAppDataFn({ ...base, limit: 1, offset: 0, filters })
+
 const readRuntimePathSegments = (applicationId?: string | null): string[] => {
     if (typeof window === 'undefined' || !applicationId) return []
     const rawSegments = window.location.pathname.split('/').filter(Boolean)
@@ -92,6 +98,8 @@ export const readRouteStructureId = (applicationId?: string | null): string | nu
     return segments[segments.length - 1] || null
 }
 
+export const hasRouteStructureId = (applicationId?: string | null): boolean => Boolean(readRouteStructureId(applicationId))
+
 export const readRouteMatrixCellId = (): string | null => {
     if (typeof window === 'undefined') return null
     const value = new URLSearchParams(window.location.search).get(MATRIX_FOCUS_QUERY_PARAM)
@@ -102,16 +110,18 @@ export const buildStructureRuntimePath = (
     applicationId: string | undefined,
     structureSectionId: string | null | undefined,
     structureId: string | null,
-    focusedCellId?: string | null
+    focusedCellId?: string | null,
+    options: { includeStructureSection?: boolean } = {}
 ): string | null => {
     if (typeof window === 'undefined' || !applicationId) return null
     const segments = readRuntimePathSegments(applicationId)
     const firstRuntimeSegment = segments[0]
     const baseSegments = ['a', encodeURIComponent(applicationId)]
+    const includeStructureSection = options.includeStructureSection !== false
 
-    if (firstRuntimeSegment && !RESERVED_RUNTIME_ROUTE_SEGMENTS.has(firstRuntimeSegment)) {
+    if (includeStructureSection && firstRuntimeSegment && !RESERVED_RUNTIME_ROUTE_SEGMENTS.has(firstRuntimeSegment)) {
         baseSegments.push(encodeURIComponent(firstRuntimeSegment))
-    } else if (structureSectionId?.trim()) {
+    } else if (includeStructureSection && structureSectionId?.trim()) {
         baseSegments.push(encodeURIComponent(structureSectionId.trim()))
     } else if (structureId) {
         return null
@@ -131,3 +141,9 @@ export const buildStructureRuntimePath = (
 
     return `/${baseSegments.join('/')}${search ? `?${search}` : ''}${window.location.hash}`
 }
+
+export const buildStructureSectionRuntimePath = (
+    applicationId: string | undefined,
+    structureSectionId: string | null | undefined,
+    focusedCellId?: string | null
+): string | null => buildStructureRuntimePath(applicationId, structureSectionId, null, focusedCellId)

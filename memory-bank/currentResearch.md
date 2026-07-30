@@ -1,12 +1,23 @@
 # Current Research
 
+## 2026-07-19: Interpretation Network single system Structure and workspace templates
+
+-   Research artifact created: `memory-bank/research/interpretation-network-single-structure-and-templates-research-2026-07-19.md`.
+-   Settings decision: use `structureMode: multiple | singleSystem` in the strict `interpretationNetworkWorkspace` widget config. Metahub owns the source default, Application owns a materialized override/reset, and Workspace does not override the mode.
+-   Aggregate decision: one system Structure actually requires one server-owned Structure + canonical Interpretation + root Matrix cell. Create/resolve it through one idempotent workspace-RLS transaction with concurrency serialization; do not reuse the current three-client-request helper.
+-   Identity decision: add a hidden server-owned system key and keep valid localized internal Structure/Interpretation names, while hiding those names and the Structure ID from ordinary single-mode UI/routes.
+-   Template decision: TableTemplates stay workspace-local. Saving and instantiating require two separate CellId/ParentCellId/axis-key/MaterialRef remaps; Relations and binary resource cloning are excluded from phase 1.
+-   Product conflict: ordinary “Create Structure from template” is incompatible with the exactly-one invariant. Recommended phase 1 keeps instantiation in multi mode only; applying/replacing the system Matrix would need a separate contract.
+-   Evidence decision: keep the fixture free of runtime rows, configure single mode through the product generator, retain a separate multi-mode regression, and split focused single-mode/template/permission browser flows.
+-   External evidence: current React, MUI, React Router 6.30.4, Playwright, and PostgreSQL primary docs were refreshed through GitHub MCP in the original research run and rechecked through the built-in web tool in the resumed QA pass. Context7 OAuth failed originally, and no Context7 query tool was callable during resume.
+
 ## 2026-07-13: Interpretation Network configuration and runtime UX
 
-- Research artifact created: `memory-bank/research/interpretation-network-configuration-runtime-ux-research-2026-07-13.md`.
-- Core finding: the Structure multilingual edit issue is an initial-value key-resolution defect, not a limitation in the standard localized dialog; preserve the whole VLC through a field-ID/codename/runtime-key/`row.data` resolver.
-- Configuration decision (QA-corrected 2026-07-14): the template supplies a seed/source default that is materialized into an application-local effective widget configuration; the runtime consumes that materialized value and a user's pane size is transient. This is not live metahub inheritance. Add a bounded accessible separator with a visible `setLayout` reset to the effective 50/50 default.
-- Styling decision: colour `REF` fields cannot represent arbitrary values. For a disposable database, replace them with canonical `#RRGGBB | null` `STRING` values, retain palette shortcuts only in the UI, add `TextColor`, and implement default all-edge border editing without a persisted border-mode field. The shared normalizer and a new runtime-backend validation path must reject arbitrary CSS grammar at UI, child-row write, seed/fixture, and snapshot-import boundaries.
-- Evidence decision: extend the existing product generator → fixture contract → drift check → imported snapshot/visual E2E pipeline; do not hand-edit the snapshot. Browser proof must include populated Structure, labels with end ellipsis, selection outline, resize/reset, keyboard path, localization, and responsive no-overflow checks.
+-   Research artifact created: `memory-bank/research/interpretation-network-configuration-runtime-ux-research-2026-07-13.md`.
+-   Core finding: the Structure multilingual edit issue is an initial-value key-resolution defect, not a limitation in the standard localized dialog; preserve the whole VLC through a field-ID/codename/runtime-key/`row.data` resolver.
+-   Configuration decision (QA-corrected 2026-07-14): the template supplies a seed/source default that is materialized into an application-local effective widget configuration; the runtime consumes that materialized value and a user's pane size is transient. This is not live metahub inheritance. Add a bounded accessible separator with a visible `setLayout` reset to the effective 50/50 default.
+-   Styling decision: colour `REF` fields cannot represent arbitrary values. For a disposable database, replace them with canonical `#RRGGBB | null` `STRING` values, retain palette shortcuts only in the UI, add `TextColor`, and implement default all-edge border editing without a persisted border-mode field. The shared normalizer and a new runtime-backend validation path must reject arbitrary CSS grammar at UI, child-row write, seed/fixture, and snapshot-import boundaries.
+-   Evidence decision: extend the existing product generator → fixture contract → drift check → imported snapshot/visual E2E pipeline; do not hand-edit the snapshot. Browser proof must include populated Structure, labels with end ellipsis, selection outline, resize/reset, keyboard path, localization, and responsive no-overflow checks.
 
 ## 2026-07-10: Interpretation Network hierarchical Matrix Table navigation
 

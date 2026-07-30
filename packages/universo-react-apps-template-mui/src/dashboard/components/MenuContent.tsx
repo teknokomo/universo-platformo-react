@@ -108,6 +108,27 @@ const isRootApplicationStartHref = (href?: string | null): boolean => {
     }
 }
 
+const tryNavigateRuntimeLink = (href?: string | null): 'unhandled' | 'same-route' | 'navigated' => {
+    const safeHref = sanitizeHref(href)
+    if (!safeHref || typeof window === 'undefined') return 'unhandled'
+
+    try {
+        const targetUrl = new URL(safeHref, window.location.origin)
+        if (targetUrl.origin !== window.location.origin) return 'unhandled'
+        if (!targetUrl.pathname.startsWith('/a/')) return 'unhandled'
+
+        const nextRoute = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`
+        const currentRoute = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        if (nextRoute === currentRoute) return 'same-route'
+
+        window.history.pushState(null, '', nextRoute)
+        window.dispatchEvent(new PopStateEvent('popstate'))
+        return 'navigated'
+    } catch {
+        return 'unhandled'
+    }
+}
+
 interface MenuContentProps {
     menu?: DashboardMenuSlot
     variant?: 'wide' | 'compact'
@@ -138,7 +159,7 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
         item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
     const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
     const handleItemSelect = (item: DashboardMenuItem) => {
-        if (item.kind !== 'section') {
+        if (item.kind === 'hub') {
             return
         }
 
@@ -200,7 +221,15 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                                     {...(item.kind === 'link' && sanitizeHref(item.href)
                                         ? { component: 'a' as const, href: sanitizeHref(item.href) }
                                         : {})}
-                                    onClick={() => handleItemSelect(item)}
+                                    onClick={(event) => {
+                                        const runtimeLinkResult = item.kind === 'link' ? tryNavigateRuntimeLink(item.href) : 'unhandled'
+                                        if (runtimeLinkResult !== 'unhandled') {
+                                            event.preventDefault()
+                                        }
+                                        if (runtimeLinkResult !== 'navigated') {
+                                            handleItemSelect(item)
+                                        }
+                                    }}
                                     sx={{
                                         borderRadius: 1,
                                         minHeight: 36,
@@ -251,8 +280,14 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                                 {...(item.kind === 'link' && sanitizeHref(item.href)
                                     ? { component: 'a' as const, href: sanitizeHref(item.href) }
                                     : {})}
-                                onClick={() => {
-                                    handleItemSelect(item)
+                                onClick={(event) => {
+                                    const runtimeLinkResult = item.kind === 'link' ? tryNavigateRuntimeLink(item.href) : 'unhandled'
+                                    if (runtimeLinkResult !== 'unhandled') {
+                                        event.preventDefault()
+                                    }
+                                    if (runtimeLinkResult !== 'navigated') {
+                                        handleItemSelect(item)
+                                    }
                                     setOverflowAnchor(null)
                                 }}
                             >

@@ -46,12 +46,15 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Table & Grid Views**: Flexible data presentation with pagination and search
 -   **Dialog Forms**: Modal forms for creating and editing entities
 -   **Tabbed Application Forms**: Create, edit, and copy dialogs reuse the shared `General / Parameters` pattern
--   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. Interpretation Network Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
+-   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. Interpretation Network Structure/Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
 -   **Layout Widget Customization**: Supported materialized widgets can be customized from the Application Layouts screen with typed editors and an inherited/customized status label instead of raw JSON.
 
 ### 🧭 Interpretation Network Matrix Settings
 
 -   The Application control panel owns deployment-specific Matrix display overrides for active materialized `interpretationNetworkWorkspace` widgets.
+-   Administrators can switch Structure navigation between `multiple` and `singleSystem`. `singleSystem` opens the published Matrix directly and suppresses the Structure list.
+-   `templatePanel.showInStructureList` and `templatePanel.showInMatrix` default to `true`; administrators can override either placement for the materialized deployment. With both disabled, template data remains workspace-scoped but no template UI surface is exposed. Workspaces do not own another override layer.
+-   Reset is owner/admin-only and atomically restores all active inherited Matrix widgets from the latest metahub `sourceConfig` materialized by publication/application synchronization. Source-less application widgets cannot be reset. A stale widget version, incomplete metadata, or an unsafe transition to `singleSystem` rejects the full batch; the UI reloads current state and asks the administrator to resolve the conflict and retry.
 -   Administrators select a non-empty allowed subset of `table`, `horizontalRows`, and `verticalTree`, then choose `defaultMatrixView` from that subset.
 -   Table opens with the hierarchy-first `hierarchicalPath` projection by default: breadcrumbs represent the parent path and the current level's children become rows. `independentAxes` remains available as a secondary row/column projection.
 -   Breadcrumb depth is configurable as the full path or a finite trailing depth, and toolbar layout remains horizontal by default with vertical layout as an explicit opt-in.

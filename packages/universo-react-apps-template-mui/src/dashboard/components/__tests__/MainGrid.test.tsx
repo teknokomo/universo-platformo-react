@@ -1395,6 +1395,51 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
     })
 
+    it('matches center widget visibility by object collection codename separately from section codename', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    sectionId: 'intro-section',
+                    sectionCodename: 'Start',
+                    objectCollectionId: 'structure-section',
+                    objectCollectionCodename: 'Structure'
+                }}
+            >
+                <MainGrid
+                    layoutConfig={{ ...baseLayoutConfig, showDetailsTable: false }}
+                    centerWidgets={[
+                        {
+                            id: 'interpretation-network',
+                            widgetKey: 'interpretationNetworkWorkspace',
+                            sortOrder: 1,
+                            isActive: true,
+                            config: {
+                                visibleFor: {
+                                    objectCollectionCodenames: ['Structure']
+                                }
+                            }
+                        },
+                        {
+                            id: 'hidden-start-only',
+                            widgetKey: 'hiddenStartOnly',
+                            sortOrder: 2,
+                            isActive: true,
+                            config: {
+                                visibleFor: {
+                                    sectionCodenames: ['Structure']
+                                }
+                            }
+                        }
+                    ]}
+                />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('rendered-widget-interpretationNetworkWorkspace')).toBeInTheDocument()
+        expect(screen.queryByTestId('rendered-widget-hiddenStartOnly')).not.toBeInTheDocument()
+    })
+
     it('renders learner page progress from player metadata', async () => {
         const onProgressChange = vi.fn().mockResolvedValue(undefined)
 

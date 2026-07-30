@@ -1,7 +1,7 @@
 // Interpretation Network — visual regression coverage.
 //
-// Captures the published Interpretation Network empty Structures workspace and proves that
-// the canonical first-use surface is available after import.
+// Captures the published Interpretation Network single-system Matrix workspace and proves that
+// the canonical first-use surface opens the matrix directly after import.
 //
 // This spec attaches visual evidence without requiring a committed baseline.
 // A pixel baseline can be added later after the runtime surface stabilizes.
@@ -65,17 +65,21 @@ test.describe('Interpretation Network workspace @visual', () => {
         await expect(menu.getByRole('link', { name: 'Workspaces' })).toBeVisible()
         await menu.getByRole('link', { name: 'Structures' }).click()
         await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Create' })).toBeVisible()
-        await expect(page.getByTestId('interpretation-network-structure-pane')).toContainText('Create a structure first.')
-        await expect(page.getByTestId('interpretation-network-structure-pane')).not.toContainText(
-            'Create a structure to start working with the matrix.'
-        )
-        await expect(page.getByTestId('interpretation-network-details-pane')).toContainText('How to work with structures')
-        await expect(page.getByTestId('interpretation-network-details-pane')).toContainText(
-            'Create or select a structure on the left. After you open a structure, select a matrix cell to manage its materials here.'
-        )
-        await expect(page.getByTestId('interpretation-network-details-pane')).not.toContainText('Materials')
-        await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toHaveCount(0)
+        const structurePane = page.getByTestId('interpretation-network-structure-pane')
+        await expect(page.getByTestId('interpretation-network-matrix-workspace')).toBeVisible({ timeout: 30_000 })
+        await expect(structurePane.getByRole('heading', { name: 'Structures' })).toHaveCount(0)
+        await expect(structurePane.getByRole('textbox', { name: 'Filter by title' })).toHaveCount(0)
+        await expect(structurePane.getByRole('button', { name: 'Create' })).toHaveCount(0)
+        await expect(structurePane.getByRole('tab', { name: 'Matrix' })).toBeVisible()
+        await expect(structurePane.getByRole('tab', { name: 'Templates' })).toBeVisible()
+        await expect(page.getByTestId('interpretation-network-structure-header')).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Structures' })).toHaveCount(0)
+        await expect(structurePane.getByRole('button', { name: 'Save as template' })).toBeVisible()
+        await expect(structurePane.getByRole('button', { name: 'Create from template' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: /Universe/ }).first()).toBeVisible({
+            timeout: 30_000
+        })
+        await expect(page.getByTestId('interpretation-network-details-pane').getByRole('button', { name: 'Create' })).toBeVisible()
         await expect(page.getByRole('main').getByRole('button', { name: 'Add page' })).toHaveCount(0)
         await expect(page.getByRole('main').getByText('Gravity', { exact: false })).toHaveCount(0)
         await expect(page.getByRole('main').getByText('Gravity material', { exact: false })).toHaveCount(0)

@@ -589,6 +589,19 @@ describe('SchemaGenerator', () => {
             expect(createdTables).toContain('_app_workflow_action_audit')
         })
 
+        it('adds source widget configuration storage for application reset semantics', async () => {
+            await generator.ensureSystemTables('metahubs')
+
+            const rawSqlCalls = mockKnex.raw.mock.calls.map(([sql]) => String(sql))
+            const widgetCreateCall = mockSchemaBuilder.createTable.mock.calls.find(([tableName]) => tableName === '_app_widgets')
+
+            expect(widgetCreateCall).toBeDefined()
+            expect(mockTableBuilder.jsonb).toHaveBeenCalledWith('source_config')
+            expect(rawSqlCalls).toEqual(
+                expect.arrayContaining([expect.stringContaining('ADD COLUMN IF NOT EXISTS "source_config" JSONB NULL')])
+            )
+        })
+
         it('widens runtime kind-bearing columns for custom entity kinds', async () => {
             await generator.ensureSystemTables('metahubs')
 

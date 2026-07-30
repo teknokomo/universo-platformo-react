@@ -221,6 +221,11 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.matrixMode must be "hierarchicalCells"'
         )
     }
+    if (workspaceConfig.structureMode !== 'singleSystem') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.structureMode must be "singleSystem"'
+        )
+    }
     const allowedMatrixViews = Array.isArray(workspaceConfig.allowedMatrixViews) ? workspaceConfig.allowedMatrixViews : []
     if (
         allowedMatrixViews.length !== 3 ||
@@ -279,6 +284,15 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
     if (splitPane.enabled !== true || Object.keys(splitPane).length !== 1) {
         throw new Error(
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.splitPane must enable only resizing'
+        )
+    }
+    const templatePanel =
+        workspaceConfig.templatePanel && typeof workspaceConfig.templatePanel === 'object'
+            ? (workspaceConfig.templatePanel as Record<string, unknown>)
+            : {}
+    if (templatePanel.showInStructureList !== true || templatePanel.showInMatrix !== true || Object.keys(templatePanel).length !== 2) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.templatePanel must show templates in Structures and Matrix by default'
         )
     }
     if (workspaceConfig.allowNewAxesInCellDialog !== false) {
@@ -524,13 +538,14 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     const relationFields = getEntityFields(relationEntity)
     const materialFields = getEntityFields(materialEntity)
     const tableTemplateFields = getEntityFields(tableTemplateEntity)
-    for (const fieldCodename of ['Name', 'Description']) {
+    for (const fieldCodename of ['Name', 'Description', 'SystemKey']) {
         requireFieldByCodename(structureFields, fieldCodename, 'Structure')
     }
     assertLocalizedVersionedField(requireFieldByCodename(structureFields, 'Name', 'Structure'), 'Structure.Name')
     const structureDescriptionField = requireFieldByCodename(structureFields, 'Description', 'Structure')
     assertLocalizedVersionedField(structureDescriptionField, 'Structure.Description')
     assertTextareaFieldUiConfig(structureDescriptionField, 'Structure.Description')
+    assertHiddenSystemFieldUiConfig(requireFieldByCodename(structureFields, 'SystemKey', 'Structure'), 'Structure.SystemKey')
     if (findFieldByCodename(structureFields, 'Context')) {
         throw new Error('Interpretation Network fixture contract failed: Structure.Context must not be present in create fields')
     }
@@ -618,7 +633,7 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     for (const fieldCodename of ['SourceKind', 'SourceId', 'TargetKind', 'TargetId']) {
         assertHiddenSystemFieldUiConfig(requireFieldByCodename(relationFields, fieldCodename, 'Relation'), `Relation.${fieldCodename}`)
     }
-    for (const fieldCodename of ['Title', 'Description', 'Body', 'CellId']) {
+    for (const fieldCodename of ['Title', 'Description', 'Body', 'CellId', 'TemplateOwnerId']) {
         requireFieldByCodename(materialFields, fieldCodename, 'Material')
     }
     assertLocalizedVersionedField(requireFieldByCodename(materialFields, 'Title', 'Material'), 'Material.Title')
@@ -626,9 +641,14 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
     assertLocalizedVersionedField(materialDescriptionField, 'Material.Description')
     assertTextareaFieldUiConfig(materialDescriptionField, 'Material.Description')
     assertHiddenSystemFieldUiConfig(requireFieldByCodename(materialFields, 'CellId', 'Material'), 'Material.CellId')
-    for (const fieldCodename of ['Name', 'Description', 'TemplateMatrix']) {
+    assertHiddenSystemFieldUiConfig(requireFieldByCodename(materialFields, 'TemplateOwnerId', 'Material'), 'Material.TemplateOwnerId')
+    for (const fieldCodename of ['Name', 'Description', 'MaterialPolicy', 'TemplateMatrix']) {
         requireFieldByCodename(tableTemplateFields, fieldCodename, 'TableTemplate')
     }
+    assertHiddenSystemFieldUiConfig(
+        requireFieldByCodename(tableTemplateFields, 'MaterialPolicy', 'TableTemplate'),
+        'TableTemplate.MaterialPolicy'
+    )
     const templateMatrixField = requireFieldByCodename(tableTemplateFields, 'TemplateMatrix', 'TableTemplate')
     if (templateMatrixField.dataType !== 'TABLE') {
         throw new Error('Interpretation Network fixture contract failed: TableTemplate.TemplateMatrix must be a TABLE component')
@@ -659,6 +679,16 @@ export function assertInterpretationNetworkFixtureEnvelopeContract(envelope: Met
         requireFieldByCodename(templateMatrixFields, 'ParentCellId', 'TableTemplate.TemplateMatrix'),
         'TableTemplate.TemplateMatrix.ParentCellId'
     )
+    for (const [fields, label] of [
+        [matrixFields, 'Interpretation.InterpretationMatrix.MaterialRef'],
+        [templateMatrixFields, 'TableTemplate.TemplateMatrix.MaterialRef']
+    ] as const) {
+        const materialRef = requireFieldByCodename(fields, 'MaterialRef', label)
+        const uiConfig = materialRef.uiConfig && typeof materialRef.uiConfig === 'object' ? materialRef.uiConfig : {}
+        if ((uiConfig as Record<string, unknown>).serverOwned !== true) {
+            throw new Error(`Interpretation Network fixture contract failed: ${label}.uiConfig.serverOwned must be true`)
+        }
+    }
     if (findFieldByCodename(templateMatrixFields, 'Depth')) {
         throw new Error('Interpretation Network fixture contract failed: TableTemplate.TemplateMatrix.Depth must remain derived')
     }

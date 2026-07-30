@@ -13,6 +13,7 @@ const mockListApplicationLayoutWidgetObject = jest.fn()
 const mockGetApplicationLayoutDetail = jest.fn()
 const mockCreateApplicationLayout = jest.fn()
 const mockUpdateApplicationLayoutWidgetConfigsBatch = jest.fn()
+const mockResetApplicationLayoutWidgetConfigsBatch = jest.fn()
 
 jest.mock('../../routes/guards', () => ({
     __esModule: true,
@@ -44,6 +45,7 @@ jest.mock('../../persistence/applicationLayoutsStore', () => ({
     listApplicationLayoutWidgets: (...args: unknown[]) => mockListApplicationLayoutWidgets(...args),
     listApplicationLayouts: (...args: unknown[]) => mockListApplicationLayouts(...args),
     moveApplicationLayoutWidget: jest.fn(),
+    resetApplicationLayoutWidgetConfigsBatch: (...args: unknown[]) => mockResetApplicationLayoutWidgetConfigsBatch(...args),
     toggleApplicationLayoutWidget: jest.fn(),
     updateApplicationLayout: jest.fn(),
     updateApplicationLayoutWidgetConfig: jest.fn(),
@@ -194,6 +196,72 @@ describe('applicationLayoutsController', () => {
         })
     })
 
+    it('resets inherited widget configs through the owner/admin application boundary', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = {
+            updates: [
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    expectedVersion: 7
+                }
+            ]
+        }
+        mockResetApplicationLayoutWidgetConfigsBatch.mockResolvedValue([{ id: body.updates[0].widgetId }])
+
+        await controller.resetWidgetConfigsBatch({ params: { applicationId: 'app-1' }, body } as unknown as Request, res)
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(mockResetApplicationLayoutWidgetConfigsBatch).toHaveBeenCalledWith(executor, 'app_runtime_schema', body, 'user-1')
+        expect(res.json).toHaveBeenCalledWith({ items: [{ id: body.updates[0].widgetId }] })
+    })
+
+    it('rejects malformed reset payloads before the store boundary', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+
+        await controller.resetWidgetConfigsBatch(
+            {
+                params: { applicationId: 'app-1' },
+                body: { updates: [{ layoutId: 'not-a-uuid', widgetId: 'not-a-uuid', unexpected: true }] }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResetApplicationLayoutWidgetConfigsBatch).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_LAYOUT_WIDGET_RESET_BATCH_INVALID'
+        })
+    })
+
+    it.each([
+        'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT',
+        'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST',
+        'APPLICATION_INTERPRETATION_NETWORK_METADATA_MISSING'
+    ])('maps reset conflict %s to HTTP 409', async (code) => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = {
+            updates: [
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    expectedVersion: 7
+                }
+            ]
+        }
+        mockResetApplicationLayoutWidgetConfigsBatch.mockRejectedValue(new Error(code))
+
+        await controller.resetWidgetConfigsBatch({ params: { applicationId: 'app-1' }, body } as unknown as Request, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            code.startsWith('APPLICATION_INTERPRETATION_NETWORK_') ? { error: code, code } : { error: code }
+        )
+    })
+
     it('maps malformed widget config batch payloads to HTTP 400 without calling the store', async () => {
         const controller = createApplicationLayoutsController(() => executor as never)
         const res = createResponse()
@@ -219,6 +287,38 @@ describe('applicationLayoutsController', () => {
         expect(res.status).toHaveBeenCalledWith(400)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
             error: 'APPLICATION_LAYOUT_WIDGET_BATCH_INVALID'
+        })
+    })
+
+    it('maps an unsafe single-system transition to a stable HTTP 409 code', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = {
+            updates: [
+                {
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    expectedVersion: 7,
+                    config: { structureMode: 'singleSystem' }
+                }
+            ]
+        }
+        mockUpdateApplicationLayoutWidgetConfigsBatch.mockRejectedValue(
+            new Error('APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST')
+        )
+
+        await controller.updateWidgetConfigsBatch(
+            {
+                params: { applicationId: 'app-1' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST',
+            code: 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
         })
     })
 })

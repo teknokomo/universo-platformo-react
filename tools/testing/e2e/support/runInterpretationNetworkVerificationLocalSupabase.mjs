@@ -52,6 +52,9 @@ try {
             'exec',
             'node',
             'tools/testing/e2e/run-playwright-suite.mjs',
+            'specs/flows/interpretation-network-single-system-focused.spec.ts',
+            'specs/flows/interpretation-network-templates-focused.spec.ts',
+            'specs/flows/interpretation-network-permissions-focused.spec.ts',
             'specs/flows/interpretation-network-app-imported-snapshot.spec.ts',
             'specs/visual/interpretation-network-workspace.spec.ts'
         ],

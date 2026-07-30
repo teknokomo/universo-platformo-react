@@ -11,6 +11,7 @@ import type {
     ApplicationLayoutWidgetConfigMutation,
     ApplicationLayoutWidgetMoveMutation,
     ApplicationLayoutWidgetMutation,
+    ApplicationLayoutWidgetResetBatchMutation,
     ApplicationLayoutWidgetToggleMutation,
     RuntimeDatasourceFilter,
     RuntimeDatasourceSort
@@ -444,6 +445,17 @@ export const updateApplicationLayoutWidgetConfigsBatch = async (
 ): Promise<ApplicationLayoutWidget[]> => {
     const response = await apiClient.patch<{ items: ApplicationLayoutWidget[] }>(
         `/applications/${applicationId}/layouts/zone-widgets/config/batch`,
+        data
+    )
+    return response.data.items
+}
+
+export const resetApplicationLayoutWidgetConfigsBatch = async (
+    applicationId: string,
+    data: ApplicationLayoutWidgetResetBatchMutation
+): Promise<ApplicationLayoutWidget[]> => {
+    const response = await apiClient.post<{ items: ApplicationLayoutWidget[] }>(
+        `/applications/${applicationId}/layouts/zone-widgets/config/reset`,
         data
     )
     return response.data.items

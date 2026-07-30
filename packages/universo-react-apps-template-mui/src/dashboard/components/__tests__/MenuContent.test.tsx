@@ -70,6 +70,113 @@ describe('MenuContent sanitizeHref', () => {
         expect(onSelectObjectCollection).toHaveBeenCalledWith('object-structure')
     })
 
+    it('does not run stale section callbacks after client-side runtime-link navigation', () => {
+        const onSelectSection = vi.fn()
+        const onSelectObjectCollection = vi.fn()
+        const onPopState = vi.fn()
+        window.history.pushState({}, '', '/a/app-1/intro')
+        window.addEventListener('popstate', onPopState)
+
+        render(
+            <MenuContent
+                menu={{
+                    items: [
+                        {
+                            id: 'learning-content',
+                            label: 'Learning Content',
+                            kind: 'link',
+                            href: '/a/app-1/learning-content-section',
+                            sectionId: 'learning-content-section',
+                            objectCollectionId: 'learning-content-object'
+                        }
+                    ],
+                    onSelectSection,
+                    onSelectObjectCollection
+                }}
+            />
+        )
+
+        fireEvent.click(screen.getByRole('link', { name: 'Learning Content' }))
+
+        expect(window.location.pathname).toBe('/a/app-1/learning-content-section')
+        expect(onPopState).toHaveBeenCalledTimes(1)
+        expect(onSelectSection).not.toHaveBeenCalled()
+        expect(onSelectObjectCollection).not.toHaveBeenCalled()
+        window.removeEventListener('popstate', onPopState)
+    })
+
+    it('reselects a runtime section when its link already matches the current route', () => {
+        const onSelectSection = vi.fn()
+        const onSelectObjectCollection = vi.fn()
+        const onPopState = vi.fn()
+        window.history.pushState({}, '', '/a/app-1/learning-content-section')
+        window.addEventListener('popstate', onPopState)
+
+        render(
+            <MenuContent
+                menu={{
+                    items: [
+                        {
+                            id: 'learning-content',
+                            label: 'Learning Content',
+                            kind: 'link',
+                            href: '/a/app-1/learning-content-section',
+                            sectionId: 'learning-content-section',
+                            objectCollectionId: 'learning-content-object'
+                        }
+                    ],
+                    onSelectSection,
+                    onSelectObjectCollection
+                }}
+            />
+        )
+
+        fireEvent.click(screen.getByRole('link', { name: 'Learning Content' }))
+
+        expect(window.location.pathname).toBe('/a/app-1/learning-content-section')
+        expect(onPopState).not.toHaveBeenCalled()
+        expect(onSelectObjectCollection).toHaveBeenCalledOnce()
+        expect(onSelectObjectCollection).toHaveBeenCalledWith('learning-content-object')
+        expect(onSelectSection).not.toHaveBeenCalled()
+        window.removeEventListener('popstate', onPopState)
+    })
+
+    it('reselects an overflow runtime section when its link already matches the current route', () => {
+        const onSelectSection = vi.fn()
+        const onPopState = vi.fn()
+        window.history.pushState({}, '', '/a/app-1/reports-section')
+        window.addEventListener('popstate', onPopState)
+
+        render(
+            <MenuContent
+                menu={{
+                    items: [],
+                    overflowItems: [
+                        {
+                            id: 'reports',
+                            label: 'Reports',
+                            kind: 'link',
+                            href: '/a/app-1/reports-section',
+                            sectionId: 'reports-section'
+                        }
+                    ],
+                    overflowLabel: 'More',
+                    onSelectSection
+                }}
+            />
+        )
+
+        fireEvent.click(screen.getByRole('button', { name: 'More' }))
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Reports' }))
+
+        expect(window.location.pathname).toBe('/a/app-1/reports-section')
+        expect(onPopState).not.toHaveBeenCalled()
+        expect(onSelectSection).toHaveBeenCalledOnce()
+        expect(onSelectSection).toHaveBeenCalledWith('reports-section')
+        expect(screen.queryByRole('menuitem', { name: 'Reports' })).not.toBeInTheDocument()
+        window.removeEventListener('popstate', onPopState)
+    })
+
     it('marks a safe link item as current when its href matches the current location', () => {
         window.history.pushState({}, '', '/a/app-1/reports')
 

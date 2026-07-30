@@ -69,6 +69,16 @@ describe('workspace runtime route helpers', () => {
         expect(buildStructureRuntimePath('app-1', 'structure-section', null, null)).toBe('/a/app-1/structure-section')
     })
 
+    it('builds single-system focused-cell routes without exposing the system structure section', () => {
+        setLocation('/a/app-1/structure-section/system-structure?tab=matrix#details')
+
+        expect(
+            buildStructureRuntimePath('app-1', 'structure-section', null, 'cell-7', {
+                includeStructureSection: false
+            })
+        ).toBe('/a/app-1?tab=matrix&matrixCell=cell-7#details')
+    })
+
     it('adopts a structure route without clearing the route before root focus is resolved', () => {
         const selectMatrixCell = vi.fn()
 

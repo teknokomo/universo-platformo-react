@@ -328,26 +328,41 @@ type RuntimeSectionMenuItem = {
 
 const resolveMenuObjectCollectionForSection = (appData: AppDataResponse | undefined, sectionId: string | undefined): string | undefined => {
     if (!appData || !sectionId) return undefined
+    const normalizedSectionId = sectionId.trim().toLowerCase()
 
     for (const menu of appData.menus ?? []) {
         const menuItems: RuntimeSectionMenuItem[] = [...(menu.items ?? []), ...(menu.overflowItems ?? [])]
         for (const item of menuItems) {
-            if (item.isActive === false || item.kind !== 'section' || (item.sectionId ?? item.objectCollectionId) !== sectionId) {
+            const itemSectionId = typeof item.sectionId === 'string' ? item.sectionId.trim() : ''
+            const itemObjectCollectionId = typeof item.objectCollectionId === 'string' ? item.objectCollectionId.trim() : ''
+            const matchesSectionId =
+                itemSectionId === sectionId ||
+                itemSectionId.toLowerCase() === normalizedSectionId ||
+                itemObjectCollectionId.toLowerCase() === normalizedSectionId
+
+            if (item.isActive === false || item.kind !== 'section' || !matchesSectionId) {
                 continue
             }
 
-            const objectCollectionId = typeof item.objectCollectionId === 'string' ? item.objectCollectionId.trim() : ''
+            const objectCollectionId = itemObjectCollectionId
             if (objectCollectionId && objectCollectionId !== sectionId) {
                 return objectCollectionId
             }
         }
     }
 
-    if ((appData.objectCollections ?? []).some((item) => item.id === sectionId)) {
-        return sectionId
+    const objectCollectionById = (appData.objectCollections ?? []).find((item) => {
+        const itemCodename = typeof item.codename === 'string' ? item.codename.trim().toLowerCase() : ''
+        return item.id === sectionId || itemCodename === normalizedSectionId
+    })
+    if (objectCollectionById?.tableName) {
+        return objectCollectionById.id
     }
 
-    const section = (appData.sections ?? []).find((item) => item.id === sectionId)
+    const section = (appData.sections ?? []).find((item) => {
+        const itemCodename = typeof item.codename === 'string' ? item.codename.trim().toLowerCase() : ''
+        return item.id === sectionId || itemCodename === normalizedSectionId
+    })
     return section?.tableName ? section.id : undefined
 }
 
@@ -432,6 +447,11 @@ export interface UseCrudDashboardOptions {
     /** Initial runtime section id resolved from route params. */
     initialSectionId?: string
     /**
+     * Resolve a route-owned section after the bootstrap response exposes runtime metadata.
+     * A resolved value has precedence over the configured start menu item.
+     */
+    resolvePreferredSectionId?: (appData: AppDataResponse) => string | undefined
+    /**
      * Per-dataType cell renderer overrides.
      * Allows consumers to inject custom rendering (e.g. inline checkbox editing).
      */
@@ -449,6 +469,7 @@ export interface UseCrudDashboardOptions {
 
 export interface CrudDashboardState {
     // Data & loading
+    rawAppData: AppDataResponse | undefined
     appData: AppDataResponse | undefined
     isLoading: boolean
     isFetching: boolean
@@ -544,6 +565,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         pageSizeOptions = [10, 20, 50],
         staleTime = 0,
         initialSectionId,
+        resolvePreferredSectionId,
         cellRenderers,
         createDefaultContext: createDefaultContextOption
     } = options
@@ -705,6 +727,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const backendActiveSectionId =
         appData?.activeSectionId ?? appData?.section?.id ?? appData?.activeObjectCollectionId ?? appData?.objectCollection.id
     const backendActiveObjectCollectionId = appData?.activeObjectCollectionId ?? appData?.objectCollection.id ?? backendActiveSectionId
+    const preferredSectionId = useMemo(
+        () => (appData && resolvePreferredSectionId ? resolvePreferredSectionId(appData) : undefined),
+        [appData, resolvePreferredSectionId]
+    )
 
     useEffect(() => {
         if (!initialSectionId) {
@@ -755,7 +781,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     )
     const isSuppressingStaleSectionData = isResolvingInitialMenuSection || isResolvingSelectedSection
     const displayAppData = isSuppressingStaleSectionData ? undefined : appData
-    const activeSectionId = selectedSectionId ?? (isSuppressingStaleSectionData ? initialMenuSectionId : backendActiveSectionId)
+    const activeSectionId =
+        selectedSectionId ?? (isSuppressingStaleSectionData ? preferredSectionId ?? initialMenuSectionId : backendActiveSectionId)
     const selectedSectionObjectCollectionId = selectedSectionId
         ? resolveMenuObjectCollectionForSection(appData, selectedSectionId)
         : undefined
@@ -765,9 +792,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const activeRuntimeTarget = useMemo(
         () => ({
             objectCollectionId: activeObjectCollectionId,
-            sectionId: selectedSectionId ?? activeSectionId
+            sectionId: selectedSectionId ?? preferredSectionId ?? activeSectionId
         }),
-        [activeObjectCollectionId, activeSectionId, selectedSectionId]
+        [activeObjectCollectionId, activeSectionId, preferredSectionId, selectedSectionId]
     )
     const makeRowKey = useCallback(
         (rowId: string | null | undefined) =>
@@ -825,12 +852,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     // Initialize section from the menu (fallback: backend active section)
     useEffect(() => {
         if (!appData || selectedSectionId) return
-        const initialSectionId = initialMenuSectionId ?? backendActiveSectionId
-        if (initialSectionId) {
-            setSelectedSectionId(initialSectionId)
-            setSelectedObjectCollectionId(resolveMenuObjectCollectionForSection(appData, initialSectionId))
+        const bootstrapSectionId = preferredSectionId ?? initialMenuSectionId ?? backendActiveSectionId
+        if (bootstrapSectionId) {
+            setSelectedSectionId(bootstrapSectionId)
+            setSelectedObjectCollectionId(resolveMenuObjectCollectionForSection(appData, bootstrapSectionId))
         }
-    }, [appData, selectedSectionId, initialMenuSectionId, backendActiveSectionId])
+    }, [appData, selectedSectionId, preferredSectionId, initialMenuSectionId, backendActiveSectionId])
 
     // ----- Row query (for edit) -----
     const rowQuery = useQuery({
@@ -1551,6 +1578,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     return {
         // Data
+        rawAppData: appData,
         appData: displayAppData,
         isLoading: listQuery.isLoading || isSuppressingStaleSectionData,
         isFetching: listQuery.isFetching,

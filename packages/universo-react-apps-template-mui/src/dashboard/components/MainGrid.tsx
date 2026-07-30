@@ -169,18 +169,27 @@ const isWidgetVisibleForCurrentSection = (widget: ZoneWidgetItem, details: Dashb
 
     const sectionIds = readStringArrayConfig(visibleFor.sectionIds)
     const sectionCodenames = readStringArrayConfig(visibleFor.sectionCodenames)
-    if (sectionIds.length === 0 && sectionCodenames.length === 0) return true
+    const objectCollectionIds = readStringArrayConfig(visibleFor.objectCollectionIds)
+    const objectCollectionCodenames = readStringArrayConfig(visibleFor.objectCollectionCodenames)
+    if (
+        sectionIds.length === 0 &&
+        sectionCodenames.length === 0 &&
+        objectCollectionIds.length === 0 &&
+        objectCollectionCodenames.length === 0
+    ) {
+        return true
+    }
 
-    const currentIds = new Set(
-        [details?.sectionId, details?.objectCollectionId].map(normalizeVisibilityValue).filter((value) => value.length > 0)
-    )
-    const currentCodenames = new Set(
-        [details?.sectionCodename, details?.objectCollectionCodename].map(normalizeVisibilityValue).filter((value) => value.length > 0)
-    )
+    const currentSectionId = normalizeVisibilityValue(details?.sectionId)
+    const currentObjectCollectionId = normalizeVisibilityValue(details?.objectCollectionId)
+    const currentSectionCodename = normalizeVisibilityValue(details?.sectionCodename)
+    const currentObjectCollectionCodename = normalizeVisibilityValue(details?.objectCollectionCodename)
 
     return (
-        sectionIds.some((id) => currentIds.has(normalizeVisibilityValue(id))) ||
-        sectionCodenames.some((codename) => currentCodenames.has(normalizeVisibilityValue(codename)))
+        sectionIds.some((id) => normalizeVisibilityValue(id) === currentSectionId) ||
+        objectCollectionIds.some((id) => normalizeVisibilityValue(id) === currentObjectCollectionId) ||
+        sectionCodenames.some((codename) => normalizeVisibilityValue(codename) === currentSectionCodename) ||
+        objectCollectionCodenames.some((codename) => normalizeVisibilityValue(codename) === currentObjectCollectionCodename)
     )
 }
 
