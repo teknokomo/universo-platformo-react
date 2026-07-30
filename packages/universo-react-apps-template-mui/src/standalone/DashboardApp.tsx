@@ -280,8 +280,6 @@ export default function DashboardApp(props: DashboardAppProps) {
     const canDeleteContent = contentPermissions?.deleteContent === true
     const showCreateButton = state.appData?.objectCollection.runtimeConfig?.showCreateButton !== false && canCreateContent
     const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
-    const hasStaleSectionRoute =
-        Boolean(routeSectionId) && Boolean(state.appData?.activeSectionId) && state.appData?.activeSectionId !== routeSectionId
     const runtimeAppData = state.rawAppData ?? state.appData
     const matrixRouteSectionId = useMemo(
         () => (hasMatrixCellRouteParam(routeSource) ? resolveSingleSystemMatrixSectionId(runtimeAppData) : null),
@@ -303,8 +301,12 @@ export default function DashboardApp(props: DashboardAppProps) {
         () => buildRouteProjectedAppData(runtimeAppData, currentRuntimeSection, currentRuntimeSectionId),
         [currentRuntimeSection, currentRuntimeSectionId, runtimeAppData]
     )
-    const detailsAppData = routeProjectedAppData ?? (hasStaleSectionRoute ? undefined : state.appData)
-    const dashboardZoneWidgets = routeProjectedAppData?.zoneWidgets ?? runtimeAppData?.zoneWidgets ?? state.appData?.zoneWidgets
+    const routeMatchesLoadedSection = !routeSectionId || getLoadedRuntimeSectionId(state.appData) === routeSectionId
+    const detailsAppData = routeProjectedAppData ?? (routeMatchesLoadedSection ? state.appData : undefined)
+    const hasResolvedDetailsAppData = Boolean(detailsAppData)
+    const dashboardZoneWidgets = hasResolvedDetailsAppData
+        ? routeProjectedAppData?.zoneWidgets ?? runtimeAppData?.zoneWidgets ?? state.appData?.zoneWidgets
+        : undefined
     const detailsTitle = isWorkspacesRoute
         ? t('workspace.title', 'Workspaces')
         : detailsAppData?.objectCollection.name ?? currentRuntimeSection?.name ?? state.appData?.objectCollection.name ?? 'Details'
@@ -528,11 +530,11 @@ export default function DashboardApp(props: DashboardAppProps) {
             workspacesEnabled,
             permissions: detailsAppData?.permissions,
             content: workspacePageContent,
-            rows: state.rows,
-            columns: state.columns,
+            rows: hasResolvedDetailsAppData ? state.rows : [],
+            columns: hasResolvedDetailsAppData ? state.columns : [],
             runtimeColumns: detailsAppData?.columns,
             loading: state.isLoading,
-            rowCount: state.rowCount,
+            rowCount: hasResolvedDetailsAppData ? state.rowCount : undefined,
             paginationModel: state.paginationModel,
             onPaginationModelChange: state.setPaginationModel,
             sortModel: state.sortModel,
@@ -576,6 +578,7 @@ export default function DashboardApp(props: DashboardAppProps) {
         }),
         [
             detailsTitle,
+            hasResolvedDetailsAppData,
             currentRuntimeSection,
             currentRuntimeObjectCollectionId,
             currentRuntimeSectionId,

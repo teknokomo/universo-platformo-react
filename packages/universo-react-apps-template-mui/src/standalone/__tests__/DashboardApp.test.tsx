@@ -34,7 +34,8 @@ vi.mock('../../dashboard/Dashboard', () => ({
         details,
         layoutConfig,
         menu,
-        menus
+        menus,
+        zoneWidgets
     }: {
         details?: {
             title?: string
@@ -49,6 +50,8 @@ vi.mock('../../dashboard/Dashboard', () => ({
                 onProgressChange?: (payload: { action: 'view' | 'complete' }) => void
             }
             tableDefaults?: unknown
+            rows?: Array<Record<string, unknown>>
+            runtimeColumns?: Array<Record<string, unknown>>
             onOpenCreateTarget?: (target: {
                 id: string
                 label: string
@@ -64,6 +67,7 @@ vi.mock('../../dashboard/Dashboard', () => ({
         layoutConfig?: Record<string, unknown>
         menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
         menus?: Record<string, { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }>
+        zoneWidgets?: Record<string, unknown>
     }) => (
         <div data-testid='dashboard-app'>
             <div data-testid='dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
@@ -82,6 +86,10 @@ vi.mock('../../dashboard/Dashboard', () => ({
             <div data-testid='dashboard-page-progress-handler'>{String(typeof details?.pagePlayer?.onProgressChange === 'function')}</div>
             <div data-testid='dashboard-page-player'>{JSON.stringify(details?.pagePlayer ?? {})}</div>
             <div data-testid='dashboard-table-defaults'>{JSON.stringify(details?.tableDefaults ?? {})}</div>
+            <div data-testid='dashboard-rows'>{JSON.stringify(details?.rows ?? [])}</div>
+            <div data-testid='dashboard-runtime-columns'>{JSON.stringify(details?.runtimeColumns ?? [])}</div>
+            <div data-testid='dashboard-row-count'>{String(details?.rowCount ?? '')}</div>
+            <div data-testid='dashboard-zone-widgets'>{JSON.stringify(zoneWidgets ?? {})}</div>
             <button
                 data-testid='dashboard-open-link-target'
                 onClick={() =>
@@ -865,6 +873,155 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Structure')
         expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent('structure-section:Structure:structure-section:Structure')
         expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('0')
+    })
+
+    it('renders a resolved union datasource when its active target differs from the aggregate route section', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const aggregateSectionId = '00000000-0000-7000-8000-000000000010'
+        const targetSectionId = '00000000-0000-7000-8000-000000000011'
+        window.history.pushState({}, '', `/a/${applicationId}/${aggregateSectionId}`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: aggregateSectionId,
+            selectedObjectCollectionId: undefined,
+            activeSectionId: aggregateSectionId,
+            activeObjectCollectionId: targetSectionId,
+            rows: [{ id: 'resource-1', title: 'Operations handbook' }],
+            appData: {
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: [
+                        {
+                            id: 'union-table',
+                            widgetKey: 'detailsTable',
+                            sortOrder: 1,
+                            config: {
+                                datasource: {
+                                    kind: 'records.union',
+                                    targets: [{ objectCollectionId: targetSectionId }]
+                                }
+                            }
+                        }
+                    ]
+                },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: false,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    id: targetSectionId,
+                    name: 'Pages',
+                    codename: 'Page',
+                    tableName: 'obj_page'
+                },
+                section: {
+                    id: aggregateSectionId,
+                    name: 'Learning Content',
+                    codename: 'ContentProjects',
+                    tableName: null
+                },
+                activeObjectCollectionId: targetSectionId,
+                activeSectionId: targetSectionId,
+                objectCollections: [{ id: targetSectionId, name: 'Pages', codename: 'Page', tableName: 'obj_page' }],
+                sections: [
+                    { id: aggregateSectionId, name: 'Learning Content', codename: 'ContentProjects', tableName: null },
+                    { id: targetSectionId, name: 'Pages', codename: 'Page', tableName: 'obj_page' }
+                ],
+                rows: [{ id: 'resource-1', title: 'Operations handbook' }],
+                columns: [{ id: 'title-column', field: 'title', codename: 'Title', dataType: 'STRING', headerName: 'Title' }],
+                pagination: { total: 1, limit: 50, offset: 0 }
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Pages')
+        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent(
+            `${aggregateSectionId}:ContentProjects:${aggregateSectionId}:ContentProjects`
+        )
+        expect(screen.getByTestId('dashboard-rows')).toHaveTextContent('Operations handbook')
+        expect(screen.getByTestId('dashboard-runtime-columns')).toHaveTextContent('title-column')
+    })
+
+    it('does not accept an unresolved runtime route merely because stale data contains a union datasource', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const missingSectionId = '00000000-0000-7000-8000-000000000099'
+        window.history.pushState({}, '', `/a/${applicationId}/${missingSectionId}`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: missingSectionId,
+            activeSectionId: 'object-1',
+            activeObjectCollectionId: 'object-1',
+            rows: [{ id: 'stale-row', title: 'Stale union content' }],
+            rowCount: 42,
+            appData: {
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: [
+                        {
+                            id: 'stale-union-table',
+                            widgetKey: 'detailsTable',
+                            sortOrder: 1,
+                            config: { datasource: { kind: 'records.union', targets: [{ objectCollectionId: 'object-1' }] } }
+                        }
+                    ]
+                },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: false,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: { id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' },
+                section: { id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' },
+                activeObjectCollectionId: 'object-1',
+                activeSectionId: 'object-1',
+                objectCollections: [{ id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' }],
+                sections: [{ id: 'object-1', name: 'Stale section', codename: 'StaleSection', tableName: 'obj_stale' }],
+                rows: [{ id: 'stale-row', title: 'Stale union content' }],
+                columns: [{ id: 'title-column', field: 'title', codename: 'Title', dataType: 'STRING', headerName: 'Title' }],
+                pagination: { total: 1, limit: 50, offset: 0 }
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-rows')).not.toHaveTextContent('Stale union content')
+        expect(screen.getByTestId('dashboard-runtime-columns')).not.toHaveTextContent('title-column')
+        expect(screen.getByTestId('dashboard-row-count')).toBeEmptyDOMElement()
+        expect(screen.getByTestId('dashboard-zone-widgets')).not.toHaveTextContent('stale-union-table')
+    })
+
+    it('does not render stale section data for an unresolved runtime route', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const missingSectionId = '00000000-0000-7000-8000-000000000099'
+        window.history.pushState({}, '', `/a/${applicationId}/${missingSectionId}`)
+        dashboardMocks.dashboardStateOverrides = {
+            selectedSectionId: missingSectionId,
+            activeSectionId: 'object-1',
+            activeObjectCollectionId: 'object-1',
+            rows: [{ id: 'stale-row', title: 'Stale content' }]
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Standalone details')
+        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent(`${missingSectionId}::${missingSectionId}:`)
+        expect(screen.getByTestId('dashboard-rows')).not.toHaveTextContent('Stale content')
     })
 
     it('renders workspace detail navigation in standalone published apps', () => {
