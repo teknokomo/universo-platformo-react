@@ -53,6 +53,18 @@ const readInput = (data: Record<string, unknown>, codename: string, columnName: 
     return { present: false, value: undefined }
 }
 
+const prepareRuntimeChildValue = (field: ObjectContract['childFields'][string], value: unknown): unknown => {
+    const coerced = normalizeConfiguredRuntimeJsonValue(coerceRuntimeValue(value, field.data_type, field.validation_rules ?? undefined), {
+        data_type: field.data_type,
+        ui_config: field.ui_config ?? undefined
+    })
+    return normalizeRuntimeTableChildInsertValueByMeta(coerced, {
+        column_name: field.column_name,
+        data_type: field.data_type,
+        validation_rules: field.validation_rules ?? undefined
+    })
+}
+
 const prepareClientChildValues = (contract: ObjectContract, data: Record<string, unknown>): Record<string, unknown> => {
     const invalidControlField = Object.keys(data).find(
         (key) => key.startsWith('_tp_') || key.startsWith('_upl_') || key.startsWith('_app_')
@@ -68,10 +80,7 @@ const prepareClientChildValues = (contract: ObjectContract, data: Record<string,
         if (!input.present) continue
         if (isServerOwned(field)) failInvalidCell('Matrix placement fields are server-owned', { field: field.codename })
         try {
-            values[field.column_name] = normalizeConfiguredRuntimeJsonValue(
-                coerceRuntimeValue(input.value, field.data_type, field.validation_rules ?? undefined),
-                { data_type: field.data_type, ui_config: field.ui_config ?? undefined }
-            )
+            values[field.column_name] = prepareRuntimeChildValue(field, input.value)
         } catch (error) {
             const formatError = toRuntimeInputFormatErrorBody(error)
             failInvalidCell(formatError?.error ?? `Invalid value for ${field.codename}`, { field: field.codename })
@@ -121,7 +130,16 @@ const assertInterpretationExists = async (
     }
 }
 
-const normalizeComparable = (value: unknown): string => JSON.stringify(value ?? null)
+const normalizeComparable = (value: unknown): string => {
+    if (typeof value === 'string') {
+        try {
+            return JSON.stringify(JSON.parse(value))
+        } catch {
+            return value
+        }
+    }
+    return JSON.stringify(value ?? null)
+}
 
 const validateMatrixState = (rows: Array<Record<string, unknown>>, columns: MatrixColumns): void => {
     const rowByCellId = new Map<string, Record<string, unknown>>()
@@ -244,7 +262,7 @@ export const createInterpretationNetworkMatrixCell = async (
         insertColumns.push('_upl_created_by', '_upl_updated_by')
         values.push(ctx.userId, ctx.userId)
         insertColumns.push(...dataColumns.map(quoteIdentifier))
-        values.push(...dataColumns.map((column) => normalizeRuntimeTableChildInsertValueByMeta(nextRow[column], childMeta.get(column))))
+        values.push(...dataColumns.map((column) => nextRow[column]))
         const placeholders = values.map((_, index) => `$${index + 1}`)
         const returningColumns = [
             'id',

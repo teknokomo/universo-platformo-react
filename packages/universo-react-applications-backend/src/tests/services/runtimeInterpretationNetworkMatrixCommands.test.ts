@@ -19,8 +19,16 @@ const field = (codename: string, columnName: string, uiConfig: Record<string, un
     column_name: columnName,
     data_type: 'STRING' as const,
     parent_component_id: 'matrix-id',
+    validation_rules: undefined,
     ui_config: uiConfig
 })
+
+const localizedField = (codename: string, columnName: string) => ({
+    ...field(codename, columnName, { widget: 'textarea' }),
+    validation_rules: { localized: true, versioned: true }
+})
+
+const plainStringField = (codename: string, columnName: string) => field(codename, columnName, { widget: 'textfield' })
 
 const interpretationContract = {
     object: { id: 'interpretation-object', codename: 'Interpretation', table_name: 'interpretation' },
@@ -36,9 +44,10 @@ const interpretationContract = {
             field('ParentCellId', 'parent_cell_id', { serverOwned: true }),
             field('RowKey', 'row_key', { serverOwned: true }),
             field('ColKey', 'col_key', { serverOwned: true }),
-            field('RowLabel', 'row_label'),
-            field('ColLabel', 'col_label'),
-            field('CellValue', 'cell_value')
+            localizedField('RowLabel', 'row_label'),
+            localizedField('ColLabel', 'col_label'),
+            localizedField('CellValue', 'cell_value'),
+            plainStringField('PlainNote', 'plain_note')
         ].map((item) => [item.codename, item])
     ),
     childTableName: 'interpretation_matrix_rows'
@@ -127,6 +136,14 @@ describe('runtimeInterpretationNetworkMatrixCommands', () => {
         expect(result.item.CellId).toBe('019f2000-0000-7000-8000-000000000099')
         const insertCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO'))
         expect(insertCall?.[1]).toEqual(expect.arrayContaining([workspaceId, userId, 'row-1', 'col-1']))
+        expect(insertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('"_schema":"1"'),
+                expect.stringContaining('"content":"Row"'),
+                expect.stringContaining('"content":"Column"'),
+                expect.stringContaining('"content":"Value"')
+            ])
+        )
     })
 
     it('requires createContent and editContent to create a Matrix cell', async () => {
@@ -201,6 +218,14 @@ describe('runtimeInterpretationNetworkMatrixCommands', () => {
         )
 
         expect(result.item).toMatchObject({ CellId: childCellId, ParentCellId: rootCellId })
+        const insertCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO'))
+        expect(insertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '{"locales":{"en":{"content":"Child"}}}',
+                '{"locales":{"en":{"content":"Child"}}}',
+                '{"locales":{"en":{"content":"Child"}}}'
+            ])
+        )
     })
 
     it('rejects client-supplied server-owned Matrix fields before a transaction', async () => {
@@ -212,6 +237,22 @@ describe('runtimeInterpretationNetworkMatrixCommands', () => {
                 placement: {}
             })
         ).rejects.toMatchObject({ statusCode: 400, code: 'INTERPRETATION_NETWORK_INVALID_CELL' })
+        expect(executor.transaction).not.toHaveBeenCalled()
+    })
+
+    it('rejects object payloads for non-localized STRING fields before a transaction', async () => {
+        const { ctx, executor } = makeContext()
+        await expect(
+            createInterpretationNetworkMatrixCell(ctx, surface, {
+                interpretationId,
+                data: { PlainNote: { locales: { en: { content: 'Not allowed' } } } },
+                placement: {}
+            })
+        ).rejects.toMatchObject({
+            statusCode: 400,
+            code: 'INTERPRETATION_NETWORK_INVALID_CELL',
+            details: { field: 'PlainNote' }
+        })
         expect(executor.transaction).not.toHaveBeenCalled()
     })
 
@@ -257,6 +298,63 @@ describe('runtimeInterpretationNetworkMatrixCommands', () => {
             details: { maxRows: 1, currentRows: 1 }
         })
         expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+    })
+
+    it('moves localized Matrix labels through json-backed VLC storage without accepting unknown fields', async () => {
+        const { ctx, txExecutor } = makeContext()
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM') && sql.includes('"interpretation"')) return [{ id: interpretationId }]
+            if (sql.includes('SELECT id') && sql.includes('"interpretation_matrix_rows"')) {
+                return [
+                    {
+                        id: matrixRowId,
+                        _tp_sort_order: 0,
+                        _upl_version: 1,
+                        cell_id: '019f2000-0000-7000-8000-000000000021',
+                        parent_cell_id: null,
+                        row_key: 'row-1',
+                        col_key: 'col-1',
+                        row_label: { locales: { en: { content: 'Row' } } },
+                        col_label: { locales: { en: { content: 'Column' } } },
+                        cell_value: { locales: { en: { content: 'Value' } } }
+                    }
+                ]
+            }
+            if (String(sql).startsWith('UPDATE')) return [{ id: matrixRowId }]
+            return []
+        })
+
+        await expect(
+            moveInterpretationNetworkMatrixCells(ctx, surface, {
+                interpretationId,
+                updates: [
+                    {
+                        matrixRowId,
+                        expectedVersion: 1,
+                        placement: { sortOrder: 1 },
+                        data: {
+                            RowLabel: { locales: { en: { content: 'Updated row' } } },
+                            CellValue: { locales: { en: { content: 'Updated value' } } }
+                        }
+                    }
+                ]
+            })
+        ).resolves.toEqual({ status: 'ok', updated: [matrixRowId] })
+        const updateCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).startsWith('UPDATE'))
+        expect(updateCall?.[1]).toEqual(
+            expect.arrayContaining(['{"locales":{"en":{"content":"Updated row"}}}', '{"locales":{"en":{"content":"Updated value"}}}'])
+        )
+
+        await expect(
+            moveInterpretationNetworkMatrixCells(ctx, surface, {
+                interpretationId,
+                updates: [{ matrixRowId, placement: {}, data: { NotAField: 'bad' } }]
+            })
+        ).rejects.toMatchObject({
+            statusCode: 400,
+            code: 'INTERPRETATION_NETWORK_INVALID_CELL',
+            details: { field: 'NotAField' }
+        })
     })
 
     it('rolls back a move that creates duplicate logical coordinates', async () => {

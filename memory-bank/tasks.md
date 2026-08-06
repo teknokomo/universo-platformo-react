@@ -1,3 +1,37 @@
+# Interpretation Network Child Matrix Cell Remediation (2026-08-06)
+
+> Status: complete_with_browser_followups
+> Source QA: fresh rebuild/import of `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` fails when creating a child cell with "Данные или расположение ячейки некорректны".
+
+## UI Contract
+
+-   Add child Matrix cell remains a normal published-app workflow with business fields only; system-owned `CellId`, `ParentCellId`, `RowKey`, and `ColKey` stay backend-owned.
+-   Localized Matrix labels and values entered from the MUI dialog are valid runtime input and must persist without raw JSON/object leakage on normal surfaces.
+-   Permission behavior remains fail-closed: create child cell requires both `createContent` and `editContent`; move requires `editContent`; read-only roles keep authoring controls hidden.
+-   Backend Matrix commands keep request-scoped runtime context, parameterized SQL, UUID v7 generated identifiers, transaction/lock boundaries, optimistic versions, duplicate-coordinate/cycle validation, and workspace scoping.
+
+## Checklist
+
+-   [x] MC1. Reproduce and isolate the backend child-cell validation defect; record OntoIndex impact and preserve permission/security invariants. The failure is the Matrix command inserting localized/versioned STRING objects into json-backed TABLE child columns without the shared child-value storage normalization.
+-   [x] MC2. Fix Matrix command input normalization so localized/versioned structured STRING values use the shared runtime TABLE child normalization path before strict scalar coercion.
+-   [x] MC3. Add/refresh focused backend tests for localized child creation and invalid-field rejection without weakening server-owned field checks.
+-   [x] MC4. Stabilize affected frontend unit tests for the Matrix command migration if failures are product regressions rather than environmental warnings. No frontend product-code change was needed for this backend normalization fix; the affected browser oracle failures are recorded below as separate follow-ups.
+-   [x] MC5. Run formatting, focused backend/frontend tests, fixture contract, and relevant builds/lint.
+-   [x] MC6. Run minimal local Supabase Playwright proof for the imported snapshot child-cell workflow and permissions where the environment permits. The wrapper reached browser verification against local Supabase and proved the child-cell create request no longer returns the reported invalid-cell backend error; the full wrapper still fails on separate existing browser-oracle defects listed below.
+-   [x] MC7. Run OntoIndex diff verification/Thermos-style closeout and update progress evidence.
+
+## Evidence And Follow-Ups
+
+-   Focused backend Jest passed: `runtimeInterpretationNetworkMatrixCommands.test.ts` and `runtimeInterpretationNetworkMatrixController.test.ts` (12 tests).
+-   Formatting passed with Prettier on touched backend test/service files and this checklist.
+-   Applications backend lint passed with one pre-existing warning in `src/routes/sync/syncLayoutPersistence.ts`.
+-   Applications backend build passed after rebuilding `@universo-react/types` and `@universo-react/utils`; initial direct package build failed only because the workspace dependency dists were stale.
+-   Interpretation Network fixture contract passed for the committed snapshot and the local-Supabase generated snapshot.
+-   Full root `build:e2e` passed inside the local-Supabase verification wrapper.
+-   `git diff --check` passed.
+-   OntoIndex impact for `createInterpretationNetworkMatrixCell`, `moveInterpretationNetworkMatrixCells`, and touched E2E helper/oracle symbols reported LOW risk. Thermos correctness/security subagent returned PASS for the Matrix command diff.
+-   `pnpm run test:e2e:interpretation-network:verify:local-supabase` reached browser tests on minimal local Supabase but ended red because of four separate browser/test-oracle failures: reset button not visible after Matrix settings save, read-only member template list receives workspace 403, single-system root-cell locator expects `data-testid=interpretation-network-cell` while the current table view exposes the root as a button, and the language menu item is localized as `Русский` instead of `Russian`.
+
 # Interpretation Network Final QA Remediation (2026-07-22)
 
 > Status: complete_with_environmental_limits
