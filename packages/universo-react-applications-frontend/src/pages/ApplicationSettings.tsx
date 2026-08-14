@@ -524,6 +524,7 @@ const ApplicationSettings = () => {
                                       ? {
                                             ...widget,
                                             ...savedWidget,
+                                            isCustomized: savedWidget.isCustomized ?? true,
                                             config: {
                                                 ...widget.config,
                                                 ...(savedWidget.config ?? {}),

@@ -57,8 +57,10 @@ test.describe('Interpretation Network single-system navigation @flow @interpreta
                 (await getMatrixRows(api, imported.applicationId, runtimeIds, interpretationId!)).length,
                 'fresh system Matrix must contain its root cell'
             ).toBe(1)
+            await page.reload()
+            await expectSingleSystemMatrix(page)
 
-            const rootCell = page.getByTestId('interpretation-network-cell').filter({ hasText: 'Universe' }).first()
+            const rootCell = page.getByRole('button', { name: /Universe/ }).first()
             await expect(rootCell).toBeVisible()
             await rootCell.click()
             await expect(rootCell).toHaveAttribute('aria-pressed', 'true')

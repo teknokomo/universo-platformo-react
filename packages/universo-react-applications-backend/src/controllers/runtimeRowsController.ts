@@ -46,7 +46,7 @@ import {
 import { RuntimePostingMovementService } from '../services/runtimePostingMovements'
 import { applyWorkflowAction, type WorkflowStatusValueMap } from '../services/runtimeWorkflowActions'
 import type { RolePermission } from '../routes/guards'
-import { INTERPRETATION_NETWORK_WIDGET_KEY, SYSTEM_STRUCTURE_KEY } from '../services/interpretationNetwork/runtimeInterpretationNetworkCore'
+import { SYSTEM_STRUCTURE_KEY } from '../services/interpretationNetwork/runtimeInterpretationNetworkCore'
 import { resolveInterpretationNetworkRuntimeSurface } from '../services/interpretationNetwork/runtimeInterpretationNetworkSurface'
 import {
     UpdateFailure,
@@ -661,7 +661,16 @@ const assertNotProtectedSystemStructureRuntimeRow = async (
             code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
         })
     }
-    if (surface.featureState !== 'ready' || surface.structureMode !== 'singleSystem') return
+    const isSingleSystemAggregateObject =
+        surface.structureMode === 'singleSystem' &&
+        (surface.resolvedObjects.Structure === objectCollectionId || surface.resolvedObjects.Interpretation === objectCollectionId)
+    if (surface.featureState !== 'ready' && isSingleSystemAggregateObject) {
+        throw new UpdateFailure(409, {
+            error: 'Interpretation Network runtime metadata is incomplete for single-structure mode',
+            code: 'INTERPRETATION_NETWORK_MISSING_METADATA'
+        })
+    }
+    if (surface.structureMode !== 'singleSystem') return
     if (surface.resolvedObjects.Structure === objectCollectionId) {
         if (!systemKeyAttr || String(row[systemKeyAttr.column_name] ?? '').trim() !== SYSTEM_STRUCTURE_KEY) return
         throw new UpdateFailure(409, {
@@ -704,32 +713,37 @@ const assertInterpretationNetworkGenericCreateAllowed = async (
     objectCollectionId: string
 ): Promise<void> => {
     await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${ctx.schemaName}:interpretation-network:structure-mode`])
-    const protectedRows = await manager.query<{ protected: boolean }>(
-        `
-        SELECT EXISTS (
-            SELECT 1
-            FROM ${quoteIdentifier(ctx.schemaName)}._app_widgets widget
-            INNER JOIN ${quoteIdentifier(ctx.schemaName)}._app_layouts layout ON layout.id = widget.layout_id
-            INNER JOIN ${quoteIdentifier(ctx.schemaName)}._app_objects object_row ON object_row.id = $1
-            WHERE widget.widget_key = $2
-              AND widget.config->>'structureMode' = 'singleSystem'
-              AND widget.is_active = true
-              AND widget._upl_deleted = false
-              AND widget._app_deleted = false
-              AND layout.is_active = true
-              AND layout._upl_deleted = false
-              AND layout._app_deleted = false
-              AND object_row._upl_deleted = false
-              AND object_row._app_deleted = false
-              AND ${runtimeCodenameTextSql('object_row.codename')} IN (
-                  COALESCE(NULLIF(widget.config->>'conceptCodename', ''), 'Structure'),
-                  COALESCE(NULLIF(widget.config->>'interpretationCodename', ''), 'Interpretation')
-              )
-        ) AS protected
-        `,
-        [objectCollectionId, INTERPRETATION_NETWORK_WIDGET_KEY]
-    )
-    if (protectedRows[0]?.protected !== true) return
+    const surface = await resolveInterpretationNetworkRuntimeSurface(manager, {
+        applicationId,
+        schemaName: ctx.schemaName,
+        workspaceId: ctx.currentWorkspaceId
+    })
+    if (surface.featureState === 'ambiguous-widget') {
+        throw new UpdateFailure(409, {
+            error: 'Interpretation Network runtime widget context is ambiguous',
+            code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
+        })
+    }
+    const requestedObjectRoles = Object.entries(surface.resolvedObjects)
+        .filter(([, resolvedObjectId]) => resolvedObjectId === objectCollectionId)
+        .map(([role]) => role)
+    const protectsSingleSystemAggregate =
+        surface.structureMode === 'singleSystem' &&
+        (requestedObjectRoles.includes('Structure') || requestedObjectRoles.includes('Interpretation'))
+
+    if (surface.featureState !== 'ready' && protectsSingleSystemAggregate) {
+        throw new UpdateFailure(409, {
+            error: 'Interpretation Network runtime metadata is incomplete for single-structure mode',
+            code: 'INTERPRETATION_NETWORK_MISSING_METADATA'
+        })
+    }
+    if (surface.featureState === 'ready' && !protectsSingleSystemAggregate) {
+        return
+    }
+    if (surface.featureState !== 'ready' || surface.structureMode !== 'singleSystem') {
+        return
+    }
+
     throw new UpdateFailure(409, {
         error: 'Structure aggregates are managed by Interpretation Network single-structure mode',
         code: 'INTERPRETATION_NETWORK_GENERIC_CREATE_FORBIDDEN'
@@ -7450,8 +7464,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         let afterCopyLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performCopy = async (mgr: DbExecutor) => {
-            await assertInterpretationNetworkGenericCreateAllowed(mgr, ctx, applicationId, objectCollection.id)
             await assertInterpretationNetworkGenericCopyAllowed(mgr, ctx, applicationId, objectCollection.id)
+            await assertInterpretationNetworkGenericCreateAllowed(mgr, ctx, applicationId, objectCollection.id)
             const transactionalSourceValues: unknown[] = [rowId]
             const transactionalSourceAccessClause = await buildRuntimeRecordAccessClause({
                 manager: mgr,
@@ -8369,7 +8383,6 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         try {
             await ctx.manager.transaction(async (txManager) => {
-                await assertInterpretationNetworkGenericCreateAllowed(txManager, ctx, applicationId, objectCollection.id)
                 const sourceValues: unknown[] = [rowId]
                 const sourceAccessClause = await buildRuntimeRecordAccessClause({
                     manager: txManager,
@@ -8409,6 +8422,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     })
                 }
                 await assertNotProtectedSystemStructureRuntimeRow(txManager, ctx, applicationId, objectCollection.id, attrs, sourceRow)
+                await assertInterpretationNetworkGenericCreateAllowed(txManager, ctx, applicationId, objectCollection.id)
                 if (parsedBody.data.expectedVersion !== undefined) {
                     const actualVersion = Number(sourceRow._upl_version ?? 1)
                     if (actualVersion !== parsedBody.data.expectedVersion) {

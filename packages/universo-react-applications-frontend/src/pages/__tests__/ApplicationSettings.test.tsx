@@ -2244,6 +2244,75 @@ describe('ApplicationSettings', () => {
         )
     })
 
+    it('shows inherited Matrix reset immediately after saving a metahub-sourced widget override', async () => {
+        mockedListApplicationLayouts.mockResolvedValue({
+            items: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                    scopeId: null,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    sourceKind: 'metahub',
+                    syncState: 'in_sync',
+                    isSourceExcluded: false,
+                    version: 3
+                }
+            ],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        } as never)
+        mockedListApplicationLayoutWidgets.mockResolvedValue([
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { structureMode: 'singleSystem', templatePanel: { showInMatrix: true } },
+                sourceConfig: { structureMode: 'singleSystem', templatePanel: { showInMatrix: true } },
+                isCustomized: false,
+                isActive: true,
+                version: 7
+            }
+        ] as never)
+        mockedUpdateApplicationLayoutWidgetConfigsBatch.mockResolvedValue([
+            {
+                id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
+                zone: 'main',
+                widgetKey: 'interpretationNetworkWorkspace',
+                sortOrder: 0,
+                config: { structureMode: 'multiple', templatePanel: { showInMatrix: false } },
+                sourceConfig: { structureMode: 'singleSystem', templatePanel: { showInMatrix: true } },
+                isActive: true,
+                version: 8
+            }
+        ] as never)
+
+        renderSettings()
+        await userEvent.click(await screen.findByRole('tab', { name: 'Matrix' }))
+        expect(screen.queryByTestId('application-settings-matrix-reset')).not.toBeInTheDocument()
+        await userEvent.click(within(screen.getByTestId('application-setting-matrix-structure-mode')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Multiple structures' }))
+        await userEvent.click(screen.getByLabelText('Show next to Matrix'))
+        await userEvent.click(screen.getByTestId('application-settings-matrix-save'))
+
+        expect(await screen.findByTestId('application-settings-matrix-reset')).toBeInTheDocument()
+        expect(getLastMatrixBatchUpdate('018f8a78-7b8f-7c1d-a111-2222333344a1')).toMatchObject({
+            expectedVersion: 7,
+            config: expect.objectContaining({
+                structureMode: 'multiple',
+                templatePanel: expect.objectContaining({ showInMatrix: false })
+            })
+        })
+    }, 15_000)
+
     it('saves matrix settings to the active scoped workspace widget when no global widget exists', async () => {
         mockedListApplicationLayoutScopes.mockResolvedValue([
             {

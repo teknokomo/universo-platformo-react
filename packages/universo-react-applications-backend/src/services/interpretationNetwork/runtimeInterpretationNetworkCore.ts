@@ -167,6 +167,7 @@ export type WidgetRow = {
     layout_id: string
     widget_key: string
     config: Record<string, unknown> | null
+    scope_rank?: number
 }
 
 export type ObjectRow = {

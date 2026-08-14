@@ -55,6 +55,7 @@ const physicalMatrixChildColumns: RuntimeColumnLike[] = [
     { id: 'row-label', codename: 'RowLabel', field: 'phys_row_label' },
     { id: 'col-key', codename: 'ColKey', field: 'phys_col_key' },
     { id: 'col-label', codename: 'ColLabel', field: 'phys_col_label' },
+    { id: 'material-ref', codename: 'MaterialRef', field: 'phys_material_ref', uiConfig: { serverOwned: true } },
     { id: 'value', codename: 'CellValue', field: 'phys_cell_value' }
 ]
 
@@ -196,6 +197,51 @@ describe('interpretation network model', () => {
         expect(createData.ParentCellId).toBeUndefined()
         expect(createData.RowKey).toBeUndefined()
         expect(createData.ColKey).toBeUndefined()
+    })
+
+    it('keeps generated child axis labels when hidden placement submits empty new axes', () => {
+        const source = {
+            id: 'parent-cell',
+            parentCellId: null,
+            sortOrder: 0,
+            rowKey: 'parent-row',
+            rowLabel: 'Parent row',
+            colKey: 'parent-column',
+            colLabel: 'Parent column'
+        } as MatrixCell
+
+        const createData = buildCellCreateData({
+            mode: 'create-child',
+            childColumns: physicalMatrixChildColumns,
+            locale: 'ru',
+            source,
+            existingCells: [source],
+            placement: {
+                parentCellId: source.id,
+                row: { kind: 'new' },
+                column: { kind: 'new' }
+            }
+        })
+
+        expect(createData.phys_parent_cell_id).toBe('parent-cell')
+        expect(createData.phys_row_key).toBe(`row-${createData.phys_cell_id}`)
+        expect(createData.phys_col_key).toBe(`column-${createData.phys_cell_id}`)
+        expect(createData.phys_row_label).toEqual(
+            expect.objectContaining({
+                locales: expect.objectContaining({
+                    ru: expect.objectContaining({ content: '' })
+                })
+            })
+        )
+        expect(createData.phys_col_label).toEqual(
+            expect.objectContaining({
+                locales: expect.objectContaining({
+                    ru: expect.objectContaining({ content: '' })
+                })
+            })
+        )
+        expect(createData.phys_row_label).not.toBeUndefined()
+        expect(createData.phys_col_label).not.toBeUndefined()
     })
 
     it('uses the normalized create-child parent for both persistence and sibling ordering', () => {
@@ -361,6 +407,7 @@ describe('interpretation network model', () => {
             mergeCellCreateData(
                 {
                     CellValue: 'User title',
+                    MaterialRef: 'user-material',
                     _tp_sort_order: 99
                 },
                 {
@@ -368,6 +415,7 @@ describe('interpretation network model', () => {
                     ParentCellId: null,
                     RowKey: 'row-generated-cell',
                     ColKey: 'column-generated-cell',
+                    MaterialRef: null,
                     _tp_sort_order: 3,
                     CellValue: 'Default title'
                 },
@@ -378,6 +426,7 @@ describe('interpretation network model', () => {
             ParentCellId: null,
             RowKey: 'row-generated-cell',
             ColKey: 'column-generated-cell',
+            MaterialRef: null,
             _tp_sort_order: 3,
             CellValue: 'User title'
         })
@@ -447,13 +496,50 @@ describe('interpretation network model', () => {
     })
 
     it('protects physical generated matrix placement fields during create merges', () => {
+        const merged = mergeCellCreateData(
+            {
+                phys_cell_id: undefined,
+                phys_parent_cell_id: undefined,
+                phys_row_key: undefined,
+                phys_col_key: undefined,
+                phys_material_ref: null,
+                phys_cell_value: 'User title'
+            },
+            {
+                phys_cell_id: 'generated-cell',
+                phys_parent_cell_id: 'parent-cell',
+                phys_row_key: 'row-generated-cell',
+                phys_col_key: 'column-generated-cell',
+                phys_cell_value: 'Default title'
+            },
+            resolveCellCreateSystemFields(physicalMatrixChildColumns)
+        )
+
+        expect(merged).toEqual({
+            phys_cell_id: 'generated-cell',
+            phys_parent_cell_id: 'parent-cell',
+            phys_row_key: 'row-generated-cell',
+            phys_col_key: 'column-generated-cell',
+            phys_cell_value: 'User title'
+        })
+        expect(merged).not.toHaveProperty('phys_material_ref')
+    })
+
+    it('drops stale system codenames when trusted create data uses physical system fields', () => {
         expect(
             mergeCellCreateData(
                 {
+                    CellId: 'user-cell-id',
+                    ParentCellId: 'user-parent-cell-id',
+                    RowKey: 'user-row',
+                    ColKey: 'user-column',
+                    MaterialRef: 'user-material',
+                    _tp_sort_order: 99,
                     phys_cell_id: undefined,
                     phys_parent_cell_id: undefined,
                     phys_row_key: undefined,
                     phys_col_key: undefined,
+                    phys_material_ref: null,
                     phys_cell_value: 'User title'
                 },
                 {
@@ -472,21 +558,10 @@ describe('interpretation network model', () => {
             phys_col_key: 'column-generated-cell',
             phys_cell_value: 'User title'
         })
-    })
-
-    it('drops stale system codenames when trusted create data uses physical system fields', () => {
         expect(
             mergeCellCreateData(
                 {
-                    CellId: 'user-cell-id',
-                    ParentCellId: 'user-parent-cell-id',
-                    RowKey: 'user-row',
-                    ColKey: 'user-column',
-                    _tp_sort_order: 99,
-                    phys_cell_id: undefined,
-                    phys_parent_cell_id: undefined,
-                    phys_row_key: undefined,
-                    phys_col_key: undefined,
+                    phys_material_ref: null,
                     phys_cell_value: 'User title'
                 },
                 {
@@ -497,6 +572,35 @@ describe('interpretation network model', () => {
                     phys_cell_value: 'Default title'
                 },
                 resolveCellCreateSystemFields(physicalMatrixChildColumns)
+            )
+        ).not.toHaveProperty('phys_material_ref')
+    })
+
+    it('drops generated server-owned fields even when only metadata marks them as system managed', () => {
+        const generatedMaterialField = 'cmp_generated_material_ref'
+
+        expect(
+            mergeCellCreateData(
+                {
+                    [generatedMaterialField]: null,
+                    phys_cell_value: 'User title'
+                },
+                {
+                    phys_cell_id: 'generated-cell',
+                    phys_parent_cell_id: 'parent-cell',
+                    phys_row_key: 'row-generated-cell',
+                    phys_col_key: 'column-generated-cell',
+                    phys_cell_value: 'Default title'
+                },
+                resolveCellCreateSystemFields([
+                    ...physicalMatrixChildColumns.filter((column) => column.codename !== 'MaterialRef'),
+                    {
+                        id: '019f-material-ref',
+                        codename: 'MaterialRef',
+                        field: generatedMaterialField,
+                        uiConfig: { serverOwned: true }
+                    }
+                ])
             )
         ).toEqual({
             phys_cell_id: 'generated-cell',

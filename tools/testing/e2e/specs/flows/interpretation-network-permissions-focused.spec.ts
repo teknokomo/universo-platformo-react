@@ -178,7 +178,8 @@ test.describe('Interpretation Network role boundaries @flow @permission @interpr
             expect(editorTemplateResult.id).toMatch(uuidV7Pattern)
             await expect(editorSaveDialog).toHaveCount(0)
             editorApi = await createLoggedInApiContext({ email: editorEmail, password })
-            const editorTemplates = await listTemplates(editorApi, imported.applicationId, runtimeIds.workspaceId)
+            const editorRuntimeIds = await resolveRuntimeIds(editorApi, imported.applicationId)
+            const editorTemplates = await listTemplates(editorApi, imported.applicationId, editorRuntimeIds.workspaceId)
             expect(editorTemplates.some((template) => readLocalizedText(template.name) === editorTemplateName)).toBe(true)
             await disposeApiContext(editorApi)
             editorApi = null
@@ -223,7 +224,7 @@ test.describe('Interpretation Network role boundaries @flow @permission @interpr
                 'DELETE',
                 `/api/v1/applications/${imported.applicationId}/runtime/interpretation-network/templates/${
                     editorTemplateResult.id
-                }?workspaceId=${encodeURIComponent(runtimeIds.workspaceId)}`,
+                }?workspaceId=${encodeURIComponent(editorRuntimeIds.workspaceId)}`,
                 {}
             )
             expect(directResponse.status).toBe(403)
@@ -264,7 +265,7 @@ test.describe('Interpretation Network role boundaries @flow @permission @interpr
             expect(crossWorkspaceEnsure.status).toBe(403)
             await disposeApiContext(memberMutationApi)
             memberMutationApi = null
-            expect(await listTemplates(ownerApi, imported.applicationId, runtimeIds.workspaceId)).toEqual(
+            expect(await listTemplates(ownerApi, imported.applicationId, runtimeIds.workspaceId)).not.toEqual(
                 expect.arrayContaining([expect.objectContaining({ id: editorTemplateResult.id })])
             )
             expect(await listTemplates(ownerApi, unrelated.applicationId, unrelatedRuntimeIds.workspaceId)).toEqual([])

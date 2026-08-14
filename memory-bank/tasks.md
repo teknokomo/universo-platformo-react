@@ -1,3 +1,30 @@
+# Interpretation Network Child Matrix Cell QA Remediation (2026-08-14)
+
+> Status: verification_in_progress
+> Source QA: after PR #882, a clean rebuild and import of `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` still failed to create a child Matrix cell with "Данные или расположение ячейки некорректны".
+
+## UI And Security Contract
+
+-   Child creation submits visible business fields only; `CellId`, `ParentCellId`, `RowKey`, `ColKey`, `MaterialRef`, and runtime control fields remain server-owned.
+-   Hidden placement controls cannot overwrite the visible localized title or description with empty values.
+-   Create requires both `createContent` and `editContent`; edit requires `editContent`; delete requires `deleteContent`.
+-   Runtime widget resolution prefers the current workspace layout over the global fallback and fails closed on same-rank ambiguity.
+-   New persisted identities remain UUID v7; Matrix writes remain parameterized, transactional, workspace-scoped, cycle/coordinate validated, and guarded by advisory locks.
+-   The Russian dialog keeps localized validation, multiline Description, no raw identifiers/JSON, and no page-level horizontal overflow.
+
+## Checklist
+
+-   [x] QI1. Reproduce and trace the imported-snapshot child-cell path across MUI form merging, command payload construction, backend runtime surface resolution, and Matrix persistence.
+-   [x] QI2. Prevent hidden/system-owned Matrix fields from overriding trusted placement or leaking into the command payload.
+-   [x] QI3. Align frontend create controls and mutation guards with the backend `createContent + editContent` policy.
+-   [x] QI4. Scope runtime widget resolution and generic single-system guards through `_app_layouts.scope_entity_id`, with workspace-specific precedence and ambiguity fail-closed behavior.
+-   [x] QI5. Add focused Vitest/Jest coverage for payload sanitization, hidden placement, permission combinations, workspace isolation, and generic create protection.
+-   [x] QI6. Add direct imported-snapshot Playwright coverage for the Russian hidden-placement child-cell journey and integrate it into the established full flow.
+-   [ ] QI7. Run Prettier, focused tests, lint/build, fixture contract/drift, minimal-Supabase Playwright proof, UUID/data-operation/security review, OntoIndex diff verification, and Thermos/autoreview.
+-   [ ] QI8. Record final evidence in `memory-bank/progress.md` after every required check is terminal.
+
+---
+
 # Interpretation Network Child Matrix Cell Remediation (2026-08-06)
 
 > Status: complete_with_browser_followups

@@ -58,6 +58,7 @@ function createRuntimeRequest(overrides: Partial<Request> = {}): Request {
 
 const mutableObjectCollectionId = '019f2000-0000-7000-8000-000000000100'
 const staleOrPageObjectCollectionId = '019f2000-0000-7000-8000-000000000999'
+const testApplicationId = '019f2000-0000-7000-8000-000000000001'
 
 const runtimeObjectCollectionRows = [
     {
@@ -339,11 +340,15 @@ describe('runtimeRowsController single-system Structure protection', () => {
     it('blocks generic Structure creation while single-system mode is active', async () => {
         const { controller, executor } = createRuntimeMutationHarness()
         const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            structureMode: 'singleSystem',
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
         executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
             if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
             if (sql.includes('pg_advisory_xact_lock')) return []
-            if (sql.includes('AS protected')) return [{ protected: true }]
             return []
         })
         executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
@@ -361,6 +366,195 @@ describe('runtimeRowsController single-system Structure protection', () => {
             code: 'INTERPRETATION_NETWORK_GENERIC_CREATE_FORBIDDEN'
         })
         expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+    })
+
+    it('fails closed when generic Structure creation resolves an ambiguous runtime widget', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ambiguous-widget',
+            structureMode: 'multiple',
+            resolvedObjects: {}
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.createRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Ambiguous create' } }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Interpretation Network runtime widget context is ambiguous',
+            code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
+        })
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+    })
+
+    it('fails closed when generic Structure creation finds incomplete single-system metadata', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'missing-metadata',
+            structureMode: 'singleSystem',
+            missing: ['Interpretation.InterpretationMatrix.MaterialRef'],
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.createRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Incomplete metadata create' } }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Interpretation Network runtime metadata is incomplete for single-structure mode',
+            code: 'INTERPRETATION_NETWORK_MISSING_METADATA'
+        })
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+    })
+
+    it('uses workspace-scoped runtime surface resolution for generic Structure creation protection', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName: 'runtime_schema',
+            schemaIdent: 'runtime_schema',
+            manager: executor,
+            userId: 'user-1',
+            role: 'owner',
+            permissions: {
+                createContent: true,
+                editContent: true,
+                deleteContent: true,
+                restoreContent: true,
+                viewContent: true,
+                manageContent: true,
+                manageSettings: true,
+                manageUsers: true
+            },
+            workflowCapabilities: {},
+            currentWorkspaceId: '019f2000-0000-7000-8000-000000000777',
+            workspacesEnabled: false,
+            applicationSettings: {}
+        })
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            structureMode: 'multiple',
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('INSERT INTO runtime_schema."structure"')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Allowed in workspace B',
+                        system_key: null,
+                        _upl_version: 1
+                    }
+                ]
+            }
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.createRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Allowed in workspace B' } }
+            }),
+            res
+        )
+
+        expect(mockResolveInterpretationNetworkRuntimeSurface).toHaveBeenCalledWith(executor, {
+            applicationId: testApplicationId,
+            schemaName: 'runtime_schema',
+            workspaceId: '019f2000-0000-7000-8000-000000000777'
+        })
+        expect(res.status).toHaveBeenCalledWith(201)
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(true)
+    })
+
+    it('lets workspace-scoped multi-structure mode override a global single-system generic create guard', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName: 'runtime_schema',
+            schemaIdent: 'runtime_schema',
+            manager: executor,
+            userId: 'user-1',
+            role: 'owner',
+            permissions: {
+                createContent: true,
+                editContent: true,
+                deleteContent: true,
+                restoreContent: true,
+                viewContent: true,
+                manageContent: true,
+                manageSettings: true,
+                manageUsers: true
+            },
+            workflowCapabilities: {},
+            currentWorkspaceId: '019f2000-0000-7000-8000-000000000777',
+            workspacesEnabled: false,
+            applicationSettings: {}
+        })
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            structureMode: 'multiple',
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('INSERT INTO runtime_schema."structure"')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000003',
+                        name: 'Workspace scoped structure',
+                        system_key: null,
+                        _upl_version: 1
+                    }
+                ]
+            }
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.createRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Workspace scoped structure' } }
+            }),
+            res
+        )
+
+        expect(mockResolveInterpretationNetworkRuntimeSurface).toHaveBeenCalledWith(executor, {
+            applicationId: testApplicationId,
+            schemaName: 'runtime_schema',
+            workspaceId: '019f2000-0000-7000-8000-000000000777'
+        })
+        expect(res.status).toHaveBeenCalledWith(201)
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(true)
     })
 
     it('fails closed when multiple active Interpretation Network widgets make a Structure update ambiguous', async () => {
@@ -440,6 +634,48 @@ describe('runtimeRowsController single-system Structure protection', () => {
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
             expect.objectContaining({ code: 'INTERPRETATION_NETWORK_SYSTEM_STRUCTURE_IMMUTABLE' })
         )
+    })
+
+    it('fails closed before updating single-system Structure rows when runtime metadata is incomplete', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'missing-metadata',
+            structureMode: 'singleSystem',
+            missing: ['TableTemplate.TemplateMatrix.MaterialRef'],
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        name: 'Main',
+                        system_key: 'primary',
+                        _upl_version: 1
+                    }
+                ]
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.bulkUpdateRow(
+            createRuntimeRequest({
+                method: 'PATCH',
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Renamed' }, expectedVersion: 1 }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Interpretation Network runtime metadata is incomplete for single-structure mode',
+            code: 'INTERPRETATION_NETWORK_MISSING_METADATA'
+        })
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE runtime_schema."structure"'))).toBe(false)
     })
 
     it('rechecks Interpretation Network copy protection inside the transaction', async () => {
