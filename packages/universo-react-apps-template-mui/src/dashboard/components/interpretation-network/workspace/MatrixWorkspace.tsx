@@ -102,6 +102,7 @@ export interface MatrixWorkspaceProps {
     matrixRowsError: unknown
     saveCellError: unknown
     moveCellError: unknown
+    canCreateContent: boolean
     canEditContent: boolean
     canDeleteContent: boolean
     cellMenuAnchor: HTMLElement | null
@@ -162,6 +163,7 @@ export function MatrixWorkspace({
     matrixRowsError,
     saveCellError,
     moveCellError,
+    canCreateContent,
     canEditContent,
     canDeleteContent,
     cellMenuAnchor,
@@ -186,12 +188,18 @@ export function MatrixWorkspace({
     onDragEnd
 }: MatrixWorkspaceProps) {
     const hierarchicalMatrixIsEmpty = matrixMode === 'hierarchicalCells' && matrixCells.length === 0
-    const hierarchicalAddDisabled = matrixMutationsDisabled || isSavingCell || !selectedCell || hierarchicalMatrixIsEmpty
-    const tableAxisAddDisabled = matrixAxisActionsDisabled || isSavingCell || hierarchicalMatrixIsEmpty
+    const createDisabled = !canCreateContent || !canEditContent
+    const hierarchicalAddDisabled = createDisabled || matrixMutationsDisabled || isSavingCell || !selectedCell || hierarchicalMatrixIsEmpty
+    const tableAxisAddDisabled = createDisabled || matrixAxisActionsDisabled || isSavingCell || hierarchicalMatrixIsEmpty
     const showIndependentRowAdd = matrixMode === 'independentRows' && matrixView === 'horizontalRows'
-    const independentRowAddDisabled = matrixMutationsDisabled || isSavingCell || isMovingCell || !selectedCell
+    const independentRowAddDisabled = createDisabled || matrixMutationsDisabled || isSavingCell || isMovingCell || !selectedCell
     const cellMenuOpen = Boolean(cellMenuAnchor?.isConnected)
     const cellMenuAnchorPosition = toMenuAnchorPosition(cellMenuAnchor)
+    const createDisabledReason = !canCreateContent
+        ? t('workspace.cell.createPermissionDisabled', 'You do not have permission to create matrix cells.')
+        : !canEditContent
+        ? t('workspace.cell.editPermissionDisabled', 'You do not have permission to change matrix cells.')
+        : undefined
 
     const isHorizontalHierarchy = matrixMode === 'hierarchicalCells' && matrixView === 'horizontalRows'
     const buildCellAccessibleLabel = (cell: MatrixCell): string =>
@@ -370,21 +378,27 @@ export function MatrixWorkspace({
                                 </span>
                             </Tooltip>
                         ) : null}
-                        <Button
-                            type='button'
-                            variant='contained'
-                            startIcon={<AddRoundedIcon />}
-                            disabled={hierarchicalAddDisabled}
-                            sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                        <Tooltip
                             title={
-                                !selectedCell || hierarchicalMatrixIsEmpty
+                                createDisabledReason ??
+                                (!selectedCell || hierarchicalMatrixIsEmpty
                                     ? t('workspace.cell.addChildDisabled', 'Select a cell before adding a child.')
-                                    : undefined
+                                    : '')
                             }
-                            onClick={() => onOpenCellDialog('create-child', selectedCell?.id)}
                         >
-                            {t('workspace.cell.add', 'Add')}
-                        </Button>
+                            <span>
+                                <Button
+                                    type='button'
+                                    variant='contained'
+                                    startIcon={<AddRoundedIcon />}
+                                    disabled={hierarchicalAddDisabled}
+                                    sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                    onClick={() => onOpenCellDialog('create-child', selectedCell?.id)}
+                                >
+                                    {t('workspace.cell.add', 'Add')}
+                                </Button>
+                            </span>
+                        </Tooltip>
                     </Stack>
                 ) : (
                     <Stack direction='row' spacing={1} alignItems='center'>
@@ -404,37 +418,47 @@ export function MatrixWorkspace({
                             </Tooltip>
                         ) : null}
                         {showIndependentRowAdd ? (
-                            <Button
-                                type='button'
-                                variant='outlined'
-                                startIcon={<AddRoundedIcon />}
-                                disabled={independentRowAddDisabled}
-                                sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                            <Tooltip
                                 title={
-                                    !selectedCell
-                                        ? t('workspace.table.selectCellBeforeAddRow', 'Select a cell before adding a row.')
-                                        : undefined
+                                    createDisabledReason ??
+                                    (!selectedCell ? t('workspace.table.selectCellBeforeAddRow', 'Select a cell before adding a row.') : '')
                                 }
-                                onClick={onAddTableRow}
                             >
-                                {t('workspace.table.addRow', 'Add row')}
-                            </Button>
+                                <span>
+                                    <Button
+                                        type='button'
+                                        variant='outlined'
+                                        startIcon={<AddRoundedIcon />}
+                                        disabled={independentRowAddDisabled}
+                                        sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                        onClick={onAddTableRow}
+                                    >
+                                        {t('workspace.table.addRow', 'Add row')}
+                                    </Button>
+                                </span>
+                            </Tooltip>
                         ) : null}
-                        <Button
-                            type='button'
-                            variant='contained'
-                            startIcon={<AddRoundedIcon />}
-                            disabled={matrixMutationsDisabled || isSavingCell || addCellDisabled}
-                            sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                        <Tooltip
                             title={
-                                addCellDisabled
+                                createDisabledReason ??
+                                (addCellDisabled
                                     ? t('workspace.cell.addDisabledSelectCell', 'Select a cell before adding another cell.')
-                                    : undefined
+                                    : '')
                             }
-                            onClick={() => onOpenCellDialog('create-cell')}
                         >
-                            {t('workspace.cell.add', 'Add')}
-                        </Button>
+                            <span>
+                                <Button
+                                    type='button'
+                                    variant='contained'
+                                    startIcon={<AddRoundedIcon />}
+                                    disabled={createDisabled || matrixMutationsDisabled || isSavingCell || addCellDisabled}
+                                    sx={{ height: 40, minHeight: 40, px: 2, flexShrink: 0 }}
+                                    onClick={() => onOpenCellDialog('create-cell')}
+                                >
+                                    {t('workspace.cell.add', 'Add')}
+                                </Button>
+                            </span>
+                        </Tooltip>
                     </Stack>
                 )}
             </Stack>
@@ -594,7 +618,7 @@ export function MatrixWorkspace({
                 </MenuItem>
                 {matrixMode === 'hierarchicalCells' ? (
                     <MenuItem
-                        disabled={!menuCell || !canEditContent || matrixMutationsDisabled || isSavingCell}
+                        disabled={!menuCell || !canCreateContent || !canEditContent || matrixMutationsDisabled || isSavingCell}
                         onClick={() => openMenuCellDialogAfterMenuClose('create-child')}
                     >
                         <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />
@@ -603,7 +627,7 @@ export function MatrixWorkspace({
                 ) : null}
                 {matrixMode !== 'hierarchicalCells' ? (
                     <MenuItem
-                        disabled={!menuCell || !canEditContent || matrixMutationsDisabled || isSavingCell}
+                        disabled={!menuCell || !canCreateContent || !canEditContent || matrixMutationsDisabled || isSavingCell}
                         onClick={() => openMenuCellDialogAfterMenuClose('create-cell')}
                     >
                         <AddRoundedIcon fontSize='small' sx={{ mr: 1 }} />

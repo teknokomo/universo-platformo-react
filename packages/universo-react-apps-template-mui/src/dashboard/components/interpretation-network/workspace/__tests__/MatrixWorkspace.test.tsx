@@ -89,7 +89,8 @@ const renderHierarchicalPathWorkspace = ({
     showHierarchicalTableHeaders = false,
     showHierarchicalTableHeaderCard = true,
     showMatrixTreeTotalCells = true,
-    colorBreadcrumbsByCell = true
+    colorBreadcrumbsByCell = true,
+    canCreateContent = true
 }: {
     cells: MatrixCell[]
     focusedCellId: string
@@ -101,6 +102,7 @@ const renderHierarchicalPathWorkspace = ({
     showHierarchicalTableHeaderCard?: boolean
     showMatrixTreeTotalCells?: boolean
     colorBreadcrumbsByCell?: boolean
+    canCreateContent?: boolean
 }) =>
     render(
         <MatrixWorkspace
@@ -136,6 +138,7 @@ const renderHierarchicalPathWorkspace = ({
             matrixRowsError={null}
             saveCellError={null}
             moveCellError={null}
+            canCreateContent={canCreateContent}
             canEditContent
             canDeleteContent
             cellMenuAnchor={null}
@@ -773,6 +776,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -942,6 +946,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -972,6 +977,77 @@ describe('MatrixWorkspace', () => {
 
         fireEvent.click(addButton)
         expect(onOpenCellDialog).toHaveBeenCalledWith('create-child', 'root')
+    })
+
+    it('requires create and edit permissions before opening hierarchical child creation', () => {
+        const cells = [
+            cell({ id: 'root', parentCellId: null, sortOrder: 0, title: 'Universe' }),
+            cell({ id: 'meaning', parentCellId: 'root', sortOrder: 0, title: 'Meaning' })
+        ]
+        const onOpenCellDialog = vi.fn()
+
+        render(
+            <MatrixWorkspace
+                t={t}
+                locale='en'
+                matrixMode='hierarchicalCells'
+                matrixView='table'
+                allowedMatrixViews={['table', 'horizontalRows', 'verticalTree']}
+                tableProjection='hierarchicalPath'
+                toolbarLayout='horizontal'
+                showHierarchicalTableHeaders={false}
+                colorBreadcrumbsByCell={true}
+                hierarchyRows={[[cells[0]], [cells[1]]]}
+                hierarchicalTableModel={buildHierarchicalMatrixTableModel({
+                    cells,
+                    focusedCellId: 'root',
+                    breadcrumbDepth: { mode: 'full' }
+                })}
+                positionLabels={new Map(cells.map((item, index) => [item.id, String(index + 1)]))}
+                matrixCells={cells}
+                visibleMatrixCells={cells}
+                matrixRows={[]}
+                materialCountByCellId={new Map()}
+                matrixCellIds={cells.map((item) => item.id)}
+                selectedCell={cells[0]}
+                matrixDropState={EMPTY_TEST_DROP_STATE}
+                matrixDragPreview={null}
+                matrixMutationsDisabled={false}
+                isSavingCell={false}
+                isMovingCell={false}
+                matrixRowsError={null}
+                saveCellError={null}
+                moveCellError={null}
+                canCreateContent={false}
+                canEditContent={true}
+                canDeleteContent={true}
+                cellMenuAnchor={null}
+                menuCell={undefined}
+                menuMoves={[]}
+                isDeletingCell={false}
+                sensors={[]}
+                onChangeMatrixView={vi.fn()}
+                onOpenCellDialog={onOpenCellDialog}
+                onAddTableRow={vi.fn()}
+                onAddTableColumn={vi.fn()}
+                onMoveSelectedToSlot={vi.fn()}
+                onSelectCell={vi.fn()}
+                onOpenCellMenu={vi.fn()}
+                onCloseCellMenu={vi.fn()}
+                onRequestDeleteCell={vi.fn()}
+                onDragStart={vi.fn()}
+                onDragMove={vi.fn()}
+                onDragOver={vi.fn()}
+                onDragCancel={vi.fn()}
+                onDragEnd={vi.fn()}
+            />
+        )
+
+        const addButton = screen.getByRole('button', { name: 'Add' })
+        expect(addButton).toBeDisabled()
+
+        fireEvent.click(addButton)
+        expect(onOpenCellDialog).not.toHaveBeenCalled()
     })
 
     it('renders the selected root with children as a header card and child row labels', () => {
@@ -1023,6 +1099,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -1141,6 +1218,7 @@ describe('MatrixWorkspace', () => {
             matrixRowsError: null,
             saveCellError: null,
             moveCellError: null,
+            canCreateContent: true,
             canEditContent: true,
             canDeleteContent: true,
             cellMenuAnchor: null,
@@ -1419,6 +1497,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -1499,6 +1578,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -1573,6 +1653,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -1645,6 +1726,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -1722,6 +1804,7 @@ describe('MatrixWorkspace', () => {
                 matrixRowsError={null}
                 saveCellError={null}
                 moveCellError={null}
+                canCreateContent
                 canEditContent
                 canDeleteContent
                 cellMenuAnchor={null}
@@ -1806,6 +1889,7 @@ describe('MatrixWorkspace', () => {
             matrixRowsError: null,
             saveCellError: null,
             moveCellError: null,
+            canCreateContent: true,
             canEditContent: true,
             canDeleteContent: true,
             cellMenuAnchor: anchor,

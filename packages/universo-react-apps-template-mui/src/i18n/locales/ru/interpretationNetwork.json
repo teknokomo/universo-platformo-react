@@ -225,6 +225,8 @@
             "descriptionField": "Описание",
             "requiredField": "Заполните это поле.",
             "metadataUnavailable": "Поля редактирования ячейки недоступны.",
+            "createPermissionDisabled": "У вас нет прав на создание ячеек матрицы.",
+            "editPermissionDisabled": "У вас нет прав на изменение ячеек матрицы.",
             "edit": "Редактировать",
             "delete": "Удалить",
             "deleteTitle": "Удалить ячейку?",

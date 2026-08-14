@@ -622,6 +622,7 @@ export default function InterpretationNetworkWorkspaceWidget({
     const { saveCellMutation, deleteCellMutation } = useCellMutations({
         t,
         queryClient,
+        canCreateContent,
         canEditContent,
         canDeleteContent,
         apiBaseUrl: details?.apiBaseUrl,
@@ -739,7 +740,7 @@ export default function InterpretationNetworkWorkspaceWidget({
                   savingCell: saveCellMutation.isPending,
                   movingCell: moveCellMutation.isPending,
                   errors: { rows: matrixRowsQuery.error, saveCell: saveCellMutation.error, moveCell: moveCellMutation.error },
-                  permissions: { canEditContent, canDeleteContent },
+                  permissions: { canCreateContent, canEditContent, canDeleteContent },
                   menu: { anchor: cellMenuAnchor, cell: menuCell, moves: menuMoves },
                   deletingCell: deleteCellMutation.isPending,
                   sensors,

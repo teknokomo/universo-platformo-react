@@ -36,7 +36,7 @@ export interface MatrixWorkspaceBridgeProps {
     savingCell: boolean
     movingCell: boolean
     errors: { rows: unknown; saveCell: unknown; moveCell: unknown }
-    permissions: { canEditContent: boolean; canDeleteContent: boolean }
+    permissions: { canCreateContent: boolean; canEditContent: boolean; canDeleteContent: boolean }
     menu: { anchor: HTMLElement | null; cell: MatrixCell | undefined; moves: MatrixMenuMove[] }
     deletingCell: boolean
     sensors: SensorDescriptor<SensorOptions>[]
@@ -134,6 +134,7 @@ export function MatrixWorkspaceBridge({
             matrixRowsError={errors.rows}
             saveCellError={errors.saveCell}
             moveCellError={errors.moveCell}
+            canCreateContent={permissions.canCreateContent}
             canEditContent={permissions.canEditContent}
             canDeleteContent={permissions.canDeleteContent}
             cellMenuAnchor={menu.anchor}

@@ -52,6 +52,7 @@ const updatedMaterialTitle = 'E2E edited source note'
 const updatedMaterialDescription = 'Updated Interpretation Network material description.'
 const materialBodyText = 'Browser-authored material body'
 const firstChildCellTitle = 'E2E first child cell'
+const uuidV7Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const codenameVlc = (content: string) => {
     const timestamp = new Date(0).toISOString()
@@ -718,6 +719,70 @@ const waitForMatrixCellCreateResponse = (page: Page, applicationId: string, time
             new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/runtime/interpretation-network/matrix/cells`,
         { label: 'Creating an Interpretation Network Matrix cell', timeout }
     )
+
+const expectRuHiddenPlacementChildCellCreate = async (page: Page, applicationId: string): Promise<void> => {
+    const matrixPane = page.getByTestId('interpretation-network-matrix-workspace')
+    await expect(matrixPane).toBeVisible({ timeout: 30_000 })
+
+    const rootButton = matrixPane.getByRole('button', { name: /Universe|Вселенная/ }).first()
+    await expect(rootButton).toBeVisible({ timeout: 30_000 })
+    const rootContainer = rootButton.locator('xpath=ancestor::*[@data-cell-id][1]')
+    await expect(rootContainer).toHaveAttribute('data-cell-id', /.+/)
+    const rootCellId = await rootContainer.getAttribute('data-cell-id')
+    expect(rootCellId, 'RU root cell must expose its stable CellId for child placement assertions').toMatch(uuidV7Pattern)
+    await rootButton.click()
+    await expect(rootButton).toHaveAttribute('aria-pressed', 'true')
+
+    const addButton = matrixPane.getByRole('button', { name: 'Добавить', exact: true }).first()
+    await expect(addButton).toBeEnabled({ timeout: 30_000 })
+    await addButton.click()
+
+    const dialog = page.getByRole('dialog', { name: 'Добавить ячейку' })
+    await expect(dialog).toBeVisible({ timeout: 30_000 })
+    await expect(dialog.getByText('Размещение')).toHaveCount(0)
+    await expect(dialog.getByRole('radio', { name: 'Новая строка' })).toHaveCount(0)
+    await expect(dialog.getByRole('radio', { name: 'Новая колонка' })).toHaveCount(0)
+    await expect(dialog.getByRole('textbox', { name: 'Название строки' })).toHaveCount(0)
+    await expect(dialog.getByRole('textbox', { name: 'Название колонки' })).toHaveCount(0)
+    await expectSemanticFieldControls(dialog, { longTextLabels: ['Описание'] })
+
+    await dialog.getByRole('textbox', { name: 'Название', exact: true }).fill('Дочерняя ячейка E2E')
+    await dialog.getByRole('textbox', { name: 'Описание' }).fill('Создано из русской формы без полей размещения.')
+    const createRequest = waitForMatrixCellCreateResponse(page, applicationId, 30_000)
+    await dialog.getByRole('button', { name: 'Создать' }).click()
+    const createResponse = await createRequest
+    expect(createResponse.status()).toBe(201)
+    const createPayload = createResponse.request().postDataJSON() as {
+        data?: Record<string, unknown>
+        placement?: { parentCellId?: string | null; sortOrder?: number }
+    }
+    expect(createPayload.data).not.toHaveProperty('CellId')
+    expect(createPayload.data).not.toHaveProperty('ParentCellId')
+    expect(createPayload.data).not.toHaveProperty('RowKey')
+    expect(createPayload.data).not.toHaveProperty('ColKey')
+    expect(createPayload.data).not.toHaveProperty('MaterialRef')
+    expect(createPayload.data).not.toHaveProperty('_tp_sort_order')
+    expect(Object.keys(createPayload.data ?? {}).some((key) => /material/i.test(key))).toBe(false)
+    expect(createPayload.placement?.parentCellId).toBe(rootCellId)
+    expect(createPayload.placement?.sortOrder).toBeGreaterThanOrEqual(0)
+    const createResult = (await createResponse.json()) as { id?: string; status?: string; item?: unknown }
+    expect(createResult.id).toMatch(uuidV7Pattern)
+    expect(createResult.status).toBe('created')
+    expect(createResult.item).toBeTruthy()
+
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByText('Данные или расположение ячейки некорректны')).toHaveCount(0)
+    await expect(page.getByText('INTERPRETATION_NETWORK_INVALID_CELL')).toHaveCount(0)
+    await expect(matrixPane.getByRole('button', { name: /^(?:\d+\/\d+,\s*)?Дочерняя ячейка E2E$/ })).toBeVisible({
+        timeout: 30_000
+    })
+    await expectNoTechnicalLeakage(page.getByRole('main'), {
+        label: 'RU imported snapshot child-cell create',
+        checkUuidSubstrings: true,
+        forbiddenVisibleTextPatterns: [/Cell ID/i, /\[object Object\]/i]
+    })
+    await expectNoPageHorizontalOverflow(page, 'RU Interpretation Network child-cell create')
+}
 
 const expectMatrixCellMoveNotSwapWithNewAxesCellDialog = async (page: Page, applicationId: string): Promise<void> => {
     const horizontalRowsButton = page.getByTestId('interpretation-network-matrix-toolbar').getByRole('button', {
@@ -1621,6 +1686,7 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await expect(
             page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Сохранить как шаблон' })
         ).toBeVisible()
+        await expectRuHiddenPlacementChildCellCreate(page, applicationId)
         await expectEqualDesktopPaneWidths(page, 'RU single-system Interpretation Network workspace')
         await applyBrowserPreferences(page, { language: 'en' })
         await page.reload()

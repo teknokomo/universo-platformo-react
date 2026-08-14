@@ -27,7 +27,8 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
 ): Promise<InterpretationNetworkRuntimeSurface> => {
     const widgetRows = await executor.query<WidgetRow>(
         `
-        SELECT widget.id, widget.layout_id, widget.widget_key, widget.config
+        SELECT widget.id, widget.layout_id, widget.widget_key, widget.config,
+               CASE WHEN layout.scope_entity_id = $2 THEN 0 ELSE 1 END AS scope_rank
         FROM ${qSchemaTable(params.schemaName, '_app_widgets')} widget
         INNER JOIN ${qSchemaTable(params.schemaName, '_app_layouts')} layout
             ON layout.id = widget.layout_id
@@ -38,17 +39,24 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
           AND layout._upl_deleted = false
           AND layout._app_deleted = false
           AND layout.is_active = true
-          AND ($2::uuid IS NULL OR widget.layout_id = $2)
-          AND ($3::uuid IS NULL OR widget.id = $3)
-        ORDER BY layout.is_default DESC, layout.sort_order ASC, widget.sort_order ASC, widget.id ASC
+          AND (
+              $2::uuid IS NULL
+              OR layout.scope_entity_id IS NULL
+              OR layout.scope_entity_id = $2
+          )
+          AND ($3::uuid IS NULL OR widget.layout_id = $3)
+          AND ($4::uuid IS NULL OR widget.id = $4)
+        ORDER BY scope_rank ASC, layout.is_default DESC, layout.sort_order ASC, widget.sort_order ASC, widget.id ASC
         LIMIT 2
         `,
-        [INTERPRETATION_NETWORK_WIDGET_KEY, params.layoutId ?? null, params.widgetId ?? null]
+        [INTERPRETATION_NETWORK_WIDGET_KEY, params.workspaceId ?? null, params.layoutId ?? null, params.widgetId ?? null]
     )
     // Without an explicit runtime widget identity, more than one active widget
     // is ambiguous. Failing closed prevents settings or aggregate commands from
     // silently using an unrelated scoped layout.
-    const widget = widgetRows.length === 1 ? widgetRows[0] : null
+    const effectiveScopeRank = widgetRows[0]?.scope_rank
+    const effectiveWidgetRows = widgetRows.filter((row) => row.scope_rank === effectiveScopeRank)
+    const widget = effectiveWidgetRows.length === 1 ? effectiveWidgetRows[0] : null
     const widgetConfig = isRecord(widget?.config) ? widget.config : {}
     const structureMode = parseInterpretationNetworkStructureMode(widgetConfig.structureMode)
 
@@ -62,8 +70,9 @@ export const resolveInterpretationNetworkRuntimeSurface = async (
             widgetKey: INTERPRETATION_NETWORK_WIDGET_KEY,
             widgetConfig,
             structureMode,
-            featureState: widgetRows.length > 1 ? 'ambiguous-widget' : 'missing-widget',
-            missing: widgetRows.length > 1 ? [`${INTERPRETATION_NETWORK_WIDGET_KEY}:ambiguous`] : [INTERPRETATION_NETWORK_WIDGET_KEY],
+            featureState: effectiveWidgetRows.length > 1 ? 'ambiguous-widget' : 'missing-widget',
+            missing:
+                effectiveWidgetRows.length > 1 ? [`${INTERPRETATION_NETWORK_WIDGET_KEY}:ambiguous`] : [INTERPRETATION_NETWORK_WIDGET_KEY],
             resolvedObjects: {}
         }
     }

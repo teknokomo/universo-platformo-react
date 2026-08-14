@@ -93,7 +93,7 @@ describe('runtimeInterpretationNetworkService', () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
             if (sql.includes(`FROM "${schemaName}"."_app_widgets"`)) {
-                expect(params).toEqual(['interpretationNetworkWorkspace', null, null])
+                expect(params).toEqual(['interpretationNetworkWorkspace', workspaceId, null, null])
                 return [
                     {
                         id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
@@ -120,6 +120,253 @@ describe('runtimeInterpretationNetworkService', () => {
 
         expect(surface.featureState).toBe('ambiguous-widget')
         expect(surface.widgetId).toBeNull()
+    })
+
+    it('uses _app_layouts scope_entity_id for workspace runtime widget resolution', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_widgets"`)) {
+                expect(sql).toContain('layout.scope_entity_id IS NULL')
+                expect(sql).toContain('layout.scope_entity_id = $2')
+                expect(sql).not.toContain("widget.config->>'workspaceId'")
+                expect(params).toEqual(['interpretationNetworkWorkspace', workspaceId, null, null])
+                return [
+                    {
+                        id: 'widget-current-workspace',
+                        layout_id: 'layout-current-workspace',
+                        widget_key: 'interpretationNetworkWorkspace',
+                        config: { structureMode: 'singleSystem' }
+                    }
+                ]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    { id: 'structure-1', codename: 'Structure', table_name: 'structure' },
+                    { id: 'interpretation-1', codename: 'Interpretation', table_name: 'interpretation' },
+                    { id: 'material-1', codename: 'Material', table_name: 'material' },
+                    { id: 'table-template-1', codename: 'TableTemplate', table_name: 'table_template' }
+                ]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                const objectId = params?.[0]
+                if (objectId === 'structure-1') {
+                    return [
+                        { codename: 'Name', column_name: 'name', data_type: 'STRING' },
+                        { codename: 'SystemKey', column_name: 'system_key', data_type: 'STRING' }
+                    ]
+                }
+                if (objectId === 'interpretation-1') {
+                    return [
+                        { id: 'interpretation-title', codename: 'Title', column_name: 'title', data_type: 'STRING' },
+                        { id: 'interpretation-parent', codename: 'ParentStructure', column_name: 'parent_structure', data_type: 'REF' },
+                        {
+                            id: 'interpretation-matrix',
+                            codename: 'InterpretationMatrix',
+                            column_name: 'interpretation_matrix',
+                            data_type: 'TABLE'
+                        },
+                        {
+                            id: 'interpretation-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            parent_component_id: 'interpretation-matrix'
+                        },
+                        {
+                            id: 'interpretation-material-ref',
+                            codename: 'MaterialRef',
+                            column_name: 'material_ref',
+                            data_type: 'REF',
+                            parent_component_id: 'interpretation-matrix'
+                        }
+                    ]
+                }
+                if (objectId === 'material-1') {
+                    return [
+                        { codename: 'CellId', column_name: 'cell_id', data_type: 'STRING' },
+                        { codename: 'TemplateOwnerId', column_name: 'template_owner_id', data_type: 'STRING' }
+                    ]
+                }
+                if (objectId === 'table-template-1') {
+                    return [
+                        { id: 'template-name', codename: 'Name', column_name: 'name', data_type: 'STRING' },
+                        { id: 'template-policy', codename: 'MaterialPolicy', column_name: 'material_policy', data_type: 'STRING' },
+                        { id: 'template-matrix', codename: 'TemplateMatrix', column_name: 'template_matrix', data_type: 'TABLE' },
+                        {
+                            id: 'template-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            parent_component_id: 'template-matrix'
+                        },
+                        {
+                            id: 'template-material-ref',
+                            codename: 'MaterialRef',
+                            column_name: 'material_ref',
+                            data_type: 'REF',
+                            parent_component_id: 'template-matrix'
+                        }
+                    ]
+                }
+            }
+            return []
+        })
+
+        const surface = await resolveInterpretationNetworkRuntimeSurface(executor, {
+            applicationId: 'app-1',
+            schemaName,
+            workspaceId
+        })
+
+        expect(surface.featureState).toBe('ready')
+        expect(surface.layoutId).toBe('layout-current-workspace')
+        expect(surface.widgetId).toBe('widget-current-workspace')
+    })
+
+    it('prefers a workspace-scoped widget over a global Interpretation Network widget', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_widgets"`)) {
+                expect(sql).toContain('CASE WHEN layout.scope_entity_id = $2 THEN 0 ELSE 1 END AS scope_rank')
+                expect(sql).toContain('ORDER BY scope_rank ASC')
+                expect(params).toEqual(['interpretationNetworkWorkspace', workspaceId, null, null])
+                return [
+                    {
+                        id: 'widget-current-workspace',
+                        layout_id: 'layout-current-workspace',
+                        widget_key: 'interpretationNetworkWorkspace',
+                        config: { structureMode: 'multiple' },
+                        scope_rank: 0
+                    },
+                    {
+                        id: 'widget-global',
+                        layout_id: 'layout-global',
+                        widget_key: 'interpretationNetworkWorkspace',
+                        config: { structureMode: 'singleSystem' },
+                        scope_rank: 1
+                    }
+                ]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    { id: 'structure-1', codename: 'Structure', table_name: 'structure' },
+                    { id: 'interpretation-1', codename: 'Interpretation', table_name: 'interpretation' },
+                    { id: 'material-1', codename: 'Material', table_name: 'material' },
+                    { id: 'table-template-1', codename: 'TableTemplate', table_name: 'table_template' }
+                ]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                const objectId = params?.[0]
+                if (objectId === 'structure-1') {
+                    return [
+                        { codename: 'Name', column_name: 'name', data_type: 'STRING' },
+                        { codename: 'SystemKey', column_name: 'system_key', data_type: 'STRING' }
+                    ]
+                }
+                if (objectId === 'interpretation-1') {
+                    return [
+                        { id: 'interpretation-title', codename: 'Title', column_name: 'title', data_type: 'STRING' },
+                        { id: 'interpretation-parent', codename: 'ParentStructure', column_name: 'parent_structure', data_type: 'REF' },
+                        {
+                            id: 'interpretation-matrix',
+                            codename: 'InterpretationMatrix',
+                            column_name: 'interpretation_matrix',
+                            data_type: 'TABLE'
+                        },
+                        {
+                            id: 'interpretation-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            parent_component_id: 'interpretation-matrix'
+                        },
+                        {
+                            id: 'interpretation-material-ref',
+                            codename: 'MaterialRef',
+                            column_name: 'material_ref',
+                            data_type: 'REF',
+                            parent_component_id: 'interpretation-matrix'
+                        }
+                    ]
+                }
+                if (objectId === 'material-1') {
+                    return [
+                        { codename: 'CellId', column_name: 'cell_id', data_type: 'STRING' },
+                        { codename: 'TemplateOwnerId', column_name: 'template_owner_id', data_type: 'STRING' }
+                    ]
+                }
+                if (objectId === 'table-template-1') {
+                    return [
+                        { id: 'template-name', codename: 'Name', column_name: 'name', data_type: 'STRING' },
+                        { id: 'template-policy', codename: 'MaterialPolicy', column_name: 'material_policy', data_type: 'STRING' },
+                        { id: 'template-matrix', codename: 'TemplateMatrix', column_name: 'template_matrix', data_type: 'TABLE' },
+                        {
+                            id: 'template-cell-id',
+                            codename: 'CellId',
+                            column_name: 'cell_id',
+                            data_type: 'STRING',
+                            parent_component_id: 'template-matrix'
+                        },
+                        {
+                            id: 'template-material-ref',
+                            codename: 'MaterialRef',
+                            column_name: 'material_ref',
+                            data_type: 'REF',
+                            parent_component_id: 'template-matrix'
+                        }
+                    ]
+                }
+            }
+            return []
+        })
+
+        const surface = await resolveInterpretationNetworkRuntimeSurface(executor, {
+            applicationId: 'app-1',
+            schemaName,
+            workspaceId
+        })
+
+        expect(surface.featureState).toBe('ready')
+        expect(surface.structureMode).toBe('multiple')
+        expect(surface.layoutId).toBe('layout-current-workspace')
+        expect(surface.widgetId).toBe('widget-current-workspace')
+    })
+
+    it('fails closed when two widgets have the same effective workspace scope', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_widgets"`)) {
+                expect(params).toEqual(['interpretationNetworkWorkspace', workspaceId, null, null])
+                return [
+                    {
+                        id: 'widget-current-workspace-a',
+                        layout_id: 'layout-current-workspace-a',
+                        widget_key: 'interpretationNetworkWorkspace',
+                        config: { structureMode: 'singleSystem' },
+                        scope_rank: 0
+                    },
+                    {
+                        id: 'widget-current-workspace-b',
+                        layout_id: 'layout-current-workspace-b',
+                        widget_key: 'interpretationNetworkWorkspace',
+                        config: { structureMode: 'multiple' },
+                        scope_rank: 0
+                    }
+                ]
+            }
+            return []
+        })
+
+        const surface = await resolveInterpretationNetworkRuntimeSurface(executor, {
+            applicationId: 'app-1',
+            schemaName,
+            workspaceId
+        })
+
+        expect(surface.featureState).toBe('ambiguous-widget')
+        expect(surface.layoutId).toBeNull()
+        expect(surface.widgetId).toBeNull()
+        expect(surface.missing).toEqual(['interpretationNetworkWorkspace:ambiguous'])
     })
 
     it('resolves ready surface only when the required metadata is present', async () => {

@@ -21,7 +21,6 @@ import {
     readLocalizedText,
     resolveRuntimeIds,
     setInterpretationNetworkWidgetConfig,
-    toMatrixRowSnapshot,
     uuidV7Pattern
 } from '../../support/interpretationNetworkFocused'
 
@@ -177,17 +176,12 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
                 createdFromStructureOnly.interpretationId
             )
             expect(copiedStructureMatrixRows.length).toBe(sourceMatrixRowsBefore.length)
-            const sourceStructureCells = sourceMatrixRowsBefore.map(toMatrixRowSnapshot)
-            const copiedStructureCells = copiedStructureMatrixRows.map(toMatrixRowSnapshot)
-            const sourceStructureRowIds = new Set(sourceStructureCells.map((row) => row.rowId))
-            const sourceStructureCellIds = new Set(sourceStructureCells.map((row) => row.cellId))
-            expect(new Set(copiedStructureCells.map((row) => row.rowId)).size).toBe(copiedStructureCells.length)
-            expect(new Set(copiedStructureCells.map((row) => row.cellId)).size).toBe(copiedStructureCells.length)
-            for (const copiedCell of copiedStructureCells) {
-                expect(copiedCell.rowId).toMatch(uuidV7Pattern)
-                expect(copiedCell.cellId).toMatch(uuidV7Pattern)
-                expect(sourceStructureRowIds.has(copiedCell.rowId)).toBe(false)
-                expect(sourceStructureCellIds.has(copiedCell.cellId)).toBe(false)
+            const sourceStructureRowIds = new Set(sourceMatrixRowsBefore.map((row) => row.id))
+            const copiedStructureRowIds = copiedStructureMatrixRows.map((row) => row.id)
+            expect(new Set(copiedStructureRowIds).size).toBe(copiedStructureRowIds.length)
+            for (const copiedRowId of copiedStructureRowIds) {
+                expect(copiedRowId).toMatch(uuidV7Pattern)
+                expect(sourceStructureRowIds.has(copiedRowId)).toBe(false)
             }
 
             await setInterpretationNetworkWidgetConfig(api, imported.applicationId, { structureMode: 'singleSystem' })

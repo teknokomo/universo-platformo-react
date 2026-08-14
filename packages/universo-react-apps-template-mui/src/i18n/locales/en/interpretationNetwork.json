@@ -215,6 +215,8 @@
             "descriptionField": "Description",
             "requiredField": "This field is required.",
             "metadataUnavailable": "Cell authoring fields are not available.",
+            "createPermissionDisabled": "You do not have permission to create matrix cells.",
+            "editPermissionDisabled": "You do not have permission to change matrix cells.",
             "edit": "Edit",
             "delete": "Delete",
             "deleteTitle": "Delete cell?",

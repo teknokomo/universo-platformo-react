@@ -195,10 +195,12 @@ export const buildCellCreateData = ({
     const applyNewRow = (axis: Extract<MatrixAxisPlacement, { kind: 'new' }>) => {
         if (axis.key) baseData[rowKeyField] = axis.key
         if (axis.labelValue !== undefined) baseData[rowLabelField] = axis.labelValue
+        else if (axis.label) baseData[rowLabelField] = createLocalizedContent(locale, axis.label)
     }
     const applyNewColumn = (axis: Extract<MatrixAxisPlacement, { kind: 'new' }>) => {
         if (axis.key) baseData[colKeyField] = axis.key
         if (axis.labelValue !== undefined) baseData[colLabelField] = axis.labelValue
+        else if (axis.label) baseData[colLabelField] = createLocalizedContent(locale, axis.label)
     }
 
     if (source && mode === 'create-child') {
@@ -222,13 +224,19 @@ export const buildCellCreateData = ({
     return baseData
 }
 
-const SYSTEM_CREATE_FIELDS = ['CellId', 'ParentCellId', 'RowKey', 'ColKey', '_tp_sort_order'] as const
+const SYSTEM_CREATE_FIELDS = ['CellId', 'ParentCellId', 'RowKey', 'ColKey', 'MaterialRef', '_tp_sort_order'] as const
 
 export const resolveCellCreateSystemFields = (childColumns: RuntimeColumnLike[] | undefined): string[] => [
     ...SYSTEM_CREATE_FIELDS,
     ...SYSTEM_CREATE_FIELDS.map((field) => findColumn(childColumns, field)?.field).filter(
         (field): field is string => typeof field === 'string' && field.length > 0
-    )
+    ),
+    ...(childColumns ?? [])
+        .filter(
+            (column) => column.uiConfig?.serverOwned === true || column.uiConfig?.formHidden === true || column.uiConfig?.hidden === true
+        )
+        .flatMap((column) => [column.id, column.codename, column.field])
+        .filter((field): field is string => typeof field === 'string' && field.length > 0)
 ]
 
 export const mergeCellCreateData = (

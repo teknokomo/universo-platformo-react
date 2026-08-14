@@ -25,6 +25,7 @@ type MatrixRowsSnapshotRef = MutableRefObject<{
 export function useCellMutations({
     t,
     queryClient,
+    canCreateContent,
     canEditContent,
     canDeleteContent,
     apiBaseUrl,
@@ -59,6 +60,7 @@ export function useCellMutations({
 }: {
     t: TFunction<'interpretationNetwork'>
     queryClient: QueryClient
+    canCreateContent: boolean
     canEditContent: boolean
     canDeleteContent: boolean
     apiBaseUrl?: string | null
@@ -94,6 +96,7 @@ export function useCellMutations({
     const saveCellMutation = useMutation({
         mutationFn: async ({ mode, data }: { mode: CellDialogMode; data: Record<string, unknown> }) => {
             if (!canEditContent) throw new Error('permission-denied')
+            if (mode !== 'edit' && !canCreateContent) throw new Error('permission-denied')
             if (!apiBaseUrl || !applicationId || !interpretationSectionId || !selectedInterpretationId || !matrixColumn?.id) {
                 return null
             }
@@ -254,10 +257,17 @@ export function useCellMutations({
                 INTERPRETATION_NETWORK_PERMISSION_DENIED: 'workspace.cell.permissionDenied',
                 INTERPRETATION_NETWORK_MISSING_METADATA: 'workspace.cell.metadataUnavailable'
             }
-            const localizedKey = error instanceof AppsApiError && error.code ? errorKeyByCode[error.code] : undefined
-            setCellDialogError(
-                localizedKey ? t(localizedKey, 'Failed to update matrix cells') : t('workspace.cell.error', 'Failed to update matrix cells')
-            )
+            const localizedKey =
+                error instanceof Error && error.message === 'permission-denied'
+                    ? 'workspace.cell.permissionDenied'
+                    : error instanceof AppsApiError && error.code
+                    ? errorKeyByCode[error.code]
+                    : undefined
+            const fallback =
+                localizedKey === 'workspace.cell.permissionDenied'
+                    ? 'You do not have permission to change matrix cells.'
+                    : 'Failed to update matrix cells'
+            setCellDialogError(localizedKey ? t(localizedKey, fallback) : t('workspace.cell.error', 'Failed to update matrix cells'))
         }
     })
 

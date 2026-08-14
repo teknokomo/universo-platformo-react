@@ -208,6 +208,9 @@ export const listTemplates = async (
     workspaceId: string
 ): Promise<TemplateSummary[]> => {
     const response = await fetchApi(api, aggregateUrl(applicationId, '/templates', workspaceId))
+    if (response.status === 403) {
+        return []
+    }
     await assertApiOk(response, 'template list')
     const body = (await response.json()) as { items?: TemplateSummary[] }
     return body.items ?? []
@@ -423,7 +426,7 @@ export const addRussianVariant = async (page: Page, field: Locator, value: strin
     await expect(languageButton).toBeVisible()
     await languageButton.click()
     await page.getByRole('menuitem', { name: 'Add language' }).click()
-    await page.getByRole('menuitem', { name: 'Russian' }).click()
+    await page.getByRole('menuitem', { name: /^(Russian|Русский)$/ }).click()
     const russianField = field
         .locator('xpath=ancestor::*[@role="dialog"][1]')
         .getByRole('textbox', { name: fieldLabel, exact: true })
