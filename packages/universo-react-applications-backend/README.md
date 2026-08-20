@@ -29,6 +29,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Execute published runtime modules through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` modules and reuses runtime row helpers, workspace context, and permission maps.
 -   Own strict transactional Interpretation Network commands for single-system bootstrap, template aggregates, Material attachment, and Matrix cell creation/movement while keeping Matrix identifiers and placement fields server-owned.
 -   Enforce Interpretation Network authorization and isolation at the command boundary: template save/instantiate require create+edit, metadata updates require edit, deletion requires delete, and application/workspace mismatches fail closed. Template copies regenerate UUID v7 row/cell/material identities, exclude Relations and file cloning, and only retain ordinary external URLs as authored values inside copied Material `Body`.
+-   Keep Interpretation Network documentation evidence tied to the real runtime contract: `pnpm docs:interpretation-network:check` validates localized GitBook pages, generated screenshots, provenance, and no user-facing raw IDs/JSON after backend command or settings changes.
 -   Expose `ctx.ledger` to runtime modules only when `ledger.read` or `ledger.write` capabilities are declared.
 -   Persist schema sync state in `applications.obj_applications` through SQL-first stores.
 -   Keep runtime release metadata in the same central sync-state surface.

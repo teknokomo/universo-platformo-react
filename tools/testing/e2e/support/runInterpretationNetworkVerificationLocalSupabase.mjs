@@ -63,9 +63,25 @@ try {
             env: generatedFixtureEnv
         }
     )
+    await run(
+        [
+            'exec',
+            'node',
+            'tools/testing/e2e/run-playwright-suite.mjs',
+            '--project',
+            'generators',
+            '--grep',
+            'interpretation network gitbook screenshots'
+        ],
+        {
+            env: generatedFixtureEnv
+        }
+    )
     await run(['docs:i18n:check'])
     await run(['exec', 'node', 'tools/docs/check-gitbook-links.mjs'])
     await run(['docs:gitbook-screenshot-assets:check'])
+    await run(['docs:interpretation-network:check'])
+    await run(['docs:interpretation-network:drift:check'])
 } catch (error) {
     failed = true
     throw error

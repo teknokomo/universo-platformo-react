@@ -1,3 +1,29 @@
+# Interpretation Network GitBook Documentation Implementation (2026-08-20)
+
+> Status: completed
+> Source plan: `memory-bank/plan/interpretation-network-gitbook-documentation-plan-2026-08-20.md`
+
+## UI And Documentation Contract
+
+-   User-facing EN/RU docs describe normal workflows, not backend internals.
+-   English pages reference English UI screenshots; Russian pages reference Russian UI screenshots.
+-   Screenshots are generated from the real published app through the Playwright E2E wrapper at `http://127.0.0.1:3100`; no `pnpm dev`.
+-   Normal screenshots and docs must not expose raw UUIDs, raw JSON, `[object Object]`, hidden Matrix fields, widget/source config internals, or internal validation text.
+-   Long-text authoring remains multiline, validation remains localized, and page-level horizontal overflow remains forbidden.
+-   No schema version or metahub template version bump is part of this work.
+
+## Checklist
+
+-   [x] INDOC1. Reconfirm baseline, relevant package/docs context, and available OntoIndex/Context7 evidence before edits.
+-   [x] INDOC2. Create the dedicated EN/RU GitBook Interpretation Network section and convert the old guide pages into concise overview link pages.
+-   [x] INDOC3. Add the Interpretation Network screenshot manifest, Playwright generator, and provenance contract for EN/RU assets.
+-   [x] INDOC4. Add the Interpretation Network docs checker and root scripts, then wire the local-Supabase verification wrapper into the new docs gate.
+-   [x] INDOC5. Update relevant root/package README references for the new documentation commands and guide location.
+-   [x] INDOC6. Run formatting and focused docs checks, then record verification results and remaining environmental limits.
+-   [x] INDOC7. Run OntoIndex diff verification and Thermos/autoreview coverage where available, then update `memory-bank/progress.md`.
+
+---
+
 # Interpretation Network Child Matrix Cell QA Remediation (2026-08-14)
 
 > Status: verification_in_progress
