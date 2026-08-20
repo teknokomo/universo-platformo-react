@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.76.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.77.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Attention, please read this carefully.**
@@ -63,7 +63,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.76.0-alpha (August 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.77.0-alpha (August 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 
@@ -81,6 +81,7 @@ Website: [https://universo.pro](https://universo.pro)
 -   Runtime workspaces use the flat `packages/universo-react-<name>/package.json` layout with matching `@universo-react/<name>` package names, including shared UI scaffolding packages such as `packages/universo-react-apps-template-mui` and documentation services such as `packages/universo-react-rest-docs`.
 -   The backend side is organized around a SQL-first PostgreSQL/Supabase runtime, modular migration tooling, schema-definition utilities, and feature packages for authentication, onboarding, profile, metahubs, applications, and administration.
 -   The frontend side is organized around a React shell, shared UI/state/i18n packages, and feature packages for onboarding, authentication, profile, metahubs, applications, and administration.
+-   GitBook documentation now includes a dedicated Interpretation Network guide in `docs/en/interpretation-network/` and `docs/ru/interpretation-network/`; screenshots are generated from the real E2E runtime and checked through `docs:interpretation-network:verify`.
 -   In the metahubs and admin domains, fixed schemas, runtime metadata, and authoring flows converge on one persisted `codename JSONB` contract built on versioned localized content (VLC), and platform migrations upgrade legacy dual-field codename storage into the same shape.
 -   The repository also contains cross-cutting documentation and architecture notes that track active plans, verified progress, and stable system patterns for ongoing platform development.
 
@@ -102,6 +103,7 @@ These are the top-level priorities that guide development across the whole Unive
 -   **ERP-class process kernel**: current work already covers identities, memberships, roles, metahubs, applications, admin flows, migrations, and request-scoped data access, with future expansion toward broader planning, accounting, logistics, and operational domains.
 -   **CMS-style information management**: the architecture is moving toward structured content, schema evolution, publication flows, versioned definitions, and reusable templates that can serve both websites and internal operational knowledge.
 -   **LMS MVP foundation**: the repository now includes an LMS metahub template, workspace-aware application collaboration, public guest-runtime links, QR-code distribution widgets, and learning-focused runtime components built on top of the generic application shell.
+-   **Interpretation Network MVP foundation**: the platform ships a dedicated metahub template, canonical imported snapshot, Matrix workspace, Materials, Structure templates, and GitBook user guide with localized browser screenshots.
 -   **Cross-stack application descriptions**: applications created in the platform are intended to remain exportable between implementations, so business logic, structure, and data definitions are being separated from any single UI or engine.
 -   **Shared migration and schema runtime**: the monorepo already contains dedicated packages for migration orchestration, runtime schema DDL, catalog storage, and platform-wide definition export or diff workflows.
 -   **Operational shell for real deployments**: onboarding, authentication, profile management, admin tooling, API documentation, and package-based frontend modules are being developed as the practical shell for real installations.

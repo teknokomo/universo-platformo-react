@@ -51,6 +51,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 -   Template and fixture contract tests require a coherent non-empty subset of `table`, `horizontalRows`, and `verticalTree`, with an allowed default, and reject unrelated demo or configuration-specific widgets.
 -   Matrix records expose user-authored `RowLabel`, `ColLabel`, `CellValue`, and multiline `CellDescription`; UUID v7 identity, parent/axis keys, and persisted order remain system-owned.
 -   The change is configuration-only: the schema version, template version, and minimum structure version are not increased.
+-   User-facing setup and authoring documentation is maintained in `docs/en/interpretation-network/` and `docs/ru/interpretation-network/`; localized screenshots must be regenerated from the imported snapshot before accepting template-facing documentation changes.
 
 ## Main Responsibilities
 
@@ -133,7 +134,7 @@ router.post('/metahub/:metahubId/entities', handle(entityInstancesController.cre
 
 Import endpoints validate envelope integrity (SHA-256 hash), nesting depth, prototype pollution, and entity count limits. See [Snapshot Export & Import guide](../../../docs/en/guides/snapshot-export-import.md) for details.
 
-The Interpretation Network product snapshot is generated through the Playwright generator on the minimal local Supabase profile. After generation, run the dedicated fixture contract and the repository snapshot-fixture contract; deterministic drift checks must compare normalized generated output with the committed fixture rather than accepting an arbitrary hand-edited JSON file.
+The Interpretation Network product snapshot is generated through the Playwright generator on the minimal local Supabase profile. After generation, run the dedicated fixture contract and the repository snapshot-fixture contract; deterministic drift checks must compare normalized generated output with the committed fixture rather than accepting an arbitrary hand-edited JSON file. Documentation screenshots are generated separately from the same imported-snapshot contract and checked with `pnpm docs:interpretation-network:check`.
 
 ## Development
 

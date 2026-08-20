@@ -1,0 +1,219 @@
+{
+    "version": 1,
+    "defaultDimensions": {
+        "width": 1920,
+        "height": 1080
+    },
+    "assetRoot": "docs/<locale>/.gitbook/assets/interpretation-network",
+    "screenshots": [
+        {
+            "id": "overview",
+            "filename": "overview.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/README.md",
+                "ru": "docs/ru/interpretation-network/README.md"
+            },
+            "heading": {
+                "en": "Interpretation Network User Guide",
+                "ru": "Руководство пользователя трактовочной сети"
+            },
+            "workflowStepIds": ["overview-start-page", "overview-structures-page"],
+            "routeHint": "/a/:applicationId",
+            "state": "published-start",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Start", "Structures"],
+                "ru": ["Начало", "Структуры"]
+            },
+            "viewportMatrixRequired": true
+        },
+        {
+            "id": "getting-started",
+            "filename": "getting-started.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/getting-started.md",
+                "ru": "docs/ru/interpretation-network/getting-started.md"
+            },
+            "heading": {
+                "en": "Getting Started",
+                "ru": "Начало работы"
+            },
+            "workflowStepIds": ["getting-started-imported-metahub", "getting-started-open-app"],
+            "routeHint": "/metahub/:metahubId",
+            "state": "imported-metahub",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Interpretation Network"],
+                "ru": ["Трактовочная сеть"]
+            },
+            "viewportMatrixRequired": true
+        },
+        {
+            "id": "create-and-publish",
+            "filename": "create-and-publish.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/create-and-publish.md",
+                "ru": "docs/ru/interpretation-network/create-and-publish.md"
+            },
+            "heading": {
+                "en": "Create And Publish",
+                "ru": "Создание и публикация"
+            },
+            "workflowStepIds": [
+                "create-and-publish-publication-ready",
+                "create-and-publish-open-settings",
+                "create-and-publish-sync-check"
+            ],
+            "routeHint": "/metahub/:metahubId/publications",
+            "state": "publication-and-linked-application",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Publications"],
+                "ru": ["Публикации"]
+            },
+            "viewportMatrixRequired": true
+        },
+        {
+            "id": "application-settings",
+            "filename": "application-settings.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/application-settings.md",
+                "ru": "docs/ru/interpretation-network/application-settings.md"
+            },
+            "heading": {
+                "en": "Application Settings",
+                "ru": "Настройки приложения"
+            },
+            "workflowStepIds": ["application-settings-matrix-tab", "application-settings-structure-mode", "application-settings-reset"],
+            "routeHint": "/a/:applicationId/admin/settings",
+            "state": "matrix-settings",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Application Settings", "Matrix"],
+                "ru": ["Настройки приложения", "Матрица"]
+            },
+            "viewportMatrixRequired": true
+        },
+        {
+            "id": "workspace-and-matrix",
+            "filename": "workspace-and-matrix.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/workspace-and-matrix.md",
+                "ru": "docs/ru/interpretation-network/workspace-and-matrix.md"
+            },
+            "heading": {
+                "en": "Workspace And Matrix",
+                "ru": "Рабочее пространство и Матрица"
+            },
+            "workflowStepIds": ["workspace-and-matrix-open", "workspace-and-matrix-select-root", "workspace-and-matrix-change-view"],
+            "routeHint": "/a/:applicationId",
+            "state": "single-system-matrix",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Matrix", "Templates", "Universe"],
+                "ru": ["Матрица", "Шаблоны", "Вселенная"]
+            },
+            "viewportMatrixRequired": true
+        },
+        {
+            "id": "cells-and-materials",
+            "filename": "cells-and-materials.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/cells-and-materials.md",
+                "ru": "docs/ru/interpretation-network/cells-and-materials.md"
+            },
+            "heading": {
+                "en": "Cells And Materials",
+                "ru": "Ячейки и Материалы"
+            },
+            "workflowStepIds": [
+                "cells-and-materials-add-cell-dialog",
+                "cells-and-materials-created-cell",
+                "cells-and-materials-add-material",
+                "cells-and-materials-material-editor"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "cell-material-authoring",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Add cell", "Materials"],
+                "ru": ["Добавить ячейку", "Материалы"]
+            },
+            "viewportMatrixRequired": true
+        },
+        {
+            "id": "templates",
+            "filename": "templates.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/templates.md",
+                "ru": "docs/ru/interpretation-network/templates.md"
+            },
+            "heading": {
+                "en": "Templates",
+                "ru": "Шаблоны"
+            },
+            "workflowStepIds": ["templates-save-dialog", "templates-list", "templates-create-structure"],
+            "routeHint": "/a/:applicationId",
+            "state": "template-lifecycle",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Save structure as template", "Templates"],
+                "ru": ["Сохранить структуру как шаблон", "Шаблоны"]
+            },
+            "viewportMatrixRequired": true
+        },
+        {
+            "id": "troubleshooting",
+            "filename": "troubleshooting.png",
+            "docPages": {
+                "en": "docs/en/interpretation-network/troubleshooting.md",
+                "ru": "docs/ru/interpretation-network/troubleshooting.md"
+            },
+            "heading": {
+                "en": "Troubleshooting",
+                "ru": "Решение проблем"
+            },
+            "workflowStepIds": ["troubleshooting-validation", "troubleshooting-access-settings", "troubleshooting-settings-reset"],
+            "routeHint": "/a/:applicationId",
+            "state": "cell-form-before-validation",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "requiredVisibleText": {
+                "en": ["Add cell", "Materials"],
+                "ru": ["Добавить ячейку", "Материалы"]
+            },
+            "viewportMatrixRequired": true
+        }
+    ]
+}

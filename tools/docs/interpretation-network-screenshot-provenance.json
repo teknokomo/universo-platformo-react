@@ -1,0 +1,1685 @@
+{
+    "version": 1,
+    "generator": "tools/testing/e2e/specs/generators/docs-interpretation-network-screenshots.spec.ts",
+    "generatorSha256": "daa51b84442ff5ded80da968b4669fbe418d9da802c7df4bb5652f5c521de899",
+    "manifest": "tools/docs/interpretation-network-screenshot-manifest.json",
+    "manifestSha256": "9fafed3901f00636db1489934ccdeb62cf9bd351746e0af837e0fed946ddb4be",
+    "viewport": {
+        "width": 1920,
+        "height": 1080
+    },
+    "viewportMatrix": [
+        {
+            "id": "overview",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "getting-started",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "application-settings",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "templates",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "overview",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "getting-started",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "application-settings",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "templates",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "ru",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        }
+    ],
+    "captures": [
+        {
+            "id": "overview",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/overview.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "overview",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/overview-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "overview-start-page",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "overview",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/overview-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "overview-structures-page",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "getting-started",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/getting-started.png",
+            "captureType": "overview",
+            "route": "/metahub/{routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "getting-started",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/getting-started-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "getting-started-imported-metahub",
+            "route": "/metahub/{routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "getting-started",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/getting-started-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "getting-started-open-app",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish.png",
+            "captureType": "overview",
+            "route": "/metahub/{routeId}/publications",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "create-and-publish-publication-ready",
+            "route": "/metahub/{routeId}/publications",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "create-and-publish-open-settings",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "create-and-publish-sync-check",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "application-settings-matrix-tab",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "application-settings-structure-mode",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "application-settings-reset",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "workspace-and-matrix-open",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "workspace-and-matrix-select-root",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "workspace-and-matrix-change-view",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "cells-and-materials-add-cell-dialog",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "cells-and-materials-created-cell",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "cells-and-materials-add-material",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-4.png",
+            "captureType": "workflow-step",
+            "stepIndex": 4,
+            "stepId": "cells-and-materials-material-editor",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "templates-save-dialog",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "templates-list",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "templates-create-structure",
+            "route": "/a/{applicationId}/{routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "troubleshooting-validation",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "troubleshooting-access-settings",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "troubleshooting-settings-reset",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "overview",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/overview.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "overview",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/overview-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "overview-start-page",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "overview",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/overview-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "overview-structures-page",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "getting-started",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/getting-started.png",
+            "captureType": "overview",
+            "route": "/metahub/{routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "getting-started",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/getting-started-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "getting-started-imported-metahub",
+            "route": "/metahub/{routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "getting-started",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/getting-started-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "getting-started-open-app",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish.png",
+            "captureType": "overview",
+            "route": "/metahub/{routeId}/publications",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "create-and-publish-publication-ready",
+            "route": "/metahub/{routeId}/publications",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "create-and-publish-open-settings",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "create-and-publish",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "create-and-publish-sync-check",
+            "route": "/a/{applicationId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "application-settings-matrix-tab",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "application-settings-structure-mode",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "application-settings",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "application-settings-reset",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "workspace-and-matrix-open",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "workspace-and-matrix-select-root",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "workspace-and-matrix",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "workspace-and-matrix-change-view",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "cells-and-materials-add-cell-dialog",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "cells-and-materials-created-cell",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "cells-and-materials-add-material",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "cells-and-materials",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-4.png",
+            "captureType": "workflow-step",
+            "stepIndex": 4,
+            "stepId": "cells-and-materials-material-editor",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "templates-save-dialog",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "templates-list",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "templates",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "templates-create-structure",
+            "route": "/a/{applicationId}/{routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting-step-1.png",
+            "captureType": "workflow-step",
+            "stepIndex": 1,
+            "stepId": "troubleshooting-validation",
+            "route": "/a/{applicationId}?matrixCell={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting-step-2.png",
+            "captureType": "workflow-step",
+            "stepIndex": 2,
+            "stepId": "troubleshooting-access-settings",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting-step-3.png",
+            "captureType": "workflow-step",
+            "stepIndex": 3,
+            "stepId": "troubleshooting-settings-reset",
+            "route": "/a/{applicationId}/admin/settings",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        }
+    ],
+    "assets": [
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/overview.png",
+            "sha256": "2a79444254e640b3585e3dd3938d11f5295d18011c9bb40ccdbe9725ca61a22d",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/overview-step-1.png",
+            "sha256": "2a79444254e640b3585e3dd3938d11f5295d18011c9bb40ccdbe9725ca61a22d",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/overview-step-2.png",
+            "sha256": "f95c80befe531d579991275c72242db0235322c69b372280991e7d83bf09d519",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/getting-started.png",
+            "sha256": "ce95c8536030cd80c81f7cfa72d5590636213d61e13cc3210c8c98b64ed4cce1",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/getting-started-step-1.png",
+            "sha256": "ce95c8536030cd80c81f7cfa72d5590636213d61e13cc3210c8c98b64ed4cce1",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/getting-started-step-2.png",
+            "sha256": "512609f0b81551d48288bb123252f37bd333a0d0af6ea2709fffae5e9a9daaf1",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish.png",
+            "sha256": "533b59c2cbf7862a1aa103854b8d238b3f2d23d86a540e59bf64e7e9bc78369a",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish-step-1.png",
+            "sha256": "a54587301ab5d7214ba9f1cf872cd0b31081f79c725428b5f2770b2fe945c8ef",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish-step-2.png",
+            "sha256": "48bcc21605d85d64b1d4480be658f7c1820927a78676d998e1bcbf58c6b4a1ed",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/create-and-publish-step-3.png",
+            "sha256": "512609f0b81551d48288bb123252f37bd333a0d0af6ea2709fffae5e9a9daaf1",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings.png",
+            "sha256": "e4bf268011bce938d3df32984eb4e12fc07cec4a47f1a35490a392dc46a6b3ba",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings-step-1.png",
+            "sha256": "e4bf268011bce938d3df32984eb4e12fc07cec4a47f1a35490a392dc46a6b3ba",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings-step-2.png",
+            "sha256": "5aaaff2befcf323ca75d38235d7e00fa2ef8740ff1a7630d30da5b0932087aab",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/application-settings-step-3.png",
+            "sha256": "66871f754000d58b36965593a1f9ada58e82d03d5992b957ed23de7987ce93b5",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix.png",
+            "sha256": "61209c8629cf8f9170585b66cdcef61d9d2b909c04d9d4e7f1f3b68270d1e4a8",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix-step-1.png",
+            "sha256": "c83cbec0f5feaaa10ee07cb2cbe281c0a430781edee122a2c20ec9d026628073",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix-step-2.png",
+            "sha256": "8570d0f06005173de967369892b374f3caf1bca12113f30e90b3922d8ade5ac6",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/workspace-and-matrix-step-3.png",
+            "sha256": "5cb72196bd5183afde8b02180cf91d22070f5ba090134ffef700aa7c4d72627f",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials.png",
+            "sha256": "0366be6f7fb8cf412fd448539ac281c82d39dbd5375d063d269d8b0f53da013d",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-1.png",
+            "sha256": "0366be6f7fb8cf412fd448539ac281c82d39dbd5375d063d269d8b0f53da013d",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-2.png",
+            "sha256": "9f2cb245e02d09fd93fee65c0bb5652b4c20ce01aaab22d10fa0e55c5b60f053",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-3.png",
+            "sha256": "8c154f7c3ce652b99bd86537b992f48affd9f8ca2588ccaa1872b7ea581373b2",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/cells-and-materials-step-4.png",
+            "sha256": "223a92f995f692b6f4d27940eae6812c23cda0d4468ed15cd97db94c3c8cbd54",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates.png",
+            "sha256": "c66e23919ca1b56c14ab00868ee0d725ccdcea23b8238fbf9942cdda80100359",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates-step-1.png",
+            "sha256": "c66e23919ca1b56c14ab00868ee0d725ccdcea23b8238fbf9942cdda80100359",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates-step-2.png",
+            "sha256": "7428ec9d6ec8f5c33b3a5c92b343ae4ec6a1eab25e7624585b6eff36d38f7336",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/templates-step-3.png",
+            "sha256": "2cb98ff9a1bbcd90b46da5f2f89ebfc6efa874ddf41557463303b466c44e51c8",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting.png",
+            "sha256": "e1e81a97b6c8443fbb39f58efb5eb539bc80448f7c34a28aedc52e90c6e6f2fa",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting-step-1.png",
+            "sha256": "15afed05d18c8b055be2c165f1ff042321501efaaba53506c08076d537ea213f",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting-step-2.png",
+            "sha256": "e6ac93a6430eed7a0f026316fa1115e029d141ec18455495d790ee96af831a65",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/interpretation-network/troubleshooting-step-3.png",
+            "sha256": "66871f754000d58b36965593a1f9ada58e82d03d5992b957ed23de7987ce93b5",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/overview.png",
+            "sha256": "d473c5d27ef6183861fe966d5e678fc2a04c80c3ee39e40f5fbb1c3c430fa791",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/overview-step-1.png",
+            "sha256": "d473c5d27ef6183861fe966d5e678fc2a04c80c3ee39e40f5fbb1c3c430fa791",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/overview-step-2.png",
+            "sha256": "db5f878c63a2e0c1b83dd1607ea48bce8c937fdb8eb34522d0f1ab1a09e92ad5",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/getting-started.png",
+            "sha256": "110ac85154b74c974e5defeea6dfadc021e6d9f4880a4492bc7a494376e7ec08",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/getting-started-step-1.png",
+            "sha256": "110ac85154b74c974e5defeea6dfadc021e6d9f4880a4492bc7a494376e7ec08",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/getting-started-step-2.png",
+            "sha256": "2ea0bb2b8e2f741a1393b40c37dbc5ef566b88e0ccadf01c14d9802b58fd6333",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish.png",
+            "sha256": "795e87307d4a347d2c4d3ebd5cd4fe693afdf5e8a28dae452a643f65e5f7ef12",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish-step-1.png",
+            "sha256": "7e023b1d6a805be3fcc109b4147582e83b8ed1ba9f0f26a0724a7a33bf11d2b3",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish-step-2.png",
+            "sha256": "d196b6adc8292742e5d285cefd1614a7c54d126ed75a0ef14ac8f02752d387f7",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/create-and-publish-step-3.png",
+            "sha256": "2ea0bb2b8e2f741a1393b40c37dbc5ef566b88e0ccadf01c14d9802b58fd6333",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings.png",
+            "sha256": "f0e58a33d391f8a5e88551497f849966dac07b5bedcfb3b1f6726abae8b3d3f7",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings-step-1.png",
+            "sha256": "f0e58a33d391f8a5e88551497f849966dac07b5bedcfb3b1f6726abae8b3d3f7",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings-step-2.png",
+            "sha256": "081f2d6d058f8c4b45cbbb0106c74d011d7e5de7b85d90343434b23825af072d",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/application-settings-step-3.png",
+            "sha256": "73f2515764b079229b555b3fbb1e7a2f467bde61bb7eefec57538e1b36ed130d",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix.png",
+            "sha256": "9e4b013882e5cf1d7398287acfd9cac3d41b5a3b713c4fee9f6707418a6cc669",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix-step-1.png",
+            "sha256": "3004fd0cd08561a0cfe0746fd94abb510b4c29e4583ba5de4151d46246cbbf6b",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix-step-2.png",
+            "sha256": "3c673a01c438af934e51c8af50a617efe0a98b95a35d988a89f3d04f4db206a6",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/workspace-and-matrix-step-3.png",
+            "sha256": "9e4b013882e5cf1d7398287acfd9cac3d41b5a3b713c4fee9f6707418a6cc669",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials.png",
+            "sha256": "5ee0efbb0a884153fbdb8b79304aba4bcb58748dd0d9b3e4a6332dc86864bea2",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-1.png",
+            "sha256": "5ee0efbb0a884153fbdb8b79304aba4bcb58748dd0d9b3e4a6332dc86864bea2",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-2.png",
+            "sha256": "ed59ff7fcec85d3543f81e13e9e17641eada8626ebdae174dbd02f433554df64",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-3.png",
+            "sha256": "26e901b08087721d25c90a912159cd5f119be23084ae599b1de4e15b17add63a",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/cells-and-materials-step-4.png",
+            "sha256": "39b8dc0ae4b636a7ef915bd448a904eb14d72c828d477d8505c76f8c466d616a",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates.png",
+            "sha256": "873309a527a46f9e0fa874ecbd336a54d99fd47bb2e236a60e066d003cf2af6a",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates-step-1.png",
+            "sha256": "873309a527a46f9e0fa874ecbd336a54d99fd47bb2e236a60e066d003cf2af6a",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates-step-2.png",
+            "sha256": "8e4a283ff0ba61e38a750b2f789e0992dfe14d10b74ac5ef534565394c08c74e",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/templates-step-3.png",
+            "sha256": "07a8b078b740a5ef39f55d3d51c9056e8d11108667a4d459ff692f4a64a836b4",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting.png",
+            "sha256": "2100513c92159de90517f087b28ae8c1c17163f04ca0c214cf8cf4512980dce9",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting-step-1.png",
+            "sha256": "aed81aaa08ed5b5796593db6a5e24d9d560cfa4cf11b19c8c38b94c6651e79e1",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting-step-2.png",
+            "sha256": "e8d6d412c73a1e040b1349168181b9a758197d52dacf53b207be6f171cec947a",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/interpretation-network/troubleshooting-step-3.png",
+            "sha256": "73f2515764b079229b555b3fbb1e7a2f467bde61bb7eefec57538e1b36ed130d",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        }
+    ]
+}

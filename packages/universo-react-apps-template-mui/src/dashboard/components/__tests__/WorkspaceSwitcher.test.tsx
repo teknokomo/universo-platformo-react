@@ -224,6 +224,7 @@ describe('WorkspaceSwitcher', () => {
         )
 
         const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
+        expect(screen.getByRole('combobox', { name: 'Switch workspace' })).toBeInTheDocument()
         expect(workspaceSelect).toHaveValue('ws-1')
         expect(screen.getByRole('option', { name: /Main/ })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /Manage workspaces/ })).toBeInTheDocument()

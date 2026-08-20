@@ -59,6 +59,17 @@
 
 ---
 
+## 2026-08-20 - Interpretation Network GitBook Documentation Implementation
+
+-   Added a dedicated eight-page EN/RU GitBook user guide for the Interpretation Network, localized navigation, concise legacy-guide entry pages, and root/package README references.
+-   Added a manifest-driven Playwright generator that imports the canonical snapshot into independent EN/RU applications and captures 62 localized 1920x1080 assets with per-step routes, hashes, dimensions, and responsive viewport evidence.
+-   Added a fail-closed docs checker for EN/RU parity, workflow/image correspondence, provenance freshness, screenshot integrity, localized Russian text, technical leakage, stale assets, and responsive evidence; wired it into root scripts and the local-Supabase verification wrapper.
+-   Added deterministic post-generation drift verification: semantic provenance comparison plus decoded PNG comparison with a bounded raster-noise tolerance. Two consecutive real Playwright generations passed the clean branch, while an intentional provenance mutation failed closed.
+-   Fixed the published runtime workspace selector accessibility contract by restoring the localized combobox name and added focused regression coverage.
+-   Verified the Playwright generator against minimal local Supabase (2/2), the dedicated docs checker, 108 GitBook EN/RU pairs, local links, screenshot assets, template isolation, runtime fork guard, WorkspaceSwitcher Vitest (4/4), apps-template lint/build, Prettier, and `git diff --check`.
+-   Final OntoIndex diff verification passed for the complete 103-file worktree scope. Thermos and the project autoreview both completed without remaining CRITICAL, HIGH, or actionable findings.
+-   No schema or metahub template version was changed.
+
 ## 2026-07-21 - Interpretation Network Single System Structure And Templates Implementation
 
 Implemented the Interpretation Network single-system structure and template workflow without schema or metahub template version bumps.

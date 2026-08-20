@@ -25,6 +25,17 @@
 -   [Гостевой доступ](lms/guest-access.md)
 -   [Решение проблем](lms/troubleshooting.md)
 
+## Трактовочная сеть
+
+-   [Обзор](interpretation-network/README.md)
+-   [Начало работы](interpretation-network/getting-started.md)
+-   [Создание и публикация](interpretation-network/create-and-publish.md)
+-   [Настройки приложения](interpretation-network/application-settings.md)
+-   [Рабочее пространство и Матрица](interpretation-network/workspace-and-matrix.md)
+-   [Ячейки и Материалы](interpretation-network/cells-and-materials.md)
+-   [Шаблоны](interpretation-network/templates.md)
+-   [Решение проблем](interpretation-network/troubleshooting.md)
+
 ## Платформа
 
 -   [Обзор](platform/README.md)

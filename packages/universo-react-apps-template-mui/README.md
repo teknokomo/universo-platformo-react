@@ -100,6 +100,13 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 All three Matrix views use one data model. They preserve compatible creation, selection, material attachment, styling, movement, and drag/drop behavior. Internal UUIDs, axis keys, parent IDs, persisted order, widget IDs, relation IDs, and JSON payloads stay hidden from normal user surfaces.
 
+### Documentation and Screenshot Gate
+
+-   The user guide lives in `docs/en/interpretation-network/` and `docs/ru/interpretation-network/` with GitBook summary entries and localized screenshots.
+-   Screenshot generation uses the real imported-snapshot runtime through `pnpm docs:interpretation-network:screenshots:local-supabase`; the generator writes `tools/docs/interpretation-network-screenshot-provenance.json`.
+-   `pnpm docs:interpretation-network:check` validates EN/RU document parity, localized step screenshots, provenance freshness, non-blank `1920x1080` assets, no raw IDs/JSON, and runtime UX evidence before the guide is accepted.
+-   `pnpm docs:interpretation-network:drift:check` runs after regeneration in the verification workflow and fails when the generated PNG/provenance evidence differs from the tracked baseline or remains untracked.
+
 ## Installation
 
 ```bash
