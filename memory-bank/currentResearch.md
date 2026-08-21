@@ -1,5 +1,16 @@
 # Current Research
 
+## 2026-08-21: PlayCanvas Engine, Editor, and Colyseus stable upgrade gate
+
+-   Research artifact created and reviewed: `memory-bank/research/playcanvas-engine-editor-colyseus-stable-upgrade-research-2026-08-21.md`. Source brief: `.manager/specs/cross-project/playcanvas-engine-editor-colyseus-upgrade-spec-2026-08-21.md`.
+-   Version decision: treat `playcanvas 2.21.4`, Editor `v2.30.4` with embedded Engine `2.21.3`, and Colyseus Core/SDK/Schema/transport `0.17.50/0.17.43/4.0.31/0.17.13` as a dated candidate, not an implementation freeze. Schema remains quarantined until 2026-08-25 04:10 UTC, and the same-day vendored Editor tag needs a separate soak/approval decision.
+-   Editor blockers: full recursive schema-v1 migration needs an owned/licensed catalog source; Code Editor needs ShareDB `documents`; Editor/Blank/Code Editor/Launch need individual config and route verdicts; five-minute artifact-token expiry can break late lazy assets; font generation requires a complete asset mutation pipeline; MCP stays disabled by default; automatic upstream migrations need checkpoint/recovery semantics.
+-   Engine/runtime findings: directly used `2.18.1` APIs remain present in tagged `2.21.4`, but static widget import currently pulls the complete Engine toward the main frontend chunk. PLAN should baseline a lazy PlayCanvas widget/Engine boundary, resolve multi-canvas identity/global input ownership, and retain real WebGL resize, picking, context-loss, cleanup, and performance proof.
+-   Registry/runtime blocker: freeze the exact legacy three-row seed checksum and add upgraded wrappers through a forward migration. The browser and server module runtimes currently resolve hard-coded helpers by package name and ignore wrapper version, so PLAN must preserve ABI identity or introduce version-aware resolution.
+-   Colyseus blockers: verify the coherent set with the real server/transport/two clients; decide the non-awaited `allowReconnection` lifecycle; resolve the candidate Core `0.17.50` optional Zod 4 peer newly introduced against the installed Core `0.17.43` Zod 3 contract; and prove the still-open LocalPresence prototype-key path unreachable or mitigate it. The default Server configuration currently does use the local presence path even without an explicit import.
+-   Context7 was available and queried for `/playcanvas/engine`, `/playcanvas/editor`, and `/colyseus/docs`; tagged source/releases/manifests remain normative for version-specific deltas.
+-   Planning implication: proceed to PLAN only after re-freezing versions/provenance and resolving schema ownership, surface capability policy, registry versioning, Zod/LocalPresence, and release-age/soak gates. Real browser/WebGL, iframe, ShareDB, artifact-lifetime, and multi-client WebSocket evidence is mandatory.
+
 ## 2026-07-19: Interpretation Network single system Structure and workspace templates
 
 -   Research artifact created: `memory-bank/research/interpretation-network-single-structure-and-templates-research-2026-07-19.md`.
