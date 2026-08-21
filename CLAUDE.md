@@ -1,7 +1,7 @@
 <!-- ontoindex:start -->
 # OntoIndex — Code Intelligence
 
-This project is indexed by OntoIndex as **universo-platformo-react** (65336 symbols, 105246 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by OntoIndex as **universo-platformo-react** (65708 symbols, 105833 relationships, 300 execution flows). Use the OntoIndex MCP tools to understand code, assess impact, and navigate safely.
 
 > The graph index is commit-based. If any OntoIndex tool warns the index is stale, or current HEAD differs from the indexed commit, coordinate first; exactly one process must run `ontoindex analyze` before graph-backed claims. Never silently assume dirty or uncommitted worktree changes are represented in the graph — verify current source or the diff for those changes.
 
