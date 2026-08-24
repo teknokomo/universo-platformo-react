@@ -496,12 +496,8 @@ describe('PlayCanvasCanvasWidget', () => {
 
         await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(2))
 
-        const alphaCanvas = first.container.querySelector(
-            'canvas[data-testid="playcanvas-canvas"]'
-        ) as HTMLCanvasElement
-        const betaCanvas = second.container.querySelector(
-            'canvas[data-testid="playcanvas-canvas"]'
-        ) as HTMLCanvasElement
+        const alphaCanvas = first.container.querySelector('canvas[data-testid="playcanvas-canvas"]') as HTMLCanvasElement
+        const betaCanvas = second.container.querySelector('canvas[data-testid="playcanvas-canvas"]') as HTMLCanvasElement
 
         expect(alphaCanvas.id).toBe('playcanvas-canvas-alpha-one')
         expect(betaCanvas.id).toBe('playcanvas-canvas-beta')
