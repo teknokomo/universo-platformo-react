@@ -85,3 +85,17 @@ from the standalone artifact boot (see
 ![PlayCanvas Editor v2.30.4 workspace on desktop](../.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-desktop.png)
 ![PlayCanvas Editor v2.30.4 workspace on tablet](../.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-tablet.png)
 ![PlayCanvas Editor v2.30.4 workspace on mobile](../.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-mobile.png)
+
+## Release evidence
+
+Release frames for the upgraded package set, captured at a fixed 1920×1080
+desktop viewport in both EN and RU through
+`docs:playcanvas-editor-upgrade:release-screenshots`: the metahub Resources
+page with the four connected packages, the published MMOOMM application with a
+painted runtime canvas and realtime connection, the localized terminal state
+shown when WebGL2 is unavailable, and the lazy-loading skeleton frame.
+
+![Packages registry with the four connected packages](../.gitbook/assets/playcanvas-editor-upgrade/release/packages-registry.png)
+![Published application runtime canvas ready](../.gitbook/assets/playcanvas-editor-upgrade/release/canvas-runtime.png)
+![Localized terminal state when WebGL2 is unavailable](../.gitbook/assets/playcanvas-editor-upgrade/release/canvas-webgl2-unavailable.png)
+![Lazy-loading skeleton of the runtime canvas widget](../.gitbook/assets/playcanvas-editor-upgrade/release/canvas-loading-skeleton.png)

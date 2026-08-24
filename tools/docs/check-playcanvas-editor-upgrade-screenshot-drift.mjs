@@ -8,7 +8,7 @@
 // means the on-disk evidence still matches the recorded provenance.
 
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -46,6 +46,21 @@ if (!existsSync(generatorPath)) {
     errors.push(
         `generator ${provenance.generator} changed since the manifest was generated; rerun docs:playcanvas-editor-upgrade:screenshots`
     )
+}
+
+if (provenance.release) {
+    const releaseGeneratorPath = path.join(repoRoot, provenance.release.generator ?? '')
+    if (!existsSync(releaseGeneratorPath)) {
+        errors.push(`release generator source is missing: ${provenance.release.generator}`)
+    } else if (provenance.release.generatorSha256 && sha256(readFileSync(releaseGeneratorPath)) !== provenance.release.generatorSha256) {
+        errors.push(
+            `release generator ${provenance.release.generator} changed since the manifest was generated; rerun docs:playcanvas-editor-upgrade:release-screenshots`
+        )
+    }
+    const releaseRunnerPath = path.join(repoRoot, provenance.release.runner ?? '')
+    if (!existsSync(releaseRunnerPath)) {
+        errors.push(`release runner source is missing: ${provenance.release.runner}`)
+    }
 }
 
 const assetsByPath = new Map()
@@ -106,13 +121,22 @@ for (const assetPath of assetsByPath.keys()) {
 for (const dirRelative of assetDirs) {
     const dir = path.join(repoRoot, dirRelative)
     if (!existsSync(dir)) continue
-    for (const entry of readdirSync(dir)) {
-        if (!entry.endsWith('.png')) continue
-        const fileRelative = `${dirRelative}/${entry}`
-        if (!assetsByPath.has(fileRelative) && !pendingPaths.has(fileRelative)) {
-            errors.push(`unexpected asset file not covered by the manifest: ${fileRelative}`)
+    const collectPngFiles = (currentDir) => {
+        for (const entry of readdirSync(currentDir)) {
+            const entryPath = path.join(currentDir, entry)
+            const stats = statSync(entryPath)
+            if (stats.isDirectory()) {
+                collectPngFiles(entryPath)
+                continue
+            }
+            if (!entry.endsWith('.png')) continue
+            const fileRelative = `${path.relative(repoRoot, entryPath).split(path.sep).join('/')}`
+            if (!assetsByPath.has(fileRelative) && !pendingPaths.has(fileRelative)) {
+                errors.push(`unexpected asset file not covered by the manifest: ${fileRelative}`)
+            }
         }
     }
+    collectPngFiles(dir)
 }
 
 if (errors.length > 0) {
