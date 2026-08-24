@@ -136,6 +136,12 @@ Import endpoints validate envelope integrity (SHA-256 hash), nesting depth, prot
 
 The Interpretation Network product snapshot is generated through the Playwright generator on the minimal local Supabase profile. After generation, run the dedicated fixture contract and the repository snapshot-fixture contract; deterministic drift checks must compare normalized generated output with the committed fixture rather than accepting an arbitrary hand-edited JSON file. Documentation screenshots are generated separately from the same imported-snapshot contract and checked with `pnpm docs:interpretation-network:check`.
 
+## Package Registry Identity
+
+-   Registry rows identify workspace wrappers by their own registry version (for example `@universo-react/colyseus-server@0.1.0`). The registry version is independent of the wrapped upstream library version (for example `@colyseus/core@0.17.50`) and must not be bumped to mirror upstream releases.
+-   Built-in packages seed through platform bootstrap migrations on a fresh database; a seed-content change bumps the per-row `_upl_version` instead of rewriting package identity.
+-   Snapshot restore resolves each snapshot package by exact `(packageName, version)` match against active registry rows and fails closed when the identity is not registered.
+
 ## Development
 
 ```bash

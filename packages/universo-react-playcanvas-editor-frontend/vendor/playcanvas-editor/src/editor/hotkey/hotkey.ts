@@ -1,5 +1,3 @@
-import { LegacyList } from '@/common/ui/list';
-
 editor.once('load', () => {
     // State management
     const hotkeys = new Map();
@@ -13,13 +11,21 @@ editor.once('load', () => {
     const isMac = /Mac/.test(navigator.platform);
 
     // Convert a hotkey registration into a consistent internal format
-    function normalizeHotkeyDefinition(definition: { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean; numpadOnly?: boolean; callback?: (evt: KeyboardEvent) => void; skipPreventDefault?: boolean }) {
+    function normalizeHotkeyDefinition(definition: {
+        key: string;
+        ctrl?: boolean;
+        shift?: boolean;
+        alt?: boolean;
+        numpadOnly?: boolean;
+        callback?: (evt: KeyboardEvent) => void;
+        skipPreventDefault?: boolean;
+    }) {
         if (!definition.key) {
             throw new Error('Hotkey must specify key');
         }
 
         return {
-            key: definition.key.toLowerCase(),  // Normalize to lowercase
+            key: definition.key.toLowerCase(), // Normalize to lowercase
             ctrl: !!definition.ctrl,
             shift: !!definition.shift,
             alt: !!definition.alt,
@@ -30,7 +36,13 @@ editor.once('load', () => {
     }
 
     // Generate a unique key for the hotkey combination
-    function getHotkeyId(definition: { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean; numpadOnly?: boolean }) {
+    function getHotkeyId(definition: {
+        key: string;
+        ctrl?: boolean;
+        shift?: boolean;
+        alt?: boolean;
+        numpadOnly?: boolean;
+    }) {
         return [
             definition.ctrl ? 1 : 0,
             definition.alt ? 1 : 0,
@@ -41,15 +53,29 @@ editor.once('load', () => {
     }
 
     // Register a new hotkey
-    editor.method('hotkey:register', (name: string, definition: { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean; numpadOnly?: boolean; callback?: (evt: KeyboardEvent) => void; skipPreventDefault?: boolean }) => {
-        const normalized = normalizeHotkeyDefinition(definition);
-        const id = getHotkeyId(normalized);
+    editor.method(
+        'hotkey:register',
+        (
+            name: string,
+            definition: {
+                key: string;
+                ctrl?: boolean;
+                shift?: boolean;
+                alt?: boolean;
+                numpadOnly?: boolean;
+                callback?: (evt: KeyboardEvent) => void;
+                skipPreventDefault?: boolean;
+            }
+        ) => {
+            const normalized = normalizeHotkeyDefinition(definition);
+            const id = getHotkeyId(normalized);
 
-        if (!hotkeys.has(id)) {
-            hotkeys.set(id, new Map());
+            if (!hotkeys.has(id)) {
+                hotkeys.set(id, new Map());
+            }
+            hotkeys.get(id).set(name, normalized);
         }
-        hotkeys.get(id).set(name, normalized);
-    });
+    );
 
     // Unregister a hotkey
     editor.method('hotkey:unregister', (name: string) => {
@@ -80,9 +106,7 @@ editor.once('load', () => {
     function handleKeydown(evt: KeyboardEvent) {
         // Ignore if target is input/textarea without hotkeys class
         const target = evt.target instanceof Element ? evt.target : null;
-        if (target &&
-            /^(?:input|textarea)$/i.test(target.tagName) &&
-            !target.classList.contains('hotkeys')) {
+        if (target && /^(?:input|textarea)$/i.test(target.tagName) && !target.classList.contains('hotkeys')) {
             return;
         }
 
@@ -155,8 +179,4 @@ editor.once('load', () => {
     ['keyup', 'mousedown', 'mouseup', 'click'].forEach((eventName: string) => {
         window.addEventListener(eventName, updateModifierState, false);
     });
-
-    // Legacy support
-    LegacyList._ctrl = () => modifierState.ctrl;
-    LegacyList._shift = () => modifierState.shift;
 });

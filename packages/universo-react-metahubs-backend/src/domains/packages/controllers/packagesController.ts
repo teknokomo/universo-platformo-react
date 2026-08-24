@@ -1,8 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import type { Request, Response } from 'express'
 import { z } from 'zod'
+import type { Request, Response } from 'express'
 import type { DbExecutor } from '../../../utils'
 import type {
     MetahubPackageAttachment,
@@ -19,6 +18,13 @@ import {
     resolveAllowedPackageDisplayModes,
     resolvePackageAttachmentConfig
 } from '../services/packageConfigValidation'
+import {
+    createArtifactToken,
+    parseSafeHttpOrigin,
+    readArtifactTokenPayload,
+    registerEditorArtifactIssuance,
+    resolveArtifactPublicOrigin
+} from '../services/editorArtifactTokenService'
 import {
     attachMetahubPackage,
     changeMetahubPackageVersion,
@@ -48,19 +54,6 @@ const packageSlugSchema = z
 const artifactRoot =
     process.env.PLAYCANVAS_EDITOR_ARTIFACT_ROOT ??
     path.resolve(__dirname, '../../../../../../packages/universo-react-playcanvas-editor-frontend/dist/editor')
-const artifactTokenTtlMs = 5 * 60 * 1000
-let artifactDevelopmentTokenSecret: string | null = null
-const resolveArtifactTokenSecret = (): string => {
-    const resolved = process.env.PLAYCANVAS_EDITOR_ARTIFACT_TOKEN_SECRET ?? process.env.SESSION_SECRET ?? process.env.SUPABASE_JWT_SECRET
-    if (resolved) {
-        return resolved
-    }
-    if (process.env.NODE_ENV === 'production') {
-        throw new Error('PLAYCANVAS_EDITOR_ARTIFACT_TOKEN_SECRET, SESSION_SECRET, or SUPABASE_JWT_SECRET must be configured in production')
-    }
-    artifactDevelopmentTokenSecret ??= `dev-playcanvas-editor-artifact-${randomUUID()}`
-    return artifactDevelopmentTokenSecret
-}
 
 const attachPackageSchema = z
     .object({
@@ -101,15 +94,6 @@ const contentTypesByExtension = new Map<string, string>([
     ['.woff', 'font/woff'],
     ['.woff2', 'font/woff2']
 ])
-
-interface ArtifactTokenPayload {
-    metahubId: string
-    packageSlug: string
-    userId: string
-    parentOrigin: string
-    apiOrigin: string
-    expiresAt: number
-}
 
 type PlayCanvasEditorAttachment = MetahubPackageAttachment & {
     authoringSurface: PlayCanvasEditorAuthoringSurfaceDescriptor
@@ -194,60 +178,6 @@ const resolveDefaultBranchSchemaName = async (
     return branch.schemaName
 }
 
-const parseSafeHttpOrigin = (value: string | undefined): string | null => {
-    if (!value) return null
-    try {
-        const parsed = new URL(value)
-        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
-            return null
-        }
-        return parsed.origin
-    } catch {
-        return null
-    }
-}
-
-const resolveRequestOrigin = (req: Request): string | null => {
-    const configuredParentOrigin = parseSafeHttpOrigin(process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN)
-    if (configuredParentOrigin) {
-        return configuredParentOrigin
-    }
-
-    const trustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS === 'true'
-    const forwardedHost = trustProxyHeaders ? req.get('x-forwarded-host')?.split(',')[0]?.trim() : undefined
-    const host = forwardedHost || req.get('host')
-    if (!host) return null
-    const forwardedProto = trustProxyHeaders ? req.get('x-forwarded-proto')?.split(',')[0]?.trim() : undefined
-    const protocol = forwardedProto || req.protocol || 'http'
-    return parseSafeHttpOrigin(`${protocol}://${host}`)
-}
-
-const resolveLoopbackSiblingOrigin = (origin: string): string | null => {
-    const parsed = new URL(origin)
-    if (parsed.hostname === '127.0.0.1') {
-        parsed.hostname = 'localhost'
-        return parsed.origin
-    }
-    if (parsed.hostname === 'localhost') {
-        parsed.hostname = '127.0.0.1'
-        return parsed.origin
-    }
-    return null
-}
-
-const resolveArtifactPublicOrigin = (req: Request): { artifactOrigin: string; parentOrigin: string } | null => {
-    const parentOrigin = resolveRequestOrigin(req)
-    if (!parentOrigin) return null
-
-    const configuredOrigin = parseSafeHttpOrigin(process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN)
-    const artifactOrigin = configuredOrigin ?? resolveLoopbackSiblingOrigin(parentOrigin)
-    if (!artifactOrigin || artifactOrigin === parentOrigin) {
-        return null
-    }
-
-    return { artifactOrigin, parentOrigin }
-}
-
 const resolveWebSocketOrigin = (origin: string): string | null => {
     try {
         const parsed = new URL(origin)
@@ -322,55 +252,6 @@ const resolveArtifactManifestStatus = async (manifestPath: string, expectedSmoke
         return (await isArtifactFileAvailable(resolveArtifactPath(manifest.bridgeBootstrap))) ? 'expected' : 'missing'
     } catch {
         return 'missing'
-    }
-}
-
-const encodeArtifactTokenPart = (value: string): string => Buffer.from(value, 'utf8').toString('base64url')
-
-const signArtifactTokenPayload = (encodedPayload: string): string =>
-    createHmac('sha256', resolveArtifactTokenSecret()).update(encodedPayload).digest('base64url')
-
-const createArtifactToken = (payload: Omit<ArtifactTokenPayload, 'expiresAt'>): string => {
-    const encodedPayload = encodeArtifactTokenPart(
-        JSON.stringify({
-            ...payload,
-            expiresAt: Date.now() + artifactTokenTtlMs
-        } satisfies ArtifactTokenPayload)
-    )
-    return `${encodedPayload}.${signArtifactTokenPayload(encodedPayload)}`
-}
-
-const readArtifactTokenPayload = (token: string): ArtifactTokenPayload | null => {
-    const [encodedPayload, signature, extra] = token.split('.')
-    if (!encodedPayload || !signature || extra) {
-        return null
-    }
-
-    const expectedSignature = signArtifactTokenPayload(encodedPayload)
-    const provided = Buffer.from(signature)
-    const expected = Buffer.from(expectedSignature)
-    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
-        return null
-    }
-
-    try {
-        const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as Partial<ArtifactTokenPayload>
-        if (
-            typeof payload.metahubId !== 'string' ||
-            typeof payload.packageSlug !== 'string' ||
-            typeof payload.userId !== 'string' ||
-            typeof payload.parentOrigin !== 'string' ||
-            !parseSafeHttpOrigin(payload.parentOrigin) ||
-            typeof payload.apiOrigin !== 'string' ||
-            !parseSafeHttpOrigin(payload.apiOrigin) ||
-            typeof payload.expiresAt !== 'number' ||
-            payload.expiresAt < Date.now()
-        ) {
-            return null
-        }
-        return payload as ArtifactTokenPayload
-    } catch {
-        return null
     }
 }
 
@@ -505,16 +386,36 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                           capabilities: bridgeCapabilities
                       })
                     : null
-            const artifactToken =
+            // Sliding session-bound artifact token: the first mint records the
+            // original issuedAt and binds the bridge session id so later
+            // renewals can slide the TTL without extending past the absolute
+            // cap, and so expired tokens can use the grace window only while
+            // their bridge session is still alive.
+            const artifactIssuedAt = Date.now()
+            const artifactBridgeSessionId = bridgeSession?.payload.sessionId ?? null
+            const mintedArtifactToken =
                 canServeIsolatedArtifact && !isHostedBridgeProjectUnavailable
                     ? createArtifactToken({
                           metahubId,
                           packageSlug: item.authoringSurface.packageSlug,
                           userId,
                           parentOrigin: artifactPublicOrigin.parentOrigin,
-                          apiOrigin: artifactPublicOrigin.parentOrigin
+                          apiOrigin: artifactPublicOrigin.parentOrigin,
+                          bridgeSessionId: artifactBridgeSessionId,
+                          issuedAt: artifactIssuedAt
                       })
                     : null
+            if (mintedArtifactToken && artifactBridgeSessionId && artifactPublicOrigin) {
+                registerEditorArtifactIssuance(artifactBridgeSessionId, {
+                    metahubId,
+                    packageSlug: item.authoringSurface.packageSlug,
+                    userId,
+                    parentOrigin: artifactPublicOrigin.parentOrigin,
+                    apiOrigin: artifactPublicOrigin.parentOrigin,
+                    issuedAt: artifactIssuedAt
+                })
+            }
+            const artifactToken = mintedArtifactToken?.token ?? null
             const descriptor: PackageAuthoringHostDescriptor = {
                 metahubId,
                 packageSlug: item.authoringSurface.packageSlug,
@@ -626,7 +527,12 @@ export function createPackagesController(createHandler: ReturnType<typeof create
         }
 
         const token = typeof req.params.artifactToken === 'string' ? req.params.artifactToken : ''
-        const payload = readArtifactTokenPayload(token)
+        // Grace window liveness check: an expired artifact token is accepted
+        // only while its bound bridge session is still alive; unknown, pruned,
+        // or dead sessions fail closed with 404 below.
+        const payload = readArtifactTokenPayload(token, {
+            isBridgeSessionAlive: (bridgeSessionId) => new PlayCanvasEditorBridgeSessionService().isAlive(bridgeSessionId)
+        })
         if (!payload || payload.metahubId !== req.params.metahubId || payload.packageSlug !== slug.data) {
             return res.status(404).json({ error: 'Package artifact' })
         }

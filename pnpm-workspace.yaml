@@ -102,14 +102,14 @@ catalog:
     json-stable-stringify: ^1.0.0
 
     # Metahub package wrappers
-    playcanvas: 2.18.1
+    playcanvas: 2.21.4
     sharedb: 3.3.2
     ws: 8.20.1
     '@types/sharedb': 3.3.13
     '@types/ws': ^8.18.1
-    '@colyseus/core': 0.17.43
-    '@colyseus/sdk': 0.17.42
-    '@colyseus/schema': 4.0.25
+    '@colyseus/core': 0.17.50
+    '@colyseus/sdk': 0.17.43
+    '@colyseus/schema': 4.0.31
     '@colyseus/ws-transport': 0.17.13
 
     # Rate limiting - updated to latest stable

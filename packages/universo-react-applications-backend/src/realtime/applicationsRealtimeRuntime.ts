@@ -10,6 +10,7 @@ import { playCanvasRuntimeManifestSchema, playcanvasCanvasWidgetConfigSchema } f
 import type { DbExecutor } from '@universo-react/utils'
 import { z } from 'zod'
 import {
+    LocalPresence,
     Room,
     Server,
     applyMoveToPointIntent,
@@ -1407,14 +1408,14 @@ const createFixedTickSceneRoom = (
         }
 
         onDrop(client: RoomClient) {
-            this.reserveClientShipForReconnect(client)
+            void this.reserveClientShipForReconnect(client)
         }
 
         onLeave(client: RoomClient) {
             this.removeClientShip(client, { force: true })
         }
 
-        private reserveClientShipForReconnect(client: RoomClient): void {
+        private async reserveClientShipForReconnect(client: RoomClient): Promise<void> {
             const shipId = this.clientShips.get(client.sessionId)
             const runtime = shipId ? this.ships.get(shipId) : null
             if (runtime?.reconnectingUntil && runtime.reconnectingUntil > Date.now()) {
@@ -1430,10 +1431,17 @@ const createFixedTickSceneRoom = (
                         shipState.connected = false
                     }
                 }
+            } else {
+                this.removeClientShip(client, { force: true })
+                return
             }
-            void (this as unknown as { allowReconnection: (client: RoomClient, seconds: number) => Promise<RoomClient> })
-                .allowReconnection(client, RECONNECT_WINDOW_SECONDS)
-                .catch(() => this.removeClientShip(client, { force: true }))
+            try {
+                await (
+                    this as unknown as { allowReconnection: (client: RoomClient, seconds: number) => Promise<RoomClient> }
+                ).allowReconnection(client, RECONNECT_WINDOW_SECONDS)
+            } catch {
+                this.removeClientShip(client, { force: true })
+            }
         }
 
         async onReconnect(client: RoomClient) {
@@ -1576,6 +1584,12 @@ const createFixedTickSceneRoom = (
             return shipId
         }
 
+        /**
+         * Idempotent by design (delete-before-check): core may invoke onLeave after a
+         * rejected reconnection reservation in addition to the local catch path, and
+         * both converge on this method. The first call removes every mapping; later
+         * calls exit early because clientShips no longer resolves the session.
+         */
         private removeClientShip(client: RoomClient, options: { force?: boolean } = {}): void {
             const shipId = this.clientShips.get(client.sessionId)
             this.clientSessions.delete(client.sessionId)
@@ -1785,6 +1799,9 @@ export const attachApplicationsRealtimeRuntime = async (
     options: ApplicationsRealtimeRuntimeUpgradeOptions = {}
 ): Promise<ApplicationsRealtimeRuntimeHandle> => {
     roomAuthSignatureSecret = resolveRoomAuthSignatureSecret()
+    if (process.env.COLYSEUS_CLOUD) {
+        throw new Error('COLYSEUS_CLOUD must not be set: Universo realtime pins an explicit single-process presence configuration')
+    }
     const { WebSocketTransport } = requireModule('@colyseus/ws-transport') as {
         WebSocketTransport: new (options: { server: HttpServer }) => Transport
     }
@@ -1846,6 +1863,7 @@ export const attachApplicationsRealtimeRuntime = async (
             : server
 
     const gameServer = new Server({
+        presence: new LocalPresence(),
         transport: new WebSocketTransport({ server: filteredServer }),
         gracefullyShutdown: false,
         greet: false

@@ -12,11 +12,19 @@ import type { PlayCanvasEditorCompatibilityProtocolDescriptor } from './playcanv
 export {
     PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
     PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
+    PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS,
+    PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH,
     playCanvasEditorCompatibilityIdentityDescriptorSchema,
     playCanvasEditorCompatibilityProtocolDescriptorSchema,
+    playCanvasEditorFullBootConfigSchema,
+    playCanvasEditorFullBootPagesDescriptorSchema,
+    playCanvasEditorPageVariantSchema,
     type PlayCanvasEditorCompatibilityIdentityDescriptor,
     type PlayCanvasEditorCompatibilityProtocolDescriptor,
-    type PlayCanvasEditorCompatibilitySurfaceDescriptor
+    type PlayCanvasEditorCompatibilitySurfaceDescriptor,
+    type PlayCanvasEditorFullBootPagesDescriptor,
+    type PlayCanvasEditorPageVariant,
+    type PlayCanvasEditorUnavailablePageSurface
 } from './playcanvasEditorCompatibility'
 
 export const PLAYCANVAS_EDITOR_BRIDGE_VERSION = '1' as const

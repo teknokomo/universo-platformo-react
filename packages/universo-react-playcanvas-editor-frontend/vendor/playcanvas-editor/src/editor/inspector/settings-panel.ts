@@ -21,13 +21,14 @@ import { PhysicsSettingsPanel } from './settings-panels/physics';
 import { RenderingSettingsPanel } from './settings-panels/rendering';
 import { ScriptsSettingsPanel } from './settings-panels/scripts';
 import { ProjectHistorySettingsPanel } from './settings-panels/settings-history';
-
+import { VersionControlSettingsPanel } from './settings-panels/version-control';
 
 const CLASS_ROOT = 'settings';
 
 const SETTINGS_PANELS = [
     EngineSettingsPanel,
     EditorSettingsPanel,
+    VersionControlSettingsPanel,
     AssetImportSettingsPanel,
     PhysicsSettingsPanel,
     RenderingSettingsPanel,
@@ -54,7 +55,7 @@ const ATTRIBUTES: Attribute[] = [
     }
 ];
 
-const DOM = parent => [
+const DOM = (parent) => [
     {
         sceneAttributes: new AttributesInspector({
             attributes: ATTRIBUTES,
@@ -87,15 +88,18 @@ class SettingsPanel extends Container {
 
         this.buildDom(DOM(this));
 
-        editor.on('scene:raw', (data) => {
-            editor.emit('scene:name', data.name);
-            this._sceneName = data.name;
+        editor.on('scene:name', (name) => {
+            this._sceneName = name;
             const sceneNameField = this._sceneAttributes.getField('name');
 
             const suspend = this._suspendSceneNameEvt;
             this._suspendSceneNameEvt = true;
             sceneNameField.value = this._sceneName;
             this._suspendSceneNameEvt = suspend;
+        });
+
+        editor.on('scene:raw', (data) => {
+            editor.emit('scene:name', data.name);
         });
 
         editor.on('realtime:scene:op:name', (op) => {
@@ -122,22 +126,24 @@ class SettingsPanel extends Container {
     _linkSceneNameField() {
         const sceneNameField = this._sceneAttributes.getField('name');
         sceneNameField.value = this._sceneName;
-        this._settingsEvents.push(sceneNameField.on('change', (newSceneName) => {
-            if (this._suspendSceneNameEvt) {
-                return;
-            }
-            if (!editor.call('permissions:write')) {
-                return;
-            }
+        this._settingsEvents.push(
+            sceneNameField.on('change', (newSceneName) => {
+                if (this._suspendSceneNameEvt) {
+                    return;
+                }
+                if (!editor.call('permissions:write')) {
+                    return;
+                }
 
-            editor.call('realtime:scene:op', {
-                p: ['name'],
-                od: this._sceneName || '',
-                oi: newSceneName || ''
-            });
-            this._sceneName = newSceneName;
-            editor.emit('scene:name', newSceneName);
-        }));
+                editor.call('realtime:scene:op', {
+                    p: ['name'],
+                    od: this._sceneName || '',
+                    oi: newSceneName || ''
+                });
+                this._sceneName = newSceneName;
+                editor.emit('scene:name', newSceneName);
+            })
+        );
     }
 }
 

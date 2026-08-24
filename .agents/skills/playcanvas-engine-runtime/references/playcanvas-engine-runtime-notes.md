@@ -3,7 +3,7 @@
 ## Scope
 
 This reference covers direct PlayCanvas Engine runtime use through
-`@universo-react/playcanvas-engine`, currently pinned to `playcanvas@2.18.1`.
+`@universo-react/playcanvas-engine`, currently pinned to `playcanvas@2.21.4`.
 It is intentionally Engine-only. Do not treat PlayCanvas Editor, PCUI, PCUI
 Graph, React Three Fiber, or heavy asset-pipeline concerns as part of this MVP
 skill.
@@ -20,6 +20,9 @@ skill.
     state to React UI.
 -   Register resize listeners or observers through stable function references so
     they can be removed during cleanup.
+-   Create the application through `createBasicApplication({ canvas, applicationId?, windowKeyboard? })`,
+    which returns `{ app, destroy }`, owns the canvas id for its lifetime, and
+    attaches keyboard input to the canvas unless `windowKeyboard: true`.
 
 ## Scene Setup
 
@@ -75,6 +78,6 @@ On unmount or feature shutdown:
 
 -   PlayCanvas Engine docs: https://developer.playcanvas.com/user-manual/engine/
 -   PlayCanvas Engine repository: https://github.com/playcanvas/engine
--   PlayCanvas Engine API v2.18.1: https://api.playcanvas.com/engine-v2.18.1/
+-   PlayCanvas Engine API v2.21.4: https://api.playcanvas.com/engine-v2.21.4/
 -   PlayCanvas React docs, used only as integration inspiration:
     https://developer.playcanvas.com/user-manual/playcanvas-react/

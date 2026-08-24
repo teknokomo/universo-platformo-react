@@ -36,6 +36,7 @@ if (!fs.existsSync(artifactRoot) || !fs.statSync(artifactRoot).isDirectory()) {
 requireFile('index.html')
 requireFile('js/editor.js')
 requireFile('js/editor-empty.js')
+requireFile('js/code-editor.js')
 requireFile('js/launch.js')
 requireFile('css/editor.css')
 requireFile('css/launch.css')

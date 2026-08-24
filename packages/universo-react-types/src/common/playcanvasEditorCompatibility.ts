@@ -9,6 +9,8 @@ export const PLAYCANVAS_EDITOR_COMPATIBILITY_MODE = 'universo-bridge-minimal' as
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION = '1' as const
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE = 'universo-compatibility-rest-minimal' as const
 export const PLAYCANVAS_EDITOR_FULL_BOOT_MODE = 'universo-full-upstream-ui' as const
+export const PLAYCANVAS_EDITOR_UPSTREAM_MINIMUM_TAG = 'v2.30.4' as const
+export const PLAYCANVAS_EDITOR_SCHEMA_CATALOG_VERSION = 1
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ENTITIES = 5000
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ASSETS = 2000
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_JSON_DEPTH = 24
@@ -216,7 +218,7 @@ const playCanvasEditorProtocolBaseSchema = z
         upstream: z
             .object({
                 repository: z.literal('https://github.com/playcanvas/editor'),
-                minimumTag: z.literal('v2.24.2')
+                minimumTag: z.literal(PLAYCANVAS_EDITOR_UPSTREAM_MINIMUM_TAG)
             })
             .strict(),
         project: compatibilityProjectSummarySchema.nullable(),
@@ -458,6 +460,112 @@ const fullBootUrlSchema = z
 
 const numericIdSchema = z.number().int().positive()
 
+// Internal sentinel path used for vendor navigation targets whose surfaces are
+// unavailable in Universo-hosted projects (capability decision D4). It must
+// never contain the literal '/disabled' so the existing full-boot URL rule and
+// the artifact bootstrap guard stay intact; the bridge and host recognize this
+// prefix and fail closed with localized messaging instead of raw navigation.
+export const PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH = '/universo-surface-unavailable' as const
+
+export const playCanvasEditorUnavailablePageSurfaceSchema = z.enum(['blankProjectPicker', 'codeEditor', 'launchPage', 'fontImport'])
+
+export type PlayCanvasEditorUnavailablePageSurface = z.infer<typeof playCanvasEditorUnavailablePageSurfaceSchema>
+
+// Canonical D4 reason keys per unavailable surface; the pages descriptor refuses
+// any other value so backend, host, and artifact stay aligned without hidden
+// knowledge.
+export const PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS = {
+    blankProjectPicker: 'sessionsAreProjectPinned',
+    codeEditor: 'shareDbDocumentsCollectionNotImplemented',
+    launchPage: 'launchSurfaceDeferred',
+    fontImport: 'fontGenerationWorkerStubbed'
+} as const satisfies Record<PlayCanvasEditorUnavailablePageSurface, string>
+
+export const playCanvasEditorPageVariantSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('fullEditor') }).strict(),
+    z
+        .object({
+            kind: z.literal('unavailable'),
+            surface: playCanvasEditorUnavailablePageSurfaceSchema,
+            reasonKey: z.string().min(1).max(120)
+        })
+        .strict()
+])
+
+export type PlayCanvasEditorPageVariant = z.infer<typeof playCanvasEditorPageVariantSchema>
+
+export const playCanvasEditorFullBootPagesDescriptorSchema = z
+    .object({
+        fullEditor: playCanvasEditorPageVariantSchema,
+        codeEditor: playCanvasEditorPageVariantSchema,
+        launchPage: playCanvasEditorPageVariantSchema,
+        blankProjectPicker: playCanvasEditorPageVariantSchema,
+        fontImport: playCanvasEditorPageVariantSchema
+    })
+    .strict()
+    .superRefine((pages, ctx) => {
+        const expectUnavailable = (key: Exclude<keyof typeof pages, 'fullEditor'>, surface: PlayCanvasEditorUnavailablePageSurface) => {
+            const entry = pages[key]
+            if (entry.kind !== 'unavailable') {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: [key],
+                    message: `Full-boot page ${key} must be marked unavailable`
+                })
+                return
+            }
+            if (entry.surface !== surface || entry.reasonKey !== PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS[surface]) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: [key],
+                    message: `Full-boot page ${key} has an unexpected surface or reason`
+                })
+            }
+        }
+        if (pages.fullEditor.kind !== 'fullEditor') {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['fullEditor'],
+                message: 'Full-boot page fullEditor must be the active editor variant'
+            })
+        }
+        expectUnavailable('codeEditor', 'codeEditor')
+        expectUnavailable('launchPage', 'launchPage')
+        expectUnavailable('blankProjectPicker', 'blankProjectPicker')
+        expectUnavailable('fontImport', 'fontImport')
+    })
+
+export type PlayCanvasEditorFullBootPagesDescriptor = z.infer<typeof playCanvasEditorFullBootPagesDescriptorSchema>
+
+export type PlayCanvasEditorSchemaCatalogValue =
+    | string
+    | number
+    | boolean
+    | null
+    | PlayCanvasEditorSchemaCatalogValue[]
+    | { [key: string]: PlayCanvasEditorSchemaCatalogValue }
+
+export const playCanvasEditorSchemaCatalogValueSchema: z.ZodType<PlayCanvasEditorSchemaCatalogValue> = z.lazy(() =>
+    z.union([
+        z.string(),
+        z.number().finite(),
+        z.boolean(),
+        z.null(),
+        z.array(playCanvasEditorSchemaCatalogValueSchema),
+        z.record(z.string(), playCanvasEditorSchemaCatalogValueSchema)
+    ])
+)
+
+export const playCanvasEditorSchemaCatalogSchema = z
+    .object({
+        version: z.literal(PLAYCANVAS_EDITOR_SCHEMA_CATALOG_VERSION),
+        documents: z.record(z.string(), playCanvasEditorSchemaCatalogValueSchema),
+        assetData: z.record(z.string(), playCanvasEditorSchemaCatalogValueSchema)
+    })
+    .strict()
+
+export type PlayCanvasEditorSchemaCatalog = z.infer<typeof playCanvasEditorSchemaCatalogSchema>
+
 export const playCanvasEditorFullBootConfigSchema = z
     .object({
         mode: z.literal(PLAYCANVAS_EDITOR_FULL_BOOT_MODE),
@@ -503,6 +611,7 @@ export const playCanvasEditorFullBootConfigSchema = z
         url: z
             .object({
                 api: fullBootUrlSchema,
+                launch: fullBootUrlSchema,
                 home: fullBootUrlSchema,
                 frontend: fullBootUrlSchema,
                 engine: fullBootUrlSchema,
@@ -515,13 +624,8 @@ export const playCanvasEditorFullBootConfigSchema = z
                 relay: z.object({ ws: fullBootUrlSchema, http: fullBootUrlSchema }).passthrough()
             })
             .passthrough(),
-        schema: z
-            .object({
-                asset: z.record(z.unknown()),
-                scene: z.record(z.unknown()),
-                settings: z.record(z.unknown())
-            })
-            .passthrough(),
+        pages: playCanvasEditorFullBootPagesDescriptorSchema,
+        schema: playCanvasEditorSchemaCatalogSchema,
         engineVersions: z
             .object({
                 force: z.object({ version: z.string().min(1) }).passthrough(),

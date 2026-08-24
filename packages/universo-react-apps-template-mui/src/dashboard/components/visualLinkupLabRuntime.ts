@@ -85,19 +85,22 @@ export interface VisualLinkupLabRuntimeMountOptions {
     container: HTMLDivElement
     visualLabScene: MmoommVisualLabScene
     requiresRuntimeModule: boolean
+    applicationId?: string
 }
 
 export const mountVisualLinkupLabRuntime = ({
     canvas,
     container,
     visualLabScene,
-    requiresRuntimeModule
+    requiresRuntimeModule,
+    applicationId
 }: VisualLinkupLabRuntimeMountOptions): (() => void) => {
     let disposed = false
     container.style.backgroundColor = '#030303'
     canvas.style.backgroundColor = '#030303'
     const ownedMaterials: Array<{ destroy?: () => void }> = []
-    const app = createBasicApplication(canvas)
+    const application = createBasicApplication({ canvas, applicationId })
+    const app = application.app
     app.scene.ambientLight = new pc.Color(0.42, 0.44, 0.52)
     const fog = visualLabScene.sceneFog
     const runtimeFogDensity = Math.min(Math.max(fog?.density ?? DEFAULT_VISUAL_LAB_FOG_DENSITY, 0.0025), DEFAULT_VISUAL_LAB_FOG_DENSITY)
@@ -382,6 +385,6 @@ export const mountVisualLinkupLabRuntime = ({
         for (const material of ownedMaterials) {
             material.destroy?.()
         }
-        app.destroy()
+        application.destroy()
     }
 }

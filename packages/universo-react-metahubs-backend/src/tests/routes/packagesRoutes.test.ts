@@ -1,6 +1,8 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { MetahubPackageAttachment } from '@universo-react/types'
+import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
+import { artifactTokenTtlMs } from '../../domains/packages/services/editorArtifactTokenService'
 
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
@@ -938,5 +940,91 @@ describe('Packages Routes', () => {
             .expect(400)
 
         expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
+    })
+
+    describe('sliding session-bound artifact tokens', () => {
+        const bridgeReadyConfig = {
+            ...displayConfig,
+            playcanvasProject: { defaultProjectId: '019e8afa-0000-7000-8000-000000000001' }
+        }
+        const rejectingAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'Unauthorized' })
+
+        const mintBridgeBoundAssetUrl = async (): Promise<{ sessionId: string; assetUrl: string; mintedAt: number }> => {
+            mockListMetahubPackages.mockResolvedValueOnce([{ ...playCanvasAttachment, config: bridgeReadyConfig }, noneAttachment])
+            const mintedAt = Date.now()
+            const hostResponse = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+            const sessionId = String(hostResponse.body.playcanvasEditor?.bridge?.sessionId ?? '')
+            expect(sessionId).not.toBe('')
+            const assetUrl = new URL(String(hostResponse.body.artifactUrl)).pathname
+                .replace(/^\/api\/v1/, '')
+                .replace('/index.html', '/assets/editor.js')
+            return { sessionId, assetUrl, mintedAt }
+        }
+
+        const withMockedClock = async (run: (setNow: (value: number) => void) => Promise<void>): Promise<void> => {
+            let current = Date.now()
+            const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => current)
+            try {
+                await run((value) => {
+                    current = value
+                })
+            } finally {
+                dateSpy.mockRestore()
+            }
+        }
+
+        it('keeps artifact URLs absent when the configured artifact origin equals the parent origin', async () => {
+            process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN = 'https://platform.example.test'
+            process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN = 'https://platform.example.test'
+
+            const response = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+
+            // Invariant guard: the tokenized delivery path exists only
+            // cross-origin; same-origin deployments must never receive an
+            // artifact token or a tokenized URL.
+            expect(response.body.artifactStatus).toBe('misconfigured')
+            expect(response.body.artifactUrl).toBeNull()
+            expect(JSON.stringify(response.body)).not.toContain('editor-artifact-token')
+        })
+
+        it('serves an expired token inside the grace window while its bound bridge session is still alive', async () => {
+            const { sessionId, assetUrl, mintedAt } = await mintBridgeBoundAssetUrl()
+
+            await withMockedClock(async (setNow) => {
+                setNow(mintedAt + 4 * 60 * 1000)
+                expect(new PlayCanvasEditorBridgeSessionService().touch(sessionId)).toBe(true)
+                setNow(mintedAt + artifactTokenTtlMs + 60_000)
+
+                const response = await request(buildApp(rejectingAuth)).get(assetUrl).expect(200)
+
+                expect(response.text).toBe('artifact')
+                expect(response.headers['cache-control']).toBe('private, max-age=300')
+            })
+        })
+
+        it('rejects an expired token beyond the grace window even while its bound bridge session is alive', async () => {
+            const { sessionId, assetUrl, mintedAt } = await mintBridgeBoundAssetUrl()
+
+            await withMockedClock(async (setNow) => {
+                setNow(mintedAt + 4 * 60 * 1000)
+                expect(new PlayCanvasEditorBridgeSessionService().touch(sessionId)).toBe(true)
+                setNow(mintedAt + 8 * 60 * 1000)
+                expect(new PlayCanvasEditorBridgeSessionService().touch(sessionId)).toBe(true)
+                setNow(mintedAt + 12 * 60 * 1000)
+
+                await request(buildApp(rejectingAuth)).get(assetUrl).expect(404)
+            })
+        })
+
+        it('rejects an expired token immediately once its bound bridge session is dead', async () => {
+            const { sessionId, assetUrl, mintedAt } = await mintBridgeBoundAssetUrl()
+
+            await withMockedClock(async (setNow) => {
+                setNow(mintedAt + artifactTokenTtlMs + 60_000)
+                expect(new PlayCanvasEditorBridgeSessionService().isAlive(sessionId)).toBe(false)
+
+                await request(buildApp(rejectingAuth)).get(assetUrl).expect(404)
+            })
+        })
     })
 })

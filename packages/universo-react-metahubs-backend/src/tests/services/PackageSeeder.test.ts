@@ -64,6 +64,15 @@ describe('PackageSeeder', () => {
         expect(playcanvas?.description?.locales.ru.content).toContain('PlayCanvas Engine')
     })
 
+    it('seeds the PlayCanvas Engine wrapper against the upgraded upstream runtime', () => {
+        const playcanvas = builtinPackageSeeds.find((seed) => seed.packageName === '@universo-react/playcanvas-engine')
+
+        expect(playcanvas?.source.kind).toBe('workspace')
+        expect(playcanvas?.source.upstreamPackageName).toBe('playcanvas')
+        expect(playcanvas?.source.upstreamVersion).toBe('2.21.4')
+        expect(playcanvas?.source.runtimeTargets).toEqual(['client'])
+    })
+
     it('seeds PlayCanvas Editor with an authoring-only display config contract', () => {
         const playcanvasEditor = builtinPackageSeeds.find((seed) => seed.packageName === '@universo-react/playcanvas-editor-frontend')
 

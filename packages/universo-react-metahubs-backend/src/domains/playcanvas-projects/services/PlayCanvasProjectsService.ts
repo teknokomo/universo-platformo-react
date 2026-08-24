@@ -35,7 +35,11 @@ import {
     playCanvasEditorCompatibilityProtocolDescriptorSchema,
     playCanvasEditorCompatibilitySettingsDocumentSchema
 } from '@universo-react/types'
-import { createPlayCanvasEditorNumericAssetId, createPlayCanvasEditorNumericIds } from '@universo-react/playcanvas-editor-backend'
+import {
+    createPlayCanvasEditorNumericAssetId,
+    createPlayCanvasEditorNumericIds,
+    deriveUniqueNumericIds
+} from '@universo-react/playcanvas-editor-backend'
 import { playCanvasEditorScenePayloadSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { createCodenameVLC, createLocalizedContent, generateUuidV7, OptimisticLockError } from '@universo-react/utils'
@@ -85,6 +89,12 @@ import {
     softDeletePlayCanvasSourceFileByStableId
 } from './playCanvasProjectsStore'
 import { createPlayCanvasEditorUserData, normalizePlayCanvasEditorUserData } from './playCanvasEditorUserData'
+import {
+    insertEditorDocumentBackupSet,
+    latestEditorDocumentBackupSetExists,
+    listLatestEditorDocumentBackupRows,
+    type EditorDocumentBackupRow
+} from './editorDocumentBackupsStore'
 
 const log = createLogger('PlayCanvasProjectsService')
 const STRICT_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
@@ -366,13 +376,16 @@ type PlayCanvasEditorSceneLocalAsset = {
     version: number
 }
 
-const readPlayCanvasEditorAssetDocumentData = (asset: PlayCanvasAsset | PlayCanvasEditorSceneLocalAsset): Record<string, unknown> => {
+const readPlayCanvasEditorAssetDocumentData = (
+    asset: PlayCanvasAsset | PlayCanvasEditorSceneLocalAsset,
+    documentId?: number
+): Record<string, unknown> => {
     const metadata = asRecord(asset.metadata)
     const editorDocument = asRecord(metadata.editorDocument)
     const storedData = editorDocument.data !== undefined ? editorDocument.data : metadata.data
     const storedMeta = editorDocument.meta !== undefined ? editorDocument.meta : metadata.meta
     return {
-        item_id: readPlayCanvasEditorAssetDocumentId(asset),
+        item_id: documentId ?? readPlayCanvasEditorAssetDocumentId(asset),
         name: asset.name,
         type: asset.type,
         file: asset.file
@@ -409,6 +422,41 @@ const readPlayCanvasEditorAssetSummaryMetadata = (
 const readPlayCanvasEditorAssetDocumentId = (asset: PlayCanvasAsset | PlayCanvasEditorSceneLocalAsset): number => {
     const id = Number(asset.id)
     return Number.isInteger(id) && id > 0 ? id : createPlayCanvasEditorNumericAssetId(asset.id)
+}
+
+/**
+ * Builds a deterministic per-project asset document id resolver for one combined
+ * asset universe (storage assets plus scene-local assets). Assets whose id is already
+ * a positive integer keep that fixed numeric identity and reserve it; every other
+ * asset derives its base hash through the shared batch assignment so two assets can
+ * never claim the same document id by construction. The result is a pure function of
+ * the asset id set, so independent calls over the same universe agree on assignments.
+ */
+const createPlayCanvasEditorNumericAssetIdResolver = (
+    assets: ReadonlyArray<PlayCanvasAsset | PlayCanvasEditorSceneLocalAsset>
+): ((asset: PlayCanvasAsset | PlayCanvasEditorSceneLocalAsset) => number) => {
+    const fixedIdByAssetId = new Map<string, number>()
+    const reservedIds = new Set<number>()
+    const hashedKeys = new Set<string>()
+    for (const asset of assets) {
+        if (fixedIdByAssetId.has(asset.id)) continue
+        const numericId = Number(asset.id)
+        if (Number.isInteger(numericId) && numericId > 0) {
+            fixedIdByAssetId.set(asset.id, numericId)
+            reservedIds.add(numericId)
+            continue
+        }
+        hashedKeys.add(`asset:${asset.id}`)
+    }
+    const assignments = deriveUniqueNumericIds(
+        [...hashedKeys].map((key) => ({ key })),
+        reservedIds
+    )
+    return (asset) => {
+        const fixedId = fixedIdByAssetId.get(asset.id)
+        if (fixedId !== undefined) return fixedId
+        return assignments.get(`asset:${asset.id}`) ?? readPlayCanvasEditorAssetDocumentId(asset)
+    }
 }
 
 const isPlayCanvasEditorSceneLocalAsset = (asset: unknown): asset is PlayCanvasEditorSceneLocalAsset => {
@@ -504,7 +552,7 @@ const applySceneLocalAssetDocumentInput = (
     input: {
         projectId: string
         sceneId: string
-        documentId: string
+        assetId: string
         data: Record<string, unknown>
         version: number
         sceneVersion: number
@@ -514,7 +562,7 @@ const applySceneLocalAssetDocumentInput = (
     let alreadyApplied = false
     const assets = currentAssets.map((currentAsset) => {
         const normalized = normalizePlayCanvasEditorSceneLocalAsset(currentAsset, input.projectId, input.sceneId, input.sceneVersion)
-        if (!normalized || String(readPlayCanvasEditorAssetDocumentId(normalized)) !== input.documentId) {
+        if (!normalized || normalized.id !== input.assetId) {
             return currentAsset
         }
         matched = true
@@ -527,15 +575,21 @@ const applySceneLocalAssetDocumentInput = (
     return { matched, alreadyApplied, assets }
 }
 
-const resolveRealtimeAssetDocument = (
-    assets: Array<(PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset>,
+type PlayCanvasEditorCompatibilityAssetEntry = {
+    asset: (PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset
+    documentId: number
+}
+
+const resolveEditorCompatibilityAssetEntry = (
+    entries: ReadonlyArray<PlayCanvasEditorCompatibilityAssetEntry>,
     documentId: string,
     sceneId?: string | null
-): (PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset | never => {
-    const matches = assets.filter((candidate) => {
-        if (String(readPlayCanvasEditorAssetDocumentId(candidate)) !== documentId) return false
-        return !sceneId || isStoragePlayCanvasAsset(candidate) || candidate.sceneId === sceneId
-    })
+): PlayCanvasEditorCompatibilityAssetEntry | never => {
+    const matches = entries.filter(
+        (entry) =>
+            String(entry.documentId) === documentId &&
+            (isStoragePlayCanvasAsset(entry.asset) || !sceneId || entry.asset.sceneId === sceneId)
+    )
     if (matches.length === 1) {
         return matches[0]
     }
@@ -543,7 +597,7 @@ const resolveRealtimeAssetDocument = (
         throw new MetahubValidationError('PlayCanvas Editor realtime asset document id collision', {
             messageCode: 'playcanvas.editorRealtime.assetDocumentIdCollision',
             documentId,
-            assetIds: matches.map((asset) => asset.id)
+            assetIds: matches.map((entry) => entry.asset.id)
         })
     }
     throw new MetahubValidationError('Unsupported PlayCanvas Editor realtime asset document', {
@@ -552,25 +606,23 @@ const resolveRealtimeAssetDocument = (
     })
 }
 
-const addEditorCompatibilityAssetByDocumentId = (
-    byDocumentId: Map<string, (PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset>,
-    asset: (PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset
+const addEditorCompatibilityAssetEntryByDocumentId = (
+    byDocumentId: Map<string, PlayCanvasEditorCompatibilityAssetEntry>,
+    entry: PlayCanvasEditorCompatibilityAssetEntry
 ): void => {
-    const documentId = String(readPlayCanvasEditorAssetDocumentId(asset))
-    const key = isStoragePlayCanvasAsset(asset) ? documentId : `${documentId}:${asset.sceneId}`
+    const { asset, documentId } = entry
+    const key = isStoragePlayCanvasAsset(asset) ? String(documentId) : `${documentId}:${asset.sceneId}`
     const existing = isStoragePlayCanvasAsset(asset)
-        ? [...byDocumentId.entries()].find(
-              ([candidateKey]) => candidateKey === documentId || candidateKey.startsWith(`${documentId}:`)
-          )?.[1]
-        : byDocumentId.get(documentId) ?? byDocumentId.get(key)
+        ? [...byDocumentId.entries()].find(([candidateKey]) => candidateKey === key || candidateKey.startsWith(`${key}:`))?.[1]
+        : byDocumentId.get(String(documentId)) ?? byDocumentId.get(key)
     if (existing) {
         throw new MetahubValidationError('PlayCanvas Editor realtime asset document id collision', {
             messageCode: 'playcanvas.editorRealtime.assetDocumentIdCollision',
-            documentId,
-            assetIds: [existing.id, asset.id]
+            documentId: String(documentId),
+            assetIds: [existing.asset.id, asset.id]
         })
     }
-    byDocumentId.set(key, asset)
+    byDocumentId.set(key, entry)
 }
 
 const settingsDocumentId = (kind: CompatibilitySettingsKind, projectId: string, userId: string): string => {
@@ -1182,7 +1234,7 @@ export class PlayCanvasProjectsService {
             mode: PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
             upstream: {
                 repository: 'https://github.com/playcanvas/editor',
-                minimumTag: 'v2.24.2'
+                minimumTag: 'v2.30.4'
             },
             project,
             defaultSceneId,
@@ -1584,12 +1636,18 @@ export class PlayCanvasProjectsService {
         return listPlayCanvasAssets(this.exec, schemaName, projectId)
     }
 
-    async listEditorCompatibilityAssets(
+    /**
+     * Enumerates the combined project asset universe (storage assets plus scene-local
+     * assets) and resolves every editor document id through one batched collision-safe
+     * assignment, so the per-project id set is unique by construction. Residual
+     * collisions between fixed upstream ids still fail closed.
+     */
+    private async loadEditorCompatibilityAssetEntries(
         metahubId: string,
         projectId: string,
         userId: string,
         options: { sceneId?: string | null } = {}
-    ): Promise<Array<(PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset>> {
+    ): Promise<PlayCanvasEditorCompatibilityAssetEntry[]> {
         const [assets, sceneReads] = await Promise.all([
             this.listAssets(metahubId, projectId, userId),
             options.sceneId
@@ -1598,18 +1656,30 @@ export class PlayCanvasProjectsService {
                       Promise.all(scenes.map((scene) => this.readEditorScene(metahubId, projectId, scene.id, userId)))
                   )
         ])
-        const byDocumentId = new Map<string, (PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset>()
-        for (const asset of assets) {
-            addEditorCompatibilityAssetByDocumentId(byDocumentId, asset)
-        }
+        const candidates: Array<(PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset> = [...assets]
         for (const read of sceneReads) {
             for (const asset of read.payload?.assets ?? []) {
                 const normalized = normalizePlayCanvasEditorSceneLocalAsset(asset, projectId, read.scene.id, read.scene.version)
                 if (!normalized) continue
-                addEditorCompatibilityAssetByDocumentId(byDocumentId, normalized)
+                candidates.push(normalized)
             }
         }
+        const resolveDocumentId = createPlayCanvasEditorNumericAssetIdResolver(candidates)
+        const byDocumentId = new Map<string, PlayCanvasEditorCompatibilityAssetEntry>()
+        for (const asset of candidates) {
+            addEditorCompatibilityAssetEntryByDocumentId(byDocumentId, { asset, documentId: resolveDocumentId(asset) })
+        }
         return [...byDocumentId.values()]
+    }
+
+    async listEditorCompatibilityAssets(
+        metahubId: string,
+        projectId: string,
+        userId: string,
+        options: { sceneId?: string | null } = {}
+    ): Promise<Array<(PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset>> {
+        const entries = await this.loadEditorCompatibilityAssetEntries(metahubId, projectId, userId, options)
+        return entries.map((entry) => entry.asset)
     }
 
     async listEditorCompatibilityAssetSummaries(
@@ -1618,8 +1688,8 @@ export class PlayCanvasProjectsService {
         userId: string,
         options: { sceneId?: string | null } = {}
     ): Promise<Record<string, unknown>[]> {
-        const assets = await this.listEditorCompatibilityAssets(metahubId, projectId, userId, options)
-        return assets.map((asset) => ({
+        const entries = await this.loadEditorCompatibilityAssetEntries(metahubId, projectId, userId, options)
+        return entries.map(({ asset, documentId }) => ({
             id: asset.id,
             stableAssetId: asset.stableAssetId,
             type: asset.type,
@@ -1629,7 +1699,7 @@ export class PlayCanvasProjectsService {
             hash: asset.file?.hash ?? null,
             size: asset.file?.size ?? null,
             metadata: readPlayCanvasEditorAssetSummaryMetadata(asset),
-            editorDocumentId: readPlayCanvasEditorAssetDocumentId(asset)
+            editorDocumentId: documentId
         }))
     }
 
@@ -1904,33 +1974,20 @@ export class PlayCanvasProjectsService {
             }
         }
 
-        const storageAssets = await this.listAssets(input.metahubId, input.projectId, input.userId)
-        const storageMatches = storageAssets.filter(
-            (candidate) => String(readPlayCanvasEditorAssetDocumentId(candidate)) === input.documentId
+        const matchedEntry = resolveEditorCompatibilityAssetEntry(
+            await this.loadEditorCompatibilityAssetEntries(input.metahubId, input.projectId, input.userId, { sceneId: input.sceneId }),
+            input.documentId,
+            input.sceneId
         )
-        if (storageMatches.length > 1) {
-            throw new MetahubValidationError('PlayCanvas Editor realtime asset document id collision', {
-                messageCode: 'playcanvas.editorRealtime.assetDocumentIdCollision',
-                documentId: input.documentId,
-                assetIds: storageMatches.map((asset) => asset.id)
-            })
-        }
-        const asset =
-            storageMatches[0] ??
-            resolveRealtimeAssetDocument(
-                await this.listEditorCompatibilityAssets(input.metahubId, input.projectId, input.userId, { sceneId: input.sceneId }),
-                input.documentId,
-                input.sceneId
-            )
         return {
             collection: 'assets',
             id: input.documentId,
             data: {
-                ...readPlayCanvasEditorAssetDocumentData(asset),
+                ...readPlayCanvasEditorAssetDocumentData(matchedEntry.asset, matchedEntry.documentId),
                 branch_id: input.numericSceneId,
                 project: input.numericProjectId
             },
-            version: asset.version
+            version: matchedEntry.asset.version
         }
     }
 
@@ -2213,27 +2270,11 @@ export class PlayCanvasProjectsService {
         if (input.collection === 'assets') {
             const schemaName = await this.resolveSchemaName(input.metahubId)
             await this.requireProject(schemaName, input.projectId)
-            const storageAssets = await this.listAssets(input.metahubId, input.projectId, input.userId)
-            const storageMatches = storageAssets.filter(
-                (candidate) => String(readPlayCanvasEditorAssetDocumentId(candidate)) === input.documentId
-            )
-            if (storageMatches.length > 1) {
-                throw new MetahubValidationError('PlayCanvas Editor realtime asset document id collision', {
-                    messageCode: 'playcanvas.editorRealtime.assetDocumentIdCollision',
-                    documentId: input.documentId,
-                    assetIds: storageMatches.map((asset) => asset.id)
-                })
-            }
-            let asset: (PlayCanvasAsset & { version: number }) | PlayCanvasEditorSceneLocalAsset
-            if (storageMatches[0]) {
-                asset = storageMatches[0]
-            } else {
-                asset = resolveRealtimeAssetDocument(
-                    await this.listEditorCompatibilityAssets(input.metahubId, input.projectId, input.userId, { sceneId: input.sceneId }),
-                    input.documentId,
-                    input.sceneId
-                )
-            }
+            const asset = resolveEditorCompatibilityAssetEntry(
+                await this.loadEditorCompatibilityAssetEntries(input.metahubId, input.projectId, input.userId, { sceneId: input.sceneId }),
+                input.documentId,
+                input.sceneId
+            ).asset
             if (!isStoragePlayCanvasAsset(asset)) {
                 if (input.revision !== undefined && input.revision !== null && input.revision !== String(asset.version)) {
                     if (sceneLocalAssetDocumentMatchesInput(asset, input.data)) {
@@ -2256,7 +2297,7 @@ export class PlayCanvasProjectsService {
                     const next = applySceneLocalAssetDocumentInput(currentAssets, {
                         projectId: input.projectId,
                         sceneId: asset.sceneId,
-                        documentId: input.documentId,
+                        assetId: asset.id,
                         data: input.data,
                         version: input.version,
                         sceneVersion: read.scene.version
@@ -2336,6 +2377,186 @@ export class PlayCanvasProjectsService {
             }
             return { revision: String(updated.version) }
         }
+    }
+
+    /**
+     * Fail-closed backup gate for editor sessions.
+     *
+     * Snapshots every derived realtime document of the project into one backup set
+     * BEFORE the first authoring write of the editor session. Callers must invoke this
+     * at editor-session bootstrap (full-boot config issuance) so that the snapshot
+     * strictly precedes any persistEditorRealtimeDocument call of that session; a
+     * backup failure must abort session bootstrap instead of allowing unmigrated
+     * writes. Repeated calls presenting the same `openedAtMarker` skip re-backup,
+     * while a new marker creates a fresh set.
+     */
+    async ensureOpenedProjectBackup(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+        sceneId: string
+        sessionId?: string
+        assetDocumentIds?: readonly number[]
+        openedAtMarker?: Date
+    }): Promise<{ status: 'created' | 'skipped'; documentCount: number; openedAt: Date }> {
+        const openedAt = input.openedAtMarker ?? new Date(Date.now())
+
+        if (
+            input.openedAtMarker &&
+            (await latestEditorDocumentBackupSetExists(this.exec, {
+                metahubId: input.metahubId,
+                projectId: input.projectId,
+                openedAtMarker: input.openedAtMarker
+            }))
+        ) {
+            return { status: 'skipped', documentCount: 0, openedAt }
+        }
+
+        const rows = await this.buildEditorRealtimeBackupRows({
+            metahubId: input.metahubId,
+            projectId: input.projectId,
+            sceneId: input.sceneId,
+            userId: input.userId,
+            assetDocumentIds: input.assetDocumentIds
+        })
+
+        try {
+            await insertEditorDocumentBackupSet(this.exec, {
+                metahubId: input.metahubId,
+                projectId: input.projectId,
+                openedAt,
+                rows
+            })
+        } catch (error) {
+            log.error('PlayCanvas Editor open backup failed; failing editor session bootstrap closed', {
+                metahubId: input.metahubId,
+                projectId: input.projectId,
+                sessionId: input.sessionId ?? null,
+                documentCount: rows.length,
+                error: error instanceof Error ? error.message : String(error)
+            })
+            throw error
+        }
+
+        log.info('PlayCanvas Editor open backup committed before first authoring write', {
+            metahubId: input.metahubId,
+            projectId: input.projectId,
+            sessionId: input.sessionId ?? null,
+            documentCount: rows.length
+        })
+        return { status: 'created', documentCount: rows.length, openedAt }
+    }
+
+    /**
+     * Restores the newest backup set by replaying every row through
+     * persistEditorRealtimeDocument in stored insertion order.
+     *
+     * Fails closed with NOT_FOUND when no backup set exists. The optional executor
+     * scopes only the backup read; replays run through this service's own executor.
+     * When no operator identity is supplied, replays are attributed to the owning
+     * metahub principal.
+     */
+    async restoreLatestProjectBackup(
+        metahubId: string,
+        projectId: string,
+        executor?: DbExecutor,
+        userId?: string
+    ): Promise<{ restoredDocuments: number; openedAt: Date }> {
+        const exec = executor ?? this.exec
+        const actorId = userId ?? metahubId
+
+        const rows = await listLatestEditorDocumentBackupRows(exec, { metahubId, projectId })
+        if (rows.length === 0) {
+            throw new MetahubDomainError({
+                message: 'No PlayCanvas Editor document backup set exists for this project',
+                statusCode: 404,
+                code: 'NOT_FOUND',
+                details: {
+                    messageCode: 'playcanvas.editorRealtime.backupSetMissing',
+                    projectId
+                }
+            })
+        }
+
+        // Mirrors the realtime seeding derivation: the persisted scene identity is the
+        // project's default scene, falling back to the project id itself.
+        const schemaName = await this.resolveSchemaName(metahubId)
+        const project = await this.requireProject(schemaName, projectId)
+        const sceneId = project.defaultSceneId ?? projectId
+
+        let restoredDocuments = 0
+        for (const row of rows) {
+            await this.persistEditorRealtimeDocument({
+                metahubId,
+                projectId,
+                sceneId,
+                userId: actorId,
+                collection: row.collection,
+                documentId: row.documentId,
+                data: row.data,
+                version: row.version
+            })
+            restoredDocuments += 1
+        }
+
+        return { restoredDocuments, openedAt: rows[0].openedAt }
+    }
+
+    /**
+     * Enumerates the derived realtime documents exactly like the realtime seeding path
+     * does (scenes/settings/user_data plus signed asset documents) and loads each one
+     * through loadEditorRealtimeDocument to build immutable backup rows.
+     */
+    private async buildEditorRealtimeBackupRows(input: {
+        metahubId: string
+        projectId: string
+        sceneId: string
+        userId: string
+        assetDocumentIds?: readonly number[]
+    }): Promise<EditorDocumentBackupRow[]> {
+        const numericIds = createPlayCanvasEditorNumericIds({
+            metahubId: input.metahubId,
+            projectId: input.projectId,
+            sceneId: input.sceneId,
+            userId: input.userId
+        })
+        const documents: Array<{ collection: EditorDocumentBackupRow['collection']; documentId: string }> = [
+            { collection: 'scenes', documentId: String(numericIds.sceneId) },
+            { collection: 'settings', documentId: numericIds.settingsId },
+            { collection: 'settings', documentId: `user_${numericIds.selfId}` },
+            { collection: 'settings', documentId: `project_${numericIds.projectId}_${numericIds.selfId}` },
+            { collection: 'settings', documentId: `project-private_${numericIds.projectId}` },
+            { collection: 'user_data', documentId: `${numericIds.sceneId}_${numericIds.selfId}` },
+            ...(input.assetDocumentIds ?? []).map((assetDocumentId) => ({
+                collection: 'assets' as const,
+                documentId: String(assetDocumentId)
+            }))
+        ]
+
+        const rows: EditorDocumentBackupRow[] = []
+        for (const document of documents) {
+            const loaded = await this.loadEditorRealtimeDocument({
+                metahubId: input.metahubId,
+                projectId: input.projectId,
+                sceneId: input.sceneId,
+                userId: input.userId,
+                collection: document.collection,
+                documentId: document.documentId,
+                numericProjectId: numericIds.projectId,
+                numericSceneId: numericIds.sceneId,
+                numericUserId: numericIds.selfId
+            })
+            if (!loaded) {
+                continue
+            }
+            rows.push({
+                collection: document.collection,
+                documentId: document.documentId,
+                data: loaded.data,
+                version: loaded.version ?? 0
+            })
+        }
+        return rows
     }
 
     async writeAssetMetadata(

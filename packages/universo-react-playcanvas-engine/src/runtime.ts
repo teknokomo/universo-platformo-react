@@ -47,15 +47,48 @@ export interface AabbLike {
     halfExtents: Vector3Like
 }
 
-export const createBasicApplication = (canvas: HTMLCanvasElement): pc.Application => {
+export interface CreateBasicApplicationOptions {
+    canvas: HTMLCanvasElement
+    /**
+     * Stable unique identifier applied to the canvas element. The engine keeps an
+     * application registry keyed by canvas.id, so every live application must own
+     * a distinct id. Removed again on destroy.
+     */
+    applicationId?: string
+    /**
+     * Attach keyboard input to window instead of the canvas. Disabled by default so
+     * concurrent widgets never steal each other's keyboard events.
+     */
+    windowKeyboard?: boolean
+}
+
+export interface BasicApplicationHandle {
+    app: pc.Application
+    destroy: () => void
+}
+
+export const createBasicApplication = (options: CreateBasicApplicationOptions): BasicApplicationHandle => {
+    const { canvas, applicationId, windowKeyboard = false } = options
+    const ownsCanvasId = typeof applicationId === 'string' && applicationId.length > 0
+    if (ownsCanvasId) {
+        canvas.id = applicationId as string
+    }
     const app = new pc.Application(canvas, {
         mouse: new pc.Mouse(canvas),
         touch: new pc.TouchDevice(canvas),
-        keyboard: new pc.Keyboard(window)
+        keyboard: new pc.Keyboard(windowKeyboard ? window : canvas)
     })
     app.setCanvasFillMode(pc.FILLMODE_NONE)
     app.setCanvasResolution(pc.RESOLUTION_AUTO)
-    return app
+    return {
+        app,
+        destroy: () => {
+            app.destroy()
+            if (ownsCanvasId && canvas.id === applicationId) {
+                canvas.removeAttribute('id')
+            }
+        }
+    }
 }
 
 export const resizeApplicationCanvas = (app: pc.Application, width: number, height: number): void => {

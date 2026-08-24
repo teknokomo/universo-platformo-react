@@ -1568,7 +1568,7 @@ const buildSpec = () => {
                             additionalProperties: false,
                             properties: {
                                 repository: { type: 'string', enum: ['https://github.com/playcanvas/editor'] },
-                                minimumTag: { type: 'string', enum: ['v2.24.2'] }
+                                minimumTag: { type: 'string', enum: ['v2.30.4'] }
                             },
                             required: ['repository', 'minimumTag']
                         },

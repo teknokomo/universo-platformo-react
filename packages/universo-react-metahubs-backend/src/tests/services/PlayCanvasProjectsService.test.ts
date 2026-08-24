@@ -16,6 +16,20 @@ const makeSchemaService = () => ({
     ensureSchema: jest.fn(async () => TEST_SCHEMA)
 })
 
+const createProjectSceneRow = () => ({
+    id: SCENE_ID,
+    projectId: PROJECT_ID,
+    codename: createLocalizedContent('en', 'main_scene'),
+    displayName: createLocalizedContent('en', 'Main Scene'),
+    payloadSchemaVersion: '1',
+    payload: null,
+    payloadFile: null,
+    checksum: null,
+    sortOrder: 0,
+    publish: true,
+    version: 1
+})
+
 const createProjectLookupExecutor = () =>
     ({
         query: jest.fn(async (sql: string) => {
@@ -1166,7 +1180,7 @@ describe('PlayCanvasProjectsService', () => {
                     ]
                 }
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
-                    return []
+                    return [createProjectSceneRow()]
                 }
                 if (sql.includes('_mhb_playcanvas_assets')) {
                     return [
@@ -1249,7 +1263,7 @@ describe('PlayCanvasProjectsService', () => {
                     ]
                 }
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
-                    return []
+                    return [createProjectSceneRow()]
                 }
                 if (sql.includes('_mhb_playcanvas_assets')) {
                     return [
@@ -1341,7 +1355,7 @@ describe('PlayCanvasProjectsService', () => {
                     ]
                 }
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
-                    return []
+                    return [createProjectSceneRow()]
                 }
                 if (sql.includes('_mhb_playcanvas_assets')) {
                     return [
@@ -2103,7 +2117,7 @@ describe('PlayCanvasProjectsService', () => {
                     ]
                 }
                 if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_scenes')) {
-                    return []
+                    return [createProjectSceneRow()]
                 }
                 if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_assets')) {
                     expect(params?.[4]).toBe('Renamed Asset')

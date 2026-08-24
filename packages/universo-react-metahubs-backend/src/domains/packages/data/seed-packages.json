@@ -27,14 +27,14 @@
             "_primary": "en",
             "locales": {
                 "en": {
-                    "content": "Workspace package for the Colyseus client SDK, pinned to version 0.17.42.",
+                    "content": "Workspace package for the Colyseus client, pinned to version 0.17.43.",
                     "version": 1,
                     "isActive": true,
                     "createdAt": "2026-05-27T00:00:00.000Z",
                     "updatedAt": "2026-05-27T00:00:00.000Z"
                 },
                 "ru": {
-                    "content": "Пакет рабочей области для клиентского SDK Colyseus, закреплённый на версии 0.17.42.",
+                    "content": "Пакет рабочей области для клиента Colyseus, закреплённый на версии 0.17.43.",
                     "version": 1,
                     "isActive": true,
                     "createdAt": "2026-05-27T00:00:00.000Z",
@@ -47,7 +47,7 @@
             "packageName": "@universo-react/colyseus-client",
             "importName": "@universo-react/colyseus-client",
             "upstreamPackageName": "@colyseus/sdk",
-            "upstreamVersion": "0.17.42",
+            "upstreamVersion": "0.17.43",
             "runtimeTargets": ["client"]
         }
     },
@@ -79,14 +79,14 @@
             "_primary": "en",
             "locales": {
                 "en": {
-                    "content": "Workspace package for the Colyseus server core, pinned to version 0.17.43.",
+                    "content": "Workspace package for the Colyseus server runtime, pinned to version 0.17.50.",
                     "version": 1,
                     "isActive": true,
                     "createdAt": "2026-05-27T00:00:00.000Z",
                     "updatedAt": "2026-05-27T00:00:00.000Z"
                 },
                 "ru": {
-                    "content": "Пакет рабочей области для серверного ядра Colyseus, закреплённый на версии 0.17.43.",
+                    "content": "Пакет рабочей области для серверного рантайма Colyseus, закреплённый на версии 0.17.50.",
                     "version": 1,
                     "isActive": true,
                     "createdAt": "2026-05-27T00:00:00.000Z",
@@ -99,7 +99,7 @@
             "packageName": "@universo-react/colyseus-server",
             "importName": "@universo-react/colyseus-server",
             "upstreamPackageName": "@colyseus/core",
-            "upstreamVersion": "0.17.43",
+            "upstreamVersion": "0.17.50",
             "runtimeTargets": ["server"]
         }
     },
@@ -131,14 +131,14 @@
             "_primary": "en",
             "locales": {
                 "en": {
-                    "content": "Workspace package for the PlayCanvas engine, pinned to version 2.18.1.",
+                    "content": "Workspace package for the PlayCanvas engine, pinned to version 2.21.4.",
                     "version": 1,
                     "isActive": true,
                     "createdAt": "2026-05-27T00:00:00.000Z",
                     "updatedAt": "2026-05-27T00:00:00.000Z"
                 },
                 "ru": {
-                    "content": "Пакет рабочей области для PlayCanvas Engine, закреплённый на версии 2.18.1.",
+                    "content": "Пакет рабочей области для PlayCanvas Engine, закреплённый на версии 2.21.4.",
                     "version": 1,
                     "isActive": true,
                     "createdAt": "2026-05-27T00:00:00.000Z",
@@ -151,7 +151,7 @@
             "packageName": "@universo-react/playcanvas-engine",
             "importName": "@universo-react/playcanvas-engine",
             "upstreamPackageName": "playcanvas",
-            "upstreamVersion": "2.18.1",
+            "upstreamVersion": "2.21.4",
             "runtimeTargets": ["client"]
         }
     },
@@ -203,7 +203,7 @@
             "packageName": "@universo-react/playcanvas-editor-frontend",
             "importName": "@universo-react/playcanvas-editor-frontend",
             "upstreamPackageName": "playcanvas-editor",
-            "upstreamVersion": "2026-06-05-vendor",
+            "upstreamVersion": "v2.30.4-vendor",
             "runtimeTargets": []
         },
         "authoringSurface": {

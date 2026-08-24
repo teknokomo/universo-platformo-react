@@ -9,29 +9,116 @@ import {
     PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE,
     PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
     PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
+    PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS,
+    PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH,
     playCanvasEditorFullBootConfigSchema,
     playCanvasEditorCompatibilityConfigSchema
 } from '@universo-react/types'
+import { buildEditorSchemaCatalog } from './schemaCatalog'
 
 export const hashToPositiveInt = (value: string): number => {
     const hash = createHash('sha256').update(value).digest()
     return (hash.readUInt32BE(0) % 2_000_000_000) + 1
 }
 
-export const createPlayCanvasEditorNumericIds = (input: { metahubId: string; projectId: string; sceneId: string; userId: string }) => ({
-    selfId: hashToPositiveInt(`self:${input.userId}`),
-    ownerId: hashToPositiveInt(`owner:${input.metahubId}`),
-    projectId: hashToPositiveInt(`project:${input.projectId}`),
-    sceneId: hashToPositiveInt(`scene:${input.sceneId}`),
-    settingsId: `project_${hashToPositiveInt(`project:${input.projectId}`)}`,
-    storage: {
-        metahubId: input.metahubId,
-        projectId: input.projectId,
-        sceneId: input.sceneId
+export interface PlayCanvasEditorNumericIdAssignmentInput {
+    key: string
+}
+
+/**
+ * Deterministically assigns collision-free positive numeric ids for a batch of keys.
+ *
+ * Base ids come from hashToPositiveInt; when two keys in the batch share a base id,
+ * contested keys rehash deterministically with an ordered suffix (`${key}#1`, `#2`, ...)
+ * until an unused slot is found. Keys are processed in sorted order and every base id
+ * that is unique within the batch is reserved first, so the assignment never depends on
+ * input order and non-colliding members always keep their base id. `reservedIds`
+ * pre-occupies slots (for example fixed upstream numeric ids) so hashed assignments
+ * avoid them.
+ */
+export const deriveUniqueNumericIds = (
+    inputs: readonly PlayCanvasEditorNumericIdAssignmentInput[],
+    reservedIds?: ReadonlySet<number>
+): Map<string, number> => {
+    const usedIds = new Set<number>(reservedIds ?? [])
+    const assignment = new Map<string, number>()
+    const orderedKeys = [...new Set(inputs.map((input) => input.key))].sort()
+    const baseIdByKey = new Map<string, number>(orderedKeys.map((key) => [key, hashToPositiveInt(key)]))
+    for (const key of orderedKeys) {
+        const baseId = baseIdByKey.get(key) ?? 0
+        if (usedIds.has(baseId)) continue
+        const isContested = orderedKeys.some((other) => other !== key && baseIdByKey.get(other) === baseId)
+        if (isContested) continue
+        usedIds.add(baseId)
+        assignment.set(key, baseId)
     }
-})
+    for (const key of orderedKeys) {
+        if (assignment.has(key)) continue
+        let suffix = 0
+        let candidate = baseIdByKey.get(key) ?? 0
+        while (usedIds.has(candidate)) {
+            suffix += 1
+            candidate = hashToPositiveInt(`${key}#${suffix}`)
+        }
+        usedIds.add(candidate)
+        assignment.set(key, candidate)
+    }
+    return assignment
+}
+
+const numericIdAssignmentKey = {
+    self: (userId: string) => `self:${userId}`,
+    owner: (metahubId: string) => `owner:${metahubId}`,
+    project: (projectId: string) => `project:${projectId}`,
+    scene: (sceneId: string) => `scene:${sceneId}`
+} as const
+
+export const createPlayCanvasEditorNumericIds = (input: { metahubId: string; projectId: string; sceneId: string; userId: string }) => {
+    // Identity roles allocate in ISOLATED namespaces: a hash collision between a
+    // user key and a project/scene key must never remap the persistent project or
+    // scene identity for that user while others keep the base id. Cross-role
+    // collisions are resolved by construction (each role derives from its own
+    // single-key namespace); only the per-role asset batch uses contested-slot
+    // rehashing via deriveUniqueNumericAssetIds.
+    const roleNamespaceId = (key: string): number => {
+        const [assigned] = [...deriveUniqueNumericIds([{ key }]).values()]
+        return assigned ?? hashToPositiveInt(key)
+    }
+    const projectIdNumber = roleNamespaceId(numericIdAssignmentKey.project(input.projectId))
+    return {
+        selfId: roleNamespaceId(numericIdAssignmentKey.self(input.userId)),
+        ownerId: roleNamespaceId(numericIdAssignmentKey.owner(input.metahubId)),
+        projectId: projectIdNumber,
+        sceneId: roleNamespaceId(numericIdAssignmentKey.scene(input.sceneId)),
+        settingsId: `project_${projectIdNumber}`,
+        storage: {
+            metahubId: input.metahubId,
+            projectId: input.projectId,
+            sceneId: input.sceneId
+        }
+    }
+}
 
 export const createPlayCanvasEditorNumericAssetId = (assetId: string): number => hashToPositiveInt(`asset:${assetId}`)
+
+export interface PlayCanvasEditorNumericAssetIdInput {
+    assetId: string
+}
+
+/**
+ * Batch counterpart of createPlayCanvasEditorNumericAssetId: derives one numeric
+ * document id per asset id for a whole project asset set with collision-safe
+ * deterministic assignment, optionally avoiding `reservedIds` already claimed by
+ * fixed upstream ids. Non-colliding members keep the exact single-asset value.
+ */
+export const deriveUniqueNumericAssetIds = (
+    inputs: readonly PlayCanvasEditorNumericAssetIdInput[],
+    reservedIds?: ReadonlySet<number>
+): Map<string, number> =>
+    deriveUniqueNumericIds(
+        inputs.map((input) => ({ key: `asset:${input.assetId}` })),
+        reservedIds
+    )
 
 export const buildBasePath = (metahubId: string, projectId: string, apiOrigin?: string) =>
     `${apiOrigin ?? ''}/api/v1/metahub/${encodeURIComponent(metahubId)}/playcanvas/editor-compatible/projects/${encodeURIComponent(
@@ -54,86 +141,6 @@ export const createPlayCanvasEditorFullBootEndpointDescriptor = (input: {
         relayWsUrl: `${wsBase}/relay`
     }
 }
-
-export const buildDefaultEditorSchema = () => ({
-    asset: { type: { $enum: ['script', 'texture', 'material', 'model', 'json', 'template'] } },
-    animstategraphData: {},
-    materialData: {
-        name: { $type: 'string', $default: 'Untitled Material' },
-        shader: { $type: 'string', $default: 'blinn' },
-        diffuse: { $type: 'array', $default: [1, 1, 1] },
-        opacity: { $type: 'number', $default: 1 },
-        alphaTest: { $type: 'number', $default: 0 },
-        blendType: { $type: 'number', $default: 0 },
-        depthTest: { $type: 'boolean', $default: true },
-        depthWrite: { $type: 'boolean', $default: true },
-        emissive: { $type: 'array', $default: [0, 0, 0] },
-        emissiveIntensity: { $type: 'number', $default: 1 },
-        useFog: { $type: 'boolean', $default: true },
-        useLighting: { $type: 'boolean', $default: true },
-        useSkybox: { $type: 'boolean', $default: true },
-        cull: { $type: 'number', $default: 1 }
-    },
-    scene: {
-        entities: {
-            $of: {
-                components: {
-                    camera: { enabled: { $type: 'boolean', $default: true } },
-                    light: { enabled: { $type: 'boolean', $default: true } },
-                    render: {
-                        enabled: { $type: 'boolean', $default: true },
-                        type: { $type: 'string', $default: 'box' },
-                        asset: { $default: null },
-                        materialAssets: { $type: 'array', $default: [null] },
-                        layers: { $type: 'array', $default: [0] },
-                        castShadows: { $type: 'boolean', $default: true },
-                        receiveShadows: { $type: 'boolean', $default: true },
-                        castShadowsLightmap: { $type: 'boolean', $default: true },
-                        lightmapped: { $type: 'boolean', $default: false },
-                        isStatic: { $type: 'boolean', $default: false },
-                        batchGroupId: { $default: null },
-                        rootBone: { $default: null }
-                    },
-                    script: {
-                        enabled: { $type: 'boolean', $default: true },
-                        scripts: { $type: 'array', $default: [] },
-                        order: { $type: 'array', $default: [] }
-                    }
-                }
-            }
-        },
-        settings: { physics: {}, render: {} }
-    },
-    settings: {
-        width: { $type: 'number', $default: 1280, $scope: 'project' },
-        height: { $type: 'number', $default: 720, $scope: 'project' },
-        useLegacyScripts: { $type: 'boolean', $default: false, $scope: 'project' },
-        editor: {
-            gridDivisions: { $type: 'number', $default: 8, $scope: 'projectUser' },
-            gridDivisionSize: { $type: 'number', $default: 1, $scope: 'projectUser' },
-            snapIncrement: { $type: 'number', $default: 1, $scope: 'projectUser' },
-            cameraGrabDepth: { $type: 'boolean', $default: false, $scope: 'projectUser' },
-            cameraGrabColor: { $type: 'boolean', $default: false, $scope: 'projectUser' },
-            cameraNearClip: { $type: 'number', $default: 0.0001, $scope: 'projectUser' },
-            cameraFarClip: { $type: 'number', $default: 10000, $scope: 'projectUser' },
-            cameraClearColor: { $type: 'array', $default: [0.118, 0.118, 0.118, 1], $scope: 'projectUser' },
-            cameraToneMapping: { $type: 'number', $default: 0, $scope: 'projectUser' },
-            cameraGammaCorrection: { $type: 'number', $default: 1, $scope: 'projectUser' },
-            showFog: { $type: 'boolean', $default: true, $scope: 'projectUser' },
-            locale: { $type: 'string', $default: 'en-US', $scope: 'projectUser' },
-            renameDuplicatedEntities: { $type: 'boolean', $default: true, $scope: 'projectUser' },
-            lightmapperAutoBake: { $type: 'boolean', $default: true, $scope: 'projectUser' },
-            codeEditor: { $type: 'string', $default: 'web', $scope: 'projectUser' },
-            zoomSensitivity: { $type: 'number', $default: 1, $scope: 'user' },
-            gizmoSize: { $type: 'number', $default: 1, $scope: 'user' },
-            gizmoPreset: { $type: 'string', $default: 'default', $scope: 'user' },
-            showViewCube: { $type: 'boolean', $default: true, $scope: 'user' },
-            viewCubeSize: { $type: 'number', $default: 1, $scope: 'user' },
-            iconSize: { $type: 'number', $default: 32, $scope: 'user' },
-            showSkeleton: { $type: 'boolean', $default: true, $scope: 'user' }
-        }
-    }
-})
 
 export const createDefaultRealtimeSceneSettings = () => ({
     priority_scripts: [],
@@ -256,7 +263,10 @@ export const createPlayCanvasEditorFullBootConfig = (input: {
         branch: { id: numericIds.sceneId, name: 'Main' },
         url: {
             api: apiRoot,
-            launch: '/',
+            // D4: the launch page surface is deferred; the sentinel path is
+            // recognized by the artifact navigation guard and the host page,
+            // which fail closed with localized messaging instead of navigating.
+            launch: PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH,
             home: '/',
             frontend,
             engine: `${frontend.replace(/\/?$/, '/')}js/playcanvas-engine.js`,
@@ -268,10 +278,33 @@ export const createPlayCanvasEditorFullBootConfig = (input: {
             messenger: { ws: endpoints.messengerWsUrl, http: endpoints.restBaseUrl },
             relay: { ws: endpoints.relayWsUrl, http: endpoints.restBaseUrl }
         },
-        schema: buildDefaultEditorSchema(),
+        pages: {
+            fullEditor: { kind: 'fullEditor' },
+            codeEditor: {
+                kind: 'unavailable',
+                surface: 'codeEditor',
+                reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.codeEditor
+            },
+            launchPage: {
+                kind: 'unavailable',
+                surface: 'launchPage',
+                reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.launchPage
+            },
+            blankProjectPicker: {
+                kind: 'unavailable',
+                surface: 'blankProjectPicker',
+                reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.blankProjectPicker
+            },
+            fontImport: {
+                kind: 'unavailable',
+                surface: 'fontImport',
+                reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.fontImport
+            }
+        },
+        schema: buildEditorSchemaCatalog(),
         engineVersions: {
-            force: { version: '2.19.5', description: 'Engine v2.19.5' },
-            current: { version: '2.19.5', description: 'Current' }
+            force: { version: '2.21.3', description: 'Engine v2.21.3' },
+            current: { version: '2.21.3', description: 'Current' }
         },
         store: {},
         aws: { s3Prefix: '' },
@@ -330,3 +363,5 @@ export const createPlayCanvasEditorCompatibilityConfig = (input: {
         }
     })
 }
+
+export { SCHEMA_CATALOG_VERSION, buildEditorSchemaCatalog } from './schemaCatalog'

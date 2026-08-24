@@ -2,7 +2,9 @@ import express from 'express'
 import type { ErrorRequestHandler, RequestHandler } from 'express'
 import { PLAYCANVAS_EDITOR_PACKAGE_NAME } from '@universo-react/types'
 import { createPlayCanvasProjectsRoutes } from '../../domains/playcanvas-projects/routes/playCanvasProjectsRoutes'
+import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
+import { registerEditorArtifactIssuance } from '../../domains/packages/services/editorArtifactTokenService'
 
 const request = require('supertest') as typeof import('supertest')
 
@@ -13,6 +15,27 @@ const compatibilityOrigin = 'https://editor.test'
 const originalPlayCanvasEditorParentPublicOrigin = process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
 const originalPlayCanvasEditorTrustProxyHeaders = process.env.PLAYCANVAS_EDITOR_TRUST_PROXY_HEADERS
 const originalPlayCanvasEditorArtifactAllowedOrigins = process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS
+
+interface RenewalTestClock {
+    setNow: (value: number) => void
+    restore: () => void
+}
+
+const startRenewalClock = (startAt: number): RenewalTestClock => {
+    let current = startAt
+    const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => current)
+    return {
+        setNow: (value: number) => {
+            current = value
+        },
+        restore: () => {
+            dateSpy.mockRestore()
+        }
+    }
+}
+
+const decodeArtifactClaims = (token: string): Record<string, unknown> =>
+    JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8')) as Record<string, unknown>
 
 const readCompatibilityToken = async (app: ReturnType<typeof createApp>): Promise<string> => {
     jest.spyOn(PlayCanvasProjectsService.prototype, 'describeEditorCompatibilityProtocol').mockResolvedValue(createProtocol())
@@ -32,7 +55,7 @@ const createProtocol = () =>
         mode: 'universo-bridge-minimal',
         upstream: {
             repository: 'https://github.com/playcanvas/editor',
-            minimumTag: 'v2.24.2'
+            minimumTag: 'v2.30.4'
         },
         project: null,
         defaultSceneId: sceneId,
@@ -676,5 +699,134 @@ describe('PlayCanvas Editor compatibility routes', () => {
 
         expect(response.status).toBe(403)
         expect(describeEditorCompatibilityProtocol).not.toHaveBeenCalled()
+    })
+
+    describe('full-boot sliding artifact token renewal', () => {
+        const T0 = 1_800_000_000_000
+        const renewalOrigin = 'https://assets.example'
+
+        const mockFullBootPort = () => {
+            mockFullBootProjectService()
+            jest.spyOn(PlayCanvasProjectsService.prototype, 'listEditorCompatibilityAssetSummaries').mockResolvedValue([])
+            jest.spyOn(PlayCanvasProjectsService.prototype, 'ensureOpenedProjectBackup').mockResolvedValue(undefined)
+        }
+
+        const requestFullBootConfig = (app: ReturnType<typeof createApp>, bridgeSessionId?: string) =>
+            request(app)
+                .get(`/metahub/metahub-1/playcanvas/editor-compatible/projects/${projectId}/config`)
+                .query({
+                    mode: 'universo-full-upstream-ui',
+                    artifactBaseUrl: `${renewalOrigin}/editor/`,
+                    ...(bridgeSessionId ? { bridgeSessionId } : {})
+                })
+
+        it('mints a fresh artifact token bound to the same session with a later expiresAt and the same issuedAt', async () => {
+            process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN = 'https://platform.example'
+            process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = renewalOrigin
+            mockFullBootPort()
+
+            const clock = startRenewalClock(T0)
+            try {
+                const sessions = new PlayCanvasEditorBridgeSessionService()
+                const session = sessions.create({
+                    metahubId: 'metahub-1',
+                    packageSlug: 'playcanvas-editor',
+                    projectId,
+                    userId: 'user-1',
+                    capabilities: []
+                })
+                registerEditorArtifactIssuance(session.payload.sessionId, {
+                    metahubId: 'metahub-1',
+                    packageSlug: 'playcanvas-editor',
+                    userId: 'user-1',
+                    parentOrigin: 'https://platform.example',
+                    apiOrigin: 'https://platform.example',
+                    issuedAt: T0
+                })
+
+                const app = createApp()
+                clock.setNow(T0 + 60_000)
+                const first = await requestFullBootConfig(app, session.payload.sessionId)
+                expect(first.status).toBe(200)
+                expect(first.headers['cache-control']).toBe('no-store')
+                const firstToken = first.body.artifactToken
+                expect(typeof firstToken).toBe('string')
+                expect(first.body.item?.mode).toBe('universo-full-upstream-ui')
+
+                clock.setNow(T0 + 120_000)
+                const second = await requestFullBootConfig(app, session.payload.sessionId)
+                expect(second.status).toBe(200)
+                const secondToken = second.body.artifactToken
+                expect(typeof secondToken).toBe('string')
+
+                const firstClaims = decodeArtifactClaims(String(firstToken))
+                const secondClaims = decodeArtifactClaims(String(secondToken))
+                expect(firstClaims).toMatchObject({
+                    metahubId: 'metahub-1',
+                    packageSlug: 'playcanvas-editor',
+                    userId: 'user-1',
+                    parentOrigin: 'https://platform.example',
+                    apiOrigin: 'https://platform.example',
+                    bridgeSessionId: session.payload.sessionId,
+                    issuedAt: T0,
+                    expiresAt: T0 + 60_000 + 5 * 60 * 1000
+                })
+                expect(secondClaims.issuedAt).toBe(firstClaims.issuedAt)
+                expect(secondClaims.bridgeSessionId).toBe(session.payload.sessionId)
+                expect(secondClaims.expiresAt).toBeGreaterThan(firstClaims.expiresAt)
+            } finally {
+                clock.restore()
+            }
+        })
+
+        it('refuses renewal beyond the absolute cap and omits artifactToken so clients reload', async () => {
+            process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN = 'https://platform.example'
+            process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = renewalOrigin
+            mockFullBootPort()
+
+            const clock = startRenewalClock(T0)
+            try {
+                // The bridge session stays alive past the cap; only the
+                // original issuedAt must trigger the refusal.
+                clock.setNow(T0 + 12 * 60 * 60 * 1000 - 60_000)
+                const sessions = new PlayCanvasEditorBridgeSessionService()
+                const session = sessions.create({
+                    metahubId: 'metahub-1',
+                    packageSlug: 'playcanvas-editor',
+                    projectId,
+                    userId: 'user-1',
+                    capabilities: []
+                })
+                registerEditorArtifactIssuance(session.payload.sessionId, {
+                    metahubId: 'metahub-1',
+                    packageSlug: 'playcanvas-editor',
+                    userId: 'user-1',
+                    parentOrigin: 'https://platform.example',
+                    apiOrigin: 'https://platform.example',
+                    issuedAt: T0
+                })
+
+                clock.setNow(T0 + 12 * 60 * 60 * 1000 + 60_000)
+                const response = await requestFullBootConfig(createApp(), session.payload.sessionId)
+
+                expect(response.status).toBe(200)
+                expect(response.body.item?.mode).toBe('universo-full-upstream-ui')
+                expect(response.body).not.toHaveProperty('artifactToken')
+            } finally {
+                clock.restore()
+            }
+        })
+
+        it('omits artifactToken when no bridge session id is supplied (fail closed)', async () => {
+            process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN = 'https://platform.example'
+            process.env.PLAYCANVAS_EDITOR_ARTIFACT_ALLOWED_ORIGINS = renewalOrigin
+            mockFullBootPort()
+
+            const response = await requestFullBootConfig(createApp())
+
+            expect(response.status).toBe(200)
+            expect(response.body.item?.mode).toBe('universo-full-upstream-ui')
+            expect(response.body).not.toHaveProperty('artifactToken')
+        })
     })
 })

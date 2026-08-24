@@ -32,6 +32,11 @@
     }
 }
 
+// rounded checkbox shared by the history compare list and the vc dialogs
+%vc-checkbox {
+    @extend %modern-picker-checkbox;
+}
+
 .pcui-container.picker-vc {
     height: 100%;
     overflow: hidden;
@@ -293,52 +298,143 @@
 
             // kept progress widgets render here now (was .side-panel)
             > .progress-widget {
-                width: min(360px, 100%);
-                margin: clamp(96px, 24vh, 220px) auto 0;
-                background-color: transparent;
+                width: min(480px, 100%);
+                margin: 0 auto;
+                border: 1px solid $border-primary;
+                border-radius: 6px;
+                background: $bcg-primary;
+                overflow: hidden;
 
-                > .content {
+                > .vc-progress-header {
                     display: flex;
-                    flex-direction: column;
                     align-items: center;
+                    min-height: 36px;
+                    padding: 0 14px;
+                    border-bottom: 1px solid $border-primary;
+                    background: $bcg-dark;
                 }
 
-                .ui-label {
-                    width: 100%;
+                .vc-heading {
+                    @extend .font-bold;
+
                     margin: 0;
                     color: $text-primary;
-                    font-size: 16px;
-                    text-align: center;
-
-                    &.note {
-                        color: $text-secondary;
-                        font-size: 12px;
-
-                        &:not(.hidden) {
-                            display: block;
-                        }
-                    }
+                    font-size: 14px;
+                    line-height: 1.2;
                 }
 
-                svg {
-                    display: block;
-                    flex: none;
-                    margin: 16px 0 0;
+                .status-card {
+                    border: 0;
+                    border-radius: 0;
+                    background: transparent;
+                    overflow: hidden;
+                }
 
-                    &.spin {
-                        g {
-                            animation-name: spin;
-                            animation-duration: 500ms;
-                            animation-iteration-count: infinite;
-                            animation-timing-function: linear;
-                            transform-origin: center;
-                        }
-                    }
+                .status-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    min-height: 56px;
+                    padding: 11px 12px;
+                }
+
+                .icon-cell {
+                    flex: none;
+                    display: grid;
+                    place-items: center;
+                    width: 24px;
+                    height: 24px;
+                    color: $text-active;
+                }
+
+                .vc-progress-icon {
+                    position: relative;
+                    display: grid;
+                    place-items: center;
+                    width: 24px;
+                    height: 24px;
+                    color: $text-active;
 
                     &.hidden {
                         display: none;
                     }
+
+                    .spinner {
+                        width: 16px;
+                        height: 16px;
+                        border: 2px solid #773417;
+                        border-top-color: $text-active;
+                        border-radius: 50%;
+                        animation: vc-skeleton-spin 850ms linear infinite;
+                    }
+
+                    .check,
+                    .cross {
+                        position: relative;
+                        display: block;
+                        width: 18px;
+                        height: 18px;
+                    }
+
+                    .check::before {
+                        content: '';
+                        position: absolute;
+                        left: 50%;
+                        top: 50%;
+                        width: 12px;
+                        height: 7px;
+                        border-left: 2px solid #82d993;
+                        border-bottom: 2px solid #82d993;
+                        transform: translate(-50%, -62%) rotate(-45deg);
+                        transform-origin: center;
+                    }
+
+                    .cross::before,
+                    .cross::after {
+                        content: '';
+                        position: absolute;
+                        left: 50%;
+                        top: 50%;
+                        width: 15px;
+                        height: 2px;
+                        border-radius: 2px;
+                        background: #ff8a8a;
+                        transform-origin: center;
+                    }
+
+                    .cross::before {
+                        transform: translate(-50%, -50%) rotate(45deg);
+                    }
+
+                    .cross::after {
+                        transform: translate(-50%, -50%) rotate(-45deg);
+                    }
                 }
+
+                .copy {
+                    min-width: 0;
+
+                    > .pcui-label {
+                        display: block;
+                        margin: 0;
+                    }
+                }
+
+                .title {
+                    @extend .font-bold;
+
+                    color: $text-primary;
+                    font-size: 14px;
+                    line-height: 1.35;
+                }
+
+                .note {
+                    margin-top: 4px;
+                    color: $text-dark;
+                    font-size: 12px;
+                    line-height: 1.35;
+                }
+
             }
         }
     }
@@ -368,6 +464,9 @@
     // card title row: heading left, compact meta right
     .vc-card-head {
         display: flex;
+
+        // wrap the meta/button below the title when the main pane is narrow (#2098)
+        flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
         gap: 10px;
@@ -376,6 +475,7 @@
         > h3 {
             @extend .font-bold;
 
+            min-width: 0;
             margin: 0;
             color: $text-primary;
             font-size: 13px;
@@ -383,12 +483,28 @@
 
         > .side {
             display: flex;
-            flex: none;
+
+            // shrink so the button can ellipsize instead of overflowing a narrow pane (#2098)
+            flex: 0 1 auto;
+            min-width: 0;
+            flex-wrap: wrap;
             align-items: center;
             gap: 12px;
 
             > .vc-meta {
                 font-size: 11px;
+            }
+
+            // truncate the label to a single line + ellipsis rather than wrapping (#2098)
+            > .vc-button:not([hidden]) {
+                box-sizing: border-box;
+                display: block;
+                min-width: 0;
+                overflow: hidden;
+                line-height: 26px;
+                white-space: nowrap;
+                text-align: center;
+                text-overflow: ellipsis;
             }
         }
     }
@@ -456,6 +572,16 @@
         }
     }
 
+    // on-demand compute action sits below the "not computed yet" note (#2098)
+    .vc-compute {
+        margin-top: 10px;
+    }
+
+    // "still working" note shown after a while when an inline diff is slow (#2099)
+    .vc-slow-hint {
+        margin-top: 10px;
+    }
+
     // ---- history list ----
     .vc-history {
         flex: 1 1 auto;
@@ -510,33 +636,9 @@
             }
 
             > .check {
-                flex: none;
-                appearance: none;
-                position: relative;
-                width: 16px;
-                height: 16px;
+                @extend %vc-checkbox;
+
                 margin-top: 3px;
-                border: 1px solid $border-primary;
-                border-radius: 3px;
-                background-color: $bcg-darkest;
-                box-sizing: border-box;
-                cursor: pointer;
-                transition: background-color 100ms, border-color 100ms, box-shadow 100ms;
-
-                &:hover {
-                    border-color: rgb(255 102 0 / 55%);
-                    background-color: rgb(255 102 0 / 8%);
-                }
-
-                &:focus {
-                    outline: none;
-                    box-shadow: $element-shadow-active;
-                }
-
-                &:checked {
-                    border-color: $text-active;
-                    background: $text-active url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.2 6.5 11 12.5 4.5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 13px 13px no-repeat;
-                }
             }
 
             > .body {
@@ -668,6 +770,10 @@
             background-color: $bcg-dark;
 
             > .pcui-text-area-input {
+                display: flex;
+                flex: 1 1 auto;
+                flex-direction: column;
+                min-height: 0;
                 width: 100%;
                 margin: 0 0 8px;
                 border: 1px solid $border-primary;
@@ -679,8 +785,12 @@
                     @extend .font-regular;
 
                     display: block;
-                    width: calc(100% - 20px);
-                    height: 56px;
+                    box-sizing: border-box;
+
+                    // fill the resizable composer; drag its top edge to change the height (#2098)
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    width: 100%;
                     margin: 0;
                     padding: 10px;
                     border: none;
@@ -689,6 +799,7 @@
                     font-size: 13px;
                     outline: none;
                     box-shadow: none;
+                    overflow-y: auto;
                     resize: none;
 
                     &::placeholder {
@@ -747,6 +858,13 @@
             gap: 10px;
             padding: 11px 12px;
             border-bottom: 1px solid $border-primary;
+
+            // the last row sits flush against the wrapping .vc-field-diff / .vc-diff-list
+            // bottom border (like .vc-field-row / .vc-item do) — drop its border to avoid
+            // doubling up while the diff is loading
+            &:last-child {
+                border-bottom: none;
+            }
 
             > .bone {
                 border-radius: 4px;
@@ -935,6 +1053,44 @@
                 .new {
                     color: #6fd088;
                 }
+            }
+        }
+    }
+
+    // changes-tab preview: structured property diff (compact) above any textual file rows
+    .vc-field-preview {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    // compact structured property diff reuses the full diff's .vc-diff-* classes;
+    // only density and the text breadcrumb differ from the overlay
+    .vc-card .vc-diff-inspector.compact {
+        gap: 8px;
+
+        .vc-diff-crumb {
+            padding-bottom: 8px;
+            overflow: hidden;
+            color: $text-secondary;
+            font-size: 13px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        // field rows sit in pcui panel content (larger ambient); pin them to the
+        // breadcrumb's size so the preview's text scale stays consistent
+        .vc-diff-field-row {
+            min-height: 26px;
+            font-size: 12px;
+
+            // text values stay on one line and ellipsis; an unbreakable value would
+            // otherwise hard-clip at the pane edge (overflow-x is hidden)
+            > .value > span {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
         }
     }
@@ -1334,16 +1490,15 @@
                 align-items: center;
                 gap: 8px;
                 margin-top: 10px;
+                cursor: pointer;
 
-                > .pcui-label {
-                    margin: 0;
-                    font-size: 12px;
-                    color: $text-primary;
+                > .check {
+                    @extend %vc-checkbox;
                 }
 
-                > .pcui-boolean-input {
-                    margin: 0;
-                    flex: none;
+                > .label {
+                    font-size: 12px;
+                    color: $text-primary;
                 }
             }
 
@@ -1406,6 +1561,10 @@
             }
         }
     }
+}
+
+@keyframes vc-skeleton-spin {
+    to { transform: rotate(360deg); }
 }
 
 @keyframes vc-skeleton-pulse {

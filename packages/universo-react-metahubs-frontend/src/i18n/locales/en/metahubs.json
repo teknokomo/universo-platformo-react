@@ -1644,7 +1644,11 @@
             "saveConflict": "The scene changed elsewhere. Reload the latest scene before saving again.",
             "saveConflictTitle": "Save conflict",
             "saveConflictBody": "Another save changed this scene. Reload the latest stored scene, review it, and save again.",
-            "reloadLatest": "Reload latest"
+            "reloadLatest": "Reload latest",
+            "codeEditorUnavailable": "The built-in code editor is not available in Universo-hosted projects yet.",
+            "launchUnavailable": "Launching this scene outside the editor is not available yet.",
+            "fontsUnavailable": "Font import is disabled because font generation is not supported in Universo-hosted projects.",
+            "blankPickerUnavailable": "Creating or switching projects from inside the editor is not available. Manage projects from the packages area."
         },
         "empty": {
             "title": "No packages available",

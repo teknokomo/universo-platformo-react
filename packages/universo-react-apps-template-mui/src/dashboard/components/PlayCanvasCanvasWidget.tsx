@@ -164,6 +164,22 @@ const DEFAULT_TURN_RESPONSE = 1.8
 const MAX_TURN_RADIANS_PER_FRAME = 0.18
 const AUTHORITATIVE_HARD_RESYNC_DISTANCE = 2
 
+let widgetCanvasSequence = 0
+const resolveWidgetCanvasApplicationId = (widgetId: string | undefined): string => {
+    const sanitizedWidgetId = (widgetId ?? '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
+    const uniquePart = sanitizedWidgetId.length > 0 ? sanitizedWidgetId : `instance-${++widgetCanvasSequence}`
+    return `playcanvas-canvas-${uniquePart}`
+}
+
+const isWebGL2Available = (): boolean => {
+    try {
+        const probeCanvas = document.createElement('canvas')
+        return Boolean(probeCanvas.getContext('webgl2'))
+    } catch {
+        return false
+    }
+}
+
 const isFiniteVector3 = (value: unknown): value is Vector3Like => {
     if (!value || typeof value !== 'object') {
         return false
@@ -749,6 +765,10 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const [visualLabVariantFocusRequested, setVisualLabVariantFocusRequested] = useState(false)
     const loadFailedMessageRef = useRef(t('playcanvasCanvas.loadFailed', 'The 3D scene could not be loaded.'))
     loadFailedMessageRef.current = t('playcanvasCanvas.loadFailed', 'The 3D scene could not be loaded.')
+    const webglUnavailableMessageRef = useRef(
+        t('playcanvasCanvas.webglUnavailable', '3D rendering is not available on this device or browser.')
+    )
+    webglUnavailableMessageRef.current = t('playcanvasCanvas.webglUnavailable', '3D rendering is not available on this device or browser.')
 
     const parsed = useMemo(() => playcanvasCanvasWidgetConfigSchema.safeParse(config ?? {}), [config])
     const widgetConfig = parsed.success ? parsed.data : undefined
@@ -998,8 +1018,16 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
             return undefined
         }
 
+        if (!isWebGL2Available()) {
+            setError(webglUnavailableMessageRef.current)
+            setReady(false)
+            setRealtimeStatus('unavailable')
+            return undefined
+        }
+
         let disposed = false
         let app: pc.Application | null = null
+        let destroyApplication: (() => void) | null = null
         let room: Room<unknown, FixedTickSceneState> | null = null
         const entities = new Map<string, pc.Entity>()
         const remoteEntities = new Map<string, pc.Entity>()
@@ -1060,7 +1088,13 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         try {
             setError(null)
             if (visualLabScene) {
-                const unmountVisualLab = mountVisualLinkupLabRuntime({ canvas, container, visualLabScene, requiresRuntimeModule })
+                const unmountVisualLab = mountVisualLinkupLabRuntime({
+                    canvas,
+                    container,
+                    visualLabScene,
+                    requiresRuntimeModule,
+                    applicationId: resolveWidgetCanvasApplicationId(widgetId)
+                })
                 setRealtimeStatus('unavailable')
                 setReady(true)
 
@@ -1071,7 +1105,12 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 }
             }
 
-            app = createBasicApplication(canvas)
+            const application = createBasicApplication({
+                canvas,
+                applicationId: resolveWidgetCanvasApplicationId(widgetId)
+            })
+            app = application.app
+            destroyApplication = application.destroy
             app.scene.ambientLight = new pc.Color(0.25, 0.25, 0.25)
 
             const light = new pc.Entity('main-light')
@@ -1691,6 +1730,17 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 return isReconnect ? 'failed_reconnect' : 'disconnected'
             }
 
+            const handleWebGLContextLost = (): void => {
+                void room?.leave(true)
+                room = null
+                clearRealtimeTimers()
+                destroyApplication?.()
+                destroyApplication = null
+                app = null
+                setError(webglUnavailableMessageRef.current)
+                setReady(false)
+            }
+            canvas.addEventListener('webglcontextlost', handleWebGLContextLost)
             const connectRealtime = async () => {
                 if (!applicationId) {
                     updateRealtimeStatus('unavailable')
@@ -1881,6 +1931,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 clearRealtimeTimers()
                 void room?.leave(true)
                 observer.disconnect()
+                canvas.removeEventListener('webglcontextlost', handleWebGLContextLost)
                 canvas.removeEventListener('playcanvas-camera-control', handleCameraControl)
                 canvas.removeEventListener('playcanvas-camera-drag', handleCameraDrag)
                 container.removeEventListener('wheel', handleNativeWheel, { capture: true })
@@ -1894,11 +1945,11 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 remoteEntities.clear()
                 delete (canvas as PlayCanvasControlCanvas).__playcanvasMoveToTarget
                 delete (canvas as PlayCanvasControlCanvas).__playcanvasPickAt
-                app?.destroy()
+                destroyApplication?.()
             }
         } catch {
             setError(loadFailedMessageRef.current)
-            app?.destroy()
+            destroyApplication?.()
             return undefined
         }
     }, [
@@ -1915,11 +1966,11 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         sceneObjects,
         selectedModule?.codename,
         targetObjectId,
+        widgetId,
         visualLabScene,
         widgetConfig?.camera,
         widgetConfig?.scene?.cruiseSpeed,
-        widgetConfig?.scene?.intentDistance,
-        widgetId
+        widgetConfig?.scene?.intentDistance
     ])
 
     const movementControlsEnabled = !isVisualLabScene && localShipAssigned && isRealtimeMovementEnabled(realtimeStatus, canControlScene)

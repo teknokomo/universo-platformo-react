@@ -77,6 +77,16 @@ export interface CreatedPlayCanvasEditorBridgeSession {
     token: string
 }
 
+const liveBridgeSessionExpiries = new Map<string, number>()
+
+const pruneLiveBridgeSessions = (now: number): void => {
+    for (const [sessionId, expiresAt] of liveBridgeSessionExpiries) {
+        if (expiresAt <= now) {
+            liveBridgeSessionExpiries.delete(sessionId)
+        }
+    }
+}
+
 export class PlayCanvasEditorBridgeSessionService {
     create(input: {
         metahubId: string
@@ -98,11 +108,43 @@ export class PlayCanvasEditorBridgeSessionService {
             bridgeVersion: '1',
             capabilities: input.capabilities
         }
+        pruneLiveBridgeSessions(Date.now())
+        liveBridgeSessionExpiries.set(payload.sessionId, payload.expiresAt)
         const encoded = encode(payload)
         return {
             payload,
             token: `${encoded}.${sign(encoded)}`
         }
+    }
+
+    /**
+     * Sliding liveness renew for in-flight editor bridge sessions. The signed
+     * session token keeps its own fixed expiry; this registry only records that
+     * the backend recently observed the session alive so the artifact-token
+     * grace window can fail closed once the session dies.
+     */
+    touch(sessionId: string): boolean {
+        const now = Date.now()
+        const current = liveBridgeSessionExpiries.get(sessionId)
+        if (current === undefined || current <= now) {
+            liveBridgeSessionExpiries.delete(sessionId)
+            return false
+        }
+        liveBridgeSessionExpiries.set(sessionId, now + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS)
+        return true
+    }
+
+    isAlive(sessionId: string): boolean {
+        const now = Date.now()
+        const current = liveBridgeSessionExpiries.get(sessionId)
+        if (current === undefined) {
+            return false
+        }
+        if (current <= now) {
+            liveBridgeSessionExpiries.delete(sessionId)
+            return false
+        }
+        return true
     }
 
     read(token: string): BridgeSessionPayload | null {

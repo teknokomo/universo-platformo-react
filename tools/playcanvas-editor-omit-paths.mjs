@@ -22,5 +22,6 @@ export const PLAYCANVAS_EDITOR_OMIT_FILES = Object.freeze([
     '.env.template',
     '.mocharc.json',
     '.nvmrc',
-    '.stylelintrc.json'
+    '.stylelintrc.json',
+    'CLAUDE.md'
 ])

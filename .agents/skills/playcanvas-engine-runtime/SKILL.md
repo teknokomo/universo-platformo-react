@@ -1,6 +1,6 @@
 ---
 name: playcanvas-engine-runtime
-description: Use when planning, implementing, or QA-reviewing MMOOMM or browser 3D work that uses the Universo PlayCanvas wrapper, PlayCanvas Engine runtime scenes, WebGL canvas lifecycle, camera/light setup, procedural geometry, asset readiness, resize behavior, or cleanup. Applies to `@universo-react/playcanvas-engine` wrapping `playcanvas@2.18.1`; does not cover PlayCanvas Editor, PCUI, PCUI Graph, React Three Fiber, or heavy glTF/Draco/texture pipelines.
+description: Use when planning, implementing, or QA-reviewing MMOOMM or browser 3D work that uses the Universo PlayCanvas wrapper, PlayCanvas Engine runtime scenes, WebGL canvas lifecycle, camera/light setup, procedural geometry, asset readiness, resize behavior, or cleanup. Applies to `@universo-react/playcanvas-engine` wrapping `playcanvas@2.21.4`; does not cover PlayCanvas Editor, PCUI, PCUI Graph, React Three Fiber, or heavy glTF/Draco/texture pipelines.
 metadata:
     version: '1.0.0'
     scope: 'mmoomm-playcanvas-engine-runtime'
@@ -15,8 +15,9 @@ widgets mounted inside the published application shell.
 ## Version Guard
 
 -   Use `@universo-react/playcanvas-engine`.
--   The wrapper currently re-exports `playcanvas@2.18.1`.
--   Prefer APIs documented for PlayCanvas Engine 2.18.x.
+-   The wrapper currently re-exports `playcanvas@2.21.4`.
+-   Prefer APIs documented for PlayCanvas Engine 2.21.x.
+-   `createBasicApplication` takes `{ canvas, applicationId?, windowKeyboard? }`, sets and clears `canvas.id` around `destroy()`, and attaches keyboard input to the canvas unless `windowKeyboard: true`.
 -   Do not assume `@playcanvas/react` is available. It is useful source
     material for integration patterns, but it is not a current wrapper package.
 

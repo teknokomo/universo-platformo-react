@@ -1,6 +1,7 @@
 import { Canvas } from '@playcanvas/pcui';
 import { LAYERID_DEPTH, Mouse, TouchDevice, WasmModule } from 'playcanvas';
 
+import { ReferencedFontHandler } from '@/common/referenced-font-handler';
 import { config } from '@/editor/config';
 
 import { ViewportApplication } from './viewport-application';
@@ -51,6 +52,15 @@ editor.once('load', () => {
         return;
     }
 
+    // swap the stock font handler for one that also resolves client-referenced fonts. this runs after
+    // the app has already called loader.enableRetry(), which only touches handlers registered at that
+    // point, so carry the retry count over or fonts alone would stop retrying a failed request
+    const stockFontHandler = app.loader.getHandler('font');
+    const fontHandler = new ReferencedFontHandler(app);
+    fontHandler.maxRetries = stockFontHandler?.maxRetries ?? 0;
+    app.loader.removeHandler('font');
+    app.loader.addHandler('font', fontHandler);
+
     // set module configs
     config.wasmModules.forEach((m: { moduleName: string; glueUrl: string; wasmUrl: string; fallbackUrl: string }) => {
         WasmModule.setConfig(m.moduleName, {
@@ -63,7 +73,6 @@ editor.once('load', () => {
     projectUserSettings.on('*:set', (): void => {
         app.setEditorSettings(projectUserSettings.json().editor);
     });
-
 
     // add canvas
     editor.call('layout.viewport').prepend(canvas);
@@ -96,6 +105,13 @@ editor.once('load', () => {
     // can land just after the last frame. re-render once when a sort settles so the
     // splat order is correct. self-terminating: a static camera skips the sort.
     app.scene.on('gsplat:sorted', () => {
+        editor.call('viewport:render');
+    });
+
+    // unified gsplat streaming fires this when it has produced new data a render would
+    // show (a new set of splats after components changed, streamed LOD, or a completed
+    // sort waiting to be applied). render a frame so it becomes visible.
+    app.systems.gsplat.on('frame:request', () => {
         editor.call('viewport:render');
     });
 

@@ -1,0 +1,355 @@
+{
+    "version": 1,
+    "documents": {
+        "asset": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "enum": [
+                        "script",
+                        "texture",
+                        "material",
+                        "model",
+                        "json",
+                        "template"
+                    ]
+                }
+            }
+        },
+        "scene": {
+            "type": "object",
+            "properties": {
+                "entities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "components": {
+                                "type": "object",
+                                "properties": {
+                                    "camera": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean",
+                                                "default": true
+                                            }
+                                        }
+                                    },
+                                    "light": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean",
+                                                "default": true
+                                            }
+                                        }
+                                    },
+                                    "render": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean",
+                                                "default": true
+                                            },
+                                            "type": {
+                                                "type": "string",
+                                                "default": "box"
+                                            },
+                                            "asset": {
+                                                "default": null
+                                            },
+                                            "materialAssets": {
+                                                "type": "array",
+                                                "default": [
+                                                    null
+                                                ]
+                                            },
+                                            "layers": {
+                                                "type": "array",
+                                                "default": [
+                                                    0
+                                                ]
+                                            },
+                                            "castShadows": {
+                                                "type": "boolean",
+                                                "default": true
+                                            },
+                                            "receiveShadows": {
+                                                "type": "boolean",
+                                                "default": true
+                                            },
+                                            "castShadowsLightmap": {
+                                                "type": "boolean",
+                                                "default": true
+                                            },
+                                            "lightmapped": {
+                                                "type": "boolean",
+                                                "default": false
+                                            },
+                                            "isStatic": {
+                                                "type": "boolean",
+                                                "default": false
+                                            },
+                                            "batchGroupId": {
+                                                "default": null
+                                            },
+                                            "rootBone": {
+                                                "default": null
+                                            }
+                                        }
+                                    },
+                                    "script": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean",
+                                                "default": true
+                                            },
+                                            "scripts": {
+                                                "type": "array",
+                                                "default": []
+                                            },
+                                            "order": {
+                                                "type": "array",
+                                                "default": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "settings": {
+                    "type": "object",
+                    "properties": {
+                        "physics": {
+                            "type": "object",
+                            "properties": {}
+                        },
+                        "render": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    }
+                }
+            }
+        },
+        "settings": {
+            "type": "object",
+            "properties": {
+                "width": {
+                    "type": "number",
+                    "default": 1280,
+                    "x-scope": "project"
+                },
+                "height": {
+                    "type": "number",
+                    "default": 720,
+                    "x-scope": "project"
+                },
+                "useLegacyScripts": {
+                    "type": "boolean",
+                    "default": false,
+                    "x-scope": "project"
+                },
+                "editor": {
+                    "type": "object",
+                    "properties": {
+                        "gridDivisions": {
+                            "type": "number",
+                            "default": 8,
+                            "x-scope": "projectUser"
+                        },
+                        "gridDivisionSize": {
+                            "type": "number",
+                            "default": 1,
+                            "x-scope": "projectUser"
+                        },
+                        "snapIncrement": {
+                            "type": "number",
+                            "default": 1,
+                            "x-scope": "projectUser"
+                        },
+                        "cameraGrabDepth": {
+                            "type": "boolean",
+                            "default": false,
+                            "x-scope": "projectUser"
+                        },
+                        "cameraGrabColor": {
+                            "type": "boolean",
+                            "default": false,
+                            "x-scope": "projectUser"
+                        },
+                        "cameraNearClip": {
+                            "type": "number",
+                            "default": 0.0001,
+                            "x-scope": "projectUser"
+                        },
+                        "cameraFarClip": {
+                            "type": "number",
+                            "default": 10000,
+                            "x-scope": "projectUser"
+                        },
+                        "cameraClearColor": {
+                            "type": "array",
+                            "default": [
+                                0.118,
+                                0.118,
+                                0.118,
+                                1
+                            ],
+                            "x-scope": "projectUser"
+                        },
+                        "cameraToneMapping": {
+                            "type": "number",
+                            "default": 0,
+                            "x-scope": "projectUser"
+                        },
+                        "cameraGammaCorrection": {
+                            "type": "number",
+                            "default": 1,
+                            "x-scope": "projectUser"
+                        },
+                        "showFog": {
+                            "type": "boolean",
+                            "default": true,
+                            "x-scope": "projectUser"
+                        },
+                        "locale": {
+                            "type": "string",
+                            "default": "en-US",
+                            "x-scope": "projectUser"
+                        },
+                        "renameDuplicatedEntities": {
+                            "type": "boolean",
+                            "default": true,
+                            "x-scope": "projectUser"
+                        },
+                        "lightmapperAutoBake": {
+                            "type": "boolean",
+                            "default": true,
+                            "x-scope": "projectUser"
+                        },
+                        "codeEditor": {
+                            "type": "string",
+                            "default": "web",
+                            "x-scope": "projectUser"
+                        },
+                        "zoomSensitivity": {
+                            "type": "number",
+                            "default": 1,
+                            "x-scope": "user"
+                        },
+                        "gizmoSize": {
+                            "type": "number",
+                            "default": 1,
+                            "x-scope": "user"
+                        },
+                        "gizmoPreset": {
+                            "type": "string",
+                            "default": "default",
+                            "x-scope": "user"
+                        },
+                        "showViewCube": {
+                            "type": "boolean",
+                            "default": true,
+                            "x-scope": "user"
+                        },
+                        "viewCubeSize": {
+                            "type": "number",
+                            "default": 1,
+                            "x-scope": "user"
+                        },
+                        "iconSize": {
+                            "type": "number",
+                            "default": 32,
+                            "x-scope": "user"
+                        },
+                        "showSkeleton": {
+                            "type": "boolean",
+                            "default": true,
+                            "x-scope": "user"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "assetData": {
+        "animstategraph": {
+            "type": "object",
+            "properties": {}
+        },
+        "material": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "default": "Untitled Material"
+                },
+                "shader": {
+                    "type": "string",
+                    "default": "blinn"
+                },
+                "diffuse": {
+                    "type": "array",
+                    "default": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "opacity": {
+                    "type": "number",
+                    "default": 1
+                },
+                "alphaTest": {
+                    "type": "number",
+                    "default": 0
+                },
+                "blendType": {
+                    "type": "number",
+                    "default": 0
+                },
+                "depthTest": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "depthWrite": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "emissive": {
+                    "type": "array",
+                    "default": [
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                "emissiveIntensity": {
+                    "type": "number",
+                    "default": 1
+                },
+                "useFog": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "useLighting": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "useSkybox": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "cull": {
+                    "type": "number",
+                    "default": 1
+                }
+            }
+        }
+    }
+}

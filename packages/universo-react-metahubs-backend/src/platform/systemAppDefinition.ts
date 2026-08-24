@@ -7,6 +7,7 @@ import { ComponentDefinitionDataType } from '@universo-react/types'
 import {
     finalizeMetahubsSchemaSupportMigrationDefinition,
     addPackageAuthoringSettingsMigration,
+    createPlayCanvasEditorDocumentBackupsMigration,
     prepareMetahubsSchemaSupportMigrationDefinition,
     seedBuiltinPackagesMigration,
     seedBuiltinTemplatesMigration
@@ -638,6 +639,11 @@ export const metahubsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'file',
             migration: addPackageAuthoringSettingsMigration,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'file',
+            migration: createPlayCanvasEditorDocumentBackupsMigration,
             bootstrapPhase: 'post_schema_generation'
         }
     ],
