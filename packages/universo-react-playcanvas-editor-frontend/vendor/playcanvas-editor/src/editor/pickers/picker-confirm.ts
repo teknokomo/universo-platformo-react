@@ -9,11 +9,12 @@ editor.once('load', () => {
         hidden: true
     });
 
-    // label
+    // label — render as textContent (not innerHTML) so user-controlled names
+    // interpolated into confirm messages (e.g. scene/asset/entity names) can't
+    // execute as stored XSS
     const label = new Label({
         class: 'text',
-        text: 'Are you sure?',
-        unsafe: true
+        text: 'Are you sure?'
     });
     overlay.append(label);
 
@@ -57,7 +58,8 @@ editor.once('load', () => {
 
         if (evt.key === 'Escape') {
             btnNo.emit('click');
-        } else if (evt.key === 'Enter') { // click focused button
+        } else if (evt.key === 'Enter') {
+            // click focused button
             if (document.activeElement === btnYes.dom) {
                 if (btnYes.enabled) {
                     btnYes.emit('click');
@@ -65,15 +67,18 @@ editor.once('load', () => {
             } else if (btnNo.enabled) {
                 btnNo.emit('click');
             }
-        } else if (evt.key === 'Tab') { // focus yes / no buttons
+        } else if (evt.key === 'Tab') {
+            // focus yes / no buttons
             if (document.activeElement === btnYes.dom) {
                 btnNo.focus();
             } else {
                 btnYes.focus();
             }
-        } else if (evt.key === 'ArrowRight') { // focus right button (Yes)
+        } else if (evt.key === 'ArrowRight') {
+            // focus right button (Yes)
             btnYes.focus();
-        } else if (evt.key === 'ArrowLeft') { // focus left button (No)
+        } else if (evt.key === 'ArrowLeft') {
+            // focus left button (No)
             btnNo.focus();
         }
     };

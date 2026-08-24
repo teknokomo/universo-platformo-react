@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, lazy, Suspense, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { GridColDef, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
@@ -22,6 +22,7 @@ import MenuItem from '@mui/material/MenuItem'
 import IconButton from '@mui/material/IconButton'
 import Select from '@mui/material/Select'
 import type { SelectChangeEvent } from '@mui/material/Select'
+import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -101,7 +102,6 @@ import CustomizedTreeView from './CustomizedTreeView'
 import ChartUserByCountry from './ChartUserByCountry'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import QuizWidget from './QuizWidget'
-import PlayCanvasCanvasWidget from './PlayCanvasCanvasWidget'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import { RelationBuilderWidget } from './RelationBuilderWidget'
 import InterpretationNetworkWorkspaceWidget from './InterpretationNetworkWorkspaceWidget'
@@ -3264,6 +3264,21 @@ function DetailsTabsWidget({
  *
  * @param depth - Current nesting depth for columnsContainer (0 = top level). Used internally for recursion guard.
  */
+const PlayCanvasCanvasWidget = lazy(() => import('./PlayCanvasCanvasWidget').then((module) => ({ default: module.default })))
+
+interface PlayCanvasWidgetSuspenseFallbackProps {
+    minHeight?: number
+}
+
+function PlayCanvasWidgetSuspenseFallback({ minHeight = 240 }: PlayCanvasWidgetSuspenseFallbackProps) {
+    const { t } = useTranslation('apps')
+    return (
+        <Box role='status' aria-busy='true' aria-label={t('playcanvasCanvas.loading')} sx={{ width: '100%', minHeight, p: 1 }}>
+            <Skeleton variant='rectangular' width='100%' height='100%' sx={{ borderRadius: 1 }} />
+        </Box>
+    )
+}
+
 export function renderWidget(
     widget: ZoneWidgetItem,
     menus?: DashboardMenusMap,
@@ -3341,7 +3356,11 @@ export function renderWidget(
         case 'quizWidget':
             return <QuizWidget key={widget.id} config={widget.config} />
         case 'playcanvasCanvas':
-            return <PlayCanvasCanvasWidget key={widget.id} widgetId={widget.id} config={widget.config} />
+            return (
+                <Suspense key={widget.id} fallback={<PlayCanvasWidgetSuspenseFallback />}>
+                    <PlayCanvasCanvasWidget widgetId={widget.id} config={widget.config} />
+                </Suspense>
+            )
         case 'resourcePreview':
             return <ResourcePreviewWidget key={widget.id} config={widget.config} />
         case 'columnsContainer': {

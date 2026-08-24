@@ -217,6 +217,14 @@ export interface PlayCanvasEditorCompatibilityProjectPort {
         data: PlayCanvasEditorCompatibilitySettingsDocument['data']
         expectedRevision?: string
     }): Promise<PlayCanvasEditorCompatibilitySettingsDocument>
+    ensureOpenedProjectBackup?(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+        sceneId: string
+        sessionId: string
+        assetDocumentIds?: number[]
+    }): Promise<void>
 }
 
 export interface PlayCanvasEditorCompatibilityRouteDeps {
@@ -226,6 +234,15 @@ export interface PlayCanvasEditorCompatibilityRouteDeps {
     readLimiter: RequestHandler
     writeLimiter: RequestHandler
     csrfProtection: RequestHandler
+    // Optional platform-provided issuer for sliding session-bound editor
+    // artifact tokens. It must fail closed: returning null simply omits the
+    // artifactToken field so clients fall back to their reload flow.
+    issueRenewalArtifactToken?: (input: {
+        req: Request
+        metahubId: string
+        userId: string
+        tokenOrigin: string | null | undefined
+    }) => Promise<string | null> | string | null
 }
 
 export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditorCompatibilityRouteDeps): Router => {
@@ -452,6 +469,31 @@ export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditor
                         if (new Set(assetDocumentIds).size !== assetDocumentIds.length) {
                             return sendInvalid(res)
                         }
+                        // Token-refresh discriminator: the artifact re-issues its
+                        // five-minute access token against this same endpoint while
+                        // carrying its live bridgeSessionId. A refresh must neither
+                        // create a new session nor snapshot already-mutated documents
+                        // (that would erode the pre-authoring backup set); only a
+                        // genuine editor open takes the backup path.
+                        const renewalBridgeSessionId =
+                            typeof req.query.bridgeSessionId === 'string' && req.query.bridgeSessionId ? req.query.bridgeSessionId : null
+                        const sessionId = renewalBridgeSessionId ?? randomUUID()
+                        if (!renewalBridgeSessionId && projectPort.ensureOpenedProjectBackup) {
+                            // Ordering invariant: the derived-document backup gate must commit
+                            // strictly before the first authoring write of this editor session.
+                            // The full-boot access token is issued only after the backup set is
+                            // durably committed; a backup failure fails config issuance closed,
+                            // so no ShareDB or compatibility write can start from an unbacked
+                            // state (upstream editor migrations persist through the realtime port).
+                            await projectPort.ensureOpenedProjectBackup({
+                                metahubId,
+                                projectId: params.projectId,
+                                userId,
+                                sceneId,
+                                sessionId,
+                                assetDocumentIds
+                            })
+                        }
                         const token = deps.tokenService.create({
                             metahubId,
                             projectId: params.projectId,
@@ -460,11 +502,20 @@ export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditor
                             packageSlug: 'playcanvas-editor',
                             mode: PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
                             origin: tokenOrigin,
-                            sessionId: randomUUID(),
+                            sessionId,
                             nonce: randomUUID(),
                             assetDocumentIds
                         })
                         res.setHeader('Cache-Control', 'no-store')
+                        // Sliding session-bound artifact token renewal: the
+                        // platform issuer mints a fresh token bound to the same
+                        // bridge session/origin, or returns null (absolute cap
+                        // exceeded, dead session, or same/opaque origin) so the
+                        // response simply carries no artifactToken and the
+                        // client falls back to its reload flow.
+                        const renewalArtifactToken = deps.issueRenewalArtifactToken
+                            ? await deps.issueRenewalArtifactToken({ req, metahubId, userId, tokenOrigin })
+                            : null
                         return res.json({
                             item: createPlayCanvasEditorFullBootConfig({
                                 metahubId,
@@ -475,7 +526,8 @@ export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditor
                                 accessToken: token.token,
                                 apiOrigin,
                                 artifactBaseUrl: artifactBase?.baseUrl ?? artifactOrigin
-                            })
+                            }),
+                            ...(renewalArtifactToken ? { artifactToken: renewalArtifactToken } : {})
                         })
                     }
                     if (req.query.mode !== undefined && req.query.mode !== PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE) {

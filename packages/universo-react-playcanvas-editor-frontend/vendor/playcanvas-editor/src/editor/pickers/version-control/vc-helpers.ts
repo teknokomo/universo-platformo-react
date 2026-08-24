@@ -2,6 +2,10 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const LINE_DIFF_CELL_LIMIT = 120000;
 
+// after this long, a still-loading diff shows a non-blocking "this can take a while" hint (#2099)
+export const DIFF_SLOW_HINT_MS = 60000;
+export const DIFF_SLOW_HINT_TEXT = 'Large diffs can take a few minutes — you can keep waiting or come back later.';
+
 export type DiffStatus = 'added' | 'deleted' | 'modified';
 
 export type DiffSummary = {
@@ -10,7 +14,8 @@ export type DiffSummary = {
     groups: { type: string; items: { name: string; status: DiffStatus; index: number }[] }[];
 };
 
-const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 // relative time for same-day values, absolute date otherwise (builds panel convention)
 export const formatRelativeDate = (value: string | Date, now = new Date()) => {
@@ -40,15 +45,39 @@ export const formatDayGroup = (value: string | Date, now = new Date()) => {
 // one network fetch per user/size per session, regardless of server cache headers;
 // resolves to an object url, or '' on failure (callers skip assignment)
 const thumbCache = new Map<string, Promise<string>>();
+// resolved object urls kept for synchronous reuse, so re-created avatars don't flash empty
+const thumbResolved = new Map<string, string>();
 export const userThumbnail = (userId: string | number, size: number) => {
     const key = `${userId}:${size}`;
     if (!thumbCache.has(key)) {
-        thumbCache.set(key, fetch(`/api/users/${userId}/thumbnail?size=${size}`)
-        .then(res => (res.ok ? res.blob() : Promise.reject(new Error(`${res.status}`))))
-        .then(blob => URL.createObjectURL(blob))
-        .catch(() => ''));
+        thumbCache.set(
+            key,
+            fetch(`/api/users/${userId}/thumbnail?size=${size}`)
+                .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(`${res.status}`))))
+                .then((blob) => URL.createObjectURL(blob))
+                .then((url) => {
+                    thumbResolved.set(key, url);
+                    return url;
+                })
+                .catch(() => '')
+        );
     }
     return thumbCache.get(key);
+};
+
+// assign the avatar src synchronously when cached, so a freshly created <img> paints
+// the (already-loaded) blob immediately instead of flashing empty for a frame (#2098)
+export const applyUserThumbnail = (img: HTMLImageElement, userId: string | number, size: number) => {
+    const cached = thumbResolved.get(`${userId}:${size}`);
+    if (cached) {
+        img.src = cached;
+        return;
+    }
+    userThumbnail(userId, size).then((src) => {
+        if (src) {
+            img.src = src;
+        }
+    });
 };
 
 // verbatim-styled short checkpoint hash
@@ -61,7 +90,11 @@ export const hashChip = (id: string) => {
 
 type DiffLike = {
     numConflicts?: number;
-    conflicts?: { itemType: string; itemName: string; data?: { missingInSrc?: boolean; missingInDst?: boolean }[] }[];
+    conflicts?: {
+        itemType: string;
+        itemName: string;
+        data?: { path?: string; missingInSrc?: boolean; missingInDst?: boolean }[];
+    }[];
 };
 
 // group label for an item type; 'settings' is already plural
@@ -71,13 +104,16 @@ export const summarizeDiff = (diff: DiffLike): DiffSummary => {
     const groups = new Map<string, { name: string; status: DiffStatus; index: number }[]>();
     (diff.conflicts ?? []).forEach((c, index) => {
         const entry = c.data?.[0] ?? {};
+        // whole-item adds/deletes carry no entry path; pathful missing flags are field-level
+        const whole = !entry.path;
         // dst-missing wins if both flags are ever set: item exists in src only, so 'added'
-        const status: DiffStatus = entry.missingInDst ? 'added' : entry.missingInSrc ? 'deleted' : 'modified';
+        const status: DiffStatus =
+            whole && entry.missingInDst ? 'added' : whole && entry.missingInSrc ? 'deleted' : 'modified';
         if (!groups.has(c.itemType)) {
             groups.set(c.itemType, []);
         }
         // settings items are documents with lowercase names ('project settings')
-        const name = c.itemType === 'settings' ? c.itemName.replace(/\b[a-z]/g, ch => ch.toUpperCase()) : c.itemName;
+        const name = c.itemType === 'settings' ? c.itemName.replace(/\b[a-z]/g, (ch) => ch.toUpperCase()) : c.itemName;
         groups.get(c.itemType)!.push({ name, status, index });
     });
     return {
@@ -121,8 +157,9 @@ const commonLines = (a: string[], b: string[]) => {
     let prev = new Uint32Array(b.length + 1);
     let cur = new Uint32Array(b.length + 1);
     for (let i = 0; i < a.length; i++) {
+        const av = a[i];
         for (let j = 0; j < b.length; j++) {
-            cur[j + 1] = a[i] === b[j] ? prev[j] + 1 : Math.max(prev[j + 1], cur[j]);
+            cur[j + 1] = av === b[j] ? prev[j] + 1 : Math.max(prev[j + 1], cur[j]);
         }
         [prev, cur] = [cur, prev];
         cur.fill(0);
@@ -164,19 +201,38 @@ export const diffTextChangeCounts = (text: unknown) => {
 
 export const splitDiffPath = (path: string) => path.split('.').filter(Boolean);
 
-const prettyPart = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, ch => ch.toUpperCase());
+const prettyPart = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (ch) => ch.toUpperCase());
 
-const settingLabel = (s: string) => ({
-    render: 'Rendering',
-    batchGroups: 'Batch groups',
-    layerOrder: 'Layer order',
-    scripts: 'Script loading order'
-}[s] ?? prettyPart(s));
+const settingLabel = (s: string) =>
+    ({
+        render: 'Rendering',
+        batchGroups: 'Batch groups',
+        layerOrder: 'Layer order',
+        scripts: 'Script loading order'
+    })[s] ?? prettyPart(s);
+
+// internal version-control plumbing (file backup refs etc.) that never appears
+// in the inspector — keep it out of the diff entirely
+const HIDDEN_DIFF_FIELDS = new Set(['immutable_backup']);
+export const isHiddenDiffField = (path: string) => HIDDEN_DIFF_FIELDS.has(splitDiffPath(path ?? '').pop() ?? '');
+
+// generic asset property diff (material, texture, ...): inspector fields live
+// under data.; strip it and prettify the path so a row reads like the inspector
+// (data.opacityDither -> "Opacity Dither") grouped under the asset-type panel
+export const assetDiffField = (assetType: string, path: string) => {
+    const inner = path.startsWith('data.') ? path.slice('data.'.length) : path;
+    const info = formatDiffPath(inner, 'asset');
+    const section = prettyPart(assetType || 'asset');
+    const field = info.labels.length ? `${info.labels.map((l) => l.text).join(' / ')} / ${info.field}` : info.field;
+    return { section, field, title: `${section} / ${field}` };
+};
 
 export const formatDiffPath = (path: string, type: string, entityName?: string) => {
     const parts = splitDiffPath(path);
     if (type === 'scene' && parts[0] === 'entities' && parts[1]) {
-        const labels: { text: string; title?: string }[] = [{ text: entityName ? `Entity: ${entityName}` : `Entity: ${parts[1]}`, title: parts[1] }];
+        const labels: { text: string; title?: string }[] = [
+            { text: entityName ? `Entity: ${entityName}` : `Entity: ${parts[1]}`, title: parts[1] }
+        ];
         let i = 2;
         if (parts[i] === 'components' && parts[i + 1]) {
             const comp = parts[i + 1];
@@ -203,10 +259,7 @@ export const formatDiffPath = (path: string, type: string, entityName?: string) 
     }
     if (type === 'scene' && parts[0] === 'settings') {
         return {
-            labels: [
-                { text: 'Scene settings' },
-                ...parts.slice(1, -1).map(text => ({ text: settingLabel(text) }))
-            ],
+            labels: [{ text: 'Scene settings' }, ...parts.slice(1, -1).map((text) => ({ text: settingLabel(text) }))],
             field: prettyPart(parts[parts.length - 1] ?? path)
         };
     }
@@ -225,12 +278,12 @@ export const formatDiffPath = (path: string, type: string, entityName?: string) 
             };
         }
         return {
-            labels: parts.slice(0, -1).map(text => ({ text: settingLabel(text) })),
+            labels: parts.slice(0, -1).map((text) => ({ text: settingLabel(text) })),
             field: prettyPart(parts[parts.length - 1] ?? path)
         };
     }
     return {
-        labels: parts.slice(0, -1).map(text => ({ text: prettyPart(text) })),
+        labels: parts.slice(0, -1).map((text) => ({ text: prettyPart(text) })),
         field: prettyPart(parts[parts.length - 1] ?? path)
     };
 };

@@ -82,6 +82,7 @@ Website: [https://universo.pro](https://universo.pro)
 -   The backend side is organized around a SQL-first PostgreSQL/Supabase runtime, modular migration tooling, schema-definition utilities, and feature packages for authentication, onboarding, profile, metahubs, applications, and administration.
 -   The frontend side is organized around a React shell, shared UI/state/i18n packages, and feature packages for onboarding, authentication, profile, metahubs, applications, and administration.
 -   GitBook documentation now includes a dedicated Interpretation Network guide in `docs/en/interpretation-network/` and `docs/ru/interpretation-network/`; screenshots are generated from the real E2E runtime and checked through `docs:interpretation-network:verify`.
+-   Dependency upgrade gates run as root checks: `pnpm check:zod-resolution` pins the zod override resolution, `pnpm check:playcanvas-editor-schema-vocabulary` and the inventory-based `pnpm check:playcanvas-editor-vendor-drift` guard vendored Editor imports, and `pnpm report:chunk-budget` reports frontend bundle size against the recorded baseline.
 -   In the metahubs and admin domains, fixed schemas, runtime metadata, and authoring flows converge on one persisted `codename JSONB` contract built on versioned localized content (VLC), and platform migrations upgrade legacy dual-field codename storage into the same shape.
 -   The repository also contains cross-cutting documentation and architecture notes that track active plans, verified progress, and stable system patterns for ongoing platform development.
 

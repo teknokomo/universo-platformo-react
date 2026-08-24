@@ -446,6 +446,10 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         if (!isAttachmentEnabled) {
             return sendBridgeError(res, { requestId: command.requestId, code: 'artifactUnavailable', status: 404 })
         }
+        // Fully authorized bridge activity slides the in-memory session
+        // liveness window so the artifact-token grace window stays available
+        // for actively used editors and fails closed on abandoned ones.
+        sessionService.touch(session.sessionId)
         if ('projectId' in command && session.projectId && command.projectId !== session.projectId) {
             return sendBridgeError(res, { requestId: command.requestId, code: 'projectUnavailable', status: 404 })
         }

@@ -22,14 +22,14 @@ catalogs:
       specifier: ^6.38.6
       version: 6.39.16
     '@colyseus/core':
+      specifier: 0.17.50
+      version: 0.17.50
+    '@colyseus/schema':
+      specifier: 4.0.31
+      version: 4.0.31
+    '@colyseus/sdk':
       specifier: 0.17.43
       version: 0.17.43
-    '@colyseus/schema':
-      specifier: 4.0.25
-      version: 4.0.25
-    '@colyseus/sdk':
-      specifier: 0.17.42
-      version: 0.17.42
     '@colyseus/ws-transport':
       specifier: 0.17.13
       version: 0.17.13
@@ -193,8 +193,8 @@ catalogs:
       specifier: ^3.0.1
       version: 3.0.2
     playcanvas:
-      specifier: 2.18.1
-      version: 2.18.1
+      specifier: 2.21.4
+      version: 2.21.4
     rate-limit-redis:
       specifier: ^4.2.3
       version: 4.3.1
@@ -623,10 +623,10 @@ importers:
     dependencies:
       '@colyseus/schema':
         specifier: 'catalog:'
-        version: 4.0.25(typescript@5.9.3)
+        version: 4.0.31(typescript@5.9.3)
       '@colyseus/ws-transport':
         specifier: 'catalog:'
-        version: 0.17.13(@colyseus/core@0.17.43)(express@4.22.1)
+        version: 0.17.13(@colyseus/core@0.17.50)(express@4.22.1)
       '@universo-react/admin-backend':
         specifier: workspace:*
         version: link:../universo-react-admin-backend
@@ -1205,7 +1205,7 @@ importers:
     dependencies:
       '@colyseus/sdk':
         specifier: 'catalog:'
-        version: 0.17.42(@colyseus/core@0.17.43)(typescript@5.9.3)(zod@3.25.76)
+        version: 0.17.43(@colyseus/core@0.17.50)(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: 22.19.18
@@ -1230,7 +1230,7 @@ importers:
     dependencies:
       '@colyseus/core':
         specifier: 'catalog:'
-        version: 0.17.43(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.25(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)
+        version: 0.17.50(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.31(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: 22.19.18
@@ -2334,8 +2334,8 @@ importers:
         specifier: github:playcanvas/ot-text#b3d5f9610f3a78a7782bbc3b466e1b88355d59e7
         version: https://codeload.github.com/playcanvas/ot-text/tar.gz/b3d5f9610f3a78a7782bbc3b466e1b88355d59e7
       playcanvas:
-        specifier: 2.19.5
-        version: 2.19.5
+        specifier: 2.21.3
+        version: 2.21.3
       pngjs:
         specifier: 5.0.0
         version: 5.0.0
@@ -2374,7 +2374,7 @@ importers:
     dependencies:
       playcanvas:
         specifier: 'catalog:'
-        version: 2.18.1
+        version: 2.21.4
     devDependencies:
       '@types/node':
         specifier: 22.19.18
@@ -3934,8 +3934,8 @@ packages:
   '@colyseus/clock@2.0.3':
     resolution: {integrity: sha512-kziqG0dcGsvSfcerHLZTY1V2PmGnZAdG5DM0T5BKQDAiYBXYoMqfzA1Wxfe3KSnyeZuP99isffkUQLEwpFYF7A==}
 
-  '@colyseus/core@0.17.43':
-    resolution: {integrity: sha512-0ktkf+CjEoEvnVJZ5efOQoh7NH9g6AFPeTdnuFVbo00WddJQdKOPK3VReh8xkyzx2TPCxFTdVRTM3HzcchzebQ==}
+  '@colyseus/core@0.17.50':
+    resolution: {integrity: sha512-COC4RDnGp/xmYttr51+fPCU8O72fNSWyz5SAlDRnivN/1vtEzRo6zLjCpwpfNT28c23iZDsyhqUSl1l5U9Lerg==}
     engines: {node: '>= 22.x'}
     peerDependencies:
       '@colyseus/better-call': ^1.3.1
@@ -3960,14 +3960,26 @@ packages:
   '@colyseus/msgpackr@1.11.2':
     resolution: {integrity: sha512-MuwPFhizFKC3zmGfy0fpo+kcnZdNdnQHFVjw81v4WXHCelDeCX8yNRVtuEm8kGlHqq7qiASLC0pu0RPqYOhxXg==}
 
+  '@colyseus/msgpackr@1.11.3':
+    resolution: {integrity: sha512-P86w/FrZWUaV7StxI7WuNg3wFlUrROSiBOrF378wyOgxS5+etcxUQMPe0OJZDEx+QUdu7QOPzsqE0Ziqwpjnug==}
+
   '@colyseus/schema@4.0.25':
     resolution: {integrity: sha512-WW+zqfYv1keWewbXmIxnElzfHruqnif4RPHfxTtXqPUVTnd/Jm7MOV2O2O1sBrMZmFmhKusIHxzSF+xAUcSv3g==}
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0 || ^6.0.0
 
-  '@colyseus/sdk@0.17.42':
-    resolution: {integrity: sha512-/gxRldfiDQhVbecvsA9S1Wq2GhFQeLFY+AvROO+Ch5JG9L9/yp7twWo/jXhPUI5aLQ3J3PLqQKASuHll8KTokA==}
+  '@colyseus/schema@4.0.31':
+    resolution: {integrity: sha512-9m1ut1foBwRuTq1VFSinfcbnxKJarGih/V5PiXvqyZ/HBVl4ocq0kOK2nUjV7hfuPRx2SWU51l2cDXP41lom5w==}
+    hasBin: true
+    peerDependencies:
+      typescript: '>=5.0.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@colyseus/sdk@0.17.43':
+    resolution: {integrity: sha512-aXefQuh7esEZbtd11TzKMqoLmUjKIfWVDr7ytPR7atV2QgnVyOHof3WIX7B8MDfr9ShyFFVEy2BseCGIfzzvBA==}
     engines: {node: '>= 12.x'}
     peerDependencies:
       '@colyseus/core': 0.17.x
@@ -7563,14 +7575,6 @@ packages:
   caniuse-lite@1.0.30001776:
     resolution: {integrity: sha512-sg01JDPzZ9jGshqKSckOQthXnYwOEP50jeVFhaSFbZcOy05TiuuaffDOfcwtCisJ9kNQuLBFibYywv2Bgm9osw==}
 
-  canvas@3.2.1:
-    resolution: {integrity: sha512-ej1sPFR5+0YWtaVp6S1N1FVz69TQCqmrkGeRvQxZeAB1nAIcjNTHVwrZtYtWFFBmQsF40/uDLehsW5KuYC99mg==}
-    engines: {node: ^18.12.0 || >= 20.9.0}
-
-  canvas@3.2.3:
-    resolution: {integrity: sha512-PzE5nJZPz72YUAfo8oTp0u3fqqY7IzlTubneAihqDYAUcBk7ryeCmBbdJBEdaH0bptSOe2VT2Zwcb3UaFyaSWw==}
-    engines: {node: ^18.12.0 || >= 20.9.0}
-
   cardinal@2.1.1:
     resolution: {integrity: sha512-JSr5eOgoEymtYHBjNWyjrMqet9Am2miJhlfKNdqLp6zoeAh0KN5dRAcxlecj5mAJrmQomgiOBj35xHLrFjqBpw==}
     hasBin: true
@@ -7625,9 +7629,6 @@ packages:
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
     engines: {node: '>= 14.16.0'}
-
-  chownr@1.1.4:
-    resolution: {integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==}
 
   chownr@2.0.0:
     resolution: {integrity: sha512-bIomtDF5KGpdogkLd9VspvFzk9KfpyyGlS8YFVZl7TGPBHL5snIOnxeshwVgPteQ9b4Eydl+pVbIyE1DcvCWgQ==}
@@ -8752,10 +8753,6 @@ packages:
     resolution: {integrity: sha512-Zk/eNKV2zbjpKzrsQ+n1G6poVbErQxJ0LBOJXaKZ1EViLzH+hrLu9cdXI4zw9dBQJslwBEpbQ2P1oS7nDxs6jQ==}
     engines: {node: '>= 0.8.0'}
 
-  expand-template@2.0.3:
-    resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
-    engines: {node: '>=6'}
-
   expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
@@ -8994,9 +8991,6 @@ packages:
   from@0.1.7:
     resolution: {integrity: sha512-twe20eF1OxVxp/ML/kq2p1uc6KvFK/+vs8WjEbeKmV2He22MKm7YF2ANIt+EOqhJ5L3K/SuuPhk0hWQDjOM23g==}
 
-  fs-constants@1.0.0:
-    resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
-
   fs-extra@8.1.0:
     resolution: {integrity: sha512-yhlQgA6mnOJUKOsRUFsgJdQCvkKhcz8tlZG5HBQfReYZy46OwLcY+Zia0mtdHsOo9y/hP+CxMN0TU9QxoOtG4g==}
     engines: {node: '>=6 <7 || >=8'}
@@ -9094,9 +9088,6 @@ packages:
 
   getopts@2.3.0:
     resolution: {integrity: sha512-5eDf9fuSXwxBL6q5HX+dhDj+dslFGWzU5thZ9kNKUkcPtaPdatmUFKwHFrLb/uf/WpA4BHET+AX3Scl56cAjpA==}
-
-  github-from-package@0.0.0:
-    resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
 
   github-slugger@1.5.0:
     resolution: {integrity: sha512-wIh+gKBI9Nshz2o46B0B3f5k/W+WI9ZAv6y5Dn5WJ5SK1t0TnDimB4WE5rmTD05ZAIn8HALCZVmCsvj0w0v0lw==}
@@ -10550,9 +10541,6 @@ packages:
     resolution: {integrity: sha512-KZxYo1BUkWD2TVFLr0MQoM8vUUigWD3LlD83a/75BqC+4qE0Hb1Vo5v1FgcfaNXvfXzr+5EhQ6ing/CaBijTlw==}
     engines: {node: '>= 18'}
 
-  mkdirp-classic@0.5.3:
-    resolution: {integrity: sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==}
-
   mkdirp-infer-owner@2.0.0:
     resolution: {integrity: sha512-sdqtiFt3lkOaYvTXSRIUjkIdPTcxgv5+fgqYE/5qgwdw12cOrAuzzgzvVExIkH/ul1oeHN3bCLOWSG3XOqbKKw==}
     engines: {node: '>=10'}
@@ -10615,9 +10603,6 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  napi-build-utils@2.0.0:
-    resolution: {integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==}
-
   natural-compare-lite@1.4.0:
     resolution: {integrity: sha512-Tj+HTDSJJKaZnfiuw+iaF9skdPpTo2GtEly5JHnWV/hfv2Qj/9RKsGISQtLh2ox3l5EAGw487hnBee0sIJ6v2g==}
 
@@ -10637,10 +10622,6 @@ packages:
 
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
-
-  node-abi@3.92.0:
-    resolution: {integrity: sha512-KdHvFWZjEKDf0cakgFjebl371GPsISX2oZHcuyKqM7DtogIsHrqKeLTo8wBHxaXRAQlY2PsPlZmfo+9ZCxEREQ==}
-    engines: {node: '>=10'}
 
   node-addon-api@7.1.1:
     resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
@@ -11176,12 +11157,12 @@ packages:
     resolution: {integrity: sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ==}
     engines: {node: '>=8'}
 
-  playcanvas@2.18.1:
-    resolution: {integrity: sha512-R+60EWFgPwgwqvnzP81sZbRfwJdL8EG5MLV+vJ+aeG6+Djt4IvpfJAHzYKRHak0I4oYtCCZwdLBygFboLBMCWQ==}
-    engines: {node: '>=18.0.0'}
+  playcanvas@2.21.3:
+    resolution: {integrity: sha512-+AKl0yeNUBo9JSjMRNi2Sz24KhWDhBVMtvhonbeRnKD6FGhNK0O76zvqOu3zgXZxUEzF54h4QGpruhNUkKvsUQ==}
+    engines: {node: '>=18.3.0'}
 
-  playcanvas@2.19.5:
-    resolution: {integrity: sha512-oc97+uMc2GZ7CuogQAhpXLhCXY0QDFMFUChSuOIxIplIabSUc72URLKc1ppev2qHslmPjze3E0YrMrknDSi10A==}
+  playcanvas@2.21.4:
+    resolution: {integrity: sha512-L4UGy3z/YT8AaNBEY4ITsZup548UFMabF7loh0YQ0DRwQLdjIW8grmZPoQ1+B83+N6sejRS0/XlXV2Vfb11+fw==}
     engines: {node: '>=18.3.0'}
 
   playwright-core@1.58.2:
@@ -11235,12 +11216,6 @@ packages:
   postgres-interval@1.2.0:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
-
-  prebuild-install@7.1.3:
-    resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
-    engines: {node: '>=10'}
-    deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
-    hasBin: true
 
   preferred-pm@3.1.4:
     resolution: {integrity: sha512-lEHd+yEm22jXdCphDrkvIJQU66EuLojPPtvZkpKIkiD+l0DMThF/niqZKJSoU8Vl7iuvtmzyMhir9LdVy5WMnA==}
@@ -12164,12 +12139,6 @@ packages:
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
     hasBin: true
 
-  simple-concat@1.0.1:
-    resolution: {integrity: sha512-cSFtAPtRhljv69IK0hTVZQ+OfE9nePi/rtJmw5UjHeVyVroEqJXP1sFztKUy1qU+xvz3u/sfYJLa947b7nAN2Q==}
-
-  simple-get@4.0.1:
-    resolution: {integrity: sha512-brv7p5WgH0jmQJr1ZDDfKDOSeWWg+OVypG99A/5vYGPqJ6pxiaHLy8nxtFjBA7oMa01ebA9gfh1uMCFqOuXxvA==}
-
   simple-update-notifier@1.1.0:
     resolution: {integrity: sha512-VpsrsJSUcJEseSbMHkrsrAVSdvVS5I96Qo1QAQ4FxQ9wXFcB+pjj7FB7/us9+GcgfW4ziHtYMc1J0PLczb55mg==}
     engines: {node: '>=8.10.0'}
@@ -12524,13 +12493,6 @@ packages:
   tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
     engines: {node: '>=20'}
-
-  tar-fs@2.1.4:
-    resolution: {integrity: sha512-mDAjwmZdh7LTT6pNleZ05Yt65HC3E+NiQzl672vQG38jIrehtJk/J3mNwIg+vShQPcLF/LV7CMnDW6vjj6sfYQ==}
-
-  tar-stream@2.2.0:
-    resolution: {integrity: sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ==}
-    engines: {node: '>=6'}
 
   tar@6.2.1:
     resolution: {integrity: sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==}
@@ -14904,19 +14866,19 @@ snapshots:
 
   '@colyseus/clock@2.0.3': {}
 
-  '@colyseus/core@0.17.43(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.25(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)':
+  '@colyseus/core@0.17.50(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.31(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)':
     dependencies:
       '@colyseus/better-call': 1.3.3(zod@3.25.76)
       '@colyseus/greeting-banner': 3.0.8
-      '@colyseus/msgpackr': 1.11.2
-      '@colyseus/schema': 4.0.25(typescript@5.9.3)
+      '@colyseus/msgpackr': 1.11.3
+      '@colyseus/schema': 4.0.31(typescript@5.9.3)
       '@colyseus/shared-types': 0.17.6
       '@colyseus/timer': 2.0.3
       '@standard-schema/spec': 1.1.0
       debug: 4.4.3(supports-color@8.1.1)
       nanoid: 3.3.11
     optionalDependencies:
-      '@colyseus/ws-transport': 0.17.13(@colyseus/core@0.17.43)(express@4.22.1)
+      '@colyseus/ws-transport': 0.17.13(@colyseus/core@0.17.50)(express@4.22.1)
       express: 4.22.1
       zod: 3.25.76
     transitivePeerDependencies:
@@ -14928,11 +14890,19 @@ snapshots:
     optionalDependencies:
       msgpackr-extract: 3.0.3
 
+  '@colyseus/msgpackr@1.11.3':
+    optionalDependencies:
+      msgpackr-extract: 3.0.3
+
   '@colyseus/schema@4.0.25(typescript@5.9.3)':
     dependencies:
       typescript: 5.9.3
 
-  '@colyseus/sdk@0.17.42(@colyseus/core@0.17.43)(typescript@5.9.3)(zod@3.25.76)':
+  '@colyseus/schema@4.0.31(typescript@5.9.3)':
+    optionalDependencies:
+      typescript: 5.9.3
+
+  '@colyseus/sdk@0.17.43(@colyseus/core@0.17.50)(typescript@5.9.3)(zod@3.25.76)':
     dependencies:
       '@colyseus/better-call': 1.3.3(zod@3.25.76)
       '@colyseus/msgpackr': 1.11.2
@@ -14941,7 +14911,7 @@ snapshots:
       tslib: 2.8.1
       ws: 8.20.1
     optionalDependencies:
-      '@colyseus/core': 0.17.43(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.25(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)
+      '@colyseus/core': 0.17.50(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.31(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -14956,9 +14926,9 @@ snapshots:
     dependencies:
       '@colyseus/clock': 2.0.3
 
-  '@colyseus/ws-transport@0.17.13(@colyseus/core@0.17.43)(express@4.22.1)':
+  '@colyseus/ws-transport@0.17.13(@colyseus/core@0.17.50)(express@4.22.1)':
     dependencies:
-      '@colyseus/core': 0.17.43(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.25(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)
+      '@colyseus/core': 0.17.50(@colyseus/better-call@1.3.3(zod@3.25.76))(@colyseus/schema@4.0.31(typescript@5.9.3))(@colyseus/ws-transport@0.17.13)(express@4.22.1)(zod@3.25.76)
       '@types/ws': 8.18.1
       ws: 8.20.1
     optionalDependencies:
@@ -19089,18 +19059,6 @@ snapshots:
 
   caniuse-lite@1.0.30001776: {}
 
-  canvas@3.2.1:
-    dependencies:
-      node-addon-api: 7.1.1
-      prebuild-install: 7.1.3
-    optional: true
-
-  canvas@3.2.3:
-    dependencies:
-      node-addon-api: 7.1.1
-      prebuild-install: 7.1.3
-    optional: true
-
   cardinal@2.1.1:
     dependencies:
       ansicolors: 0.3.2
@@ -19156,9 +19114,6 @@ snapshots:
   chokidar@4.0.3:
     dependencies:
       readdirp: 4.1.2
-
-  chownr@1.1.4:
-    optional: true
 
   chownr@2.0.0: {}
 
@@ -20515,9 +20470,6 @@ snapshots:
 
   exit@0.1.2: {}
 
-  expand-template@2.0.3:
-    optional: true
-
   expect-type@1.3.0: {}
 
   expect@29.7.0:
@@ -20806,9 +20758,6 @@ snapshots:
 
   from@0.1.7: {}
 
-  fs-constants@1.0.0:
-    optional: true
-
   fs-extra@8.1.0:
     dependencies:
       graceful-fs: 4.2.11
@@ -20932,9 +20881,6 @@ snapshots:
       resolve-pkg-maps: 1.0.0
 
   getopts@2.3.0: {}
-
-  github-from-package@0.0.0:
-    optional: true
 
   github-slugger@1.5.0: {}
 
@@ -22799,9 +22745,6 @@ snapshots:
     dependencies:
       minipass: 7.1.3
 
-  mkdirp-classic@0.5.3:
-    optional: true
-
   mkdirp-infer-owner@2.0.0:
     dependencies:
       chownr: 2.0.0
@@ -22879,9 +22822,6 @@ snapshots:
 
   nanoid@3.3.11: {}
 
-  napi-build-utils@2.0.0:
-    optional: true
-
   natural-compare-lite@1.4.0: {}
 
   natural-compare@1.4.0: {}
@@ -22893,11 +22833,6 @@ snapshots:
   negotiator@0.6.4: {}
 
   neo-async@2.6.2: {}
-
-  node-abi@3.92.0:
-    dependencies:
-      semver: 7.7.1
-    optional: true
 
   node-addon-api@7.1.1:
     optional: true
@@ -23548,19 +23483,15 @@ snapshots:
     dependencies:
       find-up: 4.1.0
 
-  playcanvas@2.18.1:
+  playcanvas@2.21.3:
     dependencies:
       '@types/webxr': 0.5.24
       '@webgpu/types': 0.1.70
-    optionalDependencies:
-      canvas: 3.2.1
 
-  playcanvas@2.19.5:
+  playcanvas@2.21.4:
     dependencies:
       '@types/webxr': 0.5.24
       '@webgpu/types': 0.1.70
-    optionalDependencies:
-      canvas: 3.2.3
 
   playwright-core@1.58.2: {}
 
@@ -23607,22 +23538,6 @@ snapshots:
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
-
-  prebuild-install@7.1.3:
-    dependencies:
-      detect-libc: 2.1.2
-      expand-template: 2.0.3
-      github-from-package: 0.0.0
-      minimist: 1.2.8
-      mkdirp-classic: 0.5.3
-      napi-build-utils: 2.0.0
-      node-abi: 3.92.0
-      pump: 3.0.4
-      rc: 1.2.8
-      simple-get: 4.0.1
-      tar-fs: 2.1.4
-      tunnel-agent: 0.6.0
-    optional: true
 
   preferred-pm@3.1.4:
     dependencies:
@@ -24682,16 +24597,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  simple-concat@1.0.1:
-    optional: true
-
-  simple-get@4.0.1:
-    dependencies:
-      decompress-response: 6.0.0
-      once: 1.4.0
-      simple-concat: 1.0.1
-    optional: true
-
   simple-update-notifier@1.1.0:
     dependencies:
       semver: 7.7.1
@@ -25083,23 +24988,6 @@ snapshots:
   sync-message-port@1.2.0: {}
 
   tagged-tag@1.0.0: {}
-
-  tar-fs@2.1.4:
-    dependencies:
-      chownr: 1.1.4
-      mkdirp-classic: 0.5.3
-      pump: 3.0.4
-      tar-stream: 2.2.0
-    optional: true
-
-  tar-stream@2.2.0:
-    dependencies:
-      bl: 4.1.0
-      end-of-stream: 1.4.5
-      fs-constants: 1.0.0
-      inherits: 2.0.4
-      readable-stream: 3.6.2
-    optional: true
 
   tar@6.2.1:
     dependencies:

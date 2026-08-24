@@ -18,9 +18,9 @@ export const MMOOMM_FLIGHT_CANONICAL_METAHUB = {
 } as const
 
 export const MMOOMM_FLIGHT_PACKAGES = [
-    { packageName: '@universo-react/playcanvas-engine', version: '0.1.0', target: 'client' },
-    { packageName: '@universo-react/colyseus-client', version: '0.1.0', target: 'client' },
-    { packageName: '@universo-react/colyseus-server', version: '0.1.0', target: 'server' }
+    { packageName: '@universo-react/playcanvas-engine', version: '0.1.0', target: 'client', upstreamVersion: '2.21.4' },
+    { packageName: '@universo-react/colyseus-client', version: '0.1.0', target: 'client', upstreamVersion: '0.17.43' },
+    { packageName: '@universo-react/colyseus-server', version: '0.1.0', target: 'server', upstreamVersion: '0.17.50' }
 ] as const
 
 export const MMOOMM_FLIGHT_ACCEPTANCE_MATRIX = [
@@ -375,11 +375,16 @@ export const assertMmoommFlightFixtureEnvelopeContract = (envelope: SnapshotEnve
 
     for (const expected of MMOOMM_FLIGHT_PACKAGES) {
         const matched = snapshot.packages?.some((item) => {
-            const candidate = item as { packageName?: string; version?: string; source?: { runtimeTargets?: string[] } }
+            const candidate = item as {
+                packageName?: string
+                version?: string
+                source?: { runtimeTargets?: string[]; upstreamVersion?: string }
+            }
             return (
                 candidate.packageName === expected.packageName &&
                 candidate.version === expected.version &&
-                candidate.source?.runtimeTargets?.includes(expected.target)
+                candidate.source?.runtimeTargets?.includes(expected.target) &&
+                candidate.source?.upstreamVersion === expected.upstreamVersion
             )
         })
         if (!matched) {

@@ -2,8 +2,34 @@ import { Container, TextAreaInput } from '@playcanvas/pcui';
 
 import { config } from '@/editor/config';
 
-import { diffTextChangeCounts, formatDiffPath, hashChip, lineChangeCounts, splitDiffPath, summarizeDiff, typeLabel, type DiffSummary } from './vc-helpers';
 import { diffCreate } from '../../messenger/jobs';
+
+import { buildNameIndex, indexTemplateEntities, templateEntitiesFor, templateEntityPath } from './vc-diff-data';
+import type { NameIndex } from './vc-diff-data';
+import { destroyValueFields } from './vc-diff-fields';
+import { renderPreviewPropertyDiff } from './vc-diff-preview';
+import {
+    DIFF_SLOW_HINT_MS,
+    DIFF_SLOW_HINT_TEXT,
+    diffTextChangeCounts,
+    hashChip,
+    isHiddenDiffField,
+    lineChangeCounts,
+    splitDiffPath,
+    summarizeDiff,
+    typeLabel
+} from './vc-helpers';
+import type { DiffSummary } from './vc-helpers';
+
+// composer height bounds — drag the top edge to resize; persisted per browser.
+// the min keeps the textarea usable above the Create button + tip chrome
+const COMPOSER_KEY = 'editor:vc:composer:height';
+const COMPOSER_DEFAULT_H = 160;
+const COMPOSER_MIN_H = 140;
+const COMPOSER_MAX_H = 420;
+// fullscreen lifts the composer cap to the viewport height minus the picker chrome
+// (project header 33 + tabs 38) and a minimum changes-list height it must not eat into
+const COMPOSER_FULL_RESERVE = 33 + 38 + 160;
 
 export const createChangesPanel = () => {
     const sidebar = new Container({ class: 'vc-changes' });
@@ -20,6 +46,10 @@ export const createChangesPanel = () => {
     // .then/.catch discard results when the generation has moved on (stale-response guard)
     let gen = 0;
     let rawDiffLive = false;
+    // resolves asset/entity/layer ids to names for the value fields; rebuilt with `raw`
+    let nameIndex: NameIndex = null;
+    // the in-flight diff job, so Open Full Diff works before the summary finishes loading
+    let rawPromise: Promise<any> = null;
     const fileStats = new Map<string, Promise<{ deleted: number; added: number } | null>>();
 
     const diffId = (diff: any) => diff?.id ?? diff?.merge_id;
@@ -30,6 +60,7 @@ export const createChangesPanel = () => {
             editor.call('picker:versioncontrol:releaseDiff', id);
         }
         rawDiffLive = false;
+        nameIndex = null;
         fileStats.clear();
     };
 
@@ -37,24 +68,40 @@ export const createChangesPanel = () => {
     list.classList.add('vc-changes-list');
     sidebar.dom.appendChild(list);
 
-    const form = document.createElement('div');
-    form.classList.add('vc-checkpoint-form');
-    sidebar.dom.appendChild(form);
+    // drag the top edge to resize; the textarea fills the form, growing upward into the list
+    const form = new Container({
+        class: 'vc-checkpoint-form',
+        flex: true,
+        flexDirection: 'column',
+        resizable: 'top',
+        resizeMin: COMPOSER_MIN_H,
+        resizeMax: COMPOSER_MAX_H,
+        height: Math.min(
+            COMPOSER_MAX_H,
+            Math.max(COMPOSER_MIN_H, editor.call('localStorage:get', COMPOSER_KEY) || COMPOSER_DEFAULT_H)
+        )
+    });
+    form.on('resize', () => {
+        editor.call('localStorage:set', COMPOSER_KEY, form.height);
+    });
+    sidebar.append(form);
 
     // native placeholder; pcui's [placeholder] renders an out-of-place chip
     const description = new TextAreaInput({ blurOnEnter: false, keyChange: true, renderChanges: false });
-    (description.dom.querySelector('textarea') as HTMLTextAreaElement).placeholder = 'Describe this checkpoint…';
-    form.appendChild(description.dom);
+    const textarea = description.dom.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.placeholder = 'Describe this checkpoint…';
+    form.dom.appendChild(description.dom);
 
     const create = document.createElement('button');
     create.type = 'button';
     create.classList.add('vc-create-checkpoint');
     create.textContent = 'Create Checkpoint';
     create.disabled = true;
-    form.appendChild(create);
+    form.dom.appendChild(create);
 
     const gateCreate = () => {
-        create.disabled = create.classList.contains('busy') || !description.value.trim() || !editor.call('permissions:write');
+        create.disabled =
+            create.classList.contains('busy') || !description.value.trim() || !editor.call('permissions:write');
     };
 
     description.on('change', gateCreate);
@@ -72,7 +119,7 @@ export const createChangesPanel = () => {
     const tip = document.createElement('div');
     tip.classList.add('vc-form-tip');
     tip.textContent = 'Tip: Cmd/Ctrl+Enter creates the checkpoint.';
-    form.appendChild(tip);
+    form.dom.appendChild(tip);
 
     const select = (index: number) => {
         selIdx = index;
@@ -82,7 +129,10 @@ export const createChangesPanel = () => {
     const renderList = () => {
         list.innerHTML = '';
         if (loading) {
-            list.insertAdjacentHTML('beforeend', `<div class="vc-skeleton">${'<div class="skeleton-row"><span class="bone line"></span></div>'.repeat(3)}</div>`);
+            list.insertAdjacentHTML(
+                'beforeend',
+                `<div class="vc-skeleton">${'<div class="skeleton-row"><span class="bone line"></span></div>'.repeat(3)}</div>`
+            );
             return;
         }
         if (!current || !current.total) {
@@ -118,14 +168,6 @@ export const createChangesPanel = () => {
         }
     };
 
-    const fmtVal = (v: any) => {
-        if (v === undefined || v === null) {
-            return '—';
-        }
-        const s = typeof v === 'string' ? `"${v}"` : JSON.stringify(v);
-        return s.length > 64 ? `${s.substring(0, 61)}…` : s;
-    };
-
     const appendLineCounts = (vals: HTMLElement, counts: { deleted: number; added: number }) => {
         const add = document.createElement('span');
         add.classList.add('new', 'count');
@@ -139,7 +181,9 @@ export const createChangesPanel = () => {
     };
 
     const fileName = (conflict: any, entry: any, side: 'src' | 'dst') => {
-        return side === 'src' ? entry.srcFilename ?? conflict.srcFilename : entry.dstFilename ?? conflict.dstFilename;
+        return side === 'src'
+            ? (entry.srcFilename ?? conflict.srcFilename)
+            : (entry.dstFilename ?? conflict.dstFilename);
     };
 
     const loadLineCounts = (conflict: any, entry: any) => {
@@ -147,78 +191,54 @@ export const createChangesPanel = () => {
         if (id && entry.id && entry.mergedFilePath) {
             const key = JSON.stringify([id, entry.id, entry.mergedFilePath]);
             if (!fileStats.has(key)) {
-                fileStats.set(key, editor.api.globals.rest.merge.mergeConflicts({
-                    mergeId: id,
-                    conflictId: entry.id,
-                    fileName: entry.mergedFilePath,
-                    resolved: false
-                }).promisify()
-                .then(diffTextChangeCounts)
-                .catch((err: unknown) => {
-                    log.error(err);
-                    return null;
-                }));
+                fileStats.set(
+                    key,
+                    editor.api.globals.rest.merge
+                        .mergeConflicts({
+                            mergeId: id,
+                            conflictId: entry.id,
+                            fileName: entry.mergedFilePath,
+                            resolved: false
+                        })
+                        .promisify()
+                        .then(diffTextChangeCounts)
+                        .catch((err: unknown) => {
+                            log.error(err);
+                            return null;
+                        })
+                );
             }
             return fileStats.get(key)!;
         }
-        const inline = lineChangeCounts(entry.srcValue ?? (entry.missingInSrc ? '' : undefined), entry.dstValue ?? (entry.missingInDst ? '' : undefined));
+        const inline = lineChangeCounts(
+            entry.srcValue ?? (entry.missingInSrc ? '' : undefined),
+            entry.dstValue ?? (entry.missingInDst ? '' : undefined)
+        );
         if (inline) {
             return Promise.resolve(inline);
         }
         return Promise.resolve(null);
     };
 
+    // combined template entity maps, memoised per conflict (built once per render)
+    const tplEntities = new Map<any, any>();
+
     const entityName = (conflict: any, value: string) => {
         const id = splitDiffPath(value)[1];
+        // template entities live in the asset's own data.entities, plus any the
+        // diff reports as added/removed on the side that isn't loaded
+        if (conflict.assetType === 'template') {
+            let entities = tplEntities.get(conflict);
+            if (!entities) {
+                entities = templateEntitiesFor(conflict, (assetId: any) => editor.call('assets:get', assetId));
+                tplEntities.set(conflict, entities);
+            }
+            return templateEntityPath(entities, id);
+        }
         const src = raw?.srcCheckpoint?.scenes?.[conflict.itemId]?.entities?.[id];
         const dst = raw?.dstCheckpoint?.scenes?.[conflict.itemId]?.entities?.[id];
         const name = src ?? dst;
         return typeof name === 'string' ? name : undefined;
-    };
-
-    const appendPath = (row: HTMLElement, path: HTMLElement, vals: HTMLElement, conflict: any, entry: any) => {
-        const value = entry.path;
-        path.title = value;
-        if (conflict.itemType !== 'scene' && conflict.itemType !== 'settings') {
-            path.textContent = value;
-            return false;
-        }
-        const info = formatDiffPath(value, conflict.itemType, entityName(conflict, value));
-        if (!info.labels.length) {
-            path.textContent = value;
-            return false;
-        }
-        row.classList.add('tree');
-        path.classList.add('tree');
-        vals.hidden = true;
-        const tree = document.createElement('span');
-        tree.classList.add('vc-path-tree');
-        info.labels.forEach((label, i) => {
-            const seg = document.createElement('span');
-            seg.classList.add('seg');
-            seg.style.paddingLeft = `${Math.min(i, 8) * 12}px`;
-            seg.textContent = label.text;
-            seg.title = label.title ?? label.text;
-            tree.appendChild(seg);
-        });
-        const line = (kind: string, text: string) => {
-            const seg = document.createElement('span');
-            seg.classList.add('change', kind);
-            seg.style.paddingLeft = `${Math.min(info.labels.length, 8) * 12}px`;
-            seg.textContent = text;
-            seg.title = text;
-            tree.appendChild(seg);
-        };
-        if (entry.missingInDst) {
-            line('new', `+ ${info.field}: ${fmtVal(entry.srcValue)}`);
-        } else if (entry.missingInSrc) {
-            line('old', `- ${info.field}: ${fmtVal(entry.dstValue)}`);
-        } else {
-            line('old', `- ${info.field}: ${fmtVal(entry.dstValue)}`);
-            line('new', `+ ${info.field}: ${fmtVal(entry.srcValue)}`);
-        }
-        path.appendChild(tree);
-        return true;
     };
 
     const fileText = (entry: any) => {
@@ -231,63 +251,32 @@ export const createChangesPanel = () => {
         return 'changed';
     };
 
-    // field-level rows for one conflict, straight from the loaded diff
-    const renderFieldDiff = (conflict: any) => {
+    // textual asset merges (e.g. scripts) — line counts; the preview can't host the full diff's iframe
+    const renderFileRows = (conflict: any, entries: any[]) => {
         const wrap = document.createElement('div');
         wrap.classList.add('vc-field-diff');
-        for (const entry of conflict.data ?? []) {
+        for (const entry of entries) {
             const row = document.createElement('div');
             row.classList.add('vc-field-row');
             const path = document.createElement('span');
             path.classList.add('path');
+            path.textContent = fileName(conflict, entry, 'src') ?? fileName(conflict, entry, 'dst');
+            path.title = path.textContent;
             const vals = document.createElement('span');
             vals.classList.add('vals');
-
-            const srcName = fileName(conflict, entry, 'src');
-            const dstName = fileName(conflict, entry, 'dst');
-            if (srcName || dstName) {
-                path.textContent = srcName ?? dstName;
-                vals.textContent = 'Loading…';
-                loadLineCounts(conflict, entry).then((counts) => {
-                    if (!row.isConnected) {
-                        return;
-                    }
-                    vals.innerHTML = '';
-                    if (counts) {
-                        appendLineCounts(vals, counts);
-                    } else {
-                        vals.textContent = `${fileText(entry)} — use Open Full Diff to view`;
-                    }
-                });
-            } else if (!entry.path) {
-                // whole-item add/delete
-                path.textContent = conflict.itemName;
-                vals.textContent = entry.missingInDst ? 'added since the checkpoint' :
-                    entry.missingInSrc ? 'deleted since the checkpoint' : 'changed';
-            } else if (!appendPath(row, path, vals, conflict, entry)) {
-                // src is the working state (new), dst is the checkpoint (old)
-                if (entry.missingInDst) {
-                    const nv = document.createElement('span');
-                    nv.classList.add('new');
-                    nv.textContent = `+ ${fmtVal(entry.srcValue)}`;
-                    vals.appendChild(nv);
-                } else if (entry.missingInSrc) {
-                    const ov = document.createElement('span');
-                    ov.classList.add('old');
-                    ov.textContent = fmtVal(entry.dstValue);
-                    vals.appendChild(ov);
-                } else {
-                    const ov = document.createElement('span');
-                    ov.classList.add('old');
-                    ov.textContent = fmtVal(entry.dstValue);
-                    vals.appendChild(ov);
-                    vals.appendChild(document.createTextNode(' → '));
-                    const nv = document.createElement('span');
-                    nv.classList.add('new');
-                    nv.textContent = fmtVal(entry.srcValue);
-                    vals.appendChild(nv);
+            vals.textContent = 'Loading…';
+            loadLineCounts(conflict, entry).then((counts) => {
+                if (!row.isConnected) {
+                    return;
                 }
-            }
+                vals.innerHTML = '';
+                if (counts) {
+                    appendLineCounts(vals, counts);
+                } else {
+                    vals.textContent = `${fileText(entry)} — use Open Full Diff to view`;
+                    vals.title = vals.textContent;
+                }
+            });
             row.appendChild(path);
             row.appendChild(vals);
             wrap.appendChild(row);
@@ -295,7 +284,26 @@ export const createChangesPanel = () => {
         return wrap;
     };
 
+    // property diffs reuse the full diff's structured look (compact); textual merges stay as line-count rows
+    const renderFieldDiff = (conflict: any) => {
+        const wrap = document.createElement('div');
+        wrap.classList.add('vc-field-preview');
+        const data = (conflict.data ?? []).filter((e: any) => !isHiddenDiffField(e.path));
+        const files = data.filter((e: any) => fileName(conflict, e, 'src') || fileName(conflict, e, 'dst'));
+        const props = data.filter((e: any) => !(fileName(conflict, e, 'src') || fileName(conflict, e, 'dst')));
+
+        if (props.length) {
+            wrap.appendChild(renderPreviewPropertyDiff(conflict, props, { entityName, index: nameIndex }));
+        }
+        if (files.length) {
+            wrap.appendChild(renderFileRows(conflict, files));
+        }
+        return wrap;
+    };
+
     const renderSummary = () => {
+        // value fields hold pcui widgets (curve/gradient timers); destroy before discarding
+        destroyValueFields(summary.dom);
         summary.dom.innerHTML = '';
         const card = document.createElement('div');
         card.classList.add('vc-card');
@@ -306,8 +314,11 @@ export const createChangesPanel = () => {
         card.appendChild(head);
 
         const h = document.createElement('h3');
-        h.textContent = loading ? 'Computing changes…' :
-            current ? `${current.total} change${current.total === 1 ? '' : 's'} since your last checkpoint` : 'Changes';
+        h.textContent = loading
+            ? 'Computing changes…'
+            : current
+              ? `${current.total} change${current.total === 1 ? '' : 's'} since your last checkpoint`
+              : 'Changes';
         head.appendChild(h);
 
         const side = document.createElement('div');
@@ -322,21 +333,31 @@ export const createChangesPanel = () => {
             side.appendChild(meta);
         }
 
-        if (current && current.total) {
+        // show while loading, when not yet computed (so Open Full Diff works directly), and when there are changes (#2098)
+        if (branch.latestCheckpointId && (loading || !current || current.total)) {
             const openBtn = document.createElement('button');
             openBtn.type = 'button';
             openBtn.classList.add('vc-button');
             openBtn.textContent = 'Open Full Diff';
-            openBtn.addEventListener('click', () => summary.emit('openDiff', rawDiffLive ? raw : null));
+            openBtn.addEventListener('click', () => {
+                // also load the diff into the panel so returning from the full diff shows the changes (#2098)
+                if (!rawDiffLive && !loading) {
+                    refresh(true, true);
+                }
+                summary.emit('openDiff', !loading && rawDiffLive ? raw : null, rawPromise);
+            });
             side.appendChild(openBtn);
         }
 
         // field-level diff of the selected change
         if (loading) {
-            card.insertAdjacentHTML('beforeend', `<div class="vc-field-diff"><div class="vc-skeleton">${'<div class="skeleton-row"><span class="bone line"></span></div>'.repeat(3)}</div></div>`);
+            card.insertAdjacentHTML(
+                'beforeend',
+                `<div class="vc-field-diff"><div class="vc-skeleton">${'<div class="skeleton-row"><span class="bone line"></span></div>'.repeat(3)}</div></div>`
+            );
         } else if (current && current.total) {
             const sel = selIdx;
-            const selItem = current.groups.flatMap(g => g.items).find(it => it.index === sel) ?? null;
+            const selItem = current.groups.flatMap((g) => g.items).find((it) => it.index === sel) ?? null;
             const conflict = raw?.conflicts?.[selIdx];
             if (selItem && conflict) {
                 const itemHead = document.createElement('div');
@@ -363,6 +384,15 @@ export const createChangesPanel = () => {
             none.classList.add('vc-meta');
             none.textContent = current ? 'No changes since your last checkpoint' : 'Changes not computed yet';
             card.appendChild(none);
+            // not computed (gated or errored): let the user pull the diff on demand (#2098)
+            if (!current) {
+                const compute = document.createElement('button');
+                compute.type = 'button';
+                compute.classList.add('vc-button', 'vc-compute');
+                compute.textContent = 'Compute';
+                compute.addEventListener('click', () => refresh(true, true));
+                card.appendChild(compute);
+            }
         }
 
         summary.dom.appendChild(card);
@@ -373,7 +403,7 @@ export const createChangesPanel = () => {
         renderSummary();
     };
 
-    function refresh(force?: boolean) {
+    function refresh(force?: boolean, viaUser?: boolean) {
         const branch = config.self.branch;
         if (loading || (!stale && !force)) {
             render();
@@ -390,49 +420,83 @@ export const createChangesPanel = () => {
             sidebar.emit('count', 0);
             return;
         }
+        // gated by the user setting: only the explicit Compute action fires the diff (#2098)
+        if (editor.call('settings:projectUser').get('editor.vcAutoLoadDiffs') === false && !viaUser) {
+            releaseRawDiff();
+            current = null;
+            raw = null;
+            selIdx = null;
+            render();
+            sidebar.emit('count', null);
+            return;
+        }
         loading = true;
         const snap = ++gen;
         render();
-        diffCreate({
+        const pending = diffCreate({
             srcBranchId: branch.id,
             srcCheckpointId: null,
             dstBranchId: branch.id,
             dstCheckpointId: branch.latestCheckpointId
-        }).then((diff: any) => {
-            // single-flight: clear loading even for superseded responses or refresh deadlocks
-            loading = false;
-            if (snap !== gen) {
-                return;
-            }
-            stale = false;
-            const oldId = rawDiffLive ? diffId(raw) : null;
-            const next = diff ?? {};
-            const nextId = diffId(next);
-            if (typeof oldId === 'string' && oldId !== nextId) {
-                editor.call('picker:versioncontrol:releaseDiff', oldId);
-            }
-            raw = next;
-            rawDiffLive = typeof nextId === 'string';
-            current = summarizeDiff(raw);
-            fileStats.clear();
-            // indices shift on every recompute; default to the first change
-            selIdx = current.total ? current.groups[0].items[0].index : null;
-            render();
-            sidebar.emit('count', current.total);
-        }).catch((err) => {
-            loading = false;
-            if (snap !== gen) {
-                return;
-            }
-            log.error(err);
-            current = null;
-            releaseRawDiff();
-            raw = null;
-            selIdx = null;
-            render();
-            // keep the tab label honest; the count getter now reports null
-            sidebar.emit('count', 0);
         });
+        rawPromise = pending;
+        // large diffs can hang; reassure that it's still working after a while (#2099)
+        const slowHint = setTimeout(() => {
+            if (snap === gen && loading) {
+                const hint = document.createElement('div');
+                hint.classList.add('vc-meta', 'vc-slow-hint');
+                hint.textContent = DIFF_SLOW_HINT_TEXT;
+                (summary.dom.querySelector('.vc-card') ?? summary.dom).appendChild(hint);
+            }
+        }, DIFF_SLOW_HINT_MS);
+        pending
+            .then((diff: any) => {
+                clearTimeout(slowHint);
+                // single-flight: clear loading even for superseded responses or refresh deadlocks
+                loading = false;
+                if (snap !== gen) {
+                    // a refresh landed while this fetch was in flight (e.g. the double
+                    // invalidate() after creating a checkpoint) and was dropped — run it now
+                    refresh();
+                    return;
+                }
+                rawPromise = null;
+                stale = false;
+                const oldId = rawDiffLive ? diffId(raw) : null;
+                const next = diff ?? {};
+                const nextId = diffId(next);
+                if (typeof oldId === 'string' && oldId !== nextId) {
+                    editor.call('picker:versioncontrol:releaseDiff', oldId);
+                }
+                raw = next;
+                rawDiffLive = typeof nextId === 'string';
+                current = summarizeDiff(raw);
+                nameIndex = buildNameIndex(raw);
+                indexTemplateEntities(nameIndex, raw.conflicts ?? [], (id: any) => editor.call('assets:get', id));
+                fileStats.clear();
+                // indices shift on every recompute; default to the first change
+                selIdx = current.total ? current.groups[0].items[0].index : null;
+                render();
+                sidebar.emit('count', current.total);
+            })
+            .catch((err) => {
+                clearTimeout(slowHint);
+                loading = false;
+                if (snap !== gen) {
+                    // superseded by a dropped refresh (see .then above) — run it now
+                    refresh();
+                    return;
+                }
+                rawPromise = null;
+                log.error(err);
+                current = null;
+                releaseRawDiff();
+                raw = null;
+                selIdx = null;
+                render();
+                // keep the tab label honest; the count getter now reports null
+                sidebar.emit('count', 0);
+            });
     }
 
     Object.assign(sidebar, {
@@ -459,6 +523,17 @@ export const createChangesPanel = () => {
         },
         focusForm: () => {
             setTimeout(() => description.focus());
+        },
+        // raise the resize cap to the viewport in fullscreen so the composer can grow;
+        // clamp the persisted height back into the small-box cap when restored
+        setComposerMax: (full: boolean) => {
+            const max = full ? Math.max(COMPOSER_MAX_H, window.innerHeight - COMPOSER_FULL_RESERVE) : COMPOSER_MAX_H;
+            form.resizeMax = max;
+            const h = editor.call('localStorage:get', COMPOSER_KEY) || COMPOSER_DEFAULT_H;
+            if (h > max) {
+                form.height = max;
+                editor.call('localStorage:set', COMPOSER_KEY, max);
+            }
         }
     });
     // Object.assign snapshots getter values; live getters must be defined directly
@@ -473,11 +548,12 @@ export const createChangesPanel = () => {
 
     return {
         sidebar: sidebar as Container & {
-            refresh: (force?: boolean) => void;
+            refresh: (force?: boolean, viaUser?: boolean) => void;
             invalidate: () => void;
             resetForm: () => void;
             setBusy: (on: boolean) => void;
             focusForm: () => void;
+            setComposerMax: (full: boolean) => void;
             count: number | null;
         },
         summary

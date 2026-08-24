@@ -8,6 +8,8 @@ import WebSocket from 'ws'
 import {
     PLAYCANVAS_EDITOR_COMPATIBILITY_TOKEN_TTL_MS,
     PLAYCANVAS_EDITOR_PACKAGE_NAME,
+    PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS,
+    PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH,
     type PlayCanvasEditorCompatibilityProtocolDescriptor,
     type PlayCanvasScene,
     type VersionedLocalizedContent
@@ -47,7 +49,7 @@ const protocol: PlayCanvasEditorCompatibilityProtocolDescriptor = {
     mode: 'universo-bridge-minimal',
     upstream: {
         repository: 'https://github.com/playcanvas/editor',
-        minimumTag: 'v2.24.2'
+        minimumTag: 'v2.30.4'
     },
     project: null,
     defaultSceneId: sceneId,
@@ -956,20 +958,23 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         expect(config.project.settings.useLegacyScripts).toBe(false)
         expect(config.project.settings.engineV2).toBe(true)
         expect(config.scene.uniqueId).toEqual(expect.any(Number))
-        expect(config.schema.settings.editor.cameraClearColor).toMatchObject({
-            $default: [0.118, 0.118, 0.118, 1],
-            $scope: 'projectUser'
+        expect(config.schema.version).toBe(1)
+        expect(config.schema.documents.settings.properties.editor.properties.cameraClearColor).toMatchObject({
+            type: 'array',
+            default: [0.118, 0.118, 0.118, 1],
+            'x-scope': 'projectUser'
         })
-        expect(config.schema.materialData).toMatchObject({
-            diffuse: { $default: [1, 1, 1] },
-            opacity: { $default: 1 },
-            blendType: { $default: 0 },
-            depthWrite: { $default: true },
-            useFog: { $default: true },
-            shader: { $default: 'blinn' }
+        expect(config.schema.assetData.material.properties).toMatchObject({
+            diffuse: { type: 'array', default: [1, 1, 1] },
+            opacity: { type: 'number', default: 1 },
+            blendType: { type: 'number', default: 0 },
+            depthWrite: { type: 'boolean', default: true },
+            useFog: { type: 'boolean', default: true },
+            shader: { type: 'string', default: 'blinn' }
         })
-        expect(config.engineVersions.force.version).toBe('2.19.5')
-        expect(config.engineVersions.current.version).toBe('2.19.5')
+        expect(Object.keys(config.schema.documents)).toEqual(['asset', 'scene', 'settings'])
+        expect(config.engineVersions.force.version).toBe('2.21.3')
+        expect(config.engineVersions.current.version).toBe('2.21.3')
         expect(config.url.api).toBe('http://127.0.0.1:3000/api')
         expect(config.universoBridge).toMatchObject({
             compatibilityRestBaseUrl: `http://127.0.0.1:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/${uuid}`
@@ -987,6 +992,44 @@ describe('PlayCanvas Editor full-boot runtime', () => {
         expect(config.url.relay.ws).not.toContain(encodeURIComponent(accessToken))
         expect(JSON.stringify(config.url)).not.toContain('/disabled')
         expect(config.wasmModules).toEqual([])
+    })
+
+    it('marks deferred editor page variants unavailable and uses the safe launch placeholder per D4', () => {
+        const config = createPlayCanvasEditorFullBootConfig({
+            metahubId: 'metahub-1',
+            projectId: uuid,
+            sceneId,
+            userId: 'user-1',
+            projectName: 'PlayCanvas Project',
+            accessToken: createFullBootToken(),
+            apiOrigin: 'http://127.0.0.1:3000',
+            artifactBaseUrl: 'http://127.0.0.1:3000/editor/'
+        })
+
+        expect(config.pages.fullEditor).toEqual({ kind: 'fullEditor' })
+        expect(config.pages.codeEditor).toEqual({
+            kind: 'unavailable',
+            surface: 'codeEditor',
+            reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.codeEditor
+        })
+        expect(config.pages.launchPage).toEqual({
+            kind: 'unavailable',
+            surface: 'launchPage',
+            reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.launchPage
+        })
+        expect(config.pages.blankProjectPicker).toEqual({
+            kind: 'unavailable',
+            surface: 'blankProjectPicker',
+            reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.blankProjectPicker
+        })
+        expect(config.pages.fontImport).toEqual({
+            kind: 'unavailable',
+            surface: 'fontImport',
+            reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.fontImport
+        })
+        expect(config.url.launch).toBe(PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH)
+        expect(config.url.launch).not.toContain('/disabled')
+        expect(JSON.stringify(config.url)).not.toContain('/disabled')
     })
 
     it('omits artifactBaseUrl from full-boot token refresh URLs when the editor frontend is same-origin relative', () => {

@@ -549,7 +549,8 @@
             "unavailableDescription": "Realtime control is unavailable for this application.",
             "roomFullDescription": "Realtime room is full. Try again later.",
             "versionMismatchDescription": "Realtime version mismatch. Reload the application."
-        }
+        },
+        "webglUnavailable": "3D rendering is not available on this device or browser."
     },
     "guest": {
         "invalidLink": "Public guest link is invalid.",

@@ -703,6 +703,40 @@ describe('packagesStore', () => {
         expect(jest.mocked(exec.query).mock.calls[0]?.[0]).not.toContain('UPDATE "metahubs"."rel_metahub_packages"')
     })
 
+    it('fails closed when a snapshot source descriptor is value-tampered against the registry', async () => {
+        const exec = createExec([])
+        const tamperedSource = { ...source, upstreamVersion: '9.9.9' }
+
+        await expect(
+            replaceMetahubPackagesFromSnapshot(exec, {
+                metahubId: 'metahub-1',
+                packages: [{ packageName: '@universo-react/colyseus-server', version: '0.1.0', source: tamperedSource }],
+                userId: 'user-1'
+            })
+        ).rejects.toThrow('Package from metahub snapshot is not registered')
+
+        expect(exec.query).toHaveBeenCalledTimes(1)
+        expect(jest.mocked(exec.query).mock.calls[0]?.[1]).toEqual([
+            '@universo-react/colyseus-server',
+            '0.1.0',
+            JSON.stringify(tamperedSource)
+        ])
+    })
+
+    it('passes a null descriptor for snapshot items without source so lookup matches by name and version', async () => {
+        const exec = createExec([{ id: 'pkg-1', packageName: editorPackageName, version: '0.1.0', source, authoringSurface }])
+
+        const restored = await replaceMetahubPackagesFromSnapshot(exec, {
+            metahubId: 'metahub-1',
+            packages: [{ packageName: editorPackageName, version: '0.1.0', config }],
+            userId: 'user-1'
+        })
+
+        expect(restored).toBe(1)
+        expect(jest.mocked(exec.query).mock.calls[0]?.[0]).toContain('$3::jsonb IS NULL OR p.source = $3::jsonb')
+        expect(jest.mocked(exec.query).mock.calls[0]?.[1]).toEqual([editorPackageName, '0.1.0', null])
+    })
+
     it('restores saved development URL package configs without applying the current server allowlist', async () => {
         const exec = createExec()
         const restoredConfig = {

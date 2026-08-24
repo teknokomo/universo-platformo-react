@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import PlayCanvasCanvasWidget from '../PlayCanvasCanvasWidget'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
 import enApps from '../../../i18n/locales/en/apps.json'
@@ -14,6 +14,10 @@ const playcanvasMocks = vi.hoisted(() => ({
     createTranslucentStandardMaterial: vi.fn(),
     applySceneFog: vi.fn(),
     updateHandler: null as ((dt: number) => void) | null
+}))
+
+const webGLFlags = vi.hoisted(() => ({
+    webgl2Available: true as boolean
 }))
 
 const moduleRuntimeMocks = vi.hoisted(() => ({
@@ -231,17 +235,30 @@ vi.mock('@universo-react/playcanvas-engine', () => {
         }
     }
 
-    playcanvasMocks.createBasicApplication.mockImplementation(() => ({
-        scene: {},
-        root: { addChild: vi.fn() },
-        on: vi.fn((eventName: string, handler: (dt: number) => void) => {
-            if (eventName === 'update') {
-                playcanvasMocks.updateHandler = handler
-            }
-        }),
-        start: vi.fn(),
-        destroy: vi.fn()
-    }))
+    playcanvasMocks.createBasicApplication.mockImplementation((options: { canvas: HTMLCanvasElement; applicationId?: string }) => {
+        const { canvas, applicationId } = options
+        if (applicationId) {
+            canvas.id = applicationId
+        }
+        return {
+            app: {
+                scene: {},
+                root: { addChild: vi.fn() },
+                on: vi.fn((eventName: string, handler: (dt: number) => void) => {
+                    if (eventName === 'update') {
+                        playcanvasMocks.updateHandler = handler
+                    }
+                }),
+                start: vi.fn(),
+                destroy: vi.fn()
+            },
+            destroy: vi.fn(() => {
+                if (applicationId && canvas.id === applicationId) {
+                    canvas.removeAttribute('id')
+                }
+            })
+        }
+    })
     playcanvasMocks.createBoxEntity.mockImplementation(
         ({ name, position }: { name: string; position: { x: number; y: number; z: number } }) => {
             const entity = new Entity(name)
@@ -344,7 +361,11 @@ const dot3d = (a: { x: number; y: number; z: number }, b: { x: number; y: number
     return left.x * right.x + left.y * right.y + left.z * right.z
 }
 
-const renderWidget = (config: Record<string, unknown> = {}, detailsOverrides: Record<string, unknown> = {}) =>
+const renderWidget = (
+    config: Record<string, unknown> = {},
+    detailsOverrides: Record<string, unknown> = {},
+    componentProps: { widgetId?: string } = {}
+) =>
     render(
         <QueryClientProvider client={createQueryClient()}>
             <DashboardDetailsProvider
@@ -368,6 +389,7 @@ const renderWidget = (config: Record<string, unknown> = {}, detailsOverrides: Re
                         moduleCodename: 'flight-canvas-widget',
                         ...config
                     }}
+                    {...componentProps}
                 />
             </DashboardDetailsProvider>
         </QueryClientProvider>
@@ -408,8 +430,19 @@ const stubAvailableRuntimeModuleFetch = () =>
     )
 
 describe('PlayCanvasCanvasWidget', () => {
+    let getContextSpy: Mock
+
     beforeEach(() => {
         vi.clearAllMocks()
+        webGLFlags.webgl2Available = true
+        getContextSpy = vi
+            .spyOn(HTMLCanvasElement.prototype, 'getContext')
+            .mockImplementation(function (this: HTMLCanvasElement, type: string) {
+                if (type === 'webgl2' && webGLFlags.webgl2Available) {
+                    return { canvas: this } as unknown as RenderingContext
+                }
+                return null
+            })
         playcanvasMocks.updateHandler = null
         moduleRuntimeMocks.executeClientModuleMethod.mockResolvedValue({ scene: null })
         colyseusMocks.joinOrCreate.mockResolvedValue({
@@ -436,6 +469,75 @@ describe('PlayCanvasCanvasWidget', () => {
                 }
             }
         )
+    })
+
+    afterEach(() => {
+        getContextSpy.mockRestore()
+    })
+
+    it('renders a localized terminal state and skips engine mount when WebGL2 is unavailable', async () => {
+        stubAvailableRuntimeModuleFetch()
+        webGLFlags.webgl2Available = false
+        renderWidget()
+
+        expect(await screen.findByText('3D rendering is not available on this device or browser.')).toBeInTheDocument()
+        expect(playcanvasMocks.createBasicApplication).not.toHaveBeenCalled()
+        expect(colyseusMocks.joinOrCreate).not.toHaveBeenCalled()
+        const enResource = enApps.playcanvasCanvas as Record<string, string>
+        const ruResource = ruApps.playcanvasCanvas as Record<string, string>
+        expect(enResource.webglUnavailable).toBe('3D rendering is not available on this device or browser.')
+        expect(ruResource.webglUnavailable).toBe('3D-рендеринг недоступен на этом устройстве или в браузере.')
+    })
+
+    it('keeps two concurrent widgets isolated with unique canvas identities', async () => {
+        stubAvailableRuntimeModuleFetch()
+        const first = renderWidget({}, {}, { widgetId: 'Alpha One' })
+        const second = renderWidget({}, {}, { widgetId: 'beta' })
+
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(2))
+
+        const alphaCanvas = first.container.querySelector(
+            'canvas[data-testid="playcanvas-canvas"]'
+        ) as HTMLCanvasElement
+        const betaCanvas = second.container.querySelector(
+            'canvas[data-testid="playcanvas-canvas"]'
+        ) as HTMLCanvasElement
+
+        expect(alphaCanvas.id).toBe('playcanvas-canvas-alpha-one')
+        expect(betaCanvas.id).toBe('playcanvas-canvas-beta')
+
+        const mountCalls = playcanvasMocks.createBasicApplication.mock.calls.map(
+            ([options]) => options as { canvas: HTMLCanvasElement; applicationId?: string }
+        )
+        expect(mountCalls).toHaveLength(2)
+        const canvasByApplicationId = new Map(mountCalls.map((options) => [options.applicationId, options.canvas]))
+        expect(canvasByApplicationId.get('playcanvas-canvas-alpha-one')).toBe(alphaCanvas)
+        expect(canvasByApplicationId.get('playcanvas-canvas-beta')).toBe(betaCanvas)
+
+        first.unmount()
+
+        expect(alphaCanvas.id).toBe('')
+        expect(betaCanvas.id).toBe('playcanvas-canvas-beta')
+
+        second.unmount()
+
+        expect(betaCanvas.id).toBe('')
+    })
+
+    it('assigns a deterministic canvas application id from the widget id and clears it on unmount', async () => {
+        stubAvailableRuntimeModuleFetch()
+        const rendered = renderWidget({}, {}, { widgetId: 'Flight Widget 12' })
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+
+        expect(canvas.id).toBe('playcanvas-canvas-flight-widget-12')
+        expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledWith({
+            canvas,
+            applicationId: 'playcanvas-canvas-flight-widget-12'
+        })
+
+        rendered.unmount()
+        expect(canvas.id).toBe('')
     })
 
     it('keeps realtime failure and reconnect states localized in English and Russian resources', () => {
@@ -730,8 +832,8 @@ describe('PlayCanvasCanvasWidget', () => {
 
         expect(await screen.findByTestId('playcanvas-canvas')).toBeInTheDocument()
         await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
-        const app = playcanvasMocks.createBasicApplication.mock.results[0]?.value as { start: Mock }
-        await waitFor(() => expect(app.start).toHaveBeenCalledTimes(1))
+        const app = playcanvasMocks.createBasicApplication.mock.results[0]?.value as { app: { start: Mock } }
+        await waitFor(() => expect(app.app.start).toHaveBeenCalledTimes(1))
         const entityNames = playcanvasMocks.createBoxEntity.mock.calls.map(([input]) => (input as { name: string }).name)
         expect(entityNames).toEqual(['editor-ship', 'editor-target'])
         expect(screen.queryByText('Controlled scene object is missing')).not.toBeInTheDocument()

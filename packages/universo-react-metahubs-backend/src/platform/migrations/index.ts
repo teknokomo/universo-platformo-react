@@ -6,3 +6,4 @@ export {
 export { seedBuiltinTemplatesMigration } from './1800000000200-SeedBuiltinTemplates'
 export { seedBuiltinPackagesMigration } from './1800000000260-SeedBuiltinPackages'
 export { addPackageAuthoringSettingsMigration } from './1800000000270-AddPackageAuthoringSettings'
+export { createPlayCanvasEditorDocumentBackupsMigration } from './1800000000280-CreatePlayCanvasEditorDocumentBackups'

@@ -33,6 +33,10 @@ jobs:
             - run: pnpm install
             - name: Check catalog versions
               run: pnpm check:catalog-versions
+            - name: Check zod resolution
+              run: pnpm check:zod-resolution
+            - name: Check PlayCanvas Editor schema vocabulary
+              run: pnpm check:playcanvas-editor-schema-vocabulary
             - name: Check flattened package layout
               run: pnpm check:no-package-base-paths
             - name: Check package naming convention

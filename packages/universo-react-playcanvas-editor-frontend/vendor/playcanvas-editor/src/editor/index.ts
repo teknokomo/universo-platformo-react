@@ -185,6 +185,8 @@ import './assets/assets-sprite-utils';
 import './assets/assets-bundles';
 import './assets/assets-move-to-store';
 import './assets/assets-texture-convert';
+import './assets/assets-font-generate';
+import './assets/assets-font-import';
 import './assets/assets-mapping-removal';
 import './assets/assets-thumbnail-regen';
 
@@ -287,6 +289,7 @@ import './chat/chat-system';
 import './chat/chat-notifications';
 
 // toolbar
+import './toolbar/toolbar-customization';
 import './toolbar/toolbar-logo';
 import './toolbar/toolbar-editor-settings';
 import './toolbar/toolbar-controls';
@@ -299,6 +302,11 @@ import './toolbar/toolbar-history';
 import './toolbar/toolbar-lightmapper';
 import './toolbar/toolbar-publish';
 import './toolbar/toolbar-code-editor';
+
+// mcp
+import './mcp/connection';
+import './mcp/register';
+import './mcp/toolbar';
 
 // viewport controls
 import './viewport-controls/viewport-scene';
@@ -313,11 +321,9 @@ import './alerts/alert-usage';
 import './alerts/alert-scene-limits';
 import './alerts/alert-maintenance';
 
-
 // pickers
 import './pickers/picker';
 import './pickers/picker-confirm';
-import './pickers/picker-engine';
 import './pickers/picker-color';
 import './pickers/picker-asset';
 import './pickers/picker-curve';
@@ -371,11 +377,7 @@ import './pickers/picker-fix-corrupted-templates';
 import './pickers/picker-team-management';
 
 // conflict manager picker
-import './pickers/conflict-manager/picker-conflict-manager-scene';
-import './pickers/conflict-manager/picker-conflict-manager-settings';
-import './pickers/conflict-manager/picker-conflict-manager-asset';
 import './pickers/conflict-manager/picker-conflict-manager';
-
 
 // sprites
 import './pickers/sprite-editor/sprite-editor-atlas-panel';

@@ -6,7 +6,7 @@ Use procedural geometry for early MMOOMM MVP surfaces when the scene can be
 expressed with simple meshes and the goal is to validate runtime, camera,
 lighting, multiplayer, and UI integration.
 
-Relevant PlayCanvas Engine 2.18.x APIs include:
+Relevant PlayCanvas Engine 2.21.x APIs include:
 
 -   `BoxGeometry` for box-like objects. It supports size/segment options and can
     generate tangents when needed by materials.
@@ -45,5 +45,5 @@ This skill does not cover a production asset pipeline. For MVP work:
 
 ## Sources
 
--   PlayCanvas Engine API v2.18.1: https://api.playcanvas.com/engine-v2.18.1/
+-   PlayCanvas Engine API v2.21.4: https://api.playcanvas.com/engine-v2.21.4/
 -   PlayCanvas Engine examples: https://github.com/playcanvas/engine/tree/main/examples

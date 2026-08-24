@@ -80,6 +80,17 @@ pnpm run test:e2e:smoke:local-supabase
 4. Скриншоты и fixtures пересобирайте только после того, как сам продуктовый поток уже зелёный.
 5. Дайте cleanup завершиться, чтобы manifest безопасно удалил тестовых пользователей и метахабы.
 
+## Гейты обновления зависимостей
+
+Обновления зависимостей и vendor-кода защищены корневыми проверками, которые выполняются вне браузерного suite:
+
+-   `pnpm check:zod-resolution` фиксирует override репозитория на zod `3.25.76` и проверяет разрешение в lockfile. Peer dependency Colyseus core на zod `^4.1.12` остаётся metadata-only, потому что собранные билды не импортируют zod.
+-   `pnpm check:playcanvas-editor-schema-vocabulary` завершается по fail-closed, если vendored-исходники Editor потребляют кастомный schema keyword, который каталог Universo ещё не моделирует, или всё ещё читают прежний формат `$`-префиксованных keywords, который каталог намеренно не эмитит.
+-   `pnpm check:playcanvas-editor-vendor-drift` сравнивает vendored-дерево Editor с закоммиченным sha256-inventory и завершается по fail-closed при любом отсутствии файла, лишнем файле, изменении содержимого или symlink; проверка работает в CI без соседнего upstream-checkout, а перегенерация inventory относится только к процедуре vendor import.
+-   `pnpm report:chunk-budget` суммирует собранный JavaScript payload фронтенда (общий размер, main chunk, обнаруженный chunk движка PlayCanvas) и сравнивает размеры gzip/brotli с записанным baseline, завершаясь ошибкой при регрессии выше 5%.
+
+Переподключение realtime дополнительно покрыто real-server integration suite в `packages/universo-react-applications-backend/src/tests/realtime/realServerReconnect.integration.test.ts` (пять сценариев); запуск: `pnpm --filter @universo-react/applications-backend test -- realServerReconnect`.
+
 ## Ссылки
 
 -   [Playwright Best Practices](https://playwright.dev/docs/best-practices)

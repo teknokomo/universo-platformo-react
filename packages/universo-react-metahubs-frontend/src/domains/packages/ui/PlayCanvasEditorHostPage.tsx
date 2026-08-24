@@ -18,7 +18,9 @@ import {
     PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE,
     PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
     playCanvasEditorBridgeCommandSchema,
-    playCanvasEditorBridgeErrorSchema
+    playCanvasEditorBridgeErrorSchema,
+    playCanvasEditorFullBootPagesDescriptorSchema,
+    type PlayCanvasEditorUnavailablePageSurface
 } from '@universo-react/types'
 import { generateUuidV7 } from '@universo-react/utils'
 import { packagesApi, playcanvasEditorBridgeApi } from '../api'
@@ -35,6 +37,13 @@ const getBridgeErrorResponse = (error: unknown): PlayCanvasEditorBridgeError | n
     const parsed = playCanvasEditorBridgeErrorSchema.safeParse(data)
     return parsed.success ? parsed.data : null
 }
+
+const unavailableSurfaceKeys = ['blankProjectPicker', 'codeEditor', 'launchPage', 'fontImport'] as const
+
+const readUnavailableSurface = (value: unknown): PlayCanvasEditorUnavailablePageSurface | null =>
+    typeof value === 'string' && (unavailableSurfaceKeys as readonly string[]).includes(value)
+        ? (value as PlayCanvasEditorUnavailablePageSurface)
+        : null
 
 type FrameStatus = 'checking' | 'loading' | 'loaded' | 'error'
 type BridgeStatus = 'disabled' | 'waiting' | 'ready' | 'error'
@@ -152,6 +161,8 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
     const pendingBootstrapRequestIdRef = useRef<string | null>(null)
     const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>('disabled')
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+    const [unavailableSurface, setUnavailableSurface] = useState<PlayCanvasEditorUnavailablePageSurface | null>(null)
+    const [surfaceVariantMismatch, setSurfaceVariantMismatch] = useState(false)
     const [dirty, setDirty] = useState(false)
     const [dirtyDialogOpen, setDirtyDialogOpen] = useState(false)
     const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null)
@@ -251,12 +262,22 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
         restCompatibilityConfigQuery.data?.mode === PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE ? restCompatibilityConfigQuery.data : null
     const fullBootCompatibilityConfig =
         compatibilityConfigQuery.data?.mode === PLAYCANVAS_EDITOR_FULL_BOOT_MODE ? compatibilityConfigQuery.data : null
+    // P5.3 fail-closed: the full-boot config must carry a valid per-page variant
+    // descriptor with the main editor active; a missing or mismatched descriptor
+    // blocks boot instead of proceeding on partial capability knowledge.
+    const fullBootPagesDescriptor = useMemo(() => {
+        if (!fullBootCompatibilityConfig) return null
+        const parsed = playCanvasEditorFullBootPagesDescriptorSchema.safeParse(fullBootCompatibilityConfig.pages)
+        return parsed.success ? parsed.data : null
+    }, [fullBootCompatibilityConfig])
+    const fullBootPagesInvalid = Boolean(fullBootCompatibilityConfig && !fullBootPagesDescriptor)
     const fullBootConfigError =
         bridgeEnabled &&
         selectedProjectId &&
         mode !== 'developmentUrl' &&
         (compatibilityConfigQuery.isError ||
             restCompatibilityConfigQuery.isError ||
+            fullBootPagesInvalid ||
             Boolean(compatibilityConfigQuery.data && !fullBootCompatibilityConfig) ||
             Boolean(restCompatibilityConfigQuery.data && !restCompatibilityConfig))
     const compatibilityCsrfTokenQuery = useQuery({
@@ -533,6 +554,23 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                 backLinkRef.current?.focus()
                 return
             }
+            if (data.type === 'bridge.surfaceUnavailable') {
+                const surface = readUnavailableSurface((data as { surface?: unknown }).surface)
+                if (!surface) {
+                    return
+                }
+                const descriptorEntry = fullBootPagesDescriptor ? fullBootPagesDescriptor[surface] : undefined
+                if (descriptorEntry && descriptorEntry.kind === 'unavailable') {
+                    setSurfaceVariantMismatch(false)
+                    setUnavailableSurface(surface)
+                } else {
+                    // Fail closed: the artifact reported an unavailable surface
+                    // that the config descriptors do not declare unavailable.
+                    setUnavailableSurface(null)
+                    setSurfaceVariantMismatch(true)
+                }
+                return
+            }
 
             const command = createBridgeCommand(data as Record<string, unknown>, bridgeDescriptor)
             if (!command) {
@@ -601,7 +639,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
         }
         window.addEventListener('message', listener)
         return () => window.removeEventListener('message', listener)
-    }, [bridgeDescriptor, bridgeEnabled, frameUrl, metahubId, postBootstrapInit, queryClient])
+    }, [bridgeDescriptor, bridgeEnabled, frameUrl, fullBootPagesDescriptor, metahubId, postBootstrapInit, queryClient])
 
     useEffect(() => {
         if (!dirty) {
@@ -714,6 +752,43 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                 message: t('packages.editorHost.saveFailed', 'Scene save failed.')
             }
         }
+        const unavailableMessage = (surface: PlayCanvasEditorUnavailablePageSurface): string => {
+            switch (surface) {
+                case 'codeEditor':
+                    return t(
+                        'packages.editorHost.codeEditorUnavailable',
+                        'The built-in code editor is not available in Universo-hosted projects yet.'
+                    )
+                case 'launchPage':
+                    return t('packages.editorHost.launchUnavailable', 'Launching this scene outside the editor is not available yet.')
+                case 'blankProjectPicker':
+                    return t(
+                        'packages.editorHost.blankPickerUnavailable',
+                        'Creating or switching projects from inside the editor is not available. Manage projects from the packages area.'
+                    )
+                case 'fontImport':
+                    return t(
+                        'packages.editorHost.fontsUnavailable',
+                        'Font import is disabled because font generation is not supported in Universo-hosted projects.'
+                    )
+            }
+        }
+        // P5.4 fail-closed variant check: a navigation report that contradicts
+        // the config page descriptors blocks further editing instead of guessing.
+        if (surfaceVariantMismatch) {
+            return {
+                severity: 'error',
+                message: t('packages.editorHost.fullBootConfigError', 'Failed to prepare PlayCanvas Editor.'),
+                testId: 'playcanvas-editor-surface-mismatch-alert'
+            }
+        }
+        if (unavailableSurface && fullBootPagesDescriptor?.[unavailableSurface]?.kind === 'unavailable') {
+            return {
+                severity: 'warning',
+                message: unavailableMessage(unavailableSurface),
+                testId: 'playcanvas-editor-unavailable-surface-alert'
+            }
+        }
         if (isCompactEditorViewport && mode !== 'developmentUrl') {
             return {
                 severity: 'warning',
@@ -754,11 +829,14 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
         bridgeStatus,
         displayConfig?.display.showArtifactOnlyNotice,
         frameStatus,
+        fullBootPagesDescriptor,
         fullScreen,
         isCompactEditorViewport,
         mode,
         saveStatus,
-        t
+        surfaceVariantMismatch,
+        t,
+        unavailableSurface
     ])
 
     const renderHeader = () => {

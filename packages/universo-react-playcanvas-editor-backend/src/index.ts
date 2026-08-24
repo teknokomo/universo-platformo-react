@@ -2,10 +2,13 @@ export {
     hashToPositiveInt,
     createPlayCanvasEditorNumericIds,
     createPlayCanvasEditorNumericAssetId,
+    deriveUniqueNumericIds,
+    deriveUniqueNumericAssetIds,
     buildBasePath,
     toWsUrl,
     createPlayCanvasEditorFullBootEndpointDescriptor,
-    buildDefaultEditorSchema,
+    SCHEMA_CATALOG_VERSION,
+    buildEditorSchemaCatalog,
     createDefaultRealtimeSceneSettings,
     createDefaultProjectSettingsDocument,
     normalizeArtifactBaseUrl,
@@ -13,6 +16,8 @@ export {
     createPlayCanvasEditorFullBootConfig,
     createPlayCanvasEditorCompatibilityConfig
 } from './config/index.js'
+
+export type { PlayCanvasEditorNumericIdAssignmentInput, PlayCanvasEditorNumericAssetIdInput } from './config/index.js'
 
 export {
     parseSafeHttpOrigin,

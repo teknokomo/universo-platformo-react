@@ -3,10 +3,15 @@ import {
     PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
     PLAYCANVAS_EDITOR_COMPATIBILITY_VERSION,
     PLAYCANVAS_EDITOR_BRIDGE_VERSION,
+    PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS,
+    PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH,
     playCanvasEditorBridgeCommandSchema,
     playCanvasEditorBridgeErrorSchema,
     playCanvasEditorBridgeSessionClaimsSchema,
     playCanvasEditorCompatibilityProtocolDescriptorSchema,
+    playCanvasEditorFullBootConfigSchema,
+    playCanvasEditorFullBootPagesDescriptorSchema,
+    playCanvasEditorPageVariantSchema,
     playCanvasEditorScenePayloadSchema,
     playCanvasEditorUuidV7Schema
 } from '../common/playcanvasEditorBridge'
@@ -278,7 +283,7 @@ describe('PlayCanvas Editor bridge contracts', () => {
             mode: PLAYCANVAS_EDITOR_COMPATIBILITY_MODE,
             upstream: {
                 repository: 'https://github.com/playcanvas/editor',
-                minimumTag: 'v2.24.2'
+                minimumTag: 'v2.30.4'
             },
             project: null,
             defaultSceneId: null,
@@ -364,5 +369,135 @@ describe('PlayCanvas Editor bridge contracts', () => {
 
         expect(parsed).not.toHaveProperty('details')
         expect(parsed).not.toHaveProperty('stack')
+    })
+})
+
+describe('PlayCanvas Editor full-boot page variant descriptors', () => {
+    const validPages = () => ({
+        fullEditor: { kind: 'fullEditor' },
+        codeEditor: { kind: 'unavailable', surface: 'codeEditor', reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.codeEditor },
+        launchPage: { kind: 'unavailable', surface: 'launchPage', reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.launchPage },
+        blankProjectPicker: {
+            kind: 'unavailable',
+            surface: 'blankProjectPicker',
+            reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.blankProjectPicker
+        },
+        fontImport: { kind: 'unavailable', surface: 'fontImport', reasonKey: PLAYCANVAS_EDITOR_PAGE_UNAVAILABLE_REASONS.fontImport }
+    })
+
+    it('accepts the D4 page variant union with the main editor active and deferred surfaces unavailable', () => {
+        expect(playCanvasEditorFullBootPagesDescriptorSchema.safeParse(validPages()).success).toBe(true)
+        expect(playCanvasEditorPageVariantSchema.safeParse({ kind: 'fullEditor' }).success).toBe(true)
+    })
+
+    it('rejects page variants that contradict the D4 capability decisions', () => {
+        expect(
+            playCanvasEditorFullBootPagesDescriptorSchema.safeParse({
+                ...validPages(),
+                fullEditor: { kind: 'unavailable', surface: 'launchPage', reasonKey: 'launchSurfaceDeferred' }
+            }).success
+        ).toBe(false)
+        expect(
+            playCanvasEditorFullBootPagesDescriptorSchema.safeParse({
+                ...validPages(),
+                codeEditor: { kind: 'fullEditor' }
+            }).success
+        ).toBe(false)
+        expect(
+            playCanvasEditorFullBootPagesDescriptorSchema.safeParse({
+                ...validPages(),
+                launchPage: { kind: 'unavailable', surface: 'codeEditor', reasonKey: 'shareDbDocumentsCollectionNotImplemented' }
+            }).success
+        ).toBe(false)
+        expect(
+            playCanvasEditorFullBootPagesDescriptorSchema.safeParse({
+                ...validPages(),
+                fontImport: { kind: 'unavailable', surface: 'fontImport', reasonKey: 'unknown-reason' }
+            }).success
+        ).toBe(false)
+        expect(playCanvasEditorPageVariantSchema.safeParse({ kind: 'unavailable', surface: 'store', reasonKey: 'x' }).success).toBe(false)
+    })
+
+    it('requires the pages descriptor on every full-boot config and keeps the disabled-endpoint URL rule', () => {
+        const baseConfig = {
+            mode: 'universo-full-upstream-ui',
+            accessToken: 'test-full-boot-token-000000000000000000',
+            project: {
+                id: 101,
+                name: 'PlayCanvas Project',
+                private: true,
+                privateAssets: true,
+                hasPrivateSettings: true,
+                masterBranch: 202,
+                permissions: { read: [303], write: [303], admin: [] },
+                settings: {
+                    id: 'project_101',
+                    engineV2: true,
+                    width: 1280,
+                    height: 720,
+                    scripts: [],
+                    useLegacyScripts: false
+                }
+            },
+            scene: { id: 202, uniqueId: 202 },
+            self: {
+                id: 303,
+                username: 'universo',
+                branch: { id: 202, name: 'Main' },
+                flags: { superUser: false }
+            },
+            owner: { id: 404, username: 'universo' },
+            branch: { id: 202, name: 'Main' },
+            url: {
+                api: '/api',
+                launch: PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH,
+                home: '/',
+                frontend: 'http://127.0.0.1/editor-artifact/',
+                engine: 'http://127.0.0.1/editor-artifact/js/playcanvas-engine.js',
+                images: '/',
+                static: '/',
+                store: '/cloud-only/store',
+                howdoi: '/cloud-only/jobs',
+                realtime: { http: '/realtime' },
+                messenger: { ws: '/messenger', http: '/' },
+                relay: { ws: '/relay', http: '/' }
+            },
+            schema: {
+                version: 1,
+                documents: {},
+                assetData: {}
+            },
+            engineVersions: {
+                force: { version: '2.21.3' },
+                current: { version: '2.21.3' }
+            },
+            store: {},
+            aws: {},
+            wasmModules: [],
+            sentry: {},
+            metrics: {},
+            selfHosted: true,
+            universoHosted: true,
+            universoBridge: {
+                compatibilityRestBaseUrl: '/compat',
+                tokenRefreshUrl: '/compat/config'
+            },
+            pages: validPages()
+        }
+
+        // Strict transition (P5.3): legacy configs without `pages` are rejected.
+        const { pages: _pages, ...configWithoutPages } = baseConfig
+        void _pages
+        expect(playCanvasEditorFullBootConfigSchema.safeParse(configWithoutPages).success).toBe(false)
+        expect(playCanvasEditorFullBootConfigSchema.safeParse(baseConfig).success).toBe(true)
+
+        // The existing Zod rule still forbids the literal '/disabled' — now also on url.launch.
+        expect(
+            playCanvasEditorFullBootConfigSchema.safeParse({
+                ...baseConfig,
+                url: { ...baseConfig.url, launch: '/disabled' }
+            }).success
+        ).toBe(false)
+        expect(PLAYCANVAS_EDITOR_SURFACE_UNAVAILABLE_PATH).not.toContain('/disabled')
     })
 })

@@ -6,7 +6,12 @@ editor.once('load', () => {
     editor.method('assets:model:unwrap', (asset, args, callback) => {
         const assetId = asset.get('id');
 
-        if (asset.get('type') !== 'model' || !asset.has('file.filename') || activeWorkers.has(assetId)) {
+        if (asset.get('type') !== 'model' || !asset.has('file.filename')) {
+            callback?.(new Error('A model asset with a source file is required.'));
+            return;
+        }
+        if (activeWorkers.has(assetId)) {
+            callback?.(new Error(`Model asset ${assetId} is already being unwrapped.`));
             return;
         }
         if (typeof args === 'function') {
@@ -22,7 +27,7 @@ editor.once('load', () => {
 
         // N.B. Update to use frontend URL
         const workerClient = new WorkerClient(`${config.url.frontend}js/assets-unwrap.worker.js`);
-        activeWorkers.set(assetId, workerClient);
+        activeWorkers.set(assetId, { worker: workerClient, callback });
 
         workerClient.once('ready', () => {
             workerClient.on('start', (data, area) => {
@@ -30,23 +35,27 @@ editor.once('load', () => {
                 asset.set('data.area', area);
 
                 // upload blob as dds
-                editor.call('assets:uploadFile', {
-                    file: new Blob([JSON.stringify(data)], { type: 'application/json' }),
-                    name: filename,
-                    asset: asset,
-                    type: 'model'
-                }, (err) => {
-                    // remove from unwrapping list
-                    workerClient.stop();
-                    activeWorkers.delete(assetId);
+                editor.call(
+                    'assets:uploadFile',
+                    {
+                        file: new Blob([JSON.stringify(data)], { type: 'application/json' }),
+                        name: filename,
+                        asset: asset,
+                        type: 'model'
+                    },
+                    (err) => {
+                        // remove from unwrapping list
+                        workerClient.stop();
+                        activeWorkers.delete(assetId);
 
-                    // render
-                    editor.call('viewport:render');
-                    // callback
-                    callback?.(err, asset);
-                    // emit global event
-                    editor.emit('assets:model:unwrap', asset);
-                });
+                        // render
+                        editor.call('viewport:render');
+                        // callback
+                        callback?.(err, asset);
+                        // emit global event
+                        editor.emit('assets:model:unwrap', asset);
+                    }
+                );
             });
 
             workerClient.on('progress', (val) => {
@@ -66,13 +75,17 @@ editor.once('load', () => {
         workerClient.start();
     });
 
-
     editor.method('assets:model:unwrap:cancel', (asset) => {
         const assetId = asset.get('id');
-        const workerClient = activeWorkers.get(assetId);
+        const active = activeWorkers.get(assetId);
 
-        workerClient?.stop();
+        if (!active) {
+            return false;
+        }
+        active.worker.stop();
         activeWorkers.delete(assetId);
+        active.callback?.(new Error(`Model asset ${assetId} unwrap was cancelled.`));
+        return true;
     });
 
     editor.method('assets:model:area', (asset, callback) => {

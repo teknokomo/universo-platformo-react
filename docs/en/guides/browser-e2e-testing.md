@@ -80,6 +80,17 @@ Shared/main Supabase mode is only for manual debugging. It requires `E2E_ALLOW_M
 4. Regenerate screenshots or fixtures only after the product flow itself is green.
 5. Let cleanup finish so the manifest can remove test users and metahubs safely.
 
+## Dependency Upgrade Gates
+
+Dependency and vendor upgrades are guarded by root checks that run outside the browser suite:
+
+-   `pnpm check:zod-resolution` pins the repository zod override to `3.25.76` and verifies lockfile resolution. The Colyseus core peer dependency on zod `^4.1.12` stays metadata-only because shipped builds import no zod.
+-   `pnpm check:playcanvas-editor-schema-vocabulary` fails closed when vendored Editor source consumes a custom schema keyword the Universo catalog does not model yet, or still reads the superseded `$`-prefixed keyword format that the catalog intentionally never emits.
+-   `pnpm check:playcanvas-editor-vendor-drift` compares the vendored Editor tree against the committed sha256 inventory and fails closed on any missing file, extra file, content change, or symlink; it works in CI without an upstream checkout, and inventory regeneration belongs to the vendor import procedure only.
+-   `pnpm report:chunk-budget` summarizes the built frontend JavaScript payload (total size, main chunk, detected PlayCanvas engine chunk) and compares gzip/brotli sizes against the recorded baseline, failing on regressions above 5%.
+
+Realtime reconnection has its own real-server integration suite at `packages/universo-react-applications-backend/src/tests/realtime/realServerReconnect.integration.test.ts` (five scenarios); run it with `pnpm --filter @universo-react/applications-backend test -- realServerReconnect`.
+
 ## References
 
 -   [Playwright Best Practices](https://playwright.dev/docs/best-practices)

@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { expect, test, type FrameLocator, type Locator } from '@playwright/test'
 import { PNG } from 'pngjs'
 
@@ -221,7 +223,7 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
                                     mode: 'universo-bridge-minimal',
                                     upstream: {
                                         repository: 'https://github.com/playcanvas/editor',
-                                        minimumTag: 'v2.24.2'
+                                        minimumTag: 'v2.30.4'
                                     },
                                     defaultSceneId: '${sceneId}'
                                 }
@@ -243,11 +245,30 @@ test('PlayCanvas Editor hosted artifact renders inside the platform sandbox ifra
                                             checksum: '${'b'.repeat(64)}',
                                             scene: { checksum: '${'b'.repeat(64)}' }
                                         }
-                                        : event.data.type === 'scene.read'
-                                            ? {
-                                                scene: { checksum: '${'a'.repeat(64)}' },
-                                                payload: { schemaVersion: '1', entities: [] }
-                                            }
+                                      : event.data.type === 'scene.read'
+                                        ? {
+                                              scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
+                                              payload: {
+                                                  schemaVersion: '1',
+                                                  entities: [
+                                                      { resource_id: 'root', name: 'Root', parent: null },
+                                                      {
+                                                          resource_id: 'docs-evidence-light',
+                                                          name: 'Directional Light',
+                                                          parent: 'root',
+                                                          rotation: [45, 30, 0],
+                                                          components: { light: { enabled: true, type: 'directional', color: [1, 1, 1], intensity: 1, layers: [0] } }
+                                                      },
+                                                      {
+                                                          resource_id: 'docs-evidence-box',
+                                                          name: 'Docs Evidence Box',
+                                                          parent: 'root',
+                                                          position: [0, 1, 0],
+                                                          components: { render: { enabled: true, type: 'box' } }
+                                                      }
+                                                  ]
+                                              }
+                                          }
                                             : {}
                                 }
                             }, '*');
@@ -528,7 +549,7 @@ test('PlayCanvas Editor hosted artifact updates legacy default scene state befor
                                               mode: 'universo-bridge-minimal',
                                               upstream: {
                                                   repository: 'https://github.com/playcanvas/editor',
-                                                  minimumTag: 'v2.24.2'
+                                                  minimumTag: 'v2.30.4'
                                               },
                                               defaultSceneId: '${sceneId}'
                                           }
@@ -670,7 +691,7 @@ test('PlayCanvas Editor hosted upstream UI saves serializable entities', async (
                                               mode: 'universo-bridge-minimal',
                                               upstream: {
                                                   repository: 'https://github.com/playcanvas/editor',
-                                                  minimumTag: 'v2.24.2'
+                                                  minimumTag: 'v2.30.4'
                                               },
                                               defaultSceneId: '${sceneId}'
                                           }
@@ -852,7 +873,7 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
                                               mode: 'universo-bridge-minimal',
                                               upstream: {
                                                   repository: 'https://github.com/playcanvas/editor',
-                                                  minimumTag: 'v2.24.2'
+                                                  minimumTag: 'v2.30.4'
                                               },
                                               defaultSceneId: '${sceneId}'
                                           }
@@ -1099,7 +1120,7 @@ test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable enti
     expect(savePayload?.payload?.metadata).not.toEqual(expect.objectContaining({ mmoomm: expect.anything() }))
 })
 
-test('PlayCanvas Editor v2.24.2 exposes the new version-control picker and builds panel', async ({ page, baseURL }) => {
+test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and builds panel', async ({ page, baseURL }) => {
     const sceneId = '019e9147-16c4-738c-ab0f-b98c443ee676'
     const projectId = '019e9146-fd1b-7d1d-a858-d1e96485d901'
     const iframeUrl = new URL('/?locale=en', baseURL ?? 'http://127.0.0.1:3487').toString()
@@ -1128,7 +1149,7 @@ test('PlayCanvas Editor v2.24.2 exposes the new version-control picker and build
                     mode: 'universo-bridge-minimal',
                     upstream: {
                         repository: 'https://github.com/playcanvas/editor',
-                        minimumTag: 'v2.24.2'
+                        minimumTag: 'v2.30.4'
                     },
                     defaultSceneId: sceneId
                 }
@@ -1173,7 +1194,7 @@ test('PlayCanvas Editor v2.24.2 exposes the new version-control picker and build
                                               mode: 'universo-bridge-minimal',
                                               upstream: {
                                                   repository: 'https://github.com/playcanvas/editor',
-                                                  minimumTag: 'v2.24.2'
+                                                  minimumTag: 'v2.30.4'
                                               },
                                               defaultSceneId: '${sceneId}'
                                           }
@@ -1281,9 +1302,9 @@ test('PlayCanvas Editor v2.24.2 exposes the new version-control picker and build
         upstreamCommit?: string
         upstreamPackageVersion?: string
     }
-    expect(artifactMetadata.upstreamTag).toBe('v2.24.2')
-    expect(artifactMetadata.upstreamCommit).toBe('00360100b3b5747648eb3d7287421ef25491f5c7')
-    expect(artifactMetadata.upstreamPackageVersion).toBe('2.24.2')
+    expect(artifactMetadata.upstreamTag).toBe('v2.30.4')
+    expect(artifactMetadata.upstreamCommit).toBe('cf296bcb669bdcb168778bf2979160a9fe8f67de')
+    expect(artifactMetadata.upstreamPackageVersion).toBe('2.30.4')
 
     // The v2.24.2 picker rewrite registers the new methods on
     // `window.editor`. Verify the methods are wired and accept benign
@@ -1714,4 +1735,244 @@ test('PlayCanvas Editor hosted artifact saves through compatibility REST when co
             { timeout: 5_000 }
         )
         .toEqual(expect.objectContaining({ code: 'saveConflict', status: 409 }))
+})
+
+const DOCS_SCREENSHOT_ENV = {
+    dir: 'PLAYCANVAS_EDITOR_SCREENSHOT_DIR',
+    locale: 'PLAYCANVAS_EDITOR_SCREENSHOT_LOCALE'
+} as const
+
+const resolveDocsScreenshotTarget = (projectName: string): string | null => {
+    const dir = process.env[DOCS_SCREENSHOT_ENV.dir]?.trim()
+    if (!dir) return null
+    return path.join(dir, `editor-workspace-${projectName}.png`)
+}
+
+const expectViewportScreenshotNonBlank = (screenshot: Buffer) => {
+    const png = PNG.sync.read(screenshot)
+    const buckets = new Set<string>()
+    const { data, height, width } = png
+    const sampleStepX = Math.max(1, Math.floor(width / 24))
+    const sampleStepY = Math.max(1, Math.floor(height / 24))
+    for (let y = 0; y < height; y += sampleStepY) {
+        for (let x = 0; x < width; x += sampleStepX) {
+            const index = (y * width + x) * 4
+            const red = Math.floor((data[index] ?? 0) / 32)
+            const green = Math.floor((data[index + 1] ?? 0) / 32)
+            const blue = Math.floor((data[index + 2] ?? 0) / 32)
+            buckets.add(`${red}:${green}:${blue}`)
+        }
+    }
+    expect(buckets.size).toBeGreaterThan(1)
+}
+
+const expectDocsEvidenceEditorReady = async (frame: FrameLocator, viewportWidth: number) => {
+    await expect(frame.locator('#layout-hierarchy')).toBeVisible({ timeout: 15_000 })
+    await expect(frame.locator('#layout-attributes')).toBeVisible({ timeout: 15_000 })
+    // The assets panel is responsive and collapses on narrow viewports.
+    if (viewportWidth >= 768) {
+        await expect(frame.locator('#layout-assets')).toBeVisible({ timeout: 15_000 })
+    }
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(() => {
+                    const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    const editor = window.editor
+                    if (
+                        !bridge?.editorSaveAdapterInstalled ||
+                        bridge?.apiEntitiesCreateWrapped !== true ||
+                        typeof editor?.call !== 'function'
+                    )
+                        return false
+                    try {
+                        return Array.isArray(editor.call('entities:list'))
+                    } catch {
+                        return false
+                    }
+                }),
+            { timeout: 15_000 }
+        )
+        .toBe(true)
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(() => {
+                    const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    return bridge?.initialHydrationComplete === true && Date.now() >= (bridge?.ignoreDirtyUntil ?? 0)
+                }),
+            { timeout: 15_000 }
+        )
+        .toBe(true)
+}
+
+test('PlayCanvas Editor hosted artifact captures docs evidence screenshots', async ({ page, baseURL }, testInfo) => {
+    const locale = process.env[DOCS_SCREENSHOT_ENV.locale] === 'ru' ? 'ru' : 'en'
+    const iframeUrl = new URL(`/?locale=${locale}`, baseURL ?? 'http://127.0.0.1:3487').toString()
+    const projectId = '019e9149-9c05-7c37-b1a5-2f6d0a1e5c11'
+    const sceneId = '019e9149-9c05-7c37-b1a5-2f6d0a1e5c12'
+    const viewportWidth = testInfo.project.use.viewport?.width ?? page.viewportSize()?.width ?? 1280
+    const screenshotPath = resolveDocsScreenshotTarget(testInfo.project.name)
+
+    await page.setContent(`
+        <!doctype html>
+        <html lang="en">
+            <head><title>PlayCanvas Editor docs evidence host</title></head>
+            <body style="margin:0">
+                <script>
+                    window.addEventListener('message', (event) => {
+                        if (!event.data) return;
+                        if (event.data.requestId) {
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            const responseData =
+                                event.data.type === 'protocol.describe'
+                                    ? {
+                                          protocol: {
+                                              schemaVersion: '1',
+                                              mode: 'universo-bridge-minimal',
+                                              upstream: {
+                                                  repository: 'https://github.com/playcanvas/editor',
+                                                  minimumTag: 'v2.30.4'
+                                              },
+                                              defaultSceneId: '${sceneId}'
+                                          }
+                                      }
+                                    : event.data.type === 'project.loadSelected'
+                                      ? {
+                                            project: {
+                                                id: '${projectId}',
+                                                displayName: {
+                                                    _primary: 'en',
+                                                    locales: { en: { content: 'Docs Evidence Project' } }
+                                                },
+                                                version: 1,
+                                                defaultSceneId: '${sceneId}',
+                                                compatibilityStatus: 'compatible',
+                                                status: 'ready',
+                                                sceneCount: 1,
+                                                assetCount: 0,
+                                                scriptCount: 0,
+                                                generatedArtifactCount: 0,
+                                                publishable: false
+                                            }
+                                        }
+                                      : event.data.type === 'scene.read'
+                                        ? {
+                                              scene: { id: '${sceneId}', checksum: '${'a'.repeat(64)}' },
+                                              payload: { schemaVersion: '1', entities: [] }
+                                          }
+                                        : event.data.type === 'scene.save'
+                                          ? { checksum: '${'c'.repeat(64)}', scene: { id: '${sceneId}', checksum: '${'c'.repeat(64)}' } }
+                                          : {};
+                            frame.contentWindow.postMessage({
+                                type: 'bridge.response',
+                                source: 'universo-playcanvas-editor-host',
+                                commandType: event.data.type,
+                                requestId: event.data.requestId,
+                                response: {
+                                    ok: true,
+                                    requestId: event.data.requestId,
+                                    type: event.data.type,
+                                    data: responseData
+                                }
+                            }, '*');
+                            return;
+                        }
+                        if (event.data.type !== 'editor.bootstrap.requestInit') return;
+                        window.setTimeout(() => {
+                            const frame = document.querySelector('iframe[title="PlayCanvas Editor"]');
+                            frame.contentWindow.postMessage({
+                                type: 'editor.bootstrap.init',
+                                source: 'universo-playcanvas-editor-host',
+                                bootstrapRequestId: event.data.bootstrapRequestId,
+                                descriptor: {
+                                    schemaVersion: '1',
+                                    bridge: {
+                                        sessionId: '019e9149-9c05-7c37-b1a5-2f6d0a1e5c13',
+                                        nonce: '019e91499c057c37b1a52f6d0a1e5c11019e91499c057c37b1a52f6d0a1e5c13',
+                                        expiresAt: new Date(Date.now() + 60000).toISOString(),
+                                        bridgeVersion: '1',
+                                        writeMode: 'manager',
+                                        capabilities: ['editor.ready', 'protocol.describe', 'project.loadSelected', 'scene.list', 'scene.read', 'scene.save']
+                                    },
+                                    selectedProject: {
+                                        project: {
+                                            id: '${projectId}',
+                                            displayName: {
+                                                _primary: 'en',
+                                                locales: { en: { content: 'Docs Evidence Project' } }
+                                            },
+                                            version: 1,
+                                            defaultSceneId: '${sceneId}',
+                                            compatibilityStatus: 'compatible',
+                                            status: 'ready',
+                                            sceneCount: 1,
+                                            assetCount: 0,
+                                            scriptCount: 0,
+                                            generatedArtifactCount: 0,
+                                            publishable: false
+                                        },
+                                        defaultSceneId: '${sceneId}'
+                                    },
+                                    compatibilityStatus: 'ready'
+                                },
+                            }, '*');
+                        }, 100);
+                    });
+                </script>
+                <iframe
+                    title="PlayCanvas Editor"
+                    src="${iframeUrl}"
+                    sandbox="allow-scripts allow-same-origin"
+                    referrerpolicy="no-referrer"
+                    style="position:fixed;inset:0;width:100vw;height:100vh;border:0"
+                ></iframe>
+            </body>
+        </html>
+    `)
+
+    const frame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+    await expect(frame.locator('body')).toHaveAttribute('data-universo-playcanvas-editor-hosted', 'true')
+    await expect(frame.locator('body')).not.toContainText('Artifact Unavailable')
+    await expectDocsEvidenceEditorReady(frame, viewportWidth)
+
+    // The standalone smoke serve has no realtime backend, so the upstream
+    // editor shows its transient reconnect banner. Suppress it through the
+    // artifact's own event contract right before capturing; the hosted
+    // platform flow runs against the realtime server where the banner never
+    // appears. This is documented in the provenance manifest notes.
+    await frame.locator('body').evaluate(() => {
+        window.editor?.emit?.('realtime:connected')
+        document.querySelector('.connection-overlay')?.remove()
+    })
+    await expect
+        .poll(() => frame.locator('body').evaluate(() => !document.querySelector('.connection-overlay')), { timeout: 5_000 })
+        .toBe(true)
+
+    await frame.locator('body').evaluate(() => {
+        window.editor?.call?.('entities:new', {
+            name: 'Docs Evidence Entity',
+            resource_id: 'docs-evidence-entity',
+            enabled: true,
+            components: {}
+        })
+    })
+    await expect
+        .poll(
+            () =>
+                frame.locator('body').evaluate(() => {
+                    const scene = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?.serializeCurrentScene?.()
+                    return scene?.entities?.some((entity) => entity.id === 'docs-evidence-entity') ?? false
+                }),
+            { timeout: 10_000 }
+        )
+        .toBe(true)
+    await expect(frame.locator('body')).not.toContainText('[object Object]')
+    await expect(frame.locator('body')).not.toContainText('Artifact Unavailable')
+
+    if (!screenshotPath) return
+
+    await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
+    const screenshot = await page.screenshot({ fullPage: false, path: screenshotPath })
+    expectViewportScreenshotNonBlank(screenshot)
 })

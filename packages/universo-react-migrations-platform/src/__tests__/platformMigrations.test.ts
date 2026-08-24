@@ -437,7 +437,8 @@ describe('platformMigrations', () => {
             'OptimizeRlsPolicies1800000000200',
             'SeedBuiltinMetahubTemplates1800000000250',
             'SeedBuiltinMetahubPackages1800000000260',
-            'AddMetahubPackageAuthoringSettings1800000000270'
+            'AddMetahubPackageAuthoringSettings1800000000270',
+            'CreatePlayCanvasEditorDocumentBackups1800000000280'
         ])
     })
 

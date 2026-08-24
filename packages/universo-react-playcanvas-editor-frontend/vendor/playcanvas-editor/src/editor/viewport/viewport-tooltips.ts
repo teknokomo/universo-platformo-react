@@ -37,14 +37,14 @@ editor.once('load', () => {
             } else if (node._userCamera) {
                 name = '@';
                 editor.call('users:loadOne', node._userCamera, (data) => {
-                    name = `@${data && data.username || 'anonymous'}`;
+                    name = `@${(data && data.username) || 'anonymous'}`;
                 });
             } else if (node.model && node.model.asset && node.model.model && picked && picked.node) {
                 // entity model meshInstance
                 name = `${node.name} &#8594; ${picked.node.name}`;
             } else {
                 // normal entity
-                if (editor.call('entities:get', node.getGuid())) {
+                if (editor.call('entities:get', node.guid)) {
                     name = node.name;
                 }
             }

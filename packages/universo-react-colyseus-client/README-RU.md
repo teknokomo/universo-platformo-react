@@ -1,6 +1,6 @@
 # @universo-react/colyseus-client
 
-Workspace-обертка для `@colyseus/sdk@0.17.42`.
+Workspace-обертка для `@colyseus/sdk@0.17.43`.
 
 Пакет намеренно оставляет тонкую entry-точку и реэкспортирует публичный API Colyseus JavaScript/TypeScript client SDK:
 

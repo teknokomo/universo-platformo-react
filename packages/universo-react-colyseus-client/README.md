@@ -1,6 +1,6 @@
 # @universo-react/colyseus-client
 
-Workspace wrapper for `@colyseus/sdk@0.17.42`.
+Workspace wrapper for `@colyseus/sdk@0.17.43`.
 
 The package re-exports the public Colyseus JavaScript/TypeScript client SDK API and adds generic client-side helpers for movement intents, double-click activation, and snapshot interpolation.
 

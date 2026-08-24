@@ -13,6 +13,7 @@ import {
     createArtifactManifest,
     createHostedEditorConfig,
     fullUpstreamUiMode,
+    hostedSchemaCatalog,
     inlineAjaxLoaderImage,
     inlineBlankProjectImage,
     inlineEditorLogoImage,
@@ -39,8 +40,8 @@ import {
 describe('PlayCanvas Editor artifact metadata', () => {
     it('keeps upstream metadata and license attribution consistent', () => {
         expect(() => assertVendorMetadata()).not.toThrow()
-        expect(upstreamPackageVersion).toBe('2.24.2')
-        expect(upstreamCommit).toBe('00360100b3b5747648eb3d7287421ef25491f5c7')
+        expect(upstreamPackageVersion).toBe('2.30.4')
+        expect(upstreamCommit).toBe('cf296bcb669bdcb168778bf2979160a9fe8f67de')
     })
 
     it('validates the pinned artifact manifest and rejects drift', () => {
@@ -51,7 +52,7 @@ describe('PlayCanvas Editor artifact metadata', () => {
     })
 
     it('keeps the public package manifest aligned with the full upstream artifact mode', () => {
-        expect(PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION).toBe('2.24.2')
+        expect(PLAYCANVAS_EDITOR_UPSTREAM_PACKAGE_VERSION).toBe('2.30.4')
         expect(PLAYCANVAS_EDITOR_SMOKE_MODE).toBe(fullUpstreamUiMode)
         expect(createPlayCanvasEditorArtifactManifest('2026-06-15T00:00:00.000Z').smokeMode).toBe(fullUpstreamUiMode)
     })
@@ -85,6 +86,25 @@ describe('PlayCanvas Editor artifact metadata', () => {
         expect(config.self.flags.superUser).toBe(false)
         expect(config.project.name).toBe('Sandbox PlayCanvas Project')
         expect(config.url.static).toBe('http://127.0.0.1/editor')
+    })
+
+    it('embeds the same versioned schema catalog as the backend builder', () => {
+        const backendCatalogPath = path.join(
+            packageRoot,
+            '..',
+            'universo-react-playcanvas-editor-backend',
+            'src',
+            'config',
+            'generated-schema-catalog.json'
+        )
+        const backendCatalog = JSON.parse(fs.readFileSync(backendCatalogPath, 'utf8'))
+
+        expect(hostedSchemaCatalog).toEqual(backendCatalog)
+        expect(hostedSchemaCatalog.version).toBe(1)
+        expect(Object.keys(hostedSchemaCatalog.documents)).toEqual(['asset', 'scene', 'settings'])
+
+        const config = createHostedEditorConfig(null, 'http://127.0.0.1/editor/')
+        expect(config.schema).toEqual(backendCatalog)
     })
 
     it('fails closed on unsupported Node versions', () => {
@@ -243,6 +263,19 @@ describe('PlayCanvas Editor artifact metadata', () => {
             expect(source).toContain('if (isUsableFullBootAccessToken(existingToken)) {')
             expect(source).toContain('window.config.accessToken = existingToken;')
             expect(source).toContain('fetch(appendArtifactOriginParams(refreshUrl), {')
+            // Sliding session-bound artifact token renewal: the refresh request
+            // carries the bridge session id and applies the returned artifact
+            // token to every captured artifact base used by late-loaded
+            // workers/wasm/code-editor assets.
+            expect(source).toContain("url.searchParams.set('bridgeSessionId', bridgeSessionId);")
+            expect(source).toContain('.then(async (response) => (response.ok ? await response.json() : null))')
+            expect(source).toContain('applyRenewedEditorArtifactToken(body?.artifactToken);')
+            expect(source).toContain('const applyRenewedEditorArtifactToken = (renewedToken) => {')
+            expect(source).toContain("const markerSegment = '/editor-artifact-token/';")
+            expect(source).toContain('window.config.url.frontend = nextBase;')
+            expect(source).toContain("window.config.url.engine = new URL('js/playcanvas-engine.js', nextBase).href;")
+            expect(source).toContain("window.config.url.static = nextBase.replace(/\\\\/$/, '');")
+            expect(source).toContain('marker.appliedEditorArtifactToken = renewedToken;')
             expect(source).toContain('...mmoomm,')
             expect(source).toContain("authoringFlow: 'playcanvas-editor-native-scene'")
             expect(source).toContain('const cloneScenePayloadSnapshot = (payload) => {')
@@ -343,6 +376,19 @@ describe('PlayCanvas Editor artifact metadata', () => {
             expect(source).toContain(
                 "if (urlText.includes('/disabled')) throw new Error('Full upstream Editor config must not use disabled realtime endpoints');"
             )
+            // P5.4 D4 enforcement: unavailable-surface deep links are intercepted
+            // in our own bridge bootstrap (never in vendor sources) so code
+            // editor/launch navigation cannot reach a raw 404.
+            expect(source).toContain("const surfaceUnavailablePath = '/universo-surface-unavailable';")
+            expect(source).toContain('window.open = function UniversoSurfaceGuardedOpen(url, target, features) {')
+            expect(source).toContain("if (urlText.includes('/editor/code/')) {")
+            expect(source).toContain("reportBlockedSurfaceNavigation('codeEditor');")
+            expect(source).toContain("reportBlockedSurfaceNavigation('launchPage');")
+            expect(source).toContain("type: 'bridge.surfaceUnavailable',")
+            expect(source).toContain('installSurfaceNavigationGuard();')
+            // P5.3 fail-closed: the full-boot config must carry valid page variant
+            // descriptors before the upstream editor is allowed to boot.
+            expect(source).toContain("pages.fullEditor?.kind !== 'fullEditor' ||")
             expect(source).toContain("static: artifactBaseUrl.replace(/\\\\/$/, '')")
             expect(source).toContain("config.url.static = config.url.frontend.replace(/\\\\/$/, '');")
 

@@ -1,7 +1,19 @@
-import type { Button, Container, Menu } from '@playcanvas/pcui';
+import type { Container, Menu } from '@playcanvas/pcui';
 import type Graph from '@playcanvas/pcui-graph';
 
 editor.once('load', () => {
+    const graphCache: Record<string, { data?: Record<string, unknown>; promise?: Promise<Record<string, unknown>> }> =
+        {};
+
+    const cacheKey = (h: Record<string, unknown>) =>
+        [h.branchId || h.branch, h.graphStartId || '', h.vcHistItem || ''].join(':');
+
+    const clone = (data: Record<string, unknown>) => editor.call('template:utils', 'deepClone', data);
+
+    const clearCache = () => {
+        Object.keys(graphCache).forEach((key) => delete graphCache[key]);
+    };
+
     /**
      * Initialize and show the Version Control graph. Assign initial
      * coordinates to each node, make sure nodes do not overlap vertically
@@ -12,8 +24,6 @@ editor.once('load', () => {
         initData: Record<string, unknown>;
 
         container: Container;
-
-        closeBtn: Button;
 
         vcNodeMenu: Menu;
 
@@ -35,23 +45,20 @@ editor.once('load', () => {
 
         origStartId?: string;
 
-        constructor(initData: Record<string, unknown>, params: { vcGraphContainer: Container; vcGraphCloseBtn: Button; vcNodeMenu: Menu; vcHistItem: unknown }) {
+        constructor(
+            initData: Record<string, unknown>,
+            params: { vcGraphContainer: Container; vcNodeMenu: Menu; vcHistItem: unknown }
+        ) {
             this.initData = initData;
             this.container = params.vcGraphContainer;
-            this.closeBtn = params.vcGraphCloseBtn;
             this.vcNodeMenu = params.vcNodeMenu;
             this.vcHistItem = params.vcHistItem;
         }
 
         run() {
-            this.graph = editor.call(
-                'vcgraph:utils',
-                'initVcGraph',
-                this.container,
-                this.closeBtn
-            );
+            this.graph = editor.call('vcgraph:utils', 'initVcGraph', this.container);
 
-            this.graph.on('EVENT_SELECT_NODE', h => this.handleClick(h.node.id));
+            this.graph.on('EVENT_SELECT_NODE', (h) => this.handleClick(h.node.id));
 
             this.handleNewData(this.initData);
         }
@@ -70,6 +77,10 @@ editor.once('load', () => {
             this.helper('vcgraph:utils', 'renderAllVcNodes');
 
             this.helper('vcgraph:utils', 'renderAllVcEdges');
+
+            this.helper('vcgraph:utils', 'renderBranchLegend');
+
+            this.helper('vcgraph:utils', 'renderCompareTray');
         }
 
         setVars(data: Record<string, unknown>) {
@@ -85,8 +96,7 @@ editor.once('load', () => {
 
             this.helper('vcgraph:utils', 'assignBranchColors');
 
-            this.startNode = this.idToNode[data.graphStartId] ||
-                this.idToNode[this.origStartId];
+            this.startNode = this.idToNode[data.graphStartId] || this.idToNode[this.origStartId];
 
             this.vcNodeMenu.hidden = true;
         }
@@ -110,12 +120,7 @@ editor.once('load', () => {
         }
 
         handleClick(id: string) {
-            this.helper(
-                'vcgraph:utils',
-                'vcNodeClick',
-                id,
-                (err, data) => this.handleNewData(data)
-            );
+            this.helper('vcgraph:utils', 'vcNodeClick', id, (err, data) => this.handleNewData(data));
         }
 
         helper(...args: unknown[]) {
@@ -133,11 +138,67 @@ editor.once('load', () => {
         }
     }
 
-    editor.method('vcgraph:showInitial', (h: unknown) => {
-        editor.call('vcgraph:showNodeMenu', h.vcNodeMenu);
+    editor.method('vcgraph:showInitial', (h: any) => {
+        h.vcNodeMenu.hidden = true;
+        const key = cacheKey(h);
+        const cached = graphCache[key];
 
-        editor.call('vcgraph:utils', 'backendGraphTask', h, (err, data) => {
-            new VcGraphLogic(data, h).run();
-        });
+        // skeleton placeholder while the backend graph task runs (replaces the old loading menu box)
+        const skeleton = document.createElement('div');
+        skeleton.className = 'vc-graph-skeleton';
+        skeleton.innerHTML = (
+            '<div class="vc-graph-skeleton-node">' +
+            '<span class="avatar"></span><span class="title"></span><span class="hash"></span>' +
+            '<span class="line user"></span><span class="line date"></span>' +
+            '</div>'
+        ).repeat(4);
+        if (!cached?.data) {
+            h.vcGraphContainer.dom.appendChild(skeleton);
+        }
+
+        const show = (data: Record<string, unknown>) => {
+            skeleton.remove();
+            if (!h.vcGraphContainer.dom.isConnected) {
+                return;
+            }
+            new VcGraphLogic(clone(data), h).run();
+        };
+
+        if (cached?.data) {
+            show(cached.data);
+            return;
+        }
+
+        const entry = cached || (graphCache[key] = {});
+        entry.promise =
+            entry.promise ||
+            new Promise((resolve, reject) => {
+                editor.call('vcgraph:utils', 'backendGraphTask', h, (err, data) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(data);
+                });
+            });
+        entry.promise
+            .then((data) => {
+                entry.data = clone(data);
+                delete entry.promise;
+                show(data);
+            })
+            .catch((err) => {
+                delete graphCache[key];
+                skeleton.remove();
+                log.error(err);
+            });
     });
+
+    editor.on('messenger:checkpoint.createEnded', clearCache);
+    editor.on('messenger:checkpoint.hardResetEnded', clearCache);
+    editor.on('messenger:checkpoint.revertEnded', clearCache);
+    editor.on('messenger:branch.createEnded', clearCache);
+    editor.on('messenger:branch.close', clearCache);
+    editor.on('messenger:branch.delete', clearCache);
+    editor.on('messenger:branch.open', clearCache);
 });

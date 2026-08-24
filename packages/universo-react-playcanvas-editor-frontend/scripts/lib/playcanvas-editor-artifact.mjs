@@ -7,9 +7,9 @@ import vm from 'node:vm'
 import { z } from 'zod'
 
 export const upstreamRepository = 'https://github.com/playcanvas/editor'
-export const upstreamTag = 'v2.24.2'
-export const upstreamCommit = '00360100b3b5747648eb3d7287421ef25491f5c7'
-export const upstreamPackageVersion = '2.24.2'
+export const upstreamTag = 'v2.30.4'
+export const upstreamCommit = 'cf296bcb669bdcb168778bf2979160a9fe8f67de'
+export const upstreamPackageVersion = '2.30.4'
 export const nodeRequirement = '>=22.22.0'
 export const artifactOutputRoot = 'dist/editor'
 export const fullUpstreamUiMode = 'universo-full-upstream-ui'
@@ -17,6 +17,12 @@ export const artifactModes = ['artifact-only', 'universo-hosted', fullUpstreamUi
 export const defaultArtifactMode = fullUpstreamUiMode
 export const manifestFileName = 'universo-artifact-manifest.json'
 export const bridgeBootstrapFileName = 'universo-bridge-bootstrap.js'
+
+const generatedSchemaCatalogPath = fileURLToPath(
+    new URL('../../../universo-react-playcanvas-editor-backend/src/config/generated-schema-catalog.json', import.meta.url)
+)
+export const hostedSchemaCatalog = Object.freeze(JSON.parse(fs.readFileSync(generatedSchemaCatalogPath, 'utf8')))
+const hostedSchemaCatalogJson = JSON.stringify(hostedSchemaCatalog)
 
 const hostedEditorUrlSchema = z
     .object({
@@ -69,7 +75,15 @@ export const hostedEditorConfigSchema = z
         branch: z.object({ id: z.string().min(1), name: z.string().min(1) }).strict(),
         url: hostedEditorUrlSchema,
         aws: z.object({ s3Prefix: z.string() }).strict(),
-        schema: z.object({ asset: z.unknown(), scene: z.unknown(), settings: z.unknown() }).passthrough(),
+        schema: z
+            .object({
+                version: z.literal(1),
+                documents: z
+                    .object({ asset: z.record(z.unknown()), scene: z.record(z.unknown()), settings: z.record(z.unknown()) })
+                    .strict(),
+                assetData: z.record(z.unknown())
+            })
+            .strict(),
         engineVersions: z.record(z.unknown()),
         sentry: z.object({ enabled: z.literal(false) }).strict(),
         accessToken: z.string().max(0),
@@ -129,47 +143,7 @@ export const createHostedEditorConfig = (descriptor, artifactBaseUrl = 'http://1
             relay: { ws: 'ws://127.0.0.1/disabled' }
         },
         aws: { s3Prefix: '' },
-        schema: {
-            asset: { type: { $enum: ['script', 'texture', 'material', 'model', 'json', 'template'] } },
-            animstategraphData: {},
-            materialData: {},
-            scene: {
-                entities: {
-                    $of: {
-                        components: {
-                            camera: { enabled: { $type: 'boolean', $default: true } },
-                            light: { enabled: { $type: 'boolean', $default: true } },
-                            render: {
-                                enabled: { $type: 'boolean', $default: true },
-                                type: { $type: 'string', $default: 'box' },
-                                asset: { $default: null },
-                                materialAssets: { $type: 'array', $default: [null] },
-                                layers: { $type: 'array', $default: [0] },
-                                castShadows: { $type: 'boolean', $default: true },
-                                receiveShadows: { $type: 'boolean', $default: true },
-                                castShadowsLightmap: { $type: 'boolean', $default: true },
-                                lightmapped: { $type: 'boolean', $default: false },
-                                isStatic: { $type: 'boolean', $default: false },
-                                batchGroupId: { $default: null },
-                                rootBone: { $default: null }
-                            },
-                            script: {
-                                enabled: { $type: 'boolean', $default: true },
-                                scripts: { $type: 'array', $default: [] },
-                                order: { $type: 'array', $default: [] }
-                            }
-                        }
-                    }
-                },
-                settings: { physics: {}, render: {} }
-            },
-            settings: {
-                width: { $type: 'number', $default: 1280, $scope: 'project' },
-                height: { $type: 'number', $default: 720, $scope: 'project' },
-                useLegacyScripts: { $type: 'boolean', $default: false, $scope: 'project' },
-                editor: { $type: 'object', $default: {}, $scope: 'user' }
-            }
-        },
+        schema: structuredClone(hostedSchemaCatalog),
         engineVersions: {},
         sentry: { enabled: false },
         accessToken: '',
@@ -2906,7 +2880,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     if (config.self?.flags?.superUser !== false) {
       throw new Error('Hosted Editor config must not grant synthetic superUser privileges');
     }
-    if (!config.url?.frontend || !config.url?.engine || !config.schema?.scene || !config.schema?.settings) {
+    if (!config.url?.frontend || !config.url?.engine || config.schema?.version !== 1 || !config.schema?.documents?.scene || !config.schema?.documents?.settings) {
       throw new Error('Hosted Editor upstream boot config is incomplete');
     }
     return config;
@@ -2929,7 +2903,18 @@ export const writeBridgeBootstrap = (targetRoot) => {
     if (!Array.isArray(config.wasmModules)) {
       throw new Error('Full upstream Editor wasmModules config must be an array');
     }
-    if (!config.url?.frontend || !config.url?.engine || !config.schema?.scene || !config.schema?.settings) {
+    const pages = config.pages;
+    if (
+      !pages ||
+      typeof pages !== 'object' ||
+      Array.isArray(pages) ||
+      pages.fullEditor?.kind !== 'fullEditor' ||
+      pages.codeEditor?.kind !== 'unavailable' ||
+      pages.launchPage?.kind !== 'unavailable'
+    ) {
+      throw new Error('Full upstream Editor page variant descriptors are missing or mismatched');
+    }
+    if (!config.url?.frontend || !config.url?.engine || config.schema?.version !== 1 || !config.schema?.documents?.scene || !config.schema?.documents?.settings) {
       throw new Error('Full upstream Editor upstream boot config is incomplete');
     }
     return config;
@@ -2968,10 +2953,44 @@ export const writeBridgeBootstrap = (targetRoot) => {
       const artifactBaseUrl = new URL('./', window.location.href).href;
       url.searchParams.set('artifactBaseUrl', artifactBaseUrl);
       url.searchParams.set('artifactOrigin', window.location.origin);
+      if (typeof bridgeSessionId === 'string' && bridgeSessionId) {
+        url.searchParams.set('bridgeSessionId', bridgeSessionId);
+      }
       return url.href;
     } catch {
       return urlText;
     }
+  };
+
+  const applyRenewedEditorArtifactToken = (renewedToken) => {
+    if (typeof renewedToken !== 'string' || !renewedToken) return false;
+    const markerSegment = '/editor-artifact-token/';
+    let locationBase = null;
+    try {
+      locationBase = new URL('./', window.location.href).href;
+    } catch {
+      locationBase = null;
+    }
+    const candidates = [window.config?.url?.frontend, locationBase];
+    const currentBase = candidates.find((value) => typeof value === 'string' && value.includes(markerSegment));
+    if (!currentBase) return false;
+    const tokenStart = currentBase.indexOf(markerSegment) + markerSegment.length;
+    const tokenEnd = currentBase.indexOf('/', tokenStart);
+    if (tokenEnd === -1) return false;
+    const previousToken = currentBase.slice(tokenStart, tokenEnd);
+    if (!previousToken || previousToken === renewedToken) return false;
+    const nextBase = currentBase.slice(0, tokenStart) + renewedToken + currentBase.slice(tokenEnd);
+    if (!window.config || !window.config.url || typeof window.config.url !== 'object') return false;
+    // Late-loaded workers/wasm/code-editor assets resolve their absolute URLs
+    // from these captured bases, so all three must switch to the renewed
+    // token together or late subresource loads would keep using the expired
+    // one and rely on the short-lived server-side grace window.
+    window.config.url.frontend = nextBase;
+    window.config.url.engine = new URL('js/playcanvas-engine.js', nextBase).href;
+    window.config.url.static = nextBase.replace(/\\/$/, '');
+    marker.appliedEditorArtifactToken = renewedToken;
+    marker.lastEditorArtifactTokenRenewalAt = Date.now();
+    return true;
   };
 
   const readCompatibilityTokenClaims = (token) => {
@@ -3024,13 +3043,15 @@ export const writeBridgeBootstrap = (targetRoot) => {
       credentials: 'include',
       cache: 'no-store'
     })
-      .then(async (response) => (response.ok ? (await response.json())?.item || null : null))
-      .then((config) => {
+      .then(async (response) => (response.ok ? await response.json() : null))
+      .then((body) => {
+        const config = body?.item || null;
         if (config?.mode === 'universo-full-upstream-ui' && typeof config.accessToken === 'string') {
           window.config.accessToken = config.accessToken;
           if (config.universoBridge && typeof config.universoBridge === 'object') {
             window.config.universoBridge = config.universoBridge;
           }
+          applyRenewedEditorArtifactToken(body?.artifactToken);
           marker.compatibilityConfig = window.config;
           marker.fullBootAccessTokenRefreshedAt = Date.now();
           return config.accessToken;
@@ -3829,47 +3850,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         relay: { ws: 'ws://127.0.0.1/disabled' }
       },
       aws: { s3Prefix: '' },
-      schema: {
-        asset: { type: { $enum: ['script', 'texture', 'material', 'model', 'json', 'template'] } },
-        animstategraphData: {},
-        materialData: {},
-        scene: {
-          entities: {
-            $of: {
-              components: {
-                camera: { enabled: { $type: 'boolean', $default: true } },
-                light: { enabled: { $type: 'boolean', $default: true } },
-                render: {
-                  enabled: { $type: 'boolean', $default: true },
-                  type: { $type: 'string', $default: 'box' },
-                  asset: { $default: null },
-                  materialAssets: { $type: 'array', $default: [null] },
-                  layers: { $type: 'array', $default: [0] },
-                  castShadows: { $type: 'boolean', $default: true },
-                  receiveShadows: { $type: 'boolean', $default: true },
-                  castShadowsLightmap: { $type: 'boolean', $default: true },
-                  lightmapped: { $type: 'boolean', $default: false },
-                  isStatic: { $type: 'boolean', $default: false },
-                  batchGroupId: { $default: null },
-                  rootBone: { $default: null }
-                },
-                script: {
-                  enabled: { $type: 'boolean', $default: true },
-                  scripts: { $type: 'array', $default: [] },
-                  order: { $type: 'array', $default: [] }
-                }
-              }
-            }
-          },
-          settings: { physics: {}, render: {} }
-        },
-        settings: {
-          width: { $type: 'number', $default: 1280, $scope: 'project' },
-          height: { $type: 'number', $default: 720, $scope: 'project' },
-          useLegacyScripts: { $type: 'boolean', $default: false, $scope: 'project' },
-          editor: { $type: 'object', $default: {}, $scope: 'user' }
-        }
-      },
+      schema: ${hostedSchemaCatalogJson},
       engineVersions: {},
       sentry: { enabled: false },
       accessToken: '',
@@ -3931,6 +3912,37 @@ export const writeBridgeBootstrap = (targetRoot) => {
       };
       poll();
     });
+
+  const surfaceUnavailablePath = '/universo-surface-unavailable';
+  const reportBlockedSurfaceNavigation = (blockedSurface) => {
+    marker.lastBlockedSurfaceNavigation = { surface: blockedSurface, at: Date.now() };
+    window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
+      type: 'bridge.surfaceUnavailable',
+      sessionId: bridgeSessionId,
+      nonce: bridgeNonce,
+      source: 'universo-playcanvas-editor-artifact',
+      surface: blockedSurface
+    });
+  };
+  const installSurfaceNavigationGuard = () => {
+    // D4 enforcement: the built-in code editor and launch deep links must never
+    // navigate the user into a raw 404. Both entry points go through
+    // window.open, so intercepting it here keeps the vendor bundle untouched.
+    if (typeof window.open !== 'function') return;
+    const nativeWindowOpen = window.open.bind(window);
+    window.open = function UniversoSurfaceGuardedOpen(url, target, features) {
+      const urlText = typeof url === 'string' ? url : String(url == null ? '' : url);
+      if (urlText.includes('/editor/code/')) {
+        reportBlockedSurfaceNavigation('codeEditor');
+        return null;
+      }
+      if (urlText.indexOf(surfaceUnavailablePath) === 0) {
+        reportBlockedSurfaceNavigation('launchPage');
+        return null;
+      }
+      return nativeWindowOpen(url, target, features);
+    };
+  };
 
   const postEditorReady = () => {
     if (marker.ready) return;
@@ -3999,6 +4011,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     installFullBootFetchAdapter();
     installFullBootXmlHttpRequestAuthAdapter();
     installFullBootWebSocketDiagnostics();
+    installSurfaceNavigationGuard();
     window.editor = window.editor || {};
 	    window.editor.universoBridge = marker;
     const startEditorBundle = () => {

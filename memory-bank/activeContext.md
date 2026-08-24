@@ -8,6 +8,35 @@ invariants, standing guardrails, and a navigation index into progress.md.
 
 ---
 
+## Current Focus: PlayCanvas Engine / Editor / Colyseus Upgrade Gate (2026-08-22, code complete)
+
+Three dependency lines upgraded as one compatibility gate on branch
+`feature/playcanvas-engine-editor-colyseus-upgrade` (plan:
+`memory-bank/plan/playcanvas-engine-editor-colyseus-upgrade-plan-2026-08-22.md`,
+evidence: top of `progress.md`). Code-level work is DONE; browser-evidence and
+date-gated steps remain (see "Gated follow-ups" in progress.md):
+
+-   Colyseus coherent set INSTALLED (core 0.17.50 / sdk 0.17.43 /
+    schema 4.0.31) via a temporary quarantine window approved by the user;
+    policy restored to 10080 min. All realtime suites green on the target
+    stack. MMOOMM fixtures REGENERATED through product flows; both CI browser
+    gates green; full build + lint clean. Generator reload blocker resolved:
+    readiness budget raised to 150 s for heavy v2.30.4 cold reloads.
+-   MMOOMM fixtures must be regenerated through the product flow AFTER that
+    bump (they embed `upstreamVersion` descriptors; import is fail-closed).
+-   New guards wired into CI: `check:zod-resolution`,
+    `check:playcanvas-editor-schema-vocabulary`; vendor drift checker now
+    verifies against committed `vendor/upstream-inventory.json` (no sibling
+    checkout, CI-safe).
+
+Standing invariants added this slice: editor sessions take a transactional
+document backup before the first post-open write (`1800000000280`);
+artifact tokens slide per bridge session with a 12h absolute cap;
+`createBasicApplication` requires unique canvas ids and owns keyboard on the
+canvas by default.
+
+---
+
 ## Current Focus: MMOOMM Visual Linkup Lab (2026-06-20 → 2026-06-21, complete)
 
 The MMOOMM canonical fixture now has two PlayCanvas-backed Projects instances:

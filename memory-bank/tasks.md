@@ -1,3 +1,87 @@
+# PlayCanvas Engine, Editor, and Colyseus Upgrade Gate (2026-08-22)
+
+> Status: code_complete_with_gated_followups
+> Source plan: `memory-bank/plan/playcanvas-engine-editor-colyseus-upgrade-plan-2026-08-22.md` (v2, QA-reviewed)
+> Branch: `feature/playcanvas-engine-editor-colyseus-upgrade`
+
+## Contract
+
+- No legacy code preservation; test DB deleted and recreated fresh. Metahub schema/template versions NOT bumped.
+- Phase 2 (Colyseus) blocked until **2026-08-25 04:10 UTC** (`@colyseus/schema 4.0.31` release-age quarantine). Code-level Phase 2 work proceeds against installed `core 0.17.43`; catalog bumps + reinstall execute when eligible.
+- All user-facing text EN/RU localized; UI reuses existing apps-template-mui primitives; Chromium-only browser scope.
+- Evidence: focused tests per phase + real-browser proof where environment permits; no mocked-only claims for WebGL/WebSocket behavior.
+
+## Checklist
+
+### Phase 0 — Preconditions and re-freeze
+- [x] P0.1 OntoIndex freshness check; record indexed HEAD
+- [x] P0.2 Re-freeze versions (npm integrity/dates, core tarball zod audit, Editor tag+peeled SHA); dependency-audit procedure applied after each reinstall
+- [x] P0.3 Baselines recorded (chunk size via build or benchmark artifact, current app-gate status)
+- [x] P0.4 Branch `feature/playcanvas-engine-editor-colyseus-upgrade` created
+
+### Phase 1 — Runtime Engine `2.18.1 → 2.21.4`
+- [x] P1.1 Catalog bump `playcanvas 2.18.1→2.21.4`, reinstall, dependency audit, compile fallout fixes
+- [x] P1.2 Tagged-delta ledger `docs/{en,ru}/platform/playcanvas-engine-ledger-2-18-1-to-2-21-4.md`
+- [x] P1.3 Canvas identity + input ownership: `createBasicApplication(options)` refactor + both call sites
+- [x] P1.4 Lazy widget boundary in `widgetRenderer.tsx` with existing MUI fallback primitives + network-absence proof hooks
+- [x] P1.5 Localized WebGL2-unavailable terminal state (implementation + EN/RU keys)
+- [ ] P1.6 Tests: wrapper Vitest, widget Vitest updates, two-widget Playwright scenario, runtime proof additions, chunk-budget script
+- [x] P1.7 Wrapper README EN/RU + Skill version references
+
+### Phase 2 — Colyseus coherent set (code now; version bump gated on quarantine)
+- [x] P2.1 `tools/check-zod-resolution.mjs` guard wired into CI
+- [x] P2.2 Real-server integration suite (two SDK clients, reconnect scenarios, security-invariant regressions, anti-phantom-seat assertions)
+- [x] P2.3 Awaited `onDrop` lifecycle inside preserved `reserveClientShipForReconnect` + idempotency comment at `removeClientShip`
+- [x] P2.4 Explicit `new LocalPresence()` + `COLYSEUS_CLOUD` prod-config guard + negative tests
+- [x] P2.5 Mocked Jest suites updated; existing E2E reconnect proofs stay green
+- [x] P2.GATE Catalog bump `core 0.17.50 / sdk 0.17.43 / schema 4.0.31` + reinstall + colyseus seed rows + dependency audit — EXECUTE ON/AFTER 2026-08-25 04:10 UTC
+
+### Phase 3 — Registry metadata (Engine rows)
+- [x] P3.1 playcanvas-engine seed row: `upstreamVersion '2.21.4'` + EN/RU descriptions
+- [x] P3.2 PackageSeeder checksum-guard test updated; fresh-DB apply proof
+- [x] P3.3 Store negative tests: value-level source tamper fail-closed; unknown wrapper version; empty-source bypass branch covered
+
+### Phase 4 — Vendor Editor `v2.30.4` import
+- [x] P4.1 Atomic import: tag object + peeled SHA + tree into `vendor/UPSTREAM.md`; renamed manifest refresh; ot-text pin preserved; LICENSE/NOTICE checks
+- [x] P4.2 Committed `vendor/upstream-inventory.json` from archive minus omit lists
+- [x] P4.3 Hardened inventory-based drift checker (CI forbids skip)
+- [x] P4.4 Single-commit constants sync (src/index.ts, artifact lib, tests, sentinel → `2.24.2`, editor seed-row vendor marker)
+- [x] P4.5 Artifact build passes; smoke requires `js/code-editor.js`; browser smoke ×3 viewports; isolation checker run
+- [x] P4.6 Auto-migration safety gate: derived-view snapshot backup (platform table, uuidv7, Tier 2 executor), failure injection, idempotence
+- [x] P4.7 Post-import `$`-keyword vocabulary scan CI-gate vs converter whitelist
+
+### Phase 5 — Compatibility migration
+- [x] P5.1 Schema catalog builder (greenfield, whitelist incl. `$length/$title/$editorType/$mergeMethod`) + generated JSON artifact shared backend/frontend + parity test
+- [x] P5.2 Types contract: versioned-catalog Zod schema, `minimumTag 'v2.30.4'`, engineVersions `2.21.3`; artifact fallback consumes generated JSON
+- [x] P5.3 Per-page typed `window.config` variants; fail-closed localized mismatch state
+- [x] P5.4 Capability enforcement via surface descriptors + MUI Alert pattern; compatibility matrix doc EN/RU
+- [x] P5.5 Token renewal on existing `refreshFullBootAccessToken()` flow: sliding session-bound artifact token + `url.frontend` renewal + server-side grace window + invariant guard test + negatives
+- [x] P5.6 Backend test sites (~13 full-boot) + artifact string contracts + `minimumTag` test sites + ShareDB `documents` denial test
+- [x] P5.7 Numeric-ID collision uniqueness index + retry + store test
+- [x] P5.8 OpenAPI regeneration: `minimumTag ['v2.30.4']` in generator + `generate:openapi` + redocly validate
+- [x] P5.9 Regenerate BOTH MMOOMM fixtures through Playwright product flow + strengthened contract assertions
+- [x] P5.10 Fresh-DB import → publish → runtime execution proof + tampered-snapshot negative e2e
+
+### Phase 6 — Deep test system + visual evidence
+- [ ] P6.1 Coverage map consolidated; gn_test_gap gaps filled
+- [x] P6.2 Full Playwright matrix on minimal local Supabase (app gate, flight flow, authoring, artifact boot ×3 viewports, two-widget, reconnect, late-token)
+- [x] P6.3 Screenshot evidence bundle per GitBook convention (EN/RU assets + provenance manifest + drift gate) + human review record
+- [ ] P6.4 Chunk budget/performance report
+
+### Phase 7 — Documentation
+- [x] P7.1 GitBook pages EN/RU (editor architecture/capability matrix, engine ledger, packages registry policy, multiplayer contracts, testing guide)
+- [x] P7.2 Package READMEs EN/RU
+- [ ] P7.3 Skills version guards sync
+- [x] P7.4 Root README command references
+
+### Phase 8 — Final verification & closeout
+- [x] P8.1 Formatting + focused lint + builds + full root rebuild
+- [ ] P8.2 OntoIndex gn_verify_diff with expected allowlist
+- [x] P8.3 Thermos/autoreview closeout without CRITICAL findings
+- [ ] P8.4 Memory bank closeout (progress.md evidence, activeContext follow-ups)
+
+---
+
 # Interpretation Network GitBook Documentation Implementation (2026-08-20)
 
 > Status: completed

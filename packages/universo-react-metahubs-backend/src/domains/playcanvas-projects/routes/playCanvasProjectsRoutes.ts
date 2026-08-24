@@ -15,8 +15,13 @@ import { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import type { MetahubHandlerContext } from '../../shared/createMetahubHandler'
 import type { RequestWithAuthUser } from '../../shared/routeAuth'
 import { createPlayCanvasProjectsController } from '../controllers/playCanvasProjectsController'
+import { PlayCanvasEditorBridgeSessionService } from '../services/PlayCanvasEditorBridgeSessionService'
 import { PlayCanvasProjectsService } from '../services/PlayCanvasProjectsService'
 import { playCanvasEditorCompatibilityTokenService } from '../services/playCanvasEditorCompatibilityTokenService'
+import {
+    renewEditorArtifactToken,
+    resolveRequestOrigin as resolveMetahubRequestOrigin
+} from '../../packages/services/editorArtifactTokenService'
 
 export function createPlayCanvasProjectsRoutes(
     ensureAuth: RequestHandler,
@@ -85,6 +90,28 @@ export function createPlayCanvasProjectsRoutes(
         csrfProtection,
         tokenService: playCanvasEditorCompatibilityTokenService,
         createHandler: createEditorCompatibilityHandler,
+        // Sliding session-bound editor artifact token renewal for the full-boot
+        // config endpoint. The issuer fails closed: it mints a fresh token only
+        // when the exact bridge session from the initial authoring-host mint is
+        // still alive, the requester/metahub/origin bindings match, and the
+        // 12h absolute cap has not been reached; otherwise no artifactToken is
+        // returned and the iframe falls back to its reload flow.
+        issueRenewalArtifactToken: ({ req, metahubId, userId, tokenOrigin }) => {
+            const bridgeSessions = new PlayCanvasEditorBridgeSessionService()
+            return (
+                renewEditorArtifactToken({
+                    // The artifact-token binding is verified against the same
+                    // parent-origin resolution used by the authoring-host mint,
+                    // not the editor-backend middleware variant.
+                    requestOrigin: resolveMetahubRequestOrigin(req),
+                    artifactOrigin: typeof tokenOrigin === 'string' ? tokenOrigin : null,
+                    metahubId,
+                    userId,
+                    bridgeSessionId: typeof req.query?.bridgeSessionId === 'string' ? req.query.bridgeSessionId.trim() : '',
+                    isBridgeSessionAlive: (bridgeSessionId) => bridgeSessions.touch(bridgeSessionId)
+                })?.token ?? null
+            )
+        },
         createProjectPort: (ctx) => {
             const requestContext = ctx as unknown as MetahubHandlerContext
             const service = new PlayCanvasProjectsService(requestContext.exec, requestContext.schemaService)
@@ -137,7 +164,14 @@ export function createPlayCanvasProjectsRoutes(
                 readSettings: ({ metahubId, projectId, userId, kind }) =>
                     service.readEditorCompatibilitySettings(metahubId, projectId, kind, userId),
                 writeSettings: ({ metahubId, projectId, userId, kind, requestId, data, expectedRevision }) =>
-                    service.writeEditorCompatibilitySettings(metahubId, projectId, kind, { data, expectedRevision, requestId }, userId)
+                    service.writeEditorCompatibilitySettings(metahubId, projectId, kind, { data, expectedRevision, requestId }, userId),
+                ensureOpenedProjectBackup: async ({ metahubId, projectId, userId, sceneId, sessionId, assetDocumentIds }) => {
+                    // Fail-closed backup gate: every editor open snapshots all derived realtime
+                    // documents BEFORE the full-boot token is minted, so the snapshot strictly
+                    // precedes the first persistEditorRealtimeDocument of the session. Throwing
+                    // here aborts session bootstrap instead of allowing unmigrated writes.
+                    await service.ensureOpenedProjectBackup({ metahubId, projectId, userId, sceneId, sessionId, assetDocumentIds })
+                }
             }
         }
     })

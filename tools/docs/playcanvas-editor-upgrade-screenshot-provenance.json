@@ -1,0 +1,178 @@
+{
+    "version": 1,
+    "featureId": "playcanvas-editor-upgrade",
+    "generator": "packages/universo-react-playcanvas-editor-frontend/e2e/editor-artifact.spec.ts",
+    "generatorSha256": "2c15cd3d1826ca2a2584f5401395d0cb8d60e6dbe01a98bb49fda775556cfce1",
+    "runner": "tools/testing/e2e/support/capturePlayCanvasEditorUpgradeScreenshots.mjs",
+    "generatedAt": "2026-08-23T13:32:48.842Z",
+    "artifact": {
+        "upstreamRepository": "https://github.com/playcanvas/editor",
+        "upstreamTag": "v2.30.4",
+        "upstreamCommit": "cf296bcb669bdcb168778bf2979160a9fe8f67de",
+        "upstreamPackageVersion": "2.30.4"
+    },
+    "localeStatus": {
+        "en": "captured",
+        "ru": "pending"
+    },
+    "notes": [
+        "EN assets are captured from the real booted v2.30.4 hosted editor (bridge protocol universo-bridge-minimal) across the desktop/tablet/mobile Playwright projects.",
+        "RU variants are pending: the upstream PlayCanvas Editor v2.30.4 chrome is English-only and the ?locale=ru query localizes only the Universo host shell fallback page, so no honest RU editor screenshots can be produced until a localized host flow exists. Byte-identical copies of EN assets under docs/ru are forbidden by convention.",
+        "The standalone artifact serve has no realtime scene backend, so the scene tree stays empty and the viewport renders no scene; the transient realtime reconnect banner is suppressed during capture through the artifact own event contract plus overlay removal. Hosted platform flows run against the realtime server where neither artifact appears.",
+        "Pending captures intentionally have no files on disk; the drift checker fails if a file appears at a pending path without regenerating this manifest."
+    ],
+    "viewportMatrix": [
+        {
+            "id": "editor-workspace",
+            "locale": "en",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        },
+        {
+            "id": "editor-workspace",
+            "locale": "ru",
+            "status": "pending",
+            "viewports": [
+                {
+                    "name": "desktop-1920",
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "name": "tablet-768",
+                    "width": 768,
+                    "height": 1024
+                },
+                {
+                    "name": "mobile-390",
+                    "width": 390,
+                    "height": 844
+                }
+            ]
+        }
+    ],
+    "captures": [
+        {
+            "id": "editor-workspace",
+            "locale": "en",
+            "status": "captured",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-desktop.png",
+            "captureType": "booted-workspace",
+            "route": "sandboxed host iframe -> /?locale=en (standalone artifact serve)",
+            "viewport": {
+                "name": "desktop-1920",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "editor-workspace",
+            "locale": "en",
+            "status": "captured",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-tablet.png",
+            "captureType": "booted-workspace",
+            "route": "sandboxed host iframe -> /?locale=en (standalone artifact serve)",
+            "viewport": {
+                "name": "tablet-768",
+                "width": 768,
+                "height": 1024
+            }
+        },
+        {
+            "id": "editor-workspace",
+            "locale": "en",
+            "status": "captured",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-mobile.png",
+            "captureType": "booted-workspace",
+            "route": "sandboxed host iframe -> /?locale=en (standalone artifact serve)",
+            "viewport": {
+                "name": "mobile-390",
+                "width": 390,
+                "height": 844
+            }
+        },
+        {
+            "id": "editor-workspace",
+            "locale": "ru",
+            "status": "pending",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-desktop.png",
+            "captureType": "booted-workspace",
+            "route": "sandboxed host iframe -> /?locale=ru (pending localized host flow)",
+            "viewport": {
+                "name": "desktop-1920",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "editor-workspace",
+            "locale": "ru",
+            "status": "pending",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-tablet.png",
+            "captureType": "booted-workspace",
+            "route": "sandboxed host iframe -> /?locale=ru (pending localized host flow)",
+            "viewport": {
+                "name": "tablet-768",
+                "width": 768,
+                "height": 1024
+            }
+        },
+        {
+            "id": "editor-workspace",
+            "locale": "ru",
+            "status": "pending",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-mobile.png",
+            "captureType": "booted-workspace",
+            "route": "sandboxed host iframe -> /?locale=ru (pending localized host flow)",
+            "viewport": {
+                "name": "mobile-390",
+                "width": 390,
+                "height": 844
+            }
+        }
+    ],
+    "assets": [
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-desktop.png",
+            "sha256": "13e4deed59bdd431e680314146d1eca3289b0d814e1b1de80651925b78294e44",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-tablet.png",
+            "sha256": "03dfcbf37716fdc1cd3fee51c95454319bb05447d62740cff24762beab3f68e3",
+            "dimensions": {
+                "width": 768,
+                "height": 1024
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-mobile.png",
+            "sha256": "13c1e2dd4c7116a41bfd138bee9295a0bffb08c3596d0e4174be3aab503df610",
+            "dimensions": {
+                "width": 390,
+                "height": 844
+            }
+        }
+    ]
+}

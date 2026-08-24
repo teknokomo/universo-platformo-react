@@ -209,6 +209,7 @@ const fullBootCompatibilityConfig = () =>
         branch: { id: 202, name: 'Main' },
         url: {
             api: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901',
+            launch: '/universo-surface-unavailable',
             home: '/',
             frontend: 'http://localhost:3000/editor-artifact/',
             engine: 'http://localhost:3000/editor-artifact/js/playcanvas-engine.js',
@@ -225,6 +226,13 @@ const fullBootCompatibilityConfig = () =>
             relay: {
                 ws: 'ws://localhost:3000/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/019e9146-fd1b-7d1d-a858-d1e96485d901/relay?accessToken=test-full-boot-token-000000000000000000'
             }
+        },
+        pages: {
+            fullEditor: { kind: 'fullEditor' },
+            codeEditor: { kind: 'unavailable', surface: 'codeEditor', reasonKey: 'shareDbDocumentsCollectionNotImplemented' },
+            launchPage: { kind: 'unavailable', surface: 'launchPage', reasonKey: 'launchSurfaceDeferred' },
+            blankProjectPicker: { kind: 'unavailable', surface: 'blankProjectPicker', reasonKey: 'sessionsAreProjectPinned' },
+            fontImport: { kind: 'unavailable', surface: 'fontImport', reasonKey: 'fontGenerationWorkerStubbed' }
         },
         schema: { asset: {}, scene: {}, settings: {} },
         engineVersions: {},
@@ -550,5 +558,75 @@ describe('PlayCanvasEditorHostPage', () => {
         expect(await screen.findByText('Failed to prepare PlayCanvas Editor.')).toBeInTheDocument()
         expect(screen.queryByTestId('playcanvas-editor-frame')).not.toBeInTheDocument()
         expect(packagesApi.getCsrfToken).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        ['codeEditor', 'The built-in code editor is not available in Universo-hosted projects yet.'],
+        ['launchPage', 'Launching this scene outside the editor is not available yet.'],
+        [
+            'blankProjectPicker',
+            'Creating or switching projects from inside the editor is not available. Manage projects from the packages area.'
+        ],
+        ['fontImport', 'Font import is disabled because font generation is not supported in Universo-hosted projects.']
+    ])('renders a localized unavailable alert when the artifact reports the %s surface', async (surface, expectedMessage) => {
+        renderHostPage()
+        const iframe = await screen.findByTestId('playcanvas-editor-frame')
+
+        act(() => {
+            dispatchArtifactMessage(iframe, { type: 'bridge.surfaceUnavailable', surface })
+        })
+
+        expect(await screen.findByTestId('playcanvas-editor-unavailable-surface-alert')).toBeInTheDocument()
+        expect(screen.getByText(expectedMessage)).toBeInTheDocument()
+    })
+
+    it('renders the Russian localized unavailable alert text', async () => {
+        try {
+            await i18n.changeLanguage('ru')
+            renderHostPage()
+            const iframe = await screen.findByTestId('playcanvas-editor-frame')
+
+            act(() => {
+                dispatchArtifactMessage(iframe, { type: 'bridge.surfaceUnavailable', surface: 'codeEditor' })
+            })
+
+            expect(await screen.findByTestId('playcanvas-editor-unavailable-surface-alert')).toBeInTheDocument()
+            expect(screen.getByText('Встроенный редактор кода пока недоступен в проектах Universo.')).toBeInTheDocument()
+        } finally {
+            await i18n.changeLanguage('en')
+        }
+    })
+
+    it('fails closed when the full-boot config omits the page variant descriptors', async () => {
+        vi.mocked(packagesApi.getPlayCanvasEditorCompatibilityConfig).mockImplementation(
+            async (_metahubId, _projectId, _artifactOrigin, _artifactBaseUrl, mode) => {
+                if (mode !== PLAYCANVAS_EDITOR_FULL_BOOT_MODE) return restCompatibilityConfig()
+                const configWithoutPages: Record<string, unknown> = { ...fullBootCompatibilityConfig() }
+                delete configWithoutPages.pages
+                return configWithoutPages as Awaited<ReturnType<typeof packagesApi.getPlayCanvasEditorCompatibilityConfig>>
+            }
+        )
+
+        renderHostPage()
+
+        expect(await screen.findByText('Failed to prepare PlayCanvas Editor.')).toBeInTheDocument()
+        expect(screen.queryByTestId('playcanvas-editor-frame')).not.toBeInTheDocument()
+    })
+
+    it('fails closed before mounting the frame when a page variant descriptor contradicts D4', async () => {
+        vi.mocked(packagesApi.getPlayCanvasEditorCompatibilityConfig).mockImplementation(
+            async (_metahubId, _projectId, _artifactOrigin, _artifactBaseUrl, mode) => {
+                if (mode !== PLAYCANVAS_EDITOR_FULL_BOOT_MODE) return restCompatibilityConfig()
+                const config = fullBootCompatibilityConfig()
+                config.pages = { ...config.pages, codeEditor: { kind: 'fullEditor' } }
+                return config
+            }
+        )
+
+        renderHostPage()
+
+        expect(await screen.findByText('Failed to prepare PlayCanvas Editor.')).toBeInTheDocument()
+        expect(screen.queryByTestId('playcanvas-editor-frame')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('playcanvas-editor-surface-mismatch-alert')).not.toBeInTheDocument()
     })
 })

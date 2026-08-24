@@ -549,7 +549,8 @@
             "unavailableDescription": "Realtime-управление недоступно для этого приложения.",
             "roomFullDescription": "Realtime-комната заполнена. Попробуйте позже.",
             "versionMismatchDescription": "Версия realtime несовместима. Перезагрузите приложение."
-        }
+        },
+        "webglUnavailable": "3D-рендеринг недоступен на этом устройстве или в браузере."
     },
     "guest": {
         "invalidLink": "Публичная гостевая ссылка недействительна.",

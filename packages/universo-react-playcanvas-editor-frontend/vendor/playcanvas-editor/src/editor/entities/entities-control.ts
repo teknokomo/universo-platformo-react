@@ -1,6 +1,6 @@
 import { Menu, Container, Button } from '@playcanvas/pcui';
 
-import { LegacyTooltip } from '@/common/ui/tooltip';
+import { TooltipHandle } from '@/common/tooltips';
 
 editor.once('load', () => {
     const root = editor.call('layout.root');
@@ -35,7 +35,7 @@ editor.once('load', () => {
     });
     controls.append(btnAdd);
 
-    LegacyTooltip.attach({
+    TooltipHandle.attach({
         target: btnAdd.dom,
         text: 'Add Entity',
         align: 'top',
@@ -57,7 +57,7 @@ editor.once('load', () => {
     });
     controls.append(btnDuplicate);
 
-    const tooltipDuplicate = LegacyTooltip.attach({
+    const tooltipDuplicate = TooltipHandle.attach({
         target: btnDuplicate.dom,
         text: 'Duplicate Entity',
         align: 'top',
@@ -80,7 +80,7 @@ editor.once('load', () => {
     });
     controls.append(btnDelete);
 
-    const tooltipDelete = LegacyTooltip.attach({
+    const tooltipDelete = TooltipHandle.attach({
         target: btnDelete.dom,
         text: 'Delete Entity',
         align: 'top',
@@ -99,7 +99,7 @@ editor.once('load', () => {
     });
     controls.append(btnMore);
 
-    LegacyTooltip.attach({
+    TooltipHandle.attach({
         target: btnMore.dom,
         text: 'More Options',
         align: 'top',
@@ -108,31 +108,35 @@ editor.once('load', () => {
 
     const treeView = editor.call('entities:hierarchy');
     const menuMore = new Menu({
-        items: [{
-            text: 'Expand All',
-            icon: 'E386',
-            onSelect: () => {
-                treeView.expandAll();
-            }
-        }, {
-            text: 'Collapse All',
-            icon: 'E385',
-            onSelect: () => {
-                treeView.collapseAll();
-            }
-        }, {
-            text: 'Show All',
-            icon: 'E117',
-            onSelect: () => {
-                const hidden: string[] = editor.call('entities:visibility:getHidden');
-                if (hidden.length) {
-                    editor.call('entities:visibility:set', hidden, false);
+        items: [
+            {
+                text: 'Expand All',
+                icon: 'E386',
+                onSelect: () => {
+                    treeView.expandAll();
                 }
             },
-            onIsEnabled: () => {
-                return editor.call('entities:visibility:getHidden').length > 0;
+            {
+                text: 'Collapse All',
+                icon: 'E385',
+                onSelect: () => {
+                    treeView.collapseAll();
+                }
+            },
+            {
+                text: 'Show All',
+                icon: 'E117',
+                onSelect: () => {
+                    const hidden: string[] = editor.call('entities:visibility:getHidden');
+                    if (hidden.length) {
+                        editor.call('entities:visibility:set', hidden, false);
+                    }
+                },
+                onIsEnabled: () => {
+                    return editor.call('entities:visibility:getHidden').length > 0;
+                }
             }
-        }]
+        ]
     });
     root.append(menuMore);
 

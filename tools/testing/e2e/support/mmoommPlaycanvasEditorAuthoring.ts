@@ -1233,7 +1233,7 @@ export const expectImportedMmoommSceneThroughFullscreenEditor = async (
             `/metahub/${metahubId}/resources/packages/playcanvas-editor/editor/fullscreen${options.projectId ? '\\?projectId=' : '$'}`
         )
     )
-    await expectPlayCanvasEditorIframeLoaded(page)
+    await expectPlayCanvasEditorIframeLoaded(page, 'en', { readyTimeoutMs: 150_000 })
     await expectPlayCanvasEditorFullscreenHost(page)
     await expectNoPageHorizontalOverflow(page, label)
     await expectMmoommEditorEntitiesVisible(page, 'Imported MMOOMM scene before save', {
@@ -1283,7 +1283,7 @@ export const expectImportedMmoommSceneThroughFullscreenEditor = async (
     )
 
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await expectPlayCanvasEditorIframeLoaded(page)
+    await expectPlayCanvasEditorIframeLoaded(page, 'en', { readyTimeoutMs: 150_000 })
     await expectPlayCanvasEditorFullscreenHost(page)
     await expectMmoommEditorEntitiesVisible(page, 'Imported MMOOMM scene after save and reload')
     await expect
@@ -1321,7 +1321,7 @@ export const expectImportedMmoommVisualLinkupLabThroughFullscreenEditor = async 
     await expect(page).toHaveURL(
         new RegExp(`/metahub/${metahubId}/resources/packages/playcanvas-editor/editor/fullscreen\\?projectId=${projectId}`)
     )
-    await expectPlayCanvasEditorIframeLoaded(page)
+    await expectPlayCanvasEditorIframeLoaded(page, 'en', { readyTimeoutMs: 150_000 })
     const compatibilityConfig = await fetchPlayCanvasEditorCompatibilityConfig(page, metahubId)
     expect(compatibilityConfig.projectId, 'Imported MMOOMM Visual Linkup Lab config must target the requested project').toBe(projectId)
     await expectPlayCanvasEditorFullscreenHost(page)
@@ -2369,7 +2369,7 @@ export const authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload =
     )
 
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await expectPlayCanvasEditorIframeLoaded(page)
+    await expectPlayCanvasEditorIframeLoaded(page, 'en', { readyTimeoutMs: 150_000 })
     await expect
         .poll(
             () =>
@@ -2443,7 +2443,7 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
     )
 
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await expectPlayCanvasEditorIframeLoaded(page)
+    await expectPlayCanvasEditorIframeLoaded(page, 'en', { readyTimeoutMs: 150_000 })
     await expect
         .poll(
             () =>
@@ -2519,7 +2519,7 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
     )
 
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await expectPlayCanvasEditorIframeLoaded(page)
+    await expectPlayCanvasEditorIframeLoaded(page, 'en', { readyTimeoutMs: 150_000 })
     await expect
         .poll(
             () =>

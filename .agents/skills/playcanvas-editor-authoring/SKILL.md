@@ -1,6 +1,6 @@
 ---
 name: playcanvas-editor-authoring
-description: Use when planning, implementing, or reviewing work that touches PlayCanvas Editor authoring, the Editor/Engine boundary, vendored upstream artifacts, Editor boot contract, or Editor package routing. Applies to @universo-react/playcanvas-editor-frontend vendoring playcanvas/editor v2.24.2 with playcanvas@2.19.5; does NOT cover playcanvas-engine-runtime (playcanvas@2.18.1) or PlayCanvas Cloud parity.
+description: Use when planning, implementing, or reviewing work that touches PlayCanvas Editor authoring, the Editor/Engine boundary, vendored upstream artifacts, Editor boot contract, or Editor package routing. Applies to @universo-react/playcanvas-editor-frontend vendoring playcanvas/editor v2.24.2 with playcanvas@2.19.5; does NOT cover playcanvas-engine-runtime (playcanvas@2.21.4) or PlayCanvas Cloud parity.
 metadata:
     version: '1.0.0'
     scope: 'playcanvas-editor-authoring'
@@ -13,19 +13,20 @@ Use this skill when dealing with the PlayCanvas Editor integration, package boun
 
 ## Version Guard
 
-- Upstream Editor: `v2.24.2` (vendored at `packages/universo-react-playcanvas-editor-frontend/vendor/`)
-- Editor Engine: `playcanvas@2.19.5` (dependency of upstream editor)
-- Runtime Engine: `playcanvas@2.18.1` (separate, via `@universo-react/playcanvas-engine`)
-- Node requirement: `>=22.22.0` (as defined in `package.playcanvas-editor.json`)
-- Do NOT mix Editor and Engine Skills. They are separate version-guarded stacks.
+-   Upstream Editor: `v2.24.2` (vendored at `packages/universo-react-playcanvas-editor-frontend/vendor/`)
+-   Editor Engine: `playcanvas@2.19.5` (dependency of upstream editor)
+-   Runtime Engine: `playcanvas@2.21.4` (separate, via `@universo-react/playcanvas-engine`)
+-   Node requirement: `>=22.22.0` (as defined in `package.playcanvas-editor.json`)
+-   Do NOT mix Editor and Engine Skills. They are separate version-guarded stacks.
 
 ## Required Output
 
 Before modifying any editor authoring or package layout, state:
-- which package boundaries are affected (frontend, backend, or types);
-- the boot lifecycle phase affected (iframe mounting, config injection, websocket handshake);
-- how upstream dependencies (e.g. `sharedb`, `ot-text`, `pcui`) are impacted;
-- the testing plan to prevent regression in the E2E boot sequence.
+
+-   which package boundaries are affected (frontend, backend, or types);
+-   the boot lifecycle phase affected (iframe mounting, config injection, websocket handshake);
+-   how upstream dependencies (e.g. `sharedb`, `ot-text`, `pcui`) are impacted;
+-   the testing plan to prevent regression in the E2E boot sequence.
 
 ## Workflow
 
@@ -40,7 +41,7 @@ When updating the vendored Editor to a new upstream tag (e.g. `v2.24.x` → `v2.
 
 1. **Confirm the sibling worktree** is at the target tag (`~/dev/pc-editor-v2.24.2` is the one-time manual step OUTSIDE `packages/**` to satisfy `assertBuildScriptsDoNotInstall`). Run `git rev-parse HEAD` and save the peeled SHA.
 2. **Verify the upstream archive and LICENSE** (license year string `Copyright (c) 2011-2026 PlayCanvas Ltd.` and `engines.node >=22.22.0`).
-3. **Capture upstream file inventory** to drive the diff guard. Confirm `_fonts.scss` is byte-identical between the new tag and the previous one (the user's hypothesis about local SASS font changes is *falsified* by research).
+3. **Capture upstream file inventory** to drive the diff guard. Confirm `_fonts.scss` is byte-identical between the new tag and the previous one (the user's hypothesis about local SASS font changes is _falsified_ by research).
 4. **Replace the local vendor tree atomically** using a `.next` rename pattern: stage into `vendor/playcanvas-editor.next`, apply local omissions from `tools/playcanvas-editor-omit-paths.mjs` (the single source of truth for `OMIT_DIRS` and `OMIT_FILES` shared with `tools/check-playcanvas-editor-vendor-drift.mjs`), verify the staged copy contains the required new modules, then `rm -rf` the old tree and `mv` the new one.
 5. **Refresh the manifest** (`vendor/package.playcanvas-editor.json` `version` field) and `vendor/UPSTREAM.md` (tag, commit SHA, snapshot date).
 6. **Bump the 3 in-tree constants** in `src/index.ts` and `scripts/lib/playcanvas-editor-artifact.mjs`. The `nodeRequirement` floor in `assertNodeVersion()` and the `tests/artifact.test.mjs` line 91-96 expectations must stay in lockstep with the upstream `engines.node` (currently `>=22.22.0`).
@@ -55,9 +56,9 @@ The next agent must update the `src/index.ts` constants, the `tools/playcanvas-e
 
 ## Blocking Rules
 
-- Do not import upstream Editor internals into MUI host code.
-- Do not assume PlayCanvas Cloud REST/WS parity.
-- Do not claim multi-user realtime collaboration is implemented.
-- Do not expose authoring storage paths in runtime manifests.
-- Do not let the artifact iframe access host page DOM.
-- Do not issue compatibility tokens without origin binding.
+-   Do not import upstream Editor internals into MUI host code.
+-   Do not assume PlayCanvas Cloud REST/WS parity.
+-   Do not claim multi-user realtime collaboration is implemented.
+-   Do not expose authoring storage paths in runtime manifests.
+-   Do not let the artifact iframe access host page DOM.
+-   Do not issue compatibility tokens without origin binding.

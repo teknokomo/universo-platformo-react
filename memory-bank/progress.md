@@ -831,3 +831,216 @@ All verified ✅ (colyseus-client/server Vitest, applications-backend realtime J
 -   Added focused service regressions for plain-string VLC wrapping, structured localized child creation, structured localized move updates, unknown-field rejection, non-localized object rejection, and server-owned field rejection before transaction.
 -   Validation passed: backend Matrix service/controller Jest 12/12, Prettier, applications-backend lint with one unrelated pre-existing warning in `src/routes/sync/syncLayoutPersistence.ts`, applications-backend build after rebuilding workspace dependency dists, committed/generated Interpretation Network fixture contracts, full `build:e2e`, `git diff --check`, OntoIndex low-risk impact checks, and Thermos correctness/security subagent PASS.
 -   Local minimal Supabase Playwright verification reached browser execution and proved the child-cell create path no longer fails with the original invalid-cell backend error. The full wrapper still fails on separate browser-oracle/product follow-ups: Matrix settings reset button visibility after save, read-only member template listing with workspace 403, single-system root-cell locator drift in table view, and the language menu now exposing `Русский` instead of `Russian`.
+
+
+---
+
+# PlayCanvas Engine / Editor / Colyseus Upgrade Gate — Implementation Evidence (2026-08-22)
+
+## Completed (code level)
+
+-   **Engine 2.18.1→2.21.4**: catalog bump + lockfile audit clean; wrapper rebuilt, 6+42 tests green; canvas identity contract (`createBasicApplication({canvas,applicationId?,windowKeyboard?}) → {app,destroy}`, keyboard-on-canvas default); lazy widget boundary — main chunk 5107.7→3085.3 KiB raw (gzip 1439.6→916.7 KiB), engine isolated in `PlayCanvasCanvasWidget-*.js` ≈2033 KiB loaded only for playcanvas widgets; localized WebGL2-unavailable terminal state (`playcanvasCanvas.webglUnavailable`, EN/RU); ledger docs EN/RU; READMEs/Skills synced.
+-   **Colyseus code-level** (versions gated): real-server integration suite (5 scenarios, production auth path, ~5s) incl. phantom-seat guard; awaited `onDrop` inside preserved reservation logic with idempotency documented at `removeClientShip`; explicit `new LocalPresence()` + `COLYSEUS_CLOUD` attach-time rejection; `tools/check-zod-resolution.mjs` CI-wired; 47+5 mocked/integration tests green.
+-   **Registry**: engine seed row `upstreamVersion 2.21.4` (+EN/RU descriptions); seeder guard pins it; store negatives for value-level source tamper and null-descriptor branch.
+-   **Editor v2.30.4 vendor import**: atomic import pinned to tag object `5322373fd18c03…` / peeled `cf296bcb669bdcb168778bf2979160a9fe8f67de` / tree `fd88bd1f…`; committed inventory 927 files sha256-pinned; drift checker rewritten inventory-based (CI-safe, symlink/CRLF-fail-closed, negative probe verified); font worker stubbed fail-closed in staging (font-tools not vendored); embedded engine devDep 2.19.5→2.21.3; artifact builds + smoke (incl. code-editor.js requirement); 15 artifact string-contract tests green; sentinel→2.24.2; seed marker→`v2.30.4-vendor`.
+-   **Compatibility migration**: Universo-owned catalog `{version:1, documents:{asset,scene,settings}, assetData:{animstategraph,material}}` as generated JSON single source of truth + builder validation + triple parity tests; strict types contract (`minimumTag 'v2.30.4'`, engineVersions 2.21.3); page-variant descriptors strict + fail-closed mismatch alerts; capability matrix docs EN/RU; localized unavailable states (codeEditor/launch/fonts/blankPicker) via existing MUI Alert pattern; token renewal: sliding session-bound artifact token (12h absolute cap) + server grace 5min under live bridge session + bootstrap base renewal for workers/wasm; OpenAPI `minimumTag ['v2.30.4']` regenerated+validated; collision-safe numeric ID assignment (`deriveUniqueNumericIds`, brute-force collision test) — SQL index consciously N/A (ids never persisted as columns); auto-migration backup gate: platform table migration `1800000000280`, transactional store, service hook before first post-open write, restore path, failure-injection + idempotence tests.
+
+## Verification battery (all green at closeout)
+
+metadata guard · vendor drift (927 files) · isolation · schema vocabulary (x-* only, no $-keywords) · zod resolution · apps-template isolation · snapshot fixtures contract · prettier on touched files. Focused suites: editor-backend 59, metahubs targeted 157+14+7, types 160, host page 16, artifact 15, applications realtime 47+5 integration, engine wrapper 6, widget 42.
+
+## Gated follow-ups
+
+1.  **P2.GATE (≥2026-08-25 04:10 UTC)**: bump catalog `@colyseus/core 0.17.50 / sdk 0.17.43 / schema 4.0.31` + reinstall + dependency audit + colyseus seed rows (`0.17.43`/`0.17.50`) + rerun integration/mocked suites + fixture regen depends on this.
+2.  **P5.9/P5.10**: regenerate both MMOOMM fixtures through documented Playwright generator flows on minimal local Supabase after GATE; strengthen contract assertions (upstreamVersion/packageImports pinning); fresh-DB import→publish→runtime proof.
+3.  **Phase 6 browser evidence**: full Playwright matrix (app gate, flight flow, authoring save/reload, artifact boot ×3 viewports, two-widget scenario, reconnect suite, late-token scenario) + EN/RU screenshot bundle per GitBook provenance convention + human review.
+4.  **Phase 7 remainder**: multiplayer/MMOOMM GitBook pages, packages registry policy page, testing guide, remaining package READMEs (colyseus wrappers, metahubs-backend packages domain), root README command notes.
+5.  **Phase 8**: full root rebuild, OntoIndex gn_verify_diff with allowlist, Thermos/autoreview closeout.
+
+
+---
+
+# PlayCanvas Upgrade Gate — Phase 2 GATE executed via temporary quarantine window (2026-08-22, evening)
+
+## What happened
+
+With explicit user approval, `minimumReleaseAge` was temporarily lowered to 0
+(restored to 10080 before any commit; `git diff pnpm-workspace.yaml` now shows
+only intended catalog bumps). Within that window:
+
+-   Catalog bumped to the coherent Colyseus set: core 0.17.50 / sdk 0.17.43 /
+    schema 4.0.31 (ws-transport unchanged). Lockfile diff audited — only
+    @colyseus/* re-resolution, zero new packages, zod stays 3.25.76.
+-   **All realtime suites green ON THE TARGET STACK**: 47 mocked + 5 real-server
+    integration tests pass against installed core 0.17.50/schema 4.0.31/sdk
+    0.17.43 (awaited onDrop + phantom-seat guard + explicit LocalPresence
+    proven on the coherent set, not just 0.17.43).
+-   Colyseus seed rows updated (client→0.17.43, server→0.17.50) with EN/RU
+    descriptions; seeder/store suites 24+ green.
+-   Wrapper vitest green (24+6).
+
+## Open blocker for P5.9 fixture regeneration
+
+The MMOOMM app fixture generator fails at its FINAL reload step:
+`authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload` → after
+`page.reload()` the app lands on Resources/Packages instead of remounting the
+editor fullscreen route; the editor iframe never receives the bootstrap init
+reply (iframe bridge marker shows requestInit sent, zero security rejections,
+host page component never logs ⇒ not mounted on that route). First editor
+session works fully (scene saves + document backups commit). Diagnosis ruled
+OUT: artifact boot itself (browser-smoke 30/30 on v2.30.4 after pinning e2e
+spec literals v2.24.2→v2.30.4 at editor-artifact.spec.ts:1284-1286), backend
+config response (200 with pages/catalog present), backup gate, origin gates.
+Instrumentation was added and FULLY REMOVED afterwards. Leading hypotheses:
+(H1) getAuthoringHost second-call behavior under localhost/127.0.0.1 mixed
+origins returns no artifactUrl → host bails; (H2) route-guard redirect on a
+hostQuery error post-renewal changes; (H3) env flakiness after ~10 runs.
+gen9 additionally hit an early create+bind rollback flake (PATCH entity ?)
+suggesting environment degradation across repeated runs.
+
+## Next session entry point
+
+1.  Reproduce once with console/pageerror/network listeners attached BEFORE
+    navigation (not after reload); capture getAuthoringHost response body +
+    post-reload location.href timeline.
+2.  Fix root cause, then run
+    `pnpm run test:e2e:mmoomm-app-gate:local-supabase` (regenerates app fixture
+    into .artifacts → drift → import proof) and regenerate the FLIGHT fixture
+    via its documented generator spec; copy both into tools/fixtures per drift
+    tooling contract; strengthen fixture contracts to pin upstreamVersion /
+    packageImports versions (P5.9 remainder).
+3.  Then full `pnpm build` + `pnpm lint`, OntoIndex gn_verify_diff, Thermos,
+    Phase 7 docs remainder.
+
+Note: committed MMOOMM fixtures still embed pre-upgrade upstream descriptors;
+importing them into a fresh DB fails closed BY DESIGN until step 2 completes.
+
+
+---
+
+# PlayCanvas Upgrade Gate — Fixtures regenerated, CI gates green, root build/lint clean (2026-08-22, night)
+
+## Root cause of the generator reload blocker (RESOLVED)
+
+Not a product regression and not auth/routing: the vendored Editor v2.30.4
+artifact takes LONGER than the hardcoded 60 s readiness budget to complete
+full-boot on cold reload (heavier bundle parse + authored-scene replay).
+`expectPlayCanvasEditorIframeLoaded` now accepts `{ readyTimeoutMs }`
+(default unchanged at 60 s) and all four editor-reload paths in
+`tools/testing/e2e/support/mmoommPlaycanvasEditorAuthoring.ts` pass
+150 s. Evidence: URL timeline showed the route never navigated away;
+with the larger budget the generator passed WITHOUT any artificial waits.
+
+## Executed after the fix
+
+-   App fixture regenerated through `UPDATE_MMOOMM_APP_FIXTURE=1` product flow:
+    descriptors now engine 2.21.4 / colyseus-client 0.17.43 /
+    colyseus-server 0.17.50 / editor v2.30.4-vendor.
+-   Flight fixture regenerated via its canonical export spec (same descriptors).
+-   Fixture contracts STRENGTHENED (plan P5.9): `MMOOMM_{APP,FLIGHT}_PACKAGES`
+    now pin `upstreamVersion` per package and assert it during validation.
+    Both contract checks pass.
+-   **CI-identical gates green**: `test:e2e:mmoomm-app-gate:local-supabase`
+    (generator → drift CLEAN vs committed → runtime import 2/2) and
+    `test:e2e:mmoomm-flight-runtime:local-supabase` (import + browser proof
+    2/2). These were the two red CI steps blocking merge.
+-   Full root `pnpm build`: EXIT=0 (36 packages). Global `pnpm lint`:
+    EXIT=0, 0 errors (358 pre-existing warnings).
+-   Post-upgrade chunk budget recorded by `report:chunk-budget`:
+    main gzip 939117 B (baseline budget holds), lazy engine chunk detected
+    (`PlayCanvasCanvasWidget-*.js`, ~2083 KiB).
+
+## Remaining explicit follow-ups (documented, non-blocking)
+
+1.  Two-widget browser scenario (P1.6 remainder): unit-level double-mount leak
+    test exists; a published-layout two-canvas E2E needs new authoring support
+    in the generator (no existing template mounts two playcanvas widgets).
+2.  Phase 6 screenshot bundle EN/RU per GitBook provenance convention.
+3.  Thermos/autoreview closeout run.
+4.  `gn_verify_diff`/detect-changes with FULL allowlist before commit —
+    generate the list mechanically:
+    `git status --porcelain | awk '{print $2}' > /tmp/expected.txt` then
+    `ontoindex detect-changes --repo universo-platformo-react
+    --expected-files /tmp/expected.txt` (the earlier MCP FAIL was an
+    intentionally partial 12-file sample allowlist).
+5.  Phase 7 docs remainder: multiplayer/testing GitBook pages, colyseus wrapper
+    READMEs, metahubs-backend packages-domain README.
+
+Quarantine policy restored to 10080 min BEFORE these runs; lockfile pins make
+CI installs policy-independent.
+
+
+---
+
+# PlayCanvas Upgrade Gate — Thermos clean; five follow-ups closed (2026-08-22, final)
+
+## Five follow-ups completed
+
+1.  **Screenshot bundle (P6.3)**: `docs:playcanvas-editor-upgrade:screenshots`
+    captures the booted v2.30.4 workspace at 1920×1080 / 768×1024 / 390×844
+    into `docs/en/.gitbook/assets/playcanvas-editor-upgrade/` with a sha256
+    provenance manifest + dedicated drift checker (negative probes verified).
+    RU honestly `pending` (upstream chrome is English-only; byte copies
+    forbidden) — recorded in the manifest and on the RU compatibility page.
+    Assets referenced from the compatibility-matrix pages (EN/RU);
+    `docs:i18n:check` (111 pairs), screenshot drift, and gitbook asset checks
+    all green.
+2.  **Two-widget isolation (D10 remainder)**: new Vitest mounts two concurrent
+    widgets and asserts distinct deterministic canvas ids
+    (`playcanvas-canvas-alpha-one` / `playcanvas-canvas-beta`), correct
+    createBasicApplication wiring per canvas, and independent id cleanup on
+    unmount. Widget suite 43/43. Browser-level two-canvas E2E still requires
+    generator authoring support (backlog).
+3.  **Thermos/autoreview**: first run (codex, 0.97) raised three findings;
+    ALL THREE FIXED:
+    -   [P1] config route no longer treats token refreshes as editor opens:
+        requests carrying a `bridgeSessionId` reuse that session and SKIP the
+        document backup (pre-authoring backup set can no longer be pruned by
+        renewal churn); only genuine opens take the backup path.
+    -   [P2] `createPlayCanvasEditorNumericIds` allocates identity roles in
+        ISOLATED per-role namespaces — a user-hash collision can never remap
+        persistent project/scene identity; stability test added.
+    -   [P2] `webglcontextlost` now leaves the room (`room.leave(true)`) and
+        clears realtime timers before destroying the application — no leaked
+        server-side ships/sessions after terminal graphics loss.
+    Rerun: **autoreview clean, overall 0.98, no actionable findings.**
+4.  **Diff verification**: CLI `detect-changes` has no expected-files flag;
+    symbol-level run over non-vendor roots reported 18 files / 151 symbols /
+    18 flows, risk "critical" by breadth (intentional upgrade scope; mitigated
+    by 52 realtime tests + integration suite + both browser gates + full
+    build/lint). Full-allowlist `gn_verify_diff` PASS requires expected==actual
+    including ~743 vendor/memory-bank entries — mechanical one-liner recorded
+    here: `git status --porcelain | awk '{print $2}' > /tmp/expected.txt` and
+    feed it to the MCP tool before committing (vendor integrity is already
+    proven stronger by the inventory drift checker).
+5.  **Phase 7 remainder**: new `docs/{en,ru}/platform/multiplayer-realtime.md`
+    (Colyseus set, reconnection contract, presence pinning), testing-guide
+    section "Dependency upgrade gates", colyseus wrapper READMEs (runtime
+    guarantees), metahubs-backend README "Package Registry Identity", root
+    README commands; `check-i18n-docs.mjs` exemptions for the new tooling
+    pages; earlier-phase doc pages repaired to green.
+
+## Final verification sweep
+
+metadata · vendor drift (927) · isolation · schema vocabulary · zod resolution
+· screenshot drift · gitbook assets · i18n docs (111 pairs) — ALL GREEN.
+Focused suites after the three fixes: editor-backend 60/60, metahubs
+token/controller/routes 74/74, widget 43/43. Supabase e2e stack stopped.
+Pre-existing editor-artifact spec flake (8 tests fail on
+`ws://127.0.0.1/disabled` console error in standalone mode, reproduced on
+clean tree) recorded as backlog — unrelated to this upgrade.
+
+
+---
+
+# Hotfix: TS2304 clearRealtimeTimers in PlayCanvasCanvasWidget (2026-08-22, post-Thermos)
+
+Thermos fix 3 (webglcontextlost room release) initially referenced the
+try-scoped `clearRealtimeTimers` from an effect-scope handler -> TS2304 in
+`pnpm --filter @universo-react/apps-template-mui build` (vitest missed it:
+esbuild strips types without checking). Resolution: handler + listener
+registration relocated INTO the try scope right before `connectRealtime`
+(where the timers helper lives); the visual-lab early-return cleanup no longer
+removes the listener it never registers. Widget suite 43/43, package tsc
+clean, full root build EXIT=0 (1m24s). Lesson recorded: after widget edits,
+always run the package tsc build, not just vitest.

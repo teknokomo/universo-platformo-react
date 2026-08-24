@@ -1,7 +1,15 @@
 import { Container } from '@playcanvas/pcui';
 
-import { diffListEl, hashChip, summarizeDiff, userThumbnail } from './vc-helpers';
 import { diffCreate } from '../../messenger/jobs';
+
+import {
+    applyUserThumbnail,
+    DIFF_SLOW_HINT_MS,
+    DIFF_SLOW_HINT_TEXT,
+    diffListEl,
+    hashChip,
+    summarizeDiff
+} from './vc-helpers';
 
 type DiffCache = {
     diff?: any;
@@ -50,7 +58,8 @@ export const createDetailPanel = () => {
         if (!previous) {
             const note = document.createElement('div');
             note.classList.add('vc-meta');
-            note.textContent = 'This is the oldest loaded checkpoint — scroll the history to load older ones for a comparison baseline.';
+            note.textContent =
+                'This is the oldest loaded checkpoint — scroll the history to load older ones for a comparison baseline.';
             card.appendChild(note);
             return card;
         }
@@ -78,16 +87,18 @@ export const createDetailPanel = () => {
                 srcCheckpointId: checkpoint.id,
                 dstBranchId: branchId,
                 dstCheckpointId: previous.id
-            }).then((diff: any) => {
-                const data = diff ?? {};
-                entry.diff = data;
-                entry.summary = summarizeDiff(data);
-                delete entry.promise;
-                return data;
-            }).catch((err) => {
-                delete diffCache[key];
-                return Promise.reject(err);
-            });
+            })
+                .then((diff: any) => {
+                    const data = diff ?? {};
+                    entry.diff = data;
+                    entry.summary = summarizeDiff(data);
+                    delete entry.promise;
+                    return data;
+                })
+                .catch((err) => {
+                    delete diffCache[key];
+                    return Promise.reject(err);
+                });
             diffCache[key] = entry;
             return entry;
         };
@@ -98,6 +109,8 @@ export const createDetailPanel = () => {
         link.classList.add('vc-button');
         link.textContent = 'Open Full Diff';
         link.addEventListener('click', () => {
+            // also fill the inline summary so it shows on return from the full diff (#2098)
+            show();
             const cached = loadDiff();
             panel.emit('openDiff', checkpoint, previous, cached.diff, cached.promise);
         });
@@ -122,29 +135,58 @@ export const createDetailPanel = () => {
             body.appendChild(diffListEl(summary));
         };
 
-        const cached = diffCache[key];
-        if (cached?.summary) {
-            fill(cached.summary);
-        } else {
+        const show = () => {
             body.innerHTML = `<div class="vc-diff-list"><div class="vc-skeleton">${'<div class="skeleton-row"><span class="bone line"></span></div>'.repeat(3)}</div></div>`;
             const pending = loadDiff().promise;
             if (!pending) {
-                return card;
+                const ready = diffCache[key]?.summary;
+                if (ready) {
+                    fill(ready);
+                }
+                return;
             }
-            pending.then(() => {
-                if (token !== renderToken) {
-                    return;
+            // large diffs can hang; reassure that it's still working after a while (#2099)
+            const slowHint = setTimeout(() => {
+                if (token === renderToken && !diffCache[key]?.summary) {
+                    const hint = document.createElement('div');
+                    hint.classList.add('vc-meta', 'vc-slow-hint');
+                    hint.textContent = DIFF_SLOW_HINT_TEXT;
+                    body.appendChild(hint);
                 }
-                const next = diffCache[key]?.summary;
-                if (next) {
-                    fill(next);
-                }
-            }).catch(() => {
-                if (token !== renderToken) {
-                    return;
-                }
-                body.innerHTML = '<div class="vc-meta">Failed to compute changes</div>';
-            });
+            }, DIFF_SLOW_HINT_MS);
+            pending
+                .then(() => {
+                    clearTimeout(slowHint);
+                    if (token !== renderToken) {
+                        return;
+                    }
+                    const next = diffCache[key]?.summary;
+                    if (next) {
+                        fill(next);
+                    }
+                })
+                .catch(() => {
+                    clearTimeout(slowHint);
+                    if (token !== renderToken) {
+                        return;
+                    }
+                    body.innerHTML = '<div class="vc-meta">Failed to compute changes</div>';
+                });
+        };
+
+        const cached = diffCache[key];
+        if (cached?.summary) {
+            fill(cached.summary);
+        } else if (editor.call('settings:projectUser').get('editor.vcAutoLoadDiffs') !== false) {
+            show();
+        } else {
+            // diff is expensive / times out on large projects (#2098): load only on request
+            const showBtn = document.createElement('button');
+            showBtn.type = 'button';
+            showBtn.classList.add('vc-button');
+            showBtn.textContent = 'Show changes';
+            showBtn.addEventListener('click', show);
+            body.appendChild(showBtn);
         }
 
         return card;
@@ -152,7 +194,11 @@ export const createDetailPanel = () => {
 
     Object.assign(panel, {
         clear,
-        render: (checkpoint: any, previous: any, ctx: { branchId: string; isCurrentBranch: boolean; canWrite: boolean }) => {
+        render: (
+            checkpoint: any,
+            previous: any,
+            ctx: { branchId: string; isCurrentBranch: boolean; canWrite: boolean }
+        ) => {
             const token = ++renderToken;
             panel.dom.innerHTML = '';
 
@@ -166,11 +212,7 @@ export const createDetailPanel = () => {
             const avatar = document.createElement('img');
             avatar.classList.add('avatar');
             avatar.alt = '';
-            userThumbnail(checkpoint.user.id, 40).then((src) => {
-                if (src) {
-                    avatar.src = src;
-                }
-            });
+            applyUserThumbnail(avatar, checkpoint.user.id, 40);
             heroInner.appendChild(avatar);
 
             const body = document.createElement('div');
@@ -194,10 +236,15 @@ export const createDetailPanel = () => {
             copy.title = 'Copy checkpoint id';
             copy.setAttribute('aria-label', 'Copy checkpoint id');
             copy.addEventListener('click', () => {
-                navigator.clipboard.writeText(checkpoint.id).then(() => {
-                    copy.classList.add('copied');
-                    setTimeout(() => copy.classList.remove('copied'), 1500);
-                }, () => {});
+                navigator.clipboard.writeText(checkpoint.id).then(
+                    () => {
+                        copy.classList.add('copied');
+                        setTimeout(() => copy.classList.remove('copied'), 1500);
+                    },
+                    () => {
+                        // intentionally empty
+                    }
+                );
             });
             meta.appendChild(copy);
             body.appendChild(meta);
@@ -234,6 +281,10 @@ export const createDetailPanel = () => {
 
     return panel as Container & {
         clear: () => void;
-        render: (checkpoint: any, previous: any, ctx: { branchId: string; isCurrentBranch: boolean; canWrite: boolean }) => void;
+        render: (
+            checkpoint: any,
+            previous: any,
+            ctx: { branchId: string; isCurrentBranch: boolean; canWrite: boolean }
+        ) => void;
     };
 };

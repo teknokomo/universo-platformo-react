@@ -5,6 +5,8 @@ jest.mock('@universo-react/admin-backend', () => ({
     hasSubjectPermission: jest.fn(async () => false)
 }))
 
+const mockServerConstructedOptions: unknown[] = []
+
 jest.mock('@universo-react/colyseus-server', () => ({
     __esModule: true,
     Room: class {
@@ -36,9 +38,17 @@ jest.mock('@universo-react/colyseus-server', () => ({
         }
     },
     Server: class {
+        options: unknown
+        constructor(options: unknown) {
+            this.options = options
+            mockServerConstructedOptions.push(options)
+        }
         define() {
             return { filterBy: jest.fn() }
         }
+    },
+    LocalPresence: class {
+        readonly kind = 'local'
     },
     matchMaker: {
         controller: {
@@ -263,6 +273,23 @@ describe('applications realtime runtime authorization', () => {
             else process.env.UNIVERSO_REALTIME_ROOM_AUTH_SECRET = originalRoomSecret
             if (originalSessionSecret === undefined) delete process.env.SESSION_SECRET
             else process.env.SESSION_SECRET = originalSessionSecret
+        }
+    })
+
+    it('pins an explicit single-process presence and rejects Colyseus Cloud env overrides at attach time', async () => {
+        const server = new EventEmitter() as HttpServer
+        await attachApplicationsRealtimeRuntime(server)
+
+        const lastOptions = mockServerConstructedOptions.at(-1) as { presence?: { kind?: string } } | undefined
+        expect(lastOptions?.presence?.kind).toBe('local')
+
+        const originalCloudFlag = process.env.COLYSEUS_CLOUD
+        try {
+            process.env.COLYSEUS_CLOUD = '1'
+            await expect(attachApplicationsRealtimeRuntime(new EventEmitter() as HttpServer)).rejects.toThrow(/COLYSEUS_CLOUD/)
+        } finally {
+            if (originalCloudFlag === undefined) delete process.env.COLYSEUS_CLOUD
+            else process.env.COLYSEUS_CLOUD = originalCloudFlag
         }
     })
 })

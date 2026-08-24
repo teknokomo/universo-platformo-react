@@ -121,7 +121,22 @@ export const expectPlayCanvasEditorCanvasPainted = async (page: Page, label = 'P
     expectPngScreenshotNonBlank(await canvasHost.screenshot(), label)
 }
 
-export const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en' | 'ru' = 'en') => {
+export interface ExpectPlayCanvasEditorIframeLoadedOptions {
+    /**
+     * Budget for the full-boot readiness predicate. The vendored Editor v2.30.4
+     * artifact parses noticeably more code than v2.24.2 on cold reloads, so flows
+     * that reload an already-authored scene pass a larger budget instead of
+     * relying on the default.
+     */
+    readyTimeoutMs?: number
+}
+
+export const expectPlayCanvasEditorIframeLoaded = async (
+    page: Page,
+    locale: 'en' | 'ru' = 'en',
+    options: ExpectPlayCanvasEditorIframeLoadedOptions = {}
+) => {
+    const readyTimeoutMs = options.readyTimeoutMs ?? 60_000
     const editorIframe = page.locator('iframe[data-testid="playcanvas-editor-frame"]')
     await expect(editorIframe).toBeVisible()
     await expect(editorIframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin')
@@ -198,7 +213,7 @@ export const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en
                         connectionOverlayText: document.querySelector('.connection-overlay')?.textContent?.trim() ?? ''
                     }
                 }),
-            { timeout: 60_000 }
+            { timeout: readyTimeoutMs }
         )
         .toEqual(
             expect.objectContaining({

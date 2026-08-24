@@ -18,10 +18,15 @@ export const MMOOMM_APP_CANONICAL_METAHUB = {
 } as const
 
 export const MMOOMM_APP_PACKAGES = [
-    { packageName: '@universo-react/playcanvas-editor-frontend', version: '0.1.0', target: null },
-    { packageName: '@universo-react/playcanvas-engine', version: '0.1.0', target: 'client' },
-    { packageName: '@universo-react/colyseus-client', version: '0.1.0', target: 'client' },
-    { packageName: '@universo-react/colyseus-server', version: '0.1.0', target: 'server' }
+    {
+        packageName: '@universo-react/playcanvas-editor-frontend',
+        version: '0.1.0',
+        target: null,
+        upstreamVersion: 'v2.30.4-vendor'
+    },
+    { packageName: '@universo-react/playcanvas-engine', version: '0.1.0', target: 'client', upstreamVersion: '2.21.4' },
+    { packageName: '@universo-react/colyseus-client', version: '0.1.0', target: 'client', upstreamVersion: '0.17.43' },
+    { packageName: '@universo-react/colyseus-server', version: '0.1.0', target: 'server', upstreamVersion: '0.17.50' }
 ] as const
 
 const MMOOMM_AUTHORING_PROJECT_NAME = 'MMOOMM Authoring'
@@ -557,10 +562,11 @@ const assertPackage = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>, expe
         const candidate = item as {
             packageName?: string
             version?: string
-            source?: { runtimeTargets?: string[] }
+            source?: { runtimeTargets?: string[]; upstreamVersion?: string }
             config?: Record<string, unknown>
         }
         if (candidate.packageName !== expected.packageName || candidate.version !== expected.version) return false
+        if (candidate.source?.upstreamVersion !== expected.upstreamVersion) return false
         return expected.target === null || candidate.source?.runtimeTargets?.includes(expected.target)
     })
     if (!matched) {

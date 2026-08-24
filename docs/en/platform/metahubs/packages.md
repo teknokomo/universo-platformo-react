@@ -17,7 +17,7 @@ The registry contains built-in workspace wrappers and authoring packages:
 
 The project-local MMOOMM skills under `.agents/skills/` use these wrappers as
 their version source of truth: PlayCanvas Engine guidance targets
-`playcanvas@2.18.1`, Colyseus client guidance targets `@colyseus/sdk@0.17.42`,
+`playcanvas@2.21.4`, Colyseus client guidance targets `@colyseus/sdk@0.17.42`,
 and Colyseus server guidance targets `@colyseus/core@0.17.43`.
 
 ## Resources Tab
