@@ -4,7 +4,7 @@
     "generator": "packages/universo-react-playcanvas-editor-frontend/e2e/editor-artifact.spec.ts",
     "generatorSha256": "2c15cd3d1826ca2a2584f5401395d0cb8d60e6dbe01a98bb49fda775556cfce1",
     "runner": "tools/testing/e2e/support/capturePlayCanvasEditorUpgradeScreenshots.mjs",
-    "generatedAt": "2026-08-23T13:32:48.842Z",
+    "generatedAt": "2026-08-24T15:08:43.153Z",
     "artifact": {
         "upstreamRepository": "https://github.com/playcanvas/editor",
         "upstreamTag": "v2.30.4",
@@ -144,6 +144,110 @@
                 "width": 390,
                 "height": 844
             }
+        },
+        {
+            "id": "packages-registry",
+            "locale": "en",
+            "status": "captured",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/packages-registry.png",
+            "captureType": "release-evidence",
+            "route": "/metahub/{routeId}/resources",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "canvas-runtime",
+            "locale": "en",
+            "status": "captured",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-runtime.png",
+            "captureType": "release-evidence",
+            "route": "/a/{routeId}",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "canvas-webgl2-unavailable",
+            "locale": "en",
+            "status": "captured",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-webgl2-unavailable.png",
+            "captureType": "release-evidence",
+            "route": "/a/{routeId}",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "canvas-loading-skeleton",
+            "locale": "en",
+            "status": "captured",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-loading-skeleton.png",
+            "captureType": "release-evidence",
+            "route": "/a/{routeId}",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "packages-registry",
+            "locale": "ru",
+            "status": "captured",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/packages-registry.png",
+            "captureType": "release-evidence",
+            "route": "/metahub/{routeId}/resources",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "canvas-runtime",
+            "locale": "ru",
+            "status": "captured",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-runtime.png",
+            "captureType": "release-evidence",
+            "route": "/a/{routeId}",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "canvas-webgl2-unavailable",
+            "locale": "ru",
+            "status": "captured",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-webgl2-unavailable.png",
+            "captureType": "release-evidence",
+            "route": "/a/{routeId}",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "canvas-loading-skeleton",
+            "locale": "ru",
+            "status": "captured",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-loading-skeleton.png",
+            "captureType": "release-evidence",
+            "route": "/a/{routeId}",
+            "viewport": {
+                "name": "release-desktop",
+                "width": 1920,
+                "height": 1080
+            }
         }
     ],
     "assets": [
@@ -173,6 +277,96 @@
                 "width": 390,
                 "height": 844
             }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/packages-registry.png",
+            "sha256": "dfe4f77b07caa62b7eaecded732d95815536afb55e2c9e59c4be403285c10e8c",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-runtime.png",
+            "sha256": "d4004b0a15ea9e9da9f1d525e4dc14cbcb641481c286292734b02448f63e36ec",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-webgl2-unavailable.png",
+            "sha256": "330918c6cc9d5483bf550e52b4885a23b917ab86088af04b939704f449c3544a",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-loading-skeleton.png",
+            "sha256": "9b16db5ded848a7bcdbfc1c7d4ec866d024c48e1559d686a50789eb8bb082f79",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/packages-registry.png",
+            "sha256": "142d3feecaa17024392417390e57f3a387c381b90b00fd31abac5995477b8f67",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-runtime.png",
+            "sha256": "246c19403300a0c05c1f04d477840fa113429ab33c59a9ce36bc7478cd1ee00c",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-webgl2-unavailable.png",
+            "sha256": "bc21e818361299ba50ad8279925920b94d174ba84d320cefddd6b490856cb3c9",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/playcanvas-editor-upgrade/release/canvas-loading-skeleton.png",
+            "sha256": "ee4f99eba69092e5ef04970d69e61ab51e3ddc0e2e163a2854bcd76ce1ab841c",
+            "dimensions": {
+                "width": 1920,
+                "height": 1080
+            }
         }
-    ]
+    ],
+    "release": {
+        "runner": "tools/testing/e2e/support/capturePlayCanvasEditorUpgradeReleaseScreenshots.mjs",
+        "generator": "tools/testing/e2e/specs/generators/playcanvas-editor-upgrade-release-screenshots.spec.ts",
+        "generatorSha256": "57ed9bbe1348f3a4961e9f1b1c3287716e373ef6db25251851c9a333b2611213",
+        "generatedAt": "2026-08-24T15:08:43.152Z",
+        "viewport": {
+            "name": "release-desktop",
+            "width": 1920,
+            "height": 1080
+        },
+        "deviceScaleFactor": 1,
+        "notes": [
+            "Release-evidence assets are captured from the real booted platform (metahub packages registry, published MMOOMM application runtime) through the generators Playwright project at a fixed 1920x1080 desktop viewport with deviceScaleFactor 1.",
+            "EN and RU are both captured honestly: the app UI is switched per locale through browser language preferences before each capture pass, so RU frames show genuinely localized chrome.",
+            "The WebGL2-unavailable frames use a fresh browser context whose HTMLCanvasElement.prototype.getContext returns null for \"webgl2\", so the widget renders its localized terminal alert.",
+            "Skipped captures are recorded as pending entries without files on disk; the drift checker fails if a file appears at such a path."
+        ]
+    }
 }

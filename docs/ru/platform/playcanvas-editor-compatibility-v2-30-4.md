@@ -85,3 +85,17 @@ provenance-манифесте до появления локализованно
 ![Рабочее пространство PlayCanvas Editor v2.30.4 на desktop](../../en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-desktop.png)
 ![Рабочее пространство PlayCanvas Editor v2.30.4 на tablet](../../en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-tablet.png)
 ![Рабочее пространство PlayCanvas Editor v2.30.4 на mobile](../../en/.gitbook/assets/playcanvas-editor-upgrade/editor-workspace-mobile.png)
+
+## Кадры релиза
+
+Кадры релиза обновлённого набора пакетов, снятые в фиксированном десктопном
+вьюпорте 1920×1080 на обоих языках (EN и RU) командой
+`docs:playcanvas-editor-upgrade:release-screenshots`: страница «Ресурсы»
+метахаба с четырьмя подключёнными пакетами, опубликованное MMOOMM-приложение
+с отрисованным канвасом runtime, локализованное терминальное состояние при
+недоступном WebGL2 и кадр скелета ленивой загрузки.
+
+![Реестр пакетов с четырьмя подключёнными пакетами](../.gitbook/assets/playcanvas-editor-upgrade/release/packages-registry.png)
+![Канвас runtime опубликованного приложения готов](../.gitbook/assets/playcanvas-editor-upgrade/release/canvas-runtime.png)
+![Локализованное терминальное состояние при недоступном WebGL2](../.gitbook/assets/playcanvas-editor-upgrade/release/canvas-webgl2-unavailable.png)
+![Скелет ленивой загрузки виджета runtime-канваса](../.gitbook/assets/playcanvas-editor-upgrade/release/canvas-loading-skeleton.png)

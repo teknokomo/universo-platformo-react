@@ -197,9 +197,31 @@ const provenance = {
     assets
 }
 
+// Preserve the release-evidence section owned by the sibling release runner so
+// both documented commands can be re-run in any order without dropping entries.
 const provenancePath = path.join(repoRoot, provenanceRelative)
-writeFileSync(provenancePath, `${JSON.stringify(provenance, null, 4)}\n`)
+const isReleasePath = (entryPath) => typeof entryPath === 'string' && entryPath.includes('/playcanvas-editor-upgrade/release/')
+if (existsSync(provenancePath)) {
+    try {
+        const previous = JSON.parse(readFileSync(provenancePath, 'utf8'))
+        if (previous?.release) {
+            const preservedCaptures = (previous.captures ?? []).filter((entry) => isReleasePath(entry.path))
+            const preservedAssets = (previous.assets ?? []).filter((entry) => isReleasePath(entry.path))
+            if (preservedCaptures.length > 0 || preservedAssets.length > 0) {
+                provenance.release = previous.release
+                provenance.notes.push(
+                    'Release-evidence captures under release/ are owned by docs:playcanvas-editor-upgrade:release-screenshots and were preserved from the previous manifest.'
+                )
+                provenance.captures.push(...preservedCaptures)
+                provenance.assets.push(...preservedAssets)
+            }
+        }
+    } catch {
+        // A malformed previous manifest must not break the editor capture; the drift checker will report it.
+    }
+}
 
+writeFileSync(provenancePath, `${JSON.stringify(provenance, null, 4)}\n`)
 console.log(`Captured ${assets.length} EN assets into ${assetDirRelative}.`)
 console.log(`Provenance manifest written to ${provenanceRelative}.`)
 console.log('RU variants recorded as pending (see manifest notes).')
