@@ -680,4 +680,14 @@ export class Duplicate extends Script {
 
         expect(second).toEqual(first)
     })
+
+    it('canonicalizes esbuild stdin source comments before hashing', async () => {
+        const artifact = await compileScriptAssetEsm({
+            sourceCode: validScriptSource,
+            diagnosticFileName: 'flightControl.mjs'
+        })
+
+        expect(artifact.code).toContain('// __universo_script_asset__/flightControl.mjs')
+        expect(artifact.code).not.toMatch(/^\/\/ (?:\.\.\/)+__universo_script_asset__\//m)
+    })
 })

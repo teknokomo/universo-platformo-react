@@ -1143,6 +1143,16 @@ export interface ScriptAssetEsmCompilationInput {
 
 const SCRIPT_ASSET_ISOLATED_RESOLVE_DIR = '/__universo_script_asset__'
 
+// Esbuild emits a source comment for stdin inputs. The parent-directory prefix
+// is derived from its temporary output location and therefore differs between
+// local and CI builds, even when the bundled module bytes are otherwise equal.
+// Keep the useful virtual source marker while removing that environment detail
+// before the artifact is hashed and persisted.
+const SCRIPT_ASSET_SOURCE_COMMENT_PATTERN = /^\/\/ (?:\.\.\/)*__universo_script_asset__\/([^\r\n]+)$/gm
+
+const canonicalizeScriptAssetSourceComments = (code: string): string =>
+    code.replace(SCRIPT_ASSET_SOURCE_COMMENT_PATTERN, '// __universo_script_asset__/$1')
+
 const hasModifier = (node: ts.Node, kind: ts.SyntaxKind): boolean =>
     Boolean(ts.getModifiers(node)?.some((modifier) => modifier.kind === kind))
 
@@ -1317,11 +1327,13 @@ export const compileScriptAssetEsm = async (input: ScriptAssetEsmCompilationInpu
         }
     })
 
-    const code = result.outputFiles?.[0]?.text
+    const output = result.outputFiles?.[0]?.text
 
-    if (!code) {
+    if (!output) {
         throw new Error('esbuild did not return a bundled script asset output file')
     }
+
+    const code = canonicalizeScriptAssetSourceComments(output)
 
     parse(code, {
         ecmaVersion: 'latest',
