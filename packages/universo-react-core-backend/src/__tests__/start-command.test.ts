@@ -8,7 +8,7 @@ jest.mock('@universo-react/database', () => ({
 }))
 
 import Start from '../commands/start'
-import { BaseCommand } from '../commands/base'
+import { BaseCommand } from '../commands/baseCommand'
 
 describe('Start command', () => {
     it('does not define its own flags (inherits from BaseCommand)', () => {
