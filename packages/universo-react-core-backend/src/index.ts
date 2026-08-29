@@ -11,7 +11,7 @@ import rateLimit from 'express-rate-limit'
 const cookieParser = require('cookie-parser')
 import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
-import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins } from './utils/XSS'
+import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins, allowPrivateNetworkAccess } from './utils/XSS'
 import apiV1Router, { configureApiRouteCsrfProtection } from './routes'
 import {
     passport,
@@ -188,6 +188,60 @@ export const buildPlayCanvasEditorHostCsp = (frameAncestors: string, requestOrig
 export const isPlayCanvasEditorHostRoute = (req: Request): boolean => {
     const routePath = req.path || req.url.split('?')[0] || ''
     return PLAYCANVAS_EDITOR_HOST_ROUTE_PATTERN.test(routePath)
+}
+
+/**
+ * Return true when an unhandled request is a browser document navigation.
+ *
+ * Static assets must never be answered with the SPA shell: a stale manifest
+ * can otherwise turn a missing JavaScript or CSS file into a successful
+ * `text/html` response (or a transient 500 while a build is being replaced),
+ * leaving the browser with a blank page and an opaque module error.
+ */
+export const isUiDocumentRequest = (req: Pick<Request, 'method' | 'path' | 'headers'>): boolean => {
+    const method = req.method.toUpperCase()
+    if (method !== 'GET' && method !== 'HEAD') return false
+    if (path.extname(req.path) !== '') return false
+
+    const acceptHeader = req.headers.accept
+    if (typeof acceptHeader !== 'string') return acceptHeader === undefined
+
+    return acceptHeader.split(',').some((entry) => {
+        const [mediaType, ...parameters] = entry.trim().toLowerCase().split(';')
+        if (mediaType !== 'text/html') return false
+
+        const qualityParameter = parameters.find((parameter) => parameter.trim().startsWith('q='))
+        if (!qualityParameter) return true
+
+        const quality = Number(qualityParameter.trim().slice(2))
+        return Number.isFinite(quality) && quality > 0
+    })
+}
+
+/** Register the production UI files and a strict SPA document fallback. */
+export const configureUiStaticFiles = (app: express.Application, uiBuildPath: string, uiHtmlPath: string): void => {
+    app.use(
+        '/',
+        express.static(uiBuildPath, {
+            setHeaders: (res, filePath) => {
+                if (path.basename(filePath) === 'index.html') {
+                    res.setHeader('Cache-Control', 'no-store')
+                }
+            }
+        })
+    )
+
+    app.use((req: Request, res: Response, next: NextFunction) => {
+        if (!isUiDocumentRequest(req)) {
+            res.status(404).end()
+            return
+        }
+
+        res.setHeader('Cache-Control', 'no-store')
+        res.sendFile(uiHtmlPath, (error) => {
+            if (error) next(error)
+        })
+    })
 }
 
 interface SessionTokens {
@@ -409,6 +463,12 @@ export class App {
                 ? createSupabaseAdminClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY)
                 : undefined
 
+        // Chromium Private Network Access requires an explicit opt-in on the
+        // preflight before the regular CORS middleware can reflect an allowed
+        // origin. This is needed by the sandboxed PlayCanvas artifact when the
+        // development UI uses localhost and the API listens on 127.0.0.1.
+        this.app.use(allowPrivateNetworkAccess)
+
         // Allow access from specified domains
         this.app.use(cors(getCorsOptions()))
 
@@ -528,7 +588,10 @@ export class App {
         await initializeApplicationsRateLimiters()
         await initializeStartRateLimiters()
 
-        // Mount API v1 routes (CSRF protection applied globally — skips GET/HEAD/OPTIONS)
+        // Mount API v1 routes with CSRF protection applied globally. The middleware
+        // still validates every ordinary mutation; the narrowly scoped Editor
+        // compatibility defer requires both signed-editor and CSRF headers, after
+        // which the compatibility route guard validates the origin-bound proof.
         this.app.use('/api/v1', csrfProtection, apiV1Router)
 
         if (this.realtimeMatchmakeMiddleware) {
@@ -546,12 +609,7 @@ export class App {
         const uiBuildPath = path.join(packagePath, 'build')
         const uiHtmlPath = path.join(packagePath, 'build', 'index.html')
 
-        this.app.use('/', express.static(uiBuildPath))
-
-        // All other requests not handled will return React app (SPA fallback)
-        this.app.use((req: Request, res: Response) => {
-            res.sendFile(uiHtmlPath)
-        })
+        configureUiStaticFiles(this.app, uiBuildPath, uiHtmlPath)
 
         // Error handling
         this.app.use(errorHandlerMiddleware)

@@ -1,5 +1,5 @@
-import { Router, type Request, type Response, type RequestHandler } from 'express'
-import { randomUUID } from 'node:crypto'
+import { Router, type NextFunction, type Request, type Response, type RequestHandler } from 'express'
+import Busboy from 'busboy'
 import type {
     PlayCanvasEditorCompatibilityNoOpResponse,
     PlayCanvasEditorCompatibilityProtocolDescriptor,
@@ -10,39 +10,29 @@ import type {
     PlayCanvasEditorCompatibilitySourceFileDocument,
     PlayCanvasEditorCompatibilitySourceFileSummary
 } from '@universo-react/types'
+import { PLAYCANVAS_PROJECT_FILE_MAX_BYTES, isBoundedPlayCanvasEditorJsonValue } from '@universo-react/types'
+import { generateUuidV7 } from '@universo-react/utils'
 import { PlayCanvasEditorCompatibilityTokenService } from '../tokens/index.js'
+
 import {
     PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE,
     PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
-    playCanvasEditorCompatibilityParamsSchema,
-    playCanvasEditorCompatibilitySceneParamsSchema,
-    playCanvasEditorCompatibilitySceneSaveRequestSchema,
-    playCanvasEditorCompatibilitySceneSummarySchema,
-    playCanvasEditorCompatibilityAssetSummarySchema,
-    playCanvasEditorCompatibilitySourceFileDeleteRequestSchema,
-    playCanvasEditorCompatibilitySourceFileDocumentSchema,
-    playCanvasEditorCompatibilitySourceFileParamsSchema,
-    playCanvasEditorCompatibilitySourceFileSummarySchema,
-    playCanvasEditorCompatibilitySourceFileWriteRequestSchema,
-    playCanvasEditorCompatibilitySettingsParamsSchema,
-    playCanvasEditorCompatibilitySettingsWriteRequestSchema,
     playCanvasEditorCompatibilityCloudSurfaceSchema,
     playCanvasEditorCompatibilityNoOpResponseSchema
 } from '@universo-react/types'
+import { resolvePlatformApiOrigin, resolveRequestOrigin } from '../middleware/index.js'
+
 import {
-    resolvePlatformApiOrigin,
-    resolveRequestOrigin,
-    normalizeOrigin,
-    isAllowedArtifactOrigin,
-    isAllowedFullBootArtifactOrigin
-} from '../middleware/index.js'
-import {
-    normalizeArtifactBaseUrl,
-    createPlayCanvasEditorFullBootConfig,
-    createPlayCanvasEditorCompatibilityConfig,
-    getLocalizedName
-} from '../config/index.js'
-import { resolveCompatibilityToken, validateCompatibilityToken, validateFullBootClaims } from '../tokens/index.js'
+    parseCanonicalPlayCanvasEditorDocumentId,
+    resolveCompatibilityToken,
+    validateCompatibilityToken,
+    validateFullBootClaims,
+    validateCompatibilityCsrfToken
+} from '../tokens/index.js'
+import { registerPlayCanvasProjectRoutes } from './projectRoutes.js'
+import { registerPlayCanvasAssetRoutes } from './assetRoutes.js'
+import { registerPlayCanvasSourceFileRoutes } from './sourceFileRoutes.js'
+import { registerPlayCanvasSettingsRoutes } from './settingsRoutes.js'
 
 export const validateParams = <T>(
     schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } },
@@ -51,6 +41,178 @@ export const validateParams = <T>(
     const parsed = schema.safeParse(value)
     return parsed.success ? parsed.data : null
 }
+
+type CompatibilityRequestUser = {
+    id?: unknown
+    sub?: unknown
+    user_id?: unknown
+    userId?: unknown
+}
+
+const readCompatibilityUserId = (value: unknown): string | null => {
+    if (!value || typeof value !== 'object') return null
+    const user = value as CompatibilityRequestUser
+    for (const candidate of [user.id, user.sub, user.user_id, user.userId]) {
+        if (typeof candidate === 'string' && candidate.length > 0) return candidate
+    }
+    return null
+}
+
+/**
+ * Resolves the identity authenticated by the browser session, not merely the
+ * current bearer/request user. A request may carry an explicit Authorization
+ * header for another account while still presenting a CSRF token from its
+ * session cookie; Passport's serialized identity is the authoritative binding
+ * in that case. Test/embedded hosts without express-session retain the
+ * request-user fallback used by the existing route contract.
+ */
+const resolveSessionUserId = (req: Request): string | null => {
+    const session = (req as Request & { session?: { passport?: { user?: unknown } } }).session
+    if (session) return readCompatibilityUserId(session.passport?.user)
+    return readCompatibilityUserId((req as Request & { user?: unknown }).user)
+}
+
+/**
+ * Write guard for Editor compatibility routes. A write must carry a valid
+ * compatibility token (HMAC-signed, expiry-checked, origin-bound) and either
+ * the refreshed session CSRF pair or the short-lived, separately signed
+ * compatibility CSRF proof issued in the REST config. The editor token alone
+ * is never accepted as a CSRF proof.
+ */
+export const createEditorCompatibilityWriteGuard = (
+    deps: Pick<PlayCanvasEditorCompatibilityRouteDeps, 'tokenService' | 'csrfProtection'>
+): RequestHandler =>
+    function editorCompatibilityWriteGuard(req: Request, res: Response, next: NextFunction) {
+        const metahubId = typeof req.params.metahubId === 'string' ? req.params.metahubId : ''
+        const projectId = typeof req.params.projectId === 'string' ? req.params.projectId : ''
+        const token = resolveCompatibilityToken(req)
+        const requestOrigin = resolveRequestOrigin(req) ?? resolvePlatformApiOrigin(req)
+        let validatedTokenUserId: string | null = null
+        if (metahubId && projectId && token) {
+            const readClaims = deps.tokenService.read(token)
+            const claims =
+                readClaims?.mode === PLAYCANVAS_EDITOR_FULL_BOOT_MODE
+                    ? validateFullBootClaims(deps.tokenService, token, {
+                          metahubId,
+                          projectId,
+                          origin: requestOrigin
+                      })
+                    : null
+            if (readClaims && !claims && readClaims.mode === PLAYCANVAS_EDITOR_FULL_BOOT_MODE) {
+                // A present but invalid editor token fails closed. Do not fall
+                // back to a session-only write because the vendored Editor has
+                // already selected the compatibility surface.
+                console.warn('[PlayCanvasEditorCompatibility] asset write rejected: invalid editor token', {
+                    metahubId,
+                    projectId,
+                    path: req.path,
+                    requestOrigin,
+                    readFailed: readClaims === null,
+                    now: new Date().toISOString()
+                })
+                return sendUnauthorized(res)
+            }
+
+            // A sandboxed artifact has a distinct host and therefore cannot
+            // send the platform's host-only session cookie. Accept only the
+            // separate compatibility proof bound to this exact full-boot
+            // token and artifact origin; a bare editor token is insufficient.
+            const fullBootCompatibilityCsrfValid =
+                claims !== null &&
+                validateCompatibilityCsrfToken(req.get('x-csrf-token'), {
+                    metahubId,
+                    projectId,
+                    userId: claims.userId,
+                    accessToken: token,
+                    origin: requestOrigin
+                })
+            if (fullBootCompatibilityCsrfValid) {
+                return next()
+            }
+
+            if (claims) validatedTokenUserId = claims.userId
+
+            if (readClaims === null) return sendUnauthorized(res)
+
+            if (readClaims.mode === PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE) {
+                // REST tokens are origin-bound as well. Validate the claim
+                // before handing control to the platform CSRF middleware;
+                // otherwise an origin-mismatched editor header could be
+                // mistaken for a session-backed request.
+                const compatibilityClaims = validateCompatibilityToken(req, deps.tokenService, {
+                    metahubId,
+                    projectId,
+                    userId: readClaims.userId
+                })
+                if (!compatibilityClaims) return sendUnauthorized(res)
+                validatedTokenUserId = compatibilityClaims.userId
+            } else if (readClaims.mode !== PLAYCANVAS_EDITOR_FULL_BOOT_MODE) {
+                return sendUnauthorized(res)
+            }
+
+            // A compatibility header selects the editor write surface. If its
+            // signed token is malformed, expired, origin-mismatched, or uses
+            // an unsupported mode, never fall back to a session-only write.
+            // This also rejects pre-origin REST tokens before the core CSRF
+            // middleware can treat the header as a compatibility exemption.
+        }
+
+        // REST compatibility writes may also use the signed proof. Resolve the
+        // token user from its claims, then require the token's own origin and
+        // project/user binding before bypassing the session middleware.
+        if (metahubId && projectId && token && requestOrigin) {
+            const readClaims = deps.tokenService.read(token)
+            const compatibilityClaims = readClaims
+                ? validateCompatibilityToken(req, deps.tokenService, {
+                      metahubId,
+                      projectId,
+                      userId: readClaims.userId
+                  })
+                : null
+            if (
+                compatibilityClaims &&
+                validateCompatibilityCsrfToken(req.get('x-csrf-token'), {
+                    metahubId,
+                    projectId,
+                    userId: compatibilityClaims.userId,
+                    accessToken: token,
+                    origin: requestOrigin
+                })
+            ) {
+                return next()
+            }
+        }
+
+        // If a signed editor token is present but its separate compatibility
+        // proof is missing/invalid, the only remaining path is the platform's
+        // session-backed CSRF check. Bind both credentials to the same user;
+        // otherwise a bearer token for user A could be combined with a valid
+        // CSRF cookie/session for user B (or vice versa).
+        if (validatedTokenUserId !== null && resolveSessionUserId(req) !== validatedTokenUserId) {
+            return sendUnauthorized(res)
+        }
+
+        // Preserve the platform session-backed CSRF contract for same-origin
+        // callers. The global CSRF middleware has already seen the editor
+        // header and intentionally deferred this narrowly scoped request when
+        // a CSRF header was present. Hide that header for the second check so
+        // an invalid compatibility proof cannot trigger the same bypass again;
+        // the platform middleware must verify the session-backed token here.
+        // Use a shallow request facade instead of mutating the live Express
+        // request: the middleware may call `next()` synchronously, and the
+        // downstream route must still validate the original editor token.
+        const csrfRequest = Object.create(req) as Request
+        csrfRequest.headers = { ...req.headers }
+        for (const key of Object.keys(csrfRequest.headers)) {
+            if (key.toLowerCase() === 'x-playcanvas-editor-token') delete csrfRequest.headers[key]
+        }
+        const originalGet = req.get.bind(req)
+        csrfRequest.get = (name: string) => {
+            if (name.toLowerCase() === 'x-playcanvas-editor-token') return undefined
+            return originalGet(name)
+        }
+        return deps.csrfProtection(csrfRequest, res, next)
+    }
 
 export const sendInvalid = (res: Response, requestId?: string) =>
     res.status(400).json({
@@ -95,7 +257,7 @@ const normalizeSourceFilePath = (value: string): string => value.replace(/\\/g, 
 
 const sourceFileBasename = (value: string): string => normalizeSourceFilePath(value).split('/').filter(Boolean).pop() ?? value
 
-const findMatchingSourceFile = (
+export const findMatchingSourceFile = (
     sourceFiles: PlayCanvasEditorCompatibilitySourceFileSummary[],
     filename: string
 ): PlayCanvasEditorCompatibilitySourceFileSummary | undefined => {
@@ -114,20 +276,155 @@ const findMatchingSourceFile = (
     return basenameMatches.length === 1 ? basenameMatches[0] : undefined
 }
 
-const sourceFileDeleteRequestId = (req: Request): string => {
+export const sourceFileDeleteRequestId = (req: Request): string => {
     const bodyRequestId = typeof req.body?.requestId === 'string' ? req.body.requestId.trim() : ''
     if (bodyRequestId) return bodyRequestId
     const queryRequestId = typeof req.query.requestId === 'string' ? req.query.requestId.trim() : ''
     if (queryRequestId) return queryRequestId
     const headerRequestId = typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'].trim() : ''
-    return headerRequestId || randomUUID()
+    return headerRequestId || generateUuidV7()
 }
 
-const wrapAsync =
+export const wrapAsync =
     (handler: RequestHandler): RequestHandler =>
     (req, res, next) => {
         Promise.resolve(handler(req, res, next)).catch(next)
     }
+
+export interface ParsedEditorAssetUpload {
+    fields: Record<string, string>
+    file: { buffer: Buffer; filename: string } | null
+}
+
+const unsafeMultipartKeys = new Set(['__proto__', 'prototype', 'constructor'])
+// These fields are transport metadata added by the upstream editor upload
+// helper. They identify the project/branch or source asset already represented
+// by the compatibility URL and must not be forwarded into the strict domain
+// create schema.
+const editorAssetTransportKeys = new Set(['branchId', 'projectId', 'source_asset_id'])
+
+const parseMultipartJsonRecord = (value: string): Record<string, unknown> | null => {
+    try {
+        const parsed: unknown = JSON.parse(value)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !isBoundedPlayCanvasEditorJsonValue(parsed)) return null
+        return parsed as Record<string, unknown>
+    } catch {
+        return null
+    }
+}
+
+/** Converts Busboy string fields into the typed upstream asset-create shape. */
+export const normalizeEditorAssetCreateFields = (fields: Record<string, string>): Record<string, unknown> | null => {
+    const normalized: Record<string, unknown> = Object.create(null) as Record<string, unknown>
+    for (const [key, value] of Object.entries(fields)) {
+        if (unsafeMultipartKeys.has(key)) return null
+        if (editorAssetTransportKeys.has(key)) continue
+        if (key === 'parent') {
+            const parent = parseCanonicalPlayCanvasEditorDocumentId(value)
+            if (parent === null) return null
+            normalized[key] = parent
+            continue
+        }
+        if (key === 'data' || key === 'meta') {
+            const record = parseMultipartJsonRecord(value)
+            if (!record) return null
+            normalized[key] = record
+            continue
+        }
+        normalized[key] = value
+    }
+    return normalized
+}
+
+export const normalizeEditorAssetUpdateFields = (fields: Record<string, string>): { name?: string; parent?: number } | null => {
+    const normalized: { name?: string; parent?: number } = {}
+    for (const [key, value] of Object.entries(fields)) {
+        if (unsafeMultipartKeys.has(key)) return null
+        if (editorAssetTransportKeys.has(key)) continue
+        if (key === 'name') {
+            if (!value.trim() || value.length > 255) return null
+            normalized.name = value
+            continue
+        }
+        if (key === 'parent') {
+            const parent = parseCanonicalPlayCanvasEditorDocumentId(value)
+            if (parent === null) return null
+            normalized.parent = parent
+            continue
+        }
+        return null
+    }
+    return Object.keys(normalized).length > 0 ? normalized : null
+}
+
+/**
+ * Streams a single multipart/form-data body (the vendored editor asset upload)
+ * through busboy with hard limits: exactly one file, bounded field sizes, and the
+ * platform file-size cap. Rejects (never truncates) on any limit breach.
+ */
+export const parseEditorAssetUpload = (req: Request): Promise<ParsedEditorAssetUpload> =>
+    new Promise((resolve, reject) => {
+        let busboy: Busboy.Busboy
+        try {
+            busboy = Busboy({
+                headers: req.headers,
+                limits: { fileSize: PLAYCANVAS_PROJECT_FILE_MAX_BYTES, files: 1, fields: 24, parts: 25, fieldSize: 64 * 1024 }
+            })
+        } catch (error) {
+            reject(error)
+            return
+        }
+        const fields: Record<string, string> = {}
+        let file: { buffer: Buffer; filename: string } | null = null
+        let settled = false
+        const finish = (error?: Error): void => {
+            if (settled) return
+            settled = true
+            if (error) {
+                req.unpipe(busboy)
+                req.resume()
+                reject(error)
+                return
+            }
+            resolve({ fields, file })
+        }
+        busboy.on('field', (name, value, info) => {
+            if (
+                info.nameTruncated ||
+                info.valueTruncated ||
+                unsafeMultipartKeys.has(name) ||
+                Object.prototype.hasOwnProperty.call(fields, name)
+            ) {
+                finish(new Error('playcanvasEditor.compatibility.invalidMultipartField'))
+                return
+            }
+            fields[name] = value
+        })
+        busboy.on('file', (_name, stream, info) => {
+            if (file) {
+                stream.resume()
+                finish(new Error('playcanvasEditor.compatibility.multipleFiles'))
+                return
+            }
+            if (!info.filename || info.filename.length > 255) {
+                stream.resume()
+                finish(new Error('playcanvasEditor.compatibility.invalidFilename'))
+                return
+            }
+            const chunks: Buffer[] = []
+            stream.on('data', (chunk: Buffer) => chunks.push(chunk))
+            stream.on('limit', () => finish(new Error('playcanvasEditor.compatibility.fileTooLarge')))
+            stream.on('end', () => {
+                file = { buffer: Buffer.concat(chunks), filename: info.filename }
+            })
+        })
+        busboy.on('filesLimit', () => finish(new Error('playcanvasEditor.compatibility.multipleFiles')))
+        busboy.on('fieldsLimit', () => finish(new Error('playcanvasEditor.compatibility.tooManyFields')))
+        busboy.on('partsLimit', () => finish(new Error('playcanvasEditor.compatibility.tooManyParts')))
+        busboy.on('error', () => finish(new Error('playcanvasEditor.compatibility.multipartError')))
+        busboy.on('finish', () => finish())
+        req.pipe(busboy)
+    })
 
 export interface PlayCanvasEditorCompatibilityContext {
     req: Request
@@ -172,6 +469,39 @@ export interface PlayCanvasEditorCompatibilityProjectPort {
         expectedCurrentChecksum?: string | null
     }): Promise<{ scene: PlayCanvasScene; payload: PlayCanvasEditorScenePayload | null; checksum: string | null }>
     listAssets(input: { metahubId: string; projectId: string; userId: string; sceneId?: string | null }): Promise<unknown[]>
+    readAsset?(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+        documentId: number
+        sceneId?: string | null
+    }): Promise<Record<string, unknown> | null>
+    createAsset?(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+        fields: Record<string, unknown>
+        file: { buffer: Buffer; filename: string } | null
+    }): Promise<{ id: number; name: string; type: string; createdAt: string }>
+    updateAsset?(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+        documentId: number
+        fields: { name?: string; parent?: number }
+    }): Promise<{ id: number; name: string; type: string; filename?: string }>
+    deleteAssets?(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+        documentIds: readonly number[]
+    }): Promise<{ deletedDocumentIds: number[] }>
+    readAssetFile?(input: {
+        metahubId: string
+        projectId: string
+        userId: string
+        assetId: string
+    }): Promise<{ content: Buffer; mime: string | null; hash: string | null; filename: string } | null>
     listSourceFiles?(input: {
         metahubId: string
         projectId: string
@@ -225,6 +555,20 @@ export interface PlayCanvasEditorCompatibilityProjectPort {
         sessionId: string
         assetDocumentIds?: number[]
     }): Promise<void>
+    /**
+     * Validates a bridge session before a full-boot token refresh is allowed to
+     * reuse its backup scope. The callback must check the signed/durable
+     * session binding (metahub, project, user, scene, and origin); an omitted
+     * callback deliberately fails closed for every supplied session id.
+     */
+    validateBridgeSession?(input: {
+        metahubId: string
+        projectId: string
+        sceneId: string
+        userId: string
+        sessionId: string
+        origin: string
+    }): Promise<boolean> | boolean
 }
 
 export interface PlayCanvasEditorCompatibilityRouteDeps {
@@ -234,6 +578,19 @@ export interface PlayCanvasEditorCompatibilityRouteDeps {
     readLimiter: RequestHandler
     writeLimiter: RequestHandler
     csrfProtection: RequestHandler
+    /**
+     * Server-side binding check for full-boot token refreshes. A supplied
+     * bridgeSessionId is accepted only when it belongs to the same user,
+     * project, scene and origin; otherwise the route runs no renewal path.
+     */
+    validateBridgeSession?: (input: {
+        metahubId: string
+        projectId: string
+        sceneId: string
+        userId: string
+        sessionId: string
+        origin: string
+    }) => Promise<boolean> | boolean
     // Optional platform-provided issuer for sliding session-bound editor
     // artifact tokens. It must fail closed: returning null simply omits the
     // artifactToken field so clients fall back to their reload flow.
@@ -247,665 +604,20 @@ export interface PlayCanvasEditorCompatibilityRouteDeps {
 
 export const createPlayCanvasEditorCompatibilityRoutes = (deps: PlayCanvasEditorCompatibilityRouteDeps): Router => {
     const router = Router({ mergeParams: true })
+    const editorCompatibilityWriteGuard = createEditorCompatibilityWriteGuard(deps)
 
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
-                        metahubId,
-                        projectId: req.params.projectId
-                    })
-                    if (!params || req.params.cloudProjectId !== params.projectId) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    await projectPort.resolveProject({ metahubId, projectId: params.projectId, userId })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ current: 'directory', directory: 'directory' })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
+    registerPlayCanvasProjectRoutes(router, deps, editorCompatibilityWriteGuard)
+    registerPlayCanvasAssetRoutes(router, deps, editorCompatibilityWriteGuard)
+    registerPlayCanvasSourceFileRoutes(router, deps, editorCompatibilityWriteGuard)
+    registerPlayCanvasSettingsRoutes(router, deps, editorCompatibilityWriteGuard)
 
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories/:repoService/sourcefiles',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
-                        metahubId,
-                        projectId: req.params.projectId
-                    })
-                    if (!params || req.params.cloudProjectId !== params.projectId || req.params.repoService !== 'directory') {
-                        return sendInvalid(res)
-                    }
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    if (!projectPort.listSourceFiles) {
-                        return sendUnsupported(res)
-                    }
-                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({
-                        result: sourceFiles.map((sourceFile) => ({
-                            filename: sourceFile.filename ?? sourceFile.name ?? sourceFile.path.split('/').pop()
-                        }))
-                    })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories/:repoService/sourcefiles/*',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
-                        metahubId,
-                        projectId: req.params.projectId
-                    })
-                    if (!params || req.params.cloudProjectId !== params.projectId || req.params.repoService !== 'directory') {
-                        return sendInvalid(res)
-                    }
-                    const filename = String(req.params[0] ?? '').trim()
-                    if (!filename) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    if (!projectPort.listSourceFiles || !projectPort.readSourceFile) {
-                        return sendUnsupported(res)
-                    }
-                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
-                    const matched = findMatchingSourceFile(sourceFiles, filename)
-                    if (!matched) {
-                        return sendNotFound(res)
-                    }
-                    const item = await projectPort.readSourceFile({
-                        metahubId,
-                        projectId: params.projectId,
-                        sourceFileId: matched.id,
-                        userId
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    res.type(item.mime ?? 'text/javascript')
-                    return res.send(item.content)
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.delete(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/projects/:cloudProjectId/repositories/:repoService/sourcefiles/*',
-        deps.csrfProtection,
-        deps.writeLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
-                        metahubId,
-                        projectId: req.params.projectId
-                    })
-                    if (!params || req.params.cloudProjectId !== params.projectId || req.params.repoService !== 'directory') {
-                        return sendInvalid(res)
-                    }
-                    const filename = String(req.params[0] ?? '').trim()
-                    if (!filename) return sendInvalid(res)
-                    const requestId = sourceFileDeleteRequestId(req)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res, requestId)
-                    }
-                    if (!projectPort.listSourceFiles || !projectPort.deleteSourceFile) {
-                        return sendUnsupported(res, requestId)
-                    }
-                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
-                    const matched = findMatchingSourceFile(sourceFiles, filename)
-                    if (!matched) {
-                        return sendNotFound(res, requestId)
-                    }
-                    const expectedCurrentChecksum =
-                        typeof req.body?.expectedCurrentChecksum === 'string'
-                            ? req.body.expectedCurrentChecksum.trim()
-                            : typeof req.query.expectedCurrentChecksum === 'string'
-                            ? req.query.expectedCurrentChecksum.trim()
-                            : ''
-                    if (!expectedCurrentChecksum) {
-                        return sendInvalid(res, requestId)
-                    }
-                    const item = await projectPort.deleteSourceFile({
-                        metahubId,
-                        projectId: params.projectId,
-                        sourceFileId: matched.id,
-                        userId,
-                        requestId,
-                        expectedCurrentChecksum
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ ok: true, requestId, item })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/config',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
-                        metahubId,
-                        projectId: req.params.projectId
-                    })
-                    if (!params) return sendInvalid(res)
-                    const apiOrigin = resolvePlatformApiOrigin(req)
-                    const requestOrigin = resolveRequestOrigin(req)
-                    const requestedArtifactOrigin = req.query.artifactOrigin
-                    const artifactOrigin =
-                        requestedArtifactOrigin === undefined ? undefined : normalizeOrigin(requestedArtifactOrigin as unknown)
-                    if (
-                        requestedArtifactOrigin !== undefined &&
-                        (!artifactOrigin || !isAllowedArtifactOrigin(artifactOrigin, requestOrigin, apiOrigin))
-                    ) {
-                        return sendInvalid(res)
-                    }
-                    const requestedArtifactBaseUrl = req.query.artifactBaseUrl
-                    const artifactBase =
-                        requestedArtifactBaseUrl === undefined ? null : normalizeArtifactBaseUrl(requestedArtifactBaseUrl as unknown)
-                    if (
-                        requestedArtifactBaseUrl !== undefined &&
-                        (!artifactBase || !isAllowedArtifactOrigin(artifactBase.origin, requestOrigin, apiOrigin))
-                    ) {
-                        return sendInvalid(res)
-                    }
-                    const tokenOrigin = artifactBase?.origin ?? artifactOrigin
-                    if (req.query.mode === PLAYCANVAS_EDITOR_FULL_BOOT_MODE) {
-                        if (!tokenOrigin || !isAllowedFullBootArtifactOrigin(tokenOrigin, apiOrigin)) {
-                            return sendInvalid(res)
-                        }
-                        const protocol = await projectPort.describeProtocol({ metahubId, projectId: params.projectId, userId })
-                        if (
-                            protocol.mode !== PLAYCANVAS_EDITOR_FULL_BOOT_MODE ||
-                            protocol.endpoints.rest.status !== 'enabled' ||
-                            protocol.endpoints.realtime.status !== 'enabled' ||
-                            protocol.endpoints.messenger.status !== 'enabled' ||
-                            protocol.endpoints.relay.status !== 'enabled' ||
-                            protocol.shareDb.persisted !== true
-                        ) {
-                            return sendInvalid(res)
-                        }
-                        const project = await projectPort.resolveProject({ metahubId, projectId: params.projectId, userId })
-                        const scenes = await projectPort.listScenes({ metahubId, projectId: params.projectId, userId })
-                        const sceneId = project.defaultSceneId || scenes[0]?.id
-                        if (!sceneId) return sendInvalid(res)
-                        const assets = await projectPort.listAssets({ metahubId, projectId: params.projectId, userId, sceneId })
-                        const assetDocumentIds = assets
-                            .map((asset) =>
-                                asset && typeof asset === 'object' && 'editorDocumentId' in asset
-                                    ? (asset as { editorDocumentId?: unknown }).editorDocumentId
-                                    : null
-                            )
-                            .filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0)
-                        if (new Set(assetDocumentIds).size !== assetDocumentIds.length) {
-                            return sendInvalid(res)
-                        }
-                        // Token-refresh discriminator: the artifact re-issues its
-                        // five-minute access token against this same endpoint while
-                        // carrying its live bridgeSessionId. A refresh must neither
-                        // create a new session nor snapshot already-mutated documents
-                        // (that would erode the pre-authoring backup set); only a
-                        // genuine editor open takes the backup path.
-                        const renewalBridgeSessionId =
-                            typeof req.query.bridgeSessionId === 'string' && req.query.bridgeSessionId ? req.query.bridgeSessionId : null
-                        const sessionId = renewalBridgeSessionId ?? randomUUID()
-                        if (!renewalBridgeSessionId && projectPort.ensureOpenedProjectBackup) {
-                            // Ordering invariant: the derived-document backup gate must commit
-                            // strictly before the first authoring write of this editor session.
-                            // The full-boot access token is issued only after the backup set is
-                            // durably committed; a backup failure fails config issuance closed,
-                            // so no ShareDB or compatibility write can start from an unbacked
-                            // state (upstream editor migrations persist through the realtime port).
-                            await projectPort.ensureOpenedProjectBackup({
-                                metahubId,
-                                projectId: params.projectId,
-                                userId,
-                                sceneId,
-                                sessionId,
-                                assetDocumentIds
-                            })
-                        }
-                        const token = deps.tokenService.create({
-                            metahubId,
-                            projectId: params.projectId,
-                            sceneId,
-                            userId,
-                            packageSlug: 'playcanvas-editor',
-                            mode: PLAYCANVAS_EDITOR_FULL_BOOT_MODE,
-                            origin: tokenOrigin,
-                            sessionId,
-                            nonce: randomUUID(),
-                            assetDocumentIds
-                        })
-                        res.setHeader('Cache-Control', 'no-store')
-                        // Sliding session-bound artifact token renewal: the
-                        // platform issuer mints a fresh token bound to the same
-                        // bridge session/origin, or returns null (absolute cap
-                        // exceeded, dead session, or same/opaque origin) so the
-                        // response simply carries no artifactToken and the
-                        // client falls back to its reload flow.
-                        const renewalArtifactToken = deps.issueRenewalArtifactToken
-                            ? await deps.issueRenewalArtifactToken({ req, metahubId, userId, tokenOrigin })
-                            : null
-                        return res.json({
-                            item: createPlayCanvasEditorFullBootConfig({
-                                metahubId,
-                                projectId: params.projectId,
-                                sceneId,
-                                userId,
-                                projectName: getLocalizedName(project.displayName, 'PlayCanvas Project'),
-                                accessToken: token.token,
-                                apiOrigin,
-                                artifactBaseUrl: artifactBase?.baseUrl ?? artifactOrigin
-                            }),
-                            ...(renewalArtifactToken ? { artifactToken: renewalArtifactToken } : {})
-                        })
-                    }
-                    if (req.query.mode !== undefined && req.query.mode !== PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE) {
-                        return sendInvalid(res)
-                    }
-                    const protocol = await projectPort.describeProtocol({ metahubId, projectId: params.projectId, userId })
-                    const token = deps.tokenService.create({
-                        metahubId,
-                        projectId: params.projectId,
-                        userId,
-                        packageSlug: 'playcanvas-editor',
-                        origin: tokenOrigin ?? requestOrigin ?? apiOrigin
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({
-                        item: createPlayCanvasEditorCompatibilityConfig({
-                            metahubId,
-                            projectId: params.projectId,
-                            userId,
-                            protocol,
-                            accessToken: token.token,
-                            tokenExpiresAt: token.claims.expiresAt,
-                            apiOrigin
-                        })
-                    })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/scenes',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
-                        metahubId,
-                        projectId: req.params.projectId
-                    })
-                    if (!params) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    const scenes = await projectPort.listScenes({ metahubId, projectId: params.projectId, userId })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({
-                        items: scenes.map((scene) =>
-                            playCanvasEditorCompatibilitySceneSummarySchema.parse({
-                                ...scene,
-                                checksum: scene.checksum ?? null
-                            })
-                        )
-                    })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/scenes/:sceneId',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilitySceneParamsSchema, { ...req.params, metahubId })
-                    if (!params) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    const item = await projectPort.readScene({ metahubId, projectId: params.projectId, sceneId: params.sceneId, userId })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ item })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.put(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/scenes/:sceneId',
-        deps.csrfProtection,
-        deps.writeLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilitySceneParamsSchema, { ...req.params, metahubId })
-                    const body = playCanvasEditorCompatibilitySceneSaveRequestSchema.safeParse(req.body)
-                    if (!params || !body.success)
-                        return sendInvalid(res, body.success ? undefined : (req.body as { requestId?: string })?.requestId)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res, body.data.requestId)
-                    }
-                    const item = await projectPort.saveScene({
-                        metahubId,
-                        projectId: params.projectId,
-                        sceneId: params.sceneId,
-                        userId,
-                        requestId: body.data.requestId,
-                        payload: body.data.payload,
-                        expectedCurrentChecksum: body.data.expectedCurrentChecksum
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ ok: true, requestId: body.data.requestId, item })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/assets',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, { ...req.params, metahubId })
-                    if (!params) return sendInvalid(res)
-                    const claims = validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })
-                    const fullBootClaims = claims
-                        ? null
-                        : validateFullBootClaims(deps.tokenService, resolveCompatibilityToken(req) ?? '', {
-                              metahubId,
-                              projectId: params.projectId,
-                              origin: resolveRequestOrigin(req) ?? resolvePlatformApiOrigin(req)
-                          })
-                    if (!claims && !fullBootClaims) {
-                        return sendUnauthorized(res)
-                    }
-                    const assets = await projectPort.listAssets({
-                        metahubId,
-                        projectId: params.projectId,
-                        userId,
-                        sceneId: claims?.sceneId ?? fullBootClaims?.sceneId
-                    })
-                    const allowedFullBootAssetIds = new Set(fullBootClaims?.assetDocumentIds ?? [])
-                    const visibleAssets = fullBootClaims
-                        ? assets.filter((asset) => {
-                              const documentId =
-                                  asset && typeof asset === 'object' && 'editorDocumentId' in asset
-                                      ? (asset as { editorDocumentId?: unknown }).editorDocumentId
-                                      : null
-                              return typeof documentId === 'number' && allowedFullBootAssetIds.has(documentId)
-                          })
-                        : assets
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ items: visibleAssets.map((asset) => playCanvasEditorCompatibilityAssetSummarySchema.parse(asset)) })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, { ...req.params, metahubId })
-                    if (!params) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    if (!projectPort.listSourceFiles) {
-                        return sendUnsupported(res)
-                    }
-                    const sourceFiles = await projectPort.listSourceFiles({ metahubId, projectId: params.projectId, userId })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({
-                        items: sourceFiles.map((sourceFile) => playCanvasEditorCompatibilitySourceFileSummarySchema.parse(sourceFile))
-                    })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles/:sourceFileId',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilitySourceFileParamsSchema, { ...req.params, metahubId })
-                    if (!params) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    if (!projectPort.readSourceFile) {
-                        return sendUnsupported(res)
-                    }
-                    const item = await projectPort.readSourceFile({
-                        metahubId,
-                        projectId: params.projectId,
-                        sourceFileId: params.sourceFileId,
-                        userId
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ item: playCanvasEditorCompatibilitySourceFileDocumentSchema.parse(item) })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.put(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles/:sourceFileId',
-        deps.csrfProtection,
-        deps.writeLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilitySourceFileParamsSchema, { ...req.params, metahubId })
-                    const body = playCanvasEditorCompatibilitySourceFileWriteRequestSchema.safeParse(req.body)
-                    if (!params || !body.success)
-                        return sendInvalid(res, body.success ? undefined : (req.body as { requestId?: string })?.requestId)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res, body.data.requestId)
-                    }
-                    if (!projectPort.writeSourceFile) {
-                        return sendUnsupported(res, body.data.requestId)
-                    }
-                    const item = await projectPort.writeSourceFile({
-                        metahubId,
-                        projectId: params.projectId,
-                        sourceFileId: params.sourceFileId,
-                        userId,
-                        requestId: body.data.requestId,
-                        path: body.data.path,
-                        name: body.data.name,
-                        content: body.data.content,
-                        expectedCurrentChecksum: body.data.expectedCurrentChecksum
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({
-                        ok: true,
-                        requestId: body.data.requestId,
-                        item: playCanvasEditorCompatibilitySourceFileDocumentSchema.parse(item)
-                    })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.delete(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/sourcefiles/:sourceFileId',
-        deps.csrfProtection,
-        deps.writeLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilitySourceFileParamsSchema, { ...req.params, metahubId })
-                    const body = playCanvasEditorCompatibilitySourceFileDeleteRequestSchema.safeParse(req.body)
-                    if (!params || !body.success)
-                        return sendInvalid(res, body.success ? undefined : (req.body as { requestId?: string })?.requestId)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res, body.data.requestId)
-                    }
-                    if (!projectPort.deleteSourceFile) {
-                        return sendUnsupported(res, body.data.requestId)
-                    }
-                    const item = await projectPort.deleteSourceFile({
-                        metahubId,
-                        projectId: params.projectId,
-                        sourceFileId: params.sourceFileId,
-                        userId,
-                        requestId: body.data.requestId,
-                        expectedCurrentChecksum: body.data.expectedCurrentChecksum
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ ok: true, requestId: body.data.requestId, item })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/settings/:kind',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilitySettingsParamsSchema, { ...req.params, metahubId })
-                    if (!params) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    const item = await projectPort.readSettings({ metahubId, projectId: params.projectId, userId, kind: params.kind })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ item })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.put(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/settings/:kind',
-        deps.csrfProtection,
-        deps.writeLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilitySettingsParamsSchema, { ...req.params, metahubId })
-                    const body = playCanvasEditorCompatibilitySettingsWriteRequestSchema.safeParse(req.body)
-                    if (!params || !body.success)
-                        return sendInvalid(res, body.success ? undefined : (req.body as { requestId?: string })?.requestId)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res, body.data.requestId)
-                    }
-                    const item = await projectPort.writeSettings({
-                        metahubId,
-                        projectId: params.projectId,
-                        userId,
-                        kind: params.kind,
-                        requestId: body.data.requestId,
-                        data: body.data.data,
-                        expectedRevision: body.data.expectedRevision
-                    })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json({ ok: true, requestId: body.data.requestId, item })
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
-
-    router.get(
-        '/metahub/:metahubId/playcanvas/editor-compatible/projects/:projectId/cloud-only/:surface',
-        deps.readLimiter,
-        wrapAsync(
-            deps.createHandler(
-                async (context) => {
-                    const { req, res, metahubId, userId } = context
-                    const projectPort = deps.createProjectPort(context)
-                    const params = validateParams(playCanvasEditorCompatibilityParamsSchema, {
-                        metahubId,
-                        projectId: req.params.projectId
-                    })
-                    if (!params) return sendInvalid(res)
-                    const noOp = createCloudOnlyNoOp(req.params.surface)
-                    if (!noOp) return sendInvalid(res)
-                    if (!validateCompatibilityToken(req, deps.tokenService, { metahubId, projectId: params.projectId, userId })) {
-                        return sendUnauthorized(res)
-                    }
-                    await projectPort.resolveProject({ metahubId, projectId: params.projectId, userId })
-                    res.setHeader('Cache-Control', 'no-store')
-                    return res.json(noOp)
-                },
-                { permission: 'manageMetahub' }
-            )
-        )
-    )
+    // Terminal fail-closed answer for any unmatched editor compatibility path
+    // (including the bridge unsupported asset rewrite target). Guarantees
+    // the vendored editor never receives the SPA fallback HTML on this surface.
+    router.all('/metahub/:metahubId/playcanvas/editor-compatible/*', (req, res) => {
+        void req
+        return sendNotFound(res)
+    })
 
     return router
 }

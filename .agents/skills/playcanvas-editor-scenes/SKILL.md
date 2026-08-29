@@ -13,15 +13,16 @@ Use this skill when managing the scene graph, configuring components on entities
 
 ## Version Guard
 
-- ECS components mapping must align with `playcanvas@2.19.5` (editor runtime version).
-- Templates/prefabs follow the schema of Editor `v2.24.2`.
+-   ECS components mapping must align with `playcanvas@2.21.3` (vendored editor runtime version).
+-   Templates/prefabs follow the schema of Editor `v2.30.4`.
 
 ## Required Output
 
 Before modifying scenes or entity states:
-- state the target entities and components (camera, light, render, script);
-- describe transform parenting relations;
-- detail template instances and override configurations.
+
+-   state the target entities and components (camera, light, render, script);
+-   describe transform parenting relations;
+-   detail template instances and override configurations.
 
 ## Workflow
 
@@ -32,7 +33,7 @@ Before modifying scenes or entity states:
 
 ## Blocking Rules
 
-- Do not instantiate cyclic entity parents (parent pointing to its child).
-- Do not add custom non-standard components to entities unless they are registered in the editor schema.
-- Do not modify template definitions directly from an entity instance without committing changes to the template asset first.
-- Do not let entity name duplicate handling crash the hierarchy tree.
+-   Do not instantiate cyclic entity parents (parent pointing to its child).
+-   Do not add custom non-standard components to entities unless they are registered in the editor schema.
+-   Do not modify template definitions directly from an entity instance without committing changes to the template asset first.
+-   Do not let entity name duplicate handling crash the hierarchy tree.

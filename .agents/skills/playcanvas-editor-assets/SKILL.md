@@ -13,16 +13,17 @@ Use this skill when dealing with the ingestion, conversion, storage, or metadata
 
 ## Version Guard
 
-- Upstream asset schema is based on PlayCanvas Editor `v2.24.2`.
-- Uses `@playcanvas/attribute-parser` for asset metadata parsing.
-- Texture compression includes formats supported by the runtime (e.g. WebP, basis, dxt).
+-   Upstream asset schema is based on PlayCanvas Editor `v2.30.4`.
+-   Uses `@playcanvas/attribute-parser` for asset metadata parsing.
+-   Texture compression includes formats supported by the runtime (e.g. WebP, basis, dxt).
 
 ## Required Output
 
 Before modifying asset pipelines or schemas:
-- state the asset types being changed (texture, material, model, audio, script);
-- specify target platform texture formats (ASTC, DXT, ETC, PVR);
-- describe the source metadata structure and how attributes are validated.
+
+-   state the asset types being changed (texture, material, model, audio, script);
+-   specify target platform texture formats (ASTC, DXT, ETC, PVR);
+-   describe the source metadata structure and how attributes are validated.
 
 ## Workflow
 
@@ -33,7 +34,7 @@ Before modifying asset pipelines or schemas:
 
 ## Blocking Rules
 
-- Do not upload raw binaries directly to the config payload; use asset identifiers instead.
-- Do not bypass asset preload flags. If an asset is marked as not-preloaded, do not force-load it at startup.
-- Do not change asset schemas without validating them against the Zod schema defined in types.
-- Do not expose local upload paths to the client.
+-   Do not upload raw binaries directly to the config payload; use asset identifiers instead.
+-   Do not bypass asset preload flags. If an asset is marked as not-preloaded, do not force-load it at startup.
+-   Do not change asset schemas without validating them against the Zod schema defined in types.
+-   Do not expose local upload paths to the client.

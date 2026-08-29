@@ -1,3 +1,5 @@
+import type { Request } from 'express'
+
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 import {
     artifactTokenAbsoluteTtlMs,
@@ -6,12 +8,16 @@ import {
     createArtifactToken,
     readArtifactTokenPayload,
     registerEditorArtifactIssuance,
+    resolveArtifactPublicOrigin,
+    resolveLoopbackSiblingOrigin,
     renewEditorArtifactToken
 } from '../../domains/packages/services/editorArtifactTokenService'
 
 const T0 = 1_800_000_000_000
 const parentOrigin = 'https://platform.example.test'
 const assetOrigin = 'https://editor-assets.example.test'
+const originalArtifactPublicOrigin = process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
+const originalParentPublicOrigin = process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
 
 const decodeArtifactPayload = (token: string): Record<string, unknown> =>
     JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8')) as Record<string, unknown>
@@ -44,6 +50,36 @@ describe('editorArtifactTokenService', () => {
 
     afterEach(() => {
         restoreTime()
+    })
+
+    afterAll(() => {
+        if (originalArtifactPublicOrigin === undefined) {
+            delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
+        } else {
+            process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN = originalArtifactPublicOrigin
+        }
+        if (originalParentPublicOrigin === undefined) {
+            delete process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
+        } else {
+            process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN = originalParentPublicOrigin
+        }
+    })
+
+    describe('origin resolution', () => {
+        it('maps an IPv6 loopback parent to a distinct localhost artifact origin', () => {
+            delete process.env.PLAYCANVAS_EDITOR_ARTIFACT_PUBLIC_ORIGIN
+            delete process.env.PLAYCANVAS_EDITOR_PARENT_PUBLIC_ORIGIN
+            const request = {
+                protocol: 'http',
+                get: (header: string) => (header.toLowerCase() === 'host' ? '[::1]:3100' : undefined)
+            } as unknown as Request
+
+            expect(resolveLoopbackSiblingOrigin('http://[::1]:3100')).toBe('http://localhost:3100')
+            expect(resolveArtifactPublicOrigin(request)).toEqual({
+                artifactOrigin: 'http://localhost:3100',
+                parentOrigin: 'http://[::1]:3100'
+            })
+        })
     })
 
     describe('mint and validate', () => {
@@ -158,10 +194,25 @@ describe('editorArtifactTokenService', () => {
             expect(createArtifactToken(mintClaims())).not.toBeNull()
 
             advanceTime(T0 + artifactTokenAbsoluteTtlMs - 1)
-            expect(createArtifactToken(mintClaims())).not.toBeNull()
+            const nearCap = createArtifactToken(mintClaims())
+            expect(nearCap).not.toBeNull()
+            expect(nearCap?.payload.expiresAt).toBe(T0 + artifactTokenAbsoluteTtlMs)
 
             advanceTime(T0 + artifactTokenAbsoluteTtlMs)
             expect(createArtifactToken(mintClaims())).toBeNull()
+        })
+
+        it('rejects a token at the absolute cap even when bridge-session grace would otherwise apply', () => {
+            advanceTime(T0 + artifactTokenAbsoluteTtlMs - artifactTokenTtlMs + 1)
+            const minted = createArtifactToken(mintClaims({ bridgeSessionId: '019f0000-0000-7000-8000-00000000cap1' }))
+            expect(minted?.payload.expiresAt).toBe(T0 + artifactTokenAbsoluteTtlMs)
+
+            advanceTime(T0 + artifactTokenAbsoluteTtlMs)
+            expect(
+                readArtifactTokenPayload(minted!.token, {
+                    isBridgeSessionAlive: () => true
+                })
+            ).toBeNull()
         })
 
         it('refuses renewals beyond the absolute cap even for live sessions and matching bindings', () => {

@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import type { Locator, Page, Response } from '@playwright/test'
+import { generateUuidV7 } from '@universo-react/utils'
+import type { PlayCanvasRuntimeManifest } from '@universo-react/types'
 import { test, expect } from '../../fixtures/test'
 import {
     createLoggedInApiContext,
@@ -18,7 +20,8 @@ import {
     listOptionValues,
     listPublicationApplications,
     listPlayCanvasProjects,
-    listValueGroups
+    listValueGroups,
+    sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
@@ -41,10 +44,12 @@ import {
     expectPlayCanvasEditorFullscreenHost,
     expectPlayCanvasEditorIframeLoaded,
     fetchPlayCanvasEditorCompatibilityConfig,
+    readPlayCanvasEditorCompatibilityScene,
     savePlayCanvasEditorSceneAndExpectReload
 } from '../../support/playcanvasEditorAuthoring'
 import {
     MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME,
+    authorMmoommScriptAssetsThroughEditor,
     authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload,
     authorMmoommSceneThroughPlayCanvasEditorAndExpectReload,
     exportMetahubSnapshotThroughBrowser
@@ -58,9 +63,19 @@ import {
     localizedInput,
     localizedText,
     readRequestJson,
-    serverModuleSource,
-    widgetModuleSource
+    serverModuleSource
 } from '../../support/mmoommAppGeneratorData'
+import {
+    assertPlayCanvasBuiltinScriptCatalog,
+    PLAYCANVAS_BUILTIN_SCRIPT_ASSETS,
+    readCanonicalPlayCanvasBuiltinAsset
+} from '../../support/playcanvasBuiltinScriptParity'
+
+assertPlayCanvasBuiltinScriptCatalog(repoRoot)
+const MMOOMM_BUILTIN_SCRIPT_ASSETS = PLAYCANVAS_BUILTIN_SCRIPT_ASSETS.map((asset) => ({
+    filename: asset.filename,
+    source: readCanonicalPlayCanvasBuiltinAsset(repoRoot, asset.filename)
+}))
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type ApiSessionLike = Pick<ApiContext, 'baseURL' | 'cookies'>
@@ -68,8 +83,13 @@ type CreatedEntityResponse = { id?: string; data?: { id?: string } }
 type MetahubSummary = { id?: string; name?: unknown; codename?: unknown }
 type ProjectInstanceSummary = { id?: string; name?: unknown; codename?: unknown; config?: Record<string, unknown> | null }
 type PlayCanvasProjectSummary = { id?: string; displayName?: unknown; codename?: unknown }
-type PublishedRuntimeManifestSummary = { projectId?: string; sceneId?: string | null; checksum?: string }
-type TargetedPublishedRuntimeManifestSummary = PublishedRuntimeManifestSummary & { projectName: string }
+type PublishedRuntimeManifestSummary = {
+    projectId?: string
+    sceneId?: string | null
+    checksum?: string
+    runtimeManifest?: PlayCanvasRuntimeManifest
+}
+type TargetedPublishedRuntimeManifestSummary = PlayCanvasRuntimeManifest & { projectName: string }
 type PlayCanvasWidgetRuntimeOptions = {
     runtimeManifest: TargetedPublishedRuntimeManifestSummary
     title: { en: string; ru: string }
@@ -100,6 +120,10 @@ async function apiGet(api: ApiContext, urlPath: string) {
             ...(cookieHeader ? { Cookie: cookieHeader } : {})
         }
     })
+}
+
+async function apiSend(api: ApiContext, method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', urlPath: string, body?: unknown) {
+    return sendWithCsrf(api, method, urlPath, body)
 }
 
 const parseJsonResponse = async <T>(response: Response, label: string): Promise<T> => {
@@ -188,12 +212,12 @@ const requirePublishedManifestForProject = (
     manifests: PublishedRuntimeManifestSummary[] | undefined,
     projectId: string,
     label: string
-): PublishedRuntimeManifestSummary => {
+): PlayCanvasRuntimeManifest => {
     const manifest = manifests?.find((item) => item.projectId === projectId && /^[a-f0-9]{64}$/i.test(String(item.checksum ?? '')))
-    if (!manifest) {
+    if (!manifest?.runtimeManifest) {
         throw new Error(`MMOOMM generator did not receive a published runtime manifest for ${label}`)
     }
-    return manifest
+    return manifest.runtimeManifest
 }
 
 const expectFullscreenEditorProject = async (page: Page, metahubId: string, projectId: string, label: string): Promise<void> => {
@@ -357,7 +381,14 @@ const createStandardEntityThroughBrowser = async (
         page,
         (response) =>
             response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/entities/${labels.endpoint}`),
-        { label: `Creating ${kind} ${values.codename}` }
+        {
+            label: `Creating ${kind} ${values.codename}`,
+            // Entity creation follows a browser navigation and a schema-aware
+            // transaction. Keep the generator deterministic on a cold local
+            // Supabase stack where the first request can exceed the shared
+            // 30-second mutation default under PlayCanvas Editor load.
+            timeout: 120_000
+        }
     )
     await dialog.getByTestId(entityDialogSelectors.submitButton).click()
     const created = await parseJsonResponse<CreatedEntityResponse>(await createResponse, `Creating ${kind} ${values.codename}`)
@@ -416,7 +447,17 @@ const createEnumerationValueThroughBrowser = async (
     if (!createdId) {
         throw new Error('Create enumeration value response did not contain an id')
     }
-    await expect(page.getByRole('row', { name: new RegExp(`\\b${values.codename}\\b`) })).toBeVisible()
+    const valueRow = page.getByRole('row', { name: new RegExp(`\\b${values.codename}\\b`) })
+    try {
+        await expect(valueRow).toBeVisible({ timeout: 20_000 })
+    } catch {
+        // The values grid keeps its previous query result after the mutation on
+        // a cold local stack. Reload once so the durable response, rather than
+        // a stale virtualized row set, is the source of generator evidence.
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await expect(page.getByRole('heading', { name: 'Values' })).toBeVisible({ timeout: 60_000 })
+        await expect(page.getByRole('row', { name: new RegExp(`\\b${values.codename}\\b`) })).toBeVisible({ timeout: 60_000 })
+    }
     return createdId
 }
 
@@ -605,10 +646,15 @@ const fillModuleSourceThroughBrowser = async (page: Page, sourceCode: string) =>
     await expect(editorShell).toBeVisible()
     const editorContent = editorShell.locator('.cm-content')
     await expect(editorContent).toBeVisible()
+    const initialEditorText = await editorContent.textContent()
     await editorContent.click()
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
     await page.keyboard.insertText(sourceCode)
-    await expect(editorShell.getByText(sourceCode.split('\n')[0])).toBeVisible()
+    // CodeMirror virtualizes long documents, so the first line can be absent
+    // from the DOM even after a successful edit.  Compare the rendered slice
+    // with its pre-edit value instead of asserting a particular line is
+    // visible in the current scroll position.
+    await expect.poll(async () => editorContent.textContent(), { timeout: 20_000 }).not.toBe(initialEditorText)
 }
 
 const createRuntimeModuleThroughBrowser = async (
@@ -617,13 +663,15 @@ const createRuntimeModuleThroughBrowser = async (
     module: {
         name: string
         codename: string
-        role: 'module' | 'widget'
+        role: 'module' | 'widget' | 'library'
+        scope?: 'metahub' | 'general'
         sourceCode: string
         capabilities: string[]
     }
 ) => {
     await page.goto(`/metahub/${metahubId}/resources`)
-    await page.getByRole('tab', { name: 'Runtime modules' }).click()
+    await page.getByRole('tab', { name: 'Modules', exact: true }).click()
+    await page.getByRole('tab', { name: module.scope === 'general' ? 'Shared modules' : 'Metahub modules', exact: true }).click()
     await expect(page.getByTestId('entity-modules-root')).toBeVisible()
     const newButton = page.getByRole('button', { name: 'New' })
     if (await newButton.isEnabled().catch(() => false)) {
@@ -634,8 +682,16 @@ const createRuntimeModuleThroughBrowser = async (
 
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill(module.name)
     await page.getByRole('textbox', { name: 'Codename' }).fill(module.codename)
-    await page.getByLabel('Module role').click()
-    await page.getByRole('option', { name: module.role === 'widget' ? 'Widget' : 'Module' }).click()
+    const roleLabel = module.role === 'widget' ? 'Widget' : module.role === 'library' ? 'Library' : 'Module'
+    const moduleRoleSelect = page.getByLabel('Module role')
+    if (await moduleRoleSelect.isEnabled()) {
+        await moduleRoleSelect.click()
+        await page.getByRole('option', { name: roleLabel, exact: true }).click()
+    } else {
+        // General/shared modules intentionally expose only the Library role;
+        // MUI disables the select when no alternative is valid.
+        await expect(moduleRoleSelect).toHaveText(roleLabel)
+    }
 
     const capabilityLabels = new Map<string, string>([
         ['records.read', 'Read records'],
@@ -952,7 +1008,9 @@ const addMenuItemThroughBrowser = async (page: Page, item: { title: { en: string
 const configureMenuWidgetThroughBrowser = async (page: Page) => {
     const leftZone = page.getByTestId('layout-zone-left')
     await leftZone.getByRole('button', { name: 'Add widget' }).click()
-    await page.getByRole('menuitem', { name: 'Menu' }).click()
+    const menuWidgetOption = page.getByRole('menuitem', { name: 'Menu' })
+    await expect(menuWidgetOption).toBeVisible()
+    await menuWidgetOption.click({ force: true })
     const dialog = page.getByRole('dialog', { name: 'Create menu' })
     await expect(dialog).toBeVisible()
     await fillLocalizedInlineField(page, dialog, 'Name', { en: 'Navigation', ru: 'Навигация' })
@@ -985,7 +1043,13 @@ const configurePlayCanvasCanvasWidgetThroughBrowser = async (page: Page, options
     const centerZone = page.getByTestId('layout-zone-center')
     const widgetCountBefore = await centerZone.getByText(/^PlayCanvas canvas$/).count()
     await centerZone.getByRole('button', { name: 'Add widget' }).click()
-    await page.getByRole('menuitem', { name: 'PlayCanvas canvas' }).click()
+    const canvasWidgetOption = page.getByRole('menuitem', { name: 'PlayCanvas canvas' })
+    await expect(canvasWidgetOption).toBeVisible()
+    // Layout drag/drop transitions can keep the MUI menu item moving for a
+    // prolonged period on a resource-constrained CI runner. Visibility is the
+    // meaningful user-facing precondition; force only skips the redundant
+    // stability probe while retaining the real target and overlay checks.
+    await canvasWidgetOption.click({ force: true })
     const dialog = page.getByRole('dialog', { name: 'PlayCanvas canvas widget' })
     await expect(dialog).toBeVisible()
     await expectSemanticFieldControls(dialog, {
@@ -1051,7 +1115,6 @@ const configureRuntimeLayoutThroughBrowser = async (
         runtimeManifest: authoringRuntimeManifest,
         title: { en: 'Universo MMOOMM', ru: 'Universo MMOOMM' },
         visibleSectionName: /Space/,
-        clientModuleName: 'Flight Canvas Widget',
         realtimeServerModuleName: 'Fixed Tick Flight Runtime'
     })
     await configurePlayCanvasCanvasWidgetThroughBrowser(page, {
@@ -1061,7 +1124,7 @@ const configureRuntimeLayoutThroughBrowser = async (
     })
     await expectNoTechnicalLeakage(page.getByTestId('metahub-layout-details-content'), {
         label: 'MMOOMM layout authoring surface',
-        allowTextPatterns: [/flight-canvas-widget/i, /fixed-tick-flight-runtime/i],
+        allowTextPatterns: [/fixed-tick-flight-runtime/i],
         checkUuidSubstrings: true
     })
     await expectNoPageHorizontalOverflow(page, 'MMOOMM layout authoring surface')
@@ -1078,7 +1141,8 @@ const createAndVerifyPublishedRuntimeBeforeExport = async (page: Page, api: ApiC
 
     await expectMmoommRuntimeReady(page, applicationId, {
         label: 'MMOOMM app generator runtime proof',
-        checkViewportMatrix: true
+        checkViewportMatrix: true,
+        expectClientRuntimeModule: false
     })
     await expectMmoommVisualLinkupLabRuntimeReady(page, applicationId, {
         label: 'MMOOMM app generator visual linkup lab runtime proof',
@@ -1158,12 +1222,40 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
         await createSimulationConstantsThroughBrowser(page, metahubId, api)
         await authorWelcomePageThroughBrowser(page, api, metahubId)
 
+        // Author the builtin gameplay scripts through the Editor ("+" → Script):
+        // createScript uploads the builtin source, the editor parses it through the
+        // ESM worker, and the compatibility backend mirrors the parse result into
+        // durable script-asset rows — the full user-facing asset loop.
+        await setEditorDefaultProjectThroughBrowser(page, metahubId, 'MMOOMM Authoring')
+        const scriptEditorPage = await openFullscreenEditorThroughBrowser(page, metahubId, authoringProjectId)
+        await expectPlayCanvasEditorIframeLoaded(scriptEditorPage)
+        const authoringCompatibilityConfig = await fetchPlayCanvasEditorCompatibilityConfig(scriptEditorPage, metahubId)
+        const authoringCompatibilityScene = (await readPlayCanvasEditorCompatibilityScene(
+            scriptEditorPage,
+            authoringCompatibilityConfig
+        )) as {
+            item?: {
+                payload?: {
+                    entities?: Array<{
+                        id?: string
+                        name?: string
+                        position?: { x?: number; y?: number; z?: number } | number[]
+                        scale?: { x?: number; y?: number; z?: number } | number[]
+                    }>
+                } | null
+            }
+        }
+        const authoringCompatibilityEntities = authoringCompatibilityScene.item?.payload?.entities ?? []
+        await authorMmoommScriptAssetsThroughEditor(scriptEditorPage, MMOOMM_BUILTIN_SCRIPT_ASSETS)
+        await scriptEditorPage.close()
+
         await createRuntimeModuleThroughBrowser(page, metahubId, {
-            codename: 'flight-canvas-widget',
-            name: 'Flight Canvas Widget',
-            role: 'widget',
-            sourceCode: widgetModuleSource,
-            capabilities: ['metadata.read', 'rpc.client']
+            scope: 'general',
+            codename: 'flight-math',
+            name: 'Flight Math',
+            role: 'library',
+            sourceCode: readCanonicalPlayCanvasBuiltinAsset(repoRoot, path.join('libraries', 'flight-math.ts')),
+            capabilities: []
         })
         await createRuntimeModuleThroughBrowser(page, metahubId, {
             codename: 'fixed-tick-flight-runtime',
@@ -1173,15 +1265,147 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
             capabilities: ['metadata.read']
         })
 
+        // Bind every authored gameplay script before publishing so the generated
+        // runtime manifest is derived from the same Editor-authored scene graph.
+        const scriptAssetsResponse = await apiGet(
+            api,
+            `/api/v1/metahub/${metahubId}/playcanvas/projects/${authoringProjectId}/script-assets`
+        )
+        expect(scriptAssetsResponse.ok).toBe(true)
+        const scriptAssetsPayload = (await scriptAssetsResponse.json()) as {
+            items?: Array<{ id: string; scriptName: string; parseStatus?: string }>
+        }
+        const scriptAssetByName = new Map((scriptAssetsPayload.items ?? []).map((item) => [item.scriptName, item]))
+        for (const scriptName of ['flightControl', 'followCamera', 'remoteShips']) {
+            expect(scriptAssetByName.get(scriptName), `${scriptName} script asset must be mirrored after editor authoring`).toBeDefined()
+        }
+
+        const scenesResponse = await apiGet(api, `/api/v1/metahub/${metahubId}/playcanvas/projects/${authoringProjectId}/scenes`)
+        expect(scenesResponse.ok).toBe(true)
+        const scenesPayload = (await scenesResponse.json()) as { items?: Array<{ id: string }> }
+        const authoringScene = (scenesPayload.items ?? [])[0]
+        expect(authoringScene?.id, 'MMOOMM Authoring project must expose a scene').toBeDefined()
+
+        const sceneDetailResponse = await apiGet(
+            api,
+            `/api/v1/metahub/${metahubId}/playcanvas/projects/${authoringProjectId}/scenes/${authoringScene.id}`
+        )
+        expect(sceneDetailResponse.ok).toBe(true)
+        const sceneDetail = (await sceneDetailResponse.json()) as {
+            item?: {
+                payload?: {
+                    entities?: Array<{
+                        id?: string
+                        name?: string
+                        position?: { x?: number; y?: number; z?: number } | number[]
+                        scale?: { x?: number; y?: number; z?: number } | number[]
+                    }>
+                } | null
+            }
+        }
+        const sceneEntities = sceneDetail.item?.payload?.entities?.length
+            ? sceneDetail.item.payload.entities
+            : authoringCompatibilityEntities
+        const shipEntity = sceneEntities.find((entity) => entity.name === 'MMOOMM Ship')
+        const cameraEntity = sceneEntities.find((entity) => entity.name === 'MMOOMM Follow Camera')
+        expect(shipEntity?.id, 'MMOOMM Ship entity id is required for the flightControl binding').toBeDefined()
+        expect(cameraEntity?.id, 'MMOOMM Follow Camera entity id is required for the followCamera binding').toBeDefined()
+
+        const readVector = (
+            value: { x?: number; y?: number; z?: number } | number[] | undefined,
+            fallback: { x: number; y: number; z: number }
+        ) => {
+            if (Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(Number(item)))) {
+                return { x: Number(value[0]), y: Number(value[1]), z: Number(value[2]) }
+            }
+            if (value && Number.isFinite(value.x) && Number.isFinite(value.y) && Number.isFinite(value.z)) {
+                return { x: Number(value.x), y: Number(value.y), z: Number(value.z) }
+            }
+            return fallback
+        }
+        const shipScale = readVector(shipEntity.scale, { x: 12, y: 4, z: 4 })
+        const station = sceneEntities.find((entity) => entity.name === 'MMOOMM Station')
+        const stationPosition = readVector(station?.position, { x: 72, y: 0, z: -48 })
+        const stationScale = readVector(station?.scale, { x: 48, y: 16, z: 16 })
+        const guardBoxes = [
+            {
+                center: stationPosition,
+                halfExtents: {
+                    x: Math.abs(stationScale.x) / 2,
+                    y: Math.abs(stationScale.y) / 2,
+                    z: Math.abs(stationScale.z) / 2
+                }
+            }
+        ]
+        const commonScriptAttributes = {
+            controlledEntityId: shipEntity.id,
+            guardBoxes
+        }
+        const scriptAttributeValues: Record<string, Record<string, unknown>> = {
+            flightControl: {
+                ...commonScriptAttributes,
+                shipHalfExtents: {
+                    x: Math.abs(shipScale.x) / 2,
+                    y: Math.abs(shipScale.y) / 2,
+                    z: Math.abs(shipScale.z) / 2
+                }
+            },
+            followCamera: commonScriptAttributes,
+            remoteShips: {
+                controlledEntityId: shipEntity.id,
+                fallbackScale: shipScale,
+                shipHalfExtents: {
+                    x: Math.abs(shipScale.x) / 2,
+                    y: Math.abs(shipScale.y) / 2,
+                    z: Math.abs(shipScale.z) / 2
+                }
+            }
+        }
+
+        const bindings = [
+            { scriptName: 'flightControl', sceneEntityStableId: shipEntity.id, sortOrder: 0 },
+            { scriptName: 'followCamera', sceneEntityStableId: cameraEntity.id, sortOrder: 1 },
+            { scriptName: 'remoteShips', sceneEntityStableId: shipEntity.id, sortOrder: 2 }
+        ] as const
+        for (const binding of bindings) {
+            const scriptAsset = scriptAssetByName.get(binding.scriptName)
+            if (!scriptAsset) throw new Error(`Missing mirrored script asset ${binding.scriptName}`)
+            const bindingResponse = await apiSend(
+                api,
+                'PUT',
+                `/api/v1/metahub/${metahubId}/playcanvas/projects/${authoringProjectId}/script-bindings/${generateUuidV7()}`,
+                {
+                    sceneId: authoringScene.id,
+                    sceneEntityStableId: binding.sceneEntityStableId,
+                    scriptAssetId: scriptAsset.id,
+                    scriptName: binding.scriptName,
+                    attributeValues: scriptAttributeValues[binding.scriptName],
+                    bindingSchemaVersion: '1',
+                    sortOrder: binding.sortOrder,
+                    enabled: true
+                }
+            )
+            if (!bindingResponse.ok) {
+                const responseBody = await bindingResponse.text()
+                throw new Error(
+                    `${binding.scriptName} binding must persist before publication: ${bindingResponse.status} ${bindingResponse.statusText} ${responseBody}`
+                )
+            }
+        }
+
         await publishPlayCanvasProjectThroughBrowser(page, api, metahubId, 'MMOOMM Authoring')
         await publishPlayCanvasProjectThroughBrowser(page, api, metahubId, MMOOMM_VISUAL_LINKUP_LAB_PROJECT_NAME)
         const publishResponse = await apiGet(api, `/api/v1/metahub/${metahubId}/playcanvas/published-runtime-manifests`)
         expect(publishResponse.ok).toBe(true)
         const publishPayload = (await publishResponse.json()) as {
-            items?: Array<{ projectId?: string; sceneId?: string; checksum?: string }>
+            items?: PublishedRuntimeManifestSummary[]
         }
+        const publishedAuthoringManifest = requirePublishedManifestForProject(publishPayload.items, authoringProjectId, 'MMOOMM Authoring')
+        expect(publishedAuthoringManifest.scripts?.map((script) => script.scriptName).sort()).toEqual(
+            ['flightControl', 'followCamera', 'remoteShips'].sort()
+        )
         const runtimeManifest = {
-            ...requirePublishedManifestForProject(publishPayload.items, authoringProjectId, 'MMOOMM Authoring'),
+            ...publishedAuthoringManifest,
             projectName: 'MMOOMM Authoring'
         }
         const visualLabRuntimeManifest = {

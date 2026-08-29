@@ -28,6 +28,7 @@
 -   **Tree Entities**: Иерархические контейнеры управляют вложенным authoring-ом и navigation с учётом publication
 -   **Linked Collections**: Переиспользуемые schema/data surfaces живут на entity-owned child routes
 -   **Shared Resources**: Общие layout-ы, metadata pools и modules доступны на выделенной поверхности `/resources`
+-   **Объединённая поверхность модулей**: Одна вкладка «Ресурсы → Модули» содержит локализованный переключатель областей для модулей метахаба и общих модулей `general/library`
 -   **Настройки виджетов макета**: Макеты метахаба владеют каноническими настройками виджетов, включая разрешённые представления Матрицы трактовочной сети и представление по умолчанию
 
 ### 🎨 Пользовательский интерфейс
@@ -52,6 +53,15 @@
 -   **Entity-Owned Surfaces**: Standard kinds рендерятся через entity-owned route components, а shared resources остаются на выделенной поверхности `/resources`.
 -   **Владение маршрутами**: Detail tabs остаются под `/metahub/:id/entities/:kindKey/...`, а ресурсы метахаба под `/metahub/:id/resources/...`; удалённые top-level authoring routes `/hubs`, `/objects`, `/sets` и `/enumerations` больше не входят в shipped frontend contract.
 -   **Runtime Boundary**: Runtime sections материализуются из published entity metadata после publication sync вместо V2-specific compatibility aliases.
+
+### Объединённая поверхность ресурсов «Модули»
+
+`SharedResourcesPage` показывает одну вкладку «Модули». `MetahubModulesSurface`
+сохраняет две области проектирования во вложенных вкладках MUI: «Модули
+метахаба» для потребителей уровня метахаба и «Общие модули» для повторно
+используемых модулей `general/library`. Обе области используют
+`EntityModulesTab`, сохраняют единые контракты React Query и прав доступа и
+получают переводы из локальных пакетов EN/RU.
 
 ### 📋 Выбор шаблона
 

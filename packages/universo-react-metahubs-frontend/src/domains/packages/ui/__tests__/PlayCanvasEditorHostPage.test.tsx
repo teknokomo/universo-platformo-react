@@ -367,6 +367,19 @@ describe('PlayCanvasEditorHostPage', () => {
         expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     })
 
+    it('keeps a localized back link in the compact fullscreen fallback', async () => {
+        compactViewport = true
+        renderHostPage({ fullScreen: true })
+
+        expect(
+            await screen.findByText(
+                'PlayCanvas Editor is available on larger screens. Open it on a desktop or tablet to edit this project.'
+            )
+        ).toBeInTheDocument()
+        expect(screen.getByTestId('playcanvas-editor-fullscreen-chrome')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Back to packages' })).toBeInTheDocument()
+    })
+
     it('preserves a loopback sibling artifact origin for iframe isolation and full-boot token binding', async () => {
         vi.mocked(packagesApi.getAuthoringHost).mockResolvedValue({
             ...hostDescriptor(),
@@ -378,6 +391,7 @@ describe('PlayCanvasEditorHostPage', () => {
         const iframe = await screen.findByTestId('playcanvas-editor-frame')
         expect(new URL(iframe.getAttribute('data-src') ?? '').origin).toBe('http://127.0.0.1:3000')
         expect(iframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin')
+        expect(iframe).toHaveAttribute('allow', 'loopback-network')
         await waitFor(() =>
             expect(packagesApi.getPlayCanvasEditorCompatibilityConfig).toHaveBeenCalledWith(
                 'metahub-1',
@@ -582,7 +596,9 @@ describe('PlayCanvasEditorHostPage', () => {
 
     it('renders the Russian localized unavailable alert text', async () => {
         try {
-            await i18n.changeLanguage('ru')
+            await act(async () => {
+                await i18n.changeLanguage('ru')
+            })
             renderHostPage()
             const iframe = await screen.findByTestId('playcanvas-editor-frame')
 
@@ -593,7 +609,9 @@ describe('PlayCanvasEditorHostPage', () => {
             expect(await screen.findByTestId('playcanvas-editor-unavailable-surface-alert')).toBeInTheDocument()
             expect(screen.getByText('Встроенный редактор кода пока недоступен в проектах Universo.')).toBeInTheDocument()
         } finally {
-            await i18n.changeLanguage('en')
+            await act(async () => {
+                await i18n.changeLanguage('en')
+            })
         }
     })
 

@@ -59,6 +59,52 @@
 
 ---
 
+## 2026-08-29 - Strict PlayCanvas QA debt closure
+
+-   Completed the final structural and contract hardening pass for the PlayCanvas Editor assets and MMOOMM script-assets plan. The PlayCanvas project service/store boundary, editor compatibility routes, and realtime runtime are split into focused modules without changing the public protocol, DbExecutor/transaction semantics, optimistic locking, rollback behavior, or security gates.
+-   Centralized runtime-manifest canonicalization and checksum logic in the shared applications-backend helper, added producer/consumer parity and topology matrix coverage, and documented the exported contracts with JSDoc. `PlayCanvasCanvasWidget.tsx` is now 888 lines with generic runtime lifecycle code extracted to focused modules.
+-   Extended the real browser assets-panel flow to create and verify Folder, CSS, CubeMap, HTML, JSON, Material, Script, Shader, and Text assets. The fresh E2E build and minimal local-Supabase Chromium run passed 2/2, including ESM script create, rename, open, and delete plus method/body/header/abort rewrite assertions.
+-   Verification passed: full workspace build 36/36; editor-backend Vitest 113/113; focused metahubs-backend Jest 188; modules-engine 35; apps-template-mui 73; metahubs-frontend 30; Editor artifact 16; applications manifest 4; package lint, Prettier, fixture contract/drift, docs/i18n, static checks, and `git diff --check`. `gn_verify_diff` returned PASS for the complete working-tree allowlist. No schema or metahub template version was bumped.
+-   The local autoreview helper was attempted but could not initialize because `/home/vladimir/.codex/state_5.sqlite` is read-only; this is an environment limitation and not a product finding. Focused security, correctness, and decomposition subagent reviews reported no CRITICAL or HIGH findings.
+
+## 2026-08-29 - Production Shell CORS and Static Asset Closure
+
+-   Fixed the local production white page. Browser requests for the generated JavaScript and CSS bundles included an `Origin` header and were rejected with `500 Not allowed by CORS` because development local-Supabase profile generation left `CORS_ORIGINS` undefined. Headerless curl checks had hidden the defect.
+-   Local profile generation now always writes the strict loopback application origins for its selected port and does not inherit wildcard or hosted origins. The local Supabase doctor now fails closed when `PORT` or `CORS_ORIGINS` is missing, either required loopback origin is absent, or a wildcard is present.
+-   Kept the production static-file boundary strict: the SPA shell is served only for browser document navigations, existing JavaScript/CSS receive their real MIME types, and stale hashed assets receive an empty 404 instead of HTML or a fallback 500.
+-   Fixed file-backed PlayCanvas compatibility asset creation so reserved lifecycle document metadata is kept in the lifecycle envelope rather than rejected by the generic metadata validator.
+-   Verification passed: local-Supabase tool Vitest 35/35, regenerated development profile and local doctor, core-backend 80/80, metahubs-backend 1210 passed with 4 skipped, editor-backend 99/99, Editor artifact 15/15, PlayCanvas asset Playwright flow 2/2 on minimal local Supabase, full workspace build 36/36, Prettier, `git diff --check`, OntoIndex diff verification, HTTP HTML/JS/CSS and stale-asset checks, and a real rendered Chromium production shell. No schema or metahub template version was bumped.
+
+## 2026-08-29 - PlayCanvas Editor P9 post-QA hardening closure
+
+-   Closed the remaining QA findings for the PlayCanvas Editor asset and MMOOMM script-asset implementation. Copied source owners are demoted to admins while the copier remains the sole owner; runtime script startup waits for realtime authorization and script-artifact readiness; every PlayCanvas realtime upsert uses the same optional optimistic-version contract; and local snapshot scene, asset, source-file, and generated-artifact references validate provider, project namespace, traversal-safe paths, and missing-file behavior.
+-   Hardened the realtime boundary against JSON0 prototype-pollution paths and bounded both message-count and byte-count relay queues. The scoped ShareDB MemoryDB now persists a candidate snapshot before publication, serializes document submissions, restores durable state after rejected writes, deletes stale in-memory assets after durable deletion, and blocks/closes a scope when recovery fails. Compatibility errors no longer echo PlayCanvas identifiers, and generated artifact serving is restricted to the known artifact tree.
+-   Added focused regression coverage for durable publish ordering, persistence rejection/recovery, artifact allowlists, token origin requirements, copy ownership, snapshot providers, runtime readiness, and browser RBAC/IDOR. The editor-backend suite passes 108/108 tests; metahubs PlayCanvas suites pass 133/133 with 4 skipped plus artifact routes 43/43; the assets-panel Playwright flow passes 3/3 on minimal local Supabase; fixture contract/drift, package builds, lint, Prettier, documentation checks, and `git diff --check` pass. No schema or metahub template version was bumped.
+-   Thermos/autoreview remains unavailable because the Codex state database is read-only; this is recorded as an environment limitation rather than a clean external review.
+
+## 2026-08-28 - PlayCanvas Editor Assets and MMOOMM QA Remediation Closure
+
+-   Closed all Phase 7 remediation items (P7.1–P7.8) for the PlayCanvas Editor asset and MMOOMM script-asset plan. Request-scoped RLS transactions now commit before response bodies are exposed, sensitive RLS failure logs are reduced to error types, and concurrent ShareDB asset seeds are serialized per backend/document so static full-boot and dynamic reconciliation cannot race on `doc.create`.
+-   Added checksum-guarded cleanup for files and generated artifacts written before a failed database/callback transaction, cross-platform package-artifact traversal rejection, and a bounded single reload recovery for a cold lazy-loaded `/a/<applicationId>` runtime shell. Runtime/RBAC assertions remain strict after recovery.
+-   Regenerated `tools/fixtures/metahubs-mmoomm-app-snapshot.json` through the real Playwright Editor authoring flow on minimal local Supabase. The generator passed 2/2 and the imported MMOOMM runtime passed 2/2 in 11.0 minutes, including script loading, visual linkup, realtime/RBAC, reconnect, and viewport evidence. Fixture contract and drift checks passed.
+-   Final verification passed: full workspace build 36/36, PlayCanvas Editor build, focused backend/frontend/compiler suites, package and E2E lint, Prettier, vendor drift, docs checks, and `git diff --check`. No schema or metahub template version was bumped. Advisory autoreview could not run because the environment's Codex state database is read-only.
+
+## 2026-08-27 - PlayCanvas Editor Assets and MMOOMM Script-Asset Implementation Complete
+
+-   Completed Phases 3.3–3.5 and the remaining Phase 5 gates for the PlayCanvas Editor asset and MMOOMM script-asset work. The generator now authors the builtin ESM scripts through the real Editor path, binds them to scene entities, publishes generated artifacts, and writes the canonical fixture without changing schema or metahub template versions.
+-   Added and verified contract/drift assertions for runtime scripts, script assets, and generated artifacts. The regenerated `tools/fixtures/metahubs-mmoomm-app-snapshot.json` is deterministic and passes both the fixture contract and drift checker.
+-   Fixed the editor delete path to bind asset ids as `uuid[]` (rather than `text[]`), and added a store regression test. The browser asset flow now proves create, raw file read, ShareDB rename, and delete against minimal local Supabase.
+-   Added the dedicated baseline/movement parity flow and runtime `scriptsLoaded` proof. Both the parity flow and imported MMOOMM runtime flow passed 2/2; the fixture generator passed 2/2; the localized asset/Modules screenshot generator passed 2/2 at 1920×1080.
+-   Verification passed: editor-backend realtime/routes Vitest (9 targeted tests), metahubs-backend Jest (172 targeted tests), modules-engine Vitest (30 tests), apps-template loader/widget Vitest (55 tests), PlayCanvas Editor artifact tests (15 tests), full workspace build (36/36), Editor build, touched-package lint, Prettier, docs i18n, GitBook screenshot-asset checks, and `git diff --check`.
+-   Advisory autoreview was attempted in both sandboxed and escalated modes. The sandboxed helper could not write its state database, while the escalated reviewer remained idle with an empty report for 16 minutes and was interrupted; no product finding was emitted, so this environment limitation is recorded explicitly rather than reported as a clean autoreview.
+-   Post-review hardening closed the identified correctness risks: script-asset compilation rejects relative/absolute filesystem imports and uses an isolated resolve directory; publication reuses only source-checksum-matching artifacts under an advisory lock; compatibility asset deletion uses checksum/version preconditions with transactional rollback restoration; file renames lock both paths and use atomic no-clobber links; strict bounded DELETE schemas and realtime-grant eviction are in place. Revalidated metahubs PlayCanvas Jest (222/222), editor-backend Vitest (72/72), and the affected file/compiler tests.
+
+## 2026-08-26 - PlayCanvas Editor Assets and MMOOMM Script-Asset Documentation
+
+-   Added the EN/RU GitBook page for the bounded PlayCanvas Editor asset and script-asset surface, including the asset model, supported types, multipart create and prefix-delete flows, realtime attribute parsing, publication artifacts, runtime loading, folder rules, and limitations. Added matching `SUMMARY.md` entries and clarified the merged Modules tab and scope selection in the metahub pages.
+-   Refreshed the affected package READMEs in EN/RU where applicable: editor-backend scope, apps-template script-asset runtime markers, metahubs Modules surface, and modules-engine compiler export. Updated the PlayCanvas Editor package/docs and active skill references to v2.30.4 while keeping the vendored Editor package distinct from the separate runtime engine (2.21.4); the runtime engine configuration is synchronized as part of the completion pass above.
+-   Verification passed: `pnpm docs:i18n:check` (112 EN/RU page pairs) and `pnpm docs:gitbook-screenshot-assets:check`. Prettier passed on the updated documentation, README, and PlayCanvas Editor Skill files.
+
 ## 2026-08-20 - Interpretation Network GitBook Documentation Implementation
 
 -   Added a dedicated eight-page EN/RU GitBook user guide for the Interpretation Network, localized navigation, concise legacy-guide entry pages, and root/package README references.
@@ -832,7 +878,6 @@ All verified ✅ (colyseus-client/server Vitest, applications-backend realtime J
 -   Validation passed: backend Matrix service/controller Jest 12/12, Prettier, applications-backend lint with one unrelated pre-existing warning in `src/routes/sync/syncLayoutPersistence.ts`, applications-backend build after rebuilding workspace dependency dists, committed/generated Interpretation Network fixture contracts, full `build:e2e`, `git diff --check`, OntoIndex low-risk impact checks, and Thermos correctness/security subagent PASS.
 -   Local minimal Supabase Playwright verification reached browser execution and proved the child-cell create path no longer fails with the original invalid-cell backend error. The full wrapper still fails on separate browser-oracle/product follow-ups: Matrix settings reset button visibility after save, read-only member template listing with workspace 403, single-system root-cell locator drift in table view, and the language menu now exposing `Русский` instead of `Russian`.
 
-
 ---
 
 # PlayCanvas Engine / Editor / Colyseus Upgrade Gate — Implementation Evidence (2026-08-22)
@@ -847,7 +892,7 @@ All verified ✅ (colyseus-client/server Vitest, applications-backend realtime J
 
 ## Verification battery (all green at closeout)
 
-metadata guard · vendor drift (927 files) · isolation · schema vocabulary (x-* only, no $-keywords) · zod resolution · apps-template isolation · snapshot fixtures contract · prettier on touched files. Focused suites: editor-backend 59, metahubs targeted 157+14+7, types 160, host page 16, artifact 15, applications realtime 47+5 integration, engine wrapper 6, widget 42.
+metadata guard · vendor drift (927 files) · isolation · schema vocabulary (x-\* only, no $-keywords) · zod resolution · apps-template isolation · snapshot fixtures contract · prettier on touched files. Focused suites: editor-backend 59, metahubs targeted 157+14+7, types 160, host page 16, artifact 15, applications realtime 47+5 integration, engine wrapper 6, widget 42.
 
 ## Gated follow-ups
 
@@ -856,7 +901,6 @@ metadata guard · vendor drift (927 files) · isolation · schema vocabulary (x-
 3.  **Phase 6 browser evidence**: full Playwright matrix (app gate, flight flow, authoring save/reload, artifact boot ×3 viewports, two-widget scenario, reconnect suite, late-token scenario) + EN/RU screenshot bundle per GitBook provenance convention + human review.
 4.  **Phase 7 remainder**: multiplayer/MMOOMM GitBook pages, packages registry policy page, testing guide, remaining package READMEs (colyseus wrappers, metahubs-backend packages domain), root README command notes.
 5.  **Phase 8**: full root rebuild, OntoIndex gn_verify_diff with allowlist, Thermos/autoreview closeout.
-
 
 ---
 
@@ -870,7 +914,7 @@ only intended catalog bumps). Within that window:
 
 -   Catalog bumped to the coherent Colyseus set: core 0.17.50 / sdk 0.17.43 /
     schema 4.0.31 (ws-transport unchanged). Lockfile diff audited — only
-    @colyseus/* re-resolution, zero new packages, zod stays 3.25.76.
+    @colyseus/\* re-resolution, zero new packages, zod stays 3.25.76.
 -   **All realtime suites green ON THE TARGET STACK**: 47 mocked + 5 real-server
     integration tests pass against installed core 0.17.50/schema 4.0.31/sdk
     0.17.43 (awaited onDrop + phantom-seat guard + explicit LocalPresence
@@ -914,7 +958,6 @@ suggesting environment degradation across repeated runs.
 
 Note: committed MMOOMM fixtures still embed pre-upgrade upstream descriptors;
 importing them into a fresh DB fails closed BY DESIGN until step 2 completes.
-
 
 ---
 
@@ -961,14 +1004,13 @@ with the larger budget the generator passed WITHOUT any artificial waits.
     generate the list mechanically:
     `git status --porcelain | awk '{print $2}' > /tmp/expected.txt` then
     `ontoindex detect-changes --repo universo-platformo-react
-    --expected-files /tmp/expected.txt` (the earlier MCP FAIL was an
+--expected-files /tmp/expected.txt` (the earlier MCP FAIL was an
     intentionally partial 12-file sample allowlist).
 5.  Phase 7 docs remainder: multiplayer/testing GitBook pages, colyseus wrapper
     READMEs, metahubs-backend packages-domain README.
 
 Quarantine policy restored to 10080 min BEFORE these runs; lockfile pins make
 CI installs policy-independent.
-
 
 ---
 
@@ -1003,7 +1045,7 @@ CI installs policy-independent.
     -   [P2] `webglcontextlost` now leaves the room (`room.leave(true)`) and
         clears realtime timers before destroying the application — no leaked
         server-side ships/sessions after terminal graphics loss.
-    Rerun: **autoreview clean, overall 0.98, no actionable findings.**
+        Rerun: **autoreview clean, overall 0.98, no actionable findings.**
 4.  **Diff verification**: CLI `detect-changes` has no expected-files flag;
     symbol-level run over non-vendor roots reported 18 files / 151 symbols /
     18 flows, risk "critical" by breadth (intentional upgrade scope; mitigated
@@ -1029,7 +1071,6 @@ token/controller/routes 74/74, widget 43/43. Supabase e2e stack stopped.
 Pre-existing editor-artifact spec flake (8 tests fail on
 `ws://127.0.0.1/disabled` console error in standalone mode, reproduced on
 clean tree) recorded as backlog — unrelated to this upgrade.
-
 
 ---
 

@@ -116,6 +116,7 @@ const completeReplayAfterSuccess = async (
             requestId: string
             commandType: string
             fingerprint: string
+            userId: string
         }
     } | null,
     response: unknown,
@@ -132,6 +133,9 @@ const completeReplayAfterSuccess = async (
         })
         .catch(() => false)
     if (!completed) {
+        // The mutation has already committed. Keep the claimed replay row so a
+        // retry cannot execute the mutation a second time; the completion write
+        // is retried by the session service and can be recovered later.
         throw new MetahubDomainError({
             message: 'PlayCanvas Editor bridge replay response could not be recorded',
             statusCode: 503,
@@ -286,6 +290,16 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const service = new PlayCanvasProjectsService(exec, schemaService)
             const items = await service.listAssets(metahubId, req.params.projectId, userId)
+            res.setHeader('Cache-Control', 'no-store')
+            return res.json({ items })
+        },
+        { permission: 'manageMetahub' }
+    )
+
+    const listScriptAssets = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const service = new PlayCanvasProjectsService(exec, schemaService)
+            const items = await service.listScriptAssets(metahubId, req.params.projectId, userId)
             res.setHeader('Cache-Control', 'no-store')
             return res.json({ items })
         },
@@ -459,6 +473,7 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         ) {
             return sendBridgeError(res, { requestId: command.requestId, code: 'unsupportedCapability', status: 403 })
         }
+        const service = new PlayCanvasProjectsService(exec, schemaService)
         let replayClaim: {
             schemaName: string
             input: {
@@ -495,11 +510,37 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
                 if (storedResponse?.status === 'completed') {
                     return res.json(storedResponse.response)
                 }
+                if (storedResponse && sessionService.isReplayClaimRecoverable(storedResponse)) {
+                    if (command.type === 'project.loadSelected') {
+                        const project = session.projectId
+                            ? await service.loadSelectedProjectForEditor(metahubId, session.projectId, userId)
+                            : null
+                        const response = { ok: true, requestId: command.requestId, data: { project } }
+                        await completeReplayAfterSuccess(sessionService, exec, replayClaim, response, userId)
+                        return res.json(response)
+                    }
+                    if (command.type === 'scene.save') {
+                        // A crashed worker can leave the durable claim behind
+                        // after the scene transaction committed. Re-read the
+                        // scene and complete the replay only when its payload
+                        // is byte-for-byte equivalent to the claimed command;
+                        // otherwise fail closed and require a fresh request.
+                        const current = await service.readEditorScene(metahubId, command.projectId, command.sceneId, userId)
+                        if (stableStringify(current.payload) === stableStringify(command.payload)) {
+                            const response = {
+                                ok: true,
+                                requestId: command.requestId,
+                                data: { scene: current.scene, checksum: current.scene.checksum ?? null }
+                            }
+                            await completeReplayAfterSuccess(sessionService, exec, replayClaim, response, userId)
+                            return res.json(response)
+                        }
+                    }
+                }
                 return sendBridgeError(res, { requestId: command.requestId, code: 'replayRejected', status: 409 })
             }
         }
 
-        const service = new PlayCanvasProjectsService(exec, schemaService)
         let completedSuccessfulBridgeOperation = false
         try {
             switch (command.type) {
@@ -681,6 +722,7 @@ export function createPlayCanvasProjectsController(createHandler: ReturnType<typ
         getScene,
         writeScene,
         listAssets,
+        listScriptAssets,
         getAsset,
         writeAsset,
         writeScriptAsset,

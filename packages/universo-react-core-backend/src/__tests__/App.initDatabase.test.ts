@@ -1,5 +1,10 @@
 import express from 'express'
 import type { Request } from 'express'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
+const httpRequest = require('supertest') as typeof import('supertest')
 
 const mockLogger = {
     info: jest.fn(),
@@ -182,8 +187,10 @@ jest.mock('@universo-react/utils', () => {
 import {
     App,
     buildPlayCanvasEditorHostCsp,
+    configureUiStaticFiles,
     isApplicationRealtimeUpgradeOriginAllowed,
     isPlayCanvasEditorHostRoute,
+    isUiDocumentRequest,
     resolvePlayCanvasEditorRequestOrigin
 } from '../index'
 
@@ -386,6 +393,37 @@ describe('App.initDatabase', () => {
         process.env.APPLICATION_REALTIME_WS_ORIGINS = '*'
 
         expect(isApplicationRealtimeUpgradeOriginAllowed({ headers: { origin: 'https://runtime.example.test' } } as never)).toBe(false)
+    })
+
+    it('recognizes only HTML navigations as SPA document requests', () => {
+        expect(isUiDocumentRequest({ method: 'GET', path: '/metahub/demo', headers: { accept: 'text/html' } })).toBe(true)
+        expect(isUiDocumentRequest({ method: 'HEAD', path: '/', headers: { accept: 'text/html' } })).toBe(true)
+        expect(isUiDocumentRequest({ method: 'GET', path: '/assets/app.js', headers: { accept: 'text/html' } })).toBe(false)
+        expect(isUiDocumentRequest({ method: 'POST', path: '/metahub/demo', headers: { accept: 'text/html' } })).toBe(false)
+        expect(isUiDocumentRequest({ method: 'GET', path: '/metahub/demo', headers: { accept: '*/*' } })).toBe(false)
+        expect(isUiDocumentRequest({ method: 'GET', path: '/metahub/demo', headers: {} })).toBe(true)
+    })
+
+    it('serves the SPA shell for navigations but returns 404 for stale asset URLs', async () => {
+        const uiRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'universo-core-ui-'))
+        const uiHtmlPath = path.join(uiRoot, 'index.html')
+        const assetPath = path.join(uiRoot, 'assets', 'app.js')
+        fs.mkdirSync(path.dirname(assetPath), { recursive: true })
+        fs.writeFileSync(uiHtmlPath, '<!doctype html><html><body>shell</body></html>')
+        fs.writeFileSync(assetPath, 'console.log("asset")')
+
+        try {
+            const app = express()
+            configureUiStaticFiles(app, uiRoot, uiHtmlPath)
+
+            await httpRequest(app).get('/').set('Accept', 'text/html').expect(200).expect('Cache-Control', 'no-store')
+            await httpRequest(app).get('/metahub/demo').set('Accept', 'text/html').expect(200)
+            await httpRequest(app).get('/assets/app.js').expect(200, 'console.log("asset")')
+            await httpRequest(app).get('/assets/missing.js').expect(404).expect('')
+            await httpRequest(app).get('/missing').set('Accept', '*/*').expect(404).expect('')
+        } finally {
+            fs.rmSync(uiRoot, { recursive: true, force: true })
+        }
     })
 
     it('initializes database and runs unified platform migrations', async () => {

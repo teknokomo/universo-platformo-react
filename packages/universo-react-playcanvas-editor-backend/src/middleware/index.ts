@@ -53,11 +53,12 @@ export const resolveLoopbackSiblingOrigin = (origin: string | undefined): string
     if (!origin) return null
     try {
         const url = new URL(origin)
-        if (url.hostname === '127.0.0.1') {
+        const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+        if (hostname === '127.0.0.1' || hostname === '::1') {
             url.hostname = 'localhost'
             return url.origin
         }
-        if (url.hostname === 'localhost') {
+        if (hostname === 'localhost') {
             url.hostname = '127.0.0.1'
             return url.origin
         }
@@ -85,11 +86,14 @@ export const addConfiguredArtifactOrigins = (origins: Set<string>): void => {
     }
 }
 
-export const resolveAllowedArtifactOrigins = (requestOrigin: string | undefined, apiOrigin: string | undefined): Set<string> => {
+export const resolveAllowedArtifactOrigins = (_requestOrigin: string | undefined, apiOrigin: string | undefined): Set<string> => {
     const origins = new Set<string>()
-    addSafeOrigin(origins, requestOrigin)
+    // The caller-supplied Origin is not an allow-list entry. Trusting it here
+    // would let any cross-site caller nominate itself as an artifact origin by
+    // echoing `?artifactOrigin=<caller-origin>` on the config endpoint. A
+    // browser-facing artifact must be explicitly configured, or be the
+    // documented loopback sibling of the canonical API origin.
     addSafeOrigin(origins, apiOrigin)
-    addSafeOrigin(origins, resolveLoopbackSiblingOrigin(requestOrigin))
     addSafeOrigin(origins, resolveLoopbackSiblingOrigin(apiOrigin))
     addConfiguredArtifactOrigins(origins)
     return origins

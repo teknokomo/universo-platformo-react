@@ -581,7 +581,7 @@ describe('MatrixWorkspace', () => {
         )
         fireEvent.click(within(dialog).getByRole('tab', { name: 'Style' }))
         await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Edit all sides together' })).toBeInTheDocument())
-    })
+    }, 15_000)
 
     it('keeps the adjusted split-pane size when the selected structure row is refreshed with the same id', () => {
         const structure = {

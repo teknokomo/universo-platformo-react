@@ -28,6 +28,7 @@ import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 import { ROLE_PERMISSIONS } from '../../routes/guards'
 import { RuntimeModulesService } from '../../services/runtimeModulesService'
 import { buildRuntimeRecordAccessClause, type RuntimeObjectCollectionAttr } from '../../controllers/runtimeRowsController'
+import { computePlayCanvasRuntimeManifestChecksum } from '../../controllers/runtimePlayCanvasController'
 
 describe('Applications Routes', () => {
     interface TestDataSource {
@@ -2589,7 +2590,30 @@ describe('Applications Routes', () => {
             const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const projectId = '018f8a78-7b8f-7c1d-a111-2222333344e9'
             const sceneId = '018f8a78-7b8f-7c1d-a111-2222333344ea'
-            const checksum = 'd'.repeat(64)
+            const runtimeManifest = {
+                schemaVersion: '1',
+                projectId,
+                sceneId,
+                checksum: '',
+                assets: [],
+                scripts: [],
+                metadata: {
+                    mmoomm: {
+                        scene: {
+                            objects: [
+                                {
+                                    id: 'ship',
+                                    position: { x: 0, y: 0, z: 0 },
+                                    scale: { x: 12, y: 4, z: 4 },
+                                    selectable: true
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+            const checksum = computePlayCanvasRuntimeManifestChecksum(runtimeManifest)
+            runtimeManifest.checksum = checksum
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
@@ -2616,28 +2640,7 @@ describe('Applications Routes', () => {
                             source_project_id: projectId,
                             source_scene_id: sceneId,
                             manifest_checksum: checksum,
-                            runtime_manifest: {
-                                schemaVersion: '1',
-                                projectId,
-                                sceneId,
-                                checksum,
-                                assets: [],
-                                scripts: [],
-                                metadata: {
-                                    mmoomm: {
-                                        scene: {
-                                            objects: [
-                                                {
-                                                    id: 'ship',
-                                                    position: { x: 0, y: 0, z: 0 },
-                                                    scale: { x: 12, y: 4, z: 4 },
-                                                    selectable: true
-                                                }
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
+                            runtime_manifest: runtimeManifest
                         }
                     ]
                 }
@@ -2712,6 +2715,101 @@ describe('Applications Routes', () => {
             const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime/playcanvas-manifests`).expect(200)
 
             expect(response.body).toEqual({ manifests: [] })
+        })
+
+        it('fails closed when a published manifest contains an external asset URL', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344ec'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
+            const projectId = '018f8a78-7b8f-7c1d-a111-2222333344ed'
+            const sceneId = '018f8a78-7b8f-7c1d-a111-2222333344ee'
+            const runtimeManifest = {
+                schemaVersion: '1',
+                projectId,
+                sceneId,
+                checksum: '',
+                assets: [{ id: 'scene-json', type: 'scene', name: 'Scene', url: 'https://attacker.example/scene.json' }],
+                scripts: []
+            }
+            runtimeManifest.checksum = computePlayCanvasRuntimeManifestChecksum(runtimeManifest)
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({ id: runtimeApplicationId, schemaName: runtimeSchemaName, workspacesEnabled: false })
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            const originalQueryImpl = (dataSource.query as jest.Mock).getMockImplementation()
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM information_schema.tables') && sql.includes("_app_playcanvas_manifests'")) {
+                    expect(params).toEqual([runtimeSchemaName])
+                    return [{ exists: true }]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"."_app_playcanvas_manifests"`)) {
+                    return [
+                        {
+                            source_project_id: projectId,
+                            source_scene_id: sceneId,
+                            manifest_checksum: runtimeManifest.checksum,
+                            runtime_manifest: runtimeManifest
+                        }
+                    ]
+                }
+                return originalQueryImpl ? originalQueryImpl(sql, params) : []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .get(`/applications/${runtimeApplicationId}/runtime/playcanvas-manifests`)
+                .expect(500)
+
+            expect(response.body.error).toContain('unapproved asset URL')
+        })
+
+        it('fails closed when the stored manifest row identity does not match its payload', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344ef'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
+            const projectId = '018f8a78-7b8f-7c1d-a111-2222333344f0'
+            const sceneId = '018f8a78-7b8f-7c1d-a111-2222333344f1'
+            const runtimeManifest = {
+                schemaVersion: '1',
+                projectId,
+                sceneId,
+                checksum: '',
+                assets: [],
+                scripts: []
+            }
+            runtimeManifest.checksum = computePlayCanvasRuntimeManifestChecksum(runtimeManifest)
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({ id: runtimeApplicationId, schemaName: runtimeSchemaName, workspacesEnabled: false })
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            const originalQueryImpl = (dataSource.query as jest.Mock).getMockImplementation()
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM information_schema.tables') && sql.includes("_app_playcanvas_manifests'")) {
+                    return [{ exists: true }]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"."_app_playcanvas_manifests"`)) {
+                    return [
+                        {
+                            source_project_id: '018f8a78-7b8f-7c1d-a111-2222333344f2',
+                            source_scene_id: sceneId,
+                            manifest_checksum: runtimeManifest.checksum,
+                            runtime_manifest: runtimeManifest
+                        }
+                    ]
+                }
+                return originalQueryImpl ? originalQueryImpl(sql, params) : []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .get(`/applications/${runtimeApplicationId}/runtime/playcanvas-manifests`)
+                .expect(500)
+
+            expect(response.body.error).toContain('row identity is invalid')
         })
     })
 

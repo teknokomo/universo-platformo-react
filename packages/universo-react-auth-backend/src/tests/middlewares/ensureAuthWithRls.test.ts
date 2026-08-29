@@ -35,6 +35,11 @@ const createResponse = () => {
         }),
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
+        end: jest.fn(),
+        headersSent: false,
+        statusCode: 200,
+        setHeader: jest.fn(),
+        destroy: jest.fn(),
         emit: async (event: string) => {
             const handler = eventHandlers.get(event)
             if (handler) {
@@ -47,6 +52,11 @@ const createResponse = () => {
         once: jest.Mock
         status: jest.Mock
         json: jest.Mock
+        end: jest.Mock
+        headersSent: boolean
+        statusCode: number
+        setHeader: jest.Mock
+        destroy: jest.Mock
         emit: (event: string) => Promise<void>
     }
 }
@@ -234,6 +244,53 @@ describe('createEnsureAuthWithRls', () => {
         })
 
         await res.emit('finish')
+        expect(releaseConnection).toHaveBeenCalledWith(connection)
+    })
+
+    it('exposes the response body and commits the request transaction on finish', async () => {
+        const next = jest.fn()
+        const connection = { id: 'conn-response-barrier' }
+        const rawCalls: string[] = []
+        const connectionRaw = jest.fn().mockResolvedValue({ rows: [] })
+        const raw = jest.fn((sql: string) => {
+            rawCalls.push(sql)
+            return { connection: connectionRaw }
+        })
+        const releaseConnection = jest.fn()
+        const getKnex = jest.fn(() => ({
+            raw,
+            client: {
+                acquireConnection: jest.fn(async () => connection),
+                releaseConnection
+            }
+        }))
+        mockedCreateRlsExecutor.mockReturnValue({
+            query: jest.fn(),
+            transaction: jest.fn(),
+            isReleased: jest.fn(() => false)
+        } as never)
+        mockedApplyRlsContext.mockResolvedValue(undefined)
+
+        const middleware = createEnsureAuthWithRls({ getKnex: getKnex as never })
+        const req = {
+            originalUrl: '/api/private',
+            url: '/api/private',
+            path: '/api/private',
+            method: 'POST',
+            session: { tokens: { access: 'token' } },
+            user: { id: 'user-1' }
+        } as unknown as Request & { dbContext?: unknown }
+        const res = createResponse()
+        const originalEnd = res.end
+
+        await middleware(req, res, next)
+        res.end('committed body')
+
+        expect(originalEnd).toHaveBeenCalledWith('committed body')
+        expect(rawCalls).not.toContain('COMMIT')
+
+        await res.emit('finish')
+        expect(rawCalls).toContain('COMMIT')
         expect(releaseConnection).toHaveBeenCalledWith(connection)
     })
 

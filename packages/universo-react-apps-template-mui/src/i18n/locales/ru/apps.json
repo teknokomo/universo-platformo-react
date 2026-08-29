@@ -512,6 +512,7 @@
         "moduleUnavailable": "Runtime-модуль 3D недоступен.",
         "manifestLoading": "Загрузка опубликованной 3D-сцены...",
         "manifestLoadFailed": "Не удалось загрузить опубликованную 3D-сцену.",
+        "scriptLoadFailed": "Не удалось загрузить опубликованные скрипт-ассеты",
         "manifestUnavailable": "Опубликованная 3D-сцена недоступна.",
         "manifestSceneUnavailable": "Опубликованная 3D-сцена не содержит runtime-сцену.",
         "moveToTarget": "Лететь к цели",
@@ -528,7 +529,14 @@
         "visualLab": {
             "staticMode": "Статическая визуальная лаборатория",
             "variants": "Визуальные варианты",
-            "selectedVariant": "Выбрано: {{index}}. {{title}} · {{family}}"
+            "selectedVariant": "Выбрано: {{index}}. {{title}} · {{family}}",
+            "families": {
+                "softWhiteLinkup": "Мягкая белая связка",
+                "typeGlow": "Типографическое свечение",
+                "lowPolyRetrowave": "Ретро-геометрия",
+                "channelDegradation": "Деградация канала",
+                "unknown": "Визуальный стиль"
+            }
         },
         "realtime": {
             "connecting": "Подключение realtime",

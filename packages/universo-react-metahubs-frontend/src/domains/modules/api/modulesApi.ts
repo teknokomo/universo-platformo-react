@@ -27,6 +27,17 @@ export interface ModuleUpsertPayload {
     config?: Record<string, unknown>
 }
 
+const sanitizeModuleRecord = (module: MetahubModuleRecord): MetahubModuleRecord => {
+    if (!module.sourceStorage) {
+        return module
+    }
+
+    const sourceStorage = { ...module.sourceStorage }
+    delete sourceStorage.absolutePath
+
+    return { ...module, sourceStorage }
+}
+
 export const modulesApi = {
     list: async (metahubId: string, params: { attachedToKind?: ModuleAttachmentKind; attachedToId?: string | null } = {}) => {
         const { data } = await apiClient.get<{ items: MetahubModuleRecord[] }>(`/metahub/${metahubId}/modules`, {
@@ -35,17 +46,17 @@ export const modulesApi = {
                 ...(params.attachedToId !== undefined ? { attachedToId: params.attachedToId } : {})
             }
         })
-        return data.items
+        return data.items.map(sanitizeModuleRecord)
     },
 
     create: async (metahubId: string, payload: ModuleUpsertPayload) => {
         const { data } = await apiClient.post<MetahubModuleRecord>(`/metahub/${metahubId}/modules`, payload)
-        return data
+        return sanitizeModuleRecord(data)
     },
 
     update: async (metahubId: string, moduleId: string, payload: Partial<ModuleUpsertPayload>) => {
         const { data } = await apiClient.patch<MetahubModuleRecord>(`/metahub/${metahubId}/module/${moduleId}`, payload)
-        return data
+        return sanitizeModuleRecord(data)
     },
 
     remove: async (metahubId: string, moduleId: string, expectedVersion?: number, expectedSourceChecksum?: string) => {

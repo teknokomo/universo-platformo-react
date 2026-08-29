@@ -10,7 +10,7 @@
 -   Upstream Node requirement: `>=22.22.0`
 -   Embedded engine dependency: `playcanvas 2.21.3` (upstream devDependency)
 -   Snapshot date: 2026-08-22
--   Provenance inventory: `vendor/upstream-inventory.json` (sha256 per file, generated from `git archive v2.30.4` minus the omit lists in `tools/playcanvas-editor-omit-paths.mjs`)
+-   Provenance inventory: `vendor/upstream-inventory.json` (sha256 per file, generated from `git archive v2.30.4` minus the omit lists in `tools/playcanvas-editor-omit-paths.mjs`, then refreshed for the local integration patches listed below)
 -   License: MIT
 -   Copyright: `Copyright (c) 2011-2026 PlayCanvas Ltd.`
 
@@ -27,6 +27,9 @@ This boundary still does not claim PlayCanvas Cloud parity: PlayCanvas-shaped RE
 -   Upstream `package.json` is not present inside `vendor/playcanvas-editor/`; it is copied to `vendor/package.playcanvas-editor.json`.
 -   Upstream `package-lock.json`, `test/`, `test-suite/`, `.github/`, Docker files, Renovate configuration, and the symlink-only `.env.template` are not vendored because this package owns dependency resolution, CI, and tests through the Universo monorepo.
 -   Build scripts copy the vendored source into an external temporary directory before running Vite, so generated manifests are not visible to recursive repository checks under `packages/**`.
+-   `src/editor/assets/handle-script-parse.ts` carries a narrow local integration patch: it supplies virtual `@shared/*` and `/playcanvas.js` declarations to the upstream parser so MMOOMM ESM script assets can be authored before their shared library declarations are available. The inventory records the resulting content hash and the vendor drift gate remains fail-closed for every other vendored file.
+-   `src/workers/esm-script.worker.ts` carries a narrow local integration patch: it loads TypeScript declarations from the hosted `types/` directory so the browser-side attribute parser can resolve standard-library references without producing TS2318 diagnostics. The inventory records the resulting content hash.
+-   `vite.config.mjs` carries the matching asset-boundary patch: it copies the workspace TypeScript declaration files into the generated artifact and emits the empty compatibility module requested by `@playcanvas/attribute-parser` for the removed `lib.es2022.sharedmemory.d.ts` name. The inventory records the resulting content hash; the vendor drift gate remains fail-closed for every other vendored file.
 
 ## Update from v2.24.2 → v2.30.4 (2026-08-22)
 

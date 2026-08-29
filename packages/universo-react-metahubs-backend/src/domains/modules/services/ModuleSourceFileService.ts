@@ -87,6 +87,8 @@ export const assertSafeModuleSourceScopeSegment = (value: string, label: string)
 }
 
 export class ModuleSourceFileService {
+    private static readonly pathLocks = new Map<string, Promise<void>>()
+
     private readonly root: string
 
     constructor(root?: string | null) {
@@ -161,7 +163,12 @@ export class ModuleSourceFileService {
         }
     }
 
-    async write(scope: ModuleSourceScope, sourcePath: string, sourceCode: string): Promise<ModuleSourceReadResult> {
+    async write(
+        scope: ModuleSourceScope,
+        sourcePath: string,
+        sourceCode: string,
+        options: { expectedCurrentChecksum?: string | null } = {}
+    ): Promise<ModuleSourceReadResult> {
         const safePath = assertSafeRelativeModulePath(sourcePath)
         if (Buffer.byteLength(sourceCode, 'utf8') > MODULE_SOURCE_MAX_BYTES) {
             throw new MetahubValidationError('Module source file is too large', {
@@ -171,56 +178,133 @@ export class ModuleSourceFileService {
         }
 
         const absolutePath = this.resolveTargetPath(scope, safePath)
-        await this.assertParentWithinRoot(scope, absolutePath)
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true })
-        const tempPath = `${absolutePath}.${process.pid}.${Date.now()}.${crypto.randomUUID()}.tmp`
-        try {
-            await fs.writeFile(tempPath, sourceCode, 'utf8')
-            await this.assertResolvedPathWithinBranch(scope, tempPath)
-            await fs.rename(tempPath, absolutePath)
-        } catch (error) {
-            await fs.rm(tempPath, { force: true }).catch(() => undefined)
-            throw error
-        }
-        return this.read(scope, safePath)
+        return this.withPathLock(absolutePath, async () => {
+            if (options.expectedCurrentChecksum !== undefined) {
+                const current = await this.stat(scope, safePath)
+                if (options.expectedCurrentChecksum === null) {
+                    if (current.exists) {
+                        throw new MetahubValidationError('Module source file already exists', {
+                            messageCode: 'modules.sourcePath.currentChecksumMismatch',
+                            expectedCurrentChecksum: null,
+                            actualCurrentChecksum: current.checksum
+                        })
+                    }
+                } else if (!current.exists || current.checksum !== options.expectedCurrentChecksum) {
+                    throw new MetahubValidationError('Module source file current checksum does not match', {
+                        messageCode: 'modules.sourcePath.currentChecksumMismatch',
+                        expectedCurrentChecksum: options.expectedCurrentChecksum,
+                        actualCurrentChecksum: current.checksum
+                    })
+                }
+            }
+            await this.assertParentWithinRoot(scope, absolutePath)
+            await fs.mkdir(path.dirname(absolutePath), { recursive: true })
+            const tempPath = `${absolutePath}.${process.pid}.${Date.now()}.${crypto.randomUUID()}.tmp`
+            try {
+                await fs.writeFile(tempPath, sourceCode, 'utf8')
+                await this.assertResolvedPathWithinBranch(scope, tempPath)
+                await fs.rename(tempPath, absolutePath)
+            } catch (error) {
+                await fs.rm(tempPath, { force: true }).catch(() => undefined)
+                throw error
+            }
+            return this.read(scope, safePath)
+        })
     }
 
-    async delete(scope: ModuleSourceScope, sourcePath: string): Promise<void> {
+    async delete(scope: ModuleSourceScope, sourcePath: string, options: { expectedCurrentChecksum?: string | null } = {}): Promise<void> {
         const safePath = assertSafeRelativeModulePath(sourcePath)
         const absolutePath = this.resolveTargetPath(scope, safePath)
-        await this.assertResolvedPathWithinBranch(scope, absolutePath, { allowMissing: true })
-        await fs.rm(absolutePath, { force: true })
+        await this.withPathLock(absolutePath, async () => {
+            await this.assertResolvedPathWithinBranch(scope, absolutePath, { allowMissing: true })
+            if (options.expectedCurrentChecksum !== undefined) {
+                const current = await this.stat(scope, safePath)
+                if (options.expectedCurrentChecksum === null) {
+                    if (current.exists) {
+                        throw new MetahubValidationError('Module source file current checksum does not match', {
+                            messageCode: 'modules.sourcePath.currentChecksumMismatch',
+                            expectedCurrentChecksum: null,
+                            actualCurrentChecksum: current.checksum
+                        })
+                    }
+                    return
+                }
+                if (!current.exists || current.checksum !== options.expectedCurrentChecksum) {
+                    throw new MetahubValidationError('Module source file current checksum does not match', {
+                        messageCode: 'modules.sourcePath.currentChecksumMismatch',
+                        expectedCurrentChecksum: options.expectedCurrentChecksum,
+                        actualCurrentChecksum: current.checksum
+                    })
+                }
+            }
+            await fs.rm(absolutePath, { force: true })
+        })
     }
 
     async copyTree(source: ModuleSourceScope, target: ModuleSourceScope): Promise<void> {
         const sourceBranchRoot = this.branchRoot(source)
         const targetBranchRoot = this.branchRoot(target)
-        await this.assertResolvedPathWithinRoot(sourceBranchRoot, { allowMissing: true })
-        await this.assertResolvedPathWithinRoot(targetBranchRoot, { allowMissing: true })
         const sourceRoot = path.join(sourceBranchRoot, 'modules')
         const targetRoot = path.join(targetBranchRoot, 'modules')
-        await this.assertResolvedPathWithinRoot(sourceRoot, { allowMissing: true })
-        await this.assertResolvedPathWithinRoot(targetRoot, { allowMissing: true })
-        const sourceStat = await fs.stat(sourceRoot).catch((error: NodeJS.ErrnoException) => {
-            if (error.code === 'ENOENT') return null
-            throw error
+        await this.withPathLocks([sourceRoot, targetRoot], async () => {
+            await this.assertResolvedPathWithinRoot(sourceBranchRoot, { allowMissing: true })
+            await this.assertResolvedPathWithinRoot(targetBranchRoot, { allowMissing: true })
+            await this.assertResolvedPathWithinRoot(sourceRoot, { allowMissing: true })
+            await this.assertResolvedPathWithinRoot(targetRoot, { allowMissing: true })
+            const sourceStat = await fs.stat(sourceRoot).catch((error: NodeJS.ErrnoException) => {
+                if (error.code === 'ENOENT') return null
+                throw error
+            })
+            if (!sourceStat) return
+            await this.assertPathIsNotSymlink(sourceRoot)
+            await this.assertTreeContainsNoSymlinks(sourceRoot)
+            const targetParent = path.dirname(targetRoot)
+            await fs.mkdir(targetParent, { recursive: true })
+            const stagingRoot = path.join(targetParent, `.${path.basename(targetRoot)}.copy-${process.pid}-${crypto.randomUUID()}`)
+            const backupRoot = path.join(targetParent, `.${path.basename(targetRoot)}.backup-${process.pid}-${crypto.randomUUID()}`)
+            let targetBackedUp = false
+            let targetInstalled = false
+            try {
+                await fs.cp(sourceRoot, stagingRoot, { recursive: true, force: false, errorOnExist: true })
+                await this.assertPathIsNotSymlink(stagingRoot)
+                await this.assertTreeContainsNoSymlinks(stagingRoot)
+                await this.assertResolvedPathWithinRoot(stagingRoot)
+                const targetStat = await fs.lstat(targetRoot).catch((error: NodeJS.ErrnoException) => {
+                    if (error.code === 'ENOENT') return null
+                    throw error
+                })
+                if (targetStat?.isSymbolicLink()) {
+                    throw new MetahubValidationError('Module source tree cannot contain symbolic links', {
+                        messageCode: 'modules.sourcePath.symlinkUnsupported'
+                    })
+                }
+                if (targetStat) {
+                    await this.assertTreeContainsNoSymlinks(targetRoot)
+                    await fs.rename(targetRoot, backupRoot)
+                    targetBackedUp = true
+                }
+                await fs.rename(stagingRoot, targetRoot)
+                targetInstalled = true
+                await this.assertResolvedPathWithinRoot(targetRoot)
+            } catch (error) {
+                if (targetBackedUp && !targetInstalled) {
+                    await fs.rename(backupRoot, targetRoot).catch(() => undefined)
+                }
+                throw error
+            } finally {
+                if (!targetInstalled) await fs.rm(stagingRoot, { force: true, recursive: true }).catch(() => undefined)
+                if (targetInstalled && targetBackedUp) await fs.rm(backupRoot, { force: true, recursive: true }).catch(() => undefined)
+            }
         })
-        if (!sourceStat) {
-            return
-        }
-        await this.assertPathIsNotSymlink(sourceRoot)
-        await this.assertTreeContainsNoSymlinks(sourceRoot)
-        await fs.rm(targetRoot, { force: true, recursive: true })
-        await fs.mkdir(path.dirname(targetRoot), { recursive: true })
-        await fs.cp(sourceRoot, targetRoot, { recursive: true, force: false, errorOnExist: true })
-        await this.assertResolvedPathWithinRoot(targetRoot)
     }
 
     async deleteMetahubTree(metahubId: string): Promise<void> {
         const safeMetahubId = assertSafeModuleSourceScopeSegment(metahubId, 'metahubId')
         const metahubRoot = path.join(this.root, 'metahubs', safeMetahubId)
-        await this.assertResolvedPathWithinRoot(metahubRoot, { allowMissing: true })
-        await fs.rm(metahubRoot, { force: true, recursive: true })
+        await this.withPathLock(metahubRoot, async () => {
+            await this.assertResolvedPathWithinRoot(metahubRoot, { allowMissing: true })
+            await fs.rm(metahubRoot, { force: true, recursive: true })
+        })
     }
 
     branchRoot(scope: ModuleSourceScope): string {
@@ -323,6 +407,33 @@ export class ModuleSourceFileService {
                 await this.assertTreeContainsNoSymlinks(absolutePath)
             }
         }
+    }
+
+    private async withPathLock<T>(absolutePath: string, work: () => Promise<T>): Promise<T> {
+        const lockKey = path.resolve(absolutePath)
+        const previous = ModuleSourceFileService.pathLocks.get(lockKey) ?? Promise.resolve()
+        let release!: () => void
+        const current = new Promise<void>((resolve) => {
+            release = resolve
+        })
+        const queued = previous.catch(() => undefined).then(() => current)
+        ModuleSourceFileService.pathLocks.set(lockKey, queued)
+        await previous.catch(() => undefined)
+        try {
+            return await work()
+        } finally {
+            release()
+            if (ModuleSourceFileService.pathLocks.get(lockKey) === queued) ModuleSourceFileService.pathLocks.delete(lockKey)
+        }
+    }
+
+    private withPathLocks<T>(absolutePaths: readonly string[], work: () => Promise<T>): Promise<T> {
+        const lockPaths = [...new Set(absolutePaths.map((absolutePath) => path.resolve(absolutePath)))].sort()
+        const acquire = (index: number): Promise<T> => {
+            if (index >= lockPaths.length) return work()
+            return this.withPathLock(lockPaths[index]!, () => acquire(index + 1))
+        }
+        return acquire(0)
     }
 
     private async assertPathIsNotSymlink(absolutePath: string): Promise<Stats> {

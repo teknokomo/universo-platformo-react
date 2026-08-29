@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { Locator, Page, Response } from '@playwright/test'
 import { expect } from '../fixtures/test'
 import { toolbarSelectors } from './selectors/contracts'
+import { repoRoot } from './env/load-e2e-env.mjs'
 import { MMOOMM_APP_FIXTURE_FILENAME, assertMmoommAppFixtureEnvelopeContract, type SnapshotEnvelope } from './mmoommAppFixtureContract'
 
 type SnapshotFixture = SnapshotEnvelope & Record<string, unknown>
@@ -34,7 +35,7 @@ function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
 }
 
 export async function loadMmoommAppSnapshotFixture(): Promise<{ fixturePath: string; metahubName: string; fixture: SnapshotFixture }> {
-    const fixturePath = path.join(process.cwd(), 'tools', 'fixtures', MMOOMM_APP_FIXTURE_FILENAME)
+    const fixturePath = path.join(repoRoot, 'tools', 'fixtures', MMOOMM_APP_FIXTURE_FILENAME)
     const rawFixture = await fs.readFile(fixturePath, 'utf8')
     const fixture = JSON.parse(rawFixture) as SnapshotFixture
 

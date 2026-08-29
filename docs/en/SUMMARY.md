@@ -57,6 +57,7 @@
     -   [Shared Behavior Settings](platform/metahubs/shared-behavior-settings.md)
 -   [Applications](platform/applications.md)
 -   [PlayCanvas Editor Package](platform/playcanvas-editor.md)
+-   [PlayCanvas Editor Assets](platform/playcanvas-editor-assets.md)
 -   [PlayCanvas Projects](platform/playcanvas-projects.md)
 -   [PlayCanvas Editor Skills](platform/playcanvas-editor-skills.md)
 -   [Multiplayer Realtime](platform/multiplayer-realtime.md)

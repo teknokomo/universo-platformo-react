@@ -28,8 +28,6 @@ export function createAccessGuards<TRole extends string, TMembership, TConn = un
         permissions,
         getMembership,
         extractRole,
-        extractUserId,
-        extractEntityId,
         isSuperuser: isSuperuserFn,
         getGlobalRoleName,
         getGlobalRole, // deprecated, for backward compatibility
@@ -46,8 +44,6 @@ export function createAccessGuards<TRole extends string, TMembership, TConn = un
         if (!allowed) {
             console.warn('[SECURITY] Permission denied', {
                 timestamp: new Date().toISOString(),
-                userId: extractUserId(membership),
-                entityId: extractEntityId(membership),
                 entityName,
                 action: permission,
                 userRole: role,
@@ -84,8 +80,6 @@ export function createAccessGuards<TRole extends string, TMembership, TConn = un
                 const roleName = getGlobalRoleName ? await getGlobalRoleName(conn, userId, dbSession) : 'Superuser'
                 console.info('[ACCESS] Superuser access granted - bypassing permissions', {
                     timestamp: new Date().toISOString(),
-                    userId,
-                    entityId,
                     entityName,
                     globalRole: roleName
                 })
@@ -100,8 +94,6 @@ export function createAccessGuards<TRole extends string, TMembership, TConn = un
             if (globalRole === 'superadmin' || globalRole === 'supermoderator') {
                 console.info('[ACCESS] Global admin access granted (legacy)', {
                     timestamp: new Date().toISOString(),
-                    userId,
-                    entityId,
                     entityName,
                     globalRole
                 })
@@ -115,8 +107,6 @@ export function createAccessGuards<TRole extends string, TMembership, TConn = un
         if (!membership) {
             console.warn('[SECURITY] Permission denied', {
                 timestamp: new Date().toISOString(),
-                userId,
-                entityId,
                 entityName,
                 action: permission || 'access',
                 reason: 'not_member'

@@ -1,9 +1,10 @@
 # MMOOMM Flight Simulator
 
-The MMOOMM flight simulator fixture is a product metahub configuration, not a
-new MMOOMM-specific package. Generate it with the Playwright generator
-`metahubs-mmoomm-flight-app-export`; the output is
-`tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`.
+The MMOOMM flight simulator is a product metahub configuration, not a new
+MMOOMM-specific package. The canonical fixture is authored through the hosted
+PlayCanvas Editor flow by the Playwright generator
+`metahubs-mmoomm-app-export`; the committed output is
+`tools/fixtures/metahubs-mmoomm-app-snapshot.json`.
 
 ![MMOOMM flight simulator Space runtime](../.gitbook/assets/mmoomm-flight/runtime-space.png)
 
@@ -13,8 +14,8 @@ The generated metahub attaches three generic wrapper packages:
 and canvas widget are represented through metahub Objects, Modules, and the
 generic `playcanvasCanvas` application-layout widget.
 
-After importing the snapshot, publish the metahub as an application and open the
-published runtime with two authenticated users that have content edit access.
+After importing the canonical snapshot, publish the metahub as an application and
+open the published runtime with two authenticated users that have content edit access.
 Both users join the same Colyseus room for the published application scope. The
 server owns ship positions, assigns one stable ship per user, validates only
 movement intents (`move_to_point`, `move_to_object`, `stop`), and searches a

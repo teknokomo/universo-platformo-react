@@ -1,5 +1,4 @@
-import { createHash } from 'crypto'
-import stableStringify from 'json-stable-stringify'
+import { computePlayCanvasRuntimeManifestChecksum } from '../../../shared/playCanvasRuntimeManifest'
 
 const mockExec = {
     query: jest.fn(async () => [])
@@ -37,15 +36,24 @@ jest.mock('../../../ddl', () => ({
 import type { PublishedApplicationSnapshot } from '../../../services/applicationSyncContracts'
 import { hasPublishedPlayCanvasManifestChanges, persistPublishedPlayCanvasManifests } from '../../../routes/sync/syncPlayCanvasPersistence'
 
-const checksumManifest = (manifest: Record<string, unknown>) => createHash('sha256').update(stableStringify(manifest)).digest('hex')
+const checksumManifest = (manifest: Record<string, unknown>) => computePlayCanvasRuntimeManifestChecksum(manifest)
 
-const createManifest = (sceneId: string, checksumOverride?: string) => {
+const createManifest = (sceneId: string, checksumOverride?: string, urls: { assetUrl?: string; artifactUrl?: string } = {}) => {
     const manifestWithoutChecksum = {
         schemaVersion: '1',
         projectId: PROJECT_ID,
         sceneId,
-        assets: [{ id: `asset-${sceneId}`, type: 'scene', name: `Scene ${sceneId}`, hash: ASSET_HASH }],
-        scripts: [{ id: `script-${sceneId}`, scriptName: 'Ship', scriptKind: 'esm', artifactHash: ARTIFACT_HASH, attributes: {} }]
+        assets: [{ id: `asset-${sceneId}`, type: 'scene', name: `Scene ${sceneId}`, hash: ASSET_HASH, url: urls.assetUrl }],
+        scripts: [
+            {
+                id: `script-${sceneId}`,
+                scriptName: 'Ship',
+                scriptKind: 'esm',
+                artifactHash: ARTIFACT_HASH,
+                artifactUrl: urls.artifactUrl,
+                attributes: {}
+            }
+        ]
     }
     return {
         ...manifestWithoutChecksum,
@@ -53,9 +61,12 @@ const createManifest = (sceneId: string, checksumOverride?: string) => {
     }
 }
 
-const snapshotWithManifest = (checksumOverride?: string): PublishedApplicationSnapshot => {
+const snapshotWithManifest = (
+    checksumOverride?: string,
+    urls: { assetUrl?: string; artifactUrl?: string } = {}
+): PublishedApplicationSnapshot => {
     return {
-        playcanvasRuntimeManifests: [createManifest(SCENE_ID, checksumOverride)]
+        playcanvasRuntimeManifests: [createManifest(SCENE_ID, checksumOverride, urls)]
     } as unknown as PublishedApplicationSnapshot
 }
 
@@ -105,13 +116,14 @@ describe('syncPlayCanvasPersistence', () => {
             true
         )
 
+        const persistedManifest = createManifest(SCENE_ID, undefined, { assetUrl: 'data:image/png;base64,AA==' })
         mockExec.query.mockResolvedValueOnce([{ exists: true }]).mockResolvedValueOnce([
             {
                 source_project_id: PROJECT_ID,
                 source_scene_id: SCENE_ID,
                 manifest_schema_version: '1',
-                manifest_checksum: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-                runtime_manifest: snapshotWithManifest().playcanvasRuntimeManifests?.[0],
+                manifest_checksum: persistedManifest.checksum,
+                runtime_manifest: persistedManifest,
                 asset_count: 1,
                 script_count: 1,
                 artifact_count: 1
@@ -121,6 +133,23 @@ describe('syncPlayCanvasPersistence', () => {
         await expect(hasPublishedPlayCanvasManifestChanges({ schemaName: TEST_SCHEMA, snapshot: snapshotWithManifest() })).resolves.toBe(
             true
         )
+    })
+
+    it.each([
+        ['asset URL', { assetUrl: 'https://attacker.example/scene.json' }],
+        ['script artifact URL', { artifactUrl: 'https://attacker.example/flight.mjs' }]
+    ])('rejects an external %s before querying or mutating the runtime table', async (_label, urls) => {
+        const snapshot = snapshotWithManifest(undefined, urls)
+
+        await expect(
+            persistPublishedPlayCanvasManifests({
+                schemaName: TEST_SCHEMA,
+                snapshot,
+                userId: 'user-1'
+            })
+        ).rejects.toThrow('unapproved')
+        expect(mockExec.query).not.toHaveBeenCalled()
+        expect(mockTransaction).not.toHaveBeenCalled()
     })
 
     it('persists normalized PlayCanvas runtime manifests after ensuring application system tables', async () => {

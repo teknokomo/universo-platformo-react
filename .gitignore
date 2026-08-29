@@ -135,3 +135,7 @@ packages/universo-react-metahubs-backend/storage
 ## S/MIME message
 *.smime
 *.vsix
+
+# PlayCanvas ESM engine build staged for the runtime import map (copied by
+# packages/universo-react-core-frontend/scripts/ensure-playcanvas-esm.mjs)
+packages/universo-react-core-frontend/public/vendor/playcanvas/

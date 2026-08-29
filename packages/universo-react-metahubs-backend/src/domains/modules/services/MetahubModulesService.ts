@@ -265,6 +265,20 @@ const normalizeModuleRow = (row: StoredMetahubModuleRow): MetahubModuleRecord =>
     }
 }
 
+/**
+ * Keep server-only filesystem details out of transport responses.
+ * Relative source paths remain useful to the editor, while absolute paths
+ * disclose the host filesystem layout and must never cross the API boundary.
+ */
+export const toPublicMetahubModuleRecord = (module: MetahubModuleRecord): MetahubModuleRecord => {
+    if (!module.sourceStorage || typeof module.sourceStorage !== 'object') {
+        return module
+    }
+
+    const { absolutePath: _absolutePath, ...sourceStorage } = module.sourceStorage
+    return { ...module, sourceStorage }
+}
+
 const normalizeDateString = (value: string | Date | null | undefined): string | null =>
     value instanceof Date ? value.toISOString() : typeof value === 'string' ? value : null
 
@@ -420,6 +434,23 @@ export class MetahubModulesService {
                 version: item.version,
                 targets: item.source.runtimeTargets
             }))
+    }
+
+    /**
+     * Library-role module sources keyed by codename for compilers that inline
+     * `@shared/<codename>` imports (module bundles and PlayCanvas script assets).
+     */
+    async listSharedLibraryCompilationInputs(metahubId: string): Promise<Record<string, ModuleCompilationLibraryInput>> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId)
+        const storedModules = await listStoredMetahubModules(this.exec, schemaName, { onlyActive: true })
+        const modules = sortPublishedModuleEntries(
+            storedModules.map((row) => ({ row, module: normalizeModuleRow(row) })).filter(({ module }) => module.isActive)
+        )
+        const sourceCodeByModuleId = new Map<string, string>()
+        for (const entry of modules) {
+            sourceCodeByModuleId.set(entry.module.id, (await this.resolveSourceForRow(metahubId, schemaName, entry.row)).sourceCode)
+        }
+        return buildSharedLibraryCompilationMap(modules, sourceCodeByModuleId)
     }
 
     async listModules(metahubId: string, options: ListMetahubModulesOptions = {}, userId?: string): Promise<MetahubModuleRecord[]> {

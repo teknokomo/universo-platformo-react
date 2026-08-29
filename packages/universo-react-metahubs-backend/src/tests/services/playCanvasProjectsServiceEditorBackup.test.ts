@@ -65,6 +65,34 @@ const createBackupHarness = (): BackupHarness => {
 
     const txQuery = jest.fn(async (sql: string, params?: unknown[]): Promise<unknown[]> => {
         harness.txStatements.push(sql)
+        if (sql.includes('pg_advisory_xact_lock')) {
+            return []
+        }
+        if (sql.includes('SELECT EXISTS(')) {
+            return [{ exists: harness.existsQueue.shift() ?? false }]
+        }
+        if (sql.includes('MAX(latest.opened_at)')) {
+            return harness.latestRows as unknown[]
+        }
+        if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+            return [
+                {
+                    id: PROJECT_ID,
+                    codename: { _schema: '1', _primary: 'en', locales: {} },
+                    displayName: { _schema: '1', _primary: 'en', locales: {} },
+                    description: null,
+                    packageName: editorPackageName,
+                    packageVersion: '0.1.0',
+                    compatibilityStatus: 'compatible',
+                    compatibilityNotes: {},
+                    schemaVersion: '1',
+                    settings: {},
+                    defaultSceneId: SCENE_ID,
+                    publicationConfig: {},
+                    version: 1
+                }
+            ]
+        }
         if (sql.includes('playcanvas_editor_document_backups')) {
             if (harness.failInsert) {
                 throw typeof harness.failInsert === 'boolean' ? new Error('insert failed') : harness.failInsert
@@ -162,7 +190,7 @@ describe('PlayCanvasProjectsService editor document backups', () => {
 
         expect(result).toEqual({ status: 'skipped', documentCount: 0, openedAt: marker })
         expect(loadSpy).not.toHaveBeenCalled()
-        expect(harness.statements).toEqual([])
+        expect(harness.statements).toEqual(['BEGIN', 'COMMIT'])
     })
 
     it('creates a fresh backup set when a new editor session presents a new marker', async () => {

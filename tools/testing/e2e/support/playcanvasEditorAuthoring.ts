@@ -137,13 +137,25 @@ export const expectPlayCanvasEditorIframeLoaded = async (
     options: ExpectPlayCanvasEditorIframeLoadedOptions = {}
 ) => {
     const readyTimeoutMs = options.readyTimeoutMs ?? 60_000
+    const frameTimeoutMs = Math.max(20_000, readyTimeoutMs)
     const editorIframe = page.locator('iframe[data-testid="playcanvas-editor-frame"]')
-    await expect(editorIframe).toBeVisible()
-    await expect(editorIframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin')
-    await expect(editorIframe).toHaveAttribute('referrerpolicy', 'no-referrer')
-    await expect(editorIframe).toHaveAttribute('allow', '')
-    await expect(editorIframe).toHaveAttribute('tabindex', '0')
-    await expect(editorIframe).toHaveAttribute('src', new RegExp(`[?&]locale=${locale}(?:&|$)`))
+    await expect(editorIframe).toBeVisible({ timeout: frameTimeoutMs })
+    await expect(editorIframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin', { timeout: frameTimeoutMs })
+    await expect(editorIframe).toHaveAttribute('referrerpolicy', 'no-referrer', { timeout: frameTimeoutMs })
+    const frameOrigin = await editorIframe.getAttribute('src').then((src) => (src ? new URL(src, page.url()).origin : null))
+    const parentOrigin = new URL(page.url()).origin
+    const normalizeHostname = (hostname: string) => hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1'])
+    const expectedLoopbackPermission =
+        frameOrigin &&
+        frameOrigin !== parentOrigin &&
+        loopbackHosts.has(normalizeHostname(new URL(frameOrigin).hostname)) &&
+        loopbackHosts.has(normalizeHostname(new URL(parentOrigin).hostname))
+            ? 'loopback-network'
+            : ''
+    await expect(editorIframe).toHaveAttribute('allow', expectedLoopbackPermission, { timeout: frameTimeoutMs })
+    await expect(editorIframe).toHaveAttribute('tabindex', '0', { timeout: frameTimeoutMs })
+    await expect(editorIframe).toHaveAttribute('src', new RegExp(`[?&]locale=${locale}(?:&|$)`), { timeout: frameTimeoutMs })
 
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
     await expect(editorFrame.locator('body')).toHaveAttribute('data-universo-playcanvas-editor-hosted', 'true')

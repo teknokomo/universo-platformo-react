@@ -1,15 +1,21 @@
 import type { DbExecutor } from '@universo-react/utils'
 import {
     clearPlayCanvasDefaultProjectPointers,
+    deletePlayCanvasAssetsByIds,
+    listPlayCanvasEditorDocumentIds,
     markPlayCanvasAssetFileReferenceReady,
     markPlayCanvasAssetFileReferenceMissing,
+    listPlayCanvasReadyArtifactScriptIds,
+    markPlayCanvasGeneratedArtifactsStale,
     markPlayCanvasProjectFileReferenceReady,
     playCanvasProjectFileReferenceExists,
     playCanvasProjectMetadataFileReferenceExists,
+    persistPlayCanvasAssetEditorDocumentId,
     replacePlayCanvasPublicationManifests,
     restoreSoftDeletedPlayCanvasProject,
     softDeletePlayCanvasProject,
     summarizePlayCanvasProject,
+    updatePlayCanvasAssetTreeMetadata,
     upsertPlayCanvasAsset,
     upsertPlayCanvasGeneratedArtifact,
     upsertPlayCanvasScene,
@@ -28,6 +34,62 @@ const makeExec = (responses: unknown[][] = []): DbExecutor => {
 }
 
 describe('playCanvasProjectsStore', () => {
+    it('guards historical editor document id casts with canonical integer bounds', async () => {
+        const exec = makeExec([[{ documentId: 1 }, { documentId: 2_147_483_647 }, { documentId: null }]])
+
+        await expect(listPlayCanvasEditorDocumentIds(exec, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', 'project-1')).resolves.toEqual([
+            1, 2_147_483_647
+        ])
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain('CASE')
+        expect(String(sql)).toContain("THEN (metadata->>'editorDocumentId')::integer")
+        expect(String(sql)).not.toContain("SELECT DISTINCT (metadata->>'editorDocumentId')::integer")
+        expect(params).toEqual(['project-1'])
+    })
+
+    it('casts UUID asset ids before soft-deleting editor assets', async () => {
+        const assetId = '019e8afa-0000-7000-8000-000000000001'
+        const exec = makeExec([[{ id: assetId, file_ref: null }]])
+
+        await expect(
+            deletePlayCanvasAssetsByIds(
+                exec,
+                'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                'project-1',
+                [assetId],
+                '019e8afa-0000-7000-8000-000000000002'
+            )
+        ).resolves.toEqual([{ id: assetId, file_ref: null }])
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain('id = ANY($2::uuid[])')
+        expect(params).toEqual(['project-1', [assetId], '019e8afa-0000-7000-8000-000000000002'])
+    })
+
+    it('guards asset deletion with the captured optimistic versions', async () => {
+        const assetId = '019e8afa-0000-7000-8000-000000000001'
+        const exec = makeExec([[{ id: assetId, file_ref: null }]])
+
+        await deletePlayCanvasAssetsByIds(
+            exec,
+            'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+            'project-1',
+            [assetId],
+            '019e8afa-0000-7000-8000-000000000002',
+            [{ id: assetId, version: 3 }]
+        )
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain('jsonb_to_recordset($4::jsonb)')
+        expect(params).toEqual([
+            'project-1',
+            [assetId],
+            '019e8afa-0000-7000-8000-000000000002',
+            JSON.stringify([{ id: assetId, version: 3 }])
+        ])
+    })
+
     it('soft-deletes a project and its dependent PlayCanvas rows', async () => {
         const exec = makeExec([
             [
@@ -424,6 +486,38 @@ describe('playCanvasProjectsStore', () => {
         expect(sql).toContain('_upl_updated_by = $7::uuid')
     })
 
+    it('only treats generated artifacts with the current source checksum as ready', async () => {
+        const exec = makeExec([[{ script_asset_id: 'script-1' }]])
+
+        await expect(listPlayCanvasReadyArtifactScriptIds(exec, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1', 'project-1')).resolves.toEqual(
+            new Set(['script-1'])
+        )
+
+        const sql = String(jest.mocked(exec.query).mock.calls[0]?.[0])
+        expect(sql).toContain('ga.source_checksum IS NOT NULL')
+        expect(sql).toContain('ga.source_checksum = a.file_hash')
+    })
+
+    it('marks stale generated artifacts unavailable before recompilation', async () => {
+        const exec = makeExec([[]])
+
+        await expect(
+            markPlayCanvasGeneratedArtifactsStale(
+                exec,
+                'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                'project-1',
+                'script-1',
+                'a'.repeat(64),
+                'user-1'
+            )
+        ).resolves.toBeUndefined()
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain("parse_status = 'missing'")
+        expect(String(sql)).toContain('ga.source_checksum IS DISTINCT FROM $3::text')
+        expect(params).toEqual(['project-1', 'script-1', 'a'.repeat(64), 'user-1'])
+    })
+
     it('summarizes PlayCanvas project health across scene, asset, script, and generated artifact blockers', async () => {
         const exec = makeExec([[{ sceneCount: '1', assetCount: '1', scriptCount: '1', generatedArtifactCount: '1', blockingCount: '3' }]])
 
@@ -563,7 +657,12 @@ describe('playCanvasProjectsStore', () => {
         expect(sqlCalls[1]).toContain('current_scene.project_id = $2')
         expect(sqlCalls[1]).toContain('current_asset.project_id = $2')
         expect(sqlCalls[2]).toContain('current_asset.project_id = $2')
-        expect(sqlCalls.every((sql) => !sql.includes('OR $13 IS NULL') && !sql.includes('OR $19 IS NULL'))).toBe(true)
+        expect(sqlCalls[0]).toContain('$13::integer IS NULL')
+        expect(sqlCalls[1]).toContain('$13::integer IS NULL')
+        expect(sqlCalls[2]).toContain('$19::integer IS NULL')
+        expect(jest.mocked(exec.query).mock.calls[0]?.[1]?.[12]).toBeNull()
+        expect(jest.mocked(exec.query).mock.calls[1]?.[1]?.[12]).toBeNull()
+        expect(jest.mocked(exec.query).mock.calls[2]?.[1]?.[18]).toBeNull()
         expect(sqlCalls[2]).toContain("jsonb_build_object('path', output_path, 'hash', output_checksum, 'mime', output_mime)")
         expect(jest.mocked(exec.query).mock.calls[2]?.[1]?.slice(8, 11)).toEqual([
             'playcanvas-projects/project-1/generated/ship.mjs',
@@ -655,5 +754,171 @@ describe('playCanvasProjectsStore', () => {
 
         expect(jest.mocked(exec.query).mock.calls[0]?.[1]?.[10]).toBe('missing')
         expect(jest.mocked(exec.query).mock.calls[1]?.[1]?.[13]).toBe('missing')
+        expect(String(jest.mocked(exec.query).mock.calls[0]?.[0])).toContain('$13::integer IS NULL')
+        expect(String(jest.mocked(exec.query).mock.calls[1]?.[0])).toContain('$16::integer IS NULL')
+        expect(jest.mocked(exec.query).mock.calls[0]?.[1]?.[12]).toBeNull()
+        expect(jest.mocked(exec.query).mock.calls[1]?.[1]?.[15]).toBeNull()
+    })
+
+    it('allows an existing scene update when expectedVersion is omitted', async () => {
+        const exec = makeExec([[{ id: 'scene-1', version: 2 }]])
+
+        await expect(
+            upsertPlayCanvasScene(
+                exec,
+                'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                'project-1',
+                {
+                    id: 'scene-1',
+                    codename: {},
+                    displayName: {},
+                    payloadSchemaVersion: '1',
+                    payload: null,
+                    payloadFile: null,
+                    checksum: null,
+                    sortOrder: 0,
+                    publish: true
+                },
+                'user-1'
+            )
+        ).resolves.toMatchObject({ id: 'scene-1', version: 2 })
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain('$13::integer IS NULL')
+        expect(params?.[12]).toBeNull()
+    })
+
+    it('keeps the optimistic guard when an asset update supplies a stale expectedVersion', async () => {
+        const exec = makeExec([[]])
+
+        await expect(
+            upsertPlayCanvasAsset(
+                exec,
+                'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                'project-1',
+                {
+                    id: 'asset-1',
+                    stableAssetId: 'asset-1',
+                    type: 'folder',
+                    name: 'Folder',
+                    virtualPath: ['Folder'],
+                    file: null,
+                    metadata: {},
+                    publish: true,
+                    expectedVersion: 7
+                },
+                'user-1'
+            )
+        ).resolves.toBeUndefined()
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain('$16::integer IS NULL')
+        expect(String(sql)).toContain('_upl_version = $16')
+        expect(params?.[15]).toBe(7)
+    })
+
+    it('rejects client-supplied PlayCanvas asset lifecycle metadata before SQL execution', async () => {
+        const exec = makeExec()
+
+        await expect(
+            upsertPlayCanvasAsset(
+                exec,
+                'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                'project-1',
+                {
+                    id: 'asset-1',
+                    stableAssetId: 'asset-1',
+                    type: 'folder',
+                    name: 'Folder',
+                    virtualPath: ['Folder'],
+                    file: null,
+                    metadata: { editorDocumentId: 700001 },
+                    publish: true
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('PlayCanvas asset lifecycle metadata is reserved')
+
+        expect(exec.query).not.toHaveBeenCalled()
+    })
+
+    it('accepts server-managed lifecycle metadata separately from generic asset metadata', async () => {
+        const assetId = '019e8afa-0000-7000-8000-000000000001'
+        const exec = makeExec([[{ id: assetId }]])
+
+        await upsertPlayCanvasAsset(
+            exec,
+            'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+            'project-1',
+            {
+                id: assetId,
+                stableAssetId: 'asset-1',
+                type: 'folder',
+                name: 'Folder',
+                virtualPath: ['Folder'],
+                file: null,
+                metadata: { custom: true },
+                lifecycleMetadata: { editorDocumentId: 700001, editorDocumentKey: 'folder:project-1:Folder' },
+                publish: true
+            },
+            'user-1'
+        )
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain("'editorDocumentId'")
+        expect(String(sql)).toContain("'editorDocumentKey'")
+        expect(params?.[11]).toBe(JSON.stringify({ custom: true, editorDocumentId: 700001, editorDocumentKey: 'folder:project-1:Folder' }))
+    })
+
+    it('persists an editor document id through the existing asset metadata column with optimistic locking', async () => {
+        const assetId = '019e8afa-0000-7000-8000-000000000001'
+        const exec = makeExec([[{ id: assetId }]])
+        const schema = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
+
+        await expect(
+            persistPlayCanvasAssetEditorDocumentId(exec, schema, 'project-1', assetId, 700001, 4, '019e8afa-0000-7000-8000-000000000002')
+        ).resolves.toBe(true)
+
+        const [sql, params] = jest.mocked(exec.query).mock.calls[0] ?? []
+        expect(String(sql)).toContain("jsonb_build_object('editorDocumentId', $3::integer)")
+        expect(String(sql)).toContain('_upl_version = $5')
+        expect(params).toEqual(['project-1', assetId, 700001, '019e8afa-0000-7000-8000-000000000002', 4])
+    })
+
+    it('updates a complete asset tree inside one transaction and keeps every optimistic version guarded', async () => {
+        const firstId = '019e8afa-0000-7000-8000-000000000001'
+        const secondId = '019e8afa-0000-7000-8000-000000000002'
+        const exec = makeExec([
+            [{ id: firstId, projectId: 'project-1', type: 'folder', name: 'Renamed', virtualPath: ['Renamed'], file: null, version: 2 }],
+            [
+                {
+                    id: secondId,
+                    projectId: 'project-1',
+                    type: 'script',
+                    name: 'pilot.mjs',
+                    virtualPath: ['Renamed', 'pilot.mjs'],
+                    file: null,
+                    version: 5
+                }
+            ]
+        ])
+        const schema = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
+
+        await expect(
+            updatePlayCanvasAssetTreeMetadata(
+                exec,
+                schema,
+                'project-1',
+                [
+                    { id: firstId, name: 'Renamed', virtualPath: ['Renamed'], file: null, expectedVersion: 1 },
+                    { id: secondId, name: 'pilot.mjs', virtualPath: ['Renamed', 'pilot.mjs'], file: null, expectedVersion: 4 }
+                ],
+                '019e8afa-0000-7000-8000-000000000003'
+            )
+        ).resolves.toHaveLength(2)
+
+        expect(exec.transaction).toHaveBeenCalledTimes(1)
+        expect(jest.mocked(exec.query).mock.calls[0]?.[1]?.at(-1)).toBe(1)
+        expect(jest.mocked(exec.query).mock.calls[1]?.[1]?.at(-1)).toBe(4)
     })
 })

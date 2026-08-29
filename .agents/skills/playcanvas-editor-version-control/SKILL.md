@@ -13,15 +13,16 @@ Use this skill when managing the project version control, committing checkpoints
 
 ## Version Guard
 
-- Schema and operation logs follow PlayCanvas VCS specifications.
-- Pinned to the version control panel capabilities of Editor `v2.24.2`.
+-   Schema and operation logs follow PlayCanvas VCS specifications.
+-   Pinned to the version control panel capabilities of Editor `v2.30.4`.
 
 ## Required Output
 
 Before performing branching or merging operations:
-- state current branch and target branch names;
-- identify conflicts in scene graphs or asset configurations;
-- describe the resolution strategy (keep mine, keep theirs, manual merge).
+
+-   state current branch and target branch names;
+-   identify conflicts in scene graphs or asset configurations;
+-   describe the resolution strategy (keep mine, keep theirs, manual merge).
 
 ## Workflow
 
@@ -32,7 +33,7 @@ Before performing branching or merging operations:
 
 ## Blocking Rules
 
-- Do not attempt automatic merges on binary assets (textures, models). They must fail closed, requiring explicit user selection.
-- Do not bypass checkout validations.
-- Do not lose document revision history.
-- Do not let a merge operation overwrite unsaved local modifications.
+-   Do not attempt automatic merges on binary assets (textures, models). They must fail closed, requiring explicit user selection.
+-   Do not bypass checkout validations.
+-   Do not lose document revision history.
+-   Do not let a merge operation overwrite unsaved local modifications.

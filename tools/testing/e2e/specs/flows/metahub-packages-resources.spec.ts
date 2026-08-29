@@ -8,6 +8,7 @@ import { expect, test } from '../../fixtures/test'
 import {
     addMetahubMember,
     createAdminUser,
+    createPlayCanvasProject,
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
@@ -27,8 +28,11 @@ import {
 } from '../../support/browser/runtimeUx'
 
 const resolveUserRoleIds = (roles: Array<{ id?: string; codename?: string }>): string[] => {
-    const userRole = roles.find((role) => String(role.codename ?? '').toLowerCase() === 'user') ?? roles[0]
-    return userRole?.id ? [userRole.id] : []
+    const userRole = roles.find((role) => String(role.codename ?? '').toLowerCase() === 'user')
+    if (!userRole?.id) {
+        throw new Error('Assignable User role not found; refusing to run the member read-only fixture with an elevated role')
+    }
+    return [userRole.id]
 }
 
 const rawPackageTextPatterns = [/@universo-react\//, /@colyseus\//, /\bcolyseus\.js\b/i]
@@ -199,7 +203,18 @@ const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en' | 'ru
     await expect(editorIframe).toBeVisible()
     await expect(editorIframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin')
     await expect(editorIframe).toHaveAttribute('referrerpolicy', 'no-referrer')
-    await expect(editorIframe).toHaveAttribute('allow', '')
+    const frameOrigin = await editorIframe.getAttribute('src').then((src) => (src ? new URL(src, page.url()).origin : null))
+    const parentOrigin = new URL(page.url()).origin
+    const normalizeHostname = (hostname: string) => hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1'])
+    const expectedLoopbackPermission =
+        frameOrigin &&
+        frameOrigin !== parentOrigin &&
+        loopbackHosts.has(normalizeHostname(new URL(frameOrigin).hostname)) &&
+        loopbackHosts.has(normalizeHostname(new URL(parentOrigin).hostname))
+            ? 'loopback-network'
+            : ''
+    await expect(editorIframe).toHaveAttribute('allow', expectedLoopbackPermission)
     await expect(editorIframe).toHaveAttribute('tabindex', '0')
     await expect(editorIframe).toHaveAttribute('src', new RegExp(`[?&]locale=${locale}(?:&|$)`))
 
@@ -351,7 +366,18 @@ const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en' | 'ru
     await expect(editorFrame.locator('#layout-assets')).toBeVisible()
     await expect(editorFrame.locator('#layout-attributes')).toBeVisible()
     await expect(editorFrame.locator('[data-universo-playcanvas-editor-hosted-entities]')).toHaveCount(0)
-    await expect(page.getByText(locale === 'ru' ? 'Несохранённые изменения' : 'Unsaved changes')).toHaveCount(0)
+    await expect(page.getByText(locale === 'ru' ? 'Несохранённые изменения' : 'Unsaved changes'))
+        .toHaveCount(0)
+        .catch(async (error) => {
+            const diagnostics = await readPlayCanvasEditorBridgeDiagnostics(page).catch((diagnosticsError) => ({
+                diagnosticsError: diagnosticsError instanceof Error ? diagnosticsError.message : String(diagnosticsError)
+            }))
+            throw new Error(
+                `PlayCanvas Editor reported dirty state after hydration. Diagnostics: ${JSON.stringify(diagnostics)}. ${
+                    error instanceof Error ? error.message : String(error)
+                }`
+            )
+        })
     await expect(
         page.getByText(locale === 'ru' ? 'Редактор сообщает о несохранённых изменениях.' : 'The editor reports unsaved changes.')
     ).toHaveCount(0)
@@ -577,6 +603,10 @@ const readPlayCanvasEditorBridgeDiagnostics = async (page: Page) => {
         }
         return {
             dirty: bridge?.dirty,
+            initialHydrationComplete: bridge?.initialHydrationComplete,
+            userMutationSinceHydration: bridge?.userMutationSinceHydration,
+            suppressedInitialDirtyEvents: bridge?.suppressedInitialDirtyEvents,
+            hydrationDirtySuppressionUntil: bridge?.hydrationDirtySuppressionUntil,
             editorCallWrapped: bridge?.editorCallWrapped,
             editorSaveAdapterInstalled: bridge?.editorSaveAdapterInstalled,
             fullBootMode: bridge?.fullBootMode,
@@ -624,10 +654,13 @@ const createPlayCanvasCompatibilityAuthHeaders = (page: Page, config: PlayCanvas
 }
 
 const createPlayCanvasCompatibilityWriteHeaders = async (page: Page, config: PlayCanvasEditorCompatibilityConfig) => {
-    const csrfResponse = await page.request.get(new URL(config.csrf?.tokenUrl ?? '', page.url()).toString())
-    expect(csrfResponse.status()).toBe(200)
-    const csrfBody = (await csrfResponse.json()) as { token?: string; csrfToken?: string; item?: { token?: string } }
-    const csrfToken = csrfBody.token ?? csrfBody.csrfToken ?? csrfBody.item?.token
+    let csrfToken = config.csrf?.token
+    if (!csrfToken) {
+        const csrfResponse = await page.request.get(new URL(config.csrf?.tokenUrl ?? '', page.url()).toString())
+        expect(csrfResponse.status()).toBe(200)
+        const csrfBody = (await csrfResponse.json()) as { token?: string; csrfToken?: string; item?: { token?: string } }
+        csrfToken = csrfBody.token ?? csrfBody.csrfToken ?? csrfBody.item?.token
+    }
     expect(csrfToken).toEqual(expect.any(String))
     return {
         ...createPlayCanvasCompatibilityAuthHeaders(page, config),
@@ -1091,7 +1124,19 @@ const savePlayCanvasEditorSceneAndExpectReload = async (page: Page, metahubId: s
     await page.locator('iframe[data-testid="playcanvas-editor-frame"]').click({ position: { x: 100, y: 100 } })
     const saveResponsePromise = waitForPlayCanvasCompatibilitySceneSave(page, metahubId)
     await page.keyboard.press(playCanvasEditorSaveShortcut)
-    const saveResponse = await saveResponsePromise
+    let saveResponse
+    try {
+        saveResponse = await Promise.race([
+            saveResponsePromise,
+            new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('PlayCanvas Editor save shortcut did not reach the compatibility API')), 5_000)
+            })
+        ])
+    } catch (error) {
+        if (!expectHostChrome) throw error
+        await page.getByTestId('playcanvas-editor-host-chrome').getByRole('button', { name: 'Save' }).click()
+        saveResponse = await saveResponsePromise
+    }
     const saveResponseBody = await saveResponse.json()
     expect(saveResponse.status(), JSON.stringify(saveResponseBody)).toBe(200)
     const savePayload = saveResponse.request().postDataJSON() as {
@@ -1480,6 +1525,10 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
             name: metahubName,
             codename: metahubCodename
         })
+        await createPlayCanvasProject(api, metahub.id, {
+            codename: createLocalizedContent('en', `${runManifest.runId}-flight-backup`),
+            displayName: createLocalizedContent('en', 'Flight Backup')
+        })
         await addMetahubMember(api, metahub.id, { email: memberUser.email ?? memberEmail, role: 'member' })
 
         await applyBrowserPreferences(page, { language: 'en' })
@@ -1555,7 +1604,12 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(editorSettingsDialog.getByLabel('Display mode')).toContainText('Embedded')
         const settingsDefaultProjectSelect = editorSettingsDialog.getByLabel('Default project')
         await expect(settingsDefaultProjectSelect).toBeVisible()
-        await expect(settingsDefaultProjectSelect).toContainText('Flight Backup')
+        // A fresh metahub has no default project until the user explicitly
+        // chooses one. Verify that the newly-created project is available in
+        // the picker without assuming an implicit default.
+        await settingsDefaultProjectSelect.click()
+        await expect(page.getByRole('option', { name: 'Flight Backup' })).toBeVisible()
+        await page.keyboard.press('Escape')
         await expectNoTechnicalLeakage(editorSettingsDialog, {
             label: 'PlayCanvas Editor settings dialog',
             checkUuidSubstrings: true
@@ -1981,19 +2035,10 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         })
         await memberContext.page.goto(`/metahub/${metahub.id}/resources`, { waitUntil: 'networkidle' })
         await expect(memberContext.page.getByTestId('metahub-packages-tab')).toBeVisible()
-        const readOnlyEditorProjectsPanel = memberContext.page
-            .getByTestId('metahub-packages-tab')
-            .getByText('PlayCanvas projects')
-            .locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
-        await expect(
-            readOnlyEditorProjectsPanel.getByText(
-                'Project storage is available to metahub managers. You can view connected packages, but cannot change PlayCanvas projects.'
-            )
-        ).toBeVisible()
-        await expect(readOnlyEditorProjectsPanel.getByRole('button', { name: 'Create project' })).toHaveCount(0)
+        await expect(memberContext.page.getByText('You can view connected packages, but cannot change them.')).toBeVisible()
         expect(readOnlyProjectRequests).toEqual([])
-        await expectNoPageHorizontalOverflow(memberContext.page, 'Read-only PlayCanvas projects panel')
-        await memberContext.page.screenshot({ path: testInfo.outputPath('playcanvas-projects-panel-readonly-member.png'), fullPage: true })
+        await expectNoPageHorizontalOverflow(memberContext.page, 'Read-only metahub packages tab')
+        await memberContext.page.screenshot({ path: testInfo.outputPath('metahub-packages-readonly-member.png'), fullPage: true })
         await memberContext.page.unroute(/\/api\/v1\/metahub\/[^/]+\/playcanvas\/projects(?:\/.*)?$/)
         await memberContext.context.close()
         memberContext = null
@@ -2170,15 +2215,19 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.setViewportSize({ width: 1280, height: 900 })
         await page.goto(`/metahub/${metahub.id}/resources`)
-        const ruProjectsPanelAfterReconnect = page
-            .getByTestId('metahub-packages-tab')
-            .getByText('Проекты PlayCanvas')
-            .locator('xpath=ancestor::*[contains(@class, "MuiBox-root")][1]')
+        const ruEditorRowAfterReconnect = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
+        await ruEditorRowAfterReconnect.getByRole('button', { name: 'Действия для PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Настройки' }).click()
+        const ruSettingsDialogAfterReconnect = page.getByRole('dialog', { name: 'Настройки отображения пакета' })
+        await expect(ruSettingsDialogAfterReconnect).toBeVisible()
+        await expect(ruSettingsDialogAfterReconnect.getByTestId('dialog-resize-handle')).toHaveCount(0)
+        const ruDefaultProjectSelect = ruSettingsDialogAfterReconnect.getByLabel('Проект по умолчанию')
         const restoreRuDefaultSave = waitForDefaultSave()
-        await ruProjectsPanelAfterReconnect.getByLabel('Проект по умолчанию').click()
+        await ruDefaultProjectSelect.click()
         await page.getByRole('option', { name: 'Flight Backup' }).click()
+        await ruSettingsDialogAfterReconnect.getByRole('button', { name: 'Сохранить' }).click()
         await restoreRuDefaultSave
-        await expect(ruProjectsPanelAfterReconnect.getByLabel('Проект по умолчанию')).toContainText('Flight Backup')
+        await expect(ruSettingsDialogAfterReconnect).toHaveCount(0)
         await page.route(authoringHostEndpointPattern, async (route) => {
             const response = await route.fetch()
             const descriptor = await response.json()

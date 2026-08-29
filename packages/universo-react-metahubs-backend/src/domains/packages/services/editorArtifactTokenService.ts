@@ -50,13 +50,14 @@ export const resolveRequestOrigin = (req: Request): string | null => {
     return parseSafeHttpOrigin(`${protocol}://${host}`)
 }
 
-const resolveLoopbackSiblingOrigin = (origin: string): string | null => {
+export const resolveLoopbackSiblingOrigin = (origin: string): string | null => {
     const parsed = new URL(origin)
-    if (parsed.hostname === '127.0.0.1') {
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    if (hostname === '127.0.0.1' || hostname === '::1') {
         parsed.hostname = 'localhost'
         return parsed.origin
     }
-    if (parsed.hostname === 'localhost') {
+    if (hostname === 'localhost') {
         parsed.hostname = '127.0.0.1'
         return parsed.origin
     }
@@ -100,15 +101,17 @@ const signArtifactTokenPayload = (encodedPayload: string): string =>
     createHmac('sha256', resolveArtifactTokenSecret()).update(encodedPayload).digest('base64url')
 
 export const createArtifactToken = (payload: ArtifactTokenClaimsInput): CreatedEditorArtifactToken | null => {
+    const now = Date.now()
     // Absolute cap is enforced at mint time against the ORIGINAL issuance
     // timestamp carried through every renewal, so sliding TTLs can never
     // extend an artifact session beyond this lifetime.
-    if (Date.now() - payload.issuedAt >= artifactTokenAbsoluteTtlMs) {
+    if (now - payload.issuedAt >= artifactTokenAbsoluteTtlMs) {
         return null
     }
+    const absoluteExpiry = payload.issuedAt + artifactTokenAbsoluteTtlMs
     const fullPayload: ArtifactTokenPayload = {
         ...payload,
-        expiresAt: Date.now() + artifactTokenTtlMs
+        expiresAt: Math.min(now + artifactTokenTtlMs, absoluteExpiry)
     }
     const encodedPayload = encodeArtifactTokenPart(JSON.stringify(fullPayload))
     return {
@@ -136,6 +139,7 @@ export const readArtifactTokenPayload = (token: string, options: ReadEditorArtif
 
     try {
         const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as Partial<ArtifactTokenPayload>
+        const now = Date.now()
         if (
             typeof payload.metahubId !== 'string' ||
             typeof payload.packageSlug !== 'string' ||
@@ -149,12 +153,19 @@ export const readArtifactTokenPayload = (token: string, options: ReadEditorArtif
             typeof payload.issuedAt !== 'number' ||
             !Number.isFinite(payload.issuedAt) ||
             payload.issuedAt <= 0 ||
-            payload.issuedAt > Date.now() ||
+            payload.issuedAt > now ||
             (payload.bridgeSessionId !== null && typeof payload.bridgeSessionId !== 'string')
         ) {
             return null
         }
-        if (payload.expiresAt >= Date.now()) {
+        const absoluteExpiry = payload.issuedAt + artifactTokenAbsoluteTtlMs
+        // The absolute cap is checked on every read, including the grace path.
+        // A signed token must never survive beyond the original issuance
+        // deadline, even if its short TTL or bridge-session grace is extended.
+        if (!Number.isSafeInteger(absoluteExpiry) || now >= absoluteExpiry || payload.expiresAt > absoluteExpiry) {
+            return null
+        }
+        if (payload.expiresAt >= now) {
             return payload as ArtifactTokenPayload
         }
         // Server-side grace window (fail closed): an expired token is accepted
@@ -164,7 +175,7 @@ export const readArtifactTokenPayload = (token: string, options: ReadEditorArtif
         // minted token (resolveArtifactPublicOrigin refuses equal origins), so
         // they can never reach this validation path at all.
         if (
-            Date.now() - payload.expiresAt > artifactTokenGraceWindowMs ||
+            now - payload.expiresAt > artifactTokenGraceWindowMs ||
             typeof payload.bridgeSessionId !== 'string' ||
             payload.bridgeSessionId.length === 0
         ) {
@@ -185,7 +196,23 @@ interface EditorArtifactIssuanceRecord {
     issuedAt: number
 }
 
-const artifactIssuanceByBridgeSessionId = new Map<string, EditorArtifactIssuanceRecord>()
+const artifactIssuanceGlobalKey = '__universoPlayCanvasEditorArtifactIssuance'
+const artifactIssuanceByBridgeSessionId = (() => {
+    const globalScope = globalThis as typeof globalThis & {
+        [artifactIssuanceGlobalKey]?: Map<string, EditorArtifactIssuanceRecord>
+    }
+    const existing = globalScope[artifactIssuanceGlobalKey]
+    if (existing) return existing
+    const registry = new Map<string, EditorArtifactIssuanceRecord>()
+    Object.defineProperty(globalScope, artifactIssuanceGlobalKey, {
+        value: registry,
+        enumerable: false,
+        configurable: false,
+        writable: false
+    })
+    return registry
+})()
+const MAX_ARTIFACT_ISSUANCES = 10_000
 
 const pruneExpiredIssuances = (): void => {
     const now = Date.now()
@@ -198,6 +225,12 @@ const pruneExpiredIssuances = (): void => {
 
 export const registerEditorArtifactIssuance = (bridgeSessionId: string, record: EditorArtifactIssuanceRecord): void => {
     pruneExpiredIssuances()
+    if (artifactIssuanceByBridgeSessionId.size >= MAX_ARTIFACT_ISSUANCES && !artifactIssuanceByBridgeSessionId.has(bridgeSessionId)) {
+        const oldest = [...artifactIssuanceByBridgeSessionId.entries()]
+            .sort(([, left], [, right]) => left.issuedAt - right.issuedAt)
+            .slice(0, artifactIssuanceByBridgeSessionId.size - MAX_ARTIFACT_ISSUANCES + 1)
+        for (const [oldestBridgeSessionId] of oldest) artifactIssuanceByBridgeSessionId.delete(oldestBridgeSessionId)
+    }
     artifactIssuanceByBridgeSessionId.set(bridgeSessionId, record)
 }
 

@@ -322,7 +322,7 @@
         "src/editor/assets/assets-used.ts": "b396c6b6e7c3bfe0f4c93fdd1e9acf12dd4734f484f417b3b4a39237abd05889",
         "src/editor/assets/assets-utils.ts": "a7499ed9a0d4522031aa6c24a74c5717a63c04e802d2c00582878fe575bd7a00",
         "src/editor/assets/assets.ts": "c61b6e856f0a7930856f5cafd8a01966184204789bd99df78ba0217a771e8caf",
-        "src/editor/assets/handle-script-parse.ts": "6d3c1f7e6d5d90872952518625f35286f09c86ad02fc515daeb94b49aa221211",
+        "src/editor/assets/handle-script-parse.ts": "70981877ee0b967c4cf4313919cf8a54c8605a3467dc10b18619f21a43edaa4d",
         "src/editor/assets/legacy-script-preview-overlay.ts": "add1256e33275001e4536ef4ab1a4bde31e3703ada3da1b840b30cbe2707d31c",
         "src/editor/attributes/attributes-array.ts": "54eeca8ffec1f919687b63c1f5fd91fba81ffc4a3c63a21c0842607227df26ab",
         "src/editor/attributes/attributes-asset.ts": "4ced2805f72be6e7eeb7cf618876ce728c23fe67705f4d58f044fef0f4f86d79",
@@ -917,7 +917,7 @@
         "src/workers/assets-unwrap.worker.ts": "de72ba68c466660cb77d857763fc87a5436afb21844dbe728839eab7dc7b5dfa",
         "src/workers/classic-script.worker.ts": "f436f4d6a755d2afc021731b0ed3aefcdad9f1870fb920f6361704baab196b9f",
         "src/workers/console.worker.ts": "435dc9b8b921b8696d03aa1d429b4b7ac59b41d6d15893a39f54ce6d43ff2dd6",
-        "src/workers/esm-script.worker.ts": "11f688a8eeb4d547ead74f57e098eff95e17a345d93a97835d39f3dcc1a16bf9",
+        "src/workers/esm-script.worker.ts": "e713b27fd622cce5be43910079b797833d2a4006f8677d9bb7e97e2e73878ffa",
         "src/workers/font-generate.worker.ts": "a8e3cc7f578814a7123206c8a0d1ca291617eb5eff9d9d55a2ae170c14c6d414",
         "src/workers/png-export.worker.ts": "ab9fd7ef19ab42bca1d5d8cbcd88803148e6611653a2e06a010727f0b2523b80",
         "src/workers/search.worker.ts": "157948ad067a0673272cbb456a70d9d431577f25f53849b36a0d9519d68b5d38",
@@ -934,6 +934,6 @@
         "static/json/howdoi.json": "725f02ce7766d913ed9770658a153f9907cd3f2364da381351c803c691d7ab02",
         "tsconfig.json": "b58793bf5885ee0be78b96ed6c3a59c37ac954d6f0d0901e8253f2d20031817e",
         "types.d.ts": "41625808d69e4654842d1bbcc1e3a47ace068eab2db4c5b9474dc8152fcdc4a6",
-        "vite.config.mjs": "84d65d71c5ef7c4889c7603b09a2178a013727190ff15469c3f01c1e060e3c6f"
+        "vite.config.mjs": "e4ff8b1f66204b227e6a11edffd78cb905ffe4dd6d8b04d6176686079d9d69e6"
     }
 }

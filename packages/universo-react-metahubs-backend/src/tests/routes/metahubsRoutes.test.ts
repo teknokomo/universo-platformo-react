@@ -818,7 +818,19 @@ describe('Metahubs Routes', () => {
                 return []
             })
 
-            const txQuery = jest.fn(async () => [])
+            const txQuery = jest.fn(async (sql: string) => {
+                if (sql.includes('FROM metahubs.rel_metahub_users')) {
+                    return [
+                        {
+                            userId: 'source-owner-id',
+                            role: 'owner',
+                            comment: null,
+                            activeBranchId: 'branch-1'
+                        }
+                    ]
+                }
+                return []
+            })
             mockExec.transaction.mockImplementation(async (cb: any) => {
                 const tx = { query: txQuery, transaction: jest.fn(), isReleased: () => false }
                 return cb(tx)
@@ -858,6 +870,16 @@ describe('Metahubs Routes', () => {
                     metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
                     userId: 'test-user-id',
                     role: 'owner'
+                })
+            )
+            expect(mockAddMetahubMember).toHaveBeenNthCalledWith(
+                2,
+                expect.anything(),
+                expect.objectContaining({
+                    metahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                    userId: 'source-owner-id',
+                    role: 'admin',
+                    activeBranchId: 'new-branch-1'
                 })
             )
             expect(mockCopyMetahubPackages).toHaveBeenCalledWith(expect.anything(), {

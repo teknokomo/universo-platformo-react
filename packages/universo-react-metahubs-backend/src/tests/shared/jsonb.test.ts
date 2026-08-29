@@ -6,12 +6,12 @@ describe('toJsonbValue', () => {
         expect(toJsonbValue(null)).toBeNull()
     })
 
-    it('keeps objects and arrays as-is', () => {
+    it('keeps plain objects as-is and serializes arrays for JSONB columns', () => {
         const objectValue = { a: 1, b: 'text' }
         const arrayValue = [1, 'two', false]
 
         expect(toJsonbValue(objectValue)).toBe(objectValue)
-        expect(toJsonbValue(arrayValue)).toBe(arrayValue)
+        expect(toJsonbValue(arrayValue)).toBe(JSON.stringify(arrayValue))
     })
 
     it('serializes primitive scalars to valid JSON tokens', () => {

@@ -39,7 +39,8 @@ jest.mock('@universo-react/database', () => ({
     __esModule: true,
     getKnex: jest.fn(() => ({})),
     getPoolExecutor: jest.fn(() => mockExecutor),
-    createKnexExecutor: jest.fn(() => mockExecutor)
+    createKnexExecutor: jest.fn(() => mockExecutor),
+    qSchemaTable: jest.fn((schema: string, table: string) => `"${schema}"."${table}"`)
 }))
 
 jest.mock('@universo-react/utils', () => {

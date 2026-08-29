@@ -1,7 +1,8 @@
 import type { DbExecutor } from '@universo-react/utils'
 import { createLocalizedContent } from '@universo-react/utils'
+import { PLAYCANVAS_PROJECT_FILE_ROOT } from '@universo-react/types'
 import { createPlayCanvasEditorNumericAssetId, createPlayCanvasEditorNumericIds } from '@universo-react/playcanvas-editor-backend'
-import { MetahubValidationError } from '../../domains/shared/domainErrors'
+import { MetahubConflictError, MetahubValidationError } from '../../domains/shared/domainErrors'
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 import { PlayCanvasProjectSnapshotService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectSnapshotService'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
@@ -33,6 +34,9 @@ const createProjectSceneRow = () => ({
 const createProjectLookupExecutor = () =>
     ({
         query: jest.fn(async (sql: string) => {
+            if (sql.includes("metadata->>'editorDocumentId'")) {
+                return []
+            }
             if (sql.includes('AS "sceneCount"') && sql.includes('_mhb_playcanvas_scenes')) {
                 return [
                     {
@@ -103,6 +107,20 @@ const createPublishExecutor = (options: { activeReplayClaims?: boolean | { metah
                     ]
                 }
                 return [{ exists: options.activeReplayClaims === true }]
+            }
+            // Publication pre-step: script assets / generated artifacts / shared
+            // library lookups return empty sets for the publish-flow tests.
+            if (sql.includes('_mhb_playcanvas_script_assets') && sql.includes('SELECT')) {
+                return []
+            }
+            if (sql.includes('_mhb_playcanvas_generated_artifacts') && sql.includes('SELECT')) {
+                return []
+            }
+            if (sql.includes('_mhb_modules') && sql.includes('SELECT')) {
+                return []
+            }
+            if (sql.includes('_mhb_playcanvas_assets') && sql.includes('SELECT')) {
+                return []
             }
             throw new Error(`Unexpected SQL: ${sql}`)
         })
@@ -195,6 +213,9 @@ describe('PlayCanvasProjectsService', () => {
         }
         const exec = {
             query: jest.fn(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('pg_advisory_xact_lock')) {
+                    return []
+                }
                 if (sql.includes('AS codename') && sql.includes('_mhb_playcanvas_projects')) {
                     expect(sql).toContain(`"${TEST_SCHEMA}"`)
                     expect(sql).not.toContain('active_branch_schema')
@@ -853,6 +874,15 @@ describe('PlayCanvasProjectsService', () => {
                                         rotation: [0, 45, 0],
                                         scale: [12, 4, 4],
                                         components: { render: { type: 'box' } },
+                                        metadata: {
+                                            mmoomm: {
+                                                visualMaterial: {
+                                                    role: 'core',
+                                                    opacity: 0.68,
+                                                    blendType: 'normal'
+                                                }
+                                            }
+                                        },
                                         children: []
                                     }
                                 ]
@@ -892,7 +922,16 @@ describe('PlayCanvasProjectsService', () => {
                         position: [18, 3, -9],
                         rotation: [0, 45, 0],
                         scale: [12, 4, 4],
-                        components: { render: { type: 'box' } }
+                        components: { render: { type: 'box' } },
+                        metadata: {
+                            mmoomm: {
+                                visualMaterial: {
+                                    role: 'core',
+                                    opacity: 0.68,
+                                    blendType: 'normal'
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1308,6 +1347,7 @@ describe('PlayCanvasProjectsService', () => {
                 type: 'json',
                 file: null,
                 path: [],
+                createdAt: null,
                 tags: [],
                 data: null,
                 meta: null,
@@ -1317,6 +1357,38 @@ describe('PlayCanvasProjectsService', () => {
                 project: 123
             }
         })
+    })
+
+    it('does not coerce non-canonical or out-of-range asset row ids into document ids', async () => {
+        const assetIds = ['001', '2147483648', '9007199254740992']
+        const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue(
+            assetIds.map((id) => ({
+                id,
+                projectId: PROJECT_ID,
+                stableAssetId: `stable-${id}`,
+                type: 'json',
+                name: `Asset ${id}`,
+                virtualPath: [`${id}.json`],
+                file: null,
+                metadata: {},
+                publish: true,
+                version: 1
+            }))
+        )
+        jest.spyOn(service, 'listScenes').mockResolvedValue([])
+
+        const summaries = await service.listEditorCompatibilityAssetSummaries('metahub-1', PROJECT_ID, 'user-2')
+        const documentIdByAssetId = new Map(summaries.map((summary) => [String(summary.id), summary.editorDocumentId]))
+
+        for (const assetId of assetIds) {
+            const documentId = documentIdByAssetId.get(assetId)
+            expect(documentId).toBe(createPlayCanvasEditorNumericAssetId(assetId))
+            expect(documentId).toBeGreaterThan(0)
+            expect(documentId).toBeLessThanOrEqual(2_147_483_647)
+        }
+        expect(documentIdByAssetId.get('001')).not.toBe(1)
+        expect(documentIdByAssetId.get('2147483648')).not.toBe(2_147_483_648)
     })
 
     it('loads realtime material asset documents with PlayCanvas material data', async () => {
@@ -1994,6 +2066,79 @@ describe('PlayCanvasProjectsService', () => {
         )
     })
 
+    it('rejects unsafe scene-local asset names and realtime paths before scene persistence', async () => {
+        const scene = {
+            id: SCENE_ID,
+            projectId: PROJECT_ID,
+            codename: createLocalizedContent('en', 'scene'),
+            displayName: createLocalizedContent('en', 'Scene'),
+            payloadSchemaVersion: '1',
+            payloadFile: null,
+            checksum: 'c'.repeat(64),
+            sortOrder: 0,
+            publish: true,
+            version: 7
+        }
+        const sceneLocalAsset = {
+            id: '920000001',
+            stableAssetId: 'scene-local-material',
+            name: 'Scene Local Material',
+            type: 'material',
+            data: { diffuse: [1, 1, 1] },
+            metadata: { data: { diffuse: [1, 1, 1] } }
+        }
+        const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never)
+        jest.spyOn(service, 'listAssets').mockResolvedValue([])
+        jest.spyOn(service, 'listScenes').mockResolvedValue([scene])
+        jest.spyOn(service, 'readEditorScene').mockResolvedValue({
+            scene,
+            payload: { schemaVersion: '1', entities: [], assets: [sceneLocalAsset] },
+            checksum: scene.checksum
+        })
+        const saveEditorScene = jest.spyOn(service, 'saveEditorScene')
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '920000001',
+                data: {
+                    name: 'materials/unsafe',
+                    type: 'material',
+                    data: sceneLocalAsset.data
+                },
+                version: 8
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.assetNameInvalid' })
+        })
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '920000001',
+                data: {
+                    name: sceneLocalAsset.name,
+                    type: 'material',
+                    path: ['not-a-folder-document-id'],
+                    data: sceneLocalAsset.data
+                },
+                version: 8
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorRealtime.invalidAssetPath' })
+        })
+
+        expect(saveEditorScene).not.toHaveBeenCalled()
+    })
+
     it('skips unchanged realtime scene-local material asset documents with stale revisions', async () => {
         const materialData = { diffuse: [1, 1, 1], opacity: 0.42, blendType: 2, depthWrite: false, useFog: true, shader: 'blinn' }
         const scene = {
@@ -2120,8 +2265,8 @@ describe('PlayCanvasProjectsService', () => {
                     return [createProjectSceneRow()]
                 }
                 if (sql.includes('INSERT INTO') && sql.includes('_mhb_playcanvas_assets')) {
-                    expect(params?.[4]).toBe('Renamed Asset')
-                    expect(params?.[5]).toBe(JSON.stringify(['renamed', 'asset.json']))
+                    expect(params?.[4]).toBe('Root Asset')
+                    expect(params?.[5]).toBe(JSON.stringify(['root.json']))
                     expect(params?.[11]).toBe(
                         JSON.stringify({
                             source: 'initial',
@@ -2142,8 +2287,8 @@ describe('PlayCanvasProjectsService', () => {
                             projectId: PROJECT_ID,
                             stableAssetId: 'asset-root',
                             type: 'json',
-                            name: 'Renamed Asset',
-                            virtualPath: ['renamed', 'asset.json'],
+                            name: 'Root Asset',
+                            virtualPath: ['root.json'],
                             file: {
                                 provider: 'local',
                                 root: 'playcanvas-projects',
@@ -2174,9 +2319,9 @@ describe('PlayCanvasProjectsService', () => {
                 documentId: String(editorDocumentId),
                 data: {
                     item_id: editorDocumentId,
-                    name: 'Renamed Asset',
+                    name: 'Root Asset',
                     type: 'json',
-                    path: ['renamed', 'asset.json'],
+                    path: [],
                     tags: ['mmoomm'],
                     data: { width: 32 },
                     meta: { imported: true },
@@ -2187,6 +2332,53 @@ describe('PlayCanvasProjectsService', () => {
                 revision: '3'
             })
         ).resolves.toEqual({ revision: '4' })
+    })
+
+    it.each([
+        {
+            label: 'prototype-pollution script attribute names',
+            data: {
+                item_id: 1,
+                name: 'unsafe.mjs',
+                type: 'script',
+                data: { scripts: JSON.parse('{"__proto__":{"polluted":true}}') }
+            }
+        },
+        {
+            label: 'deeply nested payloads',
+            data: (() => {
+                const nested: Record<string, unknown> = {}
+                let cursor = nested
+                for (let index = 0; index < 25; index += 1) {
+                    const child: Record<string, unknown> = {}
+                    cursor.child = child
+                    cursor = child
+                }
+                return { item_id: 1, name: 'deep.json', type: 'json', data: nested }
+            })()
+        },
+        {
+            label: 'oversized source fields',
+            data: { item_id: 1, name: 'large.json', type: 'json', data: { source: 'x'.repeat(4097) } }
+        }
+    ])('rejects $label before mutating the asset row', async ({ data }) => {
+        const exec = createProjectLookupExecutor()
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.persistEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'assets',
+                documentId: '100',
+                data,
+                version: 1
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.editorRealtime.invalidAssetDocument' })
+        })
     })
 
     it('persists realtime scene documents without the synthetic ShareDB root entity', async () => {
@@ -3941,6 +4133,9 @@ describe('PlayCanvasProjectsService', () => {
     it('adds a suffix to auto-generated project codenames when the display name repeats', async () => {
         const exec = {
             query: jest.fn(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('pg_advisory_xact_lock')) {
+                    return []
+                }
                 if (sql.includes('AS codename') && sql.includes('_mhb_playcanvas_projects')) {
                     expect(_params?.[0]).toBe('flight_deck')
                     return [{ codename: 'flight_deck' }]
@@ -7278,6 +7473,7 @@ describe('PlayCanvasProjectsService', () => {
             // (the CRUD handler is the swallow point, not this service).
             const exec = {
                 query: jest.fn(async (sql: string) => {
+                    if (sql.includes("metadata->>'editorDocumentId'")) return []
                     if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
                         return [projectRow()]
                     }
@@ -7318,6 +7514,876 @@ describe('PlayCanvasProjectsService', () => {
             ).resolves.toBeUndefined()
             expect(exec.query).not.toHaveBeenCalled()
             expect(fileService.deleteProjectTree).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('editor compatibility asset CRUD', () => {
+        it('derives a stable folder document id from its virtual path', async () => {
+            const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest
+                .fn()
+                .mockResolvedValueOnce([])
+                .mockResolvedValue([
+                    {
+                        asset: {
+                            id: ASSET_ID,
+                            projectId: PROJECT_ID,
+                            stableAssetId: 'folder-stable-id',
+                            type: 'folder',
+                            name: 'Gameplay',
+                            virtualPath: ['Gameplay'],
+                            file: null,
+                            metadata: {},
+                            publish: true,
+                            version: 1
+                        },
+                        documentId: 700001
+                    }
+                ])
+            const writeAssetMetadata = jest.spyOn(service, 'writeAssetMetadata').mockResolvedValue({
+                id: ASSET_ID,
+                projectId: PROJECT_ID,
+                stableAssetId: 'folder-stable-id',
+                type: 'folder',
+                name: 'Gameplay',
+                virtualPath: ['Gameplay'],
+                file: null,
+                metadata: {},
+                publish: true,
+                version: 1
+            } as never)
+
+            const first = await service.createEditorCompatibilityAsset(
+                'metahub-1',
+                PROJECT_ID,
+                { name: 'Gameplay', type: 'folder' },
+                null,
+                'user-1'
+            )
+            await expect(
+                service.createEditorCompatibilityAsset('metahub-1', PROJECT_ID, { name: 'Gameplay', type: 'folder' }, null, 'user-1')
+            ).rejects.toMatchObject({
+                details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.assetNameConflict' })
+            })
+
+            expect(first.id).toBeGreaterThan(0)
+            expect(writeAssetMetadata).toHaveBeenCalledTimes(1)
+            expect(writeAssetMetadata.mock.calls[0]?.[2]).toMatchObject({
+                type: 'folder',
+                virtualPath: ['Gameplay'],
+                file: null,
+                lifecycleMetadata: {
+                    editorDocumentId: first.id,
+                    editorDocumentKey: 'folder:019e8afa-0000-7000-8000-000000000001:Gameplay'
+                }
+            })
+            expect(writeAssetMetadata.mock.calls[0]?.[2]?.metadata).not.toHaveProperty('editorDocumentId')
+            expect(writeAssetMetadata.mock.calls[0]?.[2]?.metadata).not.toHaveProperty('editorDocumentKey')
+        })
+
+        it('writes text assets with the file-service MIME/checksum and rolls the file back on metadata failure', async () => {
+            const fileService = {
+                write: jest.fn().mockResolvedValue({
+                    content: Buffer.from('export class Pilot {}'),
+                    checksum: 'a'.repeat(64),
+                    sourcePath: `${'playcanvas-projects'}/${PROJECT_ID}/assets/pilot.mjs`,
+                    absolutePath: '/tmp/pilot.mjs',
+                    size: 22,
+                    mime: 'text/javascript'
+                }),
+                delete: jest.fn(),
+                deleteIfCurrentChecksum: jest.fn().mockResolvedValue(true)
+            }
+            const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([])
+            const writeAssetMetadata = jest.spyOn(service, 'writeAssetMetadata').mockRejectedValue(new Error('metadata unavailable'))
+
+            await expect(
+                service.createEditorCompatibilityAsset(
+                    'metahub-1',
+                    PROJECT_ID,
+                    { name: 'Pilot', type: 'script' },
+                    { buffer: Buffer.from('export class Pilot {}'), filename: 'pilot.mjs' },
+                    'user-1'
+                )
+            ).rejects.toThrow('metadata unavailable')
+
+            expect(fileService.write).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                `${'playcanvas-projects'}/${PROJECT_ID}/assets/pilot.mjs`,
+                expect.any(Buffer),
+                expect.objectContaining({ mime: 'text/javascript' })
+            )
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                `${'playcanvas-projects'}/${PROJECT_ID}/assets/pilot.mjs`,
+                'a'.repeat(64)
+            )
+            expect(writeAssetMetadata.mock.calls[0]?.[2]?.metadata).not.toHaveProperty('editorDocumentKey')
+            expect(writeAssetMetadata.mock.calls[0]?.[2]?.lifecycleMetadata).toEqual({
+                editorDocumentId: expect.any(Number),
+                editorDocumentKey: expect.stringContaining('asset:')
+            })
+        })
+
+        it('rolls a newly written asset file back when the database transaction commit fails', async () => {
+            const checksum = 'c'.repeat(64)
+            const fileService = {
+                write: jest.fn().mockResolvedValue({
+                    content: Buffer.from('export class Pilot {}'),
+                    checksum,
+                    sourcePath: `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`,
+                    absolutePath: '/tmp/pilot.mjs',
+                    size: 22,
+                    mime: 'text/javascript'
+                }),
+                deleteIfCurrentChecksum: jest.fn().mockResolvedValue(true)
+            }
+            const baseExecutor = createProjectLookupExecutor()
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    if (sql.includes('pg_advisory_xact_lock')) return []
+                    return baseExecutor.query(sql)
+                }),
+                transaction: async (callback: (tx: DbExecutor) => Promise<unknown>) => {
+                    await callback(exec as unknown as DbExecutor)
+                    throw new Error('database commit failed')
+                }
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([])
+            jest.spyOn(service, 'writeAssetMetadata').mockResolvedValue({
+                id: ASSET_ID,
+                projectId: PROJECT_ID,
+                stableAssetId: 'pilot-stable-id',
+                type: 'script',
+                name: 'Pilot',
+                virtualPath: ['pilot.mjs'],
+                file: null,
+                metadata: {},
+                publish: true,
+                version: 1
+            } as never)
+
+            await expect(
+                service.createEditorCompatibilityAsset(
+                    'metahub-1',
+                    PROJECT_ID,
+                    { name: 'Pilot', type: 'script' },
+                    { buffer: Buffer.from('export class Pilot {}'), filename: 'pilot.mjs' },
+                    'user-1'
+                )
+            ).rejects.toThrow('database commit failed')
+
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledTimes(1)
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`,
+                checksum
+            )
+        })
+
+        it('persists data-only material assets without attempting a binary file write', async () => {
+            const fileService = { write: jest.fn(), delete: jest.fn() }
+            const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([])
+            const writeAssetMetadata = jest.spyOn(service, 'writeAssetMetadata').mockResolvedValue({
+                id: ASSET_ID,
+                projectId: PROJECT_ID,
+                stableAssetId: 'material-stable-id',
+                type: 'material',
+                name: 'Hull Material',
+                virtualPath: ['Hull Material'],
+                file: null,
+                metadata: {},
+                publish: true,
+                version: 1
+            } as never)
+
+            await service.createEditorCompatibilityAsset(
+                'metahub-1',
+                PROJECT_ID,
+                { name: 'Hull Material', type: 'material', data: { diffuse: [1, 1, 1] } },
+                null,
+                'user-1'
+            )
+
+            expect(fileService.write).not.toHaveBeenCalled()
+            expect(writeAssetMetadata.mock.calls[0]?.[2]).toMatchObject({ type: 'material', file: null })
+        })
+
+        it('fails closed when a requested asset row is not deleted', async () => {
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    if (sql.includes('pg_advisory_xact_lock')) return []
+                    if (sql.includes("metadata->>'editorDocumentId'")) return []
+                    if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return createProjectLookupExecutor().query(sql)
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_assets')) return []
+                    throw new Error(`Unexpected SQL: ${sql}`)
+                }),
+                transaction: async (callback: (tx: DbExecutor) => Promise<unknown>) => callback(exec as unknown as DbExecutor)
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([
+                {
+                    asset: {
+                        id: ASSET_ID,
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'asset-stable-id',
+                        type: 'script',
+                        name: 'Pilot',
+                        virtualPath: ['pilot.mjs'],
+                        file: null,
+                        metadata: {},
+                        publish: true,
+                        version: 1
+                    },
+                    documentId: 700001
+                }
+            ])
+
+            await expect(service.deleteEditorCompatibilityAssets('metahub-1', PROJECT_ID, [700001], 'user-1')).rejects.toBeInstanceOf(
+                MetahubConflictError
+            )
+        })
+
+        it('restores physical files when the transactional asset delete rolls back', async () => {
+            const sourcePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`
+            const content = Buffer.from('export class Pilot {}')
+            const checksum = 'a'.repeat(64)
+            const fileService = {
+                read: jest.fn().mockResolvedValue({ content, checksum, sourcePath, absolutePath: sourcePath, size: content.length }),
+                deleteIfCurrentChecksum: jest.fn().mockResolvedValue(true),
+                write: jest.fn().mockResolvedValue(undefined)
+            }
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    if (sql.includes('pg_advisory_xact_lock')) return []
+                    if (sql.includes("metadata->>'editorDocumentId'")) return []
+                    if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return createProjectLookupExecutor().query(sql)
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_assets')) return []
+                    throw new Error(`Unexpected SQL: ${sql}`)
+                }),
+                transaction: async (callback: (tx: DbExecutor) => Promise<unknown>) => callback(exec as unknown as DbExecutor)
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([
+                {
+                    asset: {
+                        id: ASSET_ID,
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'pilot-stable-id',
+                        type: 'script',
+                        name: 'Pilot',
+                        virtualPath: ['pilot.mjs'],
+                        file: {
+                            provider: 'local',
+                            root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                            path: sourcePath,
+                            hash: checksum,
+                            size: content.length,
+                            mime: 'text/javascript',
+                            status: 'ready'
+                        },
+                        metadata: { editorDocumentId: 700001 },
+                        publish: true,
+                        version: 1
+                    },
+                    documentId: 700001
+                }
+            ])
+
+            await expect(service.deleteEditorCompatibilityAssets('metahub-1', PROJECT_ID, [700001], 'user-1')).rejects.toBeInstanceOf(
+                MetahubConflictError
+            )
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                sourcePath,
+                checksum
+            )
+            expect(fileService.write).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                sourcePath,
+                content,
+                expect.objectContaining({ expectedChecksum: checksum, expectedCurrentChecksum: null })
+            )
+        })
+
+        it('restores physical files when the outer lifecycle transaction commit fails after row deletion', async () => {
+            const sourcePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`
+            const content = Buffer.from('export class Pilot {}')
+            const checksum = 'b'.repeat(64)
+            const fileService = {
+                read: jest.fn().mockResolvedValue({ content, checksum, sourcePath, absolutePath: sourcePath, size: content.length }),
+                deleteIfCurrentChecksum: jest.fn().mockResolvedValue(true),
+                write: jest.fn().mockResolvedValue(undefined)
+            }
+            let transactionDepth = 0
+            const exec = {
+                query: jest.fn(async (sql: string) => {
+                    if (sql.includes('pg_advisory_xact_lock')) return []
+                    if (sql.includes("metadata->>'editorDocumentId'")) return []
+                    if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return createProjectLookupExecutor().query(sql)
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_assets')) {
+                        return [{ id: ASSET_ID, file_ref: { path: sourcePath } }]
+                    }
+                    throw new Error(`Unexpected SQL: ${sql}`)
+                }),
+                transaction: async (callback: (tx: DbExecutor) => Promise<unknown>) => {
+                    transactionDepth += 1
+                    try {
+                        const result = await callback(exec as unknown as DbExecutor)
+                        if (transactionDepth === 1) throw new Error('database commit failed')
+                        return result
+                    } finally {
+                        transactionDepth -= 1
+                    }
+                }
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([
+                {
+                    asset: {
+                        id: ASSET_ID,
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'pilot-stable-id',
+                        type: 'script',
+                        name: 'Pilot',
+                        virtualPath: ['pilot.mjs'],
+                        file: {
+                            provider: 'local',
+                            root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                            path: sourcePath,
+                            hash: checksum,
+                            size: content.length,
+                            mime: 'text/javascript',
+                            status: 'ready'
+                        },
+                        metadata: { editorDocumentId: 700001 },
+                        publish: true,
+                        version: 1
+                    },
+                    documentId: 700001
+                }
+            ])
+
+            await expect(service.deleteEditorCompatibilityAssets('metahub-1', PROJECT_ID, [700001], 'user-1')).rejects.toThrow(
+                'database commit failed'
+            )
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                sourcePath,
+                checksum
+            )
+            expect(fileService.write).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                sourcePath,
+                content,
+                expect.objectContaining({ expectedChecksum: checksum, expectedCurrentChecksum: null })
+            )
+        })
+
+        it('rejects unsafe data-only asset names before writing metadata', async () => {
+            const service = new PlayCanvasProjectsService(
+                createProjectLookupExecutor(),
+                makeSchemaService() as never,
+                {
+                    write: jest.fn()
+                } as never
+            )
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([])
+            const writeAssetMetadata = jest.spyOn(service, 'writeAssetMetadata')
+
+            await expect(
+                service.createEditorCompatibilityAsset(
+                    'metahub-1',
+                    PROJECT_ID,
+                    { name: 'materials/unsafe', type: 'material', data: { diffuse: [1, 1, 1] } },
+                    null,
+                    'user-1'
+                )
+            ).rejects.toMatchObject({
+                details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.assetNameInvalid' })
+            })
+            expect(writeAssetMetadata).not.toHaveBeenCalled()
+        })
+
+        it('rejects unsafe names on the generic asset metadata write path', async () => {
+            const exec = createProjectLookupExecutor()
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+            await expect(
+                service.writeAssetMetadata(
+                    'metahub-1',
+                    PROJECT_ID,
+                    {
+                        id: ASSET_ID,
+                        stableAssetId: 'unsafe-asset',
+                        type: 'material',
+                        name: 'materials/unsafe',
+                        virtualPath: ['materials/unsafe'],
+                        file: null,
+                        metadata: {},
+                        publish: true
+                    },
+                    'user-1'
+                )
+            ).rejects.toMatchObject({
+                details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.assetNameInvalid' })
+            })
+            expect(exec.query).toHaveBeenCalledTimes(1)
+        })
+
+        it('rejects reserved editor lifecycle metadata on the generic asset write path', async () => {
+            const exec = createProjectLookupExecutor()
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+            await expect(
+                service.writeAssetMetadata(
+                    'metahub-1',
+                    PROJECT_ID,
+                    {
+                        id: ASSET_ID,
+                        stableAssetId: 'reserved-asset',
+                        type: 'folder',
+                        name: 'Reserved Folder',
+                        virtualPath: ['Reserved Folder'],
+                        file: null,
+                        metadata: { editorDocumentId: 700001 },
+                        publish: true
+                    },
+                    'user-1'
+                )
+            ).rejects.toMatchObject({
+                details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.assetLifecycleMetadataReserved' })
+            })
+
+            expect(exec.query).toHaveBeenCalledTimes(1)
+        })
+
+        it('cascades folder moves to descendant metadata and physical files', async () => {
+            const childId = '019e8afa-0000-7000-8000-000000000006'
+            const childPath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/Ships/pilot.mjs`
+            const movedChildPath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/Renamed Ships/pilot.mjs`
+            const entries = [
+                {
+                    asset: {
+                        id: ASSET_ID,
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'ships-folder',
+                        type: 'folder',
+                        name: 'Ships',
+                        virtualPath: ['Ships'],
+                        file: null,
+                        metadata: { editorDocumentId: 700001 },
+                        publish: true,
+                        version: 1
+                    },
+                    documentId: 700001
+                },
+                {
+                    asset: {
+                        id: childId,
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'pilot-asset',
+                        type: 'script',
+                        name: 'pilot.mjs',
+                        virtualPath: ['Ships', 'pilot.mjs'],
+                        file: {
+                            provider: 'local',
+                            root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                            path: childPath,
+                            hash: 'a'.repeat(64),
+                            size: 2,
+                            mime: 'text/javascript',
+                            status: 'ready'
+                        },
+                        metadata: { editorDocumentId: 700002 },
+                        publish: true,
+                        version: 4
+                    },
+                    documentId: 700002
+                }
+            ]
+            const fileService = {
+                rename: jest.fn().mockResolvedValue({
+                    sourcePath: movedChildPath,
+                    checksum: 'a'.repeat(64),
+                    size: 2,
+                    mime: 'text/javascript',
+                    content: Buffer.from('ok'),
+                    absolutePath: movedChildPath
+                })
+            }
+            const exec = {
+                query: jest.fn(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('pg_advisory_xact_lock')) return []
+                    if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                        return createProjectLookupExecutor().query(sql)
+                    }
+                    if (sql.includes('UPDATE') && sql.includes('_mhb_playcanvas_assets')) {
+                        const id = String(params?.[1])
+                        const row = entries.find((entry) => entry.asset.id === id)
+                        if (!row) return []
+                        return [
+                            {
+                                ...row.asset,
+                                name: params?.[2],
+                                virtualPath: JSON.parse(String(params?.[3])),
+                                file: JSON.parse(String(params?.[4])),
+                                version: row.asset.version + 1
+                            }
+                        ]
+                    }
+                    throw new Error(`Unexpected SQL: ${sql}`)
+                }),
+                transaction: async (callback: (tx: DbExecutor) => Promise<unknown>) => callback(exec as unknown as DbExecutor)
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue(entries)
+
+            await expect(
+                service.updateEditorCompatibilityAsset('metahub-1', PROJECT_ID, 700001, { name: 'Renamed Ships' }, 'user-1')
+            ).resolves.toMatchObject({ id: 700001, name: 'Renamed Ships', type: 'folder' })
+            expect(fileService.rename).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                childPath,
+                movedChildPath,
+                expect.objectContaining({ expectedChecksum: 'a'.repeat(64) })
+            )
+            const updateCalls = jest.mocked(exec.query).mock.calls.filter((call) => String(call[0]).includes('UPDATE'))
+            expect(updateCalls).toHaveLength(2)
+            expect(updateCalls.map((call) => JSON.parse(String(call[1]?.[3])))).toEqual(
+                expect.arrayContaining([['Renamed Ships'], ['Renamed Ships', 'pilot.mjs']])
+            )
+        })
+
+        it('rejects moving a folder into its own descendant before touching files', async () => {
+            const entries = [
+                {
+                    asset: {
+                        id: ASSET_ID,
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'root-folder',
+                        type: 'folder',
+                        name: 'Ships',
+                        virtualPath: ['Ships'],
+                        file: null,
+                        metadata: { editorDocumentId: 700001 },
+                        publish: true,
+                        version: 1
+                    },
+                    documentId: 700001
+                },
+                {
+                    asset: {
+                        id: '019e8afa-0000-7000-8000-000000000007',
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'nested-folder',
+                        type: 'folder',
+                        name: 'Fighters',
+                        virtualPath: ['Ships', 'Fighters'],
+                        file: null,
+                        metadata: { editorDocumentId: 700002 },
+                        publish: true,
+                        version: 1
+                    },
+                    documentId: 700002
+                }
+            ]
+            const fileService = { rename: jest.fn() }
+            const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue(entries)
+
+            await expect(
+                service.updateEditorCompatibilityAsset('metahub-1', PROJECT_ID, 700001, { parent: 700002 }, 'user-1')
+            ).rejects.toMatchObject({
+                details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.folderMoveCycle' })
+            })
+            expect(fileService.rename).not.toHaveBeenCalled()
+        })
+
+        it('maps duplicate file metadata to a conflict and removes only its own file', async () => {
+            const checksum = 'b'.repeat(64)
+            const fileService = {
+                write: jest.fn().mockResolvedValue({
+                    sourcePath: `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/duplicate.mjs`,
+                    checksum,
+                    size: 2,
+                    mime: 'text/javascript',
+                    content: Buffer.from('ok'),
+                    absolutePath: '/tmp/duplicate.mjs'
+                }),
+                deleteIfCurrentChecksum: jest.fn().mockResolvedValue(true)
+            }
+            const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService() as never, fileService as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([])
+            jest.spyOn(service, 'writeAssetMetadata').mockRejectedValue(Object.assign(new Error('duplicate key'), { code: '23505' }))
+
+            await expect(
+                service.createEditorCompatibilityAsset(
+                    'metahub-1',
+                    PROJECT_ID,
+                    { name: 'duplicate', type: 'script' },
+                    { filename: 'duplicate.mjs', buffer: Buffer.from('ok') },
+                    'user-1'
+                )
+            ).rejects.toBeInstanceOf(MetahubConflictError)
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/duplicate.mjs`,
+                checksum
+            )
+        })
+
+        it('fails closed when raw asset bytes do not match their stored checksum', async () => {
+            const service = new PlayCanvasProjectsService(createProjectLookupExecutor(), makeSchemaService(), {
+                read: jest.fn().mockResolvedValue({
+                    content: Buffer.from('changed'),
+                    checksum: 'c'.repeat(64),
+                    sourcePath: `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`,
+                    absolutePath: '/tmp/pilot.mjs',
+                    size: 7
+                })
+            } as never)
+            const privateService = service as unknown as {
+                loadEditorCompatibilityAssetEntries: jest.Mock
+            }
+            privateService.loadEditorCompatibilityAssetEntries = jest.fn().mockResolvedValue([
+                {
+                    asset: {
+                        id: ASSET_ID,
+                        projectId: PROJECT_ID,
+                        stableAssetId: 'pilot',
+                        type: 'script',
+                        name: 'pilot.mjs',
+                        virtualPath: ['pilot.mjs'],
+                        file: {
+                            provider: 'local',
+                            root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                            path: `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`,
+                            hash: 'd'.repeat(64),
+                            size: 7,
+                            mime: 'text/javascript',
+                            status: 'ready'
+                        },
+                        metadata: { editorDocumentId: 700001 },
+                        publish: true,
+                        version: 1
+                    },
+                    documentId: 700001
+                }
+            ])
+
+            await expect(service.readEditorCompatibilityAssetFile('metahub-1', PROJECT_ID, 700001, 'user-1')).rejects.toMatchObject({
+                details: expect.objectContaining({ messageCode: 'playcanvas.editorCompatibility.assetFileChecksumMismatch' })
+            })
+        })
+
+        it('cleans up generated artifact bytes when artifact metadata persistence fails', async () => {
+            const scriptAssetId = '019e8afa-0000-7000-8000-000000000005'
+            const sourcePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`
+            const sourceChecksum = 'a'.repeat(64)
+            const artifactChecksum = 'b'.repeat(64)
+            const scriptAsset = {
+                id: scriptAssetId,
+                assetId: ASSET_ID,
+                moduleId: null,
+                moduleCodename: null,
+                moduleSourcePath: null,
+                scriptName: 'Pilot',
+                scriptKind: 'esm' as const,
+                parsedAttributes: {},
+                parseStatus: 'ready' as const,
+                parseDiagnostics: null,
+                version: 1,
+                assetFilePath: sourcePath,
+                assetFileHash: sourceChecksum
+            }
+            const fileService = {
+                read: jest.fn().mockResolvedValue({
+                    content: Buffer.from(
+                        "import { Script } from 'playcanvas'\nexport default class Pilot extends Script { static scriptName = 'Pilot' }"
+                    ),
+                    checksum: sourceChecksum,
+                    sourcePath,
+                    absolutePath: sourcePath,
+                    size: 30
+                }),
+                buildDefaultArtifactPath: jest.fn(
+                    (projectId: string, artifactId: string, extension: '.js' | '.mjs') =>
+                        `${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/generated/${artifactId}${extension}`
+                ),
+                write: jest.fn(async (_scope: unknown, artifactPath: string) => ({
+                    content: Buffer.from(
+                        "import { Script } from 'playcanvas'\nexport default class Pilot extends Script { static scriptName = 'Pilot' }"
+                    ),
+                    checksum: artifactChecksum,
+                    sourcePath: artifactPath,
+                    absolutePath: artifactPath,
+                    size: 30,
+                    mime: 'text/javascript'
+                })),
+                deleteIfCurrentChecksum: jest.fn().mockResolvedValue(true)
+            }
+            const projectLookup = createProjectLookupExecutor()
+            const exec = {
+                query: jest.fn(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('_mhb_playcanvas_projects')) return projectLookup.query(sql)
+                    if (sql.includes('_mhb_playcanvas_script_assets') && sql.includes('assetFilePath')) return [scriptAsset]
+                    if (sql.includes('_mhb_playcanvas_generated_artifacts') && sql.includes('SELECT DISTINCT')) return []
+                    if (sql.includes('_mhb_modules') && sql.includes('SELECT')) return []
+                    if (sql.trimStart().startsWith('INSERT') && sql.includes('_mhb_playcanvas_generated_artifacts')) {
+                        throw Object.assign(new Error('artifact metadata unavailable'), { code: '23505' })
+                    }
+                    if (sql.includes('_mhb_playcanvas_generated_artifacts') && sql.includes('UPDATE')) return []
+                    if (sql.includes('pg_advisory_xact_lock')) return []
+                    throw new Error(`Unexpected SQL: ${sql} ${JSON.stringify(params)}`)
+                }),
+                transaction: async (callback: (tx: DbExecutor) => Promise<unknown>) => callback(exec as unknown as DbExecutor)
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+            await expect(service.ensureGeneratedScriptArtifacts('metahub-1', PROJECT_ID, 'user-1')).rejects.toThrow(
+                'artifact metadata unavailable'
+            )
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                expect.stringContaining(`${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/generated/`),
+                artifactChecksum
+            )
+        })
+
+        it('cleans generated artifact bytes when the publication transaction commit fails', async () => {
+            const scriptAssetId = '019e8afa-0000-7000-8000-000000000008'
+            const sourcePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/assets/pilot.mjs`
+            const sourceChecksum = 'd'.repeat(64)
+            const artifactChecksum = 'e'.repeat(64)
+            const scriptAsset = {
+                id: scriptAssetId,
+                assetId: ASSET_ID,
+                moduleId: null,
+                moduleCodename: null,
+                moduleSourcePath: null,
+                scriptName: 'Pilot',
+                scriptKind: 'esm' as const,
+                parsedAttributes: {},
+                parseStatus: 'ready' as const,
+                parseDiagnostics: null,
+                version: 1,
+                assetFilePath: sourcePath,
+                assetFileHash: sourceChecksum
+            }
+            const fileService = {
+                read: jest.fn().mockResolvedValue({
+                    content: Buffer.from(
+                        "import { Script } from 'playcanvas'\nexport default class Pilot extends Script { static scriptName = 'Pilot' }"
+                    ),
+                    checksum: sourceChecksum,
+                    sourcePath,
+                    absolutePath: sourcePath,
+                    size: 30
+                }),
+                buildDefaultArtifactPath: jest.fn(
+                    (projectId: string, artifactId: string, extension: '.js' | '.mjs') =>
+                        `${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/generated/${artifactId}${extension}`
+                ),
+                write: jest.fn(async (_scope: unknown, artifactPath: string) => ({
+                    content: Buffer.from('compiled'),
+                    checksum: artifactChecksum,
+                    sourcePath: artifactPath,
+                    absolutePath: artifactPath,
+                    size: 8,
+                    mime: 'text/javascript'
+                })),
+                deleteIfCurrentChecksum: jest.fn().mockResolvedValue(true)
+            }
+            const projectLookup = createProjectLookupExecutor()
+            const baseExecutor = {
+                query: jest.fn(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('_mhb_playcanvas_projects')) return projectLookup.query(sql)
+                    if (sql.includes('_mhb_playcanvas_script_assets') && sql.includes('assetFilePath')) return [scriptAsset]
+                    if (sql.includes('_mhb_playcanvas_generated_artifacts') && sql.includes('SELECT DISTINCT')) return []
+                    if (sql.includes('_mhb_modules') && sql.includes('SELECT')) return []
+                    if (sql.includes('pg_advisory_xact_lock')) return []
+                    if (sql.trimStart().startsWith('INSERT') && sql.includes('_mhb_playcanvas_generated_artifacts')) {
+                        return [
+                            {
+                                id: '019e8afa-0000-7000-8000-000000000009',
+                                scriptAssetId,
+                                sourceModuleId: null,
+                                sourceModuleCodename: null,
+                                sourceModulePath: null,
+                                sourceChecksum,
+                                outputFile: {},
+                                scriptName: 'Pilot',
+                                scriptKind: 'esm',
+                                parseStatus: 'ready',
+                                version: 1
+                            }
+                        ]
+                    }
+                    if (sql.includes('_mhb_playcanvas_generated_artifacts') && sql.includes('UPDATE')) return []
+                    throw new Error(`Unexpected SQL: ${sql} ${JSON.stringify(params)}`)
+                })
+            } as unknown as DbExecutor
+            const exec = {
+                ...baseExecutor,
+                transaction: async (callback: (tx: DbExecutor) => Promise<unknown>) => {
+                    await callback(exec as unknown as DbExecutor)
+                    throw new Error('publication commit failed')
+                }
+            } as unknown as DbExecutor
+            const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never, fileService as never)
+
+            await expect(service.ensureGeneratedScriptArtifacts('metahub-1', PROJECT_ID, 'user-1')).rejects.toThrow(
+                'publication commit failed'
+            )
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledTimes(1)
+            expect(fileService.deleteIfCurrentChecksum).toHaveBeenCalledWith(
+                { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+                expect.stringContaining(`${PLAYCANVAS_PROJECT_FILE_ROOT}/${PROJECT_ID}/generated/`),
+                artifactChecksum
+            )
         })
     })
 

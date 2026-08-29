@@ -5,8 +5,8 @@ This package vendors source from the official PlayCanvas Editor frontend.
 ## PlayCanvas Editor
 
 -   Repository: https://github.com/playcanvas/editor
--   Tag: `v2.24.2`
--   Commit: `00360100b3b5747648eb3d7287421ef25491f5c7`
+-   Tag: `v2.30.4`
+-   Commit: `cf296bcb669bdcb168778bf2979160a9fe8f67de`
 -   License: MIT
 
 ```text

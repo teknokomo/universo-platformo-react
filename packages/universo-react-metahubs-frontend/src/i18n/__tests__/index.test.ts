@@ -62,4 +62,29 @@ describe('metahubs i18n consolidation', () => {
             'Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.'
         )
     })
+
+    it('merges module authoring translations with resource scope labels', () => {
+        const ruTranslations = getMetahubsTranslations('ru') as {
+            modules?: {
+                scopes?: { metahub?: string; general?: string }
+                fields?: { name?: string }
+                errors?: { sourcePathModulesPrefix?: string }
+            }
+        }
+        const enTranslations = getMetahubsTranslations('en') as {
+            modules?: {
+                scopes?: { metahub?: string; general?: string }
+                fields?: { name?: string }
+                errors?: { sourcePathModulesPrefix?: string }
+            }
+        }
+
+        expect(ruTranslations.modules?.scopes?.metahub).toBe('Модули метахаба')
+        expect(ruTranslations.modules?.scopes?.general).toBe('Общие модули')
+        expect(ruTranslations.modules?.fields?.name).toBe('Название')
+        expect(ruTranslations.modules?.errors?.sourcePathModulesPrefix).toBe('Путь к исходному файлу должен начинаться с modules/.')
+        expect(enTranslations.modules?.scopes?.general).toBe('Shared modules')
+        expect(enTranslations.modules?.fields?.name).toBe('Name')
+        expect(enTranslations.modules?.errors?.sourcePathModulesPrefix).toBe('Source paths must start with modules/.')
+    })
 })

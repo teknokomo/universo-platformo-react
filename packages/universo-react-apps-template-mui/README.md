@@ -107,6 +107,23 @@ All three Matrix views use one data model. They preserve compatible creation, se
 -   `pnpm docs:interpretation-network:check` validates EN/RU document parity, localized step screenshots, provenance freshness, non-blank `1920x1080` assets, no raw IDs/JSON, and runtime UX evidence before the guide is accepted.
 -   `pnpm docs:interpretation-network:drift:check` runs after regeneration in the verification workflow and fails when the generated PNG/provenance evidence differs from the tracked baseline or remains untracked.
 
+### PlayCanvas Script-Asset Runtime
+
+`PlayCanvasCanvasWidget` can bind to a published `runtimeManifest`. When the
+manifest contains scripts, the widget waits for every artifact to load before
+calling `app.start()`. The main-thread loader fetches each `data:` or HTTP URL,
+checks the lowercase hexadecimal SHA-256 `artifactHash`, imports the module as
+`text/javascript`, registers its exported script class in the app-scoped
+registry, and attaches it to the entity named by `sceneEntityStableId` with the
+published attribute values. A missing entity, failed fetch, or hash mismatch
+fails closed and shows the localized script-load error.
+
+The canvas exposes stable diagnostic markers for browser verification:
+`data-scripts-loaded` (`true`, `failed`, or `none`), `data-runtime-module-executed`,
+`data-ship-screen-x`, `data-ship-screen-y`, `data-camera-distance`, and
+`data-camera-yaw`. The MMOOMM fixture uses these markers to prove script loading,
+flight movement, and camera behavior without exposing internal ids in the UI.
+
 ## Installation
 
 ```bash

@@ -187,6 +187,7 @@
                 "sourceKind": "Source kind",
                 "storageMode": "Storage mode",
                 "sourcePath": "Source path",
+                "sourcePathPlaceholder": "modules/general/example.ts",
                 "capabilities": "Capabilities",
                 "sdkApiVersion": "SDK API version",
                 "isActive": "Module is active",
@@ -197,7 +198,8 @@
                 "lifecycle": "Lifecycle",
                 "widget": "Widget",
                 "library": "Library",
-                "global": "Global"
+                "global": "Global",
+                "unknown": "Unknown module role"
             },
             "sourceKinds": {
                 "embedded": "Embedded"
@@ -213,7 +215,7 @@
             },
             "sourceMetadata": {
                 "status": "Source status",
-                "absolutePath": "Source file",
+                "path": "Source path",
                 "checksum": "Source checksum",
                 "lastReadAt": "Last read",
                 "lastCompile": "Last compile",
@@ -224,12 +226,14 @@
                     "modified": "Modified on disk",
                     "missing": "Missing file",
                     "unreadable": "Unreadable file",
-                    "conflict": "Conflict"
+                    "conflict": "Conflict",
+                    "unknown": "Unknown source status"
                 },
                 "compileStatuses": {
                     "never": "Not compiled yet",
                     "success": "Compiled",
-                    "failed": "Compilation failed"
+                    "failed": "Compilation failed",
+                    "unknown": "Unknown compilation status"
                 }
             },
             "capabilities": {
@@ -1504,8 +1508,7 @@
             "values": "Values",
             "components": "Components",
             "optionValues": "Values",
-            "runtimeModules": "Runtime modules",
-            "modules": "Shared modules"
+            "modules": "Modules"
         },
         "shared": {
             "loading": "Loading shared entities...",
@@ -3191,6 +3194,12 @@
         "actions": {
             "moveUp": "Move up",
             "moveDown": "Move down"
+        }
+    },
+    "modules": {
+        "scopes": {
+            "metahub": "Metahub modules",
+            "general": "Shared modules"
         }
     }
 }

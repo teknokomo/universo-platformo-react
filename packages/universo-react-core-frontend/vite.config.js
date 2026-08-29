@@ -54,6 +54,26 @@ const supportedLanguagesPlugin = () => ({
     }
 })
 
+// Resolves the bare `playcanvas` specifier used by published PlayCanvas script
+// assets to the ESM engine build staged under /vendor/playcanvas/ by
+// scripts/ensure-playcanvas-esm.mjs. Import maps must be declared before any
+// module that uses the mapped specifiers loads, hence the <head> injection.
+const universoImportMapPlugin = () => ({
+    name: 'inject-universo-import-map',
+    transformIndexHtml(html) {
+        const importMap = {
+            imports: {
+                playcanvas: '/vendor/playcanvas/playcanvas.mjs'
+            }
+        }
+        const tag = `<script type="importmap">${JSON.stringify(importMap)}</script>`
+        if (html.includes('</head>')) {
+            return html.replace('</head>', `  ${tag}\n  </head>`)
+        }
+        return html
+    }
+})
+
 export default defineConfig(async ({ mode }) => {
     const envTarget = process.env.UNIVERSO_ENV_TARGET?.trim()
     const explicitFrontendEnvPath = process.env.UNIVERSO_FRONTEND_ENV_FILE?.trim()
@@ -78,7 +98,7 @@ export default defineConfig(async ({ mode }) => {
     }
 
     return {
-        plugins: [react(), supportedLanguagesPlugin()],
+        plugins: [react(), supportedLanguagesPlugin(), universoImportMapPlugin()],
         esbuild: {
             target: 'es2022'
         },
@@ -152,6 +172,12 @@ export default defineConfig(async ({ mode }) => {
                 transformMixedEsModules: true
             },
             rollupOptions: {
+                // Keep the browser PlayCanvas singleton external. Published ESM
+                // script assets resolve the same import-map URL; bundling the
+                // engine here would create a second Script/Entity class graph and
+                // make dynamically loaded script components incompatible with
+                // the application registry.
+                external: ['playcanvas'],
                 output: {
                     manualChunks(id) {
                         // Prevent auth-frontend from being split into separate chunk

@@ -1,400 +1,142 @@
-# PlayCanvas Engine, Editor, and Colyseus Upgrade Gate (2026-08-22)
+# PlayCanvas Editor Assets Pipeline + MMOOMM Script Assets (2026-08-25)
 
-> Status: code_complete_with_gated_followups
-> Source plan: `memory-bank/plan/playcanvas-engine-editor-colyseus-upgrade-plan-2026-08-22.md` (v2, QA-reviewed)
-> Branch: `feature/playcanvas-engine-editor-colyseus-upgrade`
+> Status: complete — implementation and post-QA remediation verified
+> Source plan: `memory-bank/plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md` (QA-reviewed)
+> Research: `memory-bank/research/playcanvas-editor-assets-and-mmoomm-script-assets-research-2026-08-25.md`
+> Branch: `feature/playcanvas-editor-assets-and-mmoomm-scripts`
 
 ## Contract
 
-- No legacy code preservation; test DB deleted and recreated fresh. Metahub schema/template versions NOT bumped.
-- Phase 2 (Colyseus) blocked until **2026-08-25 04:10 UTC** (`@colyseus/schema 4.0.31` release-age quarantine). Code-level Phase 2 work proceeds against installed `core 0.17.43`; catalog bumps + reinstall execute when eligible.
-- All user-facing text EN/RU localized; UI reuses existing apps-template-mui primitives; Chromium-only browser scope.
-- Evidence: focused tests per phase + real-browser proof where environment permits; no mocked-only claims for WebGL/WebSocket behavior.
+-   No legacy code preservation; test DB deleted and recreated fresh. Metahub schema/template versions NOT bumped (zero DDL — folders derive from `virtual_path`).
+-   All user-facing text EN/RU localized from day one; UUID v7 for new row PKs; TanStack Query on the frontend; Chromium-only browser scope.
+-   Evidence: focused tests per phase + real-browser proof (Playwright, minimal local Supabase) for editor and runtime flows; screenshots for UI claims.
 
 ## Checklist
 
-### Phase 0 — Preconditions and re-freeze
-- [x] P0.1 OntoIndex freshness check; record indexed HEAD
-- [x] P0.2 Re-freeze versions (npm integrity/dates, core tarball zod audit, Editor tag+peeled SHA); dependency-audit procedure applied after each reinstall
-- [x] P0.3 Baselines recorded (chunk size via build or benchmark artifact, current app-gate status)
-- [x] P0.4 Branch `feature/playcanvas-engine-editor-colyseus-upgrade` created
-
-### Phase 1 — Runtime Engine `2.18.1 → 2.21.4`
-- [x] P1.1 Catalog bump `playcanvas 2.18.1→2.21.4`, reinstall, dependency audit, compile fallout fixes
-- [x] P1.2 Tagged-delta ledger `docs/{en,ru}/platform/playcanvas-engine-ledger-2-18-1-to-2-21-4.md`
-- [x] P1.3 Canvas identity + input ownership: `createBasicApplication(options)` refactor + both call sites
-- [x] P1.4 Lazy widget boundary in `widgetRenderer.tsx` with existing MUI fallback primitives + network-absence proof hooks
-- [x] P1.5 Localized WebGL2-unavailable terminal state (implementation + EN/RU keys)
-- [ ] P1.6 Tests: wrapper Vitest, widget Vitest updates, two-widget Playwright scenario, runtime proof additions, chunk-budget script
-- [x] P1.7 Wrapper README EN/RU + Skill version references
-
-### Phase 2 — Colyseus coherent set (code now; version bump gated on quarantine)
-- [x] P2.1 `tools/check-zod-resolution.mjs` guard wired into CI
-- [x] P2.2 Real-server integration suite (two SDK clients, reconnect scenarios, security-invariant regressions, anti-phantom-seat assertions)
-- [x] P2.3 Awaited `onDrop` lifecycle inside preserved `reserveClientShipForReconnect` + idempotency comment at `removeClientShip`
-- [x] P2.4 Explicit `new LocalPresence()` + `COLYSEUS_CLOUD` prod-config guard + negative tests
-- [x] P2.5 Mocked Jest suites updated; existing E2E reconnect proofs stay green
-- [x] P2.GATE Catalog bump `core 0.17.50 / sdk 0.17.43 / schema 4.0.31` + reinstall + colyseus seed rows + dependency audit — EXECUTE ON/AFTER 2026-08-25 04:10 UTC
-
-### Phase 3 — Registry metadata (Engine rows)
-- [x] P3.1 playcanvas-engine seed row: `upstreamVersion '2.21.4'` + EN/RU descriptions
-- [x] P3.2 PackageSeeder checksum-guard test updated; fresh-DB apply proof
-- [x] P3.3 Store negative tests: value-level source tamper fail-closed; unknown wrapper version; empty-source bypass branch covered
-
-### Phase 4 — Vendor Editor `v2.30.4` import
-- [x] P4.1 Atomic import: tag object + peeled SHA + tree into `vendor/UPSTREAM.md`; renamed manifest refresh; ot-text pin preserved; LICENSE/NOTICE checks
-- [x] P4.2 Committed `vendor/upstream-inventory.json` from archive minus omit lists
-- [x] P4.3 Hardened inventory-based drift checker (CI forbids skip)
-- [x] P4.4 Single-commit constants sync (src/index.ts, artifact lib, tests, sentinel → `2.24.2`, editor seed-row vendor marker)
-- [x] P4.5 Artifact build passes; smoke requires `js/code-editor.js`; browser smoke ×3 viewports; isolation checker run
-- [x] P4.6 Auto-migration safety gate: derived-view snapshot backup (platform table, uuidv7, Tier 2 executor), failure injection, idempotence
-- [x] P4.7 Post-import `$`-keyword vocabulary scan CI-gate vs converter whitelist
-
-### Phase 5 — Compatibility migration
-- [x] P5.1 Schema catalog builder (greenfield, whitelist incl. `$length/$title/$editorType/$mergeMethod`) + generated JSON artifact shared backend/frontend + parity test
-- [x] P5.2 Types contract: versioned-catalog Zod schema, `minimumTag 'v2.30.4'`, engineVersions `2.21.3`; artifact fallback consumes generated JSON
-- [x] P5.3 Per-page typed `window.config` variants; fail-closed localized mismatch state
-- [x] P5.4 Capability enforcement via surface descriptors + MUI Alert pattern; compatibility matrix doc EN/RU
-- [x] P5.5 Token renewal on existing `refreshFullBootAccessToken()` flow: sliding session-bound artifact token + `url.frontend` renewal + server-side grace window + invariant guard test + negatives
-- [x] P5.6 Backend test sites (~13 full-boot) + artifact string contracts + `minimumTag` test sites + ShareDB `documents` denial test
-- [x] P5.7 Numeric-ID collision uniqueness index + retry + store test
-- [x] P5.8 OpenAPI regeneration: `minimumTag ['v2.30.4']` in generator + `generate:openapi` + redocly validate
-- [x] P5.9 Regenerate BOTH MMOOMM fixtures through Playwright product flow + strengthened contract assertions
-- [x] P5.10 Fresh-DB import → publish → runtime execution proof + tampered-snapshot negative e2e
-
-### Phase 6 — Deep test system + visual evidence
-- [ ] P6.1 Coverage map consolidated; gn_test_gap gaps filled
-- [x] P6.2 Full Playwright matrix on minimal local Supabase (app gate, flight flow, authoring, artifact boot ×3 viewports, two-widget, reconnect, late-token)
-- [x] P6.3 Screenshot evidence bundle per GitBook convention (EN/RU assets + provenance manifest + drift gate) + human review record
-- [ ] P6.4 Chunk budget/performance report
-
-### Phase 7 — Documentation
-- [x] P7.1 GitBook pages EN/RU (editor architecture/capability matrix, engine ledger, packages registry policy, multiplayer contracts, testing guide)
-- [x] P7.2 Package READMEs EN/RU
-- [ ] P7.3 Skills version guards sync
-- [x] P7.4 Root README command references
-
-### Phase 8 — Final verification & closeout
-- [x] P8.1 Formatting + focused lint + builds + full root rebuild
-- [ ] P8.2 OntoIndex gn_verify_diff with expected allowlist
-- [x] P8.3 Thermos/autoreview closeout without CRITICAL findings
-- [ ] P8.4 Memory bank closeout (progress.md evidence, activeContext follow-ups)
-
----
-
-# Interpretation Network GitBook Documentation Implementation (2026-08-20)
-
-> Status: completed
-> Source plan: `memory-bank/plan/interpretation-network-gitbook-documentation-plan-2026-08-20.md`
-
-## UI And Documentation Contract
-
--   User-facing EN/RU docs describe normal workflows, not backend internals.
--   English pages reference English UI screenshots; Russian pages reference Russian UI screenshots.
--   Screenshots are generated from the real published app through the Playwright E2E wrapper at `http://127.0.0.1:3100`; no `pnpm dev`.
--   Normal screenshots and docs must not expose raw UUIDs, raw JSON, `[object Object]`, hidden Matrix fields, widget/source config internals, or internal validation text.
--   Long-text authoring remains multiline, validation remains localized, and page-level horizontal overflow remains forbidden.
--   No schema version or metahub template version bump is part of this work.
-
-## Checklist
-
--   [x] INDOC1. Reconfirm baseline, relevant package/docs context, and available OntoIndex/Context7 evidence before edits.
--   [x] INDOC2. Create the dedicated EN/RU GitBook Interpretation Network section and convert the old guide pages into concise overview link pages.
--   [x] INDOC3. Add the Interpretation Network screenshot manifest, Playwright generator, and provenance contract for EN/RU assets.
--   [x] INDOC4. Add the Interpretation Network docs checker and root scripts, then wire the local-Supabase verification wrapper into the new docs gate.
--   [x] INDOC5. Update relevant root/package README references for the new documentation commands and guide location.
--   [x] INDOC6. Run formatting and focused docs checks, then record verification results and remaining environmental limits.
--   [x] INDOC7. Run OntoIndex diff verification and Thermos/autoreview coverage where available, then update `memory-bank/progress.md`.
-
----
-
-# Interpretation Network Child Matrix Cell QA Remediation (2026-08-14)
-
-> Status: verification_in_progress
-> Source QA: after PR #882, a clean rebuild and import of `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` still failed to create a child Matrix cell with "Данные или расположение ячейки некорректны".
-
-## UI And Security Contract
-
--   Child creation submits visible business fields only; `CellId`, `ParentCellId`, `RowKey`, `ColKey`, `MaterialRef`, and runtime control fields remain server-owned.
--   Hidden placement controls cannot overwrite the visible localized title or description with empty values.
--   Create requires both `createContent` and `editContent`; edit requires `editContent`; delete requires `deleteContent`.
--   Runtime widget resolution prefers the current workspace layout over the global fallback and fails closed on same-rank ambiguity.
--   New persisted identities remain UUID v7; Matrix writes remain parameterized, transactional, workspace-scoped, cycle/coordinate validated, and guarded by advisory locks.
--   The Russian dialog keeps localized validation, multiline Description, no raw identifiers/JSON, and no page-level horizontal overflow.
-
-## Checklist
-
--   [x] QI1. Reproduce and trace the imported-snapshot child-cell path across MUI form merging, command payload construction, backend runtime surface resolution, and Matrix persistence.
--   [x] QI2. Prevent hidden/system-owned Matrix fields from overriding trusted placement or leaking into the command payload.
--   [x] QI3. Align frontend create controls and mutation guards with the backend `createContent + editContent` policy.
--   [x] QI4. Scope runtime widget resolution and generic single-system guards through `_app_layouts.scope_entity_id`, with workspace-specific precedence and ambiguity fail-closed behavior.
--   [x] QI5. Add focused Vitest/Jest coverage for payload sanitization, hidden placement, permission combinations, workspace isolation, and generic create protection.
--   [x] QI6. Add direct imported-snapshot Playwright coverage for the Russian hidden-placement child-cell journey and integrate it into the established full flow.
--   [ ] QI7. Run Prettier, focused tests, lint/build, fixture contract/drift, minimal-Supabase Playwright proof, UUID/data-operation/security review, OntoIndex diff verification, and Thermos/autoreview.
--   [ ] QI8. Record final evidence in `memory-bank/progress.md` after every required check is terminal.
-
----
-
-# Interpretation Network Child Matrix Cell Remediation (2026-08-06)
-
-> Status: complete_with_browser_followups
-> Source QA: fresh rebuild/import of `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` fails when creating a child cell with "Данные или расположение ячейки некорректны".
-
-## UI Contract
-
--   Add child Matrix cell remains a normal published-app workflow with business fields only; system-owned `CellId`, `ParentCellId`, `RowKey`, and `ColKey` stay backend-owned.
--   Localized Matrix labels and values entered from the MUI dialog are valid runtime input and must persist without raw JSON/object leakage on normal surfaces.
--   Permission behavior remains fail-closed: create child cell requires both `createContent` and `editContent`; move requires `editContent`; read-only roles keep authoring controls hidden.
--   Backend Matrix commands keep request-scoped runtime context, parameterized SQL, UUID v7 generated identifiers, transaction/lock boundaries, optimistic versions, duplicate-coordinate/cycle validation, and workspace scoping.
-
-## Checklist
-
--   [x] MC1. Reproduce and isolate the backend child-cell validation defect; record OntoIndex impact and preserve permission/security invariants. The failure is the Matrix command inserting localized/versioned STRING objects into json-backed TABLE child columns without the shared child-value storage normalization.
--   [x] MC2. Fix Matrix command input normalization so localized/versioned structured STRING values use the shared runtime TABLE child normalization path before strict scalar coercion.
--   [x] MC3. Add/refresh focused backend tests for localized child creation and invalid-field rejection without weakening server-owned field checks.
--   [x] MC4. Stabilize affected frontend unit tests for the Matrix command migration if failures are product regressions rather than environmental warnings. No frontend product-code change was needed for this backend normalization fix; the affected browser oracle failures are recorded below as separate follow-ups.
--   [x] MC5. Run formatting, focused backend/frontend tests, fixture contract, and relevant builds/lint.
--   [x] MC6. Run minimal local Supabase Playwright proof for the imported snapshot child-cell workflow and permissions where the environment permits. The wrapper reached browser verification against local Supabase and proved the child-cell create request no longer returns the reported invalid-cell backend error; the full wrapper still fails on separate existing browser-oracle defects listed below.
--   [x] MC7. Run OntoIndex diff verification/Thermos-style closeout and update progress evidence.
-
-## Evidence And Follow-Ups
-
--   Focused backend Jest passed: `runtimeInterpretationNetworkMatrixCommands.test.ts` and `runtimeInterpretationNetworkMatrixController.test.ts` (12 tests).
--   Formatting passed with Prettier on touched backend test/service files and this checklist.
--   Applications backend lint passed with one pre-existing warning in `src/routes/sync/syncLayoutPersistence.ts`.
--   Applications backend build passed after rebuilding `@universo-react/types` and `@universo-react/utils`; initial direct package build failed only because the workspace dependency dists were stale.
--   Interpretation Network fixture contract passed for the committed snapshot and the local-Supabase generated snapshot.
--   Full root `build:e2e` passed inside the local-Supabase verification wrapper.
--   `git diff --check` passed.
--   OntoIndex impact for `createInterpretationNetworkMatrixCell`, `moveInterpretationNetworkMatrixCells`, and touched E2E helper/oracle symbols reported LOW risk. Thermos correctness/security subagent returned PASS for the Matrix command diff.
--   `pnpm run test:e2e:interpretation-network:verify:local-supabase` reached browser tests on minimal local Supabase but ended red because of four separate browser/test-oracle failures: reset button not visible after Matrix settings save, read-only member template list receives workspace 403, single-system root-cell locator expects `data-testid=interpretation-network-cell` while the current table view exposes the root as a button, and the language menu item is localized as `Русский` instead of `Russian`.
-
-# Interpretation Network Final QA Remediation (2026-07-22)
-
-> Status: complete_with_environmental_limits
-> Source QA: comprehensive implementation review against the 2026-07-19 research/spec/input and the 2026-07-20 plan
-
-## Final OpenAPI and reset-conflict remediation (2026-07-29)
-
--   [x] Describe the reset endpoint as an owner/admin-only atomic restore from the latest materialized metahub source.
--   [x] Publish exact reset request, typed widget response, strict 400 contract, and a three-variant 409 `oneOf` in generated OpenAPI.
--   [x] Localize stale optimistic-version reset feedback and keep the Matrix editor open for retry.
--   [x] Align EN/RU user guides and Applications frontend READMEs with latest-source, atomic, source-less, and conflict semantics.
--   [x] Validate OpenAPI, lint/build affected packages, run the Applications frontend test suite, and verify formatting.
-
-## Security and UX contract
-
--   Single-system bootstrap is an idempotent server operation authorized by legitimate read access; it never grants generic authoring capability.
--   Browser payloads contain business intent only. Runtime Object/TABLE metadata and physical identifiers are resolved by the backend.
--   System-owned child fields and the active single-system aggregate cannot be mutated through generic row APIs.
--   Structure/template create, copy, and delete operations are atomic, workspace/RLS scoped, optimistic-version aware, and fail closed on malformed graphs or stale Material references.
--   Template Materials carry sufficient provenance for deterministic cleanup without affecting independent user Materials.
--   Published UI reuses apps-template MUI primitives, exposes an accessible template detail workflow, remains localized, and has no page-level horizontal overflow.
--   Focused Playwright scenarios encode both material policies, lifecycle, permissions, direct navigation/history, isolation, responsive rendering, and source immutability against minimal local Supabase. A fresh browser run is an explicit environmental limit in this closeout.
-
-## Checklist
-
--   [x] FQ0. Keep metahub and application Interpretation Network settings dialogs open on failed saves, close only after success, restore optimistic state, and show localized single-system transition and reset errors. Materialized widgets now keep `sourceConfig`, and owner/admin users can atomically restore the latest metahub baseline with optimistic concurrency.
--   [x] FQ1. Replace browser-authored Matrix system fields with atomic server-owned create/move commands that resolve trusted metadata, generate UUID v7 identifiers, validate placement, and preserve optimistic concurrency.
--   [x] FQ2. Enforce `createContent` for generic child inserts and protect single-system Structure/Interpretation rows across every generic create/update/copy/delete path, with direct permission and invariant tests.
--   [x] FQ3. Add an atomic backend preflight for switching an application to `singleSystem`, block conflicting active Structures with localized feedback, and scope runtime surface resolution to the actual active layout/widget.
--   [x] FQ4. Harden request schemas, empty `RETURNING` handling, stale-version 409 responses, lifecycle logging, OpenAPI contracts, graph/Material ownership, UUID remapping, and transaction-safe copy/delete behavior.
--   [x] FQ5. Refactor oversized child-row, Interpretation Network service, and Application Layouts modules into cohesive boundaries without compatibility shims or schema/template version bumps.
--   [x] FQ6. Complete standard template management UX, localized placement controls, stale-reset feedback, and focused Vitest/Jest coverage. Existing unrelated MUI Select `anchorEl` warnings remain test-environment noise outside this feature slice.
--   [x] FQ7. Add PostgreSQL-oriented service/store coverage and focused Playwright journeys for concurrency, rollback, permissions, isolation, cell authoring/moves, both template material policies, history, responsive overflow, and screenshots. The current sandbox prevented a fresh live run because external Supabase DNS and local Docker were unavailable; the browser suite remains discoverable and encoded without skips.
--   [x] FQ8. Update EN/RU GitBook docs, package READMEs, fixture contracts, generated OpenAPI, memory-bank progress, and exact implementation evidence.
--   [x] FQ9. Run Prettier, focused lint/build/tests, fixture contract/drift, docs, isolation guards, and diff checks. OntoIndex MCP diff verification inspected the full broad dirty tree and found no missing required test evidence, but formally returned `FAIL` because no expected-file allowlist was supplied. Minimal-local-Supabase browser verification and Thermos/autoreview were attempted but blocked by Docker permissions and the read-only Codex state database; these are recorded as verification limits rather than product debt.
-
----
-
-# Interpretation Network Template UX QA Remediation (2026-07-21)
-
-> Status: completed
-> Source QA: user-reported published-app template dialog/action placement defects after rebuilding and importing `tools/fixtures/metahubs-interpretation-network-app-snapshot.json`
-
-## UI Contract
-
--   Structure template save/create flows must reuse the standard `apps-template-mui` form/dialog behavior and localized field controls. Name and Description are localized values, and Description is multiline.
--   Structure creation remains one workflow. In multiple-structure mode, the standard Create Structure dialog includes a Templates tab for selecting a saved template; there is no separate "Create from template" button or separate create-from-template dialog.
--   Saving a structure as a template is available as an icon action next to the Matrix Add action and as a row/card action menu item in the Structures list.
--   Template management is visible through Templates tabs in the Structures section and next to Matrix where configured. Defaults show both locations. Users with read access can inspect templates; users with edit/delete content permissions can edit/delete templates.
--   Backend aggregate commands keep runtime schema metadata server-side, accept localized title/description payloads, use request-scoped executors, parameterized SQL, UUID v7, optimistic versions, transactions, and fail-closed permission checks.
-
-## Checklist
-
--   [x] R1. Stabilize the remediation scope, run required impact checks, and confirm UX/backend blast radius before edits.
--   [x] R2. Extend shared Interpretation Network settings contracts and metahub/application settings UI for template tab placement defaults.
--   [x] R3. Extend backend template command schemas/services/routes/client APIs for localized save/instantiate, template update, and template delete.
--   [x] R4. Replace bespoke template dialogs with standard FormDialog-based flows and move create-from-template into the Create Structure dialog Templates tab.
--   [x] R5. Add template management tabs/lists in Structures and Matrix surfaces, plus save-as-template icon/menu placement.
--   [x] R6. Strengthen single-system invariants and read-only bootstrap behavior where safe.
--   [x] R7. Update EN/RU i18n, docs/READMEs, fixture contract/generator/snapshot expectations, and tests.
--   [x] R8. Run formatting, focused tests/builds, fixture checks, local minimal-Supabase Playwright proof where available, OntoIndex diff verification, and Thermos/autoreview closeout. Focused app-template/application-settings checks, app-template build/lint, `git diff --check`, and the full minimal-local-Supabase Interpretation Network verification wrapper passed. OntoIndex MCP pre-commit audit reports high-risk scope for `api.ts` and the large Playwright flow because the overall implementation diff is intentionally broad and must receive manual review before commit.
-
----
-
-# Interpretation Network Single System Structure And Workspace Templates (2026-07-20)
-
-> Status: completed
-> Source plan: `memory-bank/plan/interpretation-network-single-structure-and-templates-plan-2026-07-20.md`
-
-## Architecture Record
-
--   `structureMode` belongs to the Interpretation Network widget config at metahub level and may be overridden in Application Settings; workspace overrides are intentionally not supported.
--   Published runtime UI stays inside `@universo-react/apps-template-mui` and reuses the existing Matrix, MUI shell, dialog, and query invalidation patterns.
--   Runtime aggregate commands resolve schema/table/column metadata server-side only, use request-scoped executors, parameterized SQL, UUID v7, transaction boundaries, and fail-closed permission checks.
--   The Interpretation Network template keeps the current Object-backed model and does not bump schema or template versions.
-
-## Checklist
-
--   [x] IN1. Stabilize the inherited worktree, fix partial syntax/schema defects, and record OntoIndex impact for the edited symbols.
--   [x] IN2. Finish shared `structureMode` contracts, metahub template metadata, metahub widget UI, application settings/layout UI, EN/RU i18n, and focused tests.
--   [x] IN3. Implement backend runtime aggregate command boundary for single-system ensure and workspace-local table templates with strict schemas, permissions, RLS-aware executors, transactions, and tests.
--   [x] IN4. Finish published runtime single-system routing/screen behavior and add template save/create dialogs using existing MUI primitives and localized text.
--   [x] IN5. Update Playwright generator/fixture contracts, regenerate `tools/fixtures/metahubs-interpretation-network-app-snapshot.json` through Playwright, and add browser proof flows/screenshots.
--   [x] IN6. Update GitBook docs and relevant READMEs in EN/RU.
--   [x] IN7. Run formatting, lint, focused unit/service/component tests, fixture checks, local minimal-Supabase Playwright proof, OntoIndex diff verification, Thermos/autoreview, and record progress. Focused package checks, fixture contract/drift guards, docs checks, app-template isolation, runtime fork guard, `git diff --check`, and the full minimal-local-Supabase Interpretation Network verification wrapper passed. OntoIndex reported the intentionally broad dirty worktree as high-risk/degraded and requiring manual review before commit. Thermos/autoreview was attempted; the sandboxed helper failed on readonly Codex state, and the escalated rerun was blocked by policy because it would export a large private diff to an external review engine.
-
-# Interpretation Network Configuration and Runtime UX (2026-07-14)
-
-> Status: completed
-> Source plan: `memory-bank/plan/interpretation-network-configuration-runtime-ux-plan-2026-07-14.md`
-
-## Architecture Record
-
--   Existing Interpretation Network Objects/Pages remain the domain model; no new entity preset, database migration, schema-version, or template-version increment is permitted.
--   Metahub owns seed defaults, Application Settings owns materialized widget configuration, and the published workspace owns transient selection/pane width.
--   Published UI stays inside `@universo-react/apps-template-mui`; it may use stable shared types/utils/i18n but must not import legacy template or feature UI packages.
-
-## Checklist
-
--   [x] T1. Baseline the dirty worktree, inspect exact callers, update shared type/config/color contracts, and add focused unit tests.
--   [x] T2. Replace Interpretation Network template styling metadata and widget defaults; remove obsolete colour entities/preset contracts; extend fixture contracts and template tests.
--   [x] T3. Enforce safe `hexColor` processing at metadata, runtime TABLE writes, seed/materialization, and import boundaries with stable localized error mapping and direct backend tests.
--   [x] T4. Wire `splitPane.enabled` through metahub widget authoring and Application Settings using the existing atomic batch-save/cache contract, with tests and EN/RU keys.
--   [x] T5. Repair runtime VLC edit initialization; replace legacy scalar style picker with the scoped grouped editor; add text-colour/contrast-safe rendering and preview coverage.
--   [x] T6. Implement the parent Structure header, start-preserving breadcrumbs, selection painting, and accessible bounded responsive pane splitter without persisted user ratio.
--   [x] T7. Update fixture generator/import/runtime browser flows, focused visual/a11y checks, E2E wrapper, EN/RU docs, package READMEs, and required project checks.
--   [ ] T8. Run formatting, focused tests/builds, local-minimal-Supabase Playwright proof, guards, OntoIndex diff verification, Thermos/autoreview, and record completed progress. Formatting, focused tests/builds, guards, and OntoIndex have run; browser proof is blocked by an already running local app server on port 3100, and Thermos/autoreview did not finish within the interactive window.
-
----
-
-# Unified Settings and Workspace Overrides (2026-07-16)
-
-> Status: completed
-> Source plan: `memory-bank/plan/unified-settings-and-workspace-overrides-plan-2026-07-16.md`
-
-## Architecture Record
-
--   Shared settings contract lives in `packages/universo-react-types` and is the single source of truth for metahub, application, and workspace settings metadata.
--   Metahub remains canonical for defaults, application control panel stores materialized defaults, and workspace stores explicit overrides.
--   Workspace overrides use a dedicated persistence boundary and do not reuse `_app_settings` blindly.
--   Runtime UI stays on existing `@universo-react/apps-template-mui` primitives; no new legacy UI fork is introduced for published apps.
--   All user-facing text must remain localized.
--   UUID v7 is required for new persisted rows.
-
-## Checklist
-
--   [x] U1. Add the shared settings registry/contract and normalized effective-value helpers in `packages/universo-react-types`.
--   [x] U2. Add dedicated workspace override persistence, API routes, request-scoped store helpers, and optimistic version semantics.
--   [x] U3. Refactor metahub settings surfaces to use the shared registry while preserving contextual editors and aggregated settings views.
--   [x] U4. Refactor application settings/layouts to consume the shared contract and remove raw JSON fallback behavior on normal surfaces.
--   [x] U5. Add workspace settings routing and UI in both runtime hosts with allowed-key gating and reset-to-application behavior.
--   [x] U6. Update i18n, package READMEs, and GitBook docs for the three-layer settings model.
--   [x] U7. Add/refresh tests across Vitest, Jest, and Playwright, including Interpretation Network coverage and minimal local Supabase proof.
--   [x] U8. Run formatting, lint, builds, browser proof, OntoIndex diff verification, and Thermos/autoreview; close out progress with evidence. Formatting, focused Jest/Vitest, lint, package builds, guards, docs checks, `git diff --check`, OntoIndex diff verification, and the full minimal-local-Supabase Interpretation Network verification wrapper passed. The E2E wrapper now recreates the local E2E Supabase profile between fixture generation and browser verification so generated fixed-schema state cannot leak into the browser proof.
-
-### QA remediation slice (2026-07-17)
-
--   [x] Q1. Allow application administrators to manage workspace settings even when they are not members of the target workspace, while keeping non-admin/non-member access fail-closed.
--   [x] Q2. Normalize `workspaceOverrides` on backend application settings updates so unknown, duplicate, and locked keys cannot persist.
--   [x] Q3. Filter copied workspace setting overrides against the current application workspace policy.
--   [x] Q4. Ensure published runtime workspace settings resolve localized labels/options from the `apps` bundle and do not show raw i18n keys.
--   [x] Q5. Re-run focused backend/frontend tests and record remaining evidence gaps. The enhanced Interpretation Network browser flow passes against minimal local Supabase; route Jest can require a non-sandbox listener permission in restricted environments.
-
-### QA remediation slice (2026-07-18)
-
--   [ ] Q6. Align the application Interpretation Network widget editor with the shared template dialog footer pattern and localized application text.
--   [ ] Q7. Make the application workspace switcher widget edit action deterministic instead of clicking into an empty handler.
--   [ ] Q8. Fix published-app Russian workspace Settings menu localization in the standalone runtime host.
--   [ ] Q9. Strengthen component and Playwright coverage so localized labels, footer actions, and workspace switcher behavior are asserted directly.
-
-## MMOOMM fixture drift follow-up (2026-07-15)
-
--   [x] M4. Investigate the next Node 22 drift failure: PlayCanvas material asset metadata emitted `meta: null` while the authored fixture omitted the optional field.
--   [x] M5. Normalize only null `assets/<index>/metadata/meta` records that have PlayCanvas asset metadata shape; preserve strict comparison for authored asset fields and unrelated snapshot metadata.
--   [x] M6. Validate the fix with the fixture contract, a synthetic `metadata.meta: null` drift regression, affected package lint/builds, formatting, and `git diff --check`.
-
-## Runtime UX verification follow-up (2026-07-15)
-
-> Status: completed
-> Scope: user-reported regressions after rebuilding and importing the Interpretation Network snapshot.
-
-### UI Contract
-
--   Editing an existing Structure loads the raw persisted record and displays every saved locale for localized Name and Description fields.
--   Every cell-style colour selector offers the shared preset sequence with white immediately after black, while still accepting valid custom hexadecimal colours.
--   Cell-coloured breadcrumbs preserve their fill and text colours during hover and focus, adding only a visible overlay effect.
--   Text/fill contrast is evaluated with WCAG relative luminance and shown as localized advisory guidance without blocking a deliberate save.
--   Focused tests cover raw localized edit loading, preset ordering, breadcrumb interaction styling, contrast ratios, advisory rendering, and successful submission.
-
-### Checklist
-
--   [x] F1. Load raw Structure data before opening edit and retain all localized Name/Description variants.
--   [x] F2. Add white after black to the shared colour preset sequence and verify every style control.
--   [x] F3. Preserve cell breadcrumb colours on hover/focus and apply a non-destructive interaction effect.
--   [x] F4. Keep WCAG contrast feedback advisory and verify authored low-contrast pairs can still be saved.
--   [x] F5. Add focused Vitest and Playwright regression coverage, format, lint, build, and run browser proof with minimal local Supabase. Focused and full Vitest/lint/build checks pass; Chromium Playwright passed 2/2 against the imported snapshot on minimal local Supabase.
--   [x] F6. Run OntoIndex diff verification and Thermos/autoreview closeout; update progress evidence. OntoIndex diff verification completes with expected broad dirty-tree critical scope; Thermos/autoreview was attempted but did not finish within the interactive window.
-
-## Authored Matrix Text Colour Regression (2026-07-15)
-
-> Status: in_progress
-> Scope: published Interpretation Network cells render an automatic contrast foreground instead of the saved `TextColor`.
-
-### UI Contract
-
--   A valid saved `TextColor` is the exact foreground used by cell content in table, horizontal-row, vertical-tree, header-card, and breadcrumb surfaces.
--   Automatic black/white foreground selection is used only when `TextColor` is absent or invalid.
--   Selection, hover, focus, and drag states must not replace an authored text colour.
--   Regression tests cover white, red, null fallback, and runtime persistence/refetch paths.
-
-### Checklist
-
--   [x] C1. Trace saved `TextColor` through runtime row decoding and every Matrix renderer; run OntoIndex impact before edits.
--   [x] C2. Fix the shared rendering boundary without adding legacy or view-specific forks.
--   [x] C3. Add focused model/component tests for authored white/red foregrounds and automatic fallback only when absent.
--   [ ] C4. Add browser E2E proof against the imported snapshot on minimal local Supabase, including a screenshot/computed-style assertion (deferred: current flow has no stable cell-style edit fixture).
--   [x] C5. Run Prettier, lint, build, focused/full tests, fixture contract/drift checks, and `git diff --check`; OntoIndex CLI diff and Thermos closeout remain pending.
-
-## MMOOMM Fixture Drift Gate Regression (2026-07-15)
-
-> Scope: the Node 22 GitHub Actions build repeatedly failed because PlayCanvas Editor injected a scene-local `metadata.editorDocument.version` field into generated material assets, while the authored fixture intentionally omitted that optimistic-concurrency revision.
-
--   [x] M1. Confirm the failing CI path and compare the generated/tracked normalized diff.
--   [x] M2. Normalize only the PlayCanvas scene-local editor-document revision field; do not mutate the tracked fixture or hide unrelated asset drift.
--   [x] M3. Run the MMOOMM fixture contract/drift checks and affected package builds.
-
----
-
-# Interpretation Network Matrix Visual And Drop Follow-up (2026-07-12)
-
-> Status: completed
-> Scope: fix Matrix cell selection visibility, hierarchical table spacing, total cell counter wording/coverage, and center-zone drop-to-child behavior.
-
-## UI Contract
-
--   Selected Matrix cell cards render a visible focus/selection outline that is not clipped in hierarchical table, horizontal rows, or vertical tree views.
--   Hierarchical table row-header cards keep a small stable gap before child-cell columns.
--   The total tree-cell counter uses localized wording equivalent to "Total N cells in the structure" and appears in every Matrix view when the setting is enabled.
--   Hierarchical drag/drop uses center-zone nesting for child placement and edge zones for before/after sibling placement.
--   Runtime UI remains localized, template-style, and covered by focused tests.
-
-## Checklist
-
--   [x] T1. Inspect Matrix view rendering, DnD placement logic, i18n, and run OntoIndex impact for edited symbols.
--   [x] T2. Fix selected-card outline visibility and hierarchical table row/child spacing.
--   [x] T3. Update total-cell counter wording and render it across all Matrix views behind the existing setting.
--   [x] T4. Adjust hierarchical DnD hit-zone logic so center means nesting and edges mean sibling placement.
--   [x] T5. Add reliable Vitest coverage for selection styling, spacing, counter coverage/wording, and DnD placement.
--   [x] T6. Run Prettier, focused tests, fixture contract, OntoIndex diff verification, and autoreview.
+### Current implementation continuation — production shell returns HTTP 500 for static assets (2026-08-29)
+
+-   [x] Diagnose the exact HTTP 500 response: browser asset requests were rejected by CORS because the generated development profile omitted `CORS_ORIGINS`.
+-   [x] Keep static asset routing strict and make local profile generation always emit the two credential-safe loopback application origins.
+-   [x] Extend the local Supabase doctor to fail before startup when the loopback CORS contract is absent, wildcarded, or incomplete.
+-   [x] Regenerate the profile and verify HTML, JavaScript, CSS, missing-asset 404 behavior, and a rendered Chromium page at `http://localhost:3000`.
+
+### Phase 0 — Preconditions
+
+-   [x] P0.1 OntoIndex freshness check; branch created
+-   [x] P0.2 Baseline: editor-backend 60✓, metahubs-backend playcanvas 212✓, modules-engine ✓, PlayCanvasCanvasWidget 43✓ (pre-existing: InterpretationNetwork 16 failures on main — unrelated)
+-   [x] P0.3 `busboy@^1.6.0` in catalog + editor-backend deps; installed 1.6.0
+
+### Phase 1 — Editor asset CRUD (backend + bridge)
+
+-   [x] P1.1 Types: asset summary `path/parentId/createdAt`; `EditorAssetCreateRequest` zod (POST-only)
+-   [x] P1.2 Service `createEditorCompatibilityAsset` (folders via virtual_path, uuidv7, replay-claim template, ShareDB seed, allow-list, `asset.new` push, `{id}` response)
+-   [x] P1.3 File content route (raw bytes, stored MIME, ETag, 404 JSON)
+-   [x] P1.4 Delete route (folder prefix, fail-closed, `asset.delete` push) + **P1.4b** fail-closed PUT 501 + catch-all JSON
+-   [x] P1.5 Realtime frames: `fs{op:'delete'}` + `pipeline{script-attributes}` handlers (ShareDB ops + `scriptAttrsFinished:<guid>` push)
+-   [x] P1.6 Messenger registry + `extendRealtimeAssetAllowList` seam
+-   [x] P1.7 Bridge mapping: rewrite POST/DELETE/file/PUT/unknown `/api/assets*` to compatibility URLs (auth+CSRF headers)
+-   [x] P1.8 Mapper upgrade: real `path[]`, numeric `uniqueId`, `createdAt`, folder rows
+-   [x] P1.9 Whitelist extension at all four layers (types+zod, MIME map, extensions map, service validator)
+
+### Phase 2 — ESM script-asset pipeline + runtime loader
+
+-   [x] P2.1 `compileScriptAssetEsm` in modules-engine (+ exports, fail-closed import policy)
+-   [x] P2.2 `runtimeFileUrl` MIME fix for `.mjs/.js` (text/javascript data URLs)
+-   [x] P2.3 Import map plugin (core-frontend vite) + `ensure-playcanvas-esm.mjs` prebuild copy + gitignore
+-   [x] P2.4 `playcanvasScriptAssets.ts` loader (fetch→sha256 verify→blob→import→registerScript→attach) + widget wiring + fail-closed i18n
+-   [x] P2.5 Host bridge `app.__universoHost` + cleanup
+-   [x] P2.6 `@shared/<codename>` resolution in `compileScriptAssetEsm`
+-   [x] P2.7 Publication wiring: script_assets rows on parse, bindings via existing PUT routes, compile-at-publish → generated artifacts → manifest `scripts[]`
+
+### Phase 3 — MMOOMM logic extraction + fixture regeneration
+
+-   [x] P3.1 Built-in scripts: `flight-control.mjs`, `follow-camera.mjs`, `remote-ships.mjs` + `flight-math` library module
+-   [x] P3.2 Widget slimming (remove extracted logic; keep manifest/entities/Colyseus/HUD/markers)
+-   [x] P3.3 Generator updates: drop flight-canvas-widget module; author scripts through Editor; bind to entities; publish with scripts[]
+-   [x] P3.4 Contract + drift: `assertRuntimeScripts`, `assertScriptAssets`, `assertGeneratedArtifacts`
+-   [x] P3.5 Regenerate fixture + snapshot-import E2E green
+
+### Phase 4 — Modules tabs merge (MUI)
+
+-   [x] P4.1 `MetahubModulesSurface` (nested Tabs pattern from ComponentList)
+-   [x] P4.2 `SharedResourcesPage` single modules tab
+-   [x] P4.3 i18n keys EN/RU (`modules.scopes.*`), remove `runtimeModules` tab key
+-   [x] P4.4 Tests: SharedResourcesPage + MetahubModulesSurface
+
+### Phase 5 — Test system
+
+-   [x] P5.1 Vitest editor-backend: create/file/delete/PUT-501/frames/messenger/allow-list/limits
+-   [x] P5.2 Jest metahubs-backend: service create/delete, whitelist, MIME fix, manifest scripts + publication wiring
+-   [x] P5.3 Vitest modules-engine: compileScriptAssetEsm + @shared
+-   [x] P5.4 Vitest apps-template-mui: loader unit tests + widget updates + blob/import-map integration test
+-   [x] P5.5 Playwright: assets-panel flow spec, baseline-trace spec, generator updates, runtime proof `scriptsLoaded`
+-   [x] P5.6 Docs screenshots EN/RU
+
+### Phase 6 — Docs + hygiene
+
+-   [x] P6.1 GitBook page `platform/playcanvas-editor-assets.md` EN/RU + SUMMARY entries + shared-modules/module-scopes updates
+-   [x] P6.2 READMEs: editor-backend (EN/RU scope), apps-template-mui, metahubs-frontend, modules-engine
+-   [x] P6.3 Stale v2.24.2→v2.30.4 (frontend README, 2 skills) + engineVersions 2.21.3→2.21.4 sync
+-   [x] P6.4 memory-bank progress/tasks updates
+
+### Phase 7 — QA remediation and acceptance closure (2026-08-27)
+
+-   [x] P7.1 Restore the exact EN/RU module i18n namespace merge and align the merged-scope browser flow with the `Shared modules` tab.
+-   [x] P7.2 Remove production legacy MMOOMM fallback logic and duplicate built-in sources; generate or verify a single source of truth for script assets.
+-   [x] P7.3 Align and enforce the published script host bridge contract, including script inheritance, duplicate-name, and entity-attachment validation.
+-   [x] P7.4 Make editor asset paths and IDs safe and stable: validate every asset name/path, cascade folder moves, reject cycles, preserve numeric document IDs, and map duplicate conflicts to localized 409 responses.
+-   [x] P7.5 Close file/artifact race and drift paths: checksum-guarded rollback, artifact cleanup after database failure, and fail-closed ETag handling.
+-   [x] P7.6 Remove browser exposure of absolute storage paths and add production CodeMirror accessible naming.
+-   [x] P7.7 Add immutable pre-extraction runtime baseline comparison and complete asset-type, role/origin/CSRF, responsive, keyboard, and settled screenshot E2E coverage.
+-   [x] P7.8 Run formatting, package lint/build, focused/full tests, minimal-Supabase Playwright flows, drift checks, and final review; update progress and mark all tasks complete.
+
+### Phase 8 — Post-QA implementation closure (2026-08-28)
+
+-   [x] P8.1 Security logging: redact credentials, CSRF/access tokens, PII and raw source/file payloads from request logs; add regression tests.
+-   [x] P8.2 Fetch compatibility: preserve `Request` method, body, headers and abort signal when rewriting Editor asset URLs; add POST/PUT/DELETE tests.
+-   [x] P8.3 CSRF contract: make the full-boot editor mutation proof explicit, fail closed, and cover the chosen token/CSRF model with security tests.
+-   [x] P8.4 Browser asset flow: remove internal Editor state mutations, add all required asset types, nested folders, content editing, RU and 1920/768/390 coverage with leakage/overflow/error oracles.
+-   [x] P8.5 Runtime parity: generate a non-idle pre-extraction motion/camera baseline and compare timestamps, trajectory, camera pitch, guard clearance, source and bindings strictly.
+-   [x] P8.6 Visual acceptance: add dedicated `ru-light`/`ru-dark` Playwright visual specs and robust screenshot dimensions/provenance/drift checks.
+-   [x] P8.7 Runtime UX: localize Visual Lab family labels, use safe localized enum fallbacks, and protect multiline module descriptions with real integration tests.
+-   [x] P8.8 Hygiene: remove stale fixture codenames/docs, make fixture drift deterministic, eliminate test cwd fragility and document/dedupe shared flight math.
+-   [x] P8.9 Verification: run package/full builds, lint, Prettier, focused/full tests, minimal-Supabase E2E, contract/drift checks, OntoIndex diff verification and Thermos review.
+
+### Phase 9 — QA findings remediation (2026-08-29)
+
+-   [x] P9.1 Normalize metahub copy access roles so a copied source owner becomes an admin; add a regression test with a source owner different from the copier.
+-   [x] P9.2 Align the runtime host bridge with the realtime readiness contract: start script runtime only after realtime authorization, or implement a bounded early-intent queue; add ordering and pre-connect intent tests.
+-   [x] P9.3 Make optimistic-version semantics consistent for all PlayCanvas upserts; preserve the documented optional/required contract and add unversioned-update and stale-version tests.
+-   [x] P9.4 Validate and remap every local snapshot file path through the safe-path and provider checks, including missing-file references; add traversal tests for assets, scenes, sourcefiles, and generated artifacts.
+-   [x] P9.5 Buffer or reject ShareDB frames received during asynchronous authentication/setup until the stream is listening; add a concurrent handshake regression test.
+-   [x] P9.6 Add browser-level RBAC/IDOR coverage for asset create/read/rename/delete/file access and unauthorized ShareDB mutations; clarify copy/clone scope and content-view acceptance.
+-   [x] P9.7 Re-run focused/full verification, minimal-Supabase Playwright editor and runtime flows, package lint/build/Prettier, fixture contract/drift, and an independent review in a writable environment.
+
+### Phase 10 — Strict QA debt closure (2026-08-29)
+
+-   [x] P10.1 Split the PlayCanvas project persistence boundary into focused services/stores while preserving the existing DbExecutor, transaction, optimistic-lock, rollback, and realtime contracts.
+-   [x] P10.2 Split the editor compatibility routes/realtime implementation into focused modules without changing the vendored protocol or security gates.
+-   [x] P10.3 Centralize PlayCanvas runtime-manifest canonicalization/checksum logic and add producer/consumer parity coverage.
+-   [x] P10.4 Reduce `PlayCanvasCanvasWidget.tsx` below the documented ~1200-line decomposition target using focused runtime hooks/modules; preserve browser behavior and accessibility.
+-   [x] P10.5 Add direct multi-worker topology guard tests for single-worker, missing worker-id, and distinct-worker ownership cases.
+-   [x] P10.6 Document newly exported public contracts with JSDoc and add browser asset-type matrix coverage for the supported text/data asset menu.
+-   [x] P10.7 Run focused/full builds, lint, Prettier, Vitest/Jest, minimal-Supabase Playwright flows, fixture/docs/drift checks, OntoIndex diff verification, and independent Thermos reviews; update progress and close the phase.
+
+## Notes / Decisions Log
+
+-   2026-08-25 IMPLEMENT session 1: Phases 0, 1, 2, 4 and P3.1+P3.2 implemented and verified (editor-backend 60✓, metahubs-backend playcanvas 212✓, modules-engine 22✓, widget 43✓, modules-frontend 26✓ incl. new MetahubModulesSurface 2✓; lint clean in all touched packages; zero new tsc errors vs baseline).
+-   2026-08-26 P6 documentation pass: added the EN/RU PlayCanvas Editor asset and script-asset GitBook page, synchronized navigation and module-scope guidance, refreshed the affected package READMEs, and reconciled active PlayCanvas Editor skill/version references. `pnpm docs:i18n:check` (112 EN/RU pairs) and `pnpm docs:gitbook-screenshot-assets:check` passed.
+-   Create route returns upstream shape `{id}` (deliberate envelope deviation — vendor reads only `result.id`).
+-   Folder document ids: `hashToPositiveInt('key:folder:<projectId>:<path>')` matching the batch resolver's `metadata.editorDocumentKey` scheme; row PKs stay `generateUuidV7()`.
+-   Realtime: dynamic asset grants registry (`grantRealtimeAssetDocuments`, scope `metahubId:projectId`) + messenger socket registry (`sendMessengerEvent`); `fs{op:'delete'}` → `documentPort.deleteAssets`; `pipeline{script-attributes}` → ShareDB ops + `scriptAttrsFinished:<guid>` push; script-asset rows mirrored on persist (`editor-script-<hash>` ids, kind from `.mjs` extension).
+-   Bridge: `resolveEditorAssetCompatibilityUrl` rewrite table (POST/DELETE/PUT/file-GET/unknown→`/-unsupported`); CSRF header from pre-warmed `marker.compatibilityCsrfToken`; artifact template literals require DOUBLE-escaped regexes (`\/` → `\/` in output) and NO nested backticks — two syntax bugs caught by artifact contract tests.
+-   Import map: `universoImportMapPlugin` (core-frontend vite) + `ensure-playcanvas-esm.mjs` predev/prebuild copy (playcanvas@2.21.4 `build/playcanvas.mjs`, gitignored, version-marker cache).
+-   Runtime loader: `playcanvasScriptAssets.ts` (fetch data-URL → hex sha-256 verify vs `artifactHash` → blob import → `app.scripts.add`); `scriptsLoaded` dataset marker: 'true'|'none'|'failed'; host bridge `app.__universoHost` = frozen `{moveToTarget, pickAt}`.
+-   Publication wiring: `persistEditorRealtimeDocument` mirrors parsed scripts into `_mhb_playcanvas_script_assets`; `ensureGeneratedScriptArtifacts` (publish pre-step) compiles sources via `compileScriptAssetEsm` (with metahub `@shared` libraries from `MetahubModulesService.listSharedLibraryCompilationInputs`) → `_mhb_playcanvas_generated_artifacts` + manifest `scripts[]`.
+-   Extraction (P3.1/3.2): canonical Editor-authored `.mjs` script assets (`flight-control.mjs`, `follow-camera.mjs`, `remote-ships.mjs`) plus the `libraries/flight-math.ts` shared module in metahubs-backend; the fixture generator reads these files directly when authoring the project, manifest scripts override builtins by scriptName, and the widget retains only generic runtime/bridge orchestration.
+-   2026-08-27 completion: generated the canonical MMOOMM fixture through the real Editor authoring flow on minimal local Supabase; contract and drift checks passed; imported runtime and dedicated baseline/movement parity E2E both passed (2/2 each). Asset CRUD browser flow passed (2/2), including create, raw file read, ShareDB rename, and UUID-cast delete regression. Editor-backend Vitest (9 targeted tests), metahubs-backend Jest (172 targeted tests), modules-engine Vitest (30 tests), apps-template Vitest (55 tests), Editor artifact tests (15 tests), docs screenshot generator (2/2), and package lint/build checks passed. P6.3 engine configuration now uses runtime engine `2.21.4`; no schema or template version was bumped.
+-   2026-08-27 hardening follow-up: script-asset compilation now rejects relative and absolute filesystem imports and resolves source text from an isolated virtual directory; generated-artifact reuse is checksum-aware and guarded by a publication advisory lock; runtime manifest selection ignores stale artifacts. Compatibility asset deletion now removes files with checksum/version preconditions and restores them on a rolled-back transaction; file renames lock both paths and use atomic no-clobber hard links. DELETE payloads are bounded, strict, unique, and the process-local realtime asset grant registry evicts deleted ids. Targeted metahubs PlayCanvas Jest (222/222), editor-backend Vitest full suite (72/72), modules-engine compiler tests (33/33), and file-service rename/rollback regressions passed.
+-   2026-08-28 QA remediation closure: completed P7.1–P7.8. Added commit-before-response handling for request-scoped RLS transactions, deterministic ShareDB seed serialization for static and dynamic asset grants, rollback cleanup for files/artifacts written before a failed database transaction, cross-platform traversal rejection for package artifacts, and one bounded reload recovery for a cold `/a/<applicationId>` shell in the runtime oracle. Regenerated the canonical fixture from the real Editor flow (2/2), then verified fixture contract and drift, imported MMOOMM runtime (2/2 in 11.0 minutes), full workspace build (36/36), Editor build, focused package suites, package/E2E lint, Prettier, vendor drift, docs checks, and `git diff --check`. No schema or metahub template version was bumped; the advisory autoreview remains unavailable because the environment's Codex state database is read-only.
+-   2026-08-29 production-shell closure: strict static routing now returns the SPA document only for document navigations and returns an empty 404 for missing hashed assets. The remaining white page was traced with Chromium to the generated development Supabase profile omitting `CORS_ORIGINS`; browser asset requests therefore failed with `500 Not allowed by CORS` while headerless curl requests appeared healthy. Local profile generation now emits only `http://127.0.0.1:<port>` and `http://localhost:<port>`, and the doctor fails closed if either is missing or a wildcard is present. The regenerated profile passed doctor, real HTML/JS/CSS response checks, stale-asset 404, and a rendered Playwright Chromium shell.
+-   2026-08-29 post-QA remediation: copied source owners are demoted to admins while the copier remains the sole owner; runtime script startup waits for realtime setup and published script artifacts; all PlayCanvas upserts honor the same optional optimistic-version contract; snapshot scene, asset, source-file, and generated-artifact references validate provider, root, project namespace, and traversal even when files are missing; ShareDB handshakes use bounded buffering; browser RBAC covers asset create/read/rename/delete/file access, cross-project IDOR, and unauthorized realtime mutation; compatibility errors no longer echo PlayCanvas identifiers. Focused suites, minimal-Supabase Playwright flows, fixture contract/drift, builds, lint, Prettier, and diff checks passed. Thermos autoreview remained unavailable because the Codex state database is read-only.
+-   2026-08-29 strict QA debt closure: split PlayCanvas project services/stores, compatibility routes, and realtime runtime modules while preserving public contracts; centralized runtime-manifest canonicalization/checksum logic; reduced `PlayCanvasCanvasWidget.tsx` to 888 lines; added topology guards and public-contract JSDoc; and expanded the browser asset flow to exercise Folder/CSS/CubeMap/HTML/JSON/Material/Script/Shader/Text creation. Fresh E2E build plus minimal Supabase target flow passed 2/2. Full workspace build passed 36/36; editor-backend Vitest 113/113; focused metahubs-backend Jest 188; modules-engine 35; apps-template 73; metahubs-frontend 30; Editor artifact 16; applications manifest 4; static checks, package lint, Prettier, fixture/docs/drift, and `gn_verify_diff` all passed. The local autoreview helper could not start because `/home/vladimir/.codex/state_5.sqlite` is read-only; no product findings were emitted.

@@ -783,27 +783,60 @@ const resolveModuleSourceChecksum = (module?: MetahubModuleRecord | null): strin
 const isFileBackedModule = (module?: MetahubModuleRecord | null): boolean =>
     module?.storageMode === 'file' || module?.sourceStorage?.mode === 'file'
 
+const MODULE_ROLE_FALLBACK_LABELS: Record<string, string> = {
+    module: 'Module',
+    lifecycle: 'Lifecycle',
+    widget: 'Widget',
+    library: 'Library',
+    unknown: 'Unknown module role'
+}
+
+const KNOWN_MODULE_ROLE_VALUES = ['module', 'lifecycle', 'widget', 'library'] as const
+
+const isKnownModuleRole = (value: string): value is ModuleRole =>
+    KNOWN_MODULE_ROLE_VALUES.includes(value as (typeof KNOWN_MODULE_ROLE_VALUES)[number])
+
+const resolveModuleRoleLabel = (value: string | null | undefined, t: TranslationFn): string => {
+    const candidate = value?.trim()
+    const role = candidate && Object.prototype.hasOwnProperty.call(MODULE_ROLE_FALLBACK_LABELS, candidate) ? candidate : 'unknown'
+    return t(`modules.moduleRoles.${role}`, MODULE_ROLE_FALLBACK_LABELS[role])
+}
+
+const MODULE_SOURCE_STATUS_FALLBACK_LABELS: Record<string, string> = {
+    inline: 'Inline source',
+    ready: 'Ready',
+    modified: 'Modified on disk',
+    missing: 'Missing file',
+    unreadable: 'Unreadable file',
+    conflict: 'Conflict',
+    unknown: 'Unknown source status'
+}
+
 const resolveModuleSourceStatusLabel = (value: string | null | undefined, t: TranslationFn): string => {
-    const status = value || 'inline'
-    const fallbackLabels: Record<string, string> = {
-        inline: 'Inline source',
-        ready: 'Ready',
-        modified: 'Modified on disk',
-        missing: 'Missing file',
-        unreadable: 'Unreadable file',
-        conflict: 'Conflict'
-    }
-    return t(`modules.sourceMetadata.statuses.${status}`, fallbackLabels[status] ?? status)
+    const candidate = value?.trim()
+    const status = !candidate
+        ? 'inline'
+        : Object.prototype.hasOwnProperty.call(MODULE_SOURCE_STATUS_FALLBACK_LABELS, candidate)
+        ? candidate
+        : 'unknown'
+    return t(`modules.sourceMetadata.statuses.${status}`, MODULE_SOURCE_STATUS_FALLBACK_LABELS[status])
+}
+
+const MODULE_COMPILE_STATUS_FALLBACK_LABELS: Record<string, string> = {
+    never: 'Not compiled yet',
+    success: 'Compiled',
+    failed: 'Compilation failed',
+    unknown: 'Unknown compilation status'
 }
 
 const resolveModuleCompileStatusLabel = (value: string | null | undefined, t: TranslationFn): string => {
-    const status = value || 'never'
-    const fallbackLabels: Record<string, string> = {
-        never: 'Not compiled yet',
-        success: 'Compiled',
-        failed: 'Compilation failed'
-    }
-    return t(`modules.sourceMetadata.compileStatuses.${status}`, fallbackLabels[status] ?? status)
+    const candidate = value?.trim()
+    const status = !candidate
+        ? 'never'
+        : Object.prototype.hasOwnProperty.call(MODULE_COMPILE_STATUS_FALLBACK_LABELS, candidate)
+        ? candidate
+        : 'unknown'
+    return t(`modules.sourceMetadata.compileStatuses.${status}`, MODULE_COMPILE_STATUS_FALLBACK_LABELS[status])
 }
 
 export const EntityModulesTab = ({
@@ -865,7 +898,7 @@ export const EntityModulesTab = ({
     const sourceMetadata = selectedModule
         ? {
               status: resolveModuleSourceStatusLabel(selectedModule.sourceStatus ?? selectedSourceStorage?.status, t),
-              absolutePath: selectedSourceStorage?.absolutePath ?? null,
+              relativePath: selectedModule.sourcePath ?? selectedSourceStorage?.path ?? null,
               checksum: formatModuleSourceChecksum(selectedModule.sourceChecksum ?? selectedSourceStorage?.checksum, t),
               lastReadAt: formatModuleSourceTimestamp(selectedModule.sourceLastReadAt ?? selectedSourceStorage?.lastReadAt),
               lastCompileAt: formatModuleSourceTimestamp(selectedModule.sourceLastCompileAt ?? selectedSourceStorage?.lastCompileAt),
@@ -982,6 +1015,11 @@ export const EntityModulesTab = ({
             setIsDeleteConfirmOpen(false)
         },
         onError: (mutationError: unknown) => {
+            // Close the confirmation overlay before showing the localized
+            // error on the page; otherwise the modal hides the actionable
+            // message and traps focus after a rejected delete (for example,
+            // when a shared library still has dependants).
+            setIsDeleteConfirmOpen(false)
             setError(resolveErrorMessage(mutationError, t('modules.errors.delete', 'Failed to delete module'), t))
         }
     })
@@ -1168,7 +1206,7 @@ export const EntityModulesTab = ({
             ) : null}
             {modules.map((module) => {
                 const moduleName = resolveModuleDisplayName(module, t)
-                const moduleRoleLabel = t(`modules.moduleRoles.${module.moduleRole}`, module.moduleRole)
+                const moduleRoleLabel = resolveModuleRoleLabel(module.moduleRole, t)
                 return (
                     <ListItemButton key={module.id} selected={module.id === selectedModuleId} onClick={() => handleSelectModule(module.id)}>
                         <ListItemText
@@ -1229,6 +1267,11 @@ export const EntityModulesTab = ({
                         onChange={(event) => handleModuleRoleChange(event.target.value as ModuleRole)}
                         disabled={isSaving || availableModuleRoles.length === 1}
                     >
+                        {!isKnownModuleRole(draft.moduleRole) ? (
+                            <MenuItem value={draft.moduleRole} disabled>
+                                {resolveModuleRoleLabel(draft.moduleRole, t)}
+                            </MenuItem>
+                        ) : null}
                         {availableModuleRoles.includes('module') ? (
                             <MenuItem value='module'>{t('modules.moduleRoles.module', 'Module')}</MenuItem>
                         ) : null}
@@ -1284,7 +1327,7 @@ export const EntityModulesTab = ({
                     disabled={isSaving || draft.storageMode !== 'file'}
                     fullWidth
                     size='small'
-                    placeholder='modules/general/example.ts'
+                    placeholder={t('modules.fields.sourcePathPlaceholder', 'modules/general/example.ts')}
                     helperText={
                         draft.storageMode === 'file'
                             ? t('modules.storageModes.fileHelp', 'Relative path under modules/; .ts and .tsx files are supported.')
@@ -1310,9 +1353,9 @@ export const EntityModulesTab = ({
                         <Typography variant='body2'>
                             {t('modules.sourceMetadata.status', 'Source status')}: {sourceMetadata.status}
                         </Typography>
-                        {sourceMetadata.absolutePath ? (
+                        {sourceMetadata.relativePath ? (
                             <Typography variant='body2' sx={{ overflowWrap: 'anywhere' }}>
-                                {t('modules.sourceMetadata.absolutePath', 'Source file')}: {sourceMetadata.absolutePath}
+                                {t('modules.sourceMetadata.path', 'Source path')}: {sourceMetadata.relativePath}
                             </Typography>
                         ) : null}
                         <Typography variant='body2'>
@@ -1441,8 +1484,16 @@ export const EntityModulesTab = ({
                     <CodeMirror
                         value={draft.sourceCode}
                         height='320px'
+                        aria-label={sourceCodeLabel}
+                        aria-labelledby='entity-module-source-code-label'
                         theme={editorTheme}
                         extensions={editorExtensions}
+                        onCreateEditor={(view) => {
+                            // CodeMirror renders the editable content as a nested contenteditable element.
+                            // Mirror the label there so assistive technologies announce the real text editor.
+                            view.contentDOM.setAttribute('aria-label', sourceCodeLabel)
+                            view.contentDOM.setAttribute('aria-labelledby', 'entity-module-source-code-label')
+                        }}
                         onChange={(value) => {
                             if (canEditSourceInCurrentDraft) {
                                 setDraft((prev) => ({ ...prev, sourceCode: value }))

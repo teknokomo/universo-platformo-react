@@ -2,13 +2,84 @@
 
 > Current-focus memory only. Completed implementation detail belongs in progress.md; active and follow-up checklists belong in tasks.md.
 
-The active focus is the completed MMOOMM PlayCanvas Visual Linkup Lab slice on
-top of the PlayCanvas Projects entity type. Sections below cover the current
-invariants, standing guardrails, and a navigation index into progress.md.
+The active focus is the **completed PlayCanvas Editor assets pipeline + MMOOMM
+script assets** implementation on branch
+`feature/playcanvas-editor-assets-and-mmoomm-scripts` (plan:
+`memory-bank/plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md`,
+research: `memory-bank/research/playcanvas-editor-assets-and-mmoomm-script-assets-research-2026-08-25.md`,
+checklist + decisions log: top of `tasks.md`).
+
+The 2026-08-29 production-shell follow-up is also complete. The white page was
+caused by the generated development Supabase profile omitting `CORS_ORIGINS`,
+so browser-originated JavaScript and CSS requests failed with `500 Not allowed
+by CORS`. Local profile generation now emits the strict localhost and
+127.0.0.1 application origins, and the local doctor fails before startup when
+that contract is missing, wildcarded, or incomplete. Static routing separately
+keeps missing hashed assets out of the SPA document fallback. A regenerated
+profile passed doctor and rendered the production landing page in Chromium.
+
+The final post-QA hardening and strict debt-closure phase are complete. Copied
+metahub source owners are admins while the copier remains the sole owner;
+runtime script startup waits for realtime and script-artifact readiness; every
+PlayCanvas realtime upsert uses the same optimistic-version contract; snapshot
+references validate the local provider, project namespace, and traversal-safe
+path even when the file is absent; ShareDB handshakes and relays have bounded
+buffers and reject prototype-polluting JSON0 paths; compatibility errors no
+longer expose PlayCanvas identifiers. The scoped ShareDB MemoryDB gates
+publication on durable snapshot persistence and recovers or blocks a document
+on failure. PlayCanvas project services/stores, compatibility routes, and
+realtime runtime are split into focused modules; runtime-manifest
+canonicalization is shared; and `PlayCanvasCanvasWidget.tsx` is 888 lines with
+the extracted runtime modules. Browser RBAC/IDOR and all supported asset-type
+flows are covered by focused tests and a fresh minimal-Supabase Playwright run
+(2/2). Full build, package lint, Prettier, fixture/docs/drift checks, and
+OntoIndex verification are complete. No schema or metahub template version
+was changed. The local autoreview helper remains unavailable because the Codex
+state database is read-only; no product findings were emitted.
+
+## IMPLEMENT sessions 1–3 (2026-08-25 → 2026-08-28) — state
+
+DONE and verified: Phases 0–7. Phase 0 (busboy, baselines), Phase 1 (editor asset CRUD:
+multipart create route with upstream `{id}` response, raw file route, delete +
+fail-closed PUT 501/catch-all, `fs`/`pipeline` realtime frame handlers, dynamic
+asset grants + messenger socket registries, bridge rewrite table, folder tree
+via `virtual_path` with deterministic document keys, four-layer whitelist),
+Phase 2 (`compileScriptAssetEsm` + `@shared`, text/javascript data URLs,
+import map plugin + engine staging script, `playcanvasScriptAssets.ts` loader
+with sha-256 verification, `app.__universoHost`, publication wiring:
+script-asset mirror + `ensureGeneratedScriptArtifacts` at publish), Phase 4
+(merged Modules tab via `MetahubModulesSurface`), P3.1+P3.2 (gameplay extracted
+into Editor-authored builtin `.mjs` assets plus the `flight-math` shared
+library; the widget retains generic runtime/bridge orchestration), Phase 3 generator/contract/fixture
+completion, Phase 4 merged Modules surface, Phase 5 focused and browser test
+coverage, and Phase 6 documentation/version hygiene. The canonical MMOOMM
+fixture was regenerated through the real Editor authoring flow on minimal local
+Supabase; contract, drift, asset CRUD, parity, and imported runtime checks all
+pass. The complete checklist and decisions log live at the top of `tasks.md`.
+
+Verification gates used: editor-backend realtime/routes 9 targeted Vitest tests,
+metahubs-backend 172 targeted Jest tests, modules-engine 30 Vitest tests,
+apps-template-mui loader/widget 55 Vitest tests, PlayCanvas Editor artifact 15
+tests, assets CRUD E2E 2/2, baseline/movement parity E2E 2/2, imported MMOOMM
+runtime E2E 2/2, fixture generator 2/2, docs screenshot generator 2/2,
+contract/drift checks, full build (36/36), Editor build, package lint, and docs
+checks. Pre-existing unrelated baseline failures remain documented separately;
+no schema or metahub template version was bumped.
+
+The QA-remediation acceptance pass is complete. Request-scoped RLS responses now
+commit before the response body is exposed; ShareDB asset seeding is serialized
+per backend/document; failed asset/artifact writes are checksum-cleaned after
+database or callback failures; package artifact paths reject platform-independent
+traversal; and the runtime oracle has one bounded reload recovery for a cold
+lazy-loaded `/a/<applicationId>` shell. The canonical fixture was regenerated by
+the real Editor flow and the imported runtime proof passed 2/2 after these fixes.
+P7.1–P7.8 are all checked in `tasks.md`; no schema or metahub template version
+was changed. The advisory autoreview helper remains unavailable in this
+environment because its Codex state database is read-only.
 
 ---
 
-## Current Focus: PlayCanvas Engine / Editor / Colyseus Upgrade Gate (2026-08-22, code complete)
+## Previous Focus: PlayCanvas Engine / Editor / Colyseus Upgrade Gate (2026-08-22, code complete)
 
 Three dependency lines upgraded as one compatibility gate on branch
 `feature/playcanvas-engine-editor-colyseus-upgrade` (plan:

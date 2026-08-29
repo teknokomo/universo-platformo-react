@@ -619,13 +619,13 @@ const SettingsPage = () => {
                         widgetId={editingLayoutWidget.widget.id}
                         showSharedBehavior={false}
                         showScopeVisibility={false}
-                        onSave={(config) =>
-                            updateWidgetConfigMutation.mutateAsync({
+                        onSave={(config) => {
+                            updateWidgetConfigMutation.mutate({
                                 layoutId: editingLayoutWidget.layout.id,
                                 widgetId: editingLayoutWidget.widget.id,
                                 config: config as Record<string, unknown>
                             })
-                        }
+                        }}
                         onCancel={() => setEditingLayoutWidget(null)}
                     />
                 ) : null}

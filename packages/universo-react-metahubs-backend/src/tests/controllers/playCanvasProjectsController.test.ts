@@ -1,6 +1,7 @@
 import { createLocalizedContent } from '@universo-react/utils'
 import { createPlayCanvasProjectsController } from '../../domains/playcanvas-projects/controllers/playCanvasProjectsController'
 import { MetahubValidationError } from '../../domains/shared/domainErrors'
+import * as persistence from '../../persistence'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 
@@ -1373,6 +1374,108 @@ describe('createPlayCanvasProjectsController permissions', () => {
         expect(jest.mocked(exec.query).mock.calls.filter((call) => String(call[0]).includes('DELETE FROM'))).toHaveLength(1)
 
         saveEditorScene.mockRestore()
+    })
+
+    it('recovers a durable bridge scene-save claim without executing the save twice', async () => {
+        const projectId = '019e8afa-0000-7000-8000-000000000001'
+        const sceneId = '019e8afa-0000-7000-8000-000000000002'
+        const requestId = '019e8afa-0000-7000-8000-000000000005'
+        const payload = { schemaVersion: '1', entities: [] }
+        const session = new PlayCanvasEditorBridgeSessionService().create({
+            metahubId: 'metahub-1',
+            packageSlug: 'playcanvas-editor',
+            projectId,
+            defaultSceneId: sceneId,
+            userId: 'user-1',
+            capabilities: ['scene.save']
+        })
+        const scene = { id: sceneId, checksum: 'b'.repeat(64) }
+        const saveEditorScene = jest
+            .spyOn(PlayCanvasProjectsService.prototype, 'saveEditorScene')
+            .mockResolvedValue({ scene, checksum: scene.checksum } as never)
+        const readEditorScene = jest
+            .spyOn(PlayCanvasProjectsService.prototype, 'readEditorScene')
+            .mockResolvedValue({ scene, payload } as never)
+        const claimReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'claimReplay').mockResolvedValue(false)
+        const readReplayResponse = jest
+            .spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'readReplayResponse')
+            .mockResolvedValue({ status: 'claimed', claimedAt: Date.now() - 5 * 60 * 1000 - 1 })
+        const completeReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'completeReplay').mockResolvedValue(true)
+        const releaseReplay = jest.spyOn(PlayCanvasEditorBridgeSessionService.prototype, 'releaseReplay').mockResolvedValue(undefined)
+        const listPackages = jest.spyOn(persistence, 'listMetahubPackages').mockResolvedValue([
+            {
+                authoringSurface: {
+                    kind: 'playcanvasEditor',
+                    packageSlug: 'playcanvas-editor',
+                    supportedDisplayModes: ['embeddedIframe'],
+                    artifact: { manifestFileName: 'universo-artifact-manifest.json' }
+                },
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: { mode: 'embeddedIframe', developmentUrl: null, showArtifactOnlyNotice: false },
+                    playcanvasProject: { defaultProjectId: projectId }
+                }
+            } as never
+        ])
+        const createHandler = jest.fn((handler: unknown) => handler)
+        const ctrl = createPlayCanvasProjectsController(createHandler as never)
+        const res = {
+            setHeader: jest.fn(),
+            status: jest.fn(),
+            json: jest.fn()
+        }
+        res.status.mockReturnValue(res)
+        const exec = {
+            query: jest.fn(async (sql: string) => bridgeManagerAccessRows(sql) ?? [])
+        }
+
+        try {
+            await ctrl.editorBridgeCommand({
+                req: {
+                    body: {
+                        sessionToken: session.token,
+                        command: {
+                            type: 'scene.save',
+                            requestId,
+                            sessionId: session.payload.sessionId,
+                            nonce: session.payload.nonce,
+                            projectId,
+                            sceneId,
+                            expectedCurrentChecksum: 'a'.repeat(64),
+                            payload
+                        }
+                    }
+                },
+                res,
+                metahubId: 'metahub-1',
+                userId: 'user-1',
+                exec,
+                schemaService: { ensureSchema: jest.fn(async () => TEST_SCHEMA) }
+            } as never)
+
+            expect(listPackages).toHaveBeenCalledWith(exec, 'metahub-1')
+            expect(claimReplay).toHaveBeenCalledTimes(1)
+            expect(readReplayResponse).toHaveBeenCalledTimes(1)
+            expect(readEditorScene).toHaveBeenCalledWith('metahub-1', projectId, sceneId, 'user-1')
+            expect(completeReplay).toHaveBeenCalledTimes(1)
+            expect(releaseReplay).not.toHaveBeenCalled()
+            expect(saveEditorScene).not.toHaveBeenCalled()
+            expect(res.status).not.toHaveBeenCalled()
+            expect(res.json).toHaveBeenCalledWith({
+                ok: true,
+                requestId,
+                data: { scene, checksum: scene.checksum }
+            })
+        } finally {
+            saveEditorScene.mockRestore()
+            readEditorScene.mockRestore()
+            claimReplay.mockRestore()
+            readReplayResponse.mockRestore()
+            completeReplay.mockRestore()
+            releaseReplay.mockRestore()
+            listPackages.mockRestore()
+        }
     })
 
     it('releases replay claims when editor scene saves are outside the session default scene', async () => {

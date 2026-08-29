@@ -28,9 +28,8 @@ export async function applyRlsContext(session: DbSession, accessToken: string): 
         const { payload, protectedHeader } = await verifySupabaseJwt(accessToken)
         logRlsDebug('[RLS:applyContext] ✅ JWT verified successfully', {
             alg: protectedHeader.alg,
-            sub: payload.sub,
-            role: payload.role,
-            exp: payload.exp
+            hasSubject: typeof payload.sub === 'string' && payload.sub.length > 0,
+            hasExpiry: typeof payload.exp === 'number'
         })
 
         // Set PostgreSQL session variables for RLS.
@@ -50,9 +49,7 @@ export async function applyRlsContext(session: DbSession, accessToken: string): 
         logRlsDebug('[RLS:applyContext] ✅ RLS context fully applied')
     } catch (error) {
         console.error('[RLS:applyContext] ❌ Error during RLS context setup', {
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-            errorType: error?.constructor?.name
+            errorType: error instanceof Error ? error.name : typeof error
         })
         throw error
     }

@@ -24,7 +24,9 @@ export function validateDoctorEnv(env) {
         'DATABASE_PORT',
         'DATABASE_USER',
         'DATABASE_PASSWORD',
-        'DATABASE_NAME'
+        'DATABASE_NAME',
+        'PORT',
+        'CORS_ORIGINS'
     ]
     const missing = requiredKeys.filter((key) => !env[key])
     const publicKey = firstPresent(env, ['SUPABASE_PUBLISHABLE_DEFAULT_KEY', 'SUPABASE_ANON_KEY'])
@@ -36,6 +38,16 @@ export function validateDoctorEnv(env) {
     const supabaseUrl = assertLocalHttpUrl(env.SUPABASE_URL, 'SUPABASE_URL')
     if (env.SUPABASE_JWT_SECRET.length < 32) {
         throw new Error('SUPABASE_JWT_SECRET is unexpectedly short.')
+    }
+
+    const requiredAppOrigins = [`http://127.0.0.1:${env.PORT}`, `http://localhost:${env.PORT}`]
+    const configuredCorsOrigins = new Set(
+        env.CORS_ORIGINS.split(',')
+            .map((origin) => origin.trim())
+            .filter(Boolean)
+    )
+    if (configuredCorsOrigins.has('*') || requiredAppOrigins.some((origin) => !configuredCorsOrigins.has(origin))) {
+        throw new Error(`CORS_ORIGINS must include the strict local application origins: ${requiredAppOrigins.join(',')}`)
     }
 
     return { supabaseUrl, publicKey }

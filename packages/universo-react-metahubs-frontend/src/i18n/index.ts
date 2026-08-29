@@ -30,6 +30,7 @@ interface MetahubsBundle {
     records?: Record<string, unknown>
     publications?: Record<string, unknown>
     packages?: Record<string, unknown>
+    modules?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
     createOptions?: Record<string, unknown>
@@ -78,6 +79,12 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         records: bundle?.records ?? {},
         publications: bundle?.publications ?? {},
         packages: bundle?.packages ?? {},
+        // Keep the module authoring translations from the metahubs bundle and
+        // add the resource-surface scope labels contributed at the top level.
+        modules: {
+            ...((metahubsRoot.modules && typeof metahubsRoot.modules === 'object' ? metahubsRoot.modules : {}) as Record<string, unknown>),
+            ...(bundle?.modules ?? {})
+        },
         migrations: bundle?.migrations ?? {},
         settings: bundle?.settings ?? {},
         export: bundle?.export ?? {},
@@ -120,6 +127,7 @@ interface MetahubsTranslation {
     optionValues?: Record<string, unknown>
     publications?: Record<string, unknown>
     packages?: Record<string, unknown>
+    modules?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
     export?: Record<string, unknown>

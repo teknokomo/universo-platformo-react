@@ -85,7 +85,7 @@ const playCanvasEditorPackageName = ['@universo-react', 'playcanvas-editor-front
 const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
     id: 'module-1',
     version: 1,
-    codename: vlc('flight-canvas-widget'),
+    codename: vlc('mmoomm-flight-widget'),
     presentation: {
         name: vlc('Flight Canvas Widget'),
         description: vlc('Browser-side MMOOMM canvas')
@@ -260,14 +260,14 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
 
         const dialog = screen.getByRole('dialog', { name: 'PlayCanvas canvas widget' })
         expect(
-            within(dialog).queryByText(/flight-canvas-widget|fixed-tick-flight-runtime|FlightWorld|019e8afa|aaaaaaaaaaaa/i)
+            within(dialog).queryByText(/mmoomm-flight-widget|fixed-tick-flight-runtime|FlightWorld|019e8afa|aaaaaaaaaaaa/i)
         ).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(onSave).toHaveBeenCalledWith(
             expect.objectContaining({
-                moduleCodename: 'flight-canvas-widget',
+                moduleCodename: 'mmoomm-flight-widget',
                 serverModuleCodename: 'fixed-tick-flight-runtime',
                 visibleFor: { sectionIds: ['section-space-id'], sectionCodenames: ['FlightWorld'] },
                 runtimeManifest: expect.objectContaining({

@@ -28,7 +28,20 @@ export interface PlayCanvasProjectFileWriteResult extends PlayCanvasProjectFileR
 
 const DEFAULT_PLAYCANVAS_PROJECT_FILE_ROOT = path.resolve(process.cwd(), 'storage')
 const PLAYCANVAS_PROJECT_SCOPE_SEGMENT_PATTERN = /^[A-Za-z0-9_-]+$/
-const PLAYCANVAS_PROJECT_FILE_EXTENSIONS = new Set(['.json', '.js', '.mjs', '.png', '.jpg', '.jpeg', '.webp'])
+const PLAYCANVAS_PROJECT_FILE_EXTENSIONS = new Set([
+    '.json',
+    '.js',
+    '.mjs',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.webp',
+    '.css',
+    '.html',
+    '.txt',
+    '.shader',
+    '.glsl'
+])
 const PLAYCANVAS_PROJECT_EXTENSION_MIME_TYPES: Record<string, ReadonlySet<string>> = {
     '.json': new Set(['application/json']),
     '.js': new Set(['text/javascript', 'application/javascript']),
@@ -36,7 +49,12 @@ const PLAYCANVAS_PROJECT_EXTENSION_MIME_TYPES: Record<string, ReadonlySet<string
     '.png': new Set(['image/png']),
     '.jpg': new Set(['image/jpeg']),
     '.jpeg': new Set(['image/jpeg']),
-    '.webp': new Set(['image/webp'])
+    '.webp': new Set(['image/webp']),
+    '.css': new Set(['text/css']),
+    '.html': new Set(['text/html']),
+    '.txt': new Set(['text/plain']),
+    '.shader': new Set(['text/plain']),
+    '.glsl': new Set(['text/plain'])
 }
 
 const normalizeStorageRoot = (root?: string | null): string => {
@@ -49,6 +67,11 @@ export const computePlayCanvasProjectFileChecksum = (content: Buffer | string): 
 
 export const isAllowedPlayCanvasProjectMime = (mime: string): boolean =>
     (PLAYCANVAS_PROJECT_ALLOWED_MIME_TYPES as readonly string[]).includes(mime)
+
+export const resolvePlayCanvasProjectExtensionMime = (sourcePath: string): string | null => {
+    const extension = path.extname(sourcePath).toLowerCase()
+    return PLAYCANVAS_PROJECT_EXTENSION_MIME_TYPES[extension]?.values().next().value ?? null
+}
 
 export const assertPlayCanvasProjectMimeForPath = (sourcePath: string, mime?: string | null): string | null => {
     if (!mime) return null
@@ -179,12 +202,22 @@ export class PlayCanvasProjectFileService {
         }
 
         const content = await fs.readFile(absolutePath)
+        // The file may have been atomically replaced between stat(2) and
+        // readFile(2). Report the bytes actually returned to the caller so
+        // size, checksum, and ETag metadata describe one coherent payload.
+        const size = content.byteLength
+        if (size > PLAYCANVAS_PROJECT_FILE_MAX_BYTES) {
+            throw new MetahubValidationError('PlayCanvas project file is too large', {
+                messageCode: 'playcanvas.files.path.tooLarge',
+                limitBytes: PLAYCANVAS_PROJECT_FILE_MAX_BYTES
+            })
+        }
         return {
             content,
             checksum: computePlayCanvasProjectFileChecksum(content),
             sourcePath: safePath,
             absolutePath,
-            size: stat.size
+            size
         }
     }
 
@@ -229,7 +262,7 @@ export class PlayCanvasProjectFileService {
         }
 
         const absolutePath = this.resolveTargetPath(scope, safePath)
-        return this.withPathLock(absolutePath, async () => {
+        return this.withPathLocks([absolutePath], async () => {
             await this.assertSourcePathContainsNoSymlinks(scope, safePath, { allowMissingLeaf: true })
             if (options.expectedCurrentChecksum !== undefined) {
                 const current = await this.stat(scope, safePath)
@@ -265,12 +298,109 @@ export class PlayCanvasProjectFileService {
         })
     }
 
-    async delete(scope: PlayCanvasProjectFileScope, sourcePath: string): Promise<void> {
+    async delete(
+        scope: PlayCanvasProjectFileScope,
+        sourcePath: string,
+        options: { expectedCurrentChecksum?: string | null } = {}
+    ): Promise<void> {
         const safePath = assertSafeRelativePlayCanvasProjectPath(sourcePath)
         const absolutePath = this.resolveTargetPath(scope, safePath)
-        await this.assertResolvedPathWithinBranch(scope, absolutePath, { allowMissing: true })
-        await this.assertSourcePathContainsNoSymlinks(scope, safePath, { allowMissingLeaf: true })
-        await fs.rm(absolutePath, { force: true })
+        await this.withPathLocks([absolutePath], async () => {
+            await this.assertResolvedPathWithinBranch(scope, absolutePath, { allowMissing: true })
+            await this.assertSourcePathContainsNoSymlinks(scope, safePath, { allowMissingLeaf: true })
+            if (options.expectedCurrentChecksum !== undefined) {
+                const current = await this.stat(scope, safePath)
+                if (options.expectedCurrentChecksum === null) {
+                    if (current.exists) {
+                        throw new MetahubValidationError('PlayCanvas project file current checksum does not match', {
+                            messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                            expectedCurrentChecksum: null,
+                            actualCurrentChecksum: current.checksum
+                        })
+                    }
+                    return
+                }
+                if (!current.exists || current.checksum !== options.expectedCurrentChecksum) {
+                    throw new MetahubValidationError('PlayCanvas project file current checksum does not match', {
+                        messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                        expectedCurrentChecksum: options.expectedCurrentChecksum,
+                        actualCurrentChecksum: current.checksum
+                    })
+                }
+            }
+            await fs.rm(absolutePath, { force: true })
+        })
+    }
+
+    async rename(
+        scope: PlayCanvasProjectFileScope,
+        sourcePath: string,
+        targetPath: string,
+        options: { expectedChecksum?: string | null; mime?: string | null } = {}
+    ): Promise<PlayCanvasProjectFileWriteResult> {
+        const safeSourcePath = assertSafeRelativePlayCanvasProjectPath(sourcePath)
+        const safeTargetPath = assertSafeRelativePlayCanvasProjectPath(targetPath)
+        if (safeSourcePath === safeTargetPath) {
+            const current = await this.read(scope, safeSourcePath)
+            return { ...current, mime: options.mime ?? resolvePlayCanvasProjectExtensionMime(safeTargetPath) }
+        }
+
+        const sourceAbsolutePath = this.resolveTargetPath(scope, safeSourcePath)
+        const targetAbsolutePath = this.resolveTargetPath(scope, safeTargetPath)
+        return this.withPathLocks([sourceAbsolutePath, targetAbsolutePath], async () => {
+            await this.assertResolvedPathWithinBranch(scope, sourceAbsolutePath)
+            await this.assertSourcePathContainsNoSymlinks(scope, safeSourcePath)
+            const source = await this.read(scope, safeSourcePath)
+            if (options.expectedChecksum && source.checksum !== options.expectedChecksum) {
+                throw new MetahubValidationError('PlayCanvas project file current checksum does not match', {
+                    messageCode: 'playcanvas.files.path.currentChecksumMismatch',
+                    expectedCurrentChecksum: options.expectedChecksum,
+                    actualCurrentChecksum: source.checksum
+                })
+            }
+
+            const targetExists = await this.stat(scope, safeTargetPath)
+            if (targetExists.exists) {
+                throw new MetahubValidationError('PlayCanvas project target path already exists', {
+                    messageCode: 'playcanvas.files.path.targetAlreadyExists',
+                    targetPath: safeTargetPath
+                })
+            }
+
+            await this.assertParentWithinRoot(scope, targetAbsolutePath)
+            await this.assertSourcePathContainsNoSymlinks(scope, safeTargetPath, { allowMissingLeaf: true })
+            await fs.mkdir(path.dirname(targetAbsolutePath), { recursive: true })
+            let targetLinked = false
+            let sourceUnlinked = false
+            try {
+                // `rename` replaces an existing target on POSIX. A hard-link +
+                // unlink pair gives this file-only operation no-clobber semantics:
+                // link(2) fails atomically when another process creates the target.
+                await fs.link(sourceAbsolutePath, targetAbsolutePath)
+                targetLinked = true
+                await fs.unlink(sourceAbsolutePath)
+                sourceUnlinked = true
+                const moved = await this.read(scope, safeTargetPath)
+                return {
+                    ...moved,
+                    mime: options.mime ?? resolvePlayCanvasProjectExtensionMime(safeTargetPath)
+                }
+            } catch (error) {
+                if (sourceUnlinked) {
+                    await fs.link(targetAbsolutePath, sourceAbsolutePath).catch(() => undefined)
+                }
+                if (targetLinked) {
+                    await fs.rm(targetAbsolutePath, { force: true }).catch(() => undefined)
+                }
+                if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+                    throw new MetahubValidationError('PlayCanvas project target path already exists', {
+                        messageCode: 'playcanvas.files.path.targetAlreadyExists',
+                        targetPath: safeTargetPath
+                    })
+                }
+                throw error
+            }
+        })
     }
 
     async deleteIfCurrentChecksum(
@@ -280,7 +410,7 @@ export class PlayCanvasProjectFileService {
     ): Promise<boolean> {
         const safePath = assertSafeRelativePlayCanvasProjectPath(sourcePath)
         const absolutePath = this.resolveTargetPath(scope, safePath)
-        return this.withPathLock(absolutePath, async () => {
+        return this.withPathLocks([absolutePath], async () => {
             await this.assertResolvedPathWithinBranch(scope, absolutePath, { allowMissing: true })
             await this.assertSourcePathContainsNoSymlinks(scope, safePath, { allowMissingLeaf: true })
             const current = await this.stat(scope, safePath)
@@ -295,21 +425,75 @@ export class PlayCanvasProjectFileService {
     async copyTree(source: PlayCanvasProjectFileScope, target: PlayCanvasProjectFileScope): Promise<void> {
         const sourceRoot = this.playCanvasRoot(source)
         const targetRoot = this.playCanvasRoot(target)
-        await this.assertResolvedPathWithinRoot(sourceRoot, { allowMissing: true })
-        await this.assertResolvedPathWithinRoot(targetRoot, { allowMissing: true })
-        const sourceStat = await fs.stat(sourceRoot).catch((error: NodeJS.ErrnoException) => {
-            if (error.code === 'ENOENT') return null
-            throw error
-        })
-        if (!sourceStat) {
+        if (path.resolve(sourceRoot) === path.resolve(targetRoot)) {
             return
         }
-        await this.assertPathIsNotSymlink(sourceRoot)
-        await this.assertTreeContainsNoSymlinks(sourceRoot)
-        await fs.rm(targetRoot, { force: true, recursive: true })
-        await fs.mkdir(path.dirname(targetRoot), { recursive: true })
-        await fs.cp(sourceRoot, targetRoot, { recursive: true, force: false, errorOnExist: true })
-        await this.assertResolvedPathWithinRoot(targetRoot)
+        await this.withPathLocks([sourceRoot, targetRoot], async () => {
+            await this.assertResolvedPathWithinRoot(sourceRoot, { allowMissing: true })
+            await this.assertResolvedPathWithinRoot(targetRoot, { allowMissing: true })
+            const sourceStat = await fs.stat(sourceRoot).catch((error: NodeJS.ErrnoException) => {
+                if (error.code === 'ENOENT') return null
+                throw error
+            })
+            if (!sourceStat) {
+                return
+            }
+            await this.assertPathIsNotSymlink(sourceRoot)
+            await this.assertTreeContainsNoSymlinks(sourceRoot)
+            const targetStat = await fs.lstat(targetRoot).catch((error: NodeJS.ErrnoException) => {
+                if (error.code === 'ENOENT') return null
+                throw error
+            })
+            if (targetStat?.isSymbolicLink()) {
+                throw new MetahubValidationError('PlayCanvas project file tree cannot contain symbolic links', {
+                    messageCode: 'playcanvas.files.path.symlinkUnsupported'
+                })
+            }
+            if (targetStat && !targetStat.isDirectory()) {
+                throw new MetahubValidationError('PlayCanvas project target root must be a directory', {
+                    messageCode: 'playcanvas.files.path.notDirectory'
+                })
+            }
+            if (targetStat) {
+                await this.assertTreeContainsNoSymlinks(targetRoot)
+            }
+
+            const targetParent = path.dirname(targetRoot)
+            await fs.mkdir(targetParent, { recursive: true })
+            await this.assertResolvedPathWithinRoot(targetParent)
+            const stagingRoot = path.join(targetParent, `.${path.basename(targetRoot)}.copy-${process.pid}-${crypto.randomUUID()}`)
+            const backupRoot = path.join(targetParent, `.${path.basename(targetRoot)}.backup-${process.pid}-${crypto.randomUUID()}`)
+            let stagingCreated = false
+            let targetBackedUp = false
+            let targetInstalled = false
+            try {
+                stagingCreated = true
+                await fs.cp(sourceRoot, stagingRoot, { recursive: true, force: false, errorOnExist: true })
+                await this.assertPathIsNotSymlink(stagingRoot)
+                await this.assertTreeContainsNoSymlinks(stagingRoot)
+                await this.assertResolvedPathWithinRoot(stagingRoot)
+
+                if (targetStat) {
+                    await fs.rename(targetRoot, backupRoot)
+                    targetBackedUp = true
+                }
+                await fs.rename(stagingRoot, targetRoot)
+                targetInstalled = true
+                await this.assertResolvedPathWithinRoot(targetRoot)
+            } catch (error) {
+                if (targetBackedUp && !targetInstalled) {
+                    await fs.rename(backupRoot, targetRoot).catch(() => undefined)
+                }
+                throw error
+            } finally {
+                if (stagingCreated && !targetInstalled) {
+                    await fs.rm(stagingRoot, { force: true, recursive: true }).catch(() => undefined)
+                }
+                if (targetInstalled && targetBackedUp) {
+                    await fs.rm(backupRoot, { force: true, recursive: true }).catch(() => undefined)
+                }
+            }
+        })
     }
 
     async deleteMetahubTree(metahubId: string): Promise<void> {
@@ -488,11 +672,22 @@ export class PlayCanvasProjectFileService {
             await this.assertTreeContainsNoSymlinks(activeRoot)
         }
 
-        await fs.mkdir(trashRoot, { recursive: true })
-        await this.assertResolvedPathWithinRoot(trashRoot)
-        const trashPath = path.join(trashRoot, `${label}.${Date.now()}.${crypto.randomUUID()}`)
-        await fs.rename(activeRoot, trashPath)
-        await fs.rm(trashPath, { force: true, recursive: true }).catch(() => undefined)
+        await this.withPathLocks([activeRoot, trashRoot], async () => {
+            const lockedActiveStat = await fs.stat(activeRoot).catch((error: NodeJS.ErrnoException) => {
+                if (error.code === 'ENOENT') return null
+                throw error
+            })
+            if (!lockedActiveStat) return
+            await this.assertPathIsNotSymlink(activeRoot)
+            if (lockedActiveStat.isDirectory()) {
+                await this.assertTreeContainsNoSymlinks(activeRoot)
+            }
+            await fs.mkdir(trashRoot, { recursive: true })
+            await this.assertResolvedPathWithinRoot(trashRoot)
+            const trashPath = path.join(trashRoot, `${label}.${Date.now()}.${crypto.randomUUID()}`)
+            await fs.rename(activeRoot, trashPath)
+            await fs.rm(trashPath, { force: true, recursive: true }).catch(() => undefined)
+        })
     }
 
     private async withPathLock<T>(absolutePath: string, work: () => Promise<T>): Promise<T> {
@@ -514,5 +709,22 @@ export class PlayCanvasProjectFileService {
                 PlayCanvasProjectFileService.pathLocks.delete(lockKey)
             }
         }
+    }
+
+    private withPathLocks<T>(absolutePaths: readonly string[], work: () => Promise<T>): Promise<T> {
+        const lockPaths = new Set<string>()
+        for (const absolutePath of absolutePaths) {
+            let cursor = path.resolve(absolutePath)
+            while (cursor !== this.root && cursor.startsWith(`${this.root}${path.sep}`)) {
+                lockPaths.add(cursor)
+                cursor = path.dirname(cursor)
+            }
+        }
+        const orderedLockPaths = [...lockPaths].sort()
+        const acquire = (index: number): Promise<T> => {
+            if (index >= orderedLockPaths.length) return work()
+            return this.withPathLock(orderedLockPaths[index]!, () => acquire(index + 1))
+        }
+        return acquire(0)
     }
 }

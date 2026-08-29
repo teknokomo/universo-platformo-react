@@ -13,16 +13,17 @@ Use this skill when developing, customising, or debugging the PlayCanvas Editor 
 
 ## Version Guard
 
-- Pinned to the UI layout of PlayCanvas Editor `v2.24.2`.
-- Uses `@playcanvas/pcui` for UI panels and widgets.
-- Viewport rendering is powered by `playcanvas@2.19.5`.
+-   Pinned to the UI layout of PlayCanvas Editor `v2.30.4`.
+-   Uses `@playcanvas/pcui` for UI panels and widgets.
+-   Viewport rendering is powered by `playcanvas@2.21.3` inside the vendored editor.
 
 ## Required Output
 
 Before modifying interface components or configuration:
-- state which panel or widget is being modified (hierarchy, inspector, assets, viewport);
-- describe the keyboard shortcut or event hook used;
-- specify the PCUI components involved.
+
+-   state which panel or widget is being modified (hierarchy, inspector, assets, viewport);
+-   describe the keyboard shortcut or event hook used;
+-   specify the PCUI components involved.
 
 ## Workflow
 
@@ -33,7 +34,7 @@ Before modifying interface components or configuration:
 
 ## Blocking Rules
 
-- Do not bypass PCUI styling conventions for custom editor panels.
-- Do not let custom inspector fields crash on missing asset references.
-- Do not add custom global keyboard shortcuts that conflict with standard browser or host app keys.
-- Do not break viewport resize hooks when resizing the editor container.
+-   Do not bypass PCUI styling conventions for custom editor panels.
+-   Do not let custom inspector fields crash on missing asset references.
+-   Do not add custom global keyboard shortcuts that conflict with standard browser or host app keys.
+-   Do not break viewport resize hooks when resizing the editor container.

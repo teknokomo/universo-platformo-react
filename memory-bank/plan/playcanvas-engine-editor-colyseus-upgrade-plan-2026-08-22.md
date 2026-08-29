@@ -2,7 +2,7 @@
 
 > Created: 2026-08-22 · Revised: 2026-08-22 after QA round (v2)
 > Status: Proposed (awaiting user approval)
-> Source brief: `.manager/specs/cross-project/playcanvas-engine-editor-colyseus-upgrade-spec-2026-08-21.md`
+> Source brief: manager-only PlayCanvas Engine, Editor, and Colyseus upgrade brief.
 > Required research: `memory-bank/research/playcanvas-engine-editor-colyseus-stable-upgrade-research-2026-08-21.md` (treated as planning context)
 
 ## QA Round Record (2026-08-22)

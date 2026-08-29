@@ -1170,7 +1170,7 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
     await page.setContent(`
         <!doctype html>
         <html lang="en">
-            <head><title>v2.24.2 picker probe</title></head>
+            <head><title>v2.30.4 picker probe</title></head>
             <body style="margin:0">
                 <iframe
                     title="PlayCanvas Editor"
@@ -1205,7 +1205,7 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
                                                 id: '${projectId}',
                                                 displayName: {
                                                     _primary: 'en',
-                                                    locales: { en: { content: 'v2.24.2 Probe Project' } }
+                                                    locales: { en: { content: 'v2.30.4 Probe Project' } }
                                                 },
                                                 version: 1,
                                                 defaultSceneId: '${sceneId}',
@@ -1260,7 +1260,7 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
                                             id: '${projectId}',
                                             displayName: {
                                                 _primary: 'en',
-                                                locales: { en: { content: 'v2.24.2 Probe Project' } }
+                                            locales: { en: { content: 'v2.30.4 Probe Project' } }
                                             },
                                             version: 1,
                                             defaultSceneId: '${sceneId}',
@@ -1288,10 +1288,10 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
 
     // The artifact is served from the editor package's own smoke server.
     // Wait for the upstream UI to fully boot (real boot, not a domcontentloaded
-    // placeholder). This is the v2.24.2 acceptance gate.
+    // placeholder). This is the v2.30.4 acceptance gate.
     await expectHostedEditorApiReady(frame)
 
-    // Confirm the v2.24.2 manifest metadata is exposed on the iframe.
+    // Confirm the v2.30.4 manifest metadata is exposed on the iframe.
     // The bridge marker does not surface upstreamTag directly; the
     // canonical metadata lives in the static
     // `universo-artifact-manifest.json` next to the artifact's index.html.
@@ -1306,7 +1306,7 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
     expect(artifactMetadata.upstreamCommit).toBe('cf296bcb669bdcb168778bf2979160a9fe8f67de')
     expect(artifactMetadata.upstreamPackageVersion).toBe('2.30.4')
 
-    // The v2.24.2 picker rewrite registers the new methods on
+    // The v2.30.4 picker rewrite registers the new methods on
     // `window.editor`. Verify the methods are wired and accept benign
     // arguments (this is the concrete acceptance gate for the
     // version-control picker rewrite). If any of these calls throws
@@ -1317,7 +1317,7 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
         if (typeof editor?.call !== 'function') return null
         // The conflict manager probe MUST distinguish "method missing" from
         // "method registered with no active merge". The three registered
-        // methods on the v2.24.2 orchestrator are:
+        // methods on the v2.30.4 orchestrator are:
         //   - picker:conflictManager(data)            -> action, returns void
         //   - picker:conflictManager:currentMerge()    -> returns currentMergeObject (initially null)
         //   - picker:conflictManager:rightPanel()      -> returns panelRight
@@ -1346,7 +1346,7 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
     // "method registered, no merge active" — assert object type instead.
     expect((pickerApi as { conflictManagerWired: boolean }).conflictManagerWired).toBe(true)
 
-    // No remote PlayCanvas font/asset URLs should leak from the v2.24.2
+    // No remote PlayCanvas font/asset URLs should leak from the v2.30.4
     // vendored bundle (per brief acceptance criterion #9).
     await page.waitForTimeout(500)
     expect(staticAssetRequests).toEqual([])
@@ -1354,7 +1354,7 @@ test('PlayCanvas Editor v2.30.4 exposes the new version-control picker and build
     // Take a screenshot of the iframe (real picker surface), not the
     // synthetic host page. `page.locator('iframe[...').screenshot()`
     // captures the iframe's viewport only.
-    await page.locator('iframe[title="PlayCanvas Editor"]').screenshot({ path: 'e2e/screenshots/v2-24-2-picker.png' })
+    await page.locator('iframe[title="PlayCanvas Editor"]').screenshot({ path: 'e2e/screenshots/v2-30-4-picker.png' })
     void projectId
     void sceneId
 })

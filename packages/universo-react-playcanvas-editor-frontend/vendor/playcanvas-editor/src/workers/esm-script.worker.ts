@@ -97,7 +97,11 @@ const toSerializableError = (error: ParsingErrorLike): SerializableParsingError 
 
 const workerServer = new WorkerServer(self);
 workerServer.once('init', async (frontendURL) => {
-    const parser = await new JSDocParser().init(`${frontendURL}types/libs.d.ts`);
+    // The parser fetches the individual TypeScript standard-library files from
+    // this prefix. Passing the concatenated `libs.d.ts` file leaves its
+    // `/// <reference lib>` directives unresolved in the browser virtual
+    // filesystem and produces TS2318 diagnostics for every global type.
+    const parser = await new JSDocParser().init(`${frontendURL}types/`);
 
     workerServer.on('attributes:parse', async (guid, scriptContents, deletedFiles, url) => {
         try {

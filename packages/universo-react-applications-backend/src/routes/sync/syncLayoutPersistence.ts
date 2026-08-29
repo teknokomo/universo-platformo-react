@@ -641,7 +641,6 @@ export async function persistPublishedWidgets(options: {
             const persistedRowId = existingInheritedId ?? (row.sourceBaseWidgetId ? generateUuidV7() : row.id)
             nextPersistedIds.push(persistedRowId)
 
-            const current = existingById.get(persistedRowId)
             const payload = {
                 layout_id: row.layoutId,
                 zone: row.zone,

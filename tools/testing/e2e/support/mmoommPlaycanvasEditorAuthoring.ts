@@ -4,6 +4,7 @@ import { PNG } from 'pngjs'
 import { validateSnapshotEnvelope } from '@universo-react/utils'
 import { expect } from '../fixtures/test'
 import { expectNoPageHorizontalOverflow } from './browser/runtimeUx'
+import { expectMmoommScriptAssetsVisibleInEditor } from './mmoommScriptAssetsProof'
 import {
     createPlayCanvasCompatibilityAuthHeaders,
     createSerializablePlayCanvasEditorEntity,
@@ -20,6 +21,7 @@ import {
 type PlayCanvasEditorMmoommAuthoredScene = {
     shipId: string
     stationId: string
+    cameraId: string
 }
 
 type MmoommEditorRenderableEvidence = {
@@ -621,7 +623,91 @@ const readMmoommVisualLabMaterialEvidence = async (page: Page) => {
 }
 
 const expectMmoommVisualLabLiveMaterialsApplied = async (page: Page, label: string) => {
-    const evidence = await readMmoommVisualLabMaterialEvidence(page)
+    let evidence = await readMmoommVisualLabMaterialEvidence(page)
+    try {
+        await expect
+            .poll(
+                async () => {
+                    evidence = await readMmoommVisualLabMaterialEvidence(page)
+                    return Object.values(evidence).every(
+                        (material) =>
+                            material.exists &&
+                            material.meshInstances > 0 &&
+                            material.depthWrite === false &&
+                            material.useFog === true &&
+                            material.opacity !== null
+                    )
+                },
+                {
+                    message: `${label} live material properties must settle after the Editor asset registry finishes loading`,
+                    timeout: 30_000,
+                    intervals: [250, 500, 1_000]
+                }
+            )
+            .toBe(true)
+    } catch (error) {
+        const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+        const diagnostics = await editorFrame.locator('body').evaluate((_, entityNames) => {
+            const windowWithBridge = window as unknown as {
+                editor?: {
+                    call?: (method: string, ...args: unknown[]) => unknown
+                    api?: { globals?: { entities?: { get?: (id: string) => unknown }; assets?: { list?: () => unknown[] } } }
+                }
+                __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: Record<string, unknown>
+            }
+            const editor = windowWithBridge.editor
+            const app = editor?.call?.('viewport:app') as
+                | { root?: { findByName?: (name: string) => { guid?: unknown; render?: { meshInstances?: unknown[] } } | null } }
+                | null
+                | undefined
+            const readMaterial = (name: string) => {
+                const entity = app?.root?.findByName?.(name)
+                const meshInstances = Array.isArray(entity?.render?.meshInstances) ? entity.render.meshInstances : []
+                const material = (meshInstances[0] as { material?: Record<string, unknown> } | undefined)?.material
+                return {
+                    guid: entity?.guid ?? null,
+                    meshInstances: meshInstances.length,
+                    material: material
+                        ? {
+                              opacity: material.opacity ?? null,
+                              depthWrite: material.depthWrite ?? null,
+                              useFog: material.useFog ?? null,
+                              blendType: material.blendType ?? null,
+                              signature: material.__universoMmoommVisualMaterialSignature ?? null
+                          }
+                        : null
+                }
+            }
+            const bridge = windowWithBridge.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__ ?? {}
+            return {
+                live: Object.fromEntries(entityNames.map((name) => [name, readMaterial(name)])),
+                bridge: {
+                    hostedAssetAdapterInstalled: bridge.hostedAssetAdapterInstalled ?? null,
+                    hostedAssetObserverCount: bridge.hostedAssetObserverCount ?? null,
+                    lastHydratedPersistedEntityCount: bridge.lastHydratedPersistedEntityCount ?? null,
+                    lastMaterializedPersistedEntityCount: bridge.lastMaterializedPersistedEntityCount ?? null,
+                    lastMmoommVisualMaterialAppliedCount: bridge.lastMmoommVisualMaterialAppliedCount ?? null,
+                    lastMmoommVisualMaterialReapplyCount: bridge.lastMmoommVisualMaterialReapplyCount ?? null,
+                    lastPersistedVisualMaterialEntryCount: bridge.lastPersistedVisualMaterialEntryCount ?? null,
+                    lastPersistedVisualMaterialEntryNames: bridge.lastPersistedVisualMaterialEntryNames ?? null,
+                    lastRealtimePersistedEntityCount: bridge.lastRealtimePersistedEntityCount ?? null,
+                    lastPayloadPersistedEntityCount: bridge.lastPayloadPersistedEntityCount ?? null,
+                    lastPayloadVisualMaterialEntityCount: bridge.lastPayloadVisualMaterialEntityCount ?? null,
+                    lastPersistedEntityHydrationCreateError: bridge.lastPersistedEntityHydrationCreateError ?? null,
+                    lastRealtimeSceneError: bridge.lastRealtimeSceneError ?? null
+                },
+                apiAssetCount: (() => {
+                    try {
+                        return editor?.api?.globals?.assets?.list?.()?.length ?? null
+                    } catch {
+                        return null
+                    }
+                })()
+            }
+        }, Object.keys(evidence))
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`${message}\n${label} material diagnostics: ${JSON.stringify({ evidence, diagnostics })}`)
+    }
     const entries = Object.entries(evidence)
     expect(entries.length, `${label} must inspect representative live materials`).toBeGreaterThanOrEqual(4)
     for (const [name, material] of entries) {
@@ -1236,6 +1322,15 @@ export const expectImportedMmoommSceneThroughFullscreenEditor = async (
     await expectPlayCanvasEditorIframeLoaded(page, 'en', { readyTimeoutMs: 150_000 })
     await expectPlayCanvasEditorFullscreenHost(page)
     await expectNoPageHorizontalOverflow(page, label)
+    const scriptAssetEvidence = await expectMmoommScriptAssetsVisibleInEditor(
+        page,
+        ['flightControl', 'followCamera', 'remoteShips'],
+        `${label} script assets`
+    )
+    await testInfo.attach('imported-mmoomm-editor-script-assets.json', {
+        body: Buffer.from(JSON.stringify(scriptAssetEvidence, null, 2)),
+        contentType: 'application/json'
+    })
     await expectMmoommEditorEntitiesVisible(page, 'Imported MMOOMM scene before save', {
         preFocusScreenshotAttachmentName: 'imported-mmoomm-playcanvas-editor-initial-prefocus.png',
         testInfo
@@ -1500,10 +1595,14 @@ const removeEmptyDefaultPlayCanvasEditorEntities = async (page: Page, label: str
 
 const configureMmoommSceneFromUserCreatedEntities = async (
     page: Page,
-    input: { shipEntity: PlayCanvasEditorAuthoredEntity; stationEntity: PlayCanvasEditorAuthoredEntity }
+    input: {
+        shipEntity: PlayCanvasEditorAuthoredEntity
+        stationEntity: PlayCanvasEditorAuthoredEntity
+        cameraEntity: PlayCanvasEditorAuthoredEntity
+    }
 ): Promise<PlayCanvasEditorMmoommAuthoredScene> => {
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
-    return editorFrame.locator('body').evaluate((_element, { shipEntity, stationEntity }) => {
+    return editorFrame.locator('body').evaluate((_element, { shipEntity, stationEntity, cameraEntity }) => {
         const editor = (
             window as unknown as {
                 editor?: { call?: (method: string, ...args: unknown[]) => unknown }
@@ -1608,6 +1707,29 @@ const configureMmoommSceneFromUserCreatedEntities = async (
             }
         }
 
+        const updateCameraEntity = (id: string) => {
+            const list = editor.call?.('entities:raw') as
+                | { array?: () => Array<{ get?: (path: string) => unknown; set?: (path: string, value: unknown) => void }> }
+                | undefined
+            const observer = list?.array?.().find((candidate) => String(candidate?.get?.('resource_id') ?? '') === id)
+            if (typeof observer?.set !== 'function') {
+                throw new Error('PlayCanvas Editor camera entity observer is not available')
+            }
+            let camera: Record<string, unknown> = { enabled: true, clearColor: [0.02, 0.025, 0.035, 1] }
+            try {
+                const candidate = editor.call?.('components:getDefault', 'camera')
+                if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) camera = { ...candidate, ...camera }
+            } catch {
+                // The minimal camera shape above is accepted by the editor.
+            }
+            editor.call?.('entities:addComponent', [observer], 'camera', camera)
+            observer.set('name', 'MMOOMM Follow Camera')
+            observer.set('enabled', true)
+            observer.set('position', [0, 28, 48])
+            observer.set('rotation', [-20, 180, 0])
+            observer.set('scale', [1, 1, 1])
+        }
+
         const ship = {
             name: 'MMOOMM Ship',
             position: [0, 0, 0] as [number, number, number],
@@ -1623,7 +1745,8 @@ const configureMmoommSceneFromUserCreatedEntities = async (
         ensureKeyLight()
         updateEntity(shipEntity.id, ship)
         updateEntity(stationEntity.id, station)
-        return { shipId: shipEntity.id, stationId: stationEntity.id }
+        updateCameraEntity(cameraEntity.id)
+        return { shipId: shipEntity.id, stationId: stationEntity.id, cameraId: cameraEntity.id }
     }, input)
 }
 
@@ -1642,11 +1765,24 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                 cameraClearColor,
                 globalAmbient,
                 materialBaseId
+            }: {
+                variants: readonly LinkupVariantConfig[]
+                objectTypes: readonly LinkupObjectType[]
+                objectGlow: Record<LinkupObjectType, [number, number, number]>
+                familyObjectGlow: Record<LinkupVariantFamily, Record<LinkupObjectType, [number, number, number]>>
+                objectGeometry: Record<LinkupObjectType, { primitive: 'box' | 'sphere'; scale: [number, number, number] }>
+                metadataKey: string
+                sceneFog: { type: string; color: readonly number[]; density: number }
+                cameraClearColor: readonly number[]
+                globalAmbient: readonly number[]
+                materialBaseId: number
             }
         ) => {
             type EditorEntityObserver = {
                 get?: (path: string) => unknown
                 set?: (path: string, value: unknown) => void
+                has?: (path: string) => boolean
+                unset?: (path: string) => void
                 json?: () => Record<string, unknown>
             }
             const editor = (
@@ -1656,6 +1792,15 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                         method?: (method: string, handler: (...args: unknown[]) => unknown) => void
                         methodRemove?: (method: string) => void
                         emit?: (event: string, ...args: unknown[]) => void
+                        api?: {
+                            globals?: {
+                                assets?: {
+                                    add?: (asset: unknown) => void
+                                    get?: (id: string | number) => { observer?: unknown } | null
+                                }
+                            }
+                            Asset?: new (data: Record<string, unknown>) => { observer?: unknown }
+                        }
                     }
                     __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
                         dirty?: boolean
@@ -2044,37 +2189,71 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                 bridge.mmoommVisualLinkupLabMetadata = labMetadata
                 bridge.mmoommVisualLinkupMaterialAssets = materialAssets
                 bridge.mmoommVisualLinkupEntityMetadataByName = entityMetadataByName
-                const assetObservers = materialAssets.map((asset) => ({
-                    data: asset,
-                    get: (path: string) =>
-                        path
-                            .split('.')
-                            .filter(Boolean)
-                            .reduce<unknown>(
-                                (current, key) =>
-                                    current && typeof current === 'object' ? (current as Record<string, unknown>)[key] : undefined,
-                                asset
-                            ),
-                    json: () => ({ ...asset }),
-                    toJSON: () => ({ ...asset }),
-                    on: () => undefined,
-                    once: () => undefined,
-                    off: () => undefined
-                }))
-                for (const methodName of ['assets:list', 'assets:raw', 'assets:get', 'assets:loaded']) {
-                    try {
-                        editor.methodRemove?.(methodName)
-                    } catch {
-                        // The upstream Editor throws when a method is absent; replacing
-                        // the test-local asset registry must stay idempotent.
+                const assetsApi = editor.api?.globals?.assets as
+                    | {
+                          add?: (asset: unknown) => void
+                          get?: (id: string | number) => { observer?: unknown } | null
+                      }
+                    | undefined
+                const AssetConstructor = editor.api?.Asset as
+                    | (new (data: Record<string, unknown>) => { observer?: unknown; get?: (path: string) => unknown })
+                    | undefined
+                const assetObservers = materialAssets.map((asset) => {
+                    const existing = assetsApi?.get?.(asset.id)
+                    if (existing?.observer) return existing.observer
+                    if (typeof AssetConstructor === 'function' && typeof assetsApi?.add === 'function') {
+                        const apiAsset = new AssetConstructor(asset)
+                        assetsApi.add(apiAsset)
+                        return apiAsset.observer
                     }
+                    return {
+                        data: asset,
+                        get: (path: string) =>
+                            path
+                                .split('.')
+                                .filter(Boolean)
+                                .reduce<unknown>(
+                                    (current, key) =>
+                                        current && typeof current === 'object' ? (current as Record<string, unknown>)[key] : undefined,
+                                    asset
+                                ),
+                        json: () => ({ ...asset }),
+                        toJSON: () => ({ ...asset }),
+                        on: () => undefined,
+                        once: () => undefined,
+                        off: () => undefined
+                    }
+                })
+                if (!assetsApi || typeof AssetConstructor !== 'function') {
+                    for (const methodName of ['assets:list', 'assets:raw', 'assets:get']) {
+                        try {
+                            editor.methodRemove?.(methodName)
+                        } catch {
+                            // The upstream Editor throws when a method is absent; the fallback stays idempotent.
+                        }
+                    }
+                    editor.method?.('assets:list', () => assetObservers)
+                    editor.method?.('assets:raw', () => ({
+                        data: assetObservers,
+                        array: () => assetObservers,
+                        get: (id: string | number) =>
+                            assetObservers.find(
+                                (observer) => String((observer as { get?: (path: string) => unknown }).get?.('id')) === String(id)
+                            ) ?? null
+                    }))
+                    editor.method?.(
+                        'assets:get',
+                        (id: string | number) =>
+                            assetObservers.find(
+                                (observer) => String((observer as { get?: (path: string) => unknown }).get?.('id')) === String(id)
+                            ) ?? null
+                    )
                 }
-                editor.method?.('assets:list', () => assetObservers)
-                editor.method?.('assets:raw', () => ({ data: assetObservers, array: () => assetObservers }))
-                editor.method?.(
-                    'assets:get',
-                    (id: string | number) => assetObservers.find((observer) => String(observer.get('id')) === String(id)) ?? null
-                )
+                try {
+                    editor.methodRemove?.('assets:loaded')
+                } catch {
+                    // The upstream Editor throws when a method is absent; assets:loaded remains safe to install.
+                }
                 editor.method?.('assets:loaded', () => true)
                 editor.emit?.('assets:load')
                 editor.emit?.('assets:load:all')
@@ -2176,30 +2355,59 @@ export const expectMmoommVisualLinkupLabScene = async (page: Page, label: string
         }
         return materialAssetsById
     }
-    await expect
-        .poll(
-            async () => {
-                const candidate = (await readSerializedPlayCanvasEditorScene(page)) as {
-                    assets?: Array<{ id?: unknown; type?: unknown; data?: unknown; metadata?: Record<string, unknown> }>
+    try {
+        await expect
+            .poll(
+                async () => {
+                    const candidate = (await readSerializedPlayCanvasEditorScene(page)) as {
+                        assets?: Array<{ id?: unknown; type?: unknown; data?: unknown; metadata?: Record<string, unknown> }>
+                    }
+                    return Array.from(readMaterialAssetsById(candidate as typeof scene).values()).filter((asset) => {
+                        const metadataData = asset.metadata?.data
+                        return Boolean(
+                            asset.data &&
+                                typeof asset.data === 'object' &&
+                                metadataData &&
+                                typeof metadataData === 'object' &&
+                                asset.metadata?.mmoomm
+                        )
+                    }).length
+                },
+                {
+                    message: `${label} must load scene-local material assets into the Editor asset registry`,
+                    timeout: 45_000,
+                    intervals: [500, 1_000, 2_000]
                 }
-                return Array.from(readMaterialAssetsById(candidate as typeof scene).values()).filter((asset) => {
-                    const metadataData = asset.metadata?.data
-                    return Boolean(
-                        asset.data &&
-                            typeof asset.data === 'object' &&
-                            metadataData &&
-                            typeof metadataData === 'object' &&
-                            asset.metadata?.mmoomm
-                    )
-                }).length
-            },
-            {
-                message: `${label} must load scene-local material assets into the Editor asset registry`,
-                timeout: 45_000,
-                intervals: [500, 1_000, 2_000]
-            }
-        )
-        .toBeGreaterThanOrEqual(expectedMaterialAssetCount)
+            )
+            .toBeGreaterThanOrEqual(expectedMaterialAssetCount)
+    } catch (error) {
+        const diagnostics = await page
+            .frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+            .locator('body')
+            .evaluate(() => {
+                const bridge = (
+                    window as unknown as {
+                        __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: Record<string, unknown>
+                    }
+                ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                return bridge
+                    ? {
+                          fullBootMode: bridge.fullBootMode,
+                          lastLoadedSceneAssetCount: bridge.lastLoadedSceneAssetCount,
+                          sceneLocalAssetCount: bridge.lastSceneLocalAssetCount,
+                          fullBootStorageAssetCount: bridge.lastFullBootStorageAssetCount,
+                          fullBootAssetCount: bridge.lastFullBootAssetCount,
+                          serializedAssetCount: bridge.lastSerializedAssetCount,
+                          serializedAssetIds: bridge.lastSerializedAssetIds,
+                          serializeError: bridge.serializeError,
+                          storageError: bridge.storageError
+                      }
+                    : null
+            })
+            .catch(() => null)
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`${message}. Asset bridge diagnostics: ${JSON.stringify(diagnostics)}`)
+    }
     scene = (await readSerializedPlayCanvasEditorScene(page)) as typeof scene
     const materialAssetsById = readMaterialAssetsById(scene)
     const materialAssets = Array.from(materialAssetsById.values())
@@ -2402,7 +2610,8 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
     const sceneId = String(compatibilityConfig.defaultSceneId)
     const shipEntity = await createSerializablePlayCanvasEditorEntity(page)
     const stationEntity = await createSerializablePlayCanvasEditorEntity(page)
-    const authoredScene = await configureMmoommSceneFromUserCreatedEntities(page, { shipEntity, stationEntity })
+    const cameraEntity = await createSerializablePlayCanvasEditorEntity(page)
+    const authoredScene = await configureMmoommSceneFromUserCreatedEntities(page, { shipEntity, stationEntity, cameraEntity })
     await expect
         .poll(
             () =>
@@ -2426,10 +2635,10 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
         .toEqual(
             expect.objectContaining({
                 dirty: true,
-                entityNames: expect.arrayContaining(['MMOOMM Ship', 'MMOOMM Station'])
+                entityNames: expect.arrayContaining(['MMOOMM Ship', 'MMOOMM Station', 'MMOOMM Follow Camera'])
             })
         )
-    expect(authoredScene).toEqual({ shipId: shipEntity.id, stationId: stationEntity.id })
+    expect(authoredScene).toEqual({ shipId: shipEntity.id, stationId: stationEntity.id, cameraId: cameraEntity.id })
     await expectMmoommEditorEntitiesVisible(page, 'MMOOMM scene after native editor authoring')
     await removeEmptyDefaultPlayCanvasEditorEntities(page, 'MMOOMM scene after native editor authoring cleanup')
 
@@ -2439,7 +2648,11 @@ export const authorMmoommSceneThroughPlayCanvasEditorAndExpectReload = async (pa
     const { requestId: saveRequestId } = await saveSerializedPlayCanvasEditorSceneThroughCompatibilityRest(page, metahubId, savePayload)
     expect(saveRequestId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i))
     expect(savePayload?.entities).toEqual(
-        expect.arrayContaining([expect.objectContaining({ name: 'MMOOMM Ship' }), expect.objectContaining({ name: 'MMOOMM Station' })])
+        expect.arrayContaining([
+            expect.objectContaining({ name: 'MMOOMM Ship' }),
+            expect.objectContaining({ name: 'MMOOMM Station' }),
+            expect.objectContaining({ name: 'MMOOMM Follow Camera' })
+        ])
     )
 
     await page.reload({ waitUntil: 'domcontentloaded' })
@@ -2576,4 +2789,102 @@ export const exportMetahubSnapshotThroughBrowser = async (page: Page, metahubId:
     await download.saveAs(downloadPath)
     const fileContent = await readFile(downloadPath, 'utf8')
     return validateSnapshotEnvelope(JSON.parse(fileContent) as Record<string, unknown>)
+}
+
+export interface MmoommScriptAssetAuthoringInput {
+    filename: string
+    source: string
+}
+
+const readEditorScriptAssetParseState = async (page: Page, assetId: number) =>
+    page
+        .frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+        .locator('body')
+        .evaluate((_element, id) => {
+            const assets = (
+                window as unknown as {
+                    editor?: {
+                        api?: {
+                            globals?: {
+                                assets?: { get?: (assetId: number) => { get?: (field: string) => unknown } | null } | null
+                            }
+                        }
+                    }
+                }
+            ).editor?.api?.globals?.assets
+            const data = assets?.get?.(id)?.get?.('data') as { scripts?: Record<string, unknown>; loading?: boolean } | null | undefined
+            return {
+                loaded: Boolean(data?.scripts && Object.keys(data.scripts).length > 0),
+                loading: data?.loading ?? true
+            }
+        }, assetId)
+
+/**
+ * Authors PlayCanvas script assets through the integrated Editor exactly like a
+ * user pressing "+" → Script: `createScript` uploads the builtin source, the
+ * editor parses it through the ESM worker, and the compatibility backend mirrors
+ * the parse result into durable script-asset rows. The poll proves the whole
+ * create → upload → parse → ShareDB loop completed for every script.
+ */
+export const authorMmoommScriptAssetsThroughEditor = async (
+    page: Page,
+    scripts: ReadonlyArray<MmoommScriptAssetAuthoringInput>
+): Promise<void> => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    for (const script of scripts) {
+        const assetId = await editorFrame.locator('body').evaluate(
+            async (_element, input) => {
+                const assets = (
+                    window as unknown as {
+                        editor?: {
+                            api?: {
+                                globals?: {
+                                    assets?: {
+                                        createScript?: (
+                                            options: Record<string, unknown>
+                                        ) => Promise<{ get?: (field: string) => unknown } | null>
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ).editor?.api?.globals?.assets
+                if (!assets?.createScript) {
+                    throw new Error('PlayCanvas editor assets API is unavailable')
+                }
+                const asset = await assets.createScript({ filename: input.filename, text: input.source })
+                const id = asset?.get?.('id')
+                if (typeof id !== 'number') {
+                    throw new Error(`createScript did not return a numeric asset id for ${input.filename}`)
+                }
+                return id
+            },
+            { filename: script.filename, source: script.source }
+        )
+        try {
+            await expect
+                .poll(() => readEditorScriptAssetParseState(page, assetId), { timeout: 30_000 })
+                .toEqual({ loaded: true, loading: false })
+        } catch (error) {
+            const state = await editorFrame.locator('body').evaluate((_element, id) => {
+                const assets = (
+                    window as unknown as {
+                        editor?: {
+                            api?: { globals?: { assets?: { get?: (assetId: number) => { get?: (field: string) => unknown } | null } } }
+                        }
+                    }
+                ).editor?.api?.globals?.assets
+                const asset = assets?.get?.(id)
+                return {
+                    id,
+                    name: asset?.get?.('name') ?? null,
+                    type: asset?.get?.('type') ?? null,
+                    file: asset?.get?.('file') ?? null,
+                    data: asset?.get?.('data') ?? null
+                }
+            }, assetId)
+            const message = error instanceof Error ? error.message : String(error)
+            throw new Error(`${message}\nMMOOMM script parse diagnostics: ${JSON.stringify(state)}`)
+        }
+    }
 }

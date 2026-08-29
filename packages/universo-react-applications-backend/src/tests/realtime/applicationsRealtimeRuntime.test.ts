@@ -111,10 +111,11 @@ import {
 } from '../../realtime/realtimeAccess'
 import { RuntimeModulesService } from '../../services/runtimeModulesService'
 import { createMockDbExecutor } from '../utils/dbMocks'
+import { computePlayCanvasRuntimeManifestChecksum } from '../../shared/playCanvasRuntimeManifest'
 
 const createRuntimeModule = (overrides: Record<string, unknown> = {}) => ({
     id: overrides.id ?? 'module-1',
-    codename: overrides.codename ?? 'flight-canvas-widget',
+    codename: overrides.codename ?? 'mmoomm-flight-widget',
     moduleRole: overrides.moduleRole ?? 'widget',
     attachedToKind: overrides.attachedToKind ?? 'metahub',
     clientBundle: overrides.clientBundle ?? 'module.exports = class FlightCanvasWidget {}',
@@ -309,7 +310,7 @@ describe('applications realtime runtime module-backed room options', () => {
                 {
                     widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ab',
                     config: {
-                        moduleCodename: 'flight-canvas-widget',
+                        moduleCodename: 'mmoomm-flight-widget',
                         serverModuleCodename: 'fixed-tick-flight-runtime',
                         attachedToKind: 'metahub'
                     }
@@ -321,7 +322,7 @@ describe('applications realtime runtime module-backed room options', () => {
             __applicationsRealtimeRuntimeTestUtils.loadRoomOptionsFromApplicationSchema(executor as never, {
                 applicationId,
                 accessMode: 'member',
-                moduleCodename: 'flight-canvas-widget'
+                moduleCodename: 'mmoomm-flight-widget'
             })
         ).rejects.toMatchObject({ statusCode: 404 })
     })
@@ -334,7 +335,7 @@ describe('applications realtime runtime module-backed room options', () => {
                 {
                     widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ab',
                     config: {
-                        moduleCodename: 'flight-canvas-widget',
+                        moduleCodename: 'mmoomm-flight-widget',
                         serverModuleCodename: 'fixed-tick-flight-runtime',
                         attachedToKind: 'metahub',
                         scene: {
@@ -379,7 +380,7 @@ describe('applications realtime runtime module-backed room options', () => {
         const options = await __applicationsRealtimeRuntimeTestUtils.loadRoomOptionsFromApplicationSchema(executor as never, {
             applicationId,
             accessMode: 'member',
-            moduleCodename: 'flight-canvas-widget',
+            moduleCodename: 'mmoomm-flight-widget',
             objectCollectionId: 'world-alpha',
             workspaceId: '018f8a78-7b8f-7c1d-a111-2222333346ad',
             currentUserId: '018f8a78-7b8f-7c1d-a111-2222333346ae',
@@ -427,14 +428,45 @@ describe('applications realtime runtime module-backed room options', () => {
         const { executor } = createMockDbExecutor()
         const projectId = '018f8a78-7b8f-7c1d-8111-2222333347a0'
         const sceneId = '018f8a78-7b8f-7c1d-8111-2222333347a1'
-        const checksum = 'e'.repeat(64)
+        const runtimeManifest = {
+            schemaVersion: '1',
+            projectId,
+            sceneId,
+            checksum: '',
+            assets: [],
+            scripts: [],
+            metadata: {
+                mmoomm: {
+                    scene: {
+                        controlledObjectId: 'editor-ship',
+                        targetObjectId: 'editor-station',
+                        cruiseSpeed: 72,
+                        objects: [
+                            {
+                                id: 'editor-ship',
+                                position: { x: 10, y: 2, z: 3 },
+                                scale: { x: 14, y: 6, z: 4 }
+                            },
+                            {
+                                id: 'editor-station',
+                                position: { x: 80, y: 0, z: -40 },
+                                scale: { x: 40, y: 12, z: 16 },
+                                guard: true
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        runtimeManifest.checksum = computePlayCanvasRuntimeManifestChecksum(runtimeManifest)
+        const checksum = runtimeManifest.checksum
         executor.query
             .mockResolvedValueOnce([{ id: applicationId, schemaName: 'app_018f8a787b8f7c1da1112222333346aa' }])
             .mockResolvedValueOnce([
                 {
                     widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ab',
                     config: {
-                        moduleCodename: 'flight-canvas-widget',
+                        moduleCodename: 'mmoomm-flight-widget',
                         serverModuleCodename: 'fixed-tick-flight-runtime',
                         attachedToKind: 'metahub',
                         runtimeManifest: {
@@ -452,36 +484,10 @@ describe('applications realtime runtime module-backed room options', () => {
             ])
             .mockResolvedValueOnce([
                 {
-                    runtime_manifest: {
-                        schemaVersion: '1',
-                        projectId,
-                        sceneId,
-                        checksum,
-                        assets: [],
-                        scripts: [],
-                        metadata: {
-                            mmoomm: {
-                                scene: {
-                                    controlledObjectId: 'editor-ship',
-                                    targetObjectId: 'editor-station',
-                                    cruiseSpeed: 72,
-                                    objects: [
-                                        {
-                                            id: 'editor-ship',
-                                            position: { x: 10, y: 2, z: 3 },
-                                            scale: { x: 14, y: 6, z: 4 }
-                                        },
-                                        {
-                                            id: 'editor-station',
-                                            position: { x: 80, y: 0, z: -40 },
-                                            scale: { x: 40, y: 12, z: 16 },
-                                            guard: true
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    }
+                    source_project_id: projectId,
+                    source_scene_id: sceneId,
+                    manifest_checksum: checksum,
+                    runtime_manifest: runtimeManifest
                 }
             ])
         jest.spyOn(RuntimeModulesService.prototype, 'getActiveModuleByCodename')
@@ -500,7 +506,7 @@ describe('applications realtime runtime module-backed room options', () => {
         const options = await __applicationsRealtimeRuntimeTestUtils.loadRoomOptionsFromApplicationSchema(executor as never, {
             applicationId,
             accessMode: 'member',
-            moduleCodename: 'flight-canvas-widget'
+            moduleCodename: 'mmoomm-flight-widget'
         })
 
         expect(options.initialPosition).toEqual({ x: 10, y: 2, z: 3 })
@@ -519,14 +525,37 @@ describe('applications realtime runtime module-backed room options', () => {
     it('matches null PlayCanvas runtime manifest scene bindings only to null scene manifests', async () => {
         const { executor } = createMockDbExecutor()
         const projectId = '018f8a78-7b8f-7c1d-8111-2222333347b0'
-        const checksum = 'f'.repeat(64)
+        const runtimeManifest = {
+            schemaVersion: '1',
+            projectId,
+            sceneId: null,
+            checksum: '',
+            assets: [],
+            scripts: [],
+            metadata: {
+                mmoomm: {
+                    scene: {
+                        controlledObjectId: 'default-ship',
+                        objects: [
+                            {
+                                id: 'default-ship',
+                                position: { x: 5, y: 0, z: 0 },
+                                scale: { x: 10, y: 4, z: 4 }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        runtimeManifest.checksum = computePlayCanvasRuntimeManifestChecksum(runtimeManifest)
+        const checksum = runtimeManifest.checksum
         executor.query
             .mockResolvedValueOnce([{ id: applicationId, schemaName: 'app_018f8a787b8f7c1da1112222333346aa' }])
             .mockResolvedValueOnce([
                 {
                     widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ab',
                     config: {
-                        moduleCodename: 'flight-canvas-widget',
+                        moduleCodename: 'mmoomm-flight-widget',
                         serverModuleCodename: 'fixed-tick-flight-runtime',
                         attachedToKind: 'metahub',
                         runtimeManifest: {
@@ -540,28 +569,10 @@ describe('applications realtime runtime module-backed room options', () => {
             ])
             .mockResolvedValueOnce([
                 {
-                    runtime_manifest: {
-                        schemaVersion: '1',
-                        projectId,
-                        sceneId: null,
-                        checksum,
-                        assets: [],
-                        scripts: [],
-                        metadata: {
-                            mmoomm: {
-                                scene: {
-                                    controlledObjectId: 'default-ship',
-                                    objects: [
-                                        {
-                                            id: 'default-ship',
-                                            position: { x: 5, y: 0, z: 0 },
-                                            scale: { x: 10, y: 4, z: 4 }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    }
+                    source_project_id: projectId,
+                    source_scene_id: null,
+                    manifest_checksum: checksum,
+                    runtime_manifest: runtimeManifest
                 }
             ])
         jest.spyOn(RuntimeModulesService.prototype, 'getActiveModuleByCodename')
@@ -580,7 +591,7 @@ describe('applications realtime runtime module-backed room options', () => {
         const options = await __applicationsRealtimeRuntimeTestUtils.loadRoomOptionsFromApplicationSchema(executor as never, {
             applicationId,
             accessMode: 'member',
-            moduleCodename: 'flight-canvas-widget'
+            moduleCodename: 'mmoomm-flight-widget'
         })
 
         expect(options.initialPosition).toEqual({ x: 5, y: 0, z: 0 })

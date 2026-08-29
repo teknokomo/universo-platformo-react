@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compileModuleSource } from './compiler'
+import { compileModuleSource, compileScriptAssetEsm } from './compiler'
 
 const createInput = (sourceCode: string, overrides: Record<string, unknown> = {}) => ({
     codename: 'quiz-widget',
@@ -479,5 +479,205 @@ export default class SharedB extends SharedLibraryModule {
                 )
             )
         ).rejects.toThrow(/circular @shared imports/i)
+    })
+})
+
+describe('compileScriptAssetEsm', () => {
+    const validScriptSource = `import { Script } from 'playcanvas'
+
+export class FlightControl extends Script {
+    static scriptName = 'flightControl'
+
+    update(dt) {
+        this.elapsed = (this.elapsed ?? 0) + dt
+    }
+}
+`
+
+    it('compiles a PlayCanvas script as ESM while preserving the engine import', async () => {
+        const artifact = await compileScriptAssetEsm({
+            sourceCode: validScriptSource,
+            diagnosticFileName: 'flight-control.mjs'
+        })
+
+        expect(artifact.code).toContain('from "playcanvas"')
+        expect(artifact.code).toContain('var FlightControl = class extends Script')
+        expect(artifact.scriptNames).toEqual(['flightControl'])
+        expect(artifact.checksum).toMatch(/^[a-f0-9]{64}$/)
+    })
+
+    it('inlines allowlisted shared libraries into the script artifact', async () => {
+        const artifact = await compileScriptAssetEsm({
+            sourceCode: `import { Script } from 'playcanvas'
+import { clampSpeed } from '@shared/flight-math'
+
+export class FlightControl extends Script {
+    static scriptName = 'flightControl'
+
+    update(dt) {
+        this.speed = clampSpeed(dt * 100)
+    }
+}
+`,
+            diagnosticFileName: 'flight-control.mjs',
+            sharedLibraries: {
+                'flight-math': {
+                    codename: 'flight-math',
+                    sourceCode: `export const clampSpeed = (value) => Math.min(25, Math.max(0, value))`,
+                    diagnosticFileName: 'flight-math.mjs'
+                }
+            }
+        })
+
+        expect(artifact.code).toContain('Math.min(25')
+        expect(artifact.code).not.toContain('from "@shared/flight-math"')
+        expect(artifact.scriptNames).toEqual(['flightControl'])
+    })
+
+    it('strips the shared-library SDK marker import while inlining a library module', async () => {
+        const artifact = await compileScriptAssetEsm({
+            sourceCode: `import { Script } from 'playcanvas'
+import { clampSpeed } from '@shared/flight-math'
+
+export class FlightControl extends Script {
+    static scriptName = 'flightControl'
+
+    update(dt) {
+        this.speed = clampSpeed(dt * 100)
+    }
+}
+`,
+            diagnosticFileName: 'flight-control.mjs',
+            sharedLibraries: {
+                'flight-math': {
+                    codename: 'flight-math',
+                    sourceCode: `import { SharedLibraryModule } from '@universo-react/extension-sdk'
+
+export const clampSpeed = (value) => Math.min(25, Math.max(0, value))
+
+export default class FlightMathLibrary extends SharedLibraryModule {}`,
+                    diagnosticFileName: 'flight-math.ts'
+                }
+            }
+        })
+
+        expect(artifact.code).not.toContain('@universo-react/extension-sdk')
+        expect(artifact.code).toContain('Math.min(25')
+    })
+
+    it('rejects unknown bare imports', async () => {
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import leftPad from 'left-pad'\n${validScriptSource}\nvoid leftPad`,
+                diagnosticFileName: 'unsupported-import.mjs'
+            })
+        ).rejects.toThrow(/Unsupported import in PlayCanvas script asset: "left-pad"/)
+    })
+
+    it.each(['./private.mjs', '../private.mjs', '/etc/passwd'])('rejects filesystem imports (%s)', async (specifier) => {
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import privateModule from '${specifier}'\n${validScriptSource}\nvoid privateModule`,
+                diagnosticFileName: 'filesystem-import.mjs'
+            })
+        ).rejects.toThrow(/(?:Relative and absolute imports are not allowed|Could not resolve)/)
+    })
+
+    it('rejects missing shared libraries', async () => {
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import { missing } from '@shared/not-authored'\n${validScriptSource}\nvoid missing`,
+                diagnosticFileName: 'missing-shared-library.mjs'
+            })
+        ).rejects.toThrow(/Shared library "@shared\/not-authored" not found in metahub/)
+    })
+
+    it('rejects circular shared-library imports before publishing the artifact', async () => {
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import { value } from '@shared/shared-a'\n${validScriptSource}\nvoid value`,
+                diagnosticFileName: 'circular-flight-script.mjs',
+                sharedLibraries: {
+                    'shared-a': {
+                        codename: 'shared-a',
+                        sourceCode: `import { value } from '@shared/shared-b'\nexport { value }`
+                    },
+                    'shared-b': {
+                        codename: 'shared-b',
+                        sourceCode: `import { value } from '@shared/shared-a'\nexport { value }`
+                    }
+                }
+            })
+        ).rejects.toThrow(/Circular @shared imports detected: shared-a -> shared-b -> shared-a/)
+    })
+
+    it('surfaces script syntax errors with the diagnostic filename', async () => {
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import { Script } from 'playcanvas'\nexport class Broken extends Script {`,
+                diagnosticFileName: 'broken-flight-script.mjs'
+            })
+        ).rejects.toThrow(/broken-flight-script\.mjs/)
+    })
+
+    it('requires exactly one exported PlayCanvas Script subclass with a static name', async () => {
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `export class NotAScript { static scriptName = 'notScript' }`,
+                diagnosticFileName: 'not-a-script.mjs'
+            })
+        ).rejects.toThrow(/must extend Script/i)
+
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import { Script } from 'playcanvas'
+export class First extends Script { static scriptName = 'first' }
+export class Second extends Script { static scriptName = 'second' }
+`,
+                diagnosticFileName: 'multiple-scripts.mjs'
+            })
+        ).rejects.toThrow(/exactly one class/i)
+
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import { Script } from 'playcanvas'
+export class MissingName extends Script {}
+`,
+                diagnosticFileName: 'missing-script-name.mjs'
+            })
+        ).rejects.toThrow(/static scriptName/i)
+    })
+
+    it('supports a default-exported Script subclass and rejects duplicate static names', async () => {
+        const artifact = await compileScriptAssetEsm({
+            sourceCode: `import { Script as PlayCanvasScript } from 'playcanvas'
+export default class DefaultFlight extends PlayCanvasScript {
+    static scriptName = 'defaultFlight'
+}
+`,
+            diagnosticFileName: 'default-flight.mjs'
+        })
+        expect(artifact.scriptNames).toEqual(['defaultFlight'])
+
+        await expect(
+            compileScriptAssetEsm({
+                sourceCode: `import { Script } from 'playcanvas'
+export class Duplicate extends Script {
+    static scriptName = 'first'
+    static scriptName = 'second'
+}
+`,
+                diagnosticFileName: 'duplicate-script-name.mjs'
+            })
+        ).rejects.toThrow(/static scriptName/i)
+    })
+
+    it('produces deterministic code and checksums for identical input', async () => {
+        const input = { sourceCode: validScriptSource, diagnosticFileName: 'flight-control.mjs' }
+
+        const first = await compileScriptAssetEsm(input)
+        const second = await compileScriptAssetEsm(input)
+
+        expect(second).toEqual(first)
     })
 })

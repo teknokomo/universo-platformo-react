@@ -30,6 +30,12 @@ export default defineConfig({
         colorScheme: 'light',
         reducedMotion: 'reduce',
         serviceWorkers: 'block',
+        // Chromium 145 gates loopback requests made by the isolated
+        // PlayCanvas artifact behind Local Network Access. Grant the
+        // permission in the dedicated local/E2E browser context so the
+        // realistic editor flow exercises the application rather than a
+        // browser-level prompt that headless Chromium cannot render.
+        permissions: ['local-network-access'],
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
@@ -75,6 +81,26 @@ export default defineConfig({
             use: {
                 storageState: { cookies: [], origins: [] },
                 locale: 'ru-RU',
+                colorScheme: 'dark'
+            }
+        },
+        {
+            name: 'en-light',
+            dependencies: ['setup'],
+            testMatch: matrixPattern,
+            use: {
+                storageState: { cookies: [], origins: [] },
+                locale: 'en-US',
+                colorScheme: 'light'
+            }
+        },
+        {
+            name: 'en-dark',
+            dependencies: ['setup'],
+            testMatch: matrixPattern,
+            use: {
+                storageState: { cookies: [], origins: [] },
+                locale: 'en-US',
                 colorScheme: 'dark'
             }
         },

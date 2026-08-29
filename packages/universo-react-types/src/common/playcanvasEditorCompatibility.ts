@@ -1,6 +1,12 @@
 import { z } from 'zod'
 import {
     PLAYCANVAS_PROJECT_FILE_MAX_BYTES,
+    PLAYCANVAS_PROJECT_JSON_MAX_DEPTH,
+    PLAYCANVAS_PROJECT_JSON_MAX_NODES,
+    isBoundedPlayCanvasProjectJsonValue,
+    playCanvasProjectJsonValueSchema,
+    playCanvasProjectMetadataSchema,
+    playCanvasProjectSettingsSchema,
     PLAYCANVAS_PROJECT_JSON_MIME_TYPES,
     PLAYCANVAS_PROJECT_SCHEMA_VERSION
 } from './playcanvasProjects'
@@ -13,34 +19,69 @@ export const PLAYCANVAS_EDITOR_UPSTREAM_MINIMUM_TAG = 'v2.30.4' as const
 export const PLAYCANVAS_EDITOR_SCHEMA_CATALOG_VERSION = 1
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ENTITIES = 5000
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ASSETS = 2000
-export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_JSON_DEPTH = 24
+export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_ASSET_DELETE_IDS = 256
+export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_ASSET_DOCUMENT_KEYS = 256
+export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCRIPT_ATTRIBUTES = 128
+export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_JSON_DEPTH = PLAYCANVAS_PROJECT_JSON_MAX_DEPTH
+export const PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_JSON_NODES = PLAYCANVAS_PROJECT_JSON_MAX_NODES
 export const PLAYCANVAS_EDITOR_COMPATIBILITY_TOKEN_TTL_MS = 5 * 60 * 1000
 
 const uuidSchema = z.string().uuid()
 const requestIdSchema = uuidSchema
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/i)
-const jsonPrimitiveSchema = z.union([z.string().max(4096), z.number().finite(), z.boolean(), z.null()])
-type JsonValue = z.infer<typeof jsonPrimitiveSchema> | JsonValue[] | { [key: string]: JsonValue }
+type JsonValue = z.infer<typeof playCanvasProjectJsonValueSchema>
+
+const unsafeJsonKeys = new Set(['__proto__', 'prototype', 'constructor'])
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
     if (value == null || typeof value !== 'object' || Array.isArray(value)) {
         return false
     }
-    const prototype = Object.getPrototypeOf(value)
-    return prototype === Object.prototype || prototype === null
+    try {
+        const prototype = Object.getPrototypeOf(value)
+        return prototype === Object.prototype || prototype === null
+    } catch {
+        return false
+    }
 }
 
-const calculateJsonDepth = (value: unknown, depth = 0): number => {
-    if (value == null || typeof value !== 'object') {
-        return depth
+/**
+ * Validates editor JSON iteratively so attacker-controlled nesting cannot
+ * exhaust the JavaScript call stack before Zod gets a chance to reject it.
+ */
+export const isBoundedPlayCanvasEditorJsonValue = isBoundedPlayCanvasProjectJsonValue
+
+const calculateJsonDepth = (value: unknown): number => {
+    const pending: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }]
+    const visited = new WeakSet<object>()
+    let maxDepth = 0
+
+    while (pending.length > 0) {
+        const current = pending.pop() as { value: unknown; depth: number }
+        maxDepth = Math.max(maxDepth, current.depth)
+        if (current.value == null || typeof current.value !== 'object') continue
+        if (visited.has(current.value)) continue
+        visited.add(current.value)
+        if (Array.isArray(current.value)) {
+            try {
+                for (const child of current.value) pending.push({ value: child, depth: current.depth + 1 })
+            } catch {
+                return current.depth + 1
+            }
+            continue
+        }
+        if (!isPlainObject(current.value)) {
+            maxDepth = Math.max(maxDepth, current.depth + 1)
+            continue
+        }
+        try {
+            for (const child of Object.values(current.value)) pending.push({ value: child, depth: current.depth + 1 })
+        } catch {
+            return current.depth + 1
+        }
     }
-    if (Array.isArray(value)) {
-        return value.reduce((maxDepth, item) => Math.max(maxDepth, calculateJsonDepth(item, depth + 1)), depth)
-    }
-    if (!isPlainObject(value)) {
-        return depth + 1
-    }
-    return Object.values(value).reduce((maxDepth, item) => Math.max(maxDepth, calculateJsonDepth(item, depth + 1)), depth)
+
+    return maxDepth
 }
 
 const serializedSizeIsWithinLimit = (value: unknown): boolean => {
@@ -53,9 +94,62 @@ const serializedSizeIsWithinLimit = (value: unknown): boolean => {
     }
 }
 
-const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-    z.union([jsonPrimitiveSchema, z.array(jsonValueSchema).max(5000), z.record(z.string().max(160), jsonValueSchema)])
-)
+const jsonValueSchema: z.ZodType<JsonValue> = playCanvasProjectJsonValueSchema
+
+export const isSafePlayCanvasEditorScriptAttributeName = (value: string): boolean =>
+    value.length > 0 && value.length <= 128 && !unsafeJsonKeys.has(value) && /^[A-Za-z_$][A-Za-z0-9_$.-]*$/.test(value)
+
+/**
+ * Shared validation for asset documents arriving through REST, ShareDB, or
+ * the host bridge. The editor adds version-specific fields, so the top-level
+ * shape remains open while every value and script attribute name is bounded.
+ */
+export const playCanvasEditorCompatibilityAssetDocumentSchema = z
+    .record(z.string().min(1).max(160), jsonValueSchema)
+    .superRefine((value, context) => {
+        const keys = Object.keys(value)
+        if (keys.length > PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_ASSET_DOCUMENT_KEYS) {
+            context.addIssue({
+                code: z.ZodIssueCode.too_big,
+                maximum: PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_ASSET_DOCUMENT_KEYS,
+                type: 'object',
+                inclusive: true,
+                message: 'Asset document contains too many fields'
+            })
+        }
+        if (!serializedSizeIsWithinLimit(value)) {
+            context.addIssue({ code: z.ZodIssueCode.custom, message: 'Asset document exceeds the PlayCanvas project file size limit' })
+        }
+
+        const scripts = value.scripts
+        if (scripts === undefined) return
+        if (!isPlainObject(scripts)) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['scripts'], message: 'Asset scripts must be a JSON object' })
+            return
+        }
+        const scriptNames = Object.keys(scripts)
+        if (scriptNames.length > PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCRIPT_ATTRIBUTES) {
+            context.addIssue({
+                code: z.ZodIssueCode.too_big,
+                path: ['scripts'],
+                maximum: PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCRIPT_ATTRIBUTES,
+                type: 'object',
+                inclusive: true,
+                message: 'Asset contains too many script attributes'
+            })
+        }
+        for (const scriptName of scriptNames) {
+            if (!isSafePlayCanvasEditorScriptAttributeName(scriptName)) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['scripts', scriptName],
+                    message: 'Asset script attribute name is not safe'
+                })
+            }
+        }
+    })
+
+export type PlayCanvasEditorCompatibilityAssetDocument = z.infer<typeof playCanvasEditorCompatibilityAssetDocumentSchema>
 
 const sceneEntityVector3Schema = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()])
 
@@ -69,7 +163,7 @@ const sceneEntitySchema = z
         rotation: sceneEntityVector3Schema.optional(),
         scale: sceneEntityVector3Schema.optional(),
         components: z.record(z.string().max(80), jsonValueSchema).optional(),
-        metadata: z.record(z.string().max(120), jsonValueSchema).optional(),
+        metadata: playCanvasProjectMetadataSchema.optional(),
         children: z.array(z.string().min(1).max(160)).max(512).optional()
     })
     .strict()
@@ -84,17 +178,17 @@ const sceneAssetReferenceSchema = z
         mime: z.enum(PLAYCANVAS_PROJECT_JSON_MIME_TYPES).nullable().optional(),
         data: jsonValueSchema.optional(),
         meta: jsonValueSchema.optional(),
-        metadata: z.record(z.string().max(120), jsonValueSchema).optional()
+        metadata: playCanvasProjectMetadataSchema.optional()
     })
     .strict()
 
 export const playCanvasEditorCompatibilityScenePayloadSchema = z
     .object({
         schemaVersion: z.string().min(1).max(40).default(PLAYCANVAS_PROJECT_SCHEMA_VERSION),
-        settings: z.record(z.string().max(120), jsonValueSchema).optional(),
+        settings: playCanvasProjectSettingsSchema.optional(),
         entities: z.array(sceneEntitySchema).max(PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ENTITIES).default([]),
         assets: z.array(sceneAssetReferenceSchema).max(PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_SCENE_ASSETS).optional(),
-        metadata: z.record(z.string().max(120), jsonValueSchema).optional()
+        metadata: playCanvasProjectMetadataSchema.optional()
     })
     .strict()
     .superRefine((value, ctx) => {
@@ -122,7 +216,10 @@ export const playCanvasEditorCompatibilityTokenClaimsSchema = z
         userId: z.string().min(1).max(256),
         packageSlug: z.literal('playcanvas-editor'),
         mode: z.union([z.literal(PLAYCANVAS_EDITOR_COMPATIBILITY_REST_MODE), z.literal(PLAYCANVAS_EDITOR_FULL_BOOT_MODE)]),
-        origin: z.string().url().optional(),
+        // Every signed compatibility token is bound to the canonical HTTP(S)
+        // origin that is allowed to use it. The token service performs the
+        // stricter path/query/fragment normalization before signing.
+        origin: z.string().url(),
         sessionId: z.string().min(1).max(160).optional(),
         nonce: z.string().min(1).max(160).optional(),
         assetDocumentIds: z.array(z.number().int().positive().max(2_147_483_647)).max(1000).optional(),
@@ -329,9 +426,56 @@ export const playCanvasEditorCompatibilityAssetSummarySchema = z
         hash: z.string().min(1).max(160).nullable(),
         size: z.number().int().nonnegative().nullable(),
         metadata: z.record(z.string().max(120), jsonValueSchema).optional(),
-        editorDocumentId: z.number().int().positive().max(2_147_483_647)
+        editorDocumentId: z.number().int().positive().max(2_147_483_647),
+        editorParentDocumentId: z.number().int().positive().max(2_147_483_647).nullable(),
+        editorPathDocumentIds: z.array(z.number().int().positive().max(2_147_483_647)).max(64),
+        createdAt: z.string().datetime().nullable()
     })
     .strict()
+
+export type PlayCanvasEditorCompatibilityAssetSummary = z.infer<typeof playCanvasEditorCompatibilityAssetSummarySchema>
+
+const editorAssetCreateNameSchema = z.string().min(1).max(255)
+const editorAssetDataSchema = playCanvasProjectMetadataSchema
+
+export const playCanvasEditorCompatibilityAssetCreateRequestSchema = z
+    .object({
+        name: editorAssetCreateNameSchema,
+        type: z.string().min(1).max(80),
+        parent: z.number().int().positive().max(2_147_483_647).nullable().optional(),
+        filename: z.string().min(1).max(255).optional(),
+        data: editorAssetDataSchema.optional(),
+        meta: editorAssetDataSchema.optional(),
+        tags: z.string().max(1024).optional(),
+        preload: z.enum(['true', 'false']).optional()
+    })
+    .strict()
+
+export type PlayCanvasEditorCompatibilityAssetCreateRequest = z.infer<typeof playCanvasEditorCompatibilityAssetCreateRequestSchema>
+
+const editorAssetDocumentIdsSchema = z
+    .array(z.number().int().positive().max(2_147_483_647))
+    .min(1)
+    .max(PLAYCANVAS_EDITOR_COMPATIBILITY_MAX_ASSET_DELETE_IDS)
+    .superRefine((ids, context) => {
+        if (new Set(ids).size !== ids.length) {
+            context.addIssue({ code: z.ZodIssueCode.custom, message: 'Asset document ids must be unique' })
+        }
+    })
+
+export const playCanvasEditorCompatibilityAssetDeleteRequestSchema = z
+    .object({ assets: editorAssetDocumentIdsSchema })
+    // The upstream DELETE payload also carries branch metadata; validate the
+    // bounded asset list while preserving compatibility with those fields.
+    .passthrough()
+
+export type PlayCanvasEditorCompatibilityAssetDeleteRequest = z.infer<typeof playCanvasEditorCompatibilityAssetDeleteRequestSchema>
+
+export const playCanvasEditorCompatibilityAssetDeleteFrameSchema = z
+    .object({ op: z.literal('delete'), ids: editorAssetDocumentIdsSchema })
+    .strict()
+
+export type PlayCanvasEditorCompatibilityAssetDeleteFrame = z.infer<typeof playCanvasEditorCompatibilityAssetDeleteFrameSchema>
 
 export const playCanvasEditorCompatibilitySourceFileSummarySchema = z
     .object({
@@ -432,7 +576,13 @@ export const playCanvasEditorCompatibilityConfigSchema = z
         csrf: z
             .object({
                 tokenUrl: z.string().min(1),
-                headerName: z.literal('X-CSRF-Token')
+                headerName: z.literal('X-CSRF-Token'),
+                // Cross-origin sandboxed Editor frames cannot send the
+                // host-only session cookie. The optional signed proof is
+                // origin/project/user bound and is accepted only by the
+                // compatibility write guard; session-backed CSRF remains the
+                // default for same-origin callers.
+                token: z.string().min(32).optional()
             })
             .strict()
     })
@@ -651,7 +801,18 @@ export const playCanvasEditorFullBootConfigSchema = z
         universoBridge: z
             .object({
                 compatibilityRestBaseUrl: fullBootUrlSchema,
-                tokenRefreshUrl: fullBootUrlSchema
+                tokenRefreshUrl: fullBootUrlSchema,
+                // Full-boot asset mutations originate in the sandboxed
+                // artifact and therefore use the full-boot access token. The
+                // proof is issued for that exact token and origin; REST mode
+                // carries its own proof in the compatibility config.
+                compatibilityCsrfToken: z
+                    .object({
+                        token: z.string().min(32),
+                        headerName: z.literal('X-CSRF-Token')
+                    })
+                    .strict()
+                    .optional()
             })
             .strict()
     })
@@ -680,7 +841,7 @@ export const playCanvasEditorCompatibilitySettingsDocumentSchema = z
     .object({
         kind: playCanvasEditorCompatibilitySettingsKindSchema,
         documentId: z.string().min(1).max(512),
-        data: z.record(z.string().max(120), jsonValueSchema).default({}),
+        data: playCanvasProjectSettingsSchema.default({}),
         revision: z.string().min(1).max(120)
     })
     .strict()
@@ -690,7 +851,7 @@ export type PlayCanvasEditorCompatibilitySettingsDocument = z.infer<typeof playC
 export const playCanvasEditorCompatibilitySettingsWriteRequestSchema = z
     .object({
         requestId: requestIdSchema,
-        data: z.record(z.string().max(120), jsonValueSchema).default({}),
+        data: playCanvasProjectSettingsSchema.default({}),
         expectedRevision: z.string().min(1).max(120).optional()
     })
     .strict()

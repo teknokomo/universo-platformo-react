@@ -107,6 +107,8 @@ catalog:
     ws: 8.20.1
     '@types/sharedb': 3.3.13
     '@types/ws': ^8.18.1
+    busboy: ^1.6.0
+    '@types/busboy': ^1.5.4
     '@colyseus/core': 0.17.50
     '@colyseus/sdk': 0.17.43
     '@colyseus/schema': 4.0.31

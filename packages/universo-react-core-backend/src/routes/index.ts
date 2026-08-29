@@ -252,12 +252,28 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
     }
 
     const isDbTimeout = statusCode === 503 && isDatabaseConnectTimeoutError(err)
-    res.status(statusCode).json({
+    const responseBody: {
+        error: string
+        message: string
+        code?: string
+        path?: string
+    } = {
         error: statusCode === 404 ? 'Not Found' : statusCode === 503 ? 'Service Unavailable' : 'Internal Server Error',
         message: process.env.NODE_ENV === 'development' ? err.message : statusCode === 404 ? 'Resource not found' : 'An error occurred',
-        code: isDbTimeout ? 'DB_CONNECTION_TIMEOUT' : undefined,
-        path: req.path
-    })
+        code: isDbTimeout ? 'DB_CONNECTION_TIMEOUT' : undefined
+    }
+
+    // Compatibility URLs contain metahub, project, asset and file identifiers.
+    // Echoing req.path from an authorization/domain error would disclose those
+    // identifiers to a caller who is not allowed to read the resource. Keep
+    // the detailed path in server-side logs above, but never return it on this
+    // sensitive protocol boundary.
+    const requestPathForExposure = req.originalUrl || req.path
+    if (!/\/playcanvas(?:\/|$)/i.test(requestPathForExposure)) {
+        responseBody.path = req.path
+    }
+
+    return res.status(statusCode).json(responseBody)
 })
 
 export default router

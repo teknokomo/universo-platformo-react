@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest'
 import type { PackageAttachmentConfig } from '../common/packages'
 import {
     PLAYCANVAS_EDITOR_PACKAGE_NAME,
+    PLAYCANVAS_PROJECT_FILE_BASE64_MAX_CHARS,
     PLAYCANVAS_PROJECT_FILE_ROOT,
     MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS,
     normalizeMmoommRuntimeMetadata,
+    playCanvasProjectMetadataSchema,
+    playCanvasProjectParsedAttributesSchema,
+    playCanvasProjectPayloadSchema,
     playCanvasProjectSchema,
+    playCanvasProjectSettingsSchema,
     playCanvasProjectSnapshotSectionSchema,
     playCanvasRuntimeManifestSchema,
+    isPortablePlayCanvasRuntimeDataUrl,
+    isPortablePlayCanvasScriptDataUrl,
     isPlayCanvasAssetFileReference,
     isPlayCanvasGeneratedArtifactFileReference,
     isPlayCanvasImageFileReference,
@@ -33,6 +40,48 @@ const vlc = (content: string) => ({
 })
 
 describe('PlayCanvas project contracts', () => {
+    it('rejects oversized and deeply nested project JSON fields', () => {
+        const deep: Record<string, unknown> = {}
+        let cursor = deep
+        for (let index = 0; index < 25; index += 1) {
+            const child: Record<string, unknown> = {}
+            cursor.child = child
+            cursor = child
+        }
+
+        const oversized = { source: 'x'.repeat(4097) }
+        expect(playCanvasProjectMetadataSchema.safeParse({ deep }).success).toBe(false)
+        expect(playCanvasProjectSettingsSchema.safeParse({ deep }).success).toBe(false)
+        expect(playCanvasProjectPayloadSchema.safeParse({ deep }).success).toBe(false)
+        expect(playCanvasProjectParsedAttributesSchema.safeParse({ deep }).success).toBe(false)
+        expect(playCanvasProjectMetadataSchema.safeParse(oversized).success).toBe(false)
+        expect(playCanvasProjectSettingsSchema.safeParse(oversized).success).toBe(false)
+        expect(playCanvasProjectPayloadSchema.safeParse(oversized).success).toBe(false)
+        expect(playCanvasProjectParsedAttributesSchema.safeParse(oversized).success).toBe(false)
+    })
+
+    it('allows repeated references but rejects circular project JSON values', () => {
+        const shared = { opacity: 0.42 }
+        expect(
+            playCanvasProjectPayloadSchema.safeParse({
+                data: shared,
+                metadata: { data: shared }
+            }).success
+        ).toBe(true)
+
+        const circular: Record<string, unknown> = {}
+        circular.self = circular
+        expect(playCanvasProjectPayloadSchema.safeParse({ circular }).success).toBe(false)
+    })
+
+    it('rejects prototype-pollution keys at metadata boundaries', () => {
+        const unsafe = JSON.parse('{"__proto__":{"polluted":true}}') as Record<string, unknown>
+        expect(playCanvasProjectMetadataSchema.safeParse(unsafe).success).toBe(false)
+        expect(playCanvasProjectSettingsSchema.safeParse(unsafe).success).toBe(false)
+        expect(playCanvasProjectPayloadSchema.safeParse(unsafe).success).toBe(false)
+        expect(playCanvasProjectParsedAttributesSchema.safeParse(unsafe).success).toBe(false)
+    })
+
     it('validates a project envelope', () => {
         const parsed = playCanvasProjectSchema.parse({
             schemaVersion: '1',
@@ -81,6 +130,23 @@ describe('PlayCanvas project contracts', () => {
         expect(parsed.assets[0].type).toBe('scene')
     })
 
+    it('accepts only bounded base64 data URLs for portable runtime files', () => {
+        expect(isPortablePlayCanvasRuntimeDataUrl('data:application/json;base64,eyJzY2VuZSI6MX0=')).toBe(true)
+        expect(isPortablePlayCanvasRuntimeDataUrl('data:image/png;base64,AA==')).toBe(true)
+        expect(isPortablePlayCanvasRuntimeDataUrl('https://cdn.example.test/scene.json')).toBe(false)
+        expect(isPortablePlayCanvasRuntimeDataUrl('data:text/plain,scene')).toBe(false)
+        expect(isPortablePlayCanvasRuntimeDataUrl('data:application/json;base64,not-base64')).toBe(false)
+        expect(
+            isPortablePlayCanvasRuntimeDataUrl(`data:application/json;base64,${'A'.repeat(PLAYCANVAS_PROJECT_FILE_BASE64_MAX_CHARS + 1)}`)
+        ).toBe(false)
+    })
+
+    it('requires a JavaScript MIME for portable script artifacts', () => {
+        expect(isPortablePlayCanvasScriptDataUrl('data:text/javascript;base64,ZXhwb3J0IGNvbnN0IHg9MQ==')).toBe(true)
+        expect(isPortablePlayCanvasScriptDataUrl('data:application/javascript;base64,ZXhwb3J0IGNvbnN0IHg9MQ==')).toBe(false)
+        expect(isPortablePlayCanvasScriptDataUrl('data:application/json;base64,eyJ4IjoxfQ==')).toBe(false)
+    })
+
     it('normalizes MMOOMM visual lab runtime metadata and strips authoring-only fields', () => {
         const parsed = normalizeMmoommRuntimeMetadata({
             visualLab: {
@@ -112,6 +178,39 @@ describe('PlayCanvas project contracts', () => {
         expect(parsed?.visualLab?.objects[0].lowPolyBands).toBe(MMOOMM_VISUAL_LAB_MAX_LOW_POLY_BANDS)
         expect(parsed?.visualLab).not.toHaveProperty('internalEditorPath')
         expect(parsed?.visualLab?.objects[0]).not.toHaveProperty('storageRoot')
+    })
+
+    it('keeps the authored camera role in MMOOMM runtime scene metadata', () => {
+        const parsed = normalizeMmoommRuntimeMetadata({
+            scene: {
+                controlledObjectId: 'ship',
+                targetObjectId: 'station',
+                objects: [
+                    {
+                        id: 'ship',
+                        position: { x: 0, y: 0, z: 0 },
+                        scale: { x: 12, y: 4, z: 4 },
+                        selectable: true
+                    },
+                    {
+                        id: 'station',
+                        position: { x: 72, y: 0, z: -48 },
+                        scale: { x: 48, y: 16, z: 16 },
+                        selectable: true,
+                        guard: true
+                    },
+                    {
+                        id: 'camera',
+                        role: 'camera',
+                        position: { x: 0, y: 28, z: 48 },
+                        scale: { x: 1, y: 1, z: 1 },
+                        selectable: false
+                    }
+                ]
+            }
+        })
+
+        expect(parsed?.scene?.objects?.find((object) => object.id === 'camera')).toMatchObject({ role: 'camera' })
     })
 
     it('rejects unbounded MMOOMM visual lab geometry metadata', () => {
