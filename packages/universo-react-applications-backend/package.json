@@ -19,6 +19,11 @@
             "types": "./dist/platform/migrations/index.d.ts",
             "require": "./dist/platform/migrations/index.js",
             "default": "./dist/platform/migrations/index.js"
+        },
+        "./shared/playCanvasRuntimeManifest": {
+            "types": "./dist/shared/playCanvasRuntimeManifest.d.ts",
+            "require": "./dist/shared/playCanvasRuntimeManifest.js",
+            "default": "./dist/shared/playCanvasRuntimeManifest.js"
         }
     },
     "typesVersions": {
@@ -28,6 +33,9 @@
             ],
             "platform-migrations": [
                 "./dist/platform/migrations/index.d.ts"
+            ],
+            "shared/playCanvasRuntimeManifest": [
+                "./dist/shared/playCanvasRuntimeManifest.d.ts"
             ]
         }
     },

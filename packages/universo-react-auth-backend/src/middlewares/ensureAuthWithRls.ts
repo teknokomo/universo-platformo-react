@@ -103,14 +103,13 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 hasSession: !!authReq.session,
                 hasTokens: !!authReq.session?.tokens,
                 hasAccess: !!access,
-                userId: authReq.user?.id,
+                hasUserId: typeof authReq.user?.id === 'string' && authReq.user.id.length > 0,
                 path: req.path
             })
 
             if (!access) {
                 console.warn('[RLS] No access token found - blocking request', {
-                    path: req.path,
-                    userId: authReq.user?.id
+                    path: req.path
                 })
                 res.status(401).json({ error: 'Unauthorized: Missing access token' })
                 return
@@ -151,7 +150,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                         if (mode === 'commit') {
                             console.warn('[RLS] COMMIT failed, attempting ROLLBACK', {
                                 path: req.path,
-                                error: transactionError instanceof Error ? transactionError.message : String(transactionError)
+                                errorType: transactionError instanceof Error ? transactionError.name : typeof transactionError
                             })
                             try {
                                 await knex.raw('ROLLBACK').connection(connection)
@@ -165,7 +164,9 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                         logRlsDebug('[RLS] Releasing pinned connection', { path: req.path })
                         knex.client.releaseConnection(connection)
                     } catch (err) {
-                        console.error('[RLS] Error releasing connection:', err)
+                        console.error('[RLS] Error releasing connection', {
+                            errorType: err instanceof Error ? err.name : typeof err
+                        })
                     }
                     connection = null
                 }
@@ -174,7 +175,9 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
 
             const scheduleCleanup = (mode: 'commit' | 'rollback') => {
                 void cleanup(mode).catch((cleanupError) => {
-                    console.error('[RLS] Error during cleanup', cleanupError)
+                    console.error('[RLS] Error during cleanup', {
+                        errorType: cleanupError instanceof Error ? cleanupError.name : typeof cleanupError
+                    })
                 })
             }
 
@@ -238,7 +241,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                             path: req.path,
                             attempt,
                             retrying: shouldRetry,
-                            error: error instanceof Error ? error.message : String(error)
+                            errorType: error instanceof Error ? error.name : typeof error
                         })
 
                         if (connection) {
@@ -270,8 +273,7 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
                 setupInProgress = false
 
                 logRlsDebug('[RLS] ✅ Successfully applied RLS context', {
-                    path: req.path,
-                    userId: authReq.user?.id
+                    path: req.path
                 })
 
                 if (pendingCleanupMode) {
@@ -285,11 +287,9 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             } catch (error) {
                 setupInProgress = false
                 console.error('[RLS] ❌ Failed to apply RLS context', {
-                    error: error instanceof Error ? error.message : String(error),
-                    stack: error instanceof Error ? error.stack : undefined,
+                    errorType: error instanceof Error ? error.name : typeof error,
                     path: req.path,
-                    method: req.method,
-                    userId: authReq.user?.id
+                    method: req.method
                 })
                 // ROLLBACK before releasing — setup failed, no data to commit
                 if (connection) {

@@ -4,6 +4,18 @@ import Tokens from 'csrf'
 const tokens = new Tokens()
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const EDITOR_COMPATIBILITY_MUTATION_PATH =
+    /(?:^|\/)metahub\/[^/]+\/playcanvas\/editor-compatible\/projects\/[^/]+\/(?:assets(?:\/[^/]*)?|sourcefiles(?:\/[^/]*)?|settings\/[^/]+|scenes\/[^/]+|projects\/[^/]+\/repositories\/[^/]+\/sourcefiles(?:\/[^/]*)*)(?:\/[^/]*)?$/
+
+const isEditorCompatibilityMutation = (req: Request): boolean => {
+    // The compatibility route guard performs the cryptographic proof and
+    // token/origin checks. The global middleware may only defer a request when
+    // both transport credentials are present; a bare editor token must still
+    // fail the normal CSRF check before route dispatch.
+    if (SAFE_METHODS.has(req.method) || !req.get('x-playcanvas-editor-token') || !readToken(req)) return false
+    const path = (req.path || req.originalUrl || '').split('?')[0]
+    return EDITOR_COMPATIBILITY_MUTATION_PATH.test(path.replace(/^\/api\/v1/, ''))
+}
 
 /**
  * Read token from standard locations following the same precedence as csurf:
@@ -31,6 +43,17 @@ export function createCsrfProtection() {
         req.csrfToken = () => tokens.create(secret)
 
         if (SAFE_METHODS.has(req.method)) {
+            return next()
+        }
+
+        // Compatibility routes perform their own signed-token + CSRF-proof
+        // validation. The proof is intentionally stateless because a
+        // sandboxed cross-origin Editor frame cannot send the host session
+        // cookie. Keep the bypass narrowly scoped to the mutation routes and
+        // require both transport headers; the compatibility route guard then
+        // verifies the signed proof before allowing the mutation. All other
+        // API mutations retain the session-backed CSRF check below.
+        if (isEditorCompatibilityMutation(req)) {
             return next()
         }
 

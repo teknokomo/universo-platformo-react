@@ -1,12 +1,14 @@
 import { Router, type NextFunction, type Request, type RequestHandler, type Response } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import { z } from 'zod'
 import {
     createPlayCanvasEditorCompatibilityRoutes,
     resolveCompatibilityToken,
     resolvePlatformApiOrigin,
     resolveRequestOrigin,
     validateCompatibilityToken,
-    validateFullBootClaims
+    validateFullBootClaims,
+    parseCanonicalPlayCanvasEditorDocumentId
 } from '@universo-react/playcanvas-editor-backend'
 import type { PlayCanvasEditorCompatibilityContext } from '@universo-react/playcanvas-editor-backend'
 import type { DbExecutor } from '../../../utils'
@@ -23,6 +25,21 @@ import {
     resolveRequestOrigin as resolveMetahubRequestOrigin
 } from '../../packages/services/editorArtifactTokenService'
 
+const playCanvasRouteUuidSchema = z.string().uuid()
+
+const validatePlayCanvasUuidParams =
+    (parameterNames: readonly string[]): RequestHandler =>
+    (req, res, next) => {
+        const invalidParameter = parameterNames.find((parameterName) => {
+            const value = req.params[parameterName]
+            return value !== undefined && !playCanvasRouteUuidSchema.safeParse(value).success
+        })
+        if (invalidParameter) {
+            return res.status(400).json({ error: 'Invalid route parameter', parameter: invalidParameter })
+        }
+        return next()
+    }
+
 export function createPlayCanvasProjectsRoutes(
     ensureAuth: RequestHandler,
     getDbExecutor: () => DbExecutor,
@@ -34,6 +51,7 @@ export function createPlayCanvasProjectsRoutes(
 
     const createHandler = createMetahubHandlerFactory(getDbExecutor)
     const ctrl = createPlayCanvasProjectsController(createHandler)
+    const bridgeSessionService = new PlayCanvasEditorBridgeSessionService()
     const resolveEditorCompatibilityTokenUserId = (req: Request): string | null => {
         const token = resolveCompatibilityToken(req)
         const claims = token ? playCanvasEditorCompatibilityTokenService.read(token) : null
@@ -50,7 +68,7 @@ export function createPlayCanvasProjectsRoutes(
         const fullBootClaims = validateFullBootClaims(playCanvasEditorCompatibilityTokenService, token ?? '', {
             metahubId,
             projectId,
-            origin: resolveRequestOrigin(req) ?? resolvePlatformApiOrigin(req)
+            origin: resolveRequestOrigin(req) ?? resolvePlatformApiOrigin(req) ?? null
         })
         return fullBootClaims?.userId ?? null
     }
@@ -97,7 +115,6 @@ export function createPlayCanvasProjectsRoutes(
         // 12h absolute cap has not been reached; otherwise no artifactToken is
         // returned and the iframe falls back to its reload flow.
         issueRenewalArtifactToken: ({ req, metahubId, userId, tokenOrigin }) => {
-            const bridgeSessions = new PlayCanvasEditorBridgeSessionService()
             return (
                 renewEditorArtifactToken({
                     // The artifact-token binding is verified against the same
@@ -108,10 +125,12 @@ export function createPlayCanvasProjectsRoutes(
                     metahubId,
                     userId,
                     bridgeSessionId: typeof req.query?.bridgeSessionId === 'string' ? req.query.bridgeSessionId.trim() : '',
-                    isBridgeSessionAlive: (bridgeSessionId) => bridgeSessions.touch(bridgeSessionId)
+                    isBridgeSessionAlive: (bridgeSessionId) => bridgeSessionService.touch(bridgeSessionId)
                 })?.token ?? null
             )
         },
+        validateBridgeSession: ({ metahubId, projectId, sceneId, userId, sessionId, origin }) =>
+            bridgeSessionService.validate({ metahubId, projectId, sceneId, userId, sessionId, origin }),
         createProjectPort: (ctx) => {
             const requestContext = ctx as unknown as MetahubHandlerContext
             const service = new PlayCanvasProjectsService(requestContext.exec, requestContext.schemaService)
@@ -131,6 +150,21 @@ export function createPlayCanvasProjectsRoutes(
                     ),
                 listAssets: ({ metahubId, projectId, userId, sceneId }) =>
                     service.listEditorCompatibilityAssetSummaries(metahubId, projectId, userId, { sceneId }),
+                readAsset: ({ metahubId, projectId, userId, documentId, sceneId }) =>
+                    service.readEditorCompatibilityAsset(metahubId, projectId, documentId, userId, { sceneId }),
+                createAsset: ({ metahubId, projectId, userId, fields, file }) =>
+                    service.createEditorCompatibilityAsset(metahubId, projectId, fields, file, userId),
+                updateAsset: ({ metahubId, projectId, userId, documentId, fields }) =>
+                    service.updateEditorCompatibilityAsset(metahubId, projectId, documentId, fields, userId),
+                deleteAssets: ({ metahubId, projectId, userId, documentIds }) =>
+                    service.deleteEditorCompatibilityAssets(metahubId, projectId, documentIds, userId),
+                readAssetFile: ({ metahubId, projectId, userId, assetId }) =>
+                    (() => {
+                        const documentId = parseCanonicalPlayCanvasEditorDocumentId(assetId)
+                        return documentId === null
+                            ? Promise.resolve(null)
+                            : service.readEditorCompatibilityAssetFile(metahubId, projectId, documentId, userId)
+                    })(),
                 listSourceFiles: ({ metahubId, projectId, userId }) =>
                     service.listEditorCompatibilitySourceFiles(metahubId, projectId, userId),
                 readSourceFile: ({ metahubId, projectId, sourceFileId, userId }) =>
@@ -176,6 +210,17 @@ export function createPlayCanvasProjectsRoutes(
         }
     })
 
+    // Validate UUID-backed project records before any controller/store can
+    // bind a route value to PostgreSQL's uuid type. This keeps malformed
+    // public IDs a deterministic 400 instead of a database cast failure 500.
+    const projectsPath = '/metahub/:metahubId/playcanvas/projects'
+    router.use(`${projectsPath}/:projectId`, validatePlayCanvasUuidParams(['projectId']))
+    router.use(`${projectsPath}/:projectId/scenes/:sceneId`, validatePlayCanvasUuidParams(['projectId', 'sceneId']))
+    router.use(`${projectsPath}/:projectId/assets/:assetId`, validatePlayCanvasUuidParams(['projectId', 'assetId']))
+    router.use(`${projectsPath}/:projectId/script-assets/:scriptAssetId`, validatePlayCanvasUuidParams(['projectId', 'scriptAssetId']))
+    router.use(`${projectsPath}/:projectId/script-bindings/:bindingId`, validatePlayCanvasUuidParams(['projectId', 'bindingId']))
+    router.use(`${projectsPath}/:projectId/generated-artifacts/:artifactId`, validatePlayCanvasUuidParams(['projectId', 'artifactId']))
+
     router.use('/', compatibilityRoutes)
     router.use('/metahub/:metahubId/playcanvas', ensureAuth)
     router.post('/metahub/:metahubId/playcanvas/editor-bridge/commands', writeLimiter, asyncHandler(ctrl.editorBridgeCommand))
@@ -193,6 +238,7 @@ export function createPlayCanvasProjectsRoutes(
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId/scenes/:sceneId', readLimiter, asyncHandler(ctrl.getScene))
     router.put('/metahub/:metahubId/playcanvas/projects/:projectId/scenes/:sceneId', writeLimiter, asyncHandler(ctrl.writeScene))
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId/assets', readLimiter, asyncHandler(ctrl.listAssets))
+    router.get('/metahub/:metahubId/playcanvas/projects/:projectId/script-assets', readLimiter, asyncHandler(ctrl.listScriptAssets))
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId/assets/:assetId', readLimiter, asyncHandler(ctrl.getAsset))
     router.put('/metahub/:metahubId/playcanvas/projects/:projectId/assets/:assetId', writeLimiter, asyncHandler(ctrl.writeAsset))
     router.get('/metahub/:metahubId/playcanvas/projects/:projectId/assets/:assetId/file', readLimiter, asyncHandler(ctrl.readFile))

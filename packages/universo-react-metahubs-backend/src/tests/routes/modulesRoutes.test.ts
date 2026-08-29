@@ -47,7 +47,14 @@ jest.mock('../../domains/modules/services/MetahubModulesService', () => ({
         getModuleById: (...args: unknown[]) => mockGetModuleById(...args),
         updateModule: (...args: unknown[]) => mockUpdateModule(...args),
         deleteModule: (...args: unknown[]) => mockDeleteModule(...args)
-    }))
+    })),
+    toPublicMetahubModuleRecord: (module: Record<string, unknown>) => {
+        if (!module.sourceStorage || typeof module.sourceStorage !== 'object') {
+            return module
+        }
+        const { absolutePath: _absolutePath, ...sourceStorage } = module.sourceStorage as Record<string, unknown>
+        return { ...module, sourceStorage }
+    }
 }))
 
 import { createModulesRoutes } from '../../domains/modules/routes/modulesRoutes'
@@ -162,6 +169,37 @@ describe('Modules Routes', () => {
             },
             'user-1'
         )
+    })
+
+    it('does not expose absolute source paths in module transport responses', async () => {
+        const unsafeRecord = createModuleRecord({
+            sourceStorage: {
+                mode: 'file',
+                path: 'modules/quiz-widget.ts',
+                absolutePath: '/srv/secrets/metahubs/metahub-1/modules/quiz-widget.ts',
+                checksum: 'source-checksum'
+            }
+        })
+        mockListModules.mockResolvedValueOnce([unsafeRecord])
+        mockCreateModule.mockResolvedValueOnce(unsafeRecord)
+        mockGetModuleById.mockResolvedValue(unsafeRecord)
+        mockUpdateModule.mockResolvedValueOnce(unsafeRecord)
+        const app = buildApp()
+
+        const listResponse = await request(app).get('/metahub/metahub-1/modules').expect(200)
+        const createResponse = await request(app)
+            .post('/metahub/metahub-1/modules')
+            .send({ codename: 'quiz-widget', name: 'Quiz widget', attachedToKind: 'metahub' })
+            .expect(201)
+        const getResponse = await request(app).get('/metahub/metahub-1/module/module-1').expect(200)
+        const updateResponse = await request(app).patch('/metahub/metahub-1/module/module-1').send({ isActive: false }).expect(200)
+
+        for (const responseBody of [listResponse.body.items[0], createResponse.body, getResponse.body, updateResponse.body]) {
+            expect(responseBody.sourceStorage).toEqual(
+                expect.objectContaining({ mode: 'file', path: 'modules/quiz-widget.ts', checksum: 'source-checksum' })
+            )
+            expect(responseBody.sourceStorage).not.toHaveProperty('absolutePath')
+        }
     })
 
     it('creates metahub-level modules with attachedToId normalized to null', async () => {
@@ -285,7 +323,10 @@ describe('Modules Routes', () => {
 
         await request(app).delete('/metahub/metahub-1/module/module-1').expect(204)
 
-        expect(mockDeleteModule).toHaveBeenCalledWith('metahub-1', 'module-1', 'user-1')
+        expect(mockDeleteModule).toHaveBeenCalledWith('metahub-1', 'module-1', 'user-1', {
+            expectedSourceChecksum: undefined,
+            expectedVersion: undefined
+        })
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 })

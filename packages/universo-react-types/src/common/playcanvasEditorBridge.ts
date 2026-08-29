@@ -84,6 +84,8 @@ export const playCanvasEditorBridgeSessionClaimsSchema = z
         projectId: persistedUuidSchema.nullable(),
         defaultSceneId: persistedUuidSchema.nullable().optional(),
         userId: z.string().min(1).max(256),
+        /** Browser-visible artifact origin bound to this bridge session. */
+        origin: z.string().url().max(2048).optional(),
         nonce: z.string().min(32).max(256),
         expiresAt: z.number().int().positive(),
         bridgeVersion: z.literal(PLAYCANVAS_EDITOR_BRIDGE_VERSION),

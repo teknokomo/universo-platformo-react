@@ -1,8 +1,10 @@
 import type { Request, Response } from 'express'
 import { qSchemaTable } from '@universo-react/database'
-import { playCanvasRuntimeManifestSchema } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelpers'
+import { computePlayCanvasRuntimeManifestChecksum, parseAndValidatePlayCanvasRuntimeManifest } from '../shared/playCanvasRuntimeManifest'
+
+export { computePlayCanvasRuntimeManifestChecksum }
 
 type PlayCanvasManifestRow = {
     source_project_id: string
@@ -48,15 +50,14 @@ export function createRuntimePlayCanvasController(getDbExecutor: () => DbExecuto
         )
 
         const manifests = rows.map((row) => {
-            const parsed = playCanvasRuntimeManifestSchema.safeParse(row.runtime_manifest)
-            if (!parsed.success) {
-                throw new Error(`Published PlayCanvas runtime manifest ${row.source_project_id} is invalid`)
-            }
+            const parsed = parseAndValidatePlayCanvasRuntimeManifest(row.runtime_manifest, {
+                sourceProjectId: row.source_project_id,
+                sourceSceneId: row.source_scene_id,
+                manifestChecksum: row.manifest_checksum
+            })
             return {
-                ...parsed.data,
-                checksum: row.manifest_checksum || parsed.data.checksum,
-                projectId: row.source_project_id || parsed.data.projectId,
-                sceneId: row.source_scene_id ?? parsed.data.sceneId ?? null
+                ...parsed,
+                sceneId: parsed.sceneId ?? null
             }
         })
 

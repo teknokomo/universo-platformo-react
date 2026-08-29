@@ -146,7 +146,11 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
         AUTH_EMAIL_CONFIRMATION_REQUIRED: target === 'e2e' ? 'false' : existingEnv.AUTH_EMAIL_CONFIRMATION_REQUIRED || 'false',
         AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: existingEnv.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || '60000',
         AUTH_LOGIN_RATE_LIMIT_MAX: target === 'e2e' ? '300' : existingEnv.AUTH_LOGIN_RATE_LIMIT_MAX || '100',
-        CORS_ORIGINS: target === 'e2e' ? existingEnv.CORS_ORIGINS || appOrigins : existingEnv.CORS_ORIGINS,
+        // A generated local profile must always authorize both loopback names
+        // used by the browser. Do not inherit hosted or wildcard origins from
+        // a base profile: that can either blank the local UI or weaken the
+        // credentialed local API boundary.
+        CORS_ORIGINS: appOrigins,
         APPLICATION_REALTIME_WS_ORIGINS:
             target === 'e2e' ? existingEnv.APPLICATION_REALTIME_WS_ORIGINS || appOrigins : existingEnv.APPLICATION_REALTIME_WS_ORIGINS,
         PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS: existingEnv.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS || appOrigins,

@@ -34,6 +34,7 @@ import {
     expectMmoommUnauthenticatedMatchmakeRejected,
     expectMmoommUnauthorizedRuntime
 } from '../../support/mmoommRuntimeProof'
+import { captureMmoommRuntimeParityTrace, expectMmoommRuntimeParityTrace } from '../../support/mmoommScriptAssetsProof'
 
 type LoggedInApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -127,7 +128,14 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
         page,
         runManifest
     }, testInfo) => {
-        test.setTimeout(600_000)
+        // This is a deliberately broad product proof: snapshot import, two
+        // fullscreen Editor sessions, publication/schema sync, role checks,
+        // locale checks, viewport matrices, and a two-client reconnect flow.
+        // The generated fixture contains 150 domain documents, so the
+        // database schema sync alone can take several minutes on the minimal
+        // local Supabase stack. Keep the timeout above the complete flow
+        // budget without weakening any individual assertion timeout.
+        test.setTimeout(900_000)
         const browserRegressionIssues = watchBrowserRegressionIssues(page)
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
@@ -176,6 +184,20 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
         )
         expect(importedAuthoringProject?.id).toEqual(expect.any(String))
         expect(importedVisualLabProject?.id).toEqual(expect.any(String))
+        const scriptAssetsResponse = await page.request.get(
+            `/api/v1/metahub/${imported.metahubId}/playcanvas/projects/${importedAuthoringProject?.id}/script-assets`
+        )
+        expect(scriptAssetsResponse.status()).toBe(200)
+        const scriptAssetsPayload = (await scriptAssetsResponse.json()) as {
+            items?: Array<{ scriptName?: string; scriptKind?: string; parseStatus?: string }>
+        }
+        expect(
+            scriptAssetsPayload.items?.every((item) => item.scriptKind === 'esm' && item.parseStatus === 'ready'),
+            'Imported MMOOMM script assets must be ready ESM assets'
+        ).toBe(true)
+        expect(scriptAssetsPayload.items?.map((item) => item.scriptName).sort()).toEqual(
+            ['flightControl', 'followCamera', 'remoteShips'].sort()
+        )
         await expectImportedMmoommSceneThroughFullscreenEditor(page, imported.metahubId, testInfo, {
             projectId: importedAuthoringProject?.id ?? undefined,
             label: 'Imported MMOOMM Authoring fullscreen PlayCanvas Editor'
@@ -277,16 +299,24 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
         )
         await expectMmoommRuntimeReady(page, applicationId, {
             label: 'MMOOMM app snapshot runtime widget',
-            checkViewportMatrix: true
+            checkViewportMatrix: true,
+            expectClientRuntimeModule: false
         })
         await expectMmoommVisualLinkupLabRuntimeReady(page, applicationId, {
             label: 'MMOOMM Visual Linkup Lab runtime widget',
             checkViewportMatrix: true
         })
         const primaryRuntime = await expectMmoommRuntimeReady(page, applicationId, {
-            label: 'MMOOMM app snapshot runtime widget after Visual Linkup Lab proof'
+            label: 'MMOOMM app snapshot runtime widget after Visual Linkup Lab proof',
+            expectClientRuntimeModule: false
         })
-        await expectMmoommSecondClientAndReconnect(
+        await expect(primaryRuntime.canvas).toHaveAttribute('data-scripts-loaded', 'true', { timeout: 60_000 })
+        const baselineTrace = await captureMmoommRuntimeParityTrace(page, primaryRuntime.canvas, {
+            samples: 8,
+            intervalMs: 100
+        })
+        expectMmoommRuntimeParityTrace(baselineTrace, 'MMOOMM published script-assets baseline')
+        const movementTrace = await expectMmoommSecondClientAndReconnect(
             browser,
             secondClientCredentials,
             page,
@@ -294,6 +324,10 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
             primaryRuntime.widget,
             applicationId
         )
+        await testInfo.attach('mmoomm-runtime-parity-trace.json', {
+            body: Buffer.from(JSON.stringify({ baseline: baselineTrace, movement: movementTrace }, null, 2)),
+            contentType: 'application/json'
+        })
         expect(browserRegressionIssues, `Imported MMOOMM browser regression issues: ${JSON.stringify(browserRegressionIssues)}`).toEqual([])
     })
 })

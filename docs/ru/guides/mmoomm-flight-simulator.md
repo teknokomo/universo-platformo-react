@@ -1,9 +1,10 @@
 # MMOOMM Flight Simulator
 
-Fixture MMOOMM flight simulator является продуктовой конфигурацией метахаба, а
-не новым MMOOMM-специфичным пакетом. Он создаётся Playwright-генератором
-`metahubs-mmoomm-flight-app-export`; результат записывается в
-`tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`.
+Симулятор полёта MMOOMM является продуктовой конфигурацией метахаба, а не
+новым MMOOMM-специфичным пакетом. Канонический fixture создаётся через
+браузерный hosted PlayCanvas Editor flow генератором
+`metahubs-mmoomm-app-export`; закоммиченный результат находится в
+`tools/fixtures/metahubs-mmoomm-app-snapshot.json`.
 
 ![Рантайм Space в симуляторе полёта MMOOMM](../.gitbook/assets/mmoomm-flight/runtime-space.png)
 
@@ -13,7 +14,7 @@ Fixture MMOOMM flight simulator является продуктовой конф
 canvas-виджет представлены через Objects, Modules и generic widget
 `playcanvasCanvas` в layout приложения.
 
-После импорта snapshot опубликуйте метахаб как приложение и откройте runtime
+После импорта канонического snapshot опубликуйте метахаб как приложение и откройте runtime
 двумя аутентифицированными пользователями с правом редактирования контента.
 Оба пользователя подключаются к одной Colyseus-комнате опубликованного
 приложения. Сервер владеет позициями кораблей, выдаёт по одному стабильному кораблю

@@ -805,6 +805,49 @@ const resolveSharedLibraryDependencyOrder = (input: ModuleCompilationInput): str
     return ordered.filter((codename) => codename !== rootNode)
 }
 
+/**
+ * Performs the same deterministic dependency walk for standalone script
+ * assets. Script assets do not carry a ModuleCompilationInput role/codename,
+ * but they may still import metahub shared libraries. Esbuild can otherwise
+ * accept a circular ESM graph and leave the failure to runtime, which is too
+ * late for publication; reject the cycle while compiling instead.
+ */
+const resolveScriptAssetSharedLibraryDependencyOrder = (input: ScriptAssetEsmCompilationInput): string[] => {
+    const sharedLibrarySources = new Map<string, string>()
+    for (const [codename, library] of Object.entries(input.sharedLibraries ?? {})) {
+        sharedLibrarySources.set(codename, library.sourceCode)
+    }
+
+    const rootNode = '__script_asset__'
+    sharedLibrarySources.set(rootNode, input.sourceCode)
+    const visited = new Set<string>()
+    const visiting: string[] = []
+    const ordered: string[] = []
+
+    const visit = (codename: string): void => {
+        if (visited.has(codename)) return
+        const cycleStartIndex = visiting.indexOf(codename)
+        if (cycleStartIndex >= 0) {
+            const cycle = [...visiting.slice(cycleStartIndex), codename].filter((item) => item !== rootNode)
+            throw new Error(`Circular @shared imports detected: ${cycle.join(' -> ')}`)
+        }
+
+        const sourceCode = sharedLibrarySources.get(codename)
+        if (!sourceCode) {
+            throw new Error(`Shared library "${SHARED_LIBRARY_IMPORT_PREFIX}${codename}" not found in metahub`)
+        }
+
+        visiting.push(codename)
+        for (const dependency of extractSharedModuleImports(sourceCode)) visit(dependency)
+        visiting.pop()
+        visited.add(codename)
+        ordered.push(codename)
+    }
+
+    visit(rootNode)
+    return ordered.filter((codename) => codename !== rootNode)
+}
+
 const analyzeModuleSource = (input: ModuleCompilationInput): ModuleAnalysis => {
     const sdkApiVersion = resolveModuleSdkApiVersion({
         sdkApiVersion: input.sdkApiVersion ?? DEFAULT_MODULE_SDK_API_VERSION
@@ -1069,4 +1112,236 @@ export const compileModuleSource = async (input: ModuleCompilationInput): Promis
         clientBundle,
         checksum
     }
+}
+
+/**
+ * Published output of a PlayCanvas script-asset compilation.
+ *
+ * The artifact is an ES module that keeps the `playcanvas` specifier external
+ * for the document import map. Its checksum covers the exact emitted source
+ * returned in `code`, while `scriptNames` records the validated exported
+ * PlayCanvas script class name(s) for publication metadata.
+ */
+export interface CompiledScriptAssetEsm {
+    /** Self-contained browser ESM source, excluding the external PlayCanvas engine import. */
+    code: string
+    /** Lowercase hexadecimal SHA-256 checksum of {@link code}. */
+    checksum: string
+    /** Validated static `scriptName` values discovered in the source module. */
+    scriptNames: string[]
+}
+
+/** Source and optional shared-library inputs accepted by {@link compileScriptAssetEsm}. */
+export interface ScriptAssetEsmCompilationInput {
+    /** JavaScript or TypeScript source for one PlayCanvas script asset. */
+    sourceCode: string
+    /** Stable filename used for loader selection and diagnostics. */
+    diagnosticFileName?: string
+    /** Metahub shared libraries available through the allowlisted `@shared/` imports. */
+    sharedLibraries?: Record<string, ModuleCompilationLibraryInput>
+}
+
+const SCRIPT_ASSET_ISOLATED_RESOLVE_DIR = '/__universo_script_asset__'
+
+// Esbuild emits a source comment for stdin inputs. The parent-directory prefix
+// is derived from its temporary output location and therefore differs between
+// local and CI builds, even when the bundled module bytes are otherwise equal.
+// Keep the useful virtual source marker while removing that environment detail
+// before the artifact is hashed and persisted.
+const SCRIPT_ASSET_SOURCE_COMMENT_PATTERN = /^\/\/ (?:\.\.\/)*__universo_script_asset__\/([^\r\n]+)$/gm
+
+const canonicalizeScriptAssetSourceComments = (code: string): string =>
+    code.replace(SCRIPT_ASSET_SOURCE_COMMENT_PATTERN, '// __universo_script_asset__/$1')
+
+const hasModifier = (node: ts.Node, kind: ts.SyntaxKind): boolean =>
+    Boolean(ts.getModifiers(node)?.some((modifier) => modifier.kind === kind))
+
+const readPlayCanvasScriptBindings = (sourceFile: ts.SourceFile): { named: Set<string>; namespaces: Set<string> } => {
+    const named = new Set<string>(['Script'])
+    const namespaces = new Set<string>()
+    for (const statement of sourceFile.statements) {
+        if (!ts.isImportDeclaration(statement) || statement.moduleSpecifier.getText(sourceFile).slice(1, -1) !== 'playcanvas') continue
+        const clause = statement.importClause
+        if (!clause) continue
+        if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) {
+            namespaces.add(clause.namedBindings.name.text)
+        }
+        if (!clause.namedBindings || !ts.isNamedImports(clause.namedBindings)) continue
+        for (const element of clause.namedBindings.elements) {
+            const importedName = element.propertyName?.text ?? element.name.text
+            if (importedName === 'Script') named.add(element.name.text)
+        }
+    }
+    return { named, namespaces }
+}
+
+const extendsPlayCanvasScript = (node: ts.ClassDeclaration, bindings: { named: Set<string>; namespaces: Set<string> }): boolean => {
+    const heritage = node.heritageClauses?.find((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword)
+    const expression = heritage?.types[0]?.expression
+    if (!expression) return false
+    if (ts.isIdentifier(expression)) return bindings.named.has(expression.text)
+    return ts.isPropertyAccessExpression(expression) && expression.name.text === 'Script' && ts.isIdentifier(expression.expression)
+        ? bindings.namespaces.has(expression.expression.text)
+        : false
+}
+
+const readStaticScriptName = (node: ts.ClassDeclaration): string | null => {
+    const properties = node.members.filter(
+        (member): member is ts.PropertyDeclaration =>
+            ts.isPropertyDeclaration(member) &&
+            hasModifier(member, ts.SyntaxKind.StaticKeyword) &&
+            ts.isIdentifier(member.name) &&
+            member.name.text === 'scriptName'
+    )
+    if (properties.length !== 1) return null
+    const initializer = properties[0].initializer
+    if (!initializer || (!ts.isStringLiteral(initializer) && !ts.isNoSubstitutionTemplateLiteral(initializer))) return null
+    const scriptName = initializer.text.trim()
+    return /^[A-Za-z_$][\w$]*$/.test(scriptName) ? scriptName : null
+}
+
+const readExportedScriptClasses = (sourceFile: ts.SourceFile): ts.ClassDeclaration[] => {
+    const classes = new Map<string, ts.ClassDeclaration>()
+    const exported: ts.ClassDeclaration[] = []
+    for (const statement of sourceFile.statements) {
+        if (!ts.isClassDeclaration(statement)) continue
+        if (statement.name) classes.set(statement.name.text, statement)
+        if (hasModifier(statement, ts.SyntaxKind.ExportKeyword)) exported.push(statement)
+    }
+
+    for (const statement of sourceFile.statements) {
+        if (ts.isExportAssignment(statement) && !statement.isExportEquals && ts.isIdentifier(statement.expression)) {
+            const declaration = classes.get(statement.expression.text)
+            if (declaration) exported.push(declaration)
+            continue
+        }
+        if (!ts.isExportDeclaration(statement) || !statement.exportClause || !ts.isNamedExports(statement.exportClause)) continue
+        if (statement.moduleSpecifier) continue
+        for (const element of statement.exportClause.elements) {
+            const declaration = classes.get(element.propertyName?.text ?? element.name.text)
+            if (declaration) exported.push(declaration)
+        }
+    }
+
+    return [...new Set(exported)]
+}
+
+const validateScriptAssetSource = (sourceCode: string, sourceFileName: string): string[] => {
+    const sourceFile = ts.createSourceFile(sourceFileName, sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+    const exportedClasses = readExportedScriptClasses(sourceFile)
+    if (exportedClasses.length !== 1) {
+        throw new Error('PlayCanvas script assets must export exactly one class')
+    }
+
+    const bindings = readPlayCanvasScriptBindings(sourceFile)
+    const [scriptClass] = exportedClasses
+    if (!extendsPlayCanvasScript(scriptClass, bindings)) {
+        throw new Error('The exported PlayCanvas script class must extend Script from "playcanvas"')
+    }
+    const scriptName = readStaticScriptName(scriptClass)
+    if (!scriptName) {
+        throw new Error('The exported PlayCanvas script class must declare one valid static scriptName')
+    }
+    return [scriptName]
+}
+
+/**
+ * Bare-specifier policy for PlayCanvas script assets: the engine module resolves
+ * through the runtime import map, shared metahub libraries inline at build time,
+ * everything else fails closed. Relative imports are impossible by construction
+ * (stdin entry has no sibling files).
+ */
+const createScriptAssetExternalPlugin = (): Plugin => ({
+    name: 'universo-script-asset-externals',
+    setup(buildApi) {
+        buildApi.onResolve({ filter: /^playcanvas$/ }, (args) => ({ path: args.path, external: true }))
+        // Shared-library module sources may carry the SDK marker base class
+        // (`SharedLibraryModule`) so they can be validated and published as
+        // regular metahub modules. When such a library is inlined into a
+        // PlayCanvas script asset, the marker has no runtime meaning and must
+        // not leak an `@universo-react/extension-sdk` import into the browser
+        // blob. Resolve that import to a side-effect-free virtual stub only
+        // from the shared-library namespace; root script imports remain
+        // fail-closed below.
+        buildApi.onResolve({ filter: /^@universo-react\/extension-sdk$/ }, (args) => {
+            if (args.namespace === 'universo-shared-library') {
+                return {
+                    path: args.path,
+                    namespace: 'universo-script-asset-shared-sdk'
+                }
+            }
+
+            throw new Error(
+                `Unsupported import in PlayCanvas script asset: "${args.path}". Only "playcanvas" and "@shared/<codename>" imports are allowed.`
+            )
+        })
+        buildApi.onLoad({ filter: /^@universo-react\/extension-sdk$/, namespace: 'universo-script-asset-shared-sdk' }, () => ({
+            contents: 'export class SharedLibraryModule {}',
+            loader: 'js'
+        }))
+        buildApi.onResolve({ filter: /^[^./]/ }, (args) => {
+            throw new Error(
+                `Unsupported import in PlayCanvas script asset: "${args.path}". Only "playcanvas" and "@shared/<codename>" imports are allowed.`
+            )
+        })
+        buildApi.onResolve({ filter: /^(?:\.\.?\/|\/|[A-Za-z]:[\\/])/ }, (args) => {
+            throw new Error(
+                `Unsupported import in PlayCanvas script asset: "${args.path}". Relative and absolute imports are not allowed; only "playcanvas" and "@shared/<codename>" imports are allowed.`
+            )
+        })
+    }
+})
+
+/**
+ * Compiles a PlayCanvas ESM script asset (`.mjs`, `class ... extends Script`)
+ * into a self-contained ESM artifact. Unlike {@link compileModuleSource} the
+ * output keeps ES module semantics (the runtime imports it through a blob URL)
+ * and the `playcanvas` bare import stays external for the document import map.
+ */
+export const compileScriptAssetEsm = async (input: ScriptAssetEsmCompilationInput): Promise<CompiledScriptAssetEsm> => {
+    const sourceFileName = input.diagnosticFileName ?? 'script-asset.mjs'
+    resolveScriptAssetSharedLibraryDependencyOrder(input)
+    const result = await build({
+        stdin: {
+            contents: input.sourceCode,
+            sourcefile: sourceFileName,
+            loader: resolveEsbuildLoader(sourceFileName),
+            // The compiler accepts source text only. Keep esbuild away from the
+            // repository filesystem even if a future resolver/plugin regresses
+            // the explicit relative/absolute import rejection above.
+            resolveDir: SCRIPT_ASSET_ISOLATED_RESOLVE_DIR
+        },
+        write: false,
+        bundle: true,
+        platform: 'browser',
+        format: 'esm',
+        target: 'es2022',
+        logLevel: 'silent',
+        nodePaths: MODULE_RESOLVE_PATHS,
+        plugins: [createSharedLibraryPlugin(input.sharedLibraries), createScriptAssetExternalPlugin()],
+        tsconfigRaw: {
+            compilerOptions: {
+                experimentalDecorators: true,
+                useDefineForClassFields: false
+            }
+        }
+    })
+
+    const output = result.outputFiles?.[0]?.text
+
+    if (!output) {
+        throw new Error('esbuild did not return a bundled script asset output file')
+    }
+
+    const code = canonicalizeScriptAssetSourceComments(output)
+
+    parse(code, {
+        ecmaVersion: 'latest',
+        sourceType: 'module'
+    })
+
+    const scriptNames = validateScriptAssetSource(input.sourceCode, sourceFileName)
+    const checksum = createHash('sha256').update(code).digest('hex')
+
+    return { code, checksum, scriptNames }
 }

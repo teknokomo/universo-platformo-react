@@ -675,6 +675,16 @@ export async function listPlayCanvasProjects(api, metahubId) {
     return response.json()
 }
 
+export async function createPlayCanvasProject(api, metahubId, payload) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/playcanvas/projects`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Creating PlayCanvas project for metahub ${metahubId}`)
+    }
+
+    const body = await response.json()
+    return body?.item ?? body
+}
+
 export async function publishPlayCanvasProject(api, metahubId, projectId) {
     const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/playcanvas/projects/${projectId}/publish`, {})
     if (!response.ok) {

@@ -228,6 +228,9 @@ describe('Packages Routes', () => {
         expect(artifactUrl.pathname).toMatch(
             /^\/api\/v1\/metahub\/metahub-1\/packages\/playcanvas-editor\/editor-artifact-token\/[^/]+\/index\.html$/
         )
+        // A package without a selected project still receives a bearer
+        // artifact URL, so the descriptor must not be cacheable across users.
+        expect(response.headers['cache-control']).toBe('no-store')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockAccess).toHaveBeenCalledTimes(3)
     })
@@ -727,12 +730,19 @@ describe('Packages Routes', () => {
 
     it('rejects traversal and symlink escapes for editor artifact files', async () => {
         await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/%2e%2e/secret.txt').expect(400)
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/..%5csecret.txt').expect(400)
 
         mockRealpath.mockImplementation(async (filePath: string) =>
             filePath.endsWith('/leak.js') ? '/tmp/playcanvas-editor-leak.js' : filePath
         )
 
-        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/leak.js').expect(404)
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/js/leak.js').expect(404)
+    })
+
+    it('serves worker TypeScript declarations without exposing arbitrary artifact files', async () => {
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/types/libs.d.ts').expect(200)
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/types/package.json').expect(404)
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/package.json').expect(404)
     })
 
     it('requires the manifest and requested artifact file before serving an editor artifact', async () => {

@@ -27,25 +27,6 @@ export const readRequestJson = (response: Response): Record<string, unknown> | n
     }
 }
 
-export const widgetModuleSource = `
-import { ExtensionModule, AtClient } from '@universo-react/extension-sdk'
-import { createMoveToPointIntent, createStopIntent } from '@universo-react/colyseus-client'
-import { createAabbFromCenterAndSize } from '@universo-react/playcanvas-engine'
-
-export default class MmoommPlayCanvasRuntimeWidget extends ExtensionModule {
-    @AtClient()
-    async mount(params) {
-        const scene = params && typeof params === 'object' && params.scene ? params.scene : null
-        return {
-            scene,
-            moveToPoint: createMoveToPointIntent({ x: 72, y: 0, z: -48 }, 1),
-            stop: createStopIntent(2),
-            stationBounds: createAabbFromCenterAndSize({ x: 72, y: 0, z: -48 }, { x: 48, y: 16, z: 16 })
-        }
-    }
-}
-`.trim()
-
 export const serverModuleSource = `
 import { ExtensionModule, AtServer } from '@universo-react/extension-sdk'
 

@@ -76,6 +76,58 @@ describe('createCsrfProtection', () => {
         expect(err.status).toBe(403)
     })
 
+    it('rejects signed PlayCanvas Editor asset mutations without a CSRF proof', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/project-1/assets',
+            originalUrl: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/project-1/assets',
+            headers: { 'x-playcanvas-editor-token': 'signed-editor-token' }
+        } as Partial<Request>)
+        const next = jest.fn()
+
+        middleware(req, createMockResponse(), next)
+
+        expect(next).toHaveBeenCalledTimes(1)
+        const err = next.mock.calls[0][0] as Error & { code?: string; status?: number }
+        expect(err.code).toBe('EBADCSRFTOKEN')
+        expect(err.status).toBe(403)
+    })
+
+    it('defers signed PlayCanvas Editor asset mutations with a CSRF proof to the compatibility write guard', () => {
+        const req = createMockRequest({
+            method: 'POST',
+            path: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/project-1/assets',
+            originalUrl: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/project-1/assets',
+            headers: {
+                'x-playcanvas-editor-token': 'signed-editor-token',
+                'x-csrf-token': 'compatibility-csrf-proof'
+            }
+        } as Partial<Request>)
+        const next = jest.fn()
+
+        middleware(req, createMockResponse(), next)
+
+        expect(next).toHaveBeenCalledWith()
+    })
+
+    it('defers upstream repository sourcefile mutations with a CSRF proof to the compatibility write guard', () => {
+        const req = createMockRequest({
+            method: 'DELETE',
+            path: '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/project-1/projects/project-1/repositories/directory/sourcefiles/main.mjs',
+            originalUrl:
+                '/api/v1/metahub/metahub-1/playcanvas/editor-compatible/projects/project-1/projects/project-1/repositories/directory/sourcefiles/main.mjs',
+            headers: {
+                'x-playcanvas-editor-token': 'signed-editor-token',
+                'x-csrf-token': 'compatibility-csrf-proof'
+            }
+        } as Partial<Request>)
+        const next = jest.fn()
+
+        middleware(req, createMockResponse(), next)
+
+        expect(next).toHaveBeenCalledWith()
+    })
+
     it('rejects POST with an invalid token', () => {
         const req = createMockRequest({ method: 'POST' } as Partial<Request>)
         const next = jest.fn()

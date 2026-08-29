@@ -74,7 +74,7 @@ import { MetahubComponentsService } from '../services/MetahubComponentsService'
 import { MetahubRecordsService } from '../services/MetahubRecordsService'
 import { MetahubOptionValuesService } from '../services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService'
-import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
+import { MetahubModulesService, toPublicMetahubModuleRecord } from '../../modules/services/MetahubModulesService'
 import { ModuleSourceFileService } from '../../modules/services/ModuleSourceFileService'
 import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
 import { PlayCanvasProjectFileService } from '../../playcanvas-projects/services/PlayCanvasProjectFileService'
@@ -650,7 +650,9 @@ const rollbackCopiedPlayCanvasProjectFiles = async (
                 continue
             }
             if (backup.previousContent === null) {
-                await fileService.delete(scope, backup.sourcePath)
+                await fileService.delete(scope, backup.sourcePath, {
+                    expectedCurrentChecksum: backup.writtenChecksum
+                })
             } else {
                 await fileService.write(scope, backup.sourcePath, backup.previousContent, {
                     expectedCurrentChecksum: backup.writtenChecksum,
@@ -1490,10 +1492,15 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     )
                     for (const sourceMember of sourceMembers) {
                         if (sourceMember.userId === userId) continue
+                        // A copied metahub already has a new owner (the copier).
+                        // Preserve every other membership role, but demote the
+                        // source owner so a copy cannot create multiple owners
+                        // with independent manage-membership privileges.
+                        const copiedRole = sourceMember.role === 'owner' ? 'admin' : sourceMember.role
                         await addMetahubMember(tx, {
                             metahubId: copiedMetahub.id,
                             userId: sourceMember.userId,
-                            role: sourceMember.role,
+                            role: copiedRole,
                             comment: sourceMember.comment as VersionedLocalizedContent<string> | null,
                             activeBranchId: sourceMember.activeBranchId ? branchIdMap.get(sourceMember.activeBranchId) ?? null : null,
                             createdBy: userId
@@ -2464,7 +2471,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
         const exportedModules = Array.isArray(snapshot.modules) ? snapshot.modules : []
         const liveModules = exportedModules.length > 0 ? await modulesService.listModules(metahubId, { onlyActive: true }, userId) : []
-        const liveModuleById = new Map(liveModules.filter((module) => module.isActive).map((module) => [module.id, module]))
+        const liveModuleById = new Map(
+            liveModules.filter((module) => module.isActive).map((module) => [module.id, toPublicMetahubModuleRecord(module)])
+        )
         const exportSnapshot = {
             ...snapshot,
             modules:

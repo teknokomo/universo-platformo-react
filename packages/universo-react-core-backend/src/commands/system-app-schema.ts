@@ -7,7 +7,7 @@ import {
 } from '@universo-react/migrations-platform'
 import { destroyKnex, initKnex, getKnex } from '@universo-react/database'
 import logger from '../utils/logger'
-import { BaseCommand } from './base'
+import { BaseCommand } from './baseCommand'
 
 export default class SystemAppSchema extends BaseCommand {
     static description = 'Plan or apply registered fixed system-app schema generation waves'

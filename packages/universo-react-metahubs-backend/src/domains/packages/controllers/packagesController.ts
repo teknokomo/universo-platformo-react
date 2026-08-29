@@ -79,6 +79,7 @@ const contentTypesByExtension = new Map<string, string>([
     ['.html', 'text/html; charset=utf-8'],
     ['.js', 'application/javascript; charset=utf-8'],
     ['.mjs', 'application/javascript; charset=utf-8'],
+    ['.d.ts', 'text/plain; charset=utf-8'],
     ['.css', 'text/css; charset=utf-8'],
     ['.json', 'application/json; charset=utf-8'],
     ['.map', 'application/json; charset=utf-8'],
@@ -94,6 +95,13 @@ const contentTypesByExtension = new Map<string, string>([
     ['.woff', 'font/woff'],
     ['.woff2', 'font/woff2']
 ])
+
+// The artifact root is a dedicated, generated PlayCanvas Editor distribution.
+// Keep the token route restricted to its published asset tree and known root
+// entrypoints; an arbitrary file that happens to be placed next to the build
+// must never become readable through a bearer URL.
+const allowedArtifactDirectories = new Set(['assets', 'css', 'js', 'json', 'static', 'types', 'wasm'])
+const allowedArtifactRootFiles = new Set(['index.html', 'universo-artifact-manifest.json', 'universo-bridge-bootstrap.js'])
 
 type PlayCanvasEditorAttachment = MetahubPackageAttachment & {
     authoringSurface: PlayCanvasEditorAuthoringSurfaceDescriptor
@@ -194,9 +202,26 @@ const resolveWebSocketOrigin = (origin: string): string | null => {
 }
 
 const resolveArtifactPath = (relativePath: string): string => {
-    const normalized = relativePath.replace(/^\/+/, '') || 'index.html'
+    const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '') || 'index.html'
     if (normalized.includes('\0')) {
         throw new MetahubValidationError('Invalid package artifact path')
+    }
+    if (normalized.split('/').some((segment) => segment === '..')) {
+        throw new MetahubValidationError('Invalid package artifact path')
+    }
+
+    const pathSegments = normalized.split('/')
+    const isAllowedRootFile = pathSegments.length === 1 && allowedArtifactRootFiles.has(normalized)
+    const isAllowedArtifactDirectory = pathSegments.length > 1 && allowedArtifactDirectories.has(pathSegments[0] ?? '')
+    const extension = normalized.toLowerCase().endsWith('.d.ts') ? '.d.ts' : path.extname(normalized).toLowerCase()
+    const isAllowedTypeDeclaration = pathSegments[0] === 'types' && extension === '.d.ts'
+    if (
+        !isAllowedRootFile &&
+        (!isAllowedArtifactDirectory ||
+            (!isAllowedTypeDeclaration && pathSegments[0] === 'types') ||
+            !contentTypesByExtension.has(extension))
+    ) {
+        throw new MetahubNotFoundError('Package artifact')
     }
 
     const resolved = path.resolve(artifactRoot, normalized)
@@ -383,7 +408,8 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                           projectId: selectedProject.id,
                           defaultSceneId: selectedProject.defaultSceneId ?? null,
                           userId,
-                          capabilities: bridgeCapabilities
+                          capabilities: bridgeCapabilities,
+                          origin: artifactPublicOrigin.artifactOrigin
                       })
                     : null
             // Sliding session-bound artifact token: the first mint records the
@@ -470,7 +496,11 @@ export function createPackagesController(createHandler: ReturnType<typeof create
                     : null
             }
 
-            if (bridgeSession) {
+            // The descriptor contains a bearer token in the artifact URL even
+            // when no project was selected and therefore no bridge session was
+            // created. Never allow an authenticated user's tokenized URL to be
+            // stored by a browser or an intermediary cache.
+            if (bridgeSession || mintedArtifactToken) {
                 res.setHeader('Cache-Control', 'no-store')
             }
             return res.json(descriptor)

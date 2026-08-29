@@ -2,9 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import PlayCanvasCanvasWidget from '../PlayCanvasCanvasWidget'
+import { Script } from '@universo-react/playcanvas-engine'
+import { computeScriptArtifactDigest } from '../playcanvasScriptAssets'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
 import enApps from '../../../i18n/locales/en/apps.json'
 import ruApps from '../../../i18n/locales/ru/apps.json'
+
+const scriptArtifactUrl = 'data:text/javascript;base64,AA=='
 
 const playcanvasMocks = vi.hoisted(() => ({
     createBasicApplication: vi.fn(),
@@ -182,7 +186,13 @@ vi.mock('@universo-react/playcanvas-engine', () => {
                     },
                     worldToScreen: () => new Vec3(1, 1, 0)
                 }
+            } else if (kind === 'script') {
+                this.script = {
+                    create: vi.fn(() => ({}))
+                }
+                return this.script
             }
+            return undefined
         }
 
         setEulerAngles() {
@@ -235,6 +245,21 @@ vi.mock('@universo-react/playcanvas-engine', () => {
         }
     }
 
+    class Script {
+        app: unknown
+        entity: unknown
+
+        constructor(args?: { app?: unknown; entity?: unknown }) {
+            if (args) {
+                this.app = args.app
+                this.entity = args.entity
+            }
+        }
+
+        initialize?(): void
+        update?(dt: number): void
+    }
+
     playcanvasMocks.createBasicApplication.mockImplementation((options: { canvas: HTMLCanvasElement; applicationId?: string }) => {
         const { canvas, applicationId } = options
         if (applicationId) {
@@ -244,6 +269,8 @@ vi.mock('@universo-react/playcanvas-engine', () => {
             app: {
                 scene: {},
                 root: { addChild: vi.fn() },
+                graphicsDevice: { canvas },
+                scripts: { add: vi.fn(() => true) },
                 on: vi.fn((eventName: string, handler: (dt: number) => void) => {
                     if (eventName === 'update') {
                         playcanvasMocks.updateHandler = handler
@@ -286,6 +313,7 @@ vi.mock('@universo-react/playcanvas-engine', () => {
         Color,
         Entity,
         Quat,
+        Script,
         Vec3,
         createBasicApplication: playcanvasMocks.createBasicApplication,
         createBoxEntity: playcanvasMocks.createBoxEntity,
@@ -350,17 +378,6 @@ const createQueryClient = () =>
         }
     })
 
-const normalize3d = (value: { x: number; y: number; z: number }) => {
-    const length = Math.hypot(value.x, value.y, value.z)
-    return length > 0.000001 ? { x: value.x / length, y: value.y / length, z: value.z / length } : { x: 1, y: 0, z: 0 }
-}
-
-const dot3d = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) => {
-    const left = normalize3d(a)
-    const right = normalize3d(b)
-    return left.x * right.x + left.y * right.y + left.z * right.z
-}
-
 const renderWidget = (
     config: Record<string, unknown> = {},
     detailsOverrides: Record<string, unknown> = {},
@@ -386,7 +403,7 @@ const renderWidget = (
                 <PlayCanvasCanvasWidget
                     config={{
                         attachedToKind: 'metahub',
-                        moduleCodename: 'flight-canvas-widget',
+                        moduleCodename: 'mmoomm-flight-widget',
                         ...config
                     }}
                     {...componentProps}
@@ -407,7 +424,7 @@ const stubAvailableRuntimeModuleFetch = () =>
                         items: [
                             {
                                 id: 'module-1',
-                                codename: 'flight-canvas-widget',
+                                codename: 'mmoomm-flight-widget',
                                 attachedToKind: 'metahub',
                                 attachedToId: null,
                                 moduleRole: 'widget',
@@ -434,6 +451,7 @@ describe('PlayCanvasCanvasWidget', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.stubGlobal('__playCanvasTestScriptBase', Script)
         webGLFlags.webgl2Available = true
         getContextSpy = vi
             .spyOn(HTMLCanvasElement.prototype, 'getContext')
@@ -574,6 +592,20 @@ describe('PlayCanvasCanvasWidget', () => {
         }
     })
 
+    it('keeps Visual Linkup Lab family labels localized while preserving family slugs only as testable data', () => {
+        const familyKeys = ['softWhiteLinkup', 'typeGlow', 'lowPolyRetrowave', 'channelDegradation', 'unknown'] as const
+        const enFamilies = enApps.playcanvasCanvas.visualLab.families
+        const ruFamilies = ruApps.playcanvasCanvas.visualLab.families
+
+        for (const key of familyKeys) {
+            expect(enFamilies[key], `English Visual Lab family key ${key}`).toEqual(expect.any(String))
+            expect(ruFamilies[key], `Russian Visual Lab family key ${key}`).toEqual(expect.any(String))
+            expect(ruFamilies[key], `Russian Visual Lab family key ${key} must be localized`).not.toBe(enFamilies[key])
+            expect(enFamilies[key], `English Visual Lab family key ${key} must not expose the family slug`).not.toBe(key)
+            expect(ruFamilies[key], `Russian Visual Lab family key ${key} must not expose the family slug`).not.toBe(key)
+        }
+    })
+
     it('fails closed when the configured runtime module is unavailable', async () => {
         vi.stubGlobal(
             'fetch',
@@ -603,7 +635,7 @@ describe('PlayCanvasCanvasWidget', () => {
                         items: [
                             {
                                 id: 'module-1',
-                                codename: 'flight-canvas-widget',
+                                codename: 'mmoomm-flight-widget',
                                 attachedToKind: 'metahub',
                                 attachedToId: null,
                                 moduleRole: 'widget',
@@ -634,7 +666,7 @@ describe('PlayCanvasCanvasWidget', () => {
             credentials: 'include'
         })
         expect(screen.getByTestId('playcanvas-canvas')).toHaveAttribute('data-runtime-module-executed', 'true')
-        expect(screen.getByTestId('playcanvas-canvas')).toHaveAttribute('data-runtime-module-codename', 'flight-canvas-widget')
+        expect(screen.getByTestId('playcanvas-canvas')).toHaveAttribute('data-runtime-module-codename', 'mmoomm-flight-widget')
     })
 
     it('uses a published PlayCanvas runtime manifest scene when the widget is bound to a manifest', async () => {
@@ -652,7 +684,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -667,7 +699,7 @@ describe('PlayCanvasCanvasWidget', () => {
                 if (url.endsWith('/runtime/modules/module-1/client')) {
                     return { ok: true, text: async () => 'module.exports = class FlightWidgetRuntime {}' } as Response
                 }
-                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                if (url.includes('/runtime/playcanvas-manifests')) {
                     return {
                         ok: true,
                         json: async () => ({
@@ -710,6 +742,9 @@ describe('PlayCanvasCanvasWidget', () => {
                 if (url.endsWith('/auth/csrf')) {
                     return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
                 }
+                if (url.endsWith('/auth/csrf')) {
+                    return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+                }
                 throw new Error(`Unexpected fetch request: ${url}`)
             })
         )
@@ -736,6 +771,209 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(entityNames).not.toContain('legacy-ship')
     })
 
+    it('waits for published script artifacts before starting the PlayCanvas app and exposes scriptsLoaded', async () => {
+        const checksum = 'a'.repeat(64)
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333344e1'
+        const scriptSource = `export class FlightControl extends globalThis.__playCanvasTestScriptBase { static scriptName = 'flightControl' }`
+        const scriptChecksum = await computeScriptArtifactDigest(new TextEncoder().encode(scriptSource).buffer)
+        let releaseArtifact: ((response: Response) => void) | null = null
+        const artifactResponse = new Promise<Response>((resolve) => {
+            releaseArtifact = resolve
+        })
+        vi.stubGlobal(
+            'URL',
+            Object.assign(URL, {
+                createObjectURL: vi.fn(() => `data:text/javascript,${encodeURIComponent(scriptSource)}`),
+                revokeObjectURL: vi.fn()
+            })
+        )
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/modules?attachedToKind=metahub')) {
+                    return { ok: true, json: async () => ({ items: [] }) } as Response
+                }
+                if (url.includes('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [
+                                        {
+                                            id: 'script-1',
+                                            scriptName: 'flightControl',
+                                            scriptKind: 'esm',
+                                            artifactUrl: scriptArtifactUrl,
+                                            artifactHash: scriptChecksum,
+                                            moduleId: null,
+                                            moduleCodename: null,
+                                            attributes: {},
+                                            attributeValues: {},
+                                            sceneEntityStableId: 'editor-ship'
+                                        }
+                                    ],
+                                    metadata: {
+                                        mmoomm: {
+                                            scene: {
+                                                controlledObjectId: 'editor-ship',
+                                                targetObjectId: 'editor-target',
+                                                objects: [
+                                                    {
+                                                        id: 'editor-ship',
+                                                        position: { x: 11, y: 2, z: 3 },
+                                                        scale: { x: 10, y: 4, z: 4 },
+                                                        selectable: true
+                                                    },
+                                                    {
+                                                        id: 'editor-target',
+                                                        position: { x: 70, y: 5, z: -10 },
+                                                        scale: { x: 20, y: 8, z: 8 },
+                                                        selectable: true,
+                                                        guard: true
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url === scriptArtifactUrl) {
+                    return artifactResponse
+                }
+                if (url.endsWith('/auth/csrf')) {
+                    return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        renderWidget({
+            moduleCodename: undefined,
+            runtimeManifest: { source: 'publishedManifest', projectId, sceneId, checksum, failClosed: true }
+        })
+
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+        const app = playcanvasMocks.createBasicApplication.mock.results[0]?.value as { app: { start: Mock } }
+        expect(app.app.start).not.toHaveBeenCalled()
+        expect(canvas).not.toHaveAttribute('data-scripts-loaded', 'true')
+
+        releaseArtifact?.({
+            ok: true,
+            arrayBuffer: async () => new TextEncoder().encode(scriptSource).buffer
+        } as Response)
+
+        await waitFor(() => expect(canvas).toHaveAttribute('data-scripts-loaded', 'true'))
+        expect(app.app.start).toHaveBeenCalledTimes(1)
+        expect((app.app as { scripts: { add: Mock } }).scripts.add).toHaveBeenCalledWith(expect.any(Function))
+        const controlledEntity = playcanvasMocks.createBoxEntity.mock.results[0]?.value as {
+            script?: { create: Mock }
+        }
+        expect(controlledEntity.script?.create).toHaveBeenCalledWith('flightControl', { attributes: {} })
+    })
+
+    it('fails closed and releases the app and room when a published script artifact cannot load', async () => {
+        const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
+        const sceneId = '018f8a78-7b8f-7c1d-8111-2222333344e1'
+        const checksum = 'b'.repeat(64)
+        const room = {
+            state: { ship: { position: { x: 0, y: 0, z: 0 } } },
+            reconnection: { enabled: false, minUptime: 1000, maxRetries: 3, minDelay: 1000, maxDelay: 5000 },
+            send: vi.fn(),
+            leave: vi.fn(),
+            onStateChange: vi.fn(),
+            onMessage: vi.fn((_type: string, handler: (payload: unknown) => void) => {
+                handler({ shipId: 'ship-local' })
+            }),
+            onDrop: vi.fn(),
+            onReconnect: vi.fn(),
+            onLeave: vi.fn()
+        }
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.endsWith('/runtime/playcanvas-manifests')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            manifests: [
+                                {
+                                    schemaVersion: '1',
+                                    projectId,
+                                    sceneId,
+                                    checksum,
+                                    assets: [],
+                                    scripts: [
+                                        {
+                                            id: 'script-1',
+                                            scriptName: 'flightControl',
+                                            scriptKind: 'esm',
+                                            artifactUrl: scriptArtifactUrl,
+                                            artifactHash: '0'.repeat(64),
+                                            moduleId: null,
+                                            moduleCodename: null,
+                                            attributes: {},
+                                            attributeValues: {},
+                                            sceneEntityStableId: 'controlled'
+                                        }
+                                    ],
+                                    metadata: {
+                                        mmoomm: {
+                                            scene: {
+                                                controlledObjectId: 'controlled',
+                                                objects: [
+                                                    {
+                                                        id: 'controlled',
+                                                        position: { x: 0, y: 0, z: 0 },
+                                                        scale: { x: 12, y: 4, z: 4 },
+                                                        selectable: true
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url === scriptArtifactUrl) {
+                    return { ok: false, status: 404 } as Response
+                }
+                if (url.endsWith('/auth/csrf')) {
+                    return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+        colyseusMocks.joinOrCreate.mockResolvedValueOnce(room)
+
+        renderWidget({
+            moduleCodename: undefined,
+            runtimeManifest: { source: 'publishedManifest', projectId, sceneId, checksum, failClosed: true }
+        })
+
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(canvas).toHaveAttribute('data-scripts-loaded', 'failed'))
+        const application = playcanvasMocks.createBasicApplication.mock.results[0]?.value as { app: { start: Mock }; destroy: Mock }
+        expect(application.app.start).not.toHaveBeenCalled()
+        expect(application.destroy).toHaveBeenCalledTimes(1)
+        expect(room.leave).toHaveBeenCalledWith(true)
+        expect(screen.getByText('Published script assets failed to load (flightControl)')).toBeInTheDocument()
+    })
+
     it('does not reuse stale controlled object ids when the published manifest scene omits them', async () => {
         const checksum = 'a'.repeat(64)
         const projectId = '018f8a78-7b8f-7c1d-8111-2222333344e0'
@@ -751,7 +989,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -849,7 +1087,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -949,7 +1187,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -999,7 +1237,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -1063,7 +1301,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -1220,7 +1458,9 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(screen.getByTestId('playcanvas-visual-lab-legend')).toBeVisible()
         expect(screen.getByRole('button', { name: /1\. White Link Halo/ })).toHaveAttribute('aria-pressed', 'true')
         const lowPolyVariantButton = screen.getByRole('button', { name: /2\. Lowpoly Radar/ })
-        expect(lowPolyVariantButton).toHaveTextContent('lowPolyRetrowave')
+        expect(lowPolyVariantButton).toHaveAttribute('data-visual-lab-family', 'lowPolyRetrowave')
+        expect(lowPolyVariantButton).toHaveTextContent('Low-poly retrowave')
+        expect(lowPolyVariantButton).not.toHaveTextContent('lowPolyRetrowave')
         expect(screen.queryByTestId('playcanvas-realtime-status')).not.toBeInTheDocument()
         const primitiveNames = playcanvasMocks.createPrimitiveEntity.mock.calls.map(([input]) => (input as { name: string }).name)
         expect(primitiveNames).toEqual([
@@ -1241,7 +1481,9 @@ describe('PlayCanvasCanvasWidget', () => {
             lowPolyVariantButton.click()
         })
         await waitFor(() =>
-            expect(screen.getByTestId('playcanvas-visual-lab-selected')).toHaveTextContent('Selected: 2. Lowpoly Radar · lowPolyRetrowave')
+            expect(screen.getByTestId('playcanvas-visual-lab-selected')).toHaveTextContent(
+                'Selected: 2. Lowpoly Radar · Low-poly retrowave'
+            )
         )
         await waitFor(() => expect(canvas).toHaveAttribute('data-visual-lab-selected-variant', 'lowpoly-radar'))
         expect(firstPrimitive.enabled).toBe(false)
@@ -1448,7 +1690,7 @@ describe('PlayCanvasCanvasWidget', () => {
         )
     })
 
-    it('keeps mouse wheel input inside the canvas and maps it to follow-camera zoom', async () => {
+    it('keeps mouse wheel input inside the canvas while camera behavior remains manifest-driven', async () => {
         stubAvailableRuntimeModuleFetch()
         renderWidget()
 
@@ -1457,8 +1699,7 @@ describe('PlayCanvasCanvasWidget', () => {
         act(() => {
             playcanvasMocks.updateHandler?.(0.016)
         })
-        const initialDistance = Number(canvas.getAttribute('data-camera-distance'))
-        expect(initialDistance).toBeGreaterThan(0)
+        expect(canvas.getAttribute('data-camera-distance')).toBeNull()
 
         const wheelEvent = new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true })
         act(() => {
@@ -1467,7 +1708,7 @@ describe('PlayCanvasCanvasWidget', () => {
         })
 
         expect(wheelEvent.defaultPrevented).toBe(true)
-        expect(Number(canvas.getAttribute('data-camera-distance'))).toBeLessThan(initialDistance)
+        expect(canvas).not.toHaveAttribute('data-camera-distance')
     })
 
     it('uses fit-viewport height by default for a playable canvas', async () => {
@@ -1480,7 +1721,7 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1)
     })
 
-    it('drags the camera as if moving the coordinate space in front of the user', async () => {
+    it('does not run camera drag behavior before a manifest camera script is attached', async () => {
         stubAvailableRuntimeModuleFetch()
         renderWidget()
 
@@ -1489,14 +1730,14 @@ describe('PlayCanvasCanvasWidget', () => {
         act(() => {
             playcanvasMocks.updateHandler?.(0.016)
         })
-        const initialYaw = Number(canvas.getAttribute('data-camera-yaw'))
 
         act(() => {
             canvas.dispatchEvent(new CustomEvent('playcanvas-camera-drag', { detail: { deltaX: 120, deltaY: 0 } }))
             playcanvasMocks.updateHandler?.(0.016)
         })
 
-        expect(Number(canvas.getAttribute('data-camera-yaw'))).toBeGreaterThan(initialYaw)
+        expect(canvas.getAttribute('data-camera-yaw')).toBeNull()
+        expect(canvas).not.toHaveAttribute('data-camera-yaw')
     })
 
     it('keeps the follow camera outside guarded station geometry', async () => {
@@ -1523,7 +1764,7 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(Number(canvas.getAttribute('data-camera-guard-clearance'))).toBeGreaterThanOrEqual(0)
     })
 
-    it('uses 3D double-click movement and turns the ship smoothly toward vertical targets', async () => {
+    it('sends 3D double-click movement while ship kinematics remain manifest-driven', async () => {
         stubAvailableRuntimeModuleFetch()
         renderWidget({
             scene: {
@@ -1570,39 +1811,10 @@ describe('PlayCanvasCanvasWidget', () => {
         }
         expect(Math.hypot(target.x, target.y, target.z)).toBeGreaterThan(600)
         expect(Math.abs(target.y)).toBeGreaterThan(100)
-        expect(canvas).toHaveAttribute('data-ship-turning', 'true')
-        const expectedForward = normalize3d(target)
-
-        const samples = [
-            {
-                x: Number(canvas.getAttribute('data-ship-forward-x')),
-                y: Number(canvas.getAttribute('data-ship-forward-y')),
-                z: Number(canvas.getAttribute('data-ship-forward-z'))
-            }
-        ]
-
-        act(() => {
-            for (let step = 0; step < 8; step += 1) {
-                playcanvasMocks.updateHandler?.(0.016)
-                samples.push({
-                    x: Number(canvas.getAttribute('data-ship-forward-x')),
-                    y: Number(canvas.getAttribute('data-ship-forward-y')),
-                    z: Number(canvas.getAttribute('data-ship-forward-z'))
-                })
-            }
-        })
-
-        for (let index = 1; index < samples.length; index += 1) {
-            const previous = samples[index - 1]
-            const current = samples[index]
-            expect(Math.hypot(current.x, current.y, current.z)).toBeGreaterThan(0.99)
-            expect(Math.hypot(current.x, current.y, current.z)).toBeLessThan(1.01)
-            expect(dot3d(previous, current)).toBeGreaterThan(0.99)
-            expect(dot3d(current, expectedForward)).toBeGreaterThanOrEqual(dot3d(previous, expectedForward) - 0.001)
-        }
-        expect(Math.abs(samples[samples.length - 1].y)).toBeGreaterThan(0.05)
-        expect(Number(canvas.getAttribute('data-ship-visual-forward-y'))).toBeCloseTo(Number(canvas.getAttribute('data-ship-forward-y')), 3)
-        expect(Math.abs(Number(canvas.getAttribute('data-ship-visual-forward-y')))).toBeGreaterThan(0.05)
+        expect(canvas).toHaveAttribute('data-prediction-active', 'false')
+        expect(canvas).not.toHaveAttribute('data-ship-turning')
+        expect(canvas).toHaveAttribute('data-ship-forward-x', '1.0000')
+        expect(canvas).toHaveAttribute('data-ship-forward-y', '0.0000')
     })
 
     it('keeps lower-screen double-click movement travelling into the scene instead of back toward the camera', async () => {
@@ -1759,7 +1971,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -1797,7 +2009,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -1838,7 +2050,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -1890,7 +2102,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -1951,7 +2163,7 @@ describe('PlayCanvasCanvasWidget', () => {
                             items: [
                                 {
                                     id: 'module-1',
-                                    codename: 'flight-canvas-widget',
+                                    codename: 'mmoomm-flight-widget',
                                     attachedToKind: 'metahub',
                                     attachedToId: null,
                                     moduleRole: 'widget',
@@ -2060,6 +2272,96 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(canvas).toHaveAttribute('data-remote-ship-count', '1')
         expect(screen.getByTestId('playcanvas-participants-status')).toHaveTextContent('Ships: 2')
         expect(room.send).toHaveBeenCalledWith('identify_local_ship', {})
+    })
+
+    it('exposes a frozen host bridge only after joining the realtime room and removes it on cleanup', async () => {
+        const room = {
+            state: { ship: { position: { x: 0, y: 0, z: 0 } } },
+            reconnection: { enabled: false, minUptime: 1000, maxRetries: 3, minDelay: 1000, maxDelay: 5000 },
+            send: vi.fn(),
+            leave: vi.fn(),
+            onStateChange: vi.fn(),
+            onMessage: vi.fn((_type: string, handler: (payload: unknown) => void) => {
+                handler({ shipId: 'ship-local' })
+            }),
+            onDrop: vi.fn(),
+            onReconnect: vi.fn(),
+            onLeave: vi.fn()
+        }
+        stubAvailableRuntimeModuleFetch()
+        colyseusMocks.joinOrCreate.mockResolvedValueOnce(room)
+
+        const rendered = renderWidget()
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(canvas).toHaveAttribute('data-realtime-status', 'connected'))
+
+        const app = playcanvasMocks.createBasicApplication.mock.results[0]?.value as {
+            app: {
+                __universoHost?: {
+                    sendIntent: (intent: { type: 'stop' }) => boolean
+                    pickAt: (clientX: number, clientY: number, includeFlightPlane: boolean) => unknown
+                    getParticipants: () => { total: number; remote: number }
+                }
+            }
+        }
+        const bridge = app.app.__universoHost
+        expect(bridge).toBeDefined()
+        expect(Object.isFrozen(bridge)).toBe(true)
+        expect(Object.keys(bridge ?? {})).toEqual(['sendIntent', 'pickAt', 'getParticipants'])
+        expect(bridge?.getParticipants()).toEqual({ total: 1, remote: 0 })
+        expect(bridge?.sendIntent({ type: 'stop' })).toBe(true)
+        expect(room.send).toHaveBeenCalledWith('intent', { type: 'stop', seq: 1 })
+
+        rendered.unmount()
+        expect(app.app.__universoHost).toBeUndefined()
+    })
+
+    it('does not start the script runtime or expose the host bridge before realtime is ready', async () => {
+        let releaseJoin: ((room: unknown) => void) | null = null
+        colyseusMocks.joinOrCreate.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    releaseJoin = resolve
+                })
+        )
+        stubAvailableRuntimeModuleFetch()
+
+        const rendered = renderWidget()
+        const canvas = await screen.findByTestId('playcanvas-canvas')
+        await waitFor(() => expect(playcanvasMocks.createBasicApplication).toHaveBeenCalledTimes(1))
+
+        const application = playcanvasMocks.createBasicApplication.mock.results[0]?.value as {
+            app: {
+                start: Mock
+                __universoHost?: unknown
+            }
+        }
+        expect(application.app.start).not.toHaveBeenCalled()
+        expect(application.app.__universoHost).toBeUndefined()
+
+        const room = {
+            state: { ship: { position: { x: 0, y: 0, z: 0 } } },
+            reconnection: { enabled: false, minUptime: 1000, maxRetries: 3, minDelay: 1000, maxDelay: 5000 },
+            send: vi.fn(),
+            leave: vi.fn(),
+            onStateChange: vi.fn(),
+            onMessage: vi.fn((_type: string, handler: (payload: unknown) => void) => {
+                handler({ shipId: 'ship-local' })
+            }),
+            onDrop: vi.fn(),
+            onReconnect: vi.fn(),
+            onLeave: vi.fn()
+        }
+        await act(async () => {
+            releaseJoin?.(room)
+            await Promise.resolve()
+        })
+
+        await waitFor(() => expect(canvas).toHaveAttribute('data-realtime-status', 'connected'))
+        expect(application.app.start).toHaveBeenCalledTimes(1)
+        expect(application.app.__universoHost).toBeDefined()
+
+        rendered.unmount()
     })
 
     it('cleans up PlayCanvas and Colyseus resources on unmount before remounting a fresh room', async () => {
@@ -2246,7 +2548,7 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(screen.queryByText(/4421|protocol|websocket/i)).not.toBeInTheDocument()
     })
 
-    it('renders remote ship probes and sends sequenced movement intents for the local ship', async () => {
+    it('keeps remote rendering manifest-driven and sends sequenced movement intents for the local ship', async () => {
         const room = {
             state: {
                 ships: new Map([
@@ -2281,8 +2583,9 @@ describe('PlayCanvasCanvasWidget', () => {
         })
         expect(canvas).toHaveAttribute('data-local-ship-id-assigned', 'true')
         const renderedEntityNames = playcanvasMocks.createBoxEntity.mock.calls.map(([options]) => (options as { name?: string }).name)
-        expect(renderedEntityNames).toEqual(['controlled', 'target', 'remote-ship-remote'])
+        expect(renderedEntityNames).toEqual(['controlled', 'target'])
         expect(renderedEntityNames.some((name) => typeof name === 'string' && name.includes('nose-marker'))).toBe(false)
+        expect(canvas).not.toHaveAttribute('data-remote-rendered-ship-x')
 
         const stopButton = screen.getByRole('button', { name: 'Stop' })
         act(() => {
@@ -2375,7 +2678,7 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(room.send).toHaveBeenCalledWith('intent', { type: 'stop', seq: 13 })
     })
 
-    it('clears acknowledged local predictions and reconciles to divergent authoritative state', async () => {
+    it('reconciles divergent authoritative state without a local prediction fallback', async () => {
         let stateChangeHandler: ((state: unknown) => void) | null = null
         const room = {
             state: {
@@ -2411,8 +2714,8 @@ describe('PlayCanvasCanvasWidget', () => {
             playcanvasMocks.updateHandler?.(0.1)
         })
         expect(room.send).toHaveBeenCalledWith('intent', { type: 'move_to_point', target: { x: 100, y: 0, z: 0 }, seq: 1 })
-        expect(canvas).toHaveAttribute('data-prediction-active', 'true')
-        expect(Number(canvas.getAttribute('data-ship-x'))).toBeGreaterThan(0)
+        expect(canvas).toHaveAttribute('data-prediction-active', 'false')
+        expect(canvas).toHaveAttribute('data-ship-x', '0.00')
 
         room.state.ships.set('ship-local', {
             shipId: 'ship-local',
@@ -2432,7 +2735,7 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(canvas).toHaveAttribute('data-ship-x', '8.00')
     })
 
-    it('keeps local prediction smooth while an acknowledged server target is still active', async () => {
+    it('does not predict locally while an acknowledged server target is still active without the script asset', async () => {
         let stateChangeHandler: ((state: unknown) => void) | null = null
         const room = {
             state: {
@@ -2466,7 +2769,7 @@ describe('PlayCanvasCanvasWidget', () => {
             playcanvasMocks.updateHandler?.(0.1)
         })
         const predictedXBeforeAck = Number(canvas.getAttribute('data-ship-x'))
-        expect(predictedXBeforeAck).toBeGreaterThan(0)
+        expect(predictedXBeforeAck).toBe(0)
 
         room.state.ships.set('ship-local', {
             shipId: 'ship-local',
@@ -2482,8 +2785,8 @@ describe('PlayCanvasCanvasWidget', () => {
         })
 
         await waitFor(() => expect(canvas).toHaveAttribute('data-pending-prediction-count', '0'))
-        expect(canvas).toHaveAttribute('data-prediction-active', 'true')
-        expect(Number(canvas.getAttribute('data-ship-x'))).toBeGreaterThan(predictedXBeforeAck)
+        expect(canvas).toHaveAttribute('data-prediction-active', 'false')
+        expect(Number(canvas.getAttribute('data-ship-x'))).toBeCloseTo(0.5, 2)
     })
 
     it('does not locally predict through a rendered remote ship body', async () => {
@@ -2528,7 +2831,7 @@ describe('PlayCanvasCanvasWidget', () => {
         expect(canvas).toHaveAttribute('data-ship-x', '0.00')
     })
 
-    it('does not interpolate a remote ship through the local visual hull', async () => {
+    it('does not render a remote ship before the manifest remote-ships script is attached', async () => {
         let stateChangeHandler: ((state: unknown) => void) | null = null
         const room = {
             state: {
@@ -2561,7 +2864,7 @@ describe('PlayCanvasCanvasWidget', () => {
         act(() => {
             playcanvasMocks.updateHandler?.(0.016)
         })
-        expect(Number(canvas.getAttribute('data-remote-rendered-ship-x'))).toBeGreaterThanOrEqual(12)
+        expect(canvas).not.toHaveAttribute('data-remote-rendered-ship-x')
 
         room.state.ships.set('ship-remote', {
             shipId: 'ship-remote',
@@ -2574,10 +2877,10 @@ describe('PlayCanvasCanvasWidget', () => {
             playcanvasMocks.updateHandler?.(0.1)
         })
 
-        expect(Number(canvas.getAttribute('data-remote-rendered-ship-x'))).toBeGreaterThanOrEqual(12)
+        expect(canvas).not.toHaveAttribute('data-remote-rendered-ship-x')
     })
 
-    it('does not reconcile an authoritative correction through a rendered remote ship body', async () => {
+    it('applies an authoritative correction without creating a remote visual body', async () => {
         let stateChangeHandler: ((state: unknown) => void) | null = null
         const room = {
             state: {
@@ -2619,7 +2922,8 @@ describe('PlayCanvasCanvasWidget', () => {
         })
 
         expect(canvas).toHaveAttribute('data-pending-prediction-count', '0')
-        expect(canvas).toHaveAttribute('data-ship-x', '0.00')
+        expect(canvas).toHaveAttribute('data-ship-x', '20.00')
+        expect(canvas).not.toHaveAttribute('data-remote-rendered-ship-x')
     })
 
     it('binds read-only observers to one authoritative ship instead of rendering a phantom local prototype', async () => {

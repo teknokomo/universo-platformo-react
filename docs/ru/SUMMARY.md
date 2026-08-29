@@ -57,6 +57,7 @@
     -   [Настройки общего поведения](platform/metahubs/shared-behavior-settings.md)
 -   [Приложения](platform/applications.md)
 -   [Пакет PlayCanvas Editor](platform/playcanvas-editor.md)
+-   [Ассеты PlayCanvas Editor](platform/playcanvas-editor-assets.md)
 -   [Проекты PlayCanvas](platform/playcanvas-projects.md)
 -   [Навыки PlayCanvas Editor (Skills)](platform/playcanvas-editor-skills.md)
 -   [Мультиплеер реального времени](platform/multiplayer-realtime.md)

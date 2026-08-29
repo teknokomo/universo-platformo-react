@@ -5,7 +5,12 @@ import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
-import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, RUNTIME_UX_VIEWPORT_MATRIX } from '../../support/browser/runtimeUx'
+import {
+    expectNoPageHorizontalOverflow,
+    expectNoTechnicalLeakage,
+    expectSemanticFieldControls,
+    RUNTIME_UX_VIEWPORT_MATRIX
+} from '../../support/browser/runtimeUx'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -286,7 +291,7 @@ function buildExternalModuleSourcePath(input: { metahubId: string; schemaName: s
     return path.join(resolveModuleSourceRoot(), 'metahubs', input.metahubId, 'branches', input.schemaName, ...input.sourcePath.split('/'))
 }
 
-async function fillLocalizedField(container: Locator, label: string, value: string) {
+async function fillLocalizedField(container: Locator, label: string | RegExp, value: string) {
     await container.getByLabel(label).first().fill(value)
 }
 
@@ -506,28 +511,27 @@ async function createSharedLibraryModuleThroughBrowser(
     moduleCodename: string,
     sourceCode = SHARED_LIBRARY_SOURCE
 ) {
-    await page.goto(`/metahub/${metahubId}/resources`)
-    await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
-    await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
-    await page.getByRole('tab', { name: 'Modules', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Attached modules' })).toBeVisible()
-    await page.getByRole('button', { name: 'New', exact: true }).click()
+    await openCommonModulesTab(page, metahubId)
+    await page.getByRole('button', { name: /^(New|Новый)$/ }).click()
 
     await expect(page.getByRole('combobox').first()).toBeDisabled()
-    await expect(page.getByRole('combobox').first()).toHaveText(/Library/i)
-    await fillLocalizedField(page.locator('body'), 'Name', moduleName)
-    await fillLocalizedField(page.locator('body'), 'Codename', moduleCodename)
+    await expect(page.getByRole('combobox').first()).toHaveText(/^(Library|Библиотека)$/i)
+    await expectSemanticFieldControls(page.locator('body'), { longTextLabels: ['Description'] })
+    await fillLocalizedField(page.locator('body'), /^(Name|Название)$/, moduleName)
+    await fillLocalizedField(page.locator('body'), /^(Codename|Кодовое имя)$/, moduleCodename)
     await replaceCodeMirrorSource(page, page.locator('body'), sourceCode)
 
     const createRequest = page.waitForRequest(
         (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/modules`)
     )
-    const createResponse = page.waitForResponse(
+    const createResponse = waitForSettledMutationResponse(
+        page,
         (response) =>
-            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/modules`) && response.ok()
+            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/modules`) && response.ok(),
+        { label: 'Creating shared library module', timeout: 120_000 }
     )
 
-    await page.getByRole('button', { name: 'Create module', exact: true }).click()
+    await page.getByRole('button', { name: /^(Create module|Создать модуль)$/ }).click()
 
     const requestPayload = (await createRequest).postDataJSON()
     expect(requestPayload?.attachedToKind).toBe('general')
@@ -560,9 +564,11 @@ async function createImportedWidgetModuleThroughBrowser(page: Page, metahubId: s
     const createRequest = page.waitForRequest(
         (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/modules`)
     )
-    const createResponse = page.waitForResponse(
+    const createResponse = waitForSettledMutationResponse(
+        page,
         (response) =>
-            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/modules`) && response.ok()
+            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/modules`) && response.ok(),
+        { label: 'Creating imported widget module', timeout: 120_000 }
     )
 
     await dialog.getByRole('button', { name: 'Create module', exact: true }).click()
@@ -584,6 +590,22 @@ async function openCommonModulesTab(page: Page, metahubId: string) {
     await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
     await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
     await page.getByRole('tab', { name: /^(Modules|Модули)$/ }).click()
+    const sharedModulesTab = page.getByRole('tab', { name: /^(Shared modules|Общие модули)$/ })
+    const metahubModulesTab = page.getByRole('tab', { name: /^(Metahub modules|Модули метахаба)$/ })
+    await expect(sharedModulesTab).toBeVisible()
+    await expect(metahubModulesTab).toBeVisible()
+    await sharedModulesTab.click()
+    await expect(sharedModulesTab).toHaveAttribute('aria-selected', 'true')
+    await expect(metahubModulesTab).toHaveAttribute('aria-selected', 'false')
+    await sharedModulesTab.focus()
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('Enter')
+    await expect(metahubModulesTab).toHaveAttribute('aria-selected', 'true')
+    await metahubModulesTab.focus()
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('Enter')
+    await expect(sharedModulesTab).toHaveAttribute('aria-selected', 'true')
+    await expect(metahubModulesTab).toHaveAttribute('aria-selected', 'false')
     await expect(page.getByRole('heading', { name: /Attached modules|Прикреплённые модули/ })).toBeVisible()
 }
 
@@ -598,7 +620,7 @@ async function saveSelectedModule(page: Page, metahubId: string) {
     const responsePromise = waitForSettledMutationResponse(
         page,
         (response) => response.request().method() === 'PATCH' && response.url().includes(`/api/v1/metahub/${metahubId}/module/`),
-        { label: 'Saving module' }
+        { label: 'Saving module', timeout: 120_000 }
     )
 
     await page.getByRole('button', { name: 'Save module', exact: true }).click()
@@ -625,7 +647,8 @@ async function deleteSelectedModule(page: Page, metahubId: string) {
 async function expectNoModulesSurfaceTechnicalLeakage(page: Page, label: string) {
     await expectNoTechnicalLeakage(page.getByRole('main'), {
         label,
-        checkUuidSubstrings: false
+        checkUuidSubstrings: true,
+        forbiddenVisibleTextPatterns: [/(?:^|[\s:])(?:\/(?:home|repo|tmp|var|workspace|Users)\/|[A-Za-z]:[\\/])/i]
     })
 }
 

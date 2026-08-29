@@ -56,20 +56,26 @@ export function createAbilityMiddleware(options: AbilityMiddlewareOptions) {
         }
 
         try {
-            console.log('[Ability] Loading permissions for user', { userId, path: req.path })
+            console.log('[Ability] Loading permissions', {
+                hasUserId: true,
+                path: req.path
+            })
 
             const ability = await permissionService.getAbilityForUser(userId)
             ;(req as RequestWithAbility).ability = ability
 
             console.log('[Ability] Permissions loaded', {
-                userId,
+                hasUserId: true,
                 path: req.path,
                 rulesCount: ability.rules.length
             })
 
             next()
         } catch (error) {
-            console.error('[Ability] Error loading permissions:', error)
+            console.error('[Ability] Error loading permissions', {
+                errorType: error instanceof Error ? error.name : typeof error,
+                path: req.path
+            })
             res.status(500).json({ error: 'Failed to load permissions' })
         }
     }

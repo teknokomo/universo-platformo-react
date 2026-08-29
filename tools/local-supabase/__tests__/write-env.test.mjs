@@ -48,6 +48,7 @@ describe('local Supabase env writer', () => {
             SESSION_SECRET: 'kept-session-secret',
             BOOTSTRAP_SUPERUSER_EMAIL: 'admin@example.test',
             CUSTOM_FEATURE_FLAG: 'enabled',
+            CORS_ORIGINS: 'http://127.0.0.1:3000,http://localhost:3000',
             PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS: 'http://127.0.0.1:3000,http://localhost:3000',
             SMARTCAPTCHA_REGISTRATION_ENABLED: 'false'
         })
@@ -137,6 +138,26 @@ describe('local Supabase env writer', () => {
         })
 
         expect(env.E2E_TEST_USER_EMAIL_DOMAIN).toBe('example.test')
+    })
+
+    it('replaces an unsafe wildcard CORS value with the strict local E2E origins', () => {
+        const env = buildBackendEnv({
+            statusEnv,
+            target: 'e2e',
+            existingEnv: { CORS_ORIGINS: '*' }
+        })
+
+        expect(env.CORS_ORIGINS).toBe('http://127.0.0.1:3100,http://localhost:3100')
+    })
+
+    it('does not carry hosted CORS origins into a generated local profile', () => {
+        const env = buildBackendEnv({
+            statusEnv,
+            target: 'dev',
+            existingEnv: { CORS_ORIGINS: 'https://hosted.example.test' }
+        })
+
+        expect(env.CORS_ORIGINS).toBe('http://127.0.0.1:3000,http://localhost:3000')
     })
 
     it('rejects non-local Supabase URLs when generating local profiles', () => {

@@ -380,6 +380,9 @@ export const writeBridgeBootstrap = (targetRoot) => {
     schemaVersion: bridgeVersion,
     ready: false,
     initialized: false,
+    hydrationDirtySuppressionUntil: 0,
+    userMutationSinceHydration: false,
+    suppressedHydrationEntityRemovalIds: [],
     createdAt: new Date().toISOString()
   };
 	  let initialized = false;
@@ -389,9 +392,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
 		  let bootstrapRequestId = null;
 		  let bridgeSessionId = null;
 		  let bridgeNonce = null;
-		  const pendingBridgeRequests = new Map();
+	  const pendingBridgeRequests = new Map();
 		  const hostedEntityObservers = [];
-      const hostedAssetObservers = [];
+		  const hostedAssetObservers = [];
+		  const hostedAssetApiAssets = [];
 			  const observedEntityObservers = [];
         let loadedScenePayloadEntityObservers = [];
 			  let hostedEntityEditor = null;
@@ -402,7 +406,11 @@ export const writeBridgeBootstrap = (targetRoot) => {
         let wrappedApiEntitiesCreate = null;
         let wrappedApiEntitiesCreateSource = null;
         let wrappedShareDbConnection = null;
+        let editorCaptureInstalled = false;
         const repairedShareDbDocuments = new WeakSet();
+	  const mmoommVisualMaterialRenderComponents = new WeakSet();
+	  const mmoommVisualMaterialAssetReferences = new WeakSet();
+		  const mmoommVisualMaterialEntitiesById = new Map();
 				  let hydratingPersistedScene = false;
         let persistedSceneHydrationGeneration = 0;
 
@@ -431,7 +439,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	  bootstrapRequestId = createUuidV7();
   marker.bootstrapRequestId = bootstrapRequestId;
 
-		  const sendBridgeCommand = (type, payload = {}) => {
+	  const sendBridgeCommand = (type, payload = {}) => {
 		    if (!bridgeSessionId || !bridgeNonce) {
 		      return Promise.reject(new Error('PlayCanvas Editor bridge session is not initialized'));
 		    }
@@ -445,10 +453,15 @@ export const writeBridgeBootstrap = (targetRoot) => {
 		      source: 'universo-playcanvas-editor-artifact'
 		    });
 	    return new Promise((resolve, reject) => {
+      // Loading a persisted scene reads and serializes the complete compatibility
+      // payload. Large editor projects can legitimately take longer than the
+      // short control-command budget, so keep a bounded but dedicated read budget
+      // instead of treating a slow response as a failed bridge session.
+      const timeoutMs = ['scene.list', 'scene.read', 'scene.save', 'asset.listMinimalForScene'].includes(type) ? 60_000 : 15_000;
       const timeout = window.setTimeout(() => {
         pendingBridgeRequests.delete(requestId);
         reject(new Error('Bridge command timed out'));
-      }, 15000);
+	      }, timeoutMs);
 	      pendingBridgeRequests.set(requestId, { resolve, reject, timeout, type });
 	    });
 	  };
@@ -1077,7 +1090,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       material.emissive = createColorLike(existingMaterial.emissive || existingMaterial.diffuse, visualMaterial.emissive, 1);
       material.emissiveIntensity = Math.max(0, Number(visualMaterial.emissiveIntensity ?? 1));
     }
-    // PlayCanvas Editor v2.24.2 uses numeric blend constants internally; when the
+    // PlayCanvas Editor v2.30.4 uses numeric blend constants internally; when the
     // constants are not available in the artifact scope, these stable values match
     // the Engine blend modes for normal alpha and additive glow.
     if (opacity < 1) {
@@ -1100,6 +1113,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     const engineEntity = readEngineRenderableEntity(editorInstance, resourceId, entity?.name);
     const meshInstances = engineEntity?.render?.meshInstances;
     if (!Array.isArray(meshInstances) || meshInstances.length === 0) return false;
+    installMmoommVisualMaterialRenderHook(editorInstance, engineEntity, entity);
     let applied = 0;
     for (const meshInstance of meshInstances) {
       const previousMaterial = meshInstance?.material;
@@ -1126,6 +1140,37 @@ export const writeBridgeBootstrap = (targetRoot) => {
       return true;
     }
     return false;
+  };
+
+  const reapplyPersistedMmoommVisualMaterials = (editorInstance) => {
+    if (!editorInstance) return 0;
+    const entries = selectPersistedSceneEntriesForHydration(editorInstance);
+    marker.lastPersistedVisualMaterialEntryCount = entries.filter((entity) => Boolean(readMmoommVisualMaterialMetadata(entity))).length;
+    marker.lastPersistedVisualMaterialEntryNames = entries
+      .filter((entity) => Boolean(readMmoommVisualMaterialMetadata(entity)))
+      .slice(0, 12)
+      .map((entity) => entity.name);
+    let applied = 0;
+    for (const entity of entries) {
+      if (applyMmoommVisualMaterialToEngineEntity(editorInstance, entity)) applied += 1;
+    }
+    marker.lastMmoommVisualMaterialReapplyCount = Number(marker.lastMmoommVisualMaterialReapplyCount || 0) + applied;
+    return applied;
+  };
+
+  const schedulePersistedMmoommVisualMaterialReapply = (editorInstance) => {
+    if (!editorInstance) return;
+    const generation = Number(marker.mmoommVisualMaterialReapplyGeneration || 0) + 1;
+    marker.mmoommVisualMaterialReapplyGeneration = generation;
+    // Entity component creation is deferred by the vendored viewport.  A scene
+    // or asset event can therefore arrive before render mesh instances exist.
+    // Retry for the full editor bootstrap window while discarding stale batches.
+    for (const delay of [0, 100, 250, 500, 1_000, 2_000, 4_000, 8_000, 12_000, 16_000, 22_000]) {
+      window.setTimeout(() => {
+        if (marker.mmoommVisualMaterialReapplyGeneration !== generation) return;
+        reapplyPersistedMmoommVisualMaterials(editorInstance);
+      }, delay);
+    }
   };
 
   const ensureEntityObserverArrayPath = (observer, path) => {
@@ -1244,6 +1289,82 @@ export const writeBridgeBootstrap = (targetRoot) => {
     }
   };
 
+  const installMmoommVisualMaterialRenderHook = (editorInstance, engineEntity, entity) => {
+    const resourceId = entity?.resource_id || entity?.id;
+    const render = engineEntity?.render;
+    if (!resourceId || !render || typeof render !== 'object') return;
+    mmoommVisualMaterialEntitiesById.set(String(resourceId), entity);
+    const renderHooksInstalled = mmoommVisualMaterialRenderComponents.has(render);
+    const reapply = () => {
+      const latestEntity = mmoommVisualMaterialEntitiesById.get(String(resourceId));
+      if (!latestEntity) return;
+      // RenderComponent applies the referenced asset resource after a load or
+      // unload. Re-apply the persisted MMOOMM metadata on the next task so the
+      // upstream assignment cannot silently replace the scene-local material.
+      window.setTimeout(() => {
+        applyMmoommVisualMaterialToEngineEntity(editorInstance, latestEntity);
+      }, 0);
+    };
+
+    const wrapAssetReferenceCallback = (reference, callbackName) => {
+      if (!reference || typeof reference !== 'object') return false;
+      const original = reference[callbackName];
+      if (typeof original !== 'function') return false;
+      if (original.__universoMmoommVisualMaterialWrapped === true) return true;
+      try {
+        const wrappedCallback = function (...args) {
+          const result = original.apply(this, args);
+          reapply();
+          return result;
+        };
+        wrappedCallback.__universoMmoommVisualMaterialWrapped = true;
+        reference[callbackName] = wrappedCallback;
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    let wrappedAssetReference = false;
+    const materialReferences = Array.isArray(render._materialReferences) ? render._materialReferences : [];
+    for (const reference of materialReferences) {
+      if (mmoommVisualMaterialAssetReferences.has(reference)) {
+        wrappedAssetReference = true;
+        continue;
+      }
+      let referenceWrapped = false;
+      for (const callbackName of ['_onAssetLoad', '_onAssetAdd', '_onAssetRemove', '_onAssetUnload']) {
+        referenceWrapped = wrapAssetReferenceCallback(reference, callbackName) || referenceWrapped;
+      }
+      if (referenceWrapped) {
+        mmoommVisualMaterialAssetReferences.add(reference);
+        wrappedAssetReference = true;
+      }
+    }
+
+    let wrapped = false;
+    if (!renderHooksInstalled) {
+      for (const methodName of ['_onMaterialLoad', '_onMaterialRemove', '_onMaterialUnload', '_onSetMeshes']) {
+        const original = render[methodName];
+        if (typeof original !== 'function') continue;
+        try {
+          render[methodName] = function (...args) {
+            const result = original.apply(this, args);
+            reapply();
+            return result;
+          };
+          wrapped = true;
+        } catch {
+          // Some vendored component instances can be sealed by the Editor; the
+          // scheduled bridge reapply remains the safe fallback in that case.
+        }
+      }
+    }
+    if (!renderHooksInstalled && (wrapped || wrappedAssetReference)) {
+      mmoommVisualMaterialRenderComponents.add(render);
+    }
+  };
+
   const entityHasExpectedEngineComponents = (editorInstance, entity) => {
     if (!entity || entity.resource_id === 'root') return true;
     const components = entity.components && typeof entity.components === 'object' && !Array.isArray(entity.components) ? entity.components : null;
@@ -1292,6 +1413,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
       return id && id !== 'root' && !expectedIds.has(id);
     });
     if (!staleEntities.length) return 0;
+    marker.suppressedHydrationEntityRemovalIds = [
+      ...(Array.isArray(marker.suppressedHydrationEntityRemovalIds) ? marker.suppressedHydrationEntityRemovalIds : []),
+      ...staleEntities.map(getEntityReferenceId).filter(Boolean)
+    ].slice(-256);
     try {
       const deletedByApiEntity = staleEntities.reduce((count, entity) => {
         const apiEntity = entity?.apiEntity || entity;
@@ -1610,6 +1735,45 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return entries.some((entity) => entity.resource_id && entity.resource_id !== 'root') ? entries : [];
   };
 
+  const selectPersistedSceneEntriesForHydration = (editorInstance) => {
+    const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
+    const realtimeEntries = selectUsablePersistedSceneEntries(realtimeEntities);
+    const loadedPayload = readLoadedScenePayload();
+    const payloadEntries = normalizePersistedSceneEntities(loadedPayload?.entities);
+    marker.lastRealtimePersistedEntityCount = realtimeEntries.length;
+    marker.lastPayloadPersistedEntityCount = payloadEntries.length;
+    marker.lastPayloadVisualMaterialEntityCount = payloadEntries.filter((entity) => Boolean(readMmoommVisualMaterialMetadata(entity))).length;
+    if (realtimeEntries.length === 0) return payloadEntries;
+    if (payloadEntries.length === 0) return realtimeEntries;
+
+    const payloadById = new Map(payloadEntries.map((entity) => [String(entity.resource_id), entity]));
+    const payloadByName = new Map(payloadEntries.filter((entity) => entity.name).map((entity) => [entity.name, entity]));
+    return realtimeEntries.map((entity) => {
+      const fallback = payloadById.get(String(entity.resource_id)) || payloadByName.get(entity.name);
+      if (!fallback) return entity;
+      return {
+        ...fallback,
+        ...entity,
+        components: {
+          ...fallback.components,
+          ...entity.components,
+          ...(fallback.components?.render || entity.components?.render
+            ? {
+                render: {
+                  ...fallback.components?.render,
+                  ...entity.components?.render,
+                  ...(fallback.components?.render?.materialAssets && !entity.components?.render?.materialAssets
+                    ? { materialAssets: fallback.components.render.materialAssets }
+                    : {})
+                }
+              }
+            : {})
+        },
+        metadata: mergeSceneMetadataSnapshots(fallback.metadata, entity.metadata)
+      };
+    });
+  };
+
   const hydratePersistedSceneEntities = () => {
     if (marker.dirty === true) {
       marker.skippedDirtyPersistedSceneHydration = true;
@@ -1620,13 +1784,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
     }
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     const apiEntities = editorInstance?.api?.globals?.entities;
-    const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
     if (!editorInstance || !apiEntities) {
       return false;
     }
-    const realtimeEntries = selectUsablePersistedSceneEntries(realtimeEntities);
-    const payloadEntries = normalizePersistedSceneEntities(readLoadedScenePayload()?.entities);
-    const entries = realtimeEntries.length > 0 ? realtimeEntries : payloadEntries;
+    const entries = selectPersistedSceneEntriesForHydration(editorInstance);
     if (!entries.length) return false;
     const existing = typeof apiEntities.get === 'function' ? (id) => apiEntities.get(id) : () => null;
     const root = entries.find((entity) => entity.resource_id === 'root' || entity.parent === null) || null;
@@ -1686,25 +1847,20 @@ export const writeBridgeBootstrap = (targetRoot) => {
     installHostedAssetAdapter(editorInstance, marker.lastCleanLoadedScenePayload);
     markAssetsLoadedForAssetlessPersistedScene(editorInstance);
     markEntitiesLoadedForPersistedScene(editorInstance);
+    schedulePersistedMmoommVisualMaterialReapply(editorInstance);
     return materialized > 0;
   };
 
   const readExpectedPersistedSceneEntityIds = () => {
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
-    const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
-    const realtimeEntries = selectUsablePersistedSceneEntries(realtimeEntities);
-    const payloadEntries = normalizePersistedSceneEntities(readLoadedScenePayload()?.entities);
-    const entries = realtimeEntries.length > 0 ? realtimeEntries : payloadEntries;
+    const entries = selectPersistedSceneEntriesForHydration(editorInstance);
     return entries.map((entity) => entity.resource_id).filter((id) => id && id !== 'root');
   };
 
   const persistedSceneEntitiesAreAvailable = (editorInstance) => {
     const apiEntities = editorInstance?.api?.globals?.entities;
     if (!apiEntities || typeof apiEntities.get !== 'function') return false;
-    const realtimeEntities = editorInstance?.api?.globals?.realtime?.scenes?.current?.data?.entities;
-    const realtimeEntries = selectUsablePersistedSceneEntries(realtimeEntities);
-    const payloadEntries = normalizePersistedSceneEntities(readLoadedScenePayload()?.entities);
-    const entries = realtimeEntries.length > 0 ? realtimeEntries : payloadEntries;
+    const entries = selectPersistedSceneEntriesForHydration(editorInstance);
     const expectedEntries = entries.filter((entity) => entity.resource_id && entity.resource_id !== 'root');
     return (
       expectedEntries.length > 0 &&
@@ -1712,7 +1868,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     );
   };
 
-  const schedulePersistedSceneHydration = (attempts = 8, delay = 150, generation = persistedSceneHydrationGeneration) => {
+  const schedulePersistedSceneHydration = (attempts = 16, delay = 250, generation = persistedSceneHydrationGeneration) => {
     window.setTimeout(() => {
       if (generation !== persistedSceneHydrationGeneration || marker.dirty === true) {
         if (marker.dirty === true) {
@@ -1729,6 +1885,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         return;
       }
       hydratePersistedSceneEntities();
+      schedulePersistedMmoommVisualMaterialReapply(editorInstance);
       rebindUpstreamHierarchy();
       if (
         attempts > 1 &&
@@ -1784,6 +1941,17 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    const id = getEntityObserverId(value);
 	    return typeof id === 'string' || typeof id === 'number' ? String(id) : '';
 	  };
+
+  const consumeSuppressedHydrationEntityRemoval = (entity) => {
+    const entityId = getEntityReferenceId(entity);
+    if (!entityId) return false;
+    const suppressedIds = Array.isArray(marker.suppressedHydrationEntityRemovalIds)
+      ? marker.suppressedHydrationEntityRemovalIds
+      : [];
+    if (!suppressedIds.includes(entityId)) return false;
+    marker.suppressedHydrationEntityRemovalIds = suppressedIds.filter((id) => id !== entityId);
+    return true;
+  };
 
 	  const getObserverValue = (observer, path) => {
 	    const direct = readObserverPath(observer, path);
@@ -2016,7 +2184,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     };
   };
 
-  const createHostedAssetObserver = (input = {}) => {
+  const createHostedAssetObserver = (input = {}, editorInstance = null) => {
     const numericId = Number(input.id ?? input.item_id);
     const id = Number.isInteger(numericId) && numericId > 0 ? numericId : String(input.id || input.stableAssetId || createUuidV7());
     const metadata =
@@ -2032,14 +2200,37 @@ export const writeBridgeBootstrap = (targetRoot) => {
         : metadata.data && typeof metadata.data === 'object'
           ? metadata.data
           : null;
+    const inputFile = input.file && typeof input.file === 'object' && !Array.isArray(input.file) ? input.file : null;
+    const file = inputFile
+      ? {
+          filename: typeof inputFile.filename === 'string' ? inputFile.filename : undefined,
+          hash: typeof inputFile.hash === 'string' ? inputFile.hash : undefined,
+          size: Number.isFinite(Number(inputFile.size)) ? Number(inputFile.size) : 0,
+          url: typeof inputFile.url === 'string' ? inputFile.url : undefined,
+          mime: typeof inputFile.mime === 'string' ? inputFile.mime : undefined,
+          mimeType: typeof inputFile.mimeType === 'string' ? inputFile.mimeType : undefined,
+          variants: inputFile.variants && typeof inputFile.variants === 'object' ? inputFile.variants : null
+        }
+      : null;
+    const path = Array.isArray(input.path)
+      ? input.path.filter((ancestorId) => Number.isInteger(ancestorId) && ancestorId > 0)
+      : Array.isArray(input.editorPathDocumentIds)
+        ? input.editorPathDocumentIds.filter((ancestorId) => Number.isInteger(ancestorId) && ancestorId > 0)
+        : [];
     const asset = {
       id,
-      uniqueId: id,
+      uniqueId:
+        typeof input.uniqueId === 'number' || typeof input.uniqueId === 'string'
+          ? input.uniqueId
+          : typeof input.stableAssetId === 'number' || typeof input.stableAssetId === 'string'
+            ? input.stableAssetId
+            : id,
       item_id: id,
       name: typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Asset ' + id,
       type: typeof input.type === 'string' && input.type ? input.type : 'json',
-      file: null,
-      path: [],
+      file,
+      path,
+      parentId: Number.isInteger(input.parentId) && input.parentId > 0 ? input.parentId : path.at(-1) || null,
       tags: Array.isArray(editorDocument.tags) ? editorDocument.tags.filter((tag) => typeof tag === 'string') : [],
       data,
       meta: input.meta && typeof input.meta === 'object' && !Array.isArray(input.meta) ? input.meta : metadata,
@@ -2047,6 +2238,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
       preload: typeof editorDocument.preload === 'boolean' ? editorDocument.preload : true,
       source: typeof editorDocument.source === 'boolean' ? editorDocument.source : false
     };
+		  const AssetConstructor = editorInstance?.api?.Asset;
+		  if (typeof AssetConstructor === 'function' && editorInstance?.api?.globals?.assets) {
+		    return new AssetConstructor(asset).observer;
+		  }
     const setPath = (path, value) => {
       const parts = String(path || '').split('.').filter(Boolean);
       if (!parts.length) return;
@@ -2060,11 +2255,46 @@ export const writeBridgeBootstrap = (targetRoot) => {
       current[parts[parts.length - 1]] = value;
       markDirty({ force: true });
     };
+    const getPath = (path) =>
+      String(path || '')
+        .split('.')
+        .filter(Boolean)
+        .reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), asset);
+    const unsetPath = (path) => {
+      const parts = String(path || '').split('.').filter(Boolean);
+      if (!parts.length) return;
+      let current = asset;
+      for (const part of parts.slice(0, -1)) {
+        if (!current || typeof current !== 'object') return;
+        current = current[part];
+      }
+      if (!current || typeof current !== 'object') return;
+      delete current[parts[parts.length - 1]];
+      markDirty({ force: true });
+    };
+    const insertPath = (path, value, index) => {
+      const target = getPath(path);
+      if (!Array.isArray(target)) return;
+      const requestedIndex = Number.isInteger(index) ? index : target.length;
+      const insertIndex = Math.max(0, Math.min(requestedIndex, target.length));
+      target.splice(insertIndex, 0, value);
+      markDirty({ force: true });
+    };
+    const removeValue = (path, index) => {
+      const target = getPath(path);
+      if (!Array.isArray(target) || !Number.isInteger(index) || index < 0 || index >= target.length) return;
+      target.splice(index, 1);
+      markDirty({ force: true });
+    };
     const observer = {
       data: asset,
       _data: asset,
-      get: (path) => String(path || '').split('.').filter(Boolean).reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), asset),
+      get: getPath,
+      has: (path) => getPath(path) !== undefined,
       set: setPath,
+      unset: unsetPath,
+      insert: insertPath,
+      removeValue,
       json: () => ({ ...asset }),
       toJSON: () => ({ ...asset }),
       on: () => observer,
@@ -2073,7 +2303,8 @@ export const writeBridgeBootstrap = (targetRoot) => {
       unbind: () => observer,
       load: () => Promise.resolve(observer),
       loadAndSubscribe: () => Promise.resolve(observer),
-      initializeHistory: () => undefined
+      initializeHistory: () => undefined,
+      history: { enabled: false }
     };
     observer.apiAsset = observer;
     observer.observer = observer;
@@ -2101,25 +2332,85 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.hostedAssetAdapterSkippedReason = 'no-payload-assets';
       return marker.hostedAssetAdapterInstalled === true && hostedAssetObservers.length > 0;
     }
-    hostedAssetObservers.splice(0, hostedAssetObservers.length, ...inputAssets.map(createHostedAssetObserver));
-    if (typeof editorInstance.methodRemove === 'function') {
-      for (const methodName of ['assets:list', 'assets:raw', 'assets:get', 'assets:loaded']) {
+    const assetsApi = editorInstance.api?.globals?.assets;
+    const AssetConstructor = editorInstance.api?.Asset;
+    const canUseNativeAssets =
+      assetsApi && typeof assetsApi.add === 'function' && typeof assetsApi.get === 'function' && typeof AssetConstructor === 'function';
+    if (canUseNativeAssets) {
+      for (const apiAsset of hostedAssetApiAssets.splice(0, hostedAssetApiAssets.length)) {
         try {
-          editorInstance.methodRemove(methodName);
+          if (assetsApi.get(apiAsset.get('id')) === apiAsset) assetsApi.remove(apiAsset);
         } catch {}
       }
+      hostedAssetObservers.splice(0, hostedAssetObservers.length);
+      const sceneLocalAssetKeys = new Set(getSceneLocalAssets().flatMap(getAssetIdentityKeys));
+      for (const inputAsset of inputAssets) {
+        const observer = createHostedAssetObserver(inputAsset, editorInstance);
+        const apiAsset = observer?.apiAsset;
+        const id = observer?.get?.('id');
+        let existing = id === undefined || id === null ? null : assetsApi.get(id);
+        const isSceneLocalAsset = getAssetIdentityKeys(inputAsset).some((key) => sceneLocalAssetKeys.has(key));
+        // Full-upstream realtime can repopulate the API registry after the
+        // compatibility scene has been mounted. A storage asset with the same
+        // numeric id must not win over the scene-local document: removing it
+        // lets the native Editor bridge rebuild the matching engine asset from
+        // the authoritative scene data instead of retaining stale/default
+        // material resources.
+        if (existing && isSceneLocalAsset && existing !== apiAsset) {
+          try {
+            assetsApi.remove(existing);
+          } catch {}
+          existing = null;
+        }
+        const selectedObserver = existing?.observer || observer;
+        if (!existing && apiAsset) {
+          assetsApi.add(apiAsset);
+          if (assetsApi.get(id) === apiAsset) hostedAssetApiAssets.push(apiAsset);
+        }
+        if (selectedObserver && !hostedAssetObservers.includes(selectedObserver)) hostedAssetObservers.push(selectedObserver);
+      }
+      // assets:raw and assets:list are native Editor methods backed by an
+      // ObserverList. Never replace them with a plain object: picker and
+      // asset-panel code calls ObserverList methods such as get and find.
+      if (typeof editorInstance.methodRemove === 'function') {
+        try {
+          editorInstance.methodRemove('assets:loaded');
+        } catch {}
+      }
+      editorInstance.method('assets:loaded', () => true);
+    } else {
+      hostedAssetObservers.splice(
+        0,
+        hostedAssetObservers.length,
+        ...inputAssets.map((asset) => createHostedAssetObserver(asset, editorInstance))
+      );
+      if (typeof editorInstance.methodRemove === 'function') {
+        for (const methodName of ['assets:list', 'assets:raw', 'assets:get', 'assets:loaded']) {
+          try {
+            editorInstance.methodRemove(methodName);
+          } catch {}
+        }
+      }
+      editorInstance.method('assets:list', () => hostedAssetObservers);
+      const fallbackRawAssets = {
+        data: hostedAssetObservers,
+        array: () => hostedAssetObservers,
+        get: (id) => hostedAssetObservers.find((asset) => String(asset.get('id')) === String(id)) || null,
+        find: (predicate) => hostedAssetObservers.filter((asset) => predicate(asset.apiAsset || asset)),
+        findOne: (predicate) => hostedAssetObservers.find((asset) => predicate(asset.apiAsset || asset)) || null,
+        has: (asset) => hostedAssetObservers.includes(asset),
+        on: () => fallbackRawAssets,
+        once: () => fallbackRawAssets,
+        off: () => fallbackRawAssets
+      };
+      editorInstance.method('assets:raw', () => fallbackRawAssets);
+      editorInstance.method('assets:get', (id) => fallbackRawAssets.get(id));
+      editorInstance.method('assets:loaded', () => true);
     }
-    editorInstance.method('assets:list', () => hostedAssetObservers);
-    editorInstance.method('assets:raw', () => ({
-      data: hostedAssetObservers,
-      array: () => hostedAssetObservers
-    }));
-    editorInstance.method('assets:get', (id) => hostedAssetObservers.find((asset) => String(asset.get('id')) === String(id)) || null);
-    editorInstance.method('assets:loaded', () => true);
     marker.hostedAssetAdapterInstalled = true;
     marker.hostedAssetAdapterSkippedReason = null;
     marker.hostedAssetObserverCount = hostedAssetObservers.length;
-    if (typeof editorInstance.emit === 'function') {
+    if (!canUseNativeAssets && typeof editorInstance.emit === 'function') {
       for (const asset of hostedAssetObservers) {
         editorInstance.emit('assets:add', asset);
       }
@@ -2201,6 +2492,228 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    };
 	  };
 
+  // Full-boot assets are mounted into the upstream Editor's global asset
+  // registry so inspectors and pickers can resolve storage-backed files. They
+  // are not scene-local data, however, and must never be written back into a
+  // scene payload. Keep the filter identity-based because the Editor exposes
+  // the realtime document id as a numeric id, while compatibility REST
+  // payloads can carry the same value as item_id or metadata.
+  const getAssetIdentityKeys = (asset) => {
+    if (!asset || typeof asset !== 'object' || Array.isArray(asset)) return [];
+    const metadata = asset.metadata && typeof asset.metadata === 'object' && !Array.isArray(asset.metadata) ? asset.metadata : null;
+    return [
+      asset.id,
+      asset.item_id,
+      asset.uniqueId,
+      asset.unique_id,
+      asset.editorDocumentId,
+      metadata?.editorDocumentId,
+      metadata?.editor_document_id
+    ]
+      .filter((value) => typeof value === 'string' || typeof value === 'number')
+      .map((value) => String(value));
+  };
+
+  const resolvePendingFullBootAssetDocuments = (editorInstance, assetsOverride = null) => {
+    if (marker.fullBootMode !== true || !editorInstance || typeof editorInstance.call !== 'function') return 0;
+    let connection = null;
+    try {
+      connection = editorInstance.call('realtime:connection');
+    } catch {
+      connection = null;
+    }
+    const documents = connection?.collections?.assets;
+    if (!documents || typeof documents !== 'object') return 0;
+    marker.fullBootAssetDocumentCount = Object.keys(documents).length;
+    marker.fullBootAssetDocumentIds = Object.keys(documents).slice(0, 64);
+    const assets = Array.isArray(assetsOverride)
+      ? assetsOverride
+      : marker.fullBootAssetsById && typeof marker.fullBootAssetsById === 'object'
+        ? Object.values(marker.fullBootAssetsById)
+        : [];
+    if (!assets.length) return 0;
+    const branchId = window.config?.self?.branch?.id || window.config?.branch?.id || null;
+    let resolved = 0;
+    for (const [documentId, document] of Object.entries(documents)) {
+      if (!document || typeof document !== 'object') continue;
+      if (document.__universoFullBootAssetResolved === true) {
+        continue;
+      }
+      if (document.data !== undefined && document.data !== null) continue;
+      const requestedId = String(documentId);
+      const asset = assets.find((candidate) =>
+        getAssetIdentityKeys(candidate).some((identityKey) => identityKey === requestedId)
+      );
+      if (!asset) continue;
+      const documentData = {
+        ...asset,
+        item_id: String(asset.item_id ?? asset.id),
+        ...(branchId ? { branch_id: branchId } : {})
+      };
+      try {
+        if (typeof document._setType === 'function' && !document.type) document._setType('json0');
+        if (typeof document._setData === 'function') {
+          document._setData(documentData);
+        } else {
+          document.data = documentData;
+        }
+        if (document.version === null || typeof document.version !== 'number') document.version = 0;
+        document.__universoFullBootAssetResolved = true;
+        resolved += 1;
+      } catch (error) {
+        marker.lastFullBootAssetDocumentResolutionError =
+          error && typeof error.message === 'string' ? error.message : String(error);
+      }
+    }
+    marker.fullBootAssetDocumentsResolved = (Number(marker.fullBootAssetDocumentsResolved) || 0) + resolved;
+    return resolved;
+  };
+
+  const getSceneLocalAssets = () =>
+    marker.sceneLocalAssetsById && typeof marker.sceneLocalAssetsById === 'object'
+      ? Object.values(marker.sceneLocalAssetsById)
+      : [];
+
+  const getFullBootStorageAssets = () =>
+    marker.fullBootStorageAssetsById && typeof marker.fullBootStorageAssetsById === 'object'
+      ? Object.values(marker.fullBootStorageAssetsById)
+      : [];
+
+  const rememberSceneLocalAssets = (assets) => {
+    const byId = {};
+    for (const asset of Array.isArray(assets) ? assets : []) {
+      const id = asset?.id;
+      if (typeof id !== 'string' && typeof id !== 'number') continue;
+      byId[String(id)] = asset;
+    }
+    marker.sceneLocalAssetsById = byId;
+    marker.sceneLocalAssetCount = Object.keys(byId).length;
+    return Object.values(byId);
+  };
+
+  const mergeFullBootAssetSources = () => {
+    const sceneAssets = getSceneLocalAssets();
+    const storageAssets = getFullBootStorageAssets();
+    const sceneIdentityKeys = new Set(sceneAssets.flatMap(getAssetIdentityKeys));
+    const mergedById = new Map();
+    for (const asset of [...sceneAssets, ...storageAssets]) {
+      const id = asset?.id;
+      if (typeof id !== 'string' && typeof id !== 'number') continue;
+      const identityKeys = getAssetIdentityKeys(asset);
+      const hasSceneIdentity = identityKeys.some((key) => sceneIdentityKeys.has(key));
+      if (storageAssets.includes(asset) && hasSceneIdentity) continue;
+      if (!mergedById.has(String(id))) mergedById.set(String(id), asset);
+    }
+    const merged = Object.fromEntries(mergedById);
+    marker.fullBootAssetsById = merged;
+    marker.fullBootAssetOrigin =
+      sceneAssets.length > 0 ? (storageAssets.length > 0 ? 'mixed' : 'scene') : storageAssets.length > 0 ? 'rest' : 'none';
+    return Object.values(merged);
+  };
+
+  let fullBootAssetProgressRetryTimer = null;
+  const completeFullBootAssetProgress = () => {
+    if (
+      marker.fullBootMode !== true ||
+      marker.fullBootAssetLoadState !== 'ready' ||
+      marker.fullBootAssetProgressCompleted === true ||
+      !window.editor ||
+      typeof window.editor.call !== 'function'
+    ) {
+      return false;
+    }
+    try {
+      const assetsPanel = window.editor.call('layout.assets');
+      if (!assetsPanel?.progressBar || typeof assetsPanel.progressBar !== 'object') return false;
+      window.editor.call('assets:progress', 1);
+      marker.fullBootAssetProgressCompleted = true;
+      marker.fullBootAssetProgressCompletedAt = Date.now();
+      return true;
+    } catch (error) {
+      marker.lastFullBootAssetProgressError = error && typeof error.message === 'string' ? error.message : String(error);
+      return false;
+    }
+  };
+  const scheduleFullBootAssetProgressCompletion = () => {
+    if (
+      marker.fullBootMode !== true ||
+      marker.fullBootAssetLoadState !== 'ready' ||
+      marker.fullBootAssetProgressCompleted === true ||
+      fullBootAssetProgressRetryTimer !== null
+    ) {
+      return;
+    }
+    let attempts = 0;
+    const retry = () => {
+      fullBootAssetProgressRetryTimer = null;
+      if (completeFullBootAssetProgress() || marker.fullBootAssetProgressCompleted === true) return;
+      attempts += 1;
+      // Keep the retry bounded, but allow a slow editor reload to finish
+      // wiring the AssetPanel after the compatibility list has resolved.
+      if (attempts >= 600 || marker.fullBootAssetLoadState !== 'ready') return;
+      fullBootAssetProgressRetryTimer = window.setTimeout(retry, 250);
+    };
+    retry();
+  };
+
+  const installMergedFullBootAssets = () => {
+    const assets = mergeFullBootAssetSources();
+    if (window.editor && typeof window.editor.method === 'function' && assets.length > 0) {
+      installHostedAssetAdapter(window.editor, assets);
+    }
+    // The upstream launcher can miss its realtime-authenticated event when the
+    // compatibility scene is hydrated before the launch listeners are wired.
+    // In that case it still mounts the authoritative compatibility assets, but
+    // leaves the AssetPanel progress observer at the initial 50% milestone.
+    // Complete the normal progress contract after the durable REST asset list
+    // resolves and once the panel instance is available. The bounded retry
+    // handles the race where hydration finishes before the upstream layout.
+    scheduleFullBootAssetProgressCompletion();
+    return assets;
+  };
+
+  const getFullBootAssetIdentityKeys = () => {
+    if (marker.fullBootMode !== true) return new Set();
+    // A scene payload may intentionally carry embedded material/model assets.
+    // loadFullBootAssets mounts those assets to satisfy the upstream Editor,
+    // but they remain scene-local and must survive serialization.
+    const sceneIdentityKeys = new Set(getSceneLocalAssets().flatMap(getAssetIdentityKeys));
+    const mountedAssets = [...getFullBootStorageAssets(), ...hostedAssetObservers, ...hostedAssetApiAssets];
+    return new Set(
+      mountedAssets
+        .flatMap(getAssetIdentityKeys)
+        .filter((key) => !sceneIdentityKeys.has(key))
+    );
+  };
+
+  const selectSceneLocalAssets = (fallbackAssets, editorAssets) => {
+    const candidates = Array.isArray(fallbackAssets) ? fallbackAssets : editorAssets;
+    const fullBootAssetKeys = getFullBootAssetIdentityKeys();
+    // A full-boot reload can briefly expose the compatibility scene payload
+    // before the realtime hydration marker is updated. Treat an explicit
+    // fallback payload as scene-local by contract during that window; otherwise
+    // the identity-based full-boot filter would remove every embedded asset and
+    // the next save would silently persist an asset-less scene.
+    const sceneLocalAssetKeys = new Set([
+      ...getSceneLocalAssets().flatMap(getAssetIdentityKeys),
+      ...(Array.isArray(fallbackAssets) ? fallbackAssets.flatMap(getAssetIdentityKeys) : [])
+    ]);
+    const seen = new Set();
+    return candidates.filter((asset) => {
+      if (!asset || typeof asset !== 'object' || Array.isArray(asset)) return false;
+      const id = asset.id;
+      if (typeof id !== 'string' && typeof id !== 'number') return false;
+      const identityKeys = getAssetIdentityKeys(asset);
+      const isSceneLocal = identityKeys.some((key) => sceneLocalAssetKeys.has(key));
+      if (!isSceneLocal && fullBootAssetKeys.size > 0 && identityKeys.some((key) => fullBootAssetKeys.has(key))) return false;
+      if (Array.isArray(fallbackAssets) && sceneLocalAssetKeys.size > 0 && !isSceneLocal) return false;
+      const key = String(id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
 	  const safeEditorCall = (editorInstance, methodName, ...args) => {
 	    try {
 	      return editorInstance.call(methodName, ...args);
@@ -2258,10 +2771,18 @@ export const writeBridgeBootstrap = (targetRoot) => {
         ? marker.lastCleanLoadedScenePayload
         : null;
     const loadedScenePayload = readLoadedScenePayload();
-    const fallbackPayload =
+    const fallbackPayloadCandidate =
       marker.dirty === true
         ? cleanLoadedScenePayload || loadedScenePayload || null
         : mergeScenePayloadSnapshots(cleanLoadedScenePayload, loadedScenePayload) || loadedScenePayload || cleanLoadedScenePayload || null;
+    const fallbackPayload = (() => {
+      if (!fallbackPayloadCandidate || !Array.isArray(loadedScenePayload?.assets)) return fallbackPayloadCandidate;
+      // A clean realtime snapshot can legitimately omit compatibility-only
+      // scene assets. If it has no assets field at all, carry the latest REST
+      // scene payload forward so a subsequent save cannot erase those records.
+      if (Object.prototype.hasOwnProperty.call(fallbackPayloadCandidate, 'assets')) return fallbackPayloadCandidate;
+      return { ...fallbackPayloadCandidate, assets: loadedScenePayload.assets };
+    })();
     const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
     if (!editorInstance) {
       return fallbackPayload || { schemaVersion: bridgeVersion, entities: [] };
@@ -2288,7 +2809,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         cleanLoadedPayloadObservers
       );
       const entitySerializationErrors = [];
-      const entities = rawEntityObservers
+      const serializedEntities = rawEntityObservers
         .map((observer) => {
           try {
             return serializeEntity(observer);
@@ -2301,6 +2822,38 @@ export const writeBridgeBootstrap = (targetRoot) => {
           }
         })
         .filter(Boolean);
+      // Keep the export contract rooted even when the upstream Editor omits its
+      // synthetic root observer from entities:list/entities:raw after a dirty
+      // native authoring flow.  Child entities without a persisted parent are
+      // attached to this root so the runtime receives the same deterministic
+      // hierarchy as a freshly loaded scene.
+      const entities = (() => {
+        const root = serializedEntities.find((entity) => entity.id === 'root');
+        if (root) {
+          return [root, ...serializedEntities.filter((entity) => entity !== root)];
+        }
+        const rootChildren = serializedEntities
+          .filter((entity) => entity.parentId === null || entity.parentId === undefined || entity.parentId === 'root')
+          .map((entity) => entity.id);
+        return [
+          {
+            id: 'root',
+            name: 'Root',
+            parentId: null,
+            enabled: true,
+            position: [0, 0, 0],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+            components: {},
+            children: rootChildren
+          },
+          ...serializedEntities.map((entity) =>
+            entity.parentId === null || entity.parentId === undefined
+              ? { ...entity, parentId: 'root' }
+              : entity
+          )
+        ];
+      })();
       marker.lastSerializedEntityIds = entities.map((entity) => entity.id);
       marker.lastSerializedEntityCount = entities.length;
       marker.lastRawEntityObserverCount = rawEntityObservers.length;
@@ -2310,18 +2863,32 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.lastSerializedMmoommVisualMaterialEntityCount = entities.filter((entity) =>
         applyMmoommVisualMaterialToEngineEntity(editorInstance, entity)
       ).length;
+      if (Array.isArray(fallbackPayload?.assets) && fallbackPayload.assets.length > 0) {
+        // Keep the compatibility scene's embedded assets authoritative across
+        // a full-boot restart. The upstream realtime document does not carry
+        // these scene-local records, so relying only on its asset registry would
+        // turn a reload/save cycle into an asset-less scene overwrite.
+        rememberSceneLocalAssets(fallbackPayload.assets);
+      }
       installHostedAssetAdapter(editorInstance, fallbackPayload);
 	      const editorAssets = observerListToArray(safeEditorCall(editorInstance, 'assets:list') || safeEditorCall(editorInstance, 'assets:raw'))
         .map(serializeAsset)
         .filter(Boolean);
-      const assetsById = new Map();
-      for (const asset of [...(Array.isArray(fallbackPayload?.assets) ? fallbackPayload.assets : []), ...editorAssets]) {
-        if (!asset || typeof asset !== 'object' || Array.isArray(asset)) continue;
-        const id = asset.id;
-        if (typeof id !== 'string' && typeof id !== 'number') continue;
-        assetsById.set(String(id), asset);
-      }
-      const assets = Array.from(assetsById.values());
+	      // The Editor's hosted asset adapter contains the whole project asset
+	      // registry, while a scene payload must contain only scene-local assets.
+	      // Serializing the registry back into the scene creates a second copy of
+	      // every storage asset (with its numeric realtime id as a string). On
+	      // the next boot the backend quite correctly sees that copy alongside
+	      // the storage row and rejects the project for a document-id collision.
+	      // The loaded scene payload is authoritative for embedded assets; newly
+	      // created storage assets are persisted by the asset API and are loaded
+	      // through the full-boot asset endpoint on the next session.
+	      const assets = selectSceneLocalAssets(fallbackPayload?.assets, editorAssets);
+      marker.lastSerializedAssetCount = assets.length;
+      marker.lastSerializedAssetIds = assets.map((asset) => asset.id).slice(0, 256);
+      marker.lastSceneLocalAssetCount = getSceneLocalAssets().length;
+      marker.lastFullBootStorageAssetCount = getFullBootStorageAssets().length;
+      marker.lastFullBootAssetCount = marker.fullBootAssetsById ? Object.keys(marker.fullBootAssetsById).length : 0;
       const sceneMetadata = readCurrentSceneMetadata(editorInstance);
       const metadata = syncMmoommMetadataWithEntities(
         mergeSceneMetadataSnapshots(fallbackPayload?.metadata, sceneMetadata, { savedBy: 'universo-playcanvas-editor-bridge' }),
@@ -2425,14 +2992,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
         if (marker.fullBootMode === true || !marker.currentSceneChecksum) {
           await refreshCurrentSceneChecksum();
         }
-        let csrfToken =
-          typeof marker.compatibilityCsrfToken?.token === 'string' && marker.compatibilityCsrfToken.token
-            ? marker.compatibilityCsrfToken.token
-            : null;
-        const csrfHeaderName =
-          (typeof marker.compatibilityCsrfToken?.headerName === 'string' && marker.compatibilityCsrfToken.headerName) ||
-          restConfig.csrf?.headerName ||
-          'X-CSRF-Token';
+        const sceneSaveUrl = restConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId);
+        const sceneCsrfProof = resolveCompatibilityCsrfProof(sceneSaveUrl, restConfig);
+        let csrfToken = sceneCsrfProof?.token || null;
+        const csrfHeaderName = sceneCsrfProof?.headerName || restConfig.csrf?.headerName || 'X-CSRF-Token';
         if (!csrfToken) {
           const csrf = await fetch(restConfig.csrf?.tokenUrl || '/api/v1/auth/csrf', {
             credentials: 'include',
@@ -2449,7 +3012,6 @@ export const writeBridgeBootstrap = (targetRoot) => {
                   ? csrf.item.token
                   : null;
         }
-        const sceneSaveUrl = restConfig.endpoints.scenes + '/' + encodeURIComponent(sceneId);
         const sceneSaveHeaders = {
           [restConfig.auth.headerName]: restConfig.auth.accessToken,
           'content-type': 'application/json',
@@ -2544,6 +3106,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
 
   const markClean = () => {
     marker.dirty = false;
+    marker.userMutationSinceHydration = false;
     window.__UNIVERSO_PLAYCANVAS_EDITOR_POST_MESSAGE__({
       type: 'bridge.dirtyState',
       dirty: false,
@@ -2554,14 +3117,32 @@ export const writeBridgeBootstrap = (targetRoot) => {
   };
 
   const markHydratedClean = () => {
+    if (marker.userMutationSinceHydration === true && marker.dirty === true) return;
     marker.initialHydrationComplete = true;
     marker.ignoreDirtyUntil = Date.now() + 750;
+    marker.hydrationDirtySuppressionUntil = Date.now() + 5000;
     markClean();
   };
 
-		  const markDirty = (options = {}) => {
+  const markDirty = (options = {}) => {
     const force = options && options.force === true;
-    if (!force && (!marker.initialHydrationComplete || Date.now() < (marker.ignoreDirtyUntil || 0))) {
+    const userInitiated = options && options.userInitiated === true;
+    if (
+      force &&
+      !userInitiated &&
+      marker.fullBootMode === true &&
+      (marker.initialHydrationComplete !== true || Date.now() < (marker.hydrationDirtySuppressionUntil || 0))
+    ) {
+      marker.suppressedInitialDirtyEvents = (marker.suppressedInitialDirtyEvents || 0) + 1;
+      return;
+    }
+    if (force) marker.userMutationSinceHydration = true;
+    if (
+      !userInitiated &&
+      (!marker.initialHydrationComplete ||
+        Date.now() < (marker.ignoreDirtyUntil || 0) ||
+        Date.now() < (marker.hydrationDirtySuppressionUntil || 0))
+    ) {
       marker.suppressedInitialDirtyEvents = (marker.suppressedInitialDirtyEvents || 0) + 1;
       return;
     }
@@ -2576,12 +3157,38 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    });
   };
 
-  const installEditorCallBridgeWrapper = (editorInstance) => {
+    const installEditorCallBridgeWrapper = (editorInstance) => {
     if (!editorInstance || typeof editorInstance.call !== 'function') return false;
     if (editorInstance.call === wrappedEditorCall && wrappedEditorCallSource) return true;
     const sourceCall = editorInstance.call;
     const upstreamCall = sourceCall.bind(editorInstance);
     wrappedEditorCall = (methodName, ...args) => {
+      // The v2.30.4 full-boot launcher asks ShareDB for every asset document
+      // after the project list request. Universo's compatibility asset list is
+      // already authoritative and mounted in the native registry, while the
+      // cloud ShareDB document ids are not guaranteed to be available to the
+      // browser session. Resolve those listed ids from the compatibility
+      // registry so the upstream progress observer can reach 100% and emit its
+      // normal assets:load event. Unknown ids still use the upstream method.
+      if (methodName === 'loadAsset' && marker.fullBootMode === true && typeof args[1] === 'function') {
+        loadFullBootAssetForEditor(editorInstance, args[0], args[1]);
+        return undefined;
+      }
+      // The upstream realtime sync clears the native registry on disconnect
+      // and before a re-subscribe. In full-boot mode the REST compatibility
+      // list is authoritative; clearing it would remove folders and scripts
+      // from the visible tree even though the backend data still exists.
+      // Allow the initial pre-compatibility clear, but suppress late clears
+      // after the authoritative list has mounted.
+      if (
+        methodName === 'assets:clear' &&
+        marker.fullBootMode === true &&
+        marker.fullBootAssetLoadState === 'ready'
+      ) {
+        marker.fullBootAssetClearSuppressedCount =
+          (Number(marker.fullBootAssetClearSuppressedCount) || 0) + 1;
+        return undefined;
+      }
       if (methodName === 'realtime:scene:op' && shouldSuppressHydrationRealtimeEntityOp(args[0])) {
         recordSuppressedHydrationRealtimeOp(args[0]);
         return undefined;
@@ -2590,7 +3197,26 @@ export const writeBridgeBootstrap = (targetRoot) => {
         const realtimeScene = editorInstance.api?.globals?.realtime?.scenes?.current;
         repairRealtimeDocumentForSubmitArgs(realtimeScene, args);
       }
-      const result = upstreamCall(methodName, ...args);
+      // Once the compatibility asset list is authoritative, the upstream
+      // realtime loader may report an intermediate progress value after our
+      // synthetic completion (for example, 0.5 at the start of its own
+      // subscription pass). Keep the user-facing panel at the completed state
+      // instead of allowing that late callback to regress it indefinitely.
+      const forceFullBootAssetProgress =
+        methodName === 'assets:progress' &&
+        marker.fullBootMode === true &&
+        marker.fullBootAssetLoadState === 'ready' &&
+        typeof args[0] === 'number' &&
+        Number.isFinite(args[0]) &&
+        args[0] < 1;
+      const callArgs = forceFullBootAssetProgress ? [1, ...args.slice(1)] : args;
+      const result = upstreamCall(methodName, ...callArgs);
+      if (forceFullBootAssetProgress) {
+        marker.fullBootAssetProgressCompleted = true;
+        marker.fullBootAssetProgressCompletedAt = Date.now();
+        marker.fullBootAssetProgressOverrideCount =
+          (Number(marker.fullBootAssetProgressOverrideCount) || 0) + 1;
+      }
       if (methodName === 'realtime:connection') {
         installShareDbConnectionRepairAdapter(result);
       }
@@ -2599,7 +3225,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         rememberEntityObserver(result, inputData);
         rememberCreatedEntityInputFallback(inputData);
         if (!hydratingPersistedScene) {
-          markDirty({ force: true });
+          markDirty({ force: true, userInitiated: true });
         }
       }
       return result;
@@ -2641,7 +3267,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       const result = sourceCreate.call(this, data, options);
       if (!hydratingPersistedScene) {
         rememberCreatedEntityInputFallback(data);
-        markDirty({ force: true });
+        markDirty({ force: true, userInitiated: true });
       }
       return result;
     };
@@ -2652,16 +3278,57 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return true;
   };
 
-	  const installEditorSaveAdapter = () => {
+  const installMessengerAssetUpdateAdapter = (editorInstance) => {
+    if (!editorInstance || typeof editorInstance.on !== 'function' || marker.messengerAssetUpdateAdapterInstalled === true) return false;
+    editorInstance.on('messenger:asset.update', (message) => {
+      const assetData = message && typeof message === 'object' && message.asset && typeof message.asset === 'object' ? message.asset : null;
+      if (!assetData) return;
+      const currentBranchId = window.config?.self?.branch?.id;
+      if (
+        assetData.branchId !== undefined &&
+        assetData.branchId !== null &&
+        currentBranchId !== undefined &&
+        currentBranchId !== null &&
+        String(assetData.branchId) !== String(currentBranchId)
+      ) {
+        return;
+      }
+      const uniqueId = assetData.id;
+      if (uniqueId === undefined || uniqueId === null) return;
+      let asset = null;
+      try {
+        asset = editorInstance.call('assets:getUnique', uniqueId) || editorInstance.call('assets:get', uniqueId);
+      } catch {
+        asset = null;
+      }
+      if (!asset) {
+        const listed = safeEditorCall(editorInstance, 'assets:list');
+        const assets = Array.isArray(listed) ? listed : listed && typeof listed.array === 'function' ? listed.array() : [];
+        asset = assets.find((candidate) => String(getObserverValue(candidate, 'id')) === String(uniqueId)) || null;
+      }
+      if (!asset || typeof asset.set !== 'function') return;
+      if (typeof assetData.name === 'string' && assetData.name) {
+        asset.set('name', assetData.name);
+      }
+      if (typeof assetData.fileFilename === 'string' && assetData.fileFilename && getObserverValue(asset, 'file')) {
+        asset.set('file.filename', assetData.fileFilename);
+      }
+    });
+    marker.messengerAssetUpdateAdapterInstalled = true;
+    return true;
+  };
+
+  const installEditorSaveAdapter = () => {
 	    const editorInstance = window.editor && typeof window.editor.call === 'function' ? window.editor : null;
 	    if (!editorInstance) {
 	      window.setTimeout(installEditorSaveAdapter, 250);
 	      return;
 	    }
-	    if (marker.editorSaveAdapterInstalled && marker.editorInstance === editorInstance) {
-        installEditorCallBridgeWrapper(editorInstance);
-        installShareDbDocumentRepairAdapter(editorInstance);
-    installApiEntitiesCreateBridgeWrapper(editorInstance);
+    if (marker.editorSaveAdapterInstalled && marker.editorInstance === editorInstance) {
+      installEditorCallBridgeWrapper(editorInstance);
+      installShareDbDocumentRepairAdapter(editorInstance);
+      installApiEntitiesCreateBridgeWrapper(editorInstance);
+        installMessengerAssetUpdateAdapter(editorInstance);
         const currentRealtimeScene = editorInstance.api?.globals?.realtime?.scenes?.current;
         ensureRealtimeSceneDocumentShape(currentRealtimeScene);
         wrapShareDbDocumentSubmitOp(currentRealtimeScene?._document);
@@ -2670,9 +3337,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    if (marker.fullBootMode !== true) {
 	      installHostedEntityAdapter(editorInstance);
 	    }
-	    marker.editorSaveAdapterInstalled = true;
-	    marker.editorInstance = editorInstance;
+    marker.editorSaveAdapterInstalled = true;
+    marker.editorInstance = editorInstance;
     editorInstance.universoBridge = marker;
+    installMessengerAssetUpdateAdapter(editorInstance);
     installShareDbDocumentRepairAdapter(editorInstance);
     if (typeof editorInstance.emit === 'function' && editorInstance.emit !== wrappedEditorEmit) {
       const sourceEmit = editorInstance.emit;
@@ -2695,17 +3363,53 @@ export const writeBridgeBootstrap = (targetRoot) => {
 		    if (typeof editorInstance.on === 'function') {
 	      editorInstance.on('entities:add', (entity) => {
 	        rememberEntityObserver(entity, { name: getObserverValue(entity, 'name') || 'Entity' });
+        schedulePersistedMmoommVisualMaterialReapply(editorInstance);
         if (!hydratingPersistedScene) {
-          markDirty();
+          markDirty({ force: true });
         }
 	      });
       editorInstance.on('entities:remove', (entity) => {
         forgetEntityObserver(entity);
-        markDirty();
+        if (!hydratingPersistedScene && !consumeSuppressedHydrationEntityRemoval(entity)) {
+          markDirty({ force: true });
+        }
       });
       editorInstance.on('assets:add', markDirty);
       editorInstance.on('assets:remove', markDirty);
-      editorInstance.on('load', markHydratedClean);
+      editorInstance.on('load', () => {
+        if (marker.fullBootMode !== true) markHydratedClean();
+      });
+      if (!marker.mmoommVisualMaterialReapplyAdapterInstalled) {
+        const reapplyVisualMaterials = () => {
+          for (const delay of [0, 250, 1000, 3000]) {
+            window.setTimeout(() => {
+              reapplyPersistedMmoommVisualMaterials(editorInstance);
+            }, delay);
+          }
+        };
+        editorInstance.on('assets:load', reapplyVisualMaterials);
+        editorInstance.on('assets:load:all', reapplyVisualMaterials);
+        editorInstance.on('entities:load', reapplyVisualMaterials);
+        marker.mmoommVisualMaterialReapplyAdapterInstalled = true;
+      }
+      if (marker.fullBootMode === true && !marker.fullBootAssetRegistryReconcileInstalled) {
+        const reconcileFullBootAssets = () => {
+          const assets = installMergedFullBootAssets();
+          // ShareDB documents must be hydrated only after the upstream loader
+          // has attached its load listeners. Hydrating them before
+          // RealtimeAsset.loadAndSubscribe subscribes can emit the load
+          // event synchronously and strand the editor progress bar at 50%.
+          resolvePendingFullBootAssetDocuments(editorInstance, assets);
+          schedulePersistedMmoommVisualMaterialReapply(editorInstance);
+        };
+        // The upstream realtime loader may clear and repopulate its native
+        // asset registry after the compatibility scene has loaded. Re-mount
+        // the merged scene/storage view only after that load settles so
+        // scene-local material data remains the source of truth.
+        editorInstance.on('assets:load', reconcileFullBootAssets);
+        editorInstance.on('assets:load:all', reconcileFullBootAssets);
+        marker.fullBootAssetRegistryReconcileInstalled = true;
+      }
 	      editorInstance.on('settings:project:load', () => {
 	        marker.projectSettingsLoaded = true;
         if (marker.fullBootMode !== true) {
@@ -2719,15 +3423,17 @@ export const writeBridgeBootstrap = (targetRoot) => {
         marker.realtimeSceneRawReceived = true;
         ensureRealtimeSceneDocumentShape(editorInstance.api?.globals?.realtime?.scenes?.current);
         rebindUpstreamHierarchy();
-        if (!marker.initialHydrationComplete) {
+        if (marker.fullBootMode !== true && !marker.initialHydrationComplete) {
           markHydratedClean();
         }
       });
       editorInstance.on('realtime:load:scene', () => {
         const wasDirty = marker.dirty === true;
         ensureRealtimeSceneDocumentShape(editorInstance.api?.globals?.realtime?.scenes?.current);
-        const hydrated = hydratePersistedSceneEntities();
-        if (hydrated || !wasDirty) {
+        hydratePersistedSceneEntities();
+        reapplyPersistedMmoommVisualMaterials(editorInstance);
+        schedulePersistedMmoommVisualMaterialReapply(editorInstance);
+        if (!wasDirty) {
           markHydratedClean();
         }
       });
@@ -2746,9 +3452,11 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    schedulePersistedSceneHydration();
     const history = editorInstance.api?.globals?.history;
     if (history && typeof history.on === 'function' && !marker.historyDirtyAdapterInstalled) {
-      history.on('add', markDirty);
-      history.on('undo', markDirty);
-      history.on('redo', markDirty);
+      history.on('add', () => {
+        if (!hydratingPersistedScene) markDirty({ force: true });
+      });
+      history.on('undo', () => markDirty({ force: true, userInitiated: true }));
+      history.on('redo', () => markDirty({ force: true, userInitiated: true }));
       marker.historyDirtyAdapterInstalled = true;
     }
     const realtimeScene = editorInstance.api?.globals?.realtime?.scenes?.current;
@@ -2766,7 +3474,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         }
         repairRealtimeDocumentForSubmitArgs(realtimeScene, [op]);
         const result = upstreamSubmitOp(op);
-        markDirty();
+        markDirty({ userInitiated: true });
         return result;
       };
       realtimeScene.submitOp = marker.wrappedRealtimeSceneSubmitOp;
@@ -2785,6 +3493,41 @@ export const writeBridgeBootstrap = (targetRoot) => {
       }
     }
 	  };
+
+  // The full-upstream launcher starts its realtime asset loader from the
+  // Editor's first load event. Polling for the instance after injecting the
+  // bundle is racy: the launcher can create ShareDB documents before the
+  // adapter is installed, leaving the assets progress bar at 50%.  Capture
+  // the vendor assignment synchronously so the call wrapper is present before
+  // any load handlers execute. Keep the accessor private to this bootstrap
+  // and preserve the existing descriptor/value for non-Editor consumers.
+  const installEarlyEditorCapture = () => {
+    if (editorCaptureInstalled || marker.fullBootMode !== true || typeof window !== 'object') return false;
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'editor');
+    if (descriptor && descriptor.configurable === false) return false;
+    let currentEditor = descriptor && Object.prototype.hasOwnProperty.call(descriptor, 'value') ? descriptor.value : window.editor;
+    try {
+      Object.defineProperty(window, 'editor', {
+        configurable: true,
+        enumerable: descriptor?.enumerable ?? true,
+        get: () => currentEditor,
+        set: (value) => {
+          currentEditor = value;
+          if (value && typeof value.call === 'function') {
+            installEditorSaveAdapter();
+          }
+        }
+      });
+    } catch {
+      return false;
+    }
+    editorCaptureInstalled = true;
+    marker.editorCaptureInstalled = true;
+    if (currentEditor && typeof currentEditor.call === 'function') {
+      installEditorSaveAdapter();
+    }
+    return true;
+  };
 
 	  let editorAdapterRefreshCount = 0;
 	  const refreshEditorSaveAdapter = () => {
@@ -2925,6 +3668,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
       marker.fullBootMode = true;
       marker.compatibilityConfig = descriptor.compatibilityConfig;
       marker.compatibilityConfigReady = true;
+      const proof = descriptor.compatibilityConfig.universoBridge?.compatibilityCsrfToken;
+      if (proof && typeof proof === 'object' && typeof proof.token === 'string' && typeof proof.headerName === 'string') {
+        marker.fullBootCompatibilityCsrfToken = { token: proof.token, headerName: proof.headerName };
+      }
       return assertFullBootConfig(descriptor.compatibilityConfig);
     }
     marker.fullBootMode = false;
@@ -3026,19 +3773,19 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return !claims || typeof claims.origin !== 'string' || claims.origin === window.location.origin;
   };
 
-  const refreshFullBootAccessToken = async () => {
+  const refreshFullBootAccessToken = async (force = false) => {
     if (marker.fullBootMode !== true) return window.config?.accessToken || null;
     const existingToken =
       (typeof marker.compatibilityConfig?.accessToken === 'string' && marker.compatibilityConfig.accessToken) ||
       (typeof window.config?.accessToken === 'string' && window.config.accessToken) ||
       null;
-    if (isUsableFullBootAccessToken(existingToken)) {
+    if (!force && isUsableFullBootAccessToken(existingToken)) {
       window.config.accessToken = existingToken;
       return existingToken;
     }
     if (marker.fullBootAccessTokenRefreshPromise) return marker.fullBootAccessTokenRefreshPromise;
     const refreshUrl = resolveFullBootTokenRefreshUrl();
-    if (!refreshUrl) return window.config?.accessToken || null;
+    if (!refreshUrl) return force ? null : window.config?.accessToken || null;
     marker.fullBootAccessTokenRefreshPromise = fetch(appendArtifactOriginParams(refreshUrl), {
       credentials: 'include',
       cache: 'no-store'
@@ -3050,17 +3797,21 @@ export const writeBridgeBootstrap = (targetRoot) => {
           window.config.accessToken = config.accessToken;
           if (config.universoBridge && typeof config.universoBridge === 'object') {
             window.config.universoBridge = config.universoBridge;
+            const proof = config.universoBridge.compatibilityCsrfToken;
+            if (proof && typeof proof === 'object' && typeof proof.token === 'string' && typeof proof.headerName === 'string') {
+              marker.fullBootCompatibilityCsrfToken = { token: proof.token, headerName: proof.headerName };
+            }
           }
           applyRenewedEditorArtifactToken(body?.artifactToken);
           marker.compatibilityConfig = window.config;
           marker.fullBootAccessTokenRefreshedAt = Date.now();
           return config.accessToken;
         }
-        return window.config?.accessToken || null;
+        return force ? null : window.config?.accessToken || null;
       })
       .catch((error) => {
         marker.fullBootAccessTokenRefreshError = error;
-        return window.config?.accessToken || null;
+        return force ? null : window.config?.accessToken || null;
       })
       .finally(() => {
         marker.fullBootAccessTokenRefreshPromise = null;
@@ -3122,8 +3873,20 @@ export const writeBridgeBootstrap = (targetRoot) => {
     return { metadata, editorDocument, data, meta };
   };
 
+  const parseCanonicalAssetDocumentId = (value) => {
+    if (typeof value === 'number') {
+      return Number.isSafeInteger(value) && value > 0 && value <= 2147483647 ? value : null;
+    }
+    if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value) || value.length > 10) return null;
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= 2147483647 ? parsed : null;
+  };
+
   const mapCompatibilityAssetToPlayCanvasAsset = (asset) => {
-    const id = Number.isInteger(asset?.editorDocumentId) ? asset.editorDocumentId : null;
+    const explicitEditorDocumentId = parseCanonicalAssetDocumentId(asset?.editorDocumentId);
+    const stableAssetId = typeof asset?.stableAssetId === 'string' && asset.stableAssetId.trim() ? asset.stableAssetId.trim() : null;
+    const embeddedAssetId = stableAssetId ? parseCanonicalAssetDocumentId(asset?.id) : null;
+    const id = explicitEditorDocumentId ?? embeddedAssetId;
     if (!id) return null;
     const { metadata, editorDocument, data, meta } = readCompatibilityAssetEditorDocument(asset);
     const virtualPath = typeof asset.virtualPath === 'string' && asset.virtualPath.trim() ? asset.virtualPath.trim() : asset.name || 'asset';
@@ -3132,7 +3895,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
     const editorData = type === 'material' ? normalizeCompatibilityMaterialData(data) : data ?? null;
     return {
       id,
-      uniqueId: String(id),
+      uniqueId: id,
       item_id: id,
       branch_id: window.config?.self?.branch?.id || window.config?.scene?.id || null,
       project: window.config?.project?.id || null,
@@ -3147,7 +3910,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
             variants: null
           }
         : null,
-      path: [],
+      path: Array.isArray(asset.editorPathDocumentIds)
+        ? asset.editorPathDocumentIds.filter((ancestorId) => Number.isInteger(ancestorId) && ancestorId > 0)
+        : [],
+      createdAt: typeof asset.createdAt === 'string' ? asset.createdAt : null,
       tags: Array.isArray(editorDocument?.tags) ? editorDocument.tags.filter((tag) => typeof tag === 'string') : [],
       data: editorData,
       meta: meta ?? null,
@@ -3179,63 +3945,169 @@ export const writeBridgeBootstrap = (targetRoot) => {
   };
 
   const loadFullBootAssets = async () => {
-    if (marker.fullBootAssetsById && typeof marker.fullBootAssetsById === 'object') {
-      return Object.values(marker.fullBootAssetsById);
-    }
     const loadedScenePayload = readLoadedScenePayload(marker.lastLoadedScene);
     const loadedSceneAssets = Array.isArray(loadedScenePayload?.assets)
       ? loadedScenePayload.assets.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean)
-      : [];
-    if (loadedSceneAssets.length > 0) {
-      marker.fullBootAssetsById = Object.fromEntries(loadedSceneAssets.map((asset) => [String(asset.id), asset]));
-      if (window.editor && typeof window.editor.method === 'function') {
-        installHostedAssetAdapter(window.editor, loadedSceneAssets);
-      }
-      return loadedSceneAssets;
+      : null;
+    if (loadedSceneAssets) {
+      rememberSceneLocalAssets(loadedSceneAssets);
+      marker.lastLoadedSceneAssetCount = loadedSceneAssets.length;
+      marker.lastLoadedSceneAssetIds = loadedSceneAssets.map((asset) => asset.id).slice(0, 256);
+      installMergedFullBootAssets();
     }
     if (marker.fullBootAssetsPromise) {
-      return marker.fullBootAssetsPromise;
+      return marker.fullBootAssetsPromise.then(() => installMergedFullBootAssets());
     }
-    marker.fullBootAssetsPromise = (async () => {
-      const restConfig = await resolveRestCompatibilityConfig();
-      if (!restConfig) return [];
-      try {
-        const assetsEndpoint = new URL(restConfig.endpoints.assets, window.location.href);
-        if (!isRestCompatibilityAssetEndpointAllowed(restConfig, assetsEndpoint)) {
-          return [];
-        }
-      } catch {
-        return [];
-      }
-      const requestInit =
-        marker.fullBootMode === true && typeof window.config?.accessToken === 'string'
-          ? {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                [restConfig.auth.headerName]: window.config.accessToken
-              },
-              cache: 'no-store'
+    if (marker.fullBootStorageAssetsById && typeof marker.fullBootStorageAssetsById === 'object') {
+      return installMergedFullBootAssets();
+    }
+    marker.fullBootAssetLoadState = 'loading';
+    const loadPromise = (async () => {
+      const maxAttempts = 2;
+      const createLoadError = (message, retryable = true) => {
+        const error = new Error(message);
+        error.retryable = retryable;
+        return error;
+      };
+      let lastError = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        marker.fullBootAssetLoadAttempts = attempt;
+        try {
+          const restConfig = await resolveRestCompatibilityConfig();
+          if (!restConfig) {
+            throw createLoadError('Full-boot asset compatibility configuration could not be loaded');
+          }
+
+          let assetsEndpoint;
+          try {
+            assetsEndpoint = new URL(restConfig.endpoints.assets, window.location.href);
+          } catch {
+            throw createLoadError('Full-boot asset compatibility endpoint is invalid', false);
+          }
+          if (!isRestCompatibilityAssetEndpointAllowed(restConfig, assetsEndpoint)) {
+            throw createLoadError('Full-boot asset compatibility endpoint is not allowlisted', false);
+          }
+
+          const createRequestInit = () =>
+            marker.fullBootMode === true && typeof window.config?.accessToken === 'string'
+              ? {
+                  method: 'GET',
+                  credentials: 'include',
+                  headers: {
+                    [restConfig.auth.headerName]: window.config.accessToken
+                  },
+                  cache: 'no-store'
+                }
+              : withRestCompatibilityAuthHeaders(
+                    {
+                      method: 'GET',
+                      credentials: 'include',
+                      cache: 'no-store'
+                    },
+                    restConfig
+                );
+          const response = await fetch(restConfig.endpoints.assets, createRequestInit());
+          if (response.status === 401) {
+            marker.lastFullBootAssetLoadStatus = response.status;
+            if (attempt >= maxAttempts) {
+              throw createLoadError('Full-boot asset request remained unauthorized after token refresh', false);
             }
-          : withRestCompatibilityAuthHeaders(
-              {
-                method: 'GET',
-                credentials: 'include',
-                cache: 'no-store'
-              },
-              restConfig
+            marker.fullBootAssetLoadRefreshAttempts = (Number(marker.fullBootAssetLoadRefreshAttempts) || 0) + 1;
+            const refreshedToken = await refreshFullBootAccessToken(true);
+            if (!refreshedToken) {
+              throw createLoadError('Full-boot asset access token refresh failed after an unauthorized response', false);
+            }
+            throw createLoadError('Full-boot asset request will retry after access token refresh');
+          }
+          if (!response.ok) {
+            marker.lastFullBootAssetLoadStatus = response.status;
+            throw createLoadError(
+              'Full-boot asset request failed with status ' + response.status,
+              response.status >= 500
             );
-      const response = await fetch(restConfig.endpoints.assets, requestInit);
-      if (!response.ok) return [];
-      const body = await response.json();
-      const assets = Array.isArray(body?.items) ? body.items.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean) : [];
-      marker.fullBootAssetsById = Object.fromEntries(assets.map((asset) => [String(asset.id), asset]));
-      if (window.editor && typeof window.editor.method === 'function') {
-        installHostedAssetAdapter(window.editor, assets);
+          }
+
+          let body;
+          try {
+            body = await response.json();
+          } catch {
+            throw createLoadError('Full-boot asset request returned invalid JSON');
+          }
+          if (!body || typeof body !== 'object' || Array.isArray(body) || !Array.isArray(body.items)) {
+            throw createLoadError('Full-boot asset request returned an invalid items payload');
+          }
+          const seenAssetIds = new Set();
+          const assets = body.items.map((asset) => {
+            if (!asset || typeof asset !== 'object' || Array.isArray(asset)) {
+              throw createLoadError('Full-boot asset request returned an invalid asset item');
+            }
+            const mappedAsset = mapCompatibilityAssetToPlayCanvasAsset(asset);
+            if (!mappedAsset) {
+              throw createLoadError('Full-boot asset request returned an unaddressable asset item');
+            }
+            if (seenAssetIds.has(mappedAsset.id)) {
+              throw createLoadError('Full-boot asset request returned duplicate asset identifiers', false);
+            }
+            seenAssetIds.add(mappedAsset.id);
+            return mappedAsset;
+          });
+          marker.fullBootStorageAssetsById = Object.fromEntries(assets.map((asset) => [String(asset.id), asset]));
+          marker.fullBootAssetLoadState = 'ready';
+          return installMergedFullBootAssets();
+        } catch (error) {
+          lastError = error;
+          marker.lastFullBootAssetLoadError = error && typeof error.message === 'string' ? error.message : String(error);
+          if (attempt >= maxAttempts || error?.retryable === false) {
+            throw error;
+          }
+          marker.fullBootAssetLoadRetries = (Number(marker.fullBootAssetLoadRetries) || 0) + 1;
+        }
       }
-      return assets;
+      throw lastError || new Error('Full-boot asset request did not return a response');
     })();
-    return marker.fullBootAssetsPromise;
+    const trackedPromise = loadPromise
+      .catch((error) => {
+        marker.fullBootAssetLoadState = 'failed';
+        marker.lastFullBootAssetLoadError = error && typeof error.message === 'string' ? error.message : String(error);
+        // A scene-local merge may have populated the derived map before the
+        // remote asset request failed. Do not leave that empty/partial map
+        // looking like a successful storage cache; the next call must retry
+        // the compatibility request and rebuild the merged view.
+        marker.fullBootAssetsById = null;
+        marker.fullBootStorageAssetsById = null;
+        if (marker.fullBootAssetsPromise === trackedPromise) marker.fullBootAssetsPromise = null;
+        throw error;
+      });
+    marker.fullBootAssetsPromise = trackedPromise;
+    return trackedPromise;
+  };
+
+  const loadFullBootAssetForEditor = (editorInstance, uniqueId, callback) => {
+    if (marker.fullBootMode !== true || typeof callback !== 'function') return false;
+    const requestedId = String(uniqueId ?? '');
+    marker.fullBootAssetLoadRequests = (Number(marker.fullBootAssetLoadRequests) || 0) + 1;
+    void loadFullBootAssets()
+      .then((assets) => {
+        const asset = assets.find((candidate) =>
+          getAssetIdentityKeys(candidate).some((identityKey) => identityKey === requestedId)
+        );
+        if (!asset) {
+          marker.lastFullBootAssetLoadMiss = requestedId;
+          callback();
+          return;
+        }
+        installHostedAssetAdapter(editorInstance, assets);
+        const observer =
+          safeEditorCall(editorInstance, 'assets:get', asset.id) ||
+          safeEditorCall(editorInstance, 'assets:getUnique', asset.uniqueId ?? asset.id);
+        marker.fullBootAssetLoadResolved = (Number(marker.fullBootAssetLoadResolved) || 0) + 1;
+        callback(observer || undefined);
+      })
+      .catch((error) => {
+        marker.lastFullBootAssetLoadError = error && typeof error.message === 'string' ? error.message : String(error);
+        callback();
+      });
+    return true;
   };
 
   const createFullBootBranchPayload = () => {
@@ -3398,7 +4270,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
         return { status: 200, body: createFullBootUserPayload(decodeURIComponent(userMatch[1])) };
       }
       // Fail-safe for any other editor-api REST GET (for example the
-      // v2.24.2 builds/apps/repositories/collaborators/activity endpoints
+      // v2.30.4 builds/apps/repositories/collaborators/activity endpoints
       // that the upstream Editor probes during boot or picker setup).
       // Without this branch the request falls through to native, the
       // static artifact server answers with HTML (200) or an empty body
@@ -3442,7 +4314,75 @@ export const writeBridgeBootstrap = (targetRoot) => {
     }
   };
 
-  const withRestCompatibilityAuthHeaders = (init, restConfig) => {
+  const isAssetCompatibilityRequestUrl = (requestUrl, restConfig = marker.restCompatibilityConfig) => {
+    if (typeof requestUrl !== 'string') return false;
+    try {
+      const url = new URL(requestUrl, window.location.href);
+      if (/^\\/api\\/assets(?:\\/|$)/.test(url.pathname)) return true;
+      const endpoint = restConfig?.endpoints?.assets;
+      if (typeof endpoint !== 'string' || !endpoint) return false;
+      const endpointUrl = new URL(endpoint, window.location.href);
+      return url.origin === endpointUrl.origin && (url.pathname === endpointUrl.pathname || url.pathname.startsWith(endpointUrl.pathname + '/'));
+    } catch {
+      return false;
+    }
+  };
+
+  const resolveCompatibilityAccessToken = (requestUrl, restConfig) => {
+    if (
+      marker.fullBootMode === true &&
+      isAssetCompatibilityRequestUrl(requestUrl, restConfig) &&
+      typeof window.config?.accessToken === 'string' &&
+      window.config.accessToken
+    ) {
+      return window.config.accessToken;
+    }
+    return typeof restConfig?.auth?.accessToken === 'string' ? restConfig.auth.accessToken : '';
+  };
+
+  const resolveCompatibilityCsrfProof = (requestUrl, restConfig) => {
+    const fullBootAssetRequest = marker.fullBootMode === true && isAssetCompatibilityRequestUrl(requestUrl, restConfig);
+    const candidate = fullBootAssetRequest ? marker.fullBootCompatibilityCsrfToken : null;
+    if (
+      candidate &&
+      typeof candidate === 'object' &&
+      typeof candidate.token === 'string' &&
+      candidate.token &&
+      typeof candidate.headerName === 'string' &&
+      candidate.headerName
+    ) {
+      return candidate;
+    }
+    if (fullBootAssetRequest) return null;
+    const configuredProof = restConfig?.csrf;
+    if (
+      configuredProof &&
+      typeof configuredProof === 'object' &&
+      typeof configuredProof.token === 'string' &&
+      configuredProof.token &&
+      typeof configuredProof.headerName === 'string' &&
+      configuredProof.headerName
+    ) {
+      return {
+        token: configuredProof.token,
+        headerName: configuredProof.headerName
+      };
+    }
+    const sessionProof = marker.compatibilityCsrfToken;
+    if (
+      sessionProof &&
+      typeof sessionProof === 'object' &&
+      typeof sessionProof.token === 'string' &&
+      sessionProof.token &&
+      typeof sessionProof.headerName === 'string' &&
+      sessionProof.headerName
+    ) {
+      return sessionProof;
+    }
+    return null;
+  };
+
+  const withRestCompatibilityAuthHeaders = (init, restConfig, options = {}) => {
     if (
       !restConfig?.auth ||
       restConfig.auth.scheme !== 'signed-header' ||
@@ -3451,9 +4391,89 @@ export const writeBridgeBootstrap = (targetRoot) => {
     ) {
       return init || {};
     }
+    const accessToken =
+      typeof options.accessToken === 'string' && options.accessToken
+        ? options.accessToken
+        : restConfig.auth.accessToken;
     const nextInit = { ...(init || {}) };
     const headers = new Headers(nextInit.headers || {});
-    headers.set(restConfig.auth.headerName, restConfig.auth.accessToken);
+    headers.set(restConfig.auth.headerName, accessToken);
+    nextInit.headers = headers;
+    return nextInit;
+  };
+
+  // Editor asset surface ("/api/assets*"): rewritten onto the Universo
+  // compatibility REST router so metadata/create/delete/file-content reach our backend
+  // with signed-header auth + CSRF instead of falling through to the platform
+  // SPA fallback (which answers HTML with 200 — the original SyntaxError bug).
+  const EDITOR_ASSET_COMPATIBILITY_ROUTES = [
+    { re: /^\\/api\\/assets\\/?$/, methods: ['POST', 'DELETE'] },
+    { re: /^\\/api\\/assets\\/([^/]+)$/, methods: ['GET', 'PUT'] },
+    { re: /^\\/api\\/assets\\/([^/]+)\\/file\\/([^/?]+)$/, methods: ['GET'] }
+  ];
+
+  const resolveEditorAssetCompatibilityUrl = (method, requestUrl) => {
+    const restConfig = marker.restCompatibilityConfig;
+    const assetsEndpoint = restConfig?.endpoints?.assets;
+    if (typeof assetsEndpoint !== 'string' || !assetsEndpoint || typeof requestUrl !== 'string') return null;
+    const normalizedMethod = String(method || 'GET').toUpperCase();
+    let pathname = '';
+    let search = '';
+    try {
+      const parsed = new URL(requestUrl, window.location.href);
+      pathname = parsed.pathname;
+      search = parsed.search;
+    } catch {
+      return null;
+    }
+    // Keep the file route explicit.  The generated bundle is evaluated in the
+    // browser, where RegExp#source escaping is not a stable routing contract;
+    // deriving the target shape from that string previously collapsed
+    // '/file/:filename' into the metadata route and produced a 404.
+    const fileMatch = /^\\/api\\/assets\\/([^/]+)\\/file\\/([^/?]+)$/.exec(pathname);
+    if (fileMatch && normalizedMethod === 'GET') {
+      const assetId = encodeURIComponent(decodeURIComponent(fileMatch[1]));
+      const filename = encodeURIComponent(decodeURIComponent(fileMatch[2]));
+      return assetsEndpoint + '/' + assetId + '/file/' + filename + search;
+    }
+    for (const route of EDITOR_ASSET_COMPATIBILITY_ROUTES) {
+      const match = route.re.exec(pathname);
+      if (!match || !route.methods.includes(normalizedMethod)) continue;
+      const suffix = match.slice(1)
+        .map((part) => encodeURIComponent(decodeURIComponent(part)))
+        .join('/');
+      return assetsEndpoint + (suffix ? '/' + suffix : '') + search;
+    }
+    // Any other editor asset-surface request under /api/assets must be answered
+    // by the compatibility router with fail-closed JSON, never by the SPA
+    // fallback. NOTE: the project-assets LIST (/api/projects/:id/assets) is
+    // intentionally NOT rewritten — the full-boot adapter answers it
+    // synthetically before this table runs for GET, and the editor never issues
+    // other methods against that route.
+    if (/^\\/api\\/assets\\b/.test(pathname)) {
+      return assetsEndpoint + '/-unsupported';
+    }
+    // Keep the project-scoped asset surface fail-closed for non-GET calls as
+    // well. The exact GET collection request is synthesized above; mutating
+    // variants must never fall through to the artifact SPA HTML response.
+    const projectAssetsPath = /^\\/api\\/projects\\/[^/]+\\/assets(?:\\/|$)/.test(pathname);
+    const projectAssetsCollectionPath = /^\\/api\\/projects\\/[^/]+\\/assets\\/?$/.test(pathname);
+    if (projectAssetsPath && !(projectAssetsCollectionPath && normalizedMethod === 'GET')) {
+      return assetsEndpoint + '/-unsupported';
+    }
+    return null;
+  };
+
+  const withEditorAssetCsrfHeader = (init, method, requestUrl, restConfig = marker.restCompatibilityConfig) => {
+    const normalizedMethod = String(method || 'GET').toUpperCase();
+    if (normalizedMethod === 'GET' || normalizedMethod === 'HEAD') return init || {};
+    const proof = resolveCompatibilityCsrfProof(requestUrl, restConfig);
+    const headerName = proof?.headerName || restConfig?.csrf?.headerName || 'X-CSRF-Token';
+    const token = proof?.token || '';
+    if (!token) return init || {};
+    const nextInit = { ...(init || {}) };
+    const headers = new Headers(nextInit.headers || {});
+    if (!headers.has(headerName)) headers.set(headerName, token);
     nextInit.headers = headers;
     return nextInit;
   };
@@ -3560,29 +4580,113 @@ export const writeBridgeBootstrap = (targetRoot) => {
       this.open = (method, url, ...args) => {
         requestMethod = method || 'GET';
         requestUrl = typeof url === 'string' ? url : String(url?.url || url || '');
+        const compatibilityUrl = resolveEditorAssetCompatibilityUrl(requestMethod, requestUrl);
+        if (compatibilityUrl) {
+          requestUrl = compatibilityUrl;
+        }
         this.__universoRestCompatibilityRequestUrl = requestUrl;
         synthetic = createFullBootCloudApiResponse(requestMethod, requestUrl);
         if (synthetic) {
           readyState = 1;
           return undefined;
         }
-        return native.open(method, url, ...args);
+        return native.open(method, requestUrl, ...args);
       };
 
       this.send = (...args) => {
         const restConfig = marker.restCompatibilityConfig;
-        if (
+        const isCompatibilityRequest =
           !synthetic &&
           isRestCompatibilityEndpointUrl(this.__universoRestCompatibilityRequestUrl, restConfig) &&
           restConfig?.auth?.scheme === 'signed-header' &&
           typeof restConfig.auth.headerName === 'string' &&
-          typeof restConfig.auth.accessToken === 'string'
-        ) {
+          typeof restConfig.auth.accessToken === 'string';
+        const normalizedSendMethod = String(requestMethod || 'GET').toUpperCase();
+        const isCompatibilityWrite = isCompatibilityRequest && normalizedSendMethod !== 'GET' && normalizedSendMethod !== 'HEAD';
+        const usesFullBootCredentials =
+          marker.fullBootMode === true && isAssetCompatibilityRequestUrl(this.__universoRestCompatibilityRequestUrl, restConfig);
+        // XMLHttpRequest appends repeated header values instead of replacing
+        // them. Writes set the signed token only after the asynchronous refresh
+        // below; setting it here as well would produce a comma-joined old/fresh token
+        // and make the HMAC token fail closed at the backend.
+        if (isCompatibilityRequest && !isCompatibilityWrite) {
           try {
-            native.setRequestHeader(restConfig.auth.headerName, restConfig.auth.accessToken);
+            const accessToken = resolveCompatibilityAccessToken(this.__universoRestCompatibilityRequestUrl, restConfig);
+            native.setRequestHeader(restConfig.auth.headerName, accessToken);
           } catch (error) {
             marker.lastXmlHttpRequestAuthHeaderError = error && typeof error.message === 'string' ? error.message : String(error);
           }
+        }
+        if (isCompatibilityWrite) {
+            // Full-boot asset writes need a fresh full-boot token and proof;
+            // source-file/settings writes use the REST token/proof issued by
+            // the compatibility config. A session CSRF request remains the
+            // same-origin fallback when a signed proof is unavailable.
+            void Promise.all([
+                usesFullBootCredentials ? refreshFullBootAccessToken().catch(() => null) : Promise.resolve(null),
+                fetch(
+                    restConfig.csrf?.tokenUrl ||
+                        new URL('/api/v1/auth/csrf', restConfig.endpoints?.assets || window.location.href).toString(),
+                    { credentials: 'include', cache: 'no-store' }
+                )
+                    .then((response) => (response.ok ? response.json() : null))
+                    .catch(() => null)
+            ])
+                .then(([token, csrf]) => {
+                    const freshToken = usesFullBootCredentials
+                        ? (typeof token === 'string' && token) || resolveCompatibilityAccessToken(this.__universoRestCompatibilityRequestUrl, restConfig)
+                        : restConfig.auth.accessToken;
+                    try {
+                        native.setRequestHeader(restConfig.auth.headerName, freshToken);
+                    } catch (error) {
+                        marker.lastXmlHttpRequestAuthHeaderError = error && typeof error.message === 'string' ? error.message : String(error);
+                    }
+                    // Prefer the proof bound to this request's token. A
+                    // sandboxed cross-origin frame cannot send the host
+                    // session cookie, so the fetched session token is only a
+                    // same-origin fallback.
+                    const proof = resolveCompatibilityCsrfProof(this.__universoRestCompatibilityRequestUrl, restConfig);
+                    const csrfToken =
+                        proof?.token ||
+                        (typeof csrf?.token === 'string'
+                            ? csrf.token
+                            : typeof csrf?.csrfToken === 'string'
+                            ? csrf.csrfToken
+                            : '');
+                    if (csrfToken) {
+                        const csrfHeaderName = proof?.headerName || restConfig.csrf?.headerName || 'X-CSRF-Token';
+                        try {
+                            native.setRequestHeader(csrfHeaderName, csrfToken);
+                        } catch (error) {
+                            marker.lastXmlHttpRequestAuthHeaderError = error && typeof error.message === 'string' ? error.message : String(error);
+                        }
+                    }
+                    return native.send(...args);
+                })
+                .catch((error) => {
+                  marker.lastXmlHttpRequestAuthHeaderError =
+                    error && typeof error.message === 'string' ? error.message : String(error);
+                  try {
+                    const fallbackToken = resolveCompatibilityAccessToken(this.__universoRestCompatibilityRequestUrl, restConfig);
+                    native.setRequestHeader(restConfig.auth.headerName, fallbackToken);
+                    const fallbackProof = resolveCompatibilityCsrfProof(this.__universoRestCompatibilityRequestUrl, restConfig);
+                    const fallbackCsrfToken = fallbackProof?.token || '';
+                    if (fallbackCsrfToken) {
+                      const fallbackCsrfHeaderName = fallbackProof?.headerName || restConfig.csrf?.headerName || 'X-CSRF-Token';
+                      native.setRequestHeader(fallbackCsrfHeaderName, fallbackCsrfToken);
+                    }
+                    return native.send(...args);
+                  } catch (sendError) {
+                    marker.lastXmlHttpRequestAuthHeaderError =
+                      sendError && typeof sendError.message === 'string' ? sendError.message : String(sendError);
+                    status = 0;
+                    readyState = 4;
+                    dispatchSyntheticEvent('error');
+                    dispatchSyntheticEvent('loadend');
+                    return undefined;
+                  }
+                });
+          return undefined;
         }
         if (synthetic) {
           setTimeout(async () => {
@@ -3679,6 +4783,40 @@ export const writeBridgeBootstrap = (targetRoot) => {
     const nativeFetch = window.fetch.bind(window);
     const numericProjectId = String(window.config.project.id);
     const numericSceneId = String(window.config.scene?.uniqueId || window.config.scene?.id || '');
+    const createFullBootFetchRequest = (input, init) => {
+      if (typeof Request !== 'function') return null;
+      try {
+        if (input instanceof Request) return init === undefined ? input : new Request(input, init);
+        if (typeof input === 'string' || (typeof URL === 'function' && input instanceof URL)) {
+          return new Request(input, init);
+        }
+      } catch {}
+      return null;
+    };
+    const createRewrittenFullBootFetchRequest = async (request, url, init) => {
+      const headers = new Headers(init?.headers || request.headers || {});
+      const requestInit = {
+        ...(init || {}),
+        method: request.method,
+        headers,
+        credentials: 'include',
+        cache: request.cache,
+        mode: request.mode,
+        redirect: request.redirect,
+        referrer: request.referrer,
+        referrerPolicy: request.referrerPolicy,
+        integrity: request.integrity,
+        keepalive: request.keepalive,
+        signal: request.signal
+      };
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        // Chromium treats a Request passed as the second RequestInit argument
+        // as a dictionary and silently drops its body. Read a clone and pass
+        // the bytes explicitly so URL rewrites preserve POST/PUT/DELETE data.
+        requestInit.body = await request.clone().arrayBuffer();
+      }
+      return new Request(url, requestInit);
+    };
     const createFullBootSyntheticFetchResponse = (url) => {
       if (url.hostname !== 'api.github.com') return null;
       if (url.pathname === '/rate_limit') {
@@ -3689,18 +4827,46 @@ export const writeBridgeBootstrap = (targetRoot) => {
       }
       return null;
     };
-    window.fetch = (input, init) => {
-      const requestUrl = typeof input === 'string' ? input : input?.url;
+    window.fetch = async (input, init) => {
+      const fullBootRequest = createFullBootFetchRequest(input, init);
+      const requestUrl = fullBootRequest?.url || (typeof input === 'string' ? input : input?.url);
       if (typeof requestUrl === 'string') {
         try {
           const url = new URL(requestUrl, window.location.href);
           const syntheticFetchResponse = createFullBootSyntheticFetchResponse(url);
           if (syntheticFetchResponse) {
-            return Promise.resolve(createJsonResponse(syntheticFetchResponse.body, syntheticFetchResponse.status));
+            return createJsonResponse(syntheticFetchResponse.body, syntheticFetchResponse.status);
+          }
+          const requestMethod = String(fullBootRequest?.method || init?.method || 'GET').toUpperCase();
+          const editorAssetCompatibilityUrl = resolveEditorAssetCompatibilityUrl(requestMethod, requestUrl);
+          if (editorAssetCompatibilityUrl) {
+            const usesFullBootCredentials =
+              marker.fullBootMode === true && isAssetCompatibilityRequestUrl(editorAssetCompatibilityUrl, marker.restCompatibilityConfig);
+            const compatibilityInit = withEditorAssetCsrfHeader(
+              withRestCompatibilityAuthHeaders(
+                fullBootRequest ? { headers: fullBootRequest.headers } : init,
+                marker.restCompatibilityConfig,
+                usesFullBootCredentials
+                  ? { accessToken: typeof window.config?.accessToken === 'string' ? window.config.accessToken : '' }
+                  : undefined
+              ),
+              requestMethod,
+              editorAssetCompatibilityUrl,
+              marker.restCompatibilityConfig
+            );
+            if (fullBootRequest) {
+              const rewrittenInput = await createRewrittenFullBootFetchRequest(
+                fullBootRequest,
+                editorAssetCompatibilityUrl,
+                compatibilityInit
+              );
+              return nativeFetch(rewrittenInput);
+            }
+            return nativeFetch(editorAssetCompatibilityUrl, { ...compatibilityInit, credentials: 'include' });
           }
           if (/\\/config$/.test(url.pathname)) {
             const body = createFullBootConfigResponseBody(url.searchParams.get('mode'));
-            if (body) return Promise.resolve(createJsonResponse(body));
+            if (body) return createJsonResponse(body);
             return nativeFetch(input, init);
           }
           const cloudApiResponse = createFullBootCloudApiResponse('GET', requestUrl);
@@ -3709,7 +4875,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
               createJsonResponse(body, cloudApiResponse.status)
             );
           }
-          if (url.pathname === '/api/projects/' + numericProjectId + '/assets') {
+          if (requestMethod === 'GET' && url.pathname === '/api/projects/' + numericProjectId + '/assets') {
             return loadFullBootAssets().then((assets) => createJsonResponse(assets));
           }
           const assetMatch = /^\\/api\\/assets\\/([^/]+)$/.exec(url.pathname);
@@ -3726,9 +4892,14 @@ export const writeBridgeBootstrap = (targetRoot) => {
       }
       return resolveRestCompatibilityConfig().then((restConfig) => {
         if (isRestCompatibilityEndpointUrl(requestUrl, restConfig)) {
-          return nativeFetch(input, withRestCompatibilityAuthHeaders(init, restConfig));
+          return nativeFetch(
+            fullBootRequest || input,
+            withRestCompatibilityAuthHeaders(init, restConfig, {
+              accessToken: resolveCompatibilityAccessToken(requestUrl, restConfig)
+            })
+          );
         }
-        return nativeFetch(input, init);
+        return nativeFetch(fullBootRequest || input, init);
       });
     };
     marker.fullBootFetchAdapterInstalled = true;
@@ -3971,6 +5142,10 @@ export const writeBridgeBootstrap = (targetRoot) => {
     if (descriptor?.compatibilityConfig && typeof descriptor.compatibilityConfig === 'object') {
       marker.compatibilityConfig = descriptor.compatibilityConfig;
       marker.compatibilityConfigReady = true;
+      const proof = descriptor.compatibilityConfig.universoBridge?.compatibilityCsrfToken;
+      if (proof && typeof proof === 'object' && typeof proof.token === 'string' && typeof proof.headerName === 'string') {
+        marker.fullBootCompatibilityCsrfToken = { token: proof.token, headerName: proof.headerName };
+      }
       if (window.config) {
         window.config.universoCompatibilityConfig = marker.compatibilityConfig;
       }
@@ -4006,13 +5181,14 @@ export const writeBridgeBootstrap = (targetRoot) => {
 	    marker.selectedProject = descriptor?.selectedProject || null;
 	    bridgeSessionId = descriptor?.bridge?.sessionId || null;
 	    bridgeNonce = descriptor?.bridge?.nonce || null;
-    window.config = resolveInitialConfig(descriptor);
+	    window.config = resolveInitialConfig(descriptor);
     applyBootstrapCompatibilityDescriptor(descriptor);
     installFullBootFetchAdapter();
     installFullBootXmlHttpRequestAuthAdapter();
-    installFullBootWebSocketDiagnostics();
-    installSurfaceNavigationGuard();
-    window.editor = window.editor || {};
+	    installFullBootWebSocketDiagnostics();
+	    installSurfaceNavigationGuard();
+	    window.editor = window.editor || {};
+	    installEarlyEditorCapture();
 	    window.editor.universoBridge = marker;
     const startEditorBundle = () => {
 	      loadEditorBundle();
@@ -4050,32 +5226,43 @@ export const writeBridgeBootstrap = (targetRoot) => {
 
 	    void (async () => {
 	      try {
-        marker.compatibilityProtocol = await sendBridgeCommand('protocol.describe');
+	        marker.compatibilityProtocol = await sendBridgeCommand('protocol.describe');
         if (window.config) {
           window.config.universoCompatibilityProtocol = marker.compatibilityProtocol?.data?.protocol || null;
         }
-        marker.lastLoadedProject = await sendBridgeCommand('project.loadSelected');
+	        marker.lastLoadedProject = await sendBridgeCommand('project.loadSelected');
         const loadedSelectedProject = applyLoadedProjectResponse(marker.lastLoadedProject);
         const activeProjectId = loadedSelectedProject?.project?.id || projectId;
-        const activeSceneId = loadedSelectedProject?.defaultSceneId || sceneId;
+	        const activeSceneIdCandidate = loadedSelectedProject?.defaultSceneId || sceneId;
+	        const activeSceneId = typeof activeSceneIdCandidate === 'string' ? activeSceneIdCandidate : null;
         marker.lastSceneList = await sendBridgeCommand('scene.list', { projectId: activeProjectId });
-        if (typeof activeSceneId === 'string' && activeSceneId) {
+		        if (activeSceneId) {
 	        marker.lastLoadedScene = await sendBridgeCommand('scene.read', { projectId: activeProjectId, sceneId: activeSceneId });
+          const loadedScenePayload = readLoadedScenePayload(marker.lastLoadedScene);
           if (marker.dirty === true) {
             marker.skippedDirtySceneReadPayload = true;
             marker.skippedDirtySceneReadPayloadAt = Date.now();
             clearLoadedScenePayloadObservers('dirty-scene-read-skip');
             advancePersistedSceneHydrationGeneration('dirty-scene-read-skip');
             if (marker.fullBootMode === true) {
+              const sceneLocalAssets = Array.isArray(loadedScenePayload?.assets)
+                ? loadedScenePayload.assets.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean)
+                : [];
+              rememberSceneLocalAssets(sceneLocalAssets);
+              installMergedFullBootAssets();
               void loadFullBootAssets();
             }
           } else {
-		            const loadedScenePayload = readLoadedScenePayload(marker.lastLoadedScene);
-		            rememberScenePayloadEntities(loadedScenePayload);
+            rememberScenePayloadEntities(loadedScenePayload);
 		            if (window.editor && typeof window.editor.call === 'function') {
 		              installHostedAssetAdapter(window.editor, loadedScenePayload);
-		            }
+            }
                 if (marker.fullBootMode === true) {
+                  const sceneLocalAssets = Array.isArray(loadedScenePayload?.assets)
+                    ? loadedScenePayload.assets.map(mapCompatibilityAssetToPlayCanvasAsset).filter(Boolean)
+                    : [];
+                  rememberSceneLocalAssets(sceneLocalAssets);
+                  installMergedFullBootAssets();
                   void loadFullBootAssets();
                 }
 		            schedulePersistedSceneHydration();
@@ -4114,8 +5301,8 @@ export const writeBridgeBootstrap = (targetRoot) => {
               return null;
             });
           await marker.compatibilityConfigPromise;
-        }
-        installEditorSaveAdapter();
+	        }
+	        installEditorSaveAdapter();
 		      } catch (error) {
 		        marker.storageError = error;
 	      }
@@ -4218,10 +5405,50 @@ export const writeBridgeBootstrap = (targetRoot) => {
 export const writeUniversoHostedEngineContract = (targetRoot) => {
     const jsRoot = path.join(targetRoot, 'js')
     fs.mkdirSync(jsRoot, { recursive: true })
-    fs.writeFileSync(path.join(jsRoot, 'playcanvas-engine.js'), `export class Script {}\nexport default { Script };\n`)
+    // The vendored Editor probes this URL through a CommonJS-shaped Function
+    // wrapper before enabling ESM script parsing. Keep the contract usable both
+    // in that probe and when the artifact is loaded as a classic browser script.
+    fs.writeFileSync(
+        path.join(jsRoot, 'playcanvas-engine.js'),
+        `(function (root) {\n  var pc = { Script: class Script {} };\n  if (typeof module !== 'undefined' && module.exports) module.exports = pc;\n  else root.pc = pc;\n})(typeof globalThis !== 'undefined' ? globalThis : this);\n`
+    )
     fs.writeFileSync(
         path.join(jsRoot, 'playcanvas-engine.d.ts'),
-        `export class Script {}\ndeclare const pc: { Script: typeof Script };\nexport default pc;\n`
+        `// The Editor's ESM attribute parser reads this file as a script and uses
+// the top-level Script declaration as the identity for classes imported from
+// the PlayCanvas module. The permissive members are intentional: the hosted
+// artifact does not ship the full engine type surface, but the parser must still
+// type-check authored ESM scripts before it can discover their Script subclasses.
+export class Script {
+  [key: string]: any;
+  app: any;
+  entity: any;
+}
+export class Quat {
+  [key: string]: any;
+  constructor(...args: any[]);
+}
+export class Vec3 {
+  [key: string]: any;
+  constructor(...args: any[]);
+  x: any;
+  y: any;
+  z: any;
+}
+export class Color {
+  [key: string]: any;
+  constructor(...args: any[]);
+}
+export class Entity {
+  [key: string]: any;
+  constructor(...args: any[]);
+}
+export class StandardMaterial {
+  [key: string]: any;
+  constructor(...args: any[]);
+}
+declare const pc: { Script: typeof Script };
+`
     )
 }
 

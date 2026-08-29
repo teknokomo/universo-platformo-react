@@ -49,10 +49,11 @@
         "redux": "catalog:"
     },
     "scripts": {
+        "predev": "node scripts/ensure-playcanvas-esm.mjs",
         "dev": "vite",
         "start": "vite",
         "test": "vitest run",
-        "prebuild": "node scripts/sync-supported-langs.mjs",
+        "prebuild": "node scripts/sync-supported-langs.mjs && node scripts/ensure-playcanvas-esm.mjs",
         "build": "NODE_OPTIONS='--max-old-space-size=8192' vite build",
         "clean": "rimraf build",
         "nuke": "rimraf build node_modules .turbo"

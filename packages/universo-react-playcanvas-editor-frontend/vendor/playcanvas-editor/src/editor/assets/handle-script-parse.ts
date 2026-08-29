@@ -37,6 +37,36 @@ editor.once('load', () => {
         const typesURL = config.url.engine.replace(/(\.min|\.dbg|\.prf)?\.js$/, '.d.ts');
         const res = await fetch(typesURL);
         const types = await res.text();
+        // Shared module assets are user-defined and may not exist yet when the
+        // first script is authored. Keep the parser's virtual TypeScript program
+        // free of unresolved-import diagnostics until those assets are created.
+        const sharedModuleTypes = `declare module '@shared/*' {
+    export const AUTHORITATIVE_HARD_RESYNC_DISTANCE: any;
+    export const CAMERA_COLLISION_HALF_EXTENTS: any;
+    export const DEFAULT_GUARD_CLEARANCE: any;
+    export const DEFAULT_PREDICTION_ACCELERATION: any;
+    export const DEFAULT_PREDICTION_DECELERATION: any;
+    export const DEFAULT_TURN_RESPONSE: any;
+    export const MAX_TURN_RADIANS_PER_FRAME: any;
+    export const REMOTE_SHIP_RENDER_CLEARANCE: any;
+    export const clampSegmentBeforeObstacleContact: any;
+    export const createAabbObstacleBox: any;
+    export const createOrientedBox: any;
+    export const distanceToAabbSurface: any;
+    export const expandAabb: any;
+    export const expandAabbForOrientedBody: any;
+    export const lerpVector3: any;
+    export const moveNumberTowards: any;
+    export const moveTowards: any;
+    export const normalizeForward: any;
+    export const resolveCameraPositionOutsideGuardBoxes: any;
+    export const resolveFollowCameraPosition: any;
+    export const resolvePositionOutsideObstacle: any;
+    export const rotateFollowCamera: any;
+    export const rotateForwardTowards: any;
+    export const vectorLength: any;
+    export const zoomFollowCamera: any;
+}`;
         let hasIncludedTypes = false;
 
         const reqState = new Map();
@@ -70,27 +100,50 @@ editor.once('load', () => {
                 }
             }
 
-            // Wait for the backend to finish setting the script attributes
-            editor.on(`messenger:scriptAttrsFinished:${guid}`, () => {
+            // Wait for the backend to finish setting the script attributes. The
+            // bridge now reports both success and terminal failures; always
+            // unbind the listener so a timed-out/retried parse cannot resolve
+            // an old callback later.
+            const eventName = `messenger:scriptAttrsFinished:${guid}`;
+            let settled = false;
+            const finish = (error, result) => {
+                if (settled) return;
+                settled = true;
+                editor.unbind(eventName);
                 if (inEditor) {
-                    editor.call('status:clear');
+                    if (error) {
+                        editor.call('status:error', error.message);
+                    } else {
+                        editor.call('status:clear');
+                    }
                 }
-                callback?.(null, res);
-                editor.unbind(`messenger:scriptAttrsFinished:${guid}`);
+                callback?.(error || null, result || res);
+            };
+            editor.on(eventName, (message) => {
+                const data = message?.data;
+                if (data && data.ok === false) {
+                    finish(new Error(`Script attributes pipeline failed (${data.code || 'unknown'})`));
+                    return;
+                }
+                finish(null, res);
             });
 
             // Send the parsed script to the backend
-            editor.call('realtime:send', 'pipeline', {
-                name: 'script-attributes',
-                data: {
-                    script_task_type: 'handle_parsed_script',
-                    job_id: guid,
-                    parse_result: res,
-                    project_id: config.project.id,
-                    branch_id: config.self.branch.id,
-                    asset_id: asset.get('id')
-                }
-            });
+            try {
+                editor.call('realtime:send', 'pipeline', {
+                    name: 'script-attributes',
+                    data: {
+                        script_task_type: 'handle_parsed_script',
+                        job_id: guid,
+                        parse_result: res,
+                        project_id: config.project.id,
+                        branch_id: config.self.branch.id,
+                        asset_id: asset.get('id')
+                    }
+                });
+            } catch (error) {
+                finish(error instanceof Error ? error : new Error(String(error)));
+            }
         };
 
         const postUrl = (asset) => {
@@ -214,6 +267,16 @@ editor.once('load', () => {
                 // Include the types file if it hasn't been included yet
                 if (!hasIncludedTypes) {
                     newOrUpdatedScripts.push(['/playcanvas.d.ts', types]);
+                    // @playcanvas/attribute-parser resolves the `playcanvas` import
+                    // through its `/playcanvas.js` path mapping. The hosted engine
+                    // contract is intentionally a declaration-only file, so expose
+                    // a tiny virtual module at that exact path and preserve the
+                    // Script symbol identity used by getAllEsmScripts().
+                    newOrUpdatedScripts.push([
+                        '/playcanvas.js',
+                        "// @ts-nocheck\nexport { Script, Quat, Vec3, Color, Entity, StandardMaterial } from '/playcanvas.d.ts';"
+                    ]);
+                    newOrUpdatedScripts.push(['/universo-shared-modules.d.ts', sharedModuleTypes]);
                     hasIncludedTypes = true;
                 }
 

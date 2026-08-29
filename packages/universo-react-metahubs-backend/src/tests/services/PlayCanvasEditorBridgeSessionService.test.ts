@@ -42,6 +42,9 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
             expect.stringContaining('DELETE FROM "metahubs"."_app_settings"'),
             expect.arrayContaining([expect.any(Number)])
         )
+        const cleanupSql = String(query.mock.calls.find((call) => String(call[0]).includes('DELETE FROM'))?.[0])
+        expect(cleanupSql).toContain("value->>'expiresAt' ~ '^[0-9]+$'")
+        expect(cleanupSql).not.toContain("COALESCE((value->>'expiresAt')::bigint")
         expect(query).toHaveBeenCalledWith(
             expect.stringContaining('ON CONFLICT (key) DO NOTHING'),
             expect.arrayContaining([expect.stringMatching(/^pc\.eb\.replay\.[a-f0-9]{64}$/), expect.stringContaining(input.fingerprint)])
@@ -160,6 +163,50 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
         )
     })
 
+    it('retries transient replay completion failures before succeeding', async () => {
+        const service = new PlayCanvasEditorBridgeSessionService()
+        const completionId = '018f8a78-7b8f-7c1d-a111-222233334446'
+        const query = jest
+            .fn()
+            .mockRejectedValueOnce(new Error('temporary database connection failure'))
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ id: completionId }])
+
+        await expect(
+            service.completeReplay({ query }, 'mhb_019e8afa000070008000000000000001_b1', {
+                sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                metahubId: TEST_METAHUB_ID,
+                projectId: TEST_PROJECT_ID,
+                requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
+                commandType: 'scene.save',
+                fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                response: { ok: true },
+                userId: '018f8a78-7b8f-7c1d-a111-222233334447'
+            })
+        ).resolves.toBe(true)
+        expect(query).toHaveBeenCalledTimes(3)
+    })
+
+    it('fails after bounded replay completion retries so the committed claim can be recovered', async () => {
+        const service = new PlayCanvasEditorBridgeSessionService()
+        const failure = new Error('replay completion storage unavailable')
+        const query = jest.fn().mockRejectedValue(failure)
+
+        await expect(
+            service.completeReplay({ query }, 'mhb_019e8afa000070008000000000000001_b1', {
+                sessionId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                metahubId: TEST_METAHUB_ID,
+                projectId: TEST_PROJECT_ID,
+                requestId: '018f8a78-7b8f-7c1d-a111-222233334445',
+                commandType: 'scene.save',
+                fingerprint: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                response: { ok: true },
+                userId: '018f8a78-7b8f-7c1d-a111-222233334447'
+            })
+        ).rejects.toBe(failure)
+        expect(query).toHaveBeenCalledTimes(3)
+    })
+
     it('distinguishes claimed replay rows from completed replay responses', async () => {
         const service = new PlayCanvasEditorBridgeSessionService()
         const query = jest.fn(async () => [{ value: { status: 'claimed' } }])
@@ -175,6 +222,16 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
                 userId: '018f8a78-7b8f-7c1d-a111-222233334447'
             })
         ).resolves.toEqual({ status: 'claimed' })
+    })
+
+    it('only permits replay recovery after the durable claim lease expires', () => {
+        const service = new PlayCanvasEditorBridgeSessionService()
+        const now = Date.now()
+
+        expect(service.isReplayClaimRecoverable({ status: 'claimed', claimedAt: now })).toBe(false)
+        expect(service.isReplayClaimRecoverable({ status: 'claimed', claimedAt: now - 5 * 60 * 1000 - 1 })).toBe(true)
+        expect(service.isReplayClaimRecoverable({ status: 'claimed' })).toBe(false)
+        expect(service.isReplayClaimRecoverable({ status: 'completed', claimedAt: now - 60 * 60 * 1000 })).toBe(false)
     })
 
     it('releases a failed mutating command claim with the same replay fingerprint', async () => {
@@ -229,6 +286,9 @@ describe('PlayCanvasEditorBridgeSessionService', () => {
             expect.stringContaining('DELETE FROM "metahubs"."_app_settings"'),
             expect.arrayContaining([expect.any(Number)])
         )
+        const cleanupSql = String(query.mock.calls.find((call) => String(call[0]).includes('DELETE FROM'))?.[0])
+        expect(cleanupSql).toContain("value->>'expiresAt' ~ '^[0-9]+$'")
+        expect(cleanupSql).not.toContain("COALESCE((value->>'expiresAt')::bigint")
         expect(query).toHaveBeenCalledWith(
             expect.stringContaining("value->>'status' = 'claimed'"),
             expect.arrayContaining([expect.any(Number), TEST_METAHUB_ID, TEST_PROJECT_ID])

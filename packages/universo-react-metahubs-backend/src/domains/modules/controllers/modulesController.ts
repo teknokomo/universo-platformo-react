@@ -9,7 +9,7 @@ import {
     type ModuleAttachmentKind
 } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
-import { MetahubModulesService } from '../services/MetahubModulesService'
+import { MetahubModulesService, toPublicMetahubModuleRecord } from '../services/MetahubModulesService'
 import { MetahubValidationError } from '../../shared/domainErrors'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
@@ -172,7 +172,7 @@ export function createModulesController(createHandler: ReturnType<typeof createM
                 },
                 userId
             )
-            return res.json({ items })
+            return res.json({ items: items.map(toPublicMetahubModuleRecord) })
         },
         { permission: 'manageMetahub' }
     )
@@ -206,7 +206,7 @@ export function createModulesController(createHandler: ReturnType<typeof createM
                 userId
             )
 
-            return res.status(201).json(created)
+            return res.status(201).json(toPublicMetahubModuleRecord(created))
         },
         { permission: 'manageMetahub' }
     )
@@ -218,7 +218,7 @@ export function createModulesController(createHandler: ReturnType<typeof createM
             if (!module) {
                 return res.status(404).json({ error: 'Module not found' })
             }
-            return res.json(module)
+            return res.json(toPublicMetahubModuleRecord(module))
         },
         { permission: 'manageMetahub' }
     )
@@ -267,7 +267,7 @@ export function createModulesController(createHandler: ReturnType<typeof createM
                 userId
             )
 
-            return res.json(updated)
+            return res.json(toPublicMetahubModuleRecord(updated))
         },
         { permission: 'manageMetahub' }
     )

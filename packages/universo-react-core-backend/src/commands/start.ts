@@ -1,7 +1,7 @@
 import * as Server from '../index'
 import { initKnex } from '@universo-react/database'
 import logger from '../utils/logger'
-import { BaseCommand } from './base'
+import { BaseCommand } from './baseCommand'
 import { net, rateLimiting } from '@universo-react/utils'
 
 export default class Start extends BaseCommand {

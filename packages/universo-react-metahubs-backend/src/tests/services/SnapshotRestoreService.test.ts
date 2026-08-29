@@ -45,6 +45,8 @@ function createMockKnex(
 ) {
     const insertedRows: Record<string, unknown[]> = {}
     const deletedTables: string[] = []
+    const transactionRawCalls: Array<Array<{ sql: string; params: unknown[] }>> = []
+    let activeTransactionRawCalls: Array<{ sql: string; params: unknown[] }> | undefined
     let idCounter = 1
     const existingModuleSourceRows = (options.existingModuleSourcePaths ?? []).map((candidate) =>
         typeof candidate === 'string'
@@ -73,9 +75,18 @@ function createMockKnex(
         select: jest.fn().mockImplementation(() => Promise.resolve(existingModuleSourceRows)),
         first: jest.fn().mockResolvedValue(undefined),
         update: jest.fn().mockResolvedValue(1),
-        raw: jest.fn((sql: string) => {
+        raw: jest.fn((sql: string, params?: unknown[]) => {
+            activeTransactionRawCalls?.push({ sql, params: params ?? [] })
             if (sql.includes('information_schema.columns')) {
                 return { rows: [{ available: options.storageColumnsAvailable === true }] }
+            }
+            if (
+                sql.includes('pg_advisory_xact_lock') ||
+                sql.includes('information_schema.tables') ||
+                sql.includes('SELECT s.payload_file') ||
+                sql.includes('SELECT sf.file_ref')
+            ) {
+                return { rows: [] }
             }
             return { raw: sql }
         }),
@@ -97,7 +108,14 @@ function createMockKnex(
     }
 
     const trxFn = jest.fn().mockImplementation(async (cb: (trx: any) => Promise<void>) => {
-        await cb(mockBuilder)
+        const rawCalls: Array<{ sql: string; params: unknown[] }> = []
+        transactionRawCalls.push(rawCalls)
+        activeTransactionRawCalls = rawCalls
+        try {
+            await cb(mockBuilder)
+        } finally {
+            activeTransactionRawCalls = undefined
+        }
     })
 
     const knex = {
@@ -105,7 +123,7 @@ function createMockKnex(
         transaction: trxFn
     }
 
-    return { knex, mockBuilder, insertedRows, deletedTables, trxFn }
+    return { knex, mockBuilder, insertedRows, deletedTables, transactionRawCalls, trxFn }
 }
 
 describe('SnapshotRestoreService', () => {
@@ -594,7 +612,7 @@ describe('SnapshotRestoreService', () => {
             { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
             `playcanvas-projects/${restoredProjectId}/scenes/${restoredSceneId}.json`,
             sceneContent,
-            { expectedChecksum: sceneHash, mime: 'application/json' }
+            { expectedChecksum: sceneHash, expectedCurrentChecksum: null, mime: 'application/json' }
         )
     })
 
@@ -1611,6 +1629,70 @@ describe('SnapshotRestoreService', () => {
         expect(playCanvasProjectFileService.delete).not.toHaveBeenCalled()
     })
 
+    it('locks the DDL transaction and re-locks before rereading durable PlayCanvas file references', async () => {
+        const sourcePath = 'playcanvas-projects/project-1/scenes/scene-1.json'
+        const snapshot = makeMinimalSnapshot({
+            playcanvasProjects: {
+                schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+                projects: [],
+                scenes: [],
+                assets: [],
+                scriptAssets: [],
+                sceneScriptBindings: [],
+                generatedArtifacts: []
+            }
+        })
+        const playCanvasProjectSnapshotService = {
+            collectStoredLocalFileCandidates: jest
+                .fn()
+                .mockResolvedValueOnce(new Map([[sourcePath, { sourcePath, checksum: 'stale-checksum' }]]))
+                .mockResolvedValueOnce(new Map()),
+            restoreSnapshot: jest.fn().mockResolvedValue({
+                projectIdMap: new Map(),
+                sceneIdMap: new Map(),
+                runtimeManifestChecksumMap: new Map()
+            })
+        }
+        const playCanvasProjectFileService = {
+            read: jest.fn().mockResolvedValue({ checksum: 'stale-checksum' }),
+            delete: jest.fn().mockResolvedValue(undefined)
+        }
+        const { knex, transactionRawCalls, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(
+            knex as any,
+            'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+            undefined as any,
+            playCanvasProjectFileService as any,
+            playCanvasProjectSnapshotService as any
+        )
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(trxFn).toHaveBeenCalledTimes(2)
+        expect(transactionRawCalls[0]).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    sql: 'SELECT pg_advisory_xact_lock(hashtext(?))',
+                    params: ['playcanvas:metahub-lifecycle:9:metahub-1']
+                })
+            ])
+        )
+        expect(transactionRawCalls[1]).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    sql: 'SELECT pg_advisory_xact_lock(hashtext(?))',
+                    params: ['playcanvas:metahub-lifecycle:9:metahub-1']
+                })
+            ])
+        )
+        expect(playCanvasProjectSnapshotService.collectStoredLocalFileCandidates).toHaveBeenCalledTimes(2)
+        expect(playCanvasProjectFileService.delete).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
+            sourcePath,
+            { expectedCurrentChecksum: 'stale-checksum' }
+        )
+    })
+
     it('deletes stale file-backed module source files after a successful snapshot restore', async () => {
         const snapshot = makeMinimalSnapshot({ modules: [] } as unknown as Partial<MetahubSnapshot>)
         const moduleSourceFileService = {
@@ -1628,7 +1710,8 @@ describe('SnapshotRestoreService', () => {
 
         expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
             { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
-            'modules/general/old-shared.ts'
+            'modules/general/old-shared.ts',
+            { expectedCurrentChecksum: 'old-source-checksum' }
         )
     })
 
@@ -1709,7 +1792,8 @@ describe('SnapshotRestoreService', () => {
         )
         expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
             { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
-            'modules/general/old-shared.ts'
+            'modules/general/old-shared.ts',
+            { expectedCurrentChecksum: 'old-source-checksum' }
         )
         expect(moduleSourceFileService.delete).not.toHaveBeenCalledWith(
             { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
@@ -1964,12 +2048,14 @@ describe('SnapshotRestoreService', () => {
         expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
             1,
             { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
-            'modules/general/second.ts'
+            'modules/general/second.ts',
+            { expectedCurrentChecksum: computeModuleSourceChecksum(secondSource) }
         )
         expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
             2,
             { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
-            'modules/general/first.ts'
+            'modules/general/first.ts',
+            { expectedCurrentChecksum: computeModuleSourceChecksum(firstSource) }
         )
     })
 
@@ -2055,7 +2141,8 @@ describe('SnapshotRestoreService', () => {
         expect(moduleSourceFileService.delete).toHaveBeenCalledTimes(1)
         expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
             { metahubId: 'metahub-1', branchSlug: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
-            'modules/general/first.ts'
+            'modules/general/first.ts',
+            { expectedCurrentChecksum: firstChecksum }
         )
     })
 

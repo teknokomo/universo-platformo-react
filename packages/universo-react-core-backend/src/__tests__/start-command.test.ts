@@ -1,5 +1,14 @@
+jest.mock('../index', () => ({
+    start: jest.fn(),
+    getInstance: jest.fn()
+}))
+
+jest.mock('@universo-react/database', () => ({
+    initKnex: jest.fn()
+}))
+
 import Start from '../commands/start'
-import { BaseCommand } from '../commands'
+import { BaseCommand } from '../commands/baseCommand'
 
 describe('Start command', () => {
     it('does not define its own flags (inherits from BaseCommand)', () => {

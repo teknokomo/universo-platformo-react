@@ -1,10 +1,13 @@
-import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import { createKnexExecutor, qSchemaTable, qTable } from '@universo-react/database'
-import { playCanvasRuntimeManifestSchema, type PlayCanvasRuntimeManifest } from '@universo-react/types'
+import type { PlayCanvasRuntimeManifest } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncTransaction, getApplicationSyncDdlServices, getApplicationSyncKnex } from '../../ddl'
+import {
+    parseAndValidatePlayCanvasRuntimeManifest,
+    type PlayCanvasRuntimeManifestRowIdentity
+} from '../../shared/playCanvasRuntimeManifest'
 
 type PersistedPlayCanvasManifestRowDb = {
     publication_id: string | null
@@ -38,11 +41,6 @@ const NULL_SCENE_ID_KEY = '00000000-0000-0000-0000-000000000000'
 const APP_PLAYCANVAS_MANIFESTS_PROJECT_SCENE_INDEX_NAME = 'idx_app_playcanvas_manifests_project_scene_active'
 const LEGACY_APP_PLAYCANVAS_MANIFESTS_PROJECT_INDEX_NAME = 'idx_app_playcanvas_manifests_project_active'
 const createManifestIdentityKey = (projectId: string, sceneId?: string | null): string => `${projectId}:${sceneId ?? NULL_SCENE_ID_KEY}`
-const createRuntimeManifestChecksum = (manifest: Omit<PlayCanvasRuntimeManifest, 'checksum'>): string => {
-    return createHash('sha256')
-        .update(stableStringify(manifest) ?? '')
-        .digest('hex')
-}
 
 const normalizeSnapshotManifests = (
     snapshot: PublishedApplicationSnapshot,
@@ -56,16 +54,8 @@ const normalizeSnapshotManifests = (
             if (!item || typeof item !== 'object') {
                 throw new Error('[SchemaSync] PlayCanvas runtime manifest must be an object')
             }
-            const parsed = playCanvasRuntimeManifestSchema.safeParse(item)
-            if (!parsed.success) {
-                throw new Error('[SchemaSync] PlayCanvas runtime manifest is invalid')
-            }
-            const manifest = parsed.data
-            const { checksum, ...manifestWithoutChecksum } = manifest
-            const actualChecksum = createRuntimeManifestChecksum(manifestWithoutChecksum)
-            if (checksum !== actualChecksum) {
-                throw new Error(`[SchemaSync] PlayCanvas runtime manifest ${manifest.projectId} checksum mismatch`)
-            }
+            const manifest = parseAndValidatePlayCanvasRuntimeManifest(item)
+            const actualChecksum = manifest.checksum
             const identityKey = createManifestIdentityKey(manifest.projectId, manifest.sceneId ?? null)
             if (seenManifestKeys.has(identityKey)) {
                 throw new Error(
@@ -100,18 +90,26 @@ const normalizeSnapshotManifests = (
 
 const normalizePersistedManifests = (rows: PersistedPlayCanvasManifestRowDb[]): NormalizedPlayCanvasManifestRow[] =>
     rows
-        .map((row) => ({
-            publicationId: row.publication_id ?? null,
-            sourceMetahubId: row.source_metahub_id ?? null,
-            sourceProjectId: row.source_project_id,
-            sourceSceneId: row.source_scene_id,
-            manifestSchemaVersion: row.manifest_schema_version,
-            manifestChecksum: row.manifest_checksum,
-            runtimeManifest: row.runtime_manifest as PlayCanvasRuntimeManifest,
-            assetCount: Number(row.asset_count ?? 0),
-            scriptCount: Number(row.script_count ?? 0),
-            artifactCount: Number(row.artifact_count ?? 0)
-        }))
+        .map((row) => {
+            const identity: PlayCanvasRuntimeManifestRowIdentity = {
+                sourceProjectId: row.source_project_id,
+                sourceSceneId: row.source_scene_id,
+                manifestChecksum: row.manifest_checksum
+            }
+            const runtimeManifest = parseAndValidatePlayCanvasRuntimeManifest(row.runtime_manifest, identity)
+            return {
+                publicationId: row.publication_id ?? null,
+                sourceMetahubId: row.source_metahub_id ?? null,
+                sourceProjectId: row.source_project_id,
+                sourceSceneId: row.source_scene_id,
+                manifestSchemaVersion: row.manifest_schema_version,
+                manifestChecksum: runtimeManifest.checksum,
+                runtimeManifest,
+                assetCount: Number(row.asset_count ?? 0),
+                scriptCount: Number(row.script_count ?? 0),
+                artifactCount: Number(row.artifact_count ?? 0)
+            }
+        })
         .sort((left, right) =>
             createManifestIdentityKey(left.sourceProjectId, left.sourceSceneId).localeCompare(
                 createManifestIdentityKey(right.sourceProjectId, right.sourceSceneId)

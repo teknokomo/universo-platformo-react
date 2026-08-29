@@ -13,16 +13,17 @@ Use this skill when developing editor extensions via the Editor API, setting up 
 
 ## Version Guard
 
-- Upstream Editor API matches the `playcanvas/editor` `v2.24.2` implementation.
-- Realtime sync protocol runs over `@teamwork/websocket-json-stream` and `sharedb`.
-- Operational Transformation uses `ot-text`.
+-   Upstream Editor API matches the `playcanvas/editor` `v2.30.4` implementation.
+-   Realtime sync protocol runs over `@teamwork/websocket-json-stream` and `sharedb`.
+-   Operational Transformation uses `ot-text`.
 
 ## Required Output
 
 Before modifying realtime sync behaviors or API endpoints:
-- state ShareDB collection being accessed (`scenes`, `assets`, `settings`);
-- describe the OT operation payload format;
-- detail WebSocket handshake and authentication headers.
+
+-   state ShareDB collection being accessed (`scenes`, `assets`, `settings`);
+-   describe the OT operation payload format;
+-   detail WebSocket handshake and authentication headers.
 
 ## Workflow
 
@@ -33,7 +34,7 @@ Before modifying realtime sync behaviors or API endpoints:
 
 ## Blocking Rules
 
-- Do not assume full multi-user collaboration is enabled in the current Universo slice (persistence is single-user snapshot-only).
-- Do not bypass ShareDB permission gates.
-- Do not send uncompressed large textures or binary meshes over the WebSocket control channel.
-- Do not let WebSocket connections leak on page/iframe reloads.
+-   Do not assume full multi-user collaboration is enabled in the current Universo slice (persistence is single-user snapshot-only).
+-   Do not bypass ShareDB permission gates.
+-   Do not send uncompressed large textures or binary meshes over the WebSocket control channel.
+-   Do not let WebSocket connections leak on page/iframe reloads.

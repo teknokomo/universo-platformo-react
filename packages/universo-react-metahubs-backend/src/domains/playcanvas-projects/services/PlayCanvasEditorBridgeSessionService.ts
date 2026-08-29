@@ -21,8 +21,32 @@ interface BridgeReplayValue {
     expiresAt: number
     userIdHash: string
     status: 'claimed' | 'completed'
+    claimedAt?: number
     response?: unknown
 }
+
+// Successful mutations retain their replay claim for a bounded recovery
+// window. This prevents a temporary response-write failure from making the
+// already-committed mutation executable a second time.
+const REPLAY_CLAIM_RETENTION_MS = 24 * 60 * 60 * 1000
+const REPLAY_RECOVERY_LEASE_MS = 5 * 60 * 1000
+
+// Replay rows are stored as JSONB because the table is shared with other
+// application settings. Treat malformed or out-of-range legacy timestamps as
+// expired instead of allowing PostgreSQL's bigint cast to abort the cleanup
+// query with 22P02/22003 and turn an otherwise recoverable request into 500.
+const replayExpiresAtSql = `(CASE
+                    WHEN value->>'expiresAt' ~ '^[0-9]+$'
+                         AND (
+                             length(value->>'expiresAt') < 19
+                             OR (
+                                 length(value->>'expiresAt') = 19
+                                 AND value->>'expiresAt' <= '9223372036854775807'
+                             )
+                         )
+                    THEN (value->>'expiresAt')::bigint
+                    ELSE 0
+                END)`
 
 const resolveHmacSecret = (specificEnvName: string, fallbackLabel: string, cachedDevelopmentSecret: string | null): string => {
     const specific = process.env[specificEnvName]
@@ -72,17 +96,51 @@ const buildReplayKey = (input: { sessionId: string; commandType: string; request
 
 const hashAuditUserId = (userId: string): string => createHash('sha256').update(userId).digest('hex')
 
+const normalizeBridgeOrigin = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null
+    try {
+        const parsed = new URL(value)
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return null
+        return parsed.origin
+    } catch {
+        return null
+    }
+}
+
 export interface CreatedPlayCanvasEditorBridgeSession {
     payload: BridgeSessionPayload
     token: string
 }
 
-const liveBridgeSessionExpiries = new Map<string, number>()
+/**
+ * The bridge session registry is intentionally process-local for the signed
+ * browser bridge itself, but it must retain the complete binding while the
+ * session is alive.  A bare session id is not an authorization credential:
+ * refreshes use this registry to prove that the id was issued for the same
+ * metahub/project/user (and that it has not expired).
+ */
+const liveBridgeSessionsGlobalKey = '__universoPlayCanvasEditorBridgeSessions'
+const liveBridgeSessions = (() => {
+    const globalScope = globalThis as typeof globalThis & {
+        [liveBridgeSessionsGlobalKey]?: Map<string, BridgeSessionPayload>
+    }
+    const existing = globalScope[liveBridgeSessionsGlobalKey]
+    if (existing) return existing
+    const registry = new Map<string, BridgeSessionPayload>()
+    Object.defineProperty(globalScope, liveBridgeSessionsGlobalKey, {
+        value: registry,
+        enumerable: false,
+        configurable: false,
+        writable: false
+    })
+    return registry
+})()
+const MAX_LIVE_BRIDGE_SESSIONS = 10_000
 
 const pruneLiveBridgeSessions = (now: number): void => {
-    for (const [sessionId, expiresAt] of liveBridgeSessionExpiries) {
-        if (expiresAt <= now) {
-            liveBridgeSessionExpiries.delete(sessionId)
+    for (const [sessionId, payload] of liveBridgeSessions) {
+        if (payload.expiresAt <= now) {
+            liveBridgeSessions.delete(sessionId)
         }
     }
 }
@@ -95,7 +153,12 @@ export class PlayCanvasEditorBridgeSessionService {
         defaultSceneId?: string | null
         userId: string
         capabilities: PlayCanvasEditorBridgeCapability[]
+        origin?: string
     }): CreatedPlayCanvasEditorBridgeSession {
+        const origin = input.origin === undefined ? null : normalizeBridgeOrigin(input.origin)
+        if (input.origin !== undefined && !origin) {
+            throw new Error('PlayCanvas Editor bridge sessions require a canonical HTTP(S) origin')
+        }
         const payload: BridgeSessionPayload = {
             sessionId: generateUuidV7(),
             metahubId: input.metahubId,
@@ -106,10 +169,17 @@ export class PlayCanvasEditorBridgeSessionService {
             nonce: generateUuidV7().replace(/-/g, '') + generateUuidV7().replace(/-/g, ''),
             expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
             bridgeVersion: '1',
-            capabilities: input.capabilities
+            capabilities: input.capabilities,
+            ...(origin ? { origin } : {})
         }
         pruneLiveBridgeSessions(Date.now())
-        liveBridgeSessionExpiries.set(payload.sessionId, payload.expiresAt)
+        if (liveBridgeSessions.size >= MAX_LIVE_BRIDGE_SESSIONS) {
+            const oldest = [...liveBridgeSessions.entries()]
+                .sort(([, left], [, right]) => left.expiresAt - right.expiresAt)
+                .slice(0, liveBridgeSessions.size - MAX_LIVE_BRIDGE_SESSIONS + 1)
+            for (const [sessionId] of oldest) liveBridgeSessions.delete(sessionId)
+        }
+        liveBridgeSessions.set(payload.sessionId, payload)
         const encoded = encode(payload)
         return {
             payload,
@@ -125,26 +195,51 @@ export class PlayCanvasEditorBridgeSessionService {
      */
     touch(sessionId: string): boolean {
         const now = Date.now()
-        const current = liveBridgeSessionExpiries.get(sessionId)
-        if (current === undefined || current <= now) {
-            liveBridgeSessionExpiries.delete(sessionId)
+        const current = liveBridgeSessions.get(sessionId)
+        if (!current || current.expiresAt <= now) {
+            liveBridgeSessions.delete(sessionId)
             return false
         }
-        liveBridgeSessionExpiries.set(sessionId, now + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS)
+        liveBridgeSessions.set(sessionId, {
+            ...current,
+            expiresAt: now + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS
+        })
         return true
     }
 
     isAlive(sessionId: string): boolean {
         const now = Date.now()
-        const current = liveBridgeSessionExpiries.get(sessionId)
-        if (current === undefined) {
+        const current = liveBridgeSessions.get(sessionId)
+        if (!current) {
             return false
         }
-        if (current <= now) {
-            liveBridgeSessionExpiries.delete(sessionId)
+        if (current.expiresAt <= now) {
+            liveBridgeSessions.delete(sessionId)
             return false
         }
         return true
+    }
+
+    /**
+     * Validates a refresh id against the original signed bridge binding.  The
+     * caller still performs the artifact-origin check separately; this method
+     * only answers whether the id belongs to the requested principal/scope.
+     */
+    validate(input: { sessionId: string; metahubId: string; projectId: string; sceneId: string; userId: string; origin: string }): boolean {
+        const now = Date.now()
+        pruneLiveBridgeSessions(now)
+        const payload = liveBridgeSessions.get(input.sessionId)
+        if (!payload || payload.expiresAt <= now) {
+            return false
+        }
+        return (
+            payload.metahubId === input.metahubId &&
+            payload.projectId === input.projectId &&
+            payload.defaultSceneId === input.sceneId &&
+            payload.userId === input.userId &&
+            payload.origin !== undefined &&
+            payload.origin === normalizeBridgeOrigin(input.origin)
+        )
     }
 
     read(token: string): BridgeSessionPayload | null {
@@ -179,6 +274,7 @@ export class PlayCanvasEditorBridgeSessionService {
     ): Promise<boolean> {
         const table = qSchemaTable('metahubs', '_app_settings')
         const key = buildReplayKey(input)
+        const now = Date.now()
         const value = {
             sessionId: input.sessionId,
             metahubId: input.metahubId,
@@ -186,15 +282,22 @@ export class PlayCanvasEditorBridgeSessionService {
             requestId: input.requestId,
             commandType: input.commandType,
             fingerprint: input.fingerprint,
-            expiresAt: input.expiresAt,
+            expiresAt: Math.max(input.expiresAt, now + REPLAY_CLAIM_RETENTION_MS),
             userIdHash: hashAuditUserId(input.userId),
-            status: 'claimed' as const
+            status: 'claimed' as const,
+            claimedAt: now
         }
         await exec.query(
             `DELETE FROM ${table}
               WHERE key LIKE 'pc.eb.replay.%'
-                AND COALESCE((value->>'expiresAt')::bigint, 0) <= $1`,
-            [Date.now()]
+                AND (
+                    (value->>'status' = 'completed' AND ${replayExpiresAtSql} <= $1)
+                    OR
+                    (value->>'status' = 'claimed' AND ${replayExpiresAtSql} <= $2)
+                    OR
+                    (NOT jsonb_exists(value, 'status') AND ${replayExpiresAtSql} <= $1)
+                )`,
+            [now, now - REPLAY_CLAIM_RETENTION_MS]
         )
         const rows = await exec.query<{ id: string }>(
             `INSERT INTO ${table}
@@ -219,7 +322,7 @@ export class PlayCanvasEditorBridgeSessionService {
             fingerprint: string
             userId: string
         }
-    ): Promise<{ status: 'claimed' | 'completed'; response?: unknown } | null> {
+    ): Promise<{ status: 'claimed' | 'completed'; claimedAt?: number; response?: unknown } | null> {
         const table = qSchemaTable('metahubs', '_app_settings')
         const rows = await exec.query<{ value: BridgeReplayValue }>(
             `SELECT value
@@ -249,7 +352,21 @@ export class PlayCanvasEditorBridgeSessionService {
         if (!value || (value.status !== 'claimed' && value.status !== 'completed')) {
             return null
         }
-        return value.status === 'completed' ? { status: value.status, response: value.response } : { status: value.status }
+        return value.status === 'completed'
+            ? { status: value.status, response: value.response }
+            : { status: value.status, ...(typeof value.claimedAt === 'number' ? { claimedAt: value.claimedAt } : {}) }
+    }
+
+    /**
+     * A claimed replay may outlive the worker that created it. Recovery is
+     * deliberately lease-based: callers must first prove the mutation is
+     * already durable (or re-run a read-only command) before completing it.
+     * Rows without a timestamp are treated as legacy and remain fail-closed.
+     */
+    isReplayClaimRecoverable(replay: { status: 'claimed' | 'completed'; claimedAt?: number }): boolean {
+        return (
+            replay.status === 'claimed' && typeof replay.claimedAt === 'number' && Date.now() - replay.claimedAt >= REPLAY_RECOVERY_LEASE_MS
+        )
     }
 
     async completeReplay(
@@ -267,8 +384,9 @@ export class PlayCanvasEditorBridgeSessionService {
         }
     ): Promise<boolean> {
         const table = qSchemaTable('metahubs', '_app_settings')
-        const rows = await exec.query<{ id: string }>(
-            `INSERT INTO ${table}
+        const completeOnce = async (): Promise<boolean> => {
+            const rows = await exec.query<{ id: string }>(
+                `INSERT INTO ${table}
                 (id, key, value, _upl_created_by, _upl_updated_by)
              VALUES (
                 $1,
@@ -291,32 +409,43 @@ export class PlayCanvasEditorBridgeSessionService {
                 AND jsonb_exists(${table}.value, 'projectId')
                 AND ${table}.value->>'projectId' IS NOT DISTINCT FROM $10
               RETURNING id`,
-            [
-                generateUuidV7(),
-                buildReplayKey(input),
-                JSON.stringify({
-                    sessionId: input.sessionId,
-                    metahubId: input.metahubId,
-                    projectId: input.projectId,
-                    requestId: input.requestId,
-                    commandType: input.commandType,
-                    fingerprint: input.fingerprint,
-                    expiresAt: Date.now() + PLAYCANVAS_EDITOR_BRIDGE_SESSION_TTL_MS,
-                    userIdHash: hashAuditUserId(input.userId),
-                    status: 'completed',
-                    response: input.response
-                } satisfies BridgeReplayValue),
-                input.sessionId,
-                input.requestId,
-                input.commandType,
-                input.fingerprint,
-                hashAuditUserId(input.userId),
-                input.metahubId,
-                input.projectId,
-                JSON.stringify(input.response)
-            ]
-        )
-        return rows.length > 0
+                [
+                    generateUuidV7(),
+                    buildReplayKey(input),
+                    JSON.stringify({
+                        sessionId: input.sessionId,
+                        metahubId: input.metahubId,
+                        projectId: input.projectId,
+                        requestId: input.requestId,
+                        commandType: input.commandType,
+                        fingerprint: input.fingerprint,
+                        expiresAt: Date.now() + REPLAY_CLAIM_RETENTION_MS,
+                        userIdHash: hashAuditUserId(input.userId),
+                        status: 'completed',
+                        claimedAt: Date.now(),
+                        response: input.response
+                    } satisfies BridgeReplayValue),
+                    input.sessionId,
+                    input.requestId,
+                    input.commandType,
+                    input.fingerprint,
+                    hashAuditUserId(input.userId),
+                    input.metahubId,
+                    input.projectId,
+                    JSON.stringify(input.response)
+                ]
+            )
+            return rows.length > 0
+        }
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
+                if (await completeOnce()) return true
+            } catch (error) {
+                if (attempt === 2) throw error
+            }
+            await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)))
+        }
+        return false
     }
 
     async releaseReplay(
@@ -359,19 +488,26 @@ export class PlayCanvasEditorBridgeSessionService {
 
     async hasActiveReplayClaims(exec: DbExecutor, _schemaName: string, input: { metahubId: string; projectId: string }): Promise<boolean> {
         const table = qSchemaTable('metahubs', '_app_settings')
+        const now = Date.now()
         await exec.query(
             `DELETE FROM ${table}
               WHERE key LIKE 'pc.eb.replay.%'
-                AND COALESCE((value->>'expiresAt')::bigint, 0) <= $1`,
-            [Date.now()]
+                AND (
+                    (value->>'status' = 'completed' AND ${replayExpiresAtSql} <= $1)
+                    OR
+                    (value->>'status' = 'claimed' AND ${replayExpiresAtSql} <= $2)
+                    OR
+                    (NOT jsonb_exists(value, 'status') AND ${replayExpiresAtSql} <= $1)
+                )`,
+            [now, now - REPLAY_CLAIM_RETENTION_MS]
         )
         const rows = await exec.query<{ exists: boolean }>(
             `SELECT EXISTS (
                 SELECT 1
                   FROM ${table}
-                 WHERE key LIKE 'pc.eb.replay.%'
+                WHERE key LIKE 'pc.eb.replay.%'
                    AND value->>'status' = 'claimed'
-                   AND COALESCE((value->>'expiresAt')::bigint, 0) > $1
+                   AND ${replayExpiresAtSql} > $1
                    AND (
                         (value->>'metahubId' = $2 AND value->>'projectId' = $3)
                         OR NOT jsonb_exists(value, 'metahubId')
@@ -379,7 +515,7 @@ export class PlayCanvasEditorBridgeSessionService {
                    )
                  LIMIT 1
              ) AS "exists"`,
-            [Date.now(), input.metahubId, input.projectId]
+            [now, input.metahubId, input.projectId]
         )
         return rows[0]?.exists === true
     }

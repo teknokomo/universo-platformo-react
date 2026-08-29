@@ -1,0 +1,1142 @@
+{
+  "version": 1,
+  "source": "pre-extraction-widget",
+  "commit": "b476ff2785702df18a10d23a46c058d1d3d60e75",
+  "widgetPath": "packages/universo-react-apps-template-mui/src/dashboard/components/PlayCanvasCanvasWidget.tsx",
+  "sourceSha256": "d8f360e4c1c60ee9bf29ce5b0750e8ce90f50b3081346804c162bee4a0f77d2a",
+  "generatedAt": "2026-08-28T15:48:48.399Z",
+  "sampling": {
+    "intervalMs": 100,
+    "durationMs": 5000,
+    "samples": 51
+  },
+  "trace": {
+    "version": 1,
+    "source": "pre-extraction-widget",
+    "capturedAt": "2026-08-28T15:48:48.399Z",
+    "samples": [
+      {
+        "elapsedMs": 0,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 18.67,
+          "y": 2.96,
+          "z": -9.49
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 35.07,
+          "camera": 147.01
+        }
+      },
+      {
+        "elapsedMs": 101,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 19.51,
+          "y": 2.92,
+          "z": -10.09
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 33.53,
+          "camera": 146
+        }
+      },
+      {
+        "elapsedMs": 241,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 21.58,
+          "y": 2.8,
+          "z": -11.58
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 30.86,
+          "camera": 143.51
+        }
+      },
+      {
+        "elapsedMs": 311,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 22.8,
+          "y": 2.73,
+          "z": -12.47
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 29.4,
+          "camera": 142.03
+        }
+      },
+      {
+        "elapsedMs": 416,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 25.36,
+          "y": 2.59,
+          "z": -14.32
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 26.34,
+          "camera": 138.95
+        }
+      },
+      {
+        "elapsedMs": 509,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 27.49,
+          "y": 2.47,
+          "z": -15.85
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 23.82,
+          "camera": 136.39
+        }
+      },
+      {
+        "elapsedMs": 607,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 30.37,
+          "y": 2.31,
+          "z": -17.93
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 20.45,
+          "camera": 132.93
+        }
+      },
+      {
+        "elapsedMs": 710,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 33.28,
+          "y": 2.15,
+          "z": -20.03
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 17.11,
+          "camera": 129.44
+        }
+      },
+      {
+        "elapsedMs": 801,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 36.19,
+          "y": 1.99,
+          "z": -22.14
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 13.9,
+          "camera": 125.95
+        }
+      },
+      {
+        "elapsedMs": 910,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 39.11,
+          "y": 1.83,
+          "z": -24.25
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 10.93,
+          "camera": 122.46
+        }
+      },
+      {
+        "elapsedMs": 1005,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 42.03,
+          "y": 1.67,
+          "z": -26.35
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 8.46,
+          "camera": 118.98
+        }
+      },
+      {
+        "elapsedMs": 1113,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 44.88,
+          "y": 1.51,
+          "z": -28.41
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 6.41,
+          "camera": 115.59
+        }
+      },
+      {
+        "elapsedMs": 1203,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 47.31,
+          "y": 1.37,
+          "z": -30.17
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 4.65,
+          "camera": 112.7
+        }
+      },
+      {
+        "elapsedMs": 1317,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 49.73,
+          "y": 1.24,
+          "z": -31.91
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 2.9,
+          "camera": 109.83
+        }
+      },
+      {
+        "elapsedMs": 1414,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 51.32,
+          "y": 1.15,
+          "z": -33.06
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 1.75,
+          "camera": 107.95
+        }
+      },
+      {
+        "elapsedMs": 1501,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 52.36,
+          "y": 1.09,
+          "z": -33.81
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 1,
+          "camera": 106.72
+        }
+      },
+      {
+        "elapsedMs": 1605,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.25,
+          "y": 1.04,
+          "z": -34.46
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0.36,
+          "camera": 105.67
+        }
+      },
+      {
+        "elapsedMs": 1709,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.62,
+          "y": 1.02,
+          "z": -34.72
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0.09,
+          "camera": 105.24
+        }
+      },
+      {
+        "elapsedMs": 1803,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.7,
+          "y": 1.02,
+          "z": -34.79
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0.03,
+          "camera": 105.13
+        }
+      },
+      {
+        "elapsedMs": 1924,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.72,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0.01,
+          "camera": 105.11
+        }
+      },
+      {
+        "elapsedMs": 2005,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0.01,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2108,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2201,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2313,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2426,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2503,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2610,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2729,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2810,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 2917,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3001,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3103,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3201,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3305,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3401,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3561,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3624,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3712,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3815,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 3912,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4032,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4116,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4262,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4339,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4403,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4501,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4616,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4753,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4808,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 4908,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      },
+      {
+        "elapsedMs": 5009,
+        "scriptsLoaded": null,
+        "ship": {
+          "x": 53.73,
+          "y": 1.02,
+          "z": -34.8
+        },
+        "shipScreen": {
+          "x": 576,
+          "y": 370.5
+        },
+        "camera": {
+          "distance": 108,
+          "yaw": -0.75,
+          "pitch": 0.25
+        },
+        "guardClearance": {
+          "ship": 0,
+          "camera": 105.1
+        }
+      }
+    ]
+  }
+}

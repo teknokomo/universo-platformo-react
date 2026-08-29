@@ -1,12 +1,15 @@
 import fs from 'fs/promises'
 import os from 'os'
 import path from 'path'
+import { computePlayCanvasRuntimeManifestChecksum } from '@universo-react/applications-backend/shared/playCanvasRuntimeManifest'
 import type { DbExecutor } from '@universo-react/utils'
 import { createLocalizedContent } from '@universo-react/utils'
 import {
     PLAYCANVAS_EDITOR_PACKAGE_NAME,
     PLAYCANVAS_PROJECT_FILE_ROOT,
+    PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION,
     PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+    type PlayCanvasFileReference,
     type PlayCanvasProjectSnapshotSection
 } from '@universo-react/types'
 import {
@@ -35,6 +38,276 @@ const TEST_SCHEMA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
 
 const makeSchemaService = () => ({ ensureSchema: jest.fn(async () => TEST_SCHEMA) })
 
+const makeRestoreSnapshotForFileReferenceValidation = (): PlayCanvasProjectSnapshotSection => {
+    const projectId = '019e8afa-0000-7000-8000-000000000041'
+    const sceneId = '019e8afa-0000-7000-8000-000000000042'
+    const assetId = '019e8afa-0000-7000-8000-000000000043'
+    const scriptAssetId = '019e8afa-0000-7000-8000-000000000044'
+    const artifactId = '019e8afa-0000-7000-8000-000000000045'
+    const sourceFileId = '019e8afa-0000-7000-8000-000000000046'
+    const missingFile = (filePath: string, mime: PlayCanvasFileReference['mime']): PlayCanvasFileReference => ({
+        provider: 'local',
+        root: PLAYCANVAS_PROJECT_FILE_ROOT,
+        path: filePath,
+        mime,
+        status: 'missing',
+        snapshotContentBase64: null
+    })
+
+    return {
+        schemaVersion: PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
+        projects: [
+            {
+                id: projectId,
+                codename: createLocalizedContent('en', 'snapshot_validation_project'),
+                displayName: createLocalizedContent('en', 'Snapshot Validation Project'),
+                packageRef: {
+                    packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                    version: '0.1.0',
+                    compatibilityStatus: 'compatible'
+                },
+                schemaVersion: '1',
+                settings: {},
+                defaultSceneId: sceneId,
+                publicationConfig: {}
+            }
+        ],
+        scenes: [
+            {
+                id: sceneId,
+                projectId,
+                codename: createLocalizedContent('en', 'snapshot_validation_scene'),
+                displayName: createLocalizedContent('en', 'Snapshot Validation Scene'),
+                payloadSchemaVersion: '1',
+                payload: {},
+                payloadFile: missingFile(`${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/scenes/${sceneId}.json`, 'application/json'),
+                checksum: null,
+                sortOrder: 0,
+                publish: true
+            }
+        ],
+        assets: [
+            {
+                id: assetId,
+                projectId,
+                stableAssetId: 'snapshot-validation-script',
+                type: 'script',
+                name: 'Snapshot Validation Script',
+                virtualPath: ['scripts'],
+                file: missingFile(`${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/assets/validation.mjs`, 'text/javascript'),
+                metadata: {},
+                publish: true
+            }
+        ],
+        scriptAssets: [
+            {
+                id: scriptAssetId,
+                assetId,
+                scriptName: 'SnapshotValidationScript',
+                scriptKind: 'esm',
+                parsedAttributes: {},
+                parseStatus: 'missing'
+            }
+        ],
+        sceneScriptBindings: [],
+        generatedArtifacts: [
+            {
+                id: artifactId,
+                scriptAssetId,
+                outputFile: missingFile(`${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/generated/validation.mjs`, 'text/javascript'),
+                scriptName: 'SnapshotValidationScript',
+                scriptKind: 'esm',
+                parseStatus: 'missing'
+            }
+        ],
+        sourceFiles: [
+            {
+                id: sourceFileId,
+                projectId,
+                stableSourceFileId: 'snapshot-validation-source',
+                name: 'validation.mjs',
+                virtualPath: ['sourcefiles'],
+                file: missingFile(`${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/sourcefiles/validation.mjs`, 'text/javascript'),
+                scriptKind: 'esm',
+                checksum: null,
+                parsedAttributes: {},
+                parseStatus: 'missing',
+                publish: true
+            }
+        ],
+        runtimeManifests: []
+    }
+}
+
+const expectRestoreRejectedBeforeWrites = async (
+    mutate: (snapshot: PlayCanvasProjectSnapshotSection) => void,
+    expectedDetails: Record<string, unknown>
+): Promise<void> => {
+    const del = jest.fn(async () => undefined)
+    const insert = jest.fn(async () => undefined)
+    const trx = {
+        withSchema: jest.fn(() => ({
+            from: jest.fn(() => ({ del })),
+            into: jest.fn(() => ({ insert }))
+        }))
+    }
+    const service = new PlayCanvasProjectSnapshotService(makeExec({}), makeSchemaService() as never)
+    const snapshot = makeRestoreSnapshotForFileReferenceValidation()
+    mutate(snapshot)
+
+    await expect(
+        service.restoreSnapshot({
+            trx: trx as never,
+            metahubId: 'metahub-1',
+            schemaName: TEST_SCHEMA,
+            snapshot,
+            moduleIdMap: new Map(),
+            entityIdMap: new Map(),
+            userId: 'user-1'
+        })
+    ).rejects.toMatchObject({ details: expect.objectContaining(expectedDetails) })
+    expect(del).not.toHaveBeenCalled()
+    expect(insert).not.toHaveBeenCalled()
+}
+
+const makeRuntimeScriptSnapshotService = async (
+    options: {
+        binding?: Partial<{
+            scriptName: string
+            sceneEntityStableId: string
+            enabled: boolean
+        }> | null
+    } = {}
+) => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pc-snapshot-runtime-script-contract-'))
+    const fileService = new PlayCanvasProjectFileService(root)
+    const scenePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/scenes/scene.json`
+    const sourcePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/assets/ship.mjs`
+    const artifactPath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/generated/ship.mjs`
+    const writtenScene = await fileService.write(
+        { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+        scenePath,
+        '{"entities":[{"id":"ship-entity"}]}'
+    )
+    const writtenSource = await fileService.write({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, sourcePath, 'export class Ship {}')
+    const writtenArtifact = await fileService.write(
+        { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+        artifactPath,
+        'export default class Ship {}'
+    )
+    const service = new PlayCanvasProjectSnapshotService(
+        makeExec({
+            projects: [
+                {
+                    id: 'project-1',
+                    codename: createLocalizedContent('en', 'project_one'),
+                    displayName: createLocalizedContent('en', 'Project One'),
+                    packageName: PLAYCANVAS_EDITOR_PACKAGE_NAME,
+                    compatibilityStatus: 'compatible',
+                    schemaVersion: '1',
+                    settings: {},
+                    defaultSceneId: 'scene-1',
+                    publicationConfig: {}
+                }
+            ],
+            scenes: [
+                {
+                    id: 'scene-1',
+                    projectId: 'project-1',
+                    codename: createLocalizedContent('en', 'scene_one'),
+                    displayName: createLocalizedContent('en', 'Scene One'),
+                    payloadSchemaVersion: '1',
+                    payloadFile: {
+                        provider: 'local',
+                        root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                        path: scenePath,
+                        hash: writtenScene.checksum
+                    },
+                    sortOrder: 0,
+                    publish: true
+                }
+            ],
+            assets: [
+                {
+                    id: 'asset-1',
+                    projectId: 'project-1',
+                    stableAssetId: 'ship-script-1',
+                    type: 'script',
+                    name: 'Ship',
+                    virtualPath: ['scripts', 'ship.mjs'],
+                    file: {
+                        provider: 'local',
+                        root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                        path: sourcePath,
+                        hash: writtenSource.checksum,
+                        mime: 'text/javascript'
+                    },
+                    metadata: {},
+                    publish: true
+                }
+            ],
+            scriptAssets: [
+                {
+                    id: 'script-1',
+                    assetId: 'asset-1',
+                    scriptName: 'Ship',
+                    scriptKind: 'esm',
+                    parsedAttributes: {},
+                    parseStatus: 'ready'
+                }
+            ],
+            bindings:
+                options.binding === undefined
+                    ? [
+                          {
+                              id: 'binding-1',
+                              sceneId: 'scene-1',
+                              sceneEntityStableId: 'ship-entity',
+                              scriptAssetId: 'script-1',
+                              scriptName: 'Ship',
+                              attributeValues: {},
+                              bindingSchemaVersion: '1',
+                              enabled: true
+                          }
+                      ]
+                    : options.binding
+                    ? [
+                          {
+                              id: 'binding-1',
+                              sceneId: 'scene-1',
+                              sceneEntityStableId: options.binding.sceneEntityStableId ?? 'ship-entity',
+                              scriptAssetId: 'script-1',
+                              scriptName: options.binding.scriptName ?? 'Ship',
+                              attributeValues: {},
+                              bindingSchemaVersion: '1',
+                              enabled: options.binding.enabled ?? true
+                          }
+                      ]
+                    : [],
+            generatedArtifacts: [
+                {
+                    id: 'artifact-1',
+                    scriptAssetId: 'script-1',
+                    sourceChecksum: writtenSource.checksum,
+                    outputFile: {
+                        provider: 'local',
+                        root: PLAYCANVAS_PROJECT_FILE_ROOT,
+                        path: artifactPath,
+                        hash: writtenArtifact.checksum,
+                        mime: 'text/javascript'
+                    },
+                    scriptName: 'Ship',
+                    scriptKind: 'esm',
+                    parseStatus: 'ready'
+                }
+            ]
+        }),
+        makeSchemaService() as never,
+        fileService
+    )
+    return { root, service }
+}
+
 describe('PlayCanvasProjectSnapshotService', () => {
     it('treats missing PlayCanvas storage tables as an empty export section', async () => {
         const exec = makeExec({ storageTables: [{ exists: false }] })
@@ -52,9 +325,15 @@ describe('PlayCanvasProjectSnapshotService', () => {
         const scenePath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/scenes/scene-1.json`
         const assetPath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/assets/ship.mjs`
         const artifactPath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/generated/artifact-1.mjs`
-        const writtenScene = await fileService.write({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, scenePath, '{"entities":[]}')
+        const staleArtifactPath = `${PLAYCANVAS_PROJECT_FILE_ROOT}/project-1/generated/artifact-stale.mjs`
+        const writtenScene = await fileService.write(
+            { metahubId: 'metahub-1', branchSlug: TEST_SCHEMA },
+            scenePath,
+            '{"entities":[{"id":"ship-entity"}]}'
+        )
         const writtenAsset = await fileService.write({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, assetPath, 'export class Ship {}')
         await fileService.write({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, artifactPath, 'export default class Ship {}')
+        await fileService.write({ metahubId: 'metahub-1', branchSlug: TEST_SCHEMA }, staleArtifactPath, 'export default class OldShip {}')
 
         const service = new PlayCanvasProjectSnapshotService(
             makeExec({
@@ -110,12 +389,33 @@ describe('PlayCanvasProjectSnapshotService', () => {
                         parseStatus: 'ready'
                     }
                 ],
-                bindings: [],
+                bindings: [
+                    {
+                        id: 'binding-1',
+                        sceneId: 'scene-1',
+                        sceneEntityStableId: 'ship-entity',
+                        scriptAssetId: 'script-1',
+                        scriptName: 'Ship',
+                        attributeValues: { speed: 3 },
+                        bindingSchemaVersion: '1',
+                        enabled: true
+                    }
+                ],
                 generatedArtifacts: [
                     {
                         id: 'artifact-1',
                         scriptAssetId: 'script-1',
+                        sourceChecksum: writtenAsset.checksum,
                         outputFile: { provider: 'local', root: PLAYCANVAS_PROJECT_FILE_ROOT, path: artifactPath },
+                        scriptName: 'Ship',
+                        scriptKind: 'esm',
+                        parseStatus: 'ready'
+                    },
+                    {
+                        id: 'artifact-stale',
+                        scriptAssetId: 'script-1',
+                        sourceChecksum: '0'.repeat(64),
+                        outputFile: { provider: 'local', root: PLAYCANVAS_PROJECT_FILE_ROOT, path: staleArtifactPath },
                         scriptName: 'Ship',
                         scriptKind: 'esm',
                         parseStatus: 'ready'
@@ -142,9 +442,11 @@ describe('PlayCanvasProjectSnapshotService', () => {
 
         expect(snapshot?.schemaVersion).toBe(PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION)
         expect(snapshot?.projects).toHaveLength(1)
-        expect(snapshot?.scenes[0].payload).toEqual({ entities: [] })
+        expect(snapshot?.scenes[0].payload).toEqual({ entities: [{ id: 'ship-entity' }] })
         expect(snapshot?.scenes[0].payloadFile?.hash).toBe(writtenScene.checksum)
-        expect(snapshot?.scenes[0].payloadFile?.snapshotContentBase64).toBe(Buffer.from('{"entities":[]}').toString('base64'))
+        expect(snapshot?.scenes[0].payloadFile?.snapshotContentBase64).toBe(
+            Buffer.from('{"entities":[{"id":"ship-entity"}]}').toString('base64')
+        )
         expect(snapshot?.generatedArtifacts[0].outputFile.snapshotContentBase64).toBe(
             Buffer.from('export default class Ship {}').toString('base64')
         )
@@ -156,21 +458,68 @@ describe('PlayCanvasProjectSnapshotService', () => {
                 expect.objectContaining({
                     id: 'scene:scene-1',
                     type: 'scene',
-                    url: `data:application/octet-stream;base64,${Buffer.from('{"entities":[]}').toString('base64')}`,
+                    url: `data:application/octet-stream;base64,${Buffer.from('{"entities":[{"id":"ship-entity"}]}').toString('base64')}`,
                     hash: writtenScene.checksum
                 }),
                 expect.objectContaining({
                     id: 'script-asset-1',
                     type: 'script',
-                    url: `data:application/octet-stream;base64,${Buffer.from('export class Ship {}').toString('base64')}`,
+                    // Script assets must travel as text/javascript so the runtime
+                    // can import the artifact as an ES module.
+                    url: `data:text/javascript;base64,${Buffer.from('export class Ship {}').toString('base64')}`,
                     hash: writtenAsset.checksum
                 })
             ])
         )
         expect(snapshot?.runtimeManifests?.[0].scripts[0].scriptName).toBe('Ship')
         expect(snapshot?.runtimeManifests?.[0].scripts[0].artifactUrl).toBe(
-            `data:application/octet-stream;base64,${Buffer.from('export default class Ship {}').toString('base64')}`
+            `data:text/javascript;base64,${Buffer.from('export default class Ship {}').toString('base64')}`
         )
+        expect(snapshot?.runtimeManifests?.[0].scripts[0]).toMatchObject({
+            attributeValues: { speed: 3 },
+            sceneEntityStableId: 'ship-entity'
+        })
+
+        await fs.rm(root, { recursive: true, force: true })
+    })
+
+    it('fails runtime publication when a script has no enabled binding on the selected scene', async () => {
+        const { root, service } = await makeRuntimeScriptSnapshotService({ binding: null })
+
+        await expect(service.exportSnapshot('metahub-1', { includeRuntimeManifests: true })).rejects.toMatchObject({
+            details: expect.objectContaining({
+                messageCode: 'playcanvas.runtime.scriptBindingRequired',
+                scriptAssetId: 'script-1',
+                sceneId: 'scene-1'
+            })
+        })
+
+        await fs.rm(root, { recursive: true, force: true })
+    })
+
+    it('fails runtime publication when a binding name does not match its script asset', async () => {
+        const { root, service } = await makeRuntimeScriptSnapshotService({ binding: { scriptName: 'DifferentScript' } })
+
+        await expect(service.exportSnapshot('metahub-1', { includeRuntimeManifests: true })).rejects.toMatchObject({
+            details: expect.objectContaining({
+                messageCode: 'playcanvas.runtime.scriptBindingMismatch',
+                scriptAssetId: 'script-1',
+                bindingId: 'binding-1'
+            })
+        })
+
+        await fs.rm(root, { recursive: true, force: true })
+    })
+
+    it('fails runtime publication when a binding points to an entity absent from the selected scene', async () => {
+        const { root, service } = await makeRuntimeScriptSnapshotService({ binding: { sceneEntityStableId: 'missing-entity' } })
+
+        await expect(service.exportSnapshot('metahub-1', { includeRuntimeManifests: true })).rejects.toMatchObject({
+            details: expect.objectContaining({
+                messageCode: 'playcanvas.runtime.scriptEntityMissing',
+                sceneEntityStableId: 'missing-entity'
+            })
+        })
 
         await fs.rm(root, { recursive: true, force: true })
     })
@@ -489,6 +838,10 @@ describe('PlayCanvasProjectSnapshotService', () => {
         })
 
         expect(snapshot?.runtimeManifests).toHaveLength(1)
+        const generatedManifest = snapshot?.runtimeManifests?.[0]
+        if (!generatedManifest) throw new Error('Runtime manifest was not generated')
+        const { checksum: generatedChecksum, ...generatedManifestWithoutChecksum } = generatedManifest
+        expect(generatedChecksum).toBe(computePlayCanvasRuntimeManifestChecksum(generatedManifestWithoutChecksum))
         expect(snapshot?.runtimeManifests?.[0].metadata?.mmoomm?.scene).toEqual(scenePayload.metadata.mmoomm.scene)
         expect(snapshot?.runtimeManifests?.[0].metadata?.mmoomm?.visualLab).toEqual(
             expect.objectContaining({ projectRole: 'visual-linkup-lab', variantCount: 16 })
@@ -1083,6 +1436,7 @@ describe('PlayCanvasProjectSnapshotService', () => {
                             hash: writtenArtifact.checksum,
                             status: 'processing'
                         },
+                        sourceChecksum: writtenAsset.checksum,
                         scriptName: 'Ship',
                         scriptKind: 'esm',
                         parseStatus: 'ready'
@@ -1589,6 +1943,108 @@ describe('PlayCanvasProjectSnapshotService', () => {
         expect(insert).toHaveBeenCalled()
     })
 
+    it.each([
+        [
+            'scene payload',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                const file = snapshot.scenes[0]?.payloadFile
+                snapshot.scenes[0]!.payloadFile = {
+                    ...file!,
+                    path: `${PLAYCANVAS_PROJECT_FILE_ROOT}/019e8afa-0000-7000-8000-000000000041/scenes/../escape.json`
+                }
+            }
+        ],
+        [
+            'asset',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                const file = snapshot.assets[0]?.file
+                snapshot.assets[0]!.file = {
+                    ...file!,
+                    path: `${PLAYCANVAS_PROJECT_FILE_ROOT}/019e8afa-0000-7000-8000-000000000041/assets/../escape.mjs`
+                }
+            }
+        ],
+        [
+            'generated artifact',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                const file = snapshot.generatedArtifacts[0]?.outputFile
+                snapshot.generatedArtifacts[0]!.outputFile = {
+                    ...file,
+                    path: `${PLAYCANVAS_PROJECT_FILE_ROOT}/019e8afa-0000-7000-8000-000000000041/generated/../escape.mjs`
+                }
+            }
+        ],
+        [
+            'source file',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                const file = snapshot.sourceFiles?.[0]?.file
+                snapshot.sourceFiles![0]!.file = {
+                    ...file!,
+                    path: `${PLAYCANVAS_PROJECT_FILE_ROOT}/019e8afa-0000-7000-8000-000000000041/sourcefiles/../escape.mjs`
+                }
+            }
+        ]
+    ])('rejects traversal in missing %s references before deleting rows', async (_label, mutate) => {
+        await expectRestoreRejectedBeforeWrites(mutate, {
+            messageCode: 'playcanvas.files.path.hiddenOrParentSegment'
+        })
+    })
+
+    it.each([
+        [
+            'scene payload',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                snapshot.scenes[0]!.payloadFile = { ...snapshot.scenes[0]!.payloadFile!, provider: 's3' }
+            }
+        ],
+        [
+            'asset',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                snapshot.assets[0]!.file = { ...snapshot.assets[0]!.file!, provider: 's3' }
+            }
+        ],
+        [
+            'generated artifact',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                snapshot.generatedArtifacts[0]!.outputFile = { ...snapshot.generatedArtifacts[0]!.outputFile, provider: 's3' }
+            }
+        ],
+        [
+            'source file',
+            (snapshot: PlayCanvasProjectSnapshotSection) => {
+                snapshot.sourceFiles![0]!.file = { ...snapshot.sourceFiles![0]!.file, provider: 's3' }
+            }
+        ]
+    ])('rejects unsupported provider in %s references before deleting rows', async (_label, mutate) => {
+        await expectRestoreRejectedBeforeWrites(mutate, {
+            messageCode: 'playcanvas.files.provider.unsupported'
+        })
+    })
+
+    it('rejects a missing local reference outside the PlayCanvas storage namespace before deleting rows', async () => {
+        await expectRestoreRejectedBeforeWrites(
+            (snapshot) => {
+                snapshot.scenes[0]!.payloadFile = {
+                    ...snapshot.scenes[0]!.payloadFile!,
+                    path: 'external-files/019e8afa-0000-7000-8000-000000000041/scene.json'
+                }
+            },
+            { messageCode: 'playcanvas.files.path.namespaceRequired' }
+        )
+    })
+
+    it('rejects a local reference belonging to another project before deleting rows', async () => {
+        await expectRestoreRejectedBeforeWrites(
+            (snapshot) => {
+                snapshot.scenes[0]!.payloadFile = {
+                    ...snapshot.scenes[0]!.payloadFile!,
+                    path: `${PLAYCANVAS_PROJECT_FILE_ROOT}/019e8afa-0000-7000-8000-000000000099/scenes/scene.json`
+                }
+            },
+            { messageCode: 'playcanvas.files.path.projectMismatch' }
+        )
+    })
+
     it('rejects restored local file references without bundled snapshot content', async () => {
         const projectId = '019e8afa-0000-7000-8000-000000000021'
         const sceneId = '019e8afa-0000-7000-8000-000000000022'
@@ -1879,6 +2335,126 @@ describe('PlayCanvasProjectSnapshotService', () => {
         expect(runtimeManifest.scripts[0].artifactUrl).toBeNull()
         expect(runtimeManifest.checksum).not.toBe('old-checksum')
         expect(manifestRow?.manifest_checksum).toBe(runtimeManifest.checksum)
+    })
+
+    it.each([
+        ['asset URL', 'assetUrl'],
+        ['script artifact URL', 'artifactUrl']
+    ] as const)('rejects non-portable runtime manifest %s during restore', async (_label, field) => {
+        const snapshot = makeRestoreSnapshotForFileReferenceValidation()
+        const projectId = snapshot.projects[0]?.id
+        const sceneId = snapshot.scenes[0]?.id
+        const scriptAssetId = snapshot.scriptAssets[0]?.id
+        if (!projectId || !sceneId || !scriptAssetId) throw new Error('Snapshot fixture is incomplete')
+
+        snapshot.runtimeManifests = [
+            {
+                schemaVersion: PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION,
+                projectId,
+                sceneId,
+                checksum: 'runtime-checksum',
+                assets: [
+                    {
+                        id: 'snapshot-validation-script',
+                        type: 'script',
+                        name: 'Snapshot Validation Script',
+                        url:
+                            field === 'assetUrl'
+                                ? 'https://attacker.example/ship.mjs'
+                                : 'data:text/javascript;base64,ZXhwb3J0IGNsYXNzIFNoaXAge30='
+                    }
+                ],
+                scripts: [
+                    {
+                        id: scriptAssetId,
+                        scriptName: 'SnapshotValidationScript',
+                        scriptKind: 'esm',
+                        artifactUrl:
+                            field === 'artifactUrl'
+                                ? 'https://attacker.example/ship-artifact.mjs'
+                                : 'data:text/javascript;base64,ZXhwb3J0IGRlZmF1bHQgY2xhc3MgU2hpcCB7fQ==',
+                        attributes: {}
+                    }
+                ]
+            }
+        ]
+
+        const del = jest.fn(async () => undefined)
+        const insert = jest.fn(async () => undefined)
+        const trx = {
+            withSchema: jest.fn(() => ({
+                from: jest.fn(() => ({ del })),
+                into: jest.fn(() => ({ insert }))
+            }))
+        }
+        const service = new PlayCanvasProjectSnapshotService(makeExec({}), makeSchemaService() as never)
+
+        await expect(
+            service.restoreSnapshot({
+                trx: trx as never,
+                metahubId: 'metahub-1',
+                schemaName: TEST_SCHEMA,
+                snapshot,
+                moduleIdMap: new Map(),
+                entityIdMap: new Map(),
+                userId: 'user-1'
+            })
+        ).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.runtime.manifestUrlUnsupported' })
+        })
+        expect(del).not.toHaveBeenCalled()
+        expect(insert).not.toHaveBeenCalled()
+    })
+
+    it('rejects traversal in a local runtime manifest URL before restore writes', async () => {
+        await expectRestoreRejectedBeforeWrites(
+            (snapshot) => {
+                const projectId = snapshot.projects[0]?.id
+                const sceneId = snapshot.scenes[0]?.id
+                if (!projectId || !sceneId) throw new Error('Snapshot fixture is incomplete')
+                snapshot.runtimeManifests = [
+                    {
+                        schemaVersion: PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION,
+                        projectId,
+                        sceneId,
+                        checksum: 'runtime-checksum',
+                        assets: [
+                            {
+                                id: 'snapshot-validation-script',
+                                type: 'script',
+                                name: 'Snapshot Validation Script',
+                                url: `${PLAYCANVAS_PROJECT_FILE_ROOT}/${projectId}/assets/../escape.mjs`
+                            }
+                        ],
+                        scripts: []
+                    }
+                ]
+            },
+            { messageCode: 'playcanvas.files.path.hiddenOrParentSegment' }
+        )
+    })
+
+    it('rejects a runtime manifest whose scene belongs to another project before deleting rows', async () => {
+        await expectRestoreRejectedBeforeWrites(
+            (snapshot) => {
+                const sourceProject = snapshot.projects[0]
+                const sceneId = snapshot.scenes[0]?.id
+                if (!sourceProject || !sceneId) throw new Error('Snapshot fixture is incomplete')
+                const foreignProjectId = '019e8afa-0000-7000-8000-000000000047'
+                snapshot.projects.push({ ...sourceProject, id: foreignProjectId, defaultSceneId: null })
+                snapshot.runtimeManifests = [
+                    {
+                        schemaVersion: PLAYCANVAS_RUNTIME_MANIFEST_SCHEMA_VERSION,
+                        projectId: foreignProjectId,
+                        sceneId,
+                        checksum: 'runtime-checksum',
+                        assets: [],
+                        scripts: []
+                    }
+                ]
+            },
+            { messageCode: 'playcanvas.snapshot.manifestSceneProjectMismatch' }
+        )
     })
 
     it('filters user-scoped PlayCanvas Editor compatibility settings and remaps project-private ids during restore', async () => {

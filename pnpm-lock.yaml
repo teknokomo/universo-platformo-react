@@ -126,6 +126,9 @@ catalogs:
     '@testing-library/user-event':
       specifier: ^14.6.1
       version: 14.6.1
+    '@types/busboy':
+      specifier: ^1.5.4
+      version: 1.5.4
     '@types/http-errors':
       specifier: ^2.0.4
       version: 2.0.5
@@ -156,6 +159,9 @@ catalogs:
     async-mutex:
       specifier: ^0.5.0
       version: 0.5.0
+    busboy:
+      specifier: ^1.6.0
+      version: 1.6.0
     codemirror:
       specifier: ^6.0.2
       version: 6.0.2
@@ -2205,6 +2211,12 @@ importers:
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
+      '@universo-react/utils':
+        specifier: workspace:*
+        version: link:../universo-react-utils
+      busboy:
+        specifier: 'catalog:'
+        version: 1.6.0
       express:
         specifier: ^4.18.2
         version: 4.22.1
@@ -2218,6 +2230,9 @@ importers:
         specifier: 3.25.76
         version: 3.25.76
     devDependencies:
+      '@types/busboy':
+        specifier: 'catalog:'
+        version: 1.5.4
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.25
@@ -6514,6 +6529,9 @@ packages:
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
 
+  '@types/busboy@1.5.4':
+    resolution: {integrity: sha512-kG7WrUuAKK0NoyxfQHsVE6j1m01s6kMma64E+OZenQABMQyTJop1DumUWcLwAQ2JzpefU7PDYoRDKl8uZosFjw==}
+
   '@types/cacheable-request@6.0.3':
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
 
@@ -7508,6 +7526,10 @@ packages:
 
   builtins@1.0.3:
     resolution: {integrity: sha512-uYBjakWipfaO/bXI7E8rq6kpwHRZK5cNYrUv2OzZSI/FvmdMyXJ2tG9dKcjEC5YHmHpUAwsargWIZNWdxb/bnQ==}
+
+  busboy@1.6.0:
+    resolution: {integrity: sha512-8SFQbg/0hQ9xy3UNTB0YEnsNBbWfhf7RtnzpL7TkBiTBRfrQ9Fxcnz7VJsleJpyp6rVLvXiuORqjlHi5q+PYuA==}
+    engines: {node: '>=10.16.0'}
 
   bytes@3.0.0:
     resolution: {integrity: sha512-pMhOfFDPiv9t5jjIXkHosWmkSyQbvsgEVNkz0ERHbuLh2T/7j4Mqqpz523Fe8MVY89KC6Sh/QfS2sM+SjgFDcw==}
@@ -12288,6 +12310,10 @@ packages:
 
   stream-shift@1.0.3:
     resolution: {integrity: sha512-76ORR0DO1o1hlKwTbi/DM3EXWGf3ZJYO8cXX5RJwnul2DEg2oyoZyjLNoQM8WsvZiFKCRfC1O0J7iCvie3RZmQ==}
+
+  streamsearch@1.1.0:
+    resolution: {integrity: sha512-Mcc5wHehp9aXz1ax6bZUyY5afg9u2rv5cqQI3mRrYkGC8rW2hM02jWuwjtL++LS5qinSyhj2QfLyNsuc+VsExg==}
+    engines: {node: '>=10.0.0'}
 
   strftime@0.10.3:
     resolution: {integrity: sha512-DZrDUeIF73eKJ4/GgGuv8UHWcUQPYDYfDeQFj3jrx+JZl6GQE656MbHIpvbo4mEG9a5DgS8GRCc5DxJXD2udDQ==}
@@ -17692,6 +17718,10 @@ snapshots:
       '@types/connect': 3.4.38
       '@types/node': 22.19.18
 
+  '@types/busboy@1.5.4':
+    dependencies:
+      '@types/node': 22.19.18
+
   '@types/cacheable-request@6.0.3':
     dependencies:
       '@types/http-cache-semantics': 4.2.0
@@ -18950,6 +18980,10 @@ snapshots:
       ieee754: 1.2.1
 
   builtins@1.0.3: {}
+
+  busboy@1.6.0:
+    dependencies:
+      streamsearch: 1.1.0
 
   bytes@3.0.0: {}
 
@@ -24751,6 +24785,8 @@ snapshots:
       stubs: 3.0.0
 
   stream-shift@1.0.3: {}
+
+  streamsearch@1.1.0: {}
 
   strftime@0.10.3: {}
 

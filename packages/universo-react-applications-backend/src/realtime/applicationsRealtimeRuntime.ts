@@ -33,6 +33,7 @@ import { findApplicationSchemaInfo } from '../persistence/applicationsStore'
 import { resolveRuntimeWorkspaceAccess } from '../services/applicationWorkspaces'
 import { RuntimeModulesService } from '../services/runtimeModulesService'
 import { resolvePublicRuntimeSchema } from '../shared/publicRuntimeAccess'
+import { parseAndValidatePlayCanvasRuntimeManifest } from '../shared/playCanvasRuntimeManifest'
 import { getRequestDbExecutor } from '../utils'
 import { isRealtimeMatchmakeMethodAllowed, resolveRealtimeClientCanControl } from './realtimeAccess'
 
@@ -349,6 +350,9 @@ interface RuntimeSceneConfig {
 }
 
 type PlayCanvasManifestRow = {
+    source_project_id: string
+    source_scene_id: string | null
+    manifest_checksum: string
     runtime_manifest: unknown
 }
 
@@ -414,7 +418,7 @@ const loadPublishedRuntimeSceneConfig = async (
 ): Promise<RuntimeSceneConfig> => {
     const rows = await executor.query<PlayCanvasManifestRow>(
         `
-        SELECT runtime_manifest
+        SELECT source_project_id, source_scene_id, manifest_checksum, runtime_manifest
         FROM ${qSchemaTable(schemaName, '_app_playcanvas_manifests')}
         WHERE _upl_deleted = false
           AND _app_deleted = false
@@ -426,7 +430,16 @@ const loadPublishedRuntimeSceneConfig = async (
         `,
         [binding.projectId, binding.sceneId ?? null, binding.checksum]
     )
-    const scene = readRuntimeSceneFromManifest(rows[0]?.runtime_manifest)
+    const row = rows[0]
+    const scene = row
+        ? readRuntimeSceneFromManifest(
+              parseAndValidatePlayCanvasRuntimeManifest(row.runtime_manifest, {
+                  sourceProjectId: row.source_project_id,
+                  sourceSceneId: row.source_scene_id,
+                  manifestChecksum: row.manifest_checksum
+              })
+          )
+        : null
     if (!scene?.objects?.length) {
         throw Object.assign(new Error('Realtime published scene is not available'), { statusCode: 404 })
     }

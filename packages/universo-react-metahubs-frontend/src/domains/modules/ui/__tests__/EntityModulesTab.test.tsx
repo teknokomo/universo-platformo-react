@@ -70,7 +70,8 @@ vi.mock('@uiw/react-codemirror', () => ({
 
         return (
             <textarea
-                aria-label='Module source code'
+                aria-label={String(props['aria-label'] ?? '')}
+                aria-labelledby={String(props['aria-labelledby'] ?? '')}
                 data-testid='module-source-editor'
                 value={String(props.value ?? '')}
                 onChange={(event) => props.onChange?.(event.target.value)}
@@ -236,6 +237,28 @@ describe('EntityModulesTab', () => {
 
         expect(screen.getByText('Codename, name, and source code are required')).toBeInTheDocument()
         expect(mocks.create).not.toHaveBeenCalled()
+    })
+
+    it('gives the source editor a localized accessible name in production props', async () => {
+        mocks.list.mockResolvedValue([createModuleRecord()])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByRole('textbox', { name: 'Source code' })).toBeInTheDocument())
+        expect(mocks.lastCodeMirrorProps?.['aria-label']).toBe('Source code')
+        expect(mocks.lastCodeMirrorProps?.['aria-labelledby']).toBe('entity-module-source-code-label')
+    })
+
+    it('renders module descriptions as multiline controls with a useful minimum height', async () => {
+        mocks.list.mockResolvedValue([createModuleRecord()])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        const description = await screen.findByLabelText('Description')
+        await waitFor(() => expect(description).toHaveValue('Widget description'))
+        expect(description).toBeInstanceOf(HTMLTextAreaElement)
+        expect(description).toHaveClass('MuiInputBase-inputMultiline')
+        expect(description.closest('.MuiInputBase-root')).toHaveClass('MuiInputBase-multiline')
     })
 
     it('hides modules authoring when the user lacks manage permission for the metahub', () => {
@@ -571,7 +594,7 @@ describe('EntityModulesTab', () => {
         })
     })
 
-    it('shows the absolute source file path for existing file-backed modules', async () => {
+    it('shows a safe relative source path without exposing the absolute source file path', async () => {
         mocks.list.mockResolvedValue([
             createModuleRecord({
                 storageMode: 'file',
@@ -590,8 +613,39 @@ describe('EntityModulesTab', () => {
 
         renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
-        await expect(screen.findByText(/Source file:/)).resolves.toBeVisible()
-        expect(screen.getByText(/\/repo\/storage\/metahubs\/metahub-1/)).toBeInTheDocument()
+        await expect(screen.findByText(/Source path: modules\/attached\/object\/quiz-widget\.ts/)).resolves.toBeVisible()
+        expect(screen.getByTestId('entity-module-source-metadata')).toHaveTextContent('Source status: Ready')
+        expect(screen.getByTestId('entity-module-source-metadata')).toHaveTextContent('Source checksum: source-check...')
+        expect(screen.getByTestId('entity-module-source-metadata')).not.toHaveTextContent('/repo/storage/metahubs/metahub-1')
+    })
+
+    it('uses localized neutral labels when module enum values are unknown', async () => {
+        mocks.list.mockResolvedValue([
+            createModuleRecord({
+                moduleRole: 'futureRole',
+                storageMode: 'file',
+                sourcePath: 'modules/attached/object/quiz-widget.ts',
+                sourceStatus: 'futureSourceStatus',
+                sourceLastCompileStatus: 'futureCompileStatus',
+                sourceStorage: {
+                    mode: 'file',
+                    path: 'modules/attached/object/quiz-widget.ts',
+                    checksum: 'source-checksum',
+                    status: 'futureSourceStatus',
+                    lastCompileStatus: 'futureCompileStatus'
+                }
+            })
+        ])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await expect(screen.findByText(/Unknown module role/)).resolves.toBeVisible()
+        const metadata = await screen.findByTestId('entity-module-source-metadata')
+        expect(metadata).toHaveTextContent('Source status: Unknown source status')
+        expect(metadata).toHaveTextContent('Last compile: Unknown compilation status')
+        expect(screen.queryByText('futureRole')).not.toBeInTheDocument()
+        expect(screen.queryByText('futureSourceStatus')).not.toBeInTheDocument()
+        expect(screen.queryByText('futureCompileStatus')).not.toBeInTheDocument()
     })
 
     it('blocks stale file-backed saves when the preflight module version changed', async () => {

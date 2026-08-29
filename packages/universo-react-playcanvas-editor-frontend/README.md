@@ -7,9 +7,9 @@ This package is intentionally an artifact boundary, not a React/MUI component li
 ## Upstream
 
 -   Repository: https://github.com/playcanvas/editor
--   Tag: `v2.24.2`
--   Commit: `00360100b3b5747648eb3d7287421ef25491f5c7`
--   Package version: `2.24.2`
+-   Tag: `v2.30.4`
+-   Commit: `cf296bcb669bdcb168778bf2979160a9fe8f67de`
+-   Package version: `2.30.4`
 -   Node requirement: `>=22.22.0`
 -   License: MIT, with attribution in `NOTICE.md`
 
@@ -32,7 +32,7 @@ The default artifact mode is `universo-full-upstream-ui`.
 
 `universo-full-upstream-ui` is the default acceptance mode for the full upstream Editor shell. In this mode the artifact still keeps the upstream Editor isolated inside the iframe, but it must receive a full-boot config from the metahub host with enabled realtime, messenger, and relay URLs. The full-boot shell does not install the hosted entity fallback adapter and does not include the `/disabled` WebSocket shim. Browser acceptance must prove the upstream DOM shell is present: `#layout-toolbar`, `#layout-hierarchy`, `#layout-viewport`, `#canvas-3d`, `#layout-assets`, and `#layout-attributes`.
 
-The hosted bridge slice supports the first manager-only metahub authoring path: a `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads, and minimal JSON asset metadata. The backend also exposes a same-origin compatibility namespace under `/playcanvas/editor-compatible/...` for `config`, `scenes`, `assets`, `settings`, per-scene/per-user `user_data`, single-user ShareDB-compatible snapshot persistence, and explicit cloud-only no-op descriptors. It does not implement PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, broad binary assets, Colyseus authoring, implicit runtime publication, or MCP/AI tooling.
+The hosted bridge slice supports the first manager-only metahub authoring path: a `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads, and Editor asset summaries. The backend also exposes a same-origin compatibility namespace under `/playcanvas/editor-compatible/...` for `config`, `scenes`, `assets`, `settings`, per-scene/per-user `user_data`, single-user ShareDB-compatible snapshot persistence, and explicit cloud-only no-op descriptors. The asset surface supports deterministic folders, bounded multipart text-like files, raw file reads, deletion, and script-attribute frames; publication delivers verified ESM script artifacts through the runtime manifest. It does not implement PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, broad binary conversion, Colyseus authoring, or MCP/AI tooling.
 
 ## Hosted Artifact Security
 

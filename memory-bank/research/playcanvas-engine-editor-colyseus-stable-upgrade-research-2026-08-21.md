@@ -2,7 +2,7 @@
 
 > Created: 2026-08-21
 > Status: Reviewed
-> Trigger: `RESEARCH` request to extend and validate `.manager/specs/cross-project/playcanvas-engine-editor-colyseus-upgrade-spec-2026-08-21.md`
+> Trigger: `RESEARCH` request to extend and validate the manager-only PlayCanvas Engine, Editor, and Colyseus upgrade brief.
 > Follow-up plan: TBD
 
 ## Research Question
@@ -275,7 +275,7 @@ The recommended planning baseline is:
 
 ### Local sources
 
--   `.manager/specs/cross-project/playcanvas-engine-editor-colyseus-upgrade-spec-2026-08-21.md`
+-   Manager-only PlayCanvas Engine, Editor, and Colyseus upgrade brief.
 -   `memory-bank/research/mmoomm-3d-multiplayer-skills-research-2026-05-27.md`
 -   `memory-bank/research/mmoomm-flight-simulator-metahub-research-2026-05-28.md`
 -   `memory-bank/research/mmoomm-playcanvas-editor-main-functionality-runtime-projection-research-2026-06-10.md`

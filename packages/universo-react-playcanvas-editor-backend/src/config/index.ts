@@ -208,6 +208,7 @@ export const createPlayCanvasEditorFullBootConfig = (input: {
     accessToken: string
     apiOrigin?: string
     artifactBaseUrl?: string
+    csrfToken?: string | null
 }): PlayCanvasEditorFullBootConfig => {
     const numericIds = createPlayCanvasEditorNumericIds(input)
     const endpoints = createPlayCanvasEditorFullBootEndpointDescriptor(input)
@@ -303,8 +304,8 @@ export const createPlayCanvasEditorFullBootConfig = (input: {
         },
         schema: buildEditorSchemaCatalog(),
         engineVersions: {
-            force: { version: '2.21.3', description: 'Engine v2.21.3' },
-            current: { version: '2.21.3', description: 'Current' }
+            force: { version: '2.21.4', description: 'Engine v2.21.4' },
+            current: { version: '2.21.4', description: 'Current' }
         },
         store: {},
         aws: { s3Prefix: '' },
@@ -316,7 +317,15 @@ export const createPlayCanvasEditorFullBootConfig = (input: {
         universoHosted: true,
         universoBridge: {
             compatibilityRestBaseUrl: endpoints.restBaseUrl,
-            tokenRefreshUrl: tokenRefreshUrlText
+            tokenRefreshUrl: tokenRefreshUrlText,
+            ...(input.csrfToken
+                ? {
+                      compatibilityCsrfToken: {
+                          token: input.csrfToken,
+                          headerName: 'X-CSRF-Token' as const
+                      }
+                  }
+                : {})
         }
     }
     return playCanvasEditorFullBootConfigSchema.parse(config)
@@ -330,6 +339,7 @@ export const createPlayCanvasEditorCompatibilityConfig = (input: {
     accessToken: string
     tokenExpiresAt: number
     apiOrigin?: string
+    csrfToken?: string | null
 }): PlayCanvasEditorCompatibilityConfig => {
     const basePath = buildBasePath(input.metahubId, input.projectId, input.apiOrigin)
     return playCanvasEditorCompatibilityConfigSchema.parse({
@@ -359,7 +369,8 @@ export const createPlayCanvasEditorCompatibilityConfig = (input: {
         },
         csrf: {
             tokenUrl: `${input.apiOrigin ?? ''}/api/v1/auth/csrf`,
-            headerName: 'X-CSRF-Token'
+            headerName: 'X-CSRF-Token',
+            ...(input.csrfToken ? { token: input.csrfToken } : {})
         }
     })
 }

@@ -29,9 +29,11 @@ export const attachMetahubPlayCanvasEditorFullBootRuntime = (
     attachPlayCanvasEditorFullBootRuntime({
         server: deps.server,
         tokenService: deps.tokenService,
-        authorize: async () => {
-            // The full-boot token is issued only by the manager-gated REST config route.
-            // Document load/persist still re-check metahub access through the trusted DB boundary below.
+        authorize: async (claims) => {
+            // Authenticate every realtime surface against the current metahub
+            // membership. Token issuance is manager-gated, but a role can be
+            // revoked while a token is still within its TTL.
+            await createAuthorizedService(deps, { userId: claims.userId, metahubId: claims.metahubId })
         },
         documentPort: {
             loadDocument: async (input) => {
@@ -41,6 +43,16 @@ export const attachMetahubPlayCanvasEditorFullBootRuntime = (
             persistDocument: async (input) => {
                 const service = await createAuthorizedService(deps, input)
                 return service.persistEditorRealtimeDocument(input)
+            },
+            deleteAssets: async (input) => {
+                const service = await createAuthorizedService(deps, input)
+                return service.deleteEditorCompatibilityAssets(input.metahubId, input.projectId, input.documentIds, input.userId)
+            },
+            listAssetDocuments: async (input) => {
+                const service = await createAuthorizedService(deps, input)
+                return service.listEditorCompatibilityAssetDocuments(input.metahubId, input.projectId, input.userId, {
+                    sceneId: input.sceneId
+                })
             }
         }
     })

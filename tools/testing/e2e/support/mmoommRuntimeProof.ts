@@ -11,6 +11,12 @@ import {
     expectRuntimeUxViewportMatrix
 } from './browser/runtimeUx'
 import { loadE2eEnvironment } from './env/load-e2e-env.mjs'
+import {
+    captureMmoommRuntimeParityTrace,
+    expectMmoommRuntimeParityTrace,
+    expectMmoommTraceShowsMovement,
+    type MmoommRuntimeParityTrace
+} from './mmoommScriptAssetsProof'
 
 export const MMOOMM_RUNTIME_EXPECT_TIMEOUT = 60_000
 export const MMOOMM_RECONNECT_TIMEOUT = 45_000
@@ -49,14 +55,57 @@ const VISUAL_LINKUP_VARIANT_PROOFS = [
     { slug: 'near-whiteout', family: 'channelDegradation' }
 ] as const
 
+type VisualLinkupLocale = 'en' | 'ru'
+type VisualLinkupFamily = (typeof VISUAL_LINKUP_VARIANT_PROOFS)[number]['family']
+
+const VISUAL_LINKUP_FAMILY_LABELS: Record<VisualLinkupLocale, Record<VisualLinkupFamily, string>> = {
+    en: {
+        softWhiteLinkup: 'Soft white linkup',
+        typeGlow: 'Type glow',
+        lowPolyRetrowave: 'Low-poly retrowave',
+        channelDegradation: 'Channel degradation'
+    },
+    ru: {
+        softWhiteLinkup: 'Мягкая белая связка',
+        typeGlow: 'Типографическое свечение',
+        lowPolyRetrowave: 'Ретро-геометрия',
+        channelDegradation: 'Деградация канала'
+    }
+}
+
+const resolveVisualLinkupFamilyLabel = (locale: VisualLinkupLocale, family: VisualLinkupFamily): string =>
+    VISUAL_LINKUP_FAMILY_LABELS[locale][family]
+
 export const openMmoommSpaceSection = async (page: Page) => {
     const existingSpaceRuntimeStatus = page.getByTestId('playcanvas-realtime-status')
     if (await existingSpaceRuntimeStatus.isVisible().catch(() => false)) {
         return
     }
     const spaceButton = page.getByRole('button', { name: /^(Space|Космос)$/ })
-    await expect(spaceButton).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
-    await spaceButton.click()
+    const initialShellTimeout = Math.min(30_000, MMOOMM_RUNTIME_EXPECT_TIMEOUT)
+
+    for (const [attempt, timeout] of [initialShellTimeout, MMOOMM_RUNTIME_EXPECT_TIMEOUT].entries()) {
+        try {
+            await expect(spaceButton).toBeVisible({ timeout })
+            await spaceButton.click()
+            return
+        } catch (error) {
+            if (attempt === 1) {
+                throw error
+            }
+
+            const pathname = new URL(page.url()).pathname
+            if (!/^\/a\/[^/]+$/.test(pathname)) {
+                throw error
+            }
+
+            // A cold lazy-loaded app shell can remain on its loading fallback when the
+            // browser is under the same CPU pressure as the local E2E stack. Restart
+            // the bounded navigation once, while keeping the actual runtime/RBAC
+            // assertions below unchanged.
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
+        }
+    }
 }
 
 export const openMmoommVisualLinkupLabSection = async (page: Page) => {
@@ -347,7 +396,13 @@ const expectMmoommVisualLinkupDistinctMaterialEvidence = async (canvas: Locator,
     }
 }
 
-const expectMmoommVisualLinkupVariantLegendUsable = async (page: Page, widget: Locator, canvas: Locator, label: string) => {
+const expectMmoommVisualLinkupVariantLegendUsable = async (
+    page: Page,
+    widget: Locator,
+    canvas: Locator,
+    label: string,
+    locale: VisualLinkupLocale
+) => {
     const legend = widget.getByTestId('playcanvas-visual-lab-legend')
     await expect(legend, `${label} must expose a visible variant legend`).toBeVisible()
     await expect(legend, `${label} legend must name visual variants`).toContainText(/Visual variants|Визуальные варианты/)
@@ -360,24 +415,44 @@ const expectMmoommVisualLinkupVariantLegendUsable = async (page: Page, widget: L
     await expect(typeGlowVariant, `${label} must expose the type glow variant`).toBeVisible()
     await expect(lowPolyVariant, `${label} must expose the low-poly radar variant`).toBeVisible()
     await expect(degradedVariant, `${label} must expose the channel degradation variant`).toBeVisible()
-    await expect(firstVariant, `${label} must expose the soft white family`).toContainText('softWhiteLinkup')
-    await expect(typeGlowVariant, `${label} must expose the type glow family`).toContainText('typeGlow')
-    await expect(lowPolyVariant, `${label} must expose the low-poly family`).toContainText('lowPolyRetrowave')
-    await expect(degradedVariant, `${label} must expose the degradation family`).toContainText('channelDegradation')
+    await expect(firstVariant, `${label} must expose the soft white family`).toContainText(
+        resolveVisualLinkupFamilyLabel(locale, 'softWhiteLinkup')
+    )
+    await expect(typeGlowVariant, `${label} must expose the type glow family`).toContainText(
+        resolveVisualLinkupFamilyLabel(locale, 'typeGlow')
+    )
+    await expect(lowPolyVariant, `${label} must expose the low-poly family`).toContainText(
+        resolveVisualLinkupFamilyLabel(locale, 'lowPolyRetrowave')
+    )
+    await expect(degradedVariant, `${label} must expose the degradation family`).toContainText(
+        resolveVisualLinkupFamilyLabel(locale, 'channelDegradation')
+    )
     await expect(firstVariant, `${label} first visual variant must be selected by default`).toHaveAttribute('aria-pressed', 'true')
 
     const variantEvidence: CanvasColorEvidence[] = []
     const capturedFamilies = new Set<string>()
     for (const variant of VISUAL_LINKUP_VARIANT_PROOFS) {
         const button = legend.getByTestId(`playcanvas-visual-lab-variant-${variant.slug}`)
+        const familyLabel = resolveVisualLinkupFamilyLabel(locale, variant.family)
         await expect(button, `${label} must expose variant ${variant.slug}`).toBeVisible()
-        await expect(button, `${label} variant ${variant.slug} must show family ${variant.family}`).toContainText(variant.family)
+        await expect(button, `${label} variant ${variant.slug} must show its localized family`).toContainText(familyLabel)
+        await expect(button, `${label} variant ${variant.slug} must keep its family slug out of visible text`).not.toContainText(
+            variant.family
+        )
+        await expect(button, `${label} variant ${variant.slug} must expose its family slug as test data`).toHaveAttribute(
+            'data-visual-lab-family',
+            variant.family
+        )
         await button.click()
         await expect(button, `${label} variant ${variant.slug} must become selected`).toHaveAttribute('aria-pressed', 'true')
         await expect(
             legend.getByTestId('playcanvas-visual-lab-selected'),
             `${label} selected ${variant.slug} label must update`
-        ).toContainText(variant.family)
+        ).toContainText(familyLabel)
+        await expect(
+            legend.getByTestId('playcanvas-visual-lab-selected'),
+            `${label} selected ${variant.slug} label must keep its family slug out of visible text`
+        ).not.toContainText(variant.family)
         await expect(canvas, `${label} canvas must focus selected variant ${variant.slug}`).toHaveAttribute(
             'data-visual-lab-selected-variant',
             variant.slug
@@ -641,6 +716,13 @@ const expectMmoommCameraClipEvidence = async (canvas: Locator, label: string) =>
 
 export interface MmoommRuntimeProofOptions {
     checkViewportMatrix?: boolean
+    /**
+     * Require a browser client runtime module in addition to the PlayCanvas
+     * script-assets runtime. MMOOMM app snapshots intentionally use the
+     * generic canvas widget with a server-only realtime module, so their
+     * expected state is `not_required`.
+     */
+    expectClientRuntimeModule?: boolean
     label?: string
     locale?: 'en' | 'ru'
 }
@@ -690,7 +772,11 @@ export const expectMmoommRuntimeReady = async (page: Page, applicationId: string
     await expect(widget).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
     const canvas = page.getByTestId('playcanvas-canvas')
     await expect(canvas).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
-    await expect(canvas).toHaveAttribute('data-runtime-module-executed', 'true', { timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
+    await expect(canvas).toHaveAttribute(
+        'data-runtime-module-executed',
+        options.expectClientRuntimeModule === false ? 'not_required' : 'true',
+        { timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT }
+    )
     await expect(widget.getByTestId('playcanvas-realtime-status')).toContainText(MMOOMM_REALTIME_CONNECTED_TEXT, {
         timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT
     })
@@ -757,7 +843,7 @@ export const expectMmoommVisualLinkupLabRuntimeReady = async (
     await expect(widget.getByTestId('playcanvas-runtime-mode-status')).toContainText(/Static visual lab|Статическая визуальная лаборатория/)
     await expectMmoommVisualLinkupCanvasPainted(page, canvas)
     await expectMmoommVisualLinkupCanvasFramed(page, canvas, `${label} initial overview`)
-    const variantEvidence = await expectMmoommVisualLinkupVariantLegendUsable(page, widget, canvas, label)
+    const variantEvidence = await expectMmoommVisualLinkupVariantLegendUsable(page, widget, canvas, label, options.locale ?? 'en')
     await expectMmoommVisualLinkupDistinctMaterialEvidence(canvas, label, variantEvidence)
     await expectMmoommCanvasPlayableHeight(page, canvas, label, { desktopMinimumHeightRatio: 0.56 })
     await expect(canvas, `${label} canvas must expose a localized accessible name`).toHaveAttribute('aria-label', MMOOMM_CANVAS_LABEL)
@@ -794,14 +880,16 @@ export const expectMmoommConnectedRuntimeLocale = async (
     browser: Browser,
     credentials: UserCredentials,
     applicationId: string,
-    locale: 'en' | 'ru'
+    locale: 'en' | 'ru',
+    options: Pick<MmoommRuntimeProofOptions, 'expectClientRuntimeModule'> = {}
 ) => {
     const session = await createLoggedInBrowserContext(browser, credentials)
     try {
         await applyBrowserPreferences(session.page, { language: locale })
         await expectMmoommRuntimeReady(session.page, applicationId, {
             label: `MMOOMM connected runtime ${locale}`,
-            locale
+            locale,
+            expectClientRuntimeModule: options.expectClientRuntimeModule ?? false
         })
     } finally {
         await session.context.close()
@@ -883,7 +971,7 @@ export const expectMmoommSecondClientAndReconnect = async (
     primaryCanvas: Locator,
     primaryWidget: Locator,
     applicationId: string
-) => {
+): Promise<MmoommRuntimeParityTrace> => {
     const secondSession = await createLoggedInBrowserContext(browser, credentials)
     try {
         const secondPage = secondSession.page
@@ -943,6 +1031,17 @@ export const expectMmoommSecondClientAndReconnect = async (
         await expectNoPageHorizontalOverflow(primaryPage, 'MMOOMM runtime after reconnect')
 
         await primaryWidget.getByRole('button', { name: MMOOMM_MOVE_TO_TARGET_BUTTON_NAME }).click()
+        await expect(primaryCanvas).toHaveAttribute('data-last-intent-kind', 'move_to_object', { timeout: 15_000 })
+        // Capture the movement while the second post-reconnect intent is still
+        // connected. The next step deliberately takes the client offline to
+        // verify the failed-reconnect state, where controls are disabled and
+        // no new movement should be expected from the browser oracle.
+        const movementTrace = await captureMmoommRuntimeParityTrace(primaryPage, primaryCanvas, {
+            samples: 14,
+            intervalMs: 100
+        })
+        expectMmoommRuntimeParityTrace(movementTrace, 'MMOOMM published script-assets movement')
+        expectMmoommTraceShowsMovement(movementTrace)
         await primaryPage.context().setOffline(true)
         await expect(primaryCanvas).toHaveAttribute('data-realtime-status', 'failed_reconnect', { timeout: MMOOMM_RECONNECT_TIMEOUT })
         await expect(primaryWidget.getByText(/realtime control could not reconnect/i)).toBeVisible()
@@ -951,6 +1050,7 @@ export const expectMmoommSecondClientAndReconnect = async (
         await expectMmoommRuntimeNoTechnicalLeakage(primaryWidget, 'MMOOMM failed reconnect runtime widget')
         await expectMmoommCanvasContained(primaryWidget, primaryCanvas, 'MMOOMM failed reconnect runtime')
         await expectNoPageHorizontalOverflow(primaryPage, 'MMOOMM runtime after failed reconnect')
+        return movementTrace
     } finally {
         await primaryPage
             .context()

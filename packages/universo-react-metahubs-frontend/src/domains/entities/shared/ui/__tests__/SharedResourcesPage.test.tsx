@@ -134,13 +134,11 @@ describe('SharedResourcesPage', () => {
             'Макеты',
             'Константы',
             'Значения',
-            'Runtime-модули',
-            'Общие модули'
+            'Модули'
         ])
         expect(screen.getByRole('tab', { name: 'Константы' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Значения' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Runtime-модули' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Общие модули' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Модули' })).toBeInTheDocument()
         expect(screen.getByTestId('metahub-shared-resources-content')).toBeInTheDocument()
         expect(screen.getByTestId('shared-resources-packages-content')).toBeInTheDocument()
         expect(mockMetahubPackagesTab).toHaveBeenCalledWith(expect.objectContaining({ metahubId: 'metahub-1' }))
@@ -208,11 +206,12 @@ describe('SharedResourcesPage', () => {
             })
         )
 
-        await user.click(screen.getByRole('tab', { name: 'Runtime-модули' }))
+        await user.click(screen.getByRole('tab', { name: 'Модули' }))
 
-        expect(screen.getByRole('tab', { name: 'Runtime-модули' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByRole('tab', { name: 'Модули' })).toHaveAttribute('aria-selected', 'true')
         expect(screen.getByTestId('shared-resources-modules-content')).toBeInTheDocument()
         expect(screen.queryByTestId('shared-resources-layouts-content')).not.toBeInTheDocument()
+        // The merged Modules surface defaults to the metahub scope.
         expect(mockEntityModulesTab).toHaveBeenCalledWith(
             expect.objectContaining({
                 metahubId: 'metahub-1',
@@ -224,8 +223,7 @@ describe('SharedResourcesPage', () => {
 
         await user.click(screen.getByRole('tab', { name: 'Общие модули' }))
 
-        expect(screen.getByRole('tab', { name: 'Общие модули' })).toHaveAttribute('aria-selected', 'true')
-        expect(mockEntityModulesTab).toHaveBeenCalledWith(
+        expect(mockEntityModulesTab).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 metahubId: 'metahub-1',
                 attachedToKind: 'general',
@@ -257,8 +255,7 @@ describe('SharedResourcesPage', () => {
 
         expect(screen.getByRole('tab', { name: 'Пакеты' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Макеты' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Runtime-модули' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Общие модули' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Модули' })).toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Компоненты' })).not.toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Константы' })).not.toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Значения' })).not.toBeInTheDocument()

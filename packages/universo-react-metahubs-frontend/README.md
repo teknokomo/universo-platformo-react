@@ -28,6 +28,7 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 -   **Tree Entities**: Hierarchical containers drive nested authoring and publication-aware navigation
 -   **Linked Collections**: Reusable schema/data surfaces stay on entity-owned child routes
 -   **Shared Resources**: Common layouts, metadata pools, and modules stay available on the dedicated `/resources` surface
+-   **Merged Modules surface**: One Resources → Modules tab contains a localized scope switcher for metahub modules and shared `general/library` modules
 -   **Data-Driven Resource Labels**: Resource tabs resolve their titles from persisted entity type `ui.resourceSurfaces[].title` metadata instead of frontend hardcoded standard labels
 -   **Layout Widget Defaults**: Metahub layouts own canonical widget defaults, including allowed Interpretation Network Matrix views and the default Matrix view
 
@@ -54,6 +55,14 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 -   **Entity-Owned Surfaces**: Standard kinds render through entity-owned route components, while shared resources remain on the dedicated `/resources` surface.
 -   **Route Ownership**: Detail tabs stay under `/metahub/:id/entities/:kindKey/...`, and metahub resources stay under `/metahub/:id/resources/...`; removed top-level `/hubs`, `/objects`, `/sets`, and `/enumerations` authoring routes are no longer part of the shipped frontend contract.
 -   **Runtime Boundary**: Runtime sections materialize from published entity metadata after publication sync instead of V2-specific compatibility aliases.
+
+### Merged Modules Resource Surface
+
+`SharedResourcesPage` exposes a single **Modules** tab. `MetahubModulesSurface`
+keeps the two authoring scopes in nested MUI tabs: **Metahub modules** for
+metahub-level consumers and **Shared modules** for reusable `general/library`
+modules. Both scopes reuse `EntityModulesTab`, preserve the same React Query
+and permission contracts, and use package-local English/Russian translations.
 
 ### 📋 Template Selection
 

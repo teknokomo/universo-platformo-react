@@ -4,37 +4,55 @@ import { repoRoot } from './env/load-e2e-env.mjs'
 import { MMOOMM_APP_FIXTURE_FILENAME, assertMmoommAppFixtureEnvelopeContract } from './mmoommAppFixtureContract.ts'
 
 const trackedPath = path.resolve(repoRoot, 'tools', 'fixtures', MMOOMM_APP_FIXTURE_FILENAME)
+const defaultGeneratedPath = path.resolve(repoRoot, 'tools', 'testing', 'e2e', '.artifacts', `generated-${MMOOMM_APP_FIXTURE_FILENAME}`)
 const generatedPathArg = process.argv.slice(2).find((arg) => arg !== '--')
-const generatedPath = generatedPathArg
-    ? path.resolve(repoRoot, generatedPathArg)
-    : path.resolve(repoRoot, 'tools', 'fixtures', `.generated-${MMOOMM_APP_FIXTURE_FILENAME}`)
+const generatedPathInput = generatedPathArg ?? process.env.MMOOMM_APP_FIXTURE_GENERATED_PATH ?? defaultGeneratedPath
+const generatedPath = path.resolve(repoRoot, generatedPathInput)
 
 if (!fs.existsSync(generatedPath)) {
     throw new Error(
-        `Generated MMOOMM app fixture does not exist: ${generatedPath}. Run the generator with MMOOMM_APP_FIXTURE_OUTPUT_PATH=tools/fixtures/.generated-${MMOOMM_APP_FIXTURE_FILENAME} or pass an explicit generated fixture path.`
+        `Generated MMOOMM app fixture does not exist: ${generatedPath}. Run the generator with MMOOMM_APP_FIXTURE_OUTPUT_PATH=tools/testing/e2e/.artifacts/generated-${MMOOMM_APP_FIXTURE_FILENAME} or pass an explicit generated fixture path.`
     )
 }
 
 const readJson = (filePath: string): unknown => JSON.parse(fs.readFileSync(filePath, 'utf8'))
 
-const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), pathSegments: string[] = []): unknown => {
+const normalizeVolatileValues = (
+    value: unknown,
+    maps = createNormalizerMaps(),
+    pathSegments: string[] = [],
+    semanticIdentity: string | null = null
+): unknown => {
     if (isVolatileFileSizePath(pathSegments) && typeof value === 'number') {
         return '<file-size>'
     }
     if (isVolatilePlayCanvasProjectNumericIdPath(pathSegments) && typeof value === 'number') {
         return '<playcanvas-project-number>'
     }
+    if (isVolatilePlayCanvasEditorDocumentNumericIdPath(pathSegments) && typeof value === 'number') {
+        // The numeric id is derived data. It may legitimately change when a
+        // fixture is regenerated, but it must remain attached to the same
+        // semantic asset. Mapping by occurrence/order would make a swap of two
+        // document ids invisible to drift checks. Keep the stable asset key in
+        // the token and fail closed when no such key is available.
+        return semanticIdentity ? `<editor-document-id:${semanticIdentity}>` : value
+    }
     if (typeof value === 'number' && Number.isInteger(value) && value >= 1_700_000_000_000) {
         return '<numeric-timestamp>'
     }
     if (typeof value === 'string') {
+        if (isDeterministicScriptArtifactHashPath(pathSegments)) {
+            return value.toLowerCase()
+        }
         return normalizeJsonBase64String(value, maps) ?? normalizeString(value, maps)
     }
     if (Array.isArray(value)) {
-        return value.map((item, index) => normalizeVolatileValues(item, maps, [...pathSegments, String(index)]))
+        return value.map((item, index) => normalizeVolatileValues(item, maps, [...pathSegments, String(index)], semanticIdentity))
     }
     if (value && typeof value === 'object') {
-        const entries = Object.entries(value as Record<string, unknown>)
+        const record = value as Record<string, unknown>
+        const objectSemanticIdentity = getEditorDocumentSemanticIdentity(record) ?? semanticIdentity
+        const entries = Object.entries(record)
         const normalizedEntries = entries
             .filter(
                 ([key, item]) =>
@@ -44,7 +62,10 @@ const normalizeVolatileValues = (value: unknown, maps = createNormalizerMaps(), 
                     !isEmptyPlayCanvasEditorDocumentMetaField(key, item, value, pathSegments) &&
                     !isVolatilePlayCanvasEditorDocumentVersionField(key, pathSegments)
             )
-            .map(([key, item]) => [normalizeString(key, maps), normalizeVolatileValues(item, maps, [...pathSegments, key])])
+            .map(([key, item]) => {
+                const childPath = [...pathSegments, key]
+                return [normalizeString(key, maps), normalizeVolatileValues(item, maps, childPath, objectSemanticIdentity)]
+            })
         return Object.fromEntries(normalizedEntries)
     }
     return value
@@ -163,11 +184,16 @@ const isEmptyPlayCanvasEditorDocumentMetaField = (key: string, item: unknown, ow
     )
 }
 
-// Scene-local asset saves increment this optimistic-concurrency revision in the
-// runtime payload. It is intentionally absent from the authored fixture and must
-// not make an otherwise equivalent generated snapshot drift.
+// Scene-local asset saves and project-settings saves increment ShareDB
+// optimistic-concurrency revisions independently of the persisted document
+// content. These transport revisions must not make an otherwise equivalent
+// generated snapshot drift.
 const isVolatilePlayCanvasEditorDocumentVersionField = (key: string, pathSegments: string[]): boolean =>
-    key === 'version' && pathSegments.at(-1) === 'editorDocument' && pathSegments.includes('assets')
+    key === 'version' &&
+    ((pathSegments.at(-1) === 'editorDocument' && pathSegments.includes('assets')) ||
+        (/^project_\d+$/.test(pathSegments.at(-1) ?? '') &&
+            pathSegments.at(-2) === 'documents' &&
+            pathSegments.at(-3) === 'playCanvasEditorRealtime'))
 
 const isVolatileFileSizePath = (pathSegments: string[]): boolean => {
     if (pathSegments.at(-1) !== 'size') return false
@@ -184,6 +210,33 @@ const isVolatilePlayCanvasProjectNumericIdPath = (pathSegments: string[]): boole
     pathSegments.at(-3)?.startsWith('project_') === true &&
     pathSegments.includes('playCanvasEditorRealtime') &&
     pathSegments.includes('documents')
+
+const isVolatilePlayCanvasEditorDocumentNumericIdPath = (pathSegments: string[]): boolean =>
+    pathSegments.at(-1) === 'editorDocumentId' &&
+    pathSegments.at(-2) === 'metadata' &&
+    pathSegments.includes('playcanvasProjects') &&
+    pathSegments.includes('assets')
+
+const getEditorDocumentSemanticIdentity = (record: Record<string, unknown>): string | null => {
+    const virtualPath = record.virtualPath
+    const type = record.type
+    if (
+        typeof type === 'string' &&
+        Array.isArray(virtualPath) &&
+        virtualPath.length > 0 &&
+        virtualPath.every((segment): segment is string => typeof segment === 'string' && segment.length > 0)
+    ) {
+        // Project and row ids are regenerated during fixture creation. The
+        // authored asset path/type is the semantic identity that must bind its
+        // numeric ShareDB document id across snapshots.
+        return `asset:${type}:${virtualPath.join('/')}`
+    }
+
+    // A malformed or legacy asset without a path is deliberately not assigned
+    // an order-based token. Returning null makes a changed numeric id visible
+    // to the drift comparator instead of hiding it behind array position.
+    return null
+}
 
 const createNormalizerMaps = () => ({
     uuid: new Map<string, string>(),
@@ -210,6 +263,12 @@ const normalizeString = (value: string, maps: NormalizerMaps): string =>
         .replace(/[0-9a-f]{32}/gi, (match) => tokenFor(maps.hex32, match.toLowerCase(), 'hex32'))
         .replace(/\bproject_\d+\b/g, 'project_<number>')
         .replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\b/g, '<timestamp>')
+
+const isDeterministicScriptArtifactHashPath = (pathSegments: string[]): boolean => {
+    const key = pathSegments.at(-1)
+    if (key === 'artifactHash') return true
+    return key === 'hash' && pathSegments.includes('generatedArtifacts') && pathSegments.at(-2) === 'outputFile'
+}
 
 const normalizeJsonBase64String = (value: string, maps: NormalizerMaps): unknown | null => {
     const dataUrlPrefix = 'data:application/json;base64,'

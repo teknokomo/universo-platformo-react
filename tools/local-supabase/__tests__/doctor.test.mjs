@@ -10,7 +10,9 @@ const validEnv = {
     DATABASE_PORT: '54322',
     DATABASE_USER: 'postgres',
     DATABASE_PASSWORD: 'postgres',
-    DATABASE_NAME: 'postgres'
+    DATABASE_NAME: 'postgres',
+    PORT: '3000',
+    CORS_ORIGINS: 'http://127.0.0.1:3000,http://localhost:3000'
 }
 
 describe('local Supabase doctor env validation', () => {
@@ -33,5 +35,15 @@ describe('local Supabase doctor env validation', () => {
 
     it('rejects unexpectedly short JWT secrets', () => {
         expect(() => validateDoctorEnv({ ...validEnv, SUPABASE_JWT_SECRET: 'short' })).toThrow('SUPABASE_JWT_SECRET')
+    })
+
+    it('rejects a profile that cannot serve the local browser origin', () => {
+        expect(() => validateDoctorEnv({ ...validEnv, CORS_ORIGINS: '' })).toThrow('CORS_ORIGINS')
+        expect(() => validateDoctorEnv({ ...validEnv, CORS_ORIGINS: 'http://127.0.0.1:3000' })).toThrow(
+            'CORS_ORIGINS must include the strict local application origins'
+        )
+        expect(() => validateDoctorEnv({ ...validEnv, CORS_ORIGINS: '*' })).toThrow(
+            'CORS_ORIGINS must include the strict local application origins'
+        )
     })
 })

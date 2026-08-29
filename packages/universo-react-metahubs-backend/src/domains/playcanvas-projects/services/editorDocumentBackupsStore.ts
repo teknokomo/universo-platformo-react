@@ -40,7 +40,7 @@ export const insertEditorDocumentBackupSet = async (exec: DbExecutor, input: Ins
         return 0
     }
 
-    return exec.transaction(async (tx) => {
+    const insert = async (tx: SqlQueryable): Promise<number> => {
         const inserted = await tx.query<{ id: string }>(
             `
                 INSERT INTO ${BACKUP_TABLE}
@@ -77,7 +77,13 @@ export const insertEditorDocumentBackupSet = async (exec: DbExecutor, input: Ins
         })
 
         return inserted.length
-    })
+    }
+
+    // Transaction executors returned by an outer lifecycle lock may expose only
+    // the query surface in lightweight adapters. In that case the caller already
+    // owns the transaction; executing directly preserves atomic composition and
+    // avoids accidentally acquiring a second connection.
+    return typeof exec.transaction === 'function' ? exec.transaction(insert) : insert(exec)
 }
 
 /**

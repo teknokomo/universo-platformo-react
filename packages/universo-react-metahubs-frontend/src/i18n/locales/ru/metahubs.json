@@ -193,6 +193,7 @@
                 "sourceKind": "Тип источника",
                 "storageMode": "Режим хранения",
                 "sourcePath": "Путь к исходному файлу",
+                "sourcePathPlaceholder": "modules/general/example.ts",
                 "capabilities": "Возможности",
                 "sdkApiVersion": "Версия SDK API",
                 "isActive": "Модуль активен",
@@ -203,7 +204,8 @@
                 "lifecycle": "Жизненный цикл",
                 "widget": "Виджет",
                 "library": "Библиотека",
-                "global": "Глобальный"
+                "global": "Глобальный",
+                "unknown": "Неизвестная роль модуля"
             },
             "sourceKinds": {
                 "embedded": "Встроенный"
@@ -219,7 +221,7 @@
             },
             "sourceMetadata": {
                 "status": "Статус исходного файла",
-                "absolutePath": "Исходный файл",
+                "path": "Путь к исходному файлу",
                 "checksum": "Контрольная сумма исходного файла",
                 "lastReadAt": "Последнее чтение",
                 "lastCompile": "Последняя компиляция",
@@ -230,12 +232,14 @@
                     "modified": "Изменён на диске",
                     "missing": "Файл не найден",
                     "unreadable": "Файл недоступен для чтения",
-                    "conflict": "Конфликт"
+                    "conflict": "Конфликт",
+                    "unknown": "Неизвестный статус исходного файла"
                 },
                 "compileStatuses": {
                     "never": "Ещё не компилировался",
                     "success": "Скомпилирован",
-                    "failed": "Ошибка компиляции"
+                    "failed": "Ошибка компиляции",
+                    "unknown": "Неизвестный статус компиляции"
                 }
             },
             "capabilities": {
@@ -1516,8 +1520,7 @@
             "values": "Значения",
             "components": "Компоненты",
             "optionValues": "Значения",
-            "runtimeModules": "Runtime-модули",
-            "modules": "Общие модули"
+            "modules": "Модули"
         },
         "shared": {
             "loading": "Загрузка общих сущностей...",
@@ -3242,6 +3245,12 @@
         "actions": {
             "moveUp": "Переместить вверх",
             "moveDown": "Переместить вниз"
+        }
+    },
+    "modules": {
+        "scopes": {
+            "metahub": "Модули метахаба",
+            "general": "Общие модули"
         }
     }
 }

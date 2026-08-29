@@ -7,9 +7,9 @@ Foundation-пакет для официального frontend-артефакт�
 ## Upstream
 
 -   Repository: https://github.com/playcanvas/editor
--   Tag: `v2.24.2`
--   Commit: `00360100b3b5747648eb3d7287421ef25491f5c7`
--   Package version: `2.24.2`
+-   Tag: `v2.30.4`
+-   Commit: `cf296bcb669bdcb168778bf2979160a9fe8f67de`
+-   Package version: `2.30.4`
 -   Node requirement: `>=22.22.0`
 -   License: MIT, attribution находится в `NOTICE.md`
 
@@ -32,7 +32,7 @@ Script `build` пакета делегирует в `editor:build`, поэтом
 
 `universo-full-upstream-ui` — default acceptance mode для полного upstream Editor shell. В этом режиме artifact по-прежнему изолирует upstream Editor внутри iframe, но получает full-boot config от metahub host с включёнными realtime, messenger и relay URLs. Full-boot shell не устанавливает hosted entity fallback adapter и не содержит `/disabled` WebSocket shim. Browser acceptance должен подтверждать upstream DOM shell: `#layout-toolbar`, `#layout-hierarchy`, `#layout-viewport`, `#canvas-3d`, `#layout-assets` и `#layout-attributes`.
 
-Hosted bridge-срез поддерживает первый manager-only путь authoring в метахабе: `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads и minimal JSON asset metadata. Backend также отдаёт same-origin compatibility namespace `/playcanvas/editor-compatible/...` для `config`, `scenes`, `assets`, `settings`, per-scene/per-user `user_data`, single-user ShareDB-compatible snapshot persistence и явных cloud-only no-op descriptors. Он не реализует PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, широкий binary assets pipeline, Colyseus authoring, implicit runtime publication или MCP/AI tooling.
+Hosted bridge-срез поддерживает первый manager-only путь authoring в метахабе: `protocol.describe` compatibility descriptor, project context, scene list/read/save, bounded JSON scene payloads и summaries ассетов Editor. Backend также отдаёт same-origin compatibility namespace `/playcanvas/editor-compatible/...` для `config`, `scenes`, `assets`, `settings`, per-scene/per-user `user_data`, single-user ShareDB-compatible snapshot persistence и явных cloud-only no-op descriptors. Asset surface поддерживает детерминированные папки, ограниченные multipart-текстовые файлы, чтение и удаление файлов, а также pipeline атрибутов скриптов; публикация доставляет проверенные ESM-артефакты через runtime manifest. Он не реализует PlayCanvas Cloud parity, durable ShareDB operation-log history, multi-user collaboration, широкое binary conversion, Colyseus authoring или MCP/AI tooling.
 
 ## Безопасность hosted artifact
 

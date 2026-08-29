@@ -27,6 +27,12 @@ const STATIC_ASSETS = [
     { src: 'src/wasm/lodepng', dest: 'dist/wasm/lodepng' },
     { src: 'src/wasm/codecs', dest: 'dist/wasm/codecs' },
     { src: 'node_modules/@playcanvas/msdfgen-wasm/dist/msdfgen.wasm', dest: 'dist/js/msdfgen.wasm' },
+    // The attribute parser resolves TypeScript's standard library references
+    // independently in the browser worker. Keep the individual declaration
+    // files available instead of relying only on the concatenated `libs.d.ts`
+    // convenience file, whose `/// <reference lib>` entries cannot be resolved
+    // by the parser's virtual filesystem.
+    { src: 'node_modules/typescript/lib', dest: 'dist/types' },
     { src: 'node_modules/@playcanvas/attribute-parser/dist/libs.d.ts', dest: 'dist/types/libs.d.ts' }
 ];
 
@@ -84,6 +90,22 @@ const copy = (assets) => {
             fs.cpSync(src, dest, { recursive: true });
         }
     }
+};
+
+/**
+ * @returns {void}
+ */
+const ensureAttributeParserTypeScriptLibCompatibility = () => {
+    // @playcanvas/attribute-parser 1.10.x requests this legacy lib name while
+    // TypeScript 5.9 no longer ships the standalone declaration file. Keep the
+    // requested URL available as an empty no-default-lib module; the actual
+    // shared-memory declarations remain provided by TypeScript's es2020 lib.
+    const compatibilityPath = 'dist/types/lib.es2022.sharedmemory.d.ts';
+    if (fs.existsSync(compatibilityPath)) {
+        return;
+    }
+    fs.mkdirSync(path.dirname(compatibilityPath), { recursive: true });
+    fs.writeFileSync(compatibilityPath, '/// <reference no-default-lib="true" />\n');
 };
 
 const SASS_DIR = 'sass';
@@ -387,6 +409,7 @@ const esbuildBundlePlugin = () => {
             }
 
             copy(STATIC_ASSETS);
+            ensureAttributeParserTypeScriptLibCompatibility();
 
             const t0 = performance.now();
 

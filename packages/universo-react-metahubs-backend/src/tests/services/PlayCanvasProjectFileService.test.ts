@@ -21,7 +21,7 @@ describe('PlayCanvasProjectFileService', () => {
         await fs.rm(root, { recursive: true, force: true })
     })
 
-    it('accepts only playcanvas-projects scoped JSON, JS, and small image asset paths', () => {
+    it('accepts only playcanvas-projects scoped JSON, JS, shader, and small image asset paths', () => {
         expect(assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/scenes/main.json')).toBe(
             'playcanvas-projects/project/scenes/main.json'
         )
@@ -33,6 +33,9 @@ describe('PlayCanvasProjectFileService', () => {
         )
         expect(assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/assets/texture.png')).toBe(
             'playcanvas-projects/project/assets/texture.png'
+        )
+        expect(assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/project/assets/material.glsl')).toBe(
+            'playcanvas-projects/project/assets/material.glsl'
         )
         expect(() => assertSafeRelativePlayCanvasProjectPath('modules/project/main.ts')).toThrow('playcanvas-projects/')
         expect(() => assertSafeRelativePlayCanvasProjectPath('playcanvas-projects/../main.json')).toThrow('hidden or parent')
@@ -74,6 +77,19 @@ describe('PlayCanvasProjectFileService', () => {
         })
     })
 
+    it('writes shader source files using the upstream glsl extension', async () => {
+        const source = '#version 300 es\nvoid main() {}\n'
+        const written = await service.write(scope, 'playcanvas-projects/project/assets/new.glsl', source, {
+            mime: 'text/plain'
+        })
+
+        expect(written.mime).toBe('text/plain')
+        await expect(service.read(scope, 'playcanvas-projects/project/assets/new.glsl')).resolves.toMatchObject({
+            content: Buffer.from(source),
+            checksum: computePlayCanvasProjectFileChecksum(source)
+        })
+    })
+
     it('rejects checksum mismatches', async () => {
         await expect(
             service.write(scope, 'playcanvas-projects/project/scenes/main.json', '{}', { expectedChecksum: 'wrong' })
@@ -110,6 +126,46 @@ describe('PlayCanvasProjectFileService', () => {
         expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
     })
 
+    it('serializes project-tree deletion with a concurrent child-file write', async () => {
+        const sourcePath = 'playcanvas-projects/project/scenes/main.json'
+        const initial = await service.write(scope, sourcePath, '{"version":1}')
+        let writeStarted!: () => void
+        let releaseWrite!: () => void
+        const writeStartedPromise = new Promise<void>((resolve) => {
+            writeStarted = resolve
+        })
+        const writeGate = new Promise<void>((resolve) => {
+            releaseWrite = resolve
+        })
+        const originalWriteFile = fs.writeFile
+        const writeFileSpy = jest.spyOn(fs, 'writeFile').mockImplementation(async (...args) => {
+            const target = String(args[0])
+            if (target.includes(`${path.sep}main.json.`) && target.endsWith('.tmp')) {
+                writeStarted()
+                await writeGate
+            }
+            return originalWriteFile(...args)
+        })
+
+        try {
+            const writePromise = service.write(scope, sourcePath, '{"version":2}', { expectedCurrentChecksum: initial.checksum })
+            await writeStartedPromise
+
+            let deletionFinished = false
+            const deletionPromise = service.deleteProjectTree(scope, 'project').then(() => {
+                deletionFinished = true
+            })
+            await Promise.resolve()
+            expect(deletionFinished).toBe(false)
+
+            releaseWrite()
+            await Promise.all([writePromise, deletionPromise])
+            await expect(service.stat(scope, sourcePath)).resolves.toMatchObject({ exists: false })
+        } finally {
+            writeFileSpy.mockRestore()
+        }
+    })
+
     it('allows creating a new file only when the current checksum expectation is null', async () => {
         const path = 'playcanvas-projects/project/scenes/new.json'
         const written = await service.write(scope, path, '{"created":true}', { expectedCurrentChecksum: null })
@@ -138,6 +194,26 @@ describe('PlayCanvasProjectFileService', () => {
         await expect(service.deleteIfCurrentChecksum(scope, sourcePath, rollbackCandidate.checksum)).resolves.toBe(true)
 
         await expect(service.stat(scope, sourcePath)).resolves.toMatchObject({ exists: false })
+    })
+
+    it('renames files while preserving checksum and refusing to clobber the target', async () => {
+        const sourcePath = 'playcanvas-projects/project/assets/source.mjs'
+        const targetPath = 'playcanvas-projects/project/assets/renamed.mjs'
+        const source = await service.write(scope, sourcePath, 'export default 1')
+
+        const moved = await service.rename(scope, sourcePath, targetPath, { expectedChecksum: source.checksum })
+
+        expect(moved.checksum).toBe(source.checksum)
+        await expect(service.stat(scope, sourcePath)).resolves.toMatchObject({ exists: false })
+        await expect(service.stat(scope, targetPath)).resolves.toMatchObject({ exists: true, checksum: source.checksum })
+
+        const replacementPath = 'playcanvas-projects/project/assets/replacement.mjs'
+        const replacement = await service.write(scope, replacementPath, 'export default 2')
+        await expect(service.rename(scope, targetPath, replacementPath)).rejects.toMatchObject({
+            details: expect.objectContaining({ messageCode: 'playcanvas.files.path.targetAlreadyExists' })
+        })
+        await expect(service.read(scope, replacementPath)).resolves.toMatchObject({ checksum: replacement.checksum })
+        await expect(service.read(scope, targetPath)).resolves.toMatchObject({ checksum: source.checksum })
     })
 
     it('rejects symlink escapes', async () => {
@@ -178,6 +254,25 @@ describe('PlayCanvasProjectFileService', () => {
         await service.deleteMetahubTree('metahub-2')
         const stat = await service.stat({ metahubId: 'metahub-2', branchSlug: 'main' }, 'playcanvas-projects/project/scenes/main.json')
         expect(stat.exists).toBe(false)
+    })
+
+    it('keeps an existing target tree intact when staging the copy fails', async () => {
+        const target = { metahubId: 'metahub-2', branchSlug: 'main' }
+        const sourcePath = 'playcanvas-projects/project/scenes/main.json'
+        const targetPath = 'playcanvas-projects/project/scenes/main.json'
+        await service.write(scope, sourcePath, '{"source":true}')
+        await service.write(target, targetPath, '{"target":true}')
+
+        const copySpy = jest.spyOn(fs, 'cp').mockRejectedValueOnce(new Error('copy failed'))
+        try {
+            await expect(service.copyTree(scope, target)).rejects.toThrow('copy failed')
+        } finally {
+            copySpy.mockRestore()
+        }
+
+        await expect(service.read(target, targetPath)).resolves.toMatchObject({
+            content: Buffer.from('{"target":true}')
+        })
     })
 
     it('quarantines project trees before recursive cleanup', async () => {

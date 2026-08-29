@@ -157,7 +157,10 @@ async function expectPublishedAppRuntimeConnected(page: Page): Promise<{ widget:
     await expect(widget).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
     const canvas = page.getByTestId('playcanvas-canvas')
     await expect(canvas).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
-    await expect(canvas).toHaveAttribute('data-runtime-module-executed', 'true', {
+    await expect(canvas).toHaveAttribute('data-runtime-module-executed', 'not_required', {
+        timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT
+    })
+    await expect(canvas).toHaveAttribute('data-scripts-loaded', 'true', {
         timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT
     })
     await expect(widget.getByTestId('playcanvas-realtime-status')).toContainText(REALTIME_CONNECTED_TEXT, {

@@ -208,6 +208,25 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
         }
         return 'allow-scripts allow-same-origin'
     }, [frameOrigin, mode])
+    const iframeAllow = useMemo(() => {
+        // Chrome 145+ gates loopback requests made by a cross-origin iframe
+        // behind the Local Network Access permissions policy. The artifact
+        // origin is intentionally a loopback sibling in local/E2E setups;
+        // grant only that narrowly scoped capability and keep development
+        // URLs unchanged.
+        if (mode === 'developmentUrl' || !frameOrigin || frameOrigin === window.location.origin) {
+            return ''
+        }
+        try {
+            const normalizeHostname = (hostname: string) => hostname.toLowerCase().replace(/^\[|\]$/g, '')
+            const frameHostname = normalizeHostname(new URL(frameOrigin).hostname)
+            const parentHostname = normalizeHostname(window.location.hostname)
+            const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1'])
+            return loopbackHosts.has(frameHostname) && loopbackHosts.has(parentHostname) ? 'loopback-network' : ''
+        } catch {
+            return ''
+        }
+    }, [frameOrigin, mode])
     const frameBaseUrl = useMemo(() => {
         if (!frameUrl) return null
         const url = new URL(frameUrl, window.location.href)
@@ -283,8 +302,12 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
     const compatibilityCsrfTokenQuery = useQuery({
         queryKey: [...metahubsQueryKeys.packagesAttached(metahubId), 'playcanvas-editor-compatibility-csrf', selectedProjectId],
         queryFn: () => packagesApi.getCsrfToken(),
-        enabled: Boolean(bridgeEnabled && selectedProjectId && restCompatibilityConfig?.csrf)
+        // New compatibility configs carry an origin-bound signed proof for
+        // sandboxed artifact writes. Only fetch the session-backed token as a
+        // fallback for older configs that do not expose that proof.
+        enabled: Boolean(bridgeEnabled && selectedProjectId && restCompatibilityConfig?.csrf && !restCompatibilityConfig.csrf.token)
     })
+    const compatibilityCsrfToken = restCompatibilityConfig?.csrf?.token ?? compatibilityCsrfTokenQuery.data ?? null
     const bootstrapDescriptor = useMemo(() => {
         if (!host?.playcanvasEditor || !bridgeDescriptor) {
             return null
@@ -302,7 +325,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
             bridgeEnabled &&
             selectedProjectId &&
             restCompatibilityConfig?.csrf &&
-            !compatibilityCsrfTokenQuery.data &&
+            !compatibilityCsrfToken &&
             !compatibilityCsrfTokenQuery.isError
         ) {
             return null
@@ -314,10 +337,10 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
             compatibilityConfig: fullBootCompatibilityConfig,
             restCompatibilityConfig,
             compatibilityCsrfToken:
-                restCompatibilityConfig?.csrf && compatibilityCsrfTokenQuery.data
+                restCompatibilityConfig?.csrf && compatibilityCsrfToken
                     ? {
                           headerName: restCompatibilityConfig.csrf.headerName,
-                          token: compatibilityCsrfTokenQuery.data
+                          token: compatibilityCsrfToken
                       }
                     : null,
             bridge: {
@@ -336,7 +359,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
         bridgeEnabled,
         compatibilityConfigQuery.data,
         compatibilityConfigQuery.isError,
-        compatibilityCsrfTokenQuery.data,
+        compatibilityCsrfToken,
         compatibilityCsrfTokenQuery.isError,
         fullBootConfigError,
         fullBootCompatibilityConfig,
@@ -986,7 +1009,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                 minHeight: fullScreen ? '100dvh' : undefined
             }}
         >
-            {fullScreen ? null : renderHeader()}
+            {renderHeader()}
             <Alert severity={severity} sx={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>
                 {message}
             </Alert>
@@ -1107,7 +1130,7 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                         src={frameUrl}
                         sandbox={iframeSandbox}
                         referrerPolicy='no-referrer'
-                        allow=''
+                        allow={iframeAllow}
                         tabIndex={0}
                         onLoad={() => {
                             setFrameStatus('loaded')
