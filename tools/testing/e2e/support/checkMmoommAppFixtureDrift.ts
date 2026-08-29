@@ -184,11 +184,16 @@ const isEmptyPlayCanvasEditorDocumentMetaField = (key: string, item: unknown, ow
     )
 }
 
-// Scene-local asset saves increment this optimistic-concurrency revision in the
-// runtime payload. It is intentionally absent from the authored fixture and must
-// not make an otherwise equivalent generated snapshot drift.
+// Scene-local asset saves and project-settings saves increment ShareDB
+// optimistic-concurrency revisions independently of the persisted document
+// content. These transport revisions must not make an otherwise equivalent
+// generated snapshot drift.
 const isVolatilePlayCanvasEditorDocumentVersionField = (key: string, pathSegments: string[]): boolean =>
-    key === 'version' && pathSegments.at(-1) === 'editorDocument' && pathSegments.includes('assets')
+    key === 'version' &&
+    ((pathSegments.at(-1) === 'editorDocument' && pathSegments.includes('assets')) ||
+        (/^project_\d+$/.test(pathSegments.at(-1) ?? '') &&
+            pathSegments.at(-2) === 'documents' &&
+            pathSegments.at(-3) === 'playCanvasEditorRealtime'))
 
 const isVolatileFileSizePath = (pathSegments: string[]): boolean => {
     if (pathSegments.at(-1) !== 'size') return false
