@@ -370,7 +370,14 @@ const createStandardEntityThroughBrowser = async (
         enumeration: { route: 'enumeration', heading: 'Enumerations', dialog: 'Create Enumeration', endpoint: 'enumeration/instances' }
     }[kind]
 
-    await page.goto(`/metahub/${metahubId}/entities/${labels.route}/instances`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`/metahub/${metahubId}/entities/${labels.route}/instances`, {
+        waitUntil: 'domcontentloaded',
+        // The first route after closing a PlayCanvas Editor session can wait
+        // for the editor's final ShareDB/backup requests on a cold CI stack.
+        // Keep the navigation bounded, but do not fail before the same
+        // application readiness budget used by the rest of this generator.
+        timeout: APP_RUNTIME_TIMEOUT
+    })
     await expect(page.getByRole('heading', { name: labels.heading })).toBeVisible({ timeout: 60_000 })
     await page.getByTestId(toolbarSelectors.primaryAction).click()
     const dialog = page.getByRole('dialog', { name: labels.dialog })
@@ -659,6 +666,7 @@ const fillModuleSourceThroughBrowser = async (page: Page, sourceCode: string) =>
 
 const createRuntimeModuleThroughBrowser = async (
     page: Page,
+    api: ApiSessionLike,
     metahubId: string,
     module: {
         name: string
@@ -669,10 +677,18 @@ const createRuntimeModuleThroughBrowser = async (
         capabilities: string[]
     }
 ) => {
-    await page.goto(`/metahub/${metahubId}/resources`)
-    await page.getByRole('tab', { name: 'Modules', exact: true }).click()
-    await page.getByRole('tab', { name: module.scope === 'general' ? 'Shared modules' : 'Metahub modules', exact: true }).click()
-    await expect(page.getByTestId('entity-modules-root')).toBeVisible()
+    const openModuleScope = async () => {
+        await page.goto(`/metahub/${metahubId}/resources`, {
+            waitUntil: 'domcontentloaded',
+            timeout: APP_RUNTIME_TIMEOUT
+        })
+        await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible({ timeout: 60_000 })
+        await page.getByRole('tab', { name: 'Modules', exact: true }).click()
+        await page.getByRole('tab', { name: module.scope === 'general' ? 'Shared modules' : 'Metahub modules', exact: true }).click()
+        await expect(page.getByTestId('entity-modules-root')).toBeVisible({ timeout: 60_000 })
+    }
+
+    await openModuleScope()
     const newButton = page.getByRole('button', { name: 'New' })
     if (await newButton.isEnabled().catch(() => false)) {
         await newButton.click()
@@ -722,7 +738,34 @@ const createRuntimeModuleThroughBrowser = async (
     if (!createdId) {
         throw new Error(`Create runtime module ${module.codename} response did not contain an id`)
     }
-    await expect(page.getByText(module.name, { exact: true })).toBeVisible()
+
+    await expect
+        .poll(
+            async () => {
+                const response = await apiGet(
+                    api,
+                    `/api/v1/metahub/${metahubId}/modules?attachedToKind=${encodeURIComponent(module.scope ?? 'metahub')}`
+                )
+                if (!response.ok) return false
+                const payload = (await response.json()) as { items?: Array<{ id?: string }> }
+                return payload.items?.some((item) => item.id === createdId) ?? false
+            },
+            { timeout: APP_RUNTIME_TIMEOUT, message: `Created runtime module ${module.codename} must be visible through the API` }
+        )
+        .toBe(true)
+
+    const moduleName = page.getByTestId('entity-modules-root').getByText(module.name, { exact: true }).first()
+    try {
+        await expect(moduleName).toBeVisible({ timeout: 20_000 })
+    } catch {
+        // The module mutation invalidates the query asynchronously. Re-open the
+        // same browser surface after the durable API check so a stale list cache
+        // cannot turn a successful authoring step into a false negative.
+        await openModuleScope()
+        await expect(page.getByTestId('entity-modules-root').getByText(module.name, { exact: true }).first()).toBeVisible({
+            timeout: APP_RUNTIME_TIMEOUT
+        })
+    }
     return createdId
 }
 
@@ -1005,7 +1048,7 @@ const addMenuItemThroughBrowser = async (page: Page, item: { title: { en: string
     await expect(menuDialog.getByText(item.title.en, { exact: true })).toBeVisible()
 }
 
-const configureMenuWidgetThroughBrowser = async (page: Page) => {
+const configureMenuWidgetThroughBrowser = async (page: Page, metahubId: string, layoutId: string) => {
     const leftZone = page.getByTestId('layout-zone-left')
     await leftZone.getByRole('button', { name: 'Add widget' }).click()
     const menuWidgetOption = page.getByRole('menuitem', { name: 'Menu' })
@@ -1034,9 +1077,30 @@ const configureMenuWidgetThroughBrowser = async (page: Page) => {
     await startPage.scrollIntoViewIfNeeded()
     await startPage.click()
     await page.getByRole('option', { name: new RegExp(`^${escapeRegExp('Welcome')}\\s+·`) }).click()
+    const saveResponse = waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`),
+        { label: 'Saving MMOOMM navigation menu widget', timeout: APP_RUNTIME_TIMEOUT }
+    )
     await dialog.getByRole('button', { name: 'Save' }).click()
+    const settledSaveResponse = await saveResponse
+    if (!settledSaveResponse.ok()) {
+        throw new Error(
+            `Saving MMOOMM navigation menu widget failed with ${settledSaveResponse.status()} ${settledSaveResponse.statusText()}`
+        )
+    }
     await expect(dialog).toHaveCount(0)
-    await expect(leftZone.getByText(/Menu: Navigation/)).toBeVisible()
+    try {
+        await expect(leftZone.getByText(/Menu: Navigation/)).toBeVisible({ timeout: 20_000 })
+    } catch {
+        // Layout mutations are persisted transactionally, but the authoring
+        // query may still contain the pre-save widget list. Reload the same
+        // layout route to verify the durable result through the UI.
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: APP_RUNTIME_TIMEOUT })
+        await expect(page.getByTestId('metahub-layout-details-content')).toBeVisible({ timeout: 60_000 })
+        await expect(page.getByTestId('layout-zone-left').getByText(/Menu: Navigation/)).toBeVisible({ timeout: APP_RUNTIME_TIMEOUT })
+    }
 }
 
 const configurePlayCanvasCanvasWidgetThroughBrowser = async (page: Page, options: PlayCanvasWidgetRuntimeOptions) => {
@@ -1110,7 +1174,7 @@ const configureRuntimeLayoutThroughBrowser = async (
         await setLayoutSwitchThroughBrowser(page, label, false)
     }
     await removeDefaultLayoutWidgetsThroughBrowser(page, api, metahubId, layoutId)
-    await configureMenuWidgetThroughBrowser(page)
+    await configureMenuWidgetThroughBrowser(page, metahubId, layoutId)
     await configurePlayCanvasCanvasWidgetThroughBrowser(page, {
         runtimeManifest: authoringRuntimeManifest,
         title: { en: 'Universo MMOOMM', ru: 'Universo MMOOMM' },
@@ -1249,7 +1313,7 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
         await authorMmoommScriptAssetsThroughEditor(scriptEditorPage, MMOOMM_BUILTIN_SCRIPT_ASSETS)
         await scriptEditorPage.close()
 
-        await createRuntimeModuleThroughBrowser(page, metahubId, {
+        await createRuntimeModuleThroughBrowser(page, api, metahubId, {
             scope: 'general',
             codename: 'flight-math',
             name: 'Flight Math',
@@ -1257,7 +1321,7 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
             sourceCode: readCanonicalPlayCanvasBuiltinAsset(repoRoot, path.join('libraries', 'flight-math.ts')),
             capabilities: []
         })
-        await createRuntimeModuleThroughBrowser(page, metahubId, {
+        await createRuntimeModuleThroughBrowser(page, api, metahubId, {
             codename: 'fixed-tick-flight-runtime',
             name: 'Fixed Tick Flight Runtime',
             role: 'module',
