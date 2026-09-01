@@ -317,7 +317,12 @@ const buildEditTabs = (
                             label={
                                 <Box>
                                     <Typography variant='body1'>{ctx.t('storage.externalDb')}</Typography>
-                                    <Typography variant='caption' color='text.secondary'>
+                                    <Typography
+                                        variant='caption'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {ctx.t('storage.externalDbDisabled')}
                                     </Typography>
                                 </Box>

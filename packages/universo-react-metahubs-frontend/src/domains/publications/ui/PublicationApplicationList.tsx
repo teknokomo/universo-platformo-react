@@ -328,7 +328,12 @@ export const PublicationApplicationList: React.FC = () => {
                     description={t('metahubs:errors.pleaseTryLater', 'Please try again later')}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         title={t('metahubs:publications.applications.title', 'Applications')}
                         search={true}

@@ -188,7 +188,13 @@ export default function Hero({ data, onAction, onLeadSubmit }: HeroProps) {
                     </Typography>
                     {leadControl}
                     {lead?.termsText ? (
-                        <Typography variant='caption' color='text.secondary' sx={{ textAlign: 'center' }}>
+                        <Typography
+                            variant='caption'
+                            sx={{
+                                color: 'text.secondary',
+                                textAlign: 'center'
+                            }}
+                        >
                             {lead.termsText}{' '}
                             {lead.termsAction ? (
                                 <MarketingActionLink action={lead.termsAction} onAction={onAction} sx={{ color: 'primary.main' }} />

@@ -86,7 +86,12 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
         <Stack spacing={1.5} data-testid='layout-widget-scope-visibility-panel'>
             <Box>
                 <Typography variant='subtitle2'>{t('layouts.widgetScopeVisibility.title', 'Visibility by entity')}</Typography>
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t(
                         'layouts.widgetScopeVisibility.description',
                         'Disable this global widget for selected entities. A scoped layout is created automatically when a visibility override is saved.'
@@ -95,9 +100,21 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
             </Box>
 
             {visibilityQuery.isLoading ? (
-                <Stack direction='row' spacing={1} alignItems='center' sx={{ py: 1 }}>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    sx={{
+                        alignItems: 'center',
+                        py: 1
+                    }}
+                >
                     <CircularProgress size={18} />
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('common:loading', 'Loading...')}
                     </Typography>
                 </Stack>
@@ -139,14 +156,28 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
                             <Typography variant='body2' noWrap>
                                 {name}
                             </Typography>
-                            <Typography variant='caption' color='text.secondary' noWrap component='div'>
+                            <Typography
+                                variant='caption'
+                                noWrap
+                                component='div'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('layouts.widgetScopeVisibility.entityMeta', '{{kind}}{{codename}}', {
                                     kind,
                                     codename: codename ? ` · ${codename}` : ''
                                 })}
                             </Typography>
                         </Box>
-                        <Stack direction='row' spacing={1} alignItems='center' sx={{ flexShrink: 0 }}>
+                        <Stack
+                            direction='row'
+                            spacing={1}
+                            sx={{
+                                alignItems: 'center',
+                                flexShrink: 0
+                            }}
+                        >
                             <Chip
                                 size='small'
                                 variant='outlined'

@@ -120,7 +120,13 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
                         {/* Admin Settings - for superuser or users with global roles */}
                         {(isSuperuser || hasAnyGlobalRole) && (
                             <>
-                                <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>
+                                <Typography
+                                    variant='subtitle2'
+                                    sx={{
+                                        color: 'text.secondary',
+                                        mb: 1
+                                    }}
+                                >
                                     {t('dialog.adminSection', 'Admin Settings')}
                                 </Typography>
 
@@ -155,11 +161,22 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
                         )}
 
                         {/* General Display Settings - for all users */}
-                        <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>
+                        <Typography
+                            variant='subtitle2'
+                            sx={{
+                                color: 'text.secondary',
+                                mb: 1
+                            }}
+                        >
                             {t('dialog.displaySection', 'Display Settings')}
                         </Typography>
 
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('dialog.moreSettingsComingSoon', 'More settings coming soon...')}
                         </Typography>
                     </>

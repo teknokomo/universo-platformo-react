@@ -34,7 +34,12 @@ const CodenameStylePreview = ({
 
     return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-            <Typography variant='caption' color='text.secondary'>
+            <Typography
+                variant='caption'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {t('settings.codenamePreview.title')}:
             </Typography>
             {exampleVariants.map((variant) => (

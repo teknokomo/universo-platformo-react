@@ -179,7 +179,13 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
                             linkMode={getBlockingEntityLink ? 'all-cells' : undefined}
                             columns={columns}
                         />
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 2 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 2
+                            }}
+                        >
                             {labels.resolutionHint}
                         </Typography>
                     </>

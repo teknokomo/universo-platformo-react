@@ -438,7 +438,12 @@ export function MatrixTableView({
                     {table.rows.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={Math.max(1, table.columns.length + 1)} align='center'>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('workspace.matrixEmpty', 'Create a structure again to restore its root matrix cell.')}
                                 </Typography>
                             </TableCell>

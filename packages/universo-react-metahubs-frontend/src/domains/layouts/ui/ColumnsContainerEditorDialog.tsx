@@ -103,7 +103,12 @@ function SortableColumnRow({
                         <DragIndicatorRoundedIcon fontSize='small' />
                     </IconButton>
                     <Box sx={{ flexGrow: 1, minWidth: 80 }}>
-                        <Typography variant='caption' color='text.secondary'>
+                        <Typography
+                            variant='caption'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('layouts.columnsEditor.width', { defaultValue: 'Width' })}: {column.width}/12
                         </Typography>
                         <Slider
@@ -305,7 +310,12 @@ export default function ColumnsContainerEditorDialog({
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
                 <Stack spacing={2}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'layouts.columnsEditor.description',
                             'Configure columns for this container. Each column can render one or more widgets stacked vertically. Widths use a 12-column grid.'

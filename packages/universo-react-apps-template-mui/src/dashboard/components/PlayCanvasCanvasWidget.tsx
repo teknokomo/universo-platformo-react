@@ -658,11 +658,25 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 <Typography variant='h6' sx={{ flex: 1, minWidth: 0 }}>
                     {title}
                 </Typography>
-                <Typography variant='caption' color='text.secondary' data-testid={runtimeStatusTestId} sx={{ minWidth: 0 }}>
+                <Typography
+                    variant='caption'
+                    data-testid={runtimeStatusTestId}
+                    sx={{
+                        color: 'text.secondary',
+                        minWidth: 0
+                    }}
+                >
                     {runtimeStatusLabel}
                 </Typography>
                 {participantSummary.total > 0 ? (
-                    <Typography variant='caption' color='text.secondary' data-testid='playcanvas-participants-status' sx={{ minWidth: 0 }}>
+                    <Typography
+                        variant='caption'
+                        data-testid='playcanvas-participants-status'
+                        sx={{
+                            color: 'text.secondary',
+                            minWidth: 0
+                        }}
+                    >
                         {canControlScene
                             ? t('playcanvasCanvas.participantsStatus', {
                                   defaultValue: `Ships: ${participantSummary.total} (you + ${participantSummary.remote} remote)`,
@@ -676,7 +690,14 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                     </Typography>
                 ) : null}
                 {showViewOnlyState ? (
-                    <Typography variant='caption' color='text.secondary' data-testid='playcanvas-control-mode' sx={{ minWidth: 0 }}>
+                    <Typography
+                        variant='caption'
+                        data-testid='playcanvas-control-mode'
+                        sx={{
+                            color: 'text.secondary',
+                            minWidth: 0
+                        }}
+                    >
                         {t('playcanvasCanvas.viewOnly', 'View only')}
                     </Typography>
                 ) : null}
@@ -786,9 +807,11 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                         {selectedVisualLabVariantInfo ? (
                             <Typography
                                 variant='caption'
-                                color='text.secondary'
                                 data-testid='playcanvas-visual-lab-selected'
-                                sx={{ minWidth: 0 }}
+                                sx={{
+                                    color: 'text.secondary',
+                                    minWidth: 0
+                                }}
                             >
                                 {t('playcanvasCanvas.visualLab.selectedVariant', {
                                     defaultValue: `Selected: ${selectedVisualLabVariantInfo.index}. ${selectedVisualLabVariantInfo.title} · ${selectedVisualLabFamilyLabel}`,
@@ -854,7 +877,14 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                                     <Typography component='span' variant='caption' sx={{ display: 'block', fontWeight: 600 }}>
                                         {variant.index}. {variant.title}
                                     </Typography>
-                                    <Typography component='span' variant='caption' color='text.secondary' sx={{ display: 'block' }}>
+                                    <Typography
+                                        component='span'
+                                        variant='caption'
+                                        sx={{
+                                            color: 'text.secondary',
+                                            display: 'block'
+                                        }}
+                                    >
                                         {resolveVisualLabFamilyLabel(variant.family)}
                                     </Typography>
                                 </Box>

@@ -59,6 +59,130 @@ const REMOVED_COMPONENT_PROPS = new Map([
 ])
 
 const SELECT_MENU_REMOVED_PROPS = new Set(['MenuListProps', 'PaperProps', 'TransitionComponent', 'TransitionProps'])
+const SYSTEM_PROP_COMPONENTS = new Set([
+    'Box',
+    'DialogContentText',
+    'Grid',
+    'Grid2',
+    'Link',
+    'Stack',
+    'TimelineContent',
+    'TimelineOppositeContent',
+    'Typography'
+])
+const REMOVED_SYSTEM_PROPS = new Set([
+    'alignContent',
+    'alignItems',
+    'alignSelf',
+    'backgroundColor',
+    'bgcolor',
+    'border',
+    'borderBottom',
+    'borderBottomColor',
+    'borderColor',
+    'borderLeft',
+    'borderLeftColor',
+    'borderRadius',
+    'borderRight',
+    'borderRightColor',
+    'borderTop',
+    'borderTopColor',
+    'bottom',
+    'boxShadow',
+    'boxSizing',
+    'color',
+    'columnGap',
+    'display',
+    'displayPrint',
+    'flex',
+    'flexBasis',
+    'flexDirection',
+    'flexGrow',
+    'flexShrink',
+    'flexWrap',
+    'font',
+    'fontFamily',
+    'fontSize',
+    'fontStyle',
+    'fontWeight',
+    'gap',
+    'gridArea',
+    'gridAutoColumns',
+    'gridAutoFlow',
+    'gridAutoRows',
+    'gridColumn',
+    'gridRow',
+    'gridTemplateAreas',
+    'gridTemplateColumns',
+    'gridTemplateRows',
+    'height',
+    'justifyContent',
+    'justifyItems',
+    'justifySelf',
+    'left',
+    'letterSpacing',
+    'lineHeight',
+    'm',
+    'margin',
+    'marginBlock',
+    'marginBlockEnd',
+    'marginBlockStart',
+    'marginBottom',
+    'marginInline',
+    'marginInlineEnd',
+    'marginInlineStart',
+    'marginLeft',
+    'marginRight',
+    'marginTop',
+    'marginX',
+    'marginY',
+    'maxHeight',
+    'maxWidth',
+    'mb',
+    'minHeight',
+    'minWidth',
+    'ml',
+    'mr',
+    'mt',
+    'mx',
+    'my',
+    'order',
+    'outline',
+    'outlineColor',
+    'overflow',
+    'p',
+    'padding',
+    'paddingBlock',
+    'paddingBlockEnd',
+    'paddingBlockStart',
+    'paddingBottom',
+    'paddingInline',
+    'paddingInlineEnd',
+    'paddingInlineStart',
+    'paddingLeft',
+    'paddingRight',
+    'paddingTop',
+    'paddingX',
+    'paddingY',
+    'pb',
+    'pl',
+    'position',
+    'pr',
+    'pt',
+    'px',
+    'py',
+    'right',
+    'rowGap',
+    'textAlign',
+    'textOverflow',
+    'textTransform',
+    'top',
+    'typography',
+    'visibility',
+    'whiteSpace',
+    'width',
+    'zIndex'
+])
 
 const isIdentifierStart = (value) => /[A-Za-z_$]/.test(value)
 const isIdentifierPart = (value) => /[A-Za-z0-9_$.-]/.test(value)
@@ -161,7 +285,9 @@ const readJsxExpression = (attributes, startIndex) => {
 const readMuiComponentAliases = (sourceText) => {
     const aliases = new Map()
     const register = (alias, componentName) => {
-        if (componentName === 'Select' || REMOVED_COMPONENT_PROPS.has(componentName)) aliases.set(alias, componentName)
+        if (componentName === 'Select' || REMOVED_COMPONENT_PROPS.has(componentName) || SYSTEM_PROP_COMPONENTS.has(componentName)) {
+            aliases.set(alias, componentName)
+        }
     }
 
     for (const match of sourceText.matchAll(/\bimport\s+([A-Za-z_$][\w$]*)\s+from\s+['"]@mui\/material\/([^'"]+)['"]/g)) {
@@ -184,6 +310,36 @@ const readMuiComponentAliases = (sourceText) => {
     }
 
     return aliases
+}
+
+const shouldTreatColorAsSystemProp = (componentName, value) => {
+    if (!['DialogContentText', 'Link', 'TimelineContent', 'TimelineOppositeContent', 'Typography'].includes(componentName)) return true
+    if (!value) return true
+
+    const normalizedValue = value.trim().replace(/^['"]|['"]$/g, '')
+    if (normalizedValue.startsWith('{')) return false
+    if (componentName === 'Link' && normalizedValue === 'inherit') return false
+    if (componentName !== 'Link' && normalizedValue === 'inherit') return true
+    return (
+        normalizedValue.includes('.') || normalizedValue === 'divider' || normalizedValue.startsWith('#') || /\(.*\)/.test(normalizedValue)
+    )
+}
+
+const findRemovedSystemProps = (sourceText) => {
+    const usages = new Set()
+    const aliases = readMuiComponentAliases(sourceText)
+    for (const { componentName, attributes } of readJsxOpeningTags(sourceText)) {
+        const canonicalComponentName = aliases.get(componentName)
+        if (!canonicalComponentName || !SYSTEM_PROP_COMPONENTS.has(canonicalComponentName)) continue
+
+        for (const propName of REMOVED_SYSTEM_PROPS) {
+            const propMatch = new RegExp(`(?:^|\\s)${propName}\\s*=\\s*([^\\s>]+)`).exec(attributes)
+            if (!propMatch) continue
+            if (propName === 'color' && !shouldTreatColorAsSystemProp(canonicalComponentName, propMatch[1])) continue
+            usages.add(`${canonicalComponentName}.${propName}`)
+        }
+    }
+    return usages
 }
 
 const findRemovedComponentProps = (sourceText) => {
@@ -453,6 +609,9 @@ const checkSourcePolicy = (sourceFiles, issues) => {
                 issues,
                 `${sourceFile.path} uses removed MUI v9 API ${usage}; migrate ${componentName}.${propPath.join('.')} to slotProps`
             )
+        }
+        for (const usage of findRemovedSystemProps(sourceFile.text)) {
+            addIssue(issues, `${sourceFile.path} uses removed MUI v9 System prop ${usage}; move it to sx`)
         }
     }
 }

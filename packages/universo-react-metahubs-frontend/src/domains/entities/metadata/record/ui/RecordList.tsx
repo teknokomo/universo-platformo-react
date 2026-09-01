@@ -401,7 +401,12 @@ const EnumerationFieldAutocomplete = ({
             isLoading && options.length === 0 ? '\u00A0' : effectiveOptionForLabel?.label ?? (emptyDisplay === 'empty' ? '' : '—')
         return (
             <FormControl fullWidth error={Boolean(error)}>
-                <Typography variant='caption' color='text.secondary'>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {label}
                 </Typography>
                 <Typography variant='body1'>{labelText}</Typography>
@@ -413,7 +418,13 @@ const EnumerationFieldAutocomplete = ({
     if (mode === 'radio') {
         return (
             <FormControl fullWidth error={Boolean(error)} disabled={disabled}>
-                <Typography variant='caption' color='text.secondary' sx={{ mb: 0.5 }}>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 0.5
+                    }}
+                >
                     {label}
                 </Typography>
                 <RadioGroup value={effectiveValueForRadio} onChange={(event) => onChange(event.target.value || null)}>

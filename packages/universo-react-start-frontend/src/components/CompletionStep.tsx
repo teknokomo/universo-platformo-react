@@ -52,11 +52,25 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({
                 {t('completion.title')}
             </Typography>
 
-            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography
+                variant='body1'
+                sx={{
+                    color: 'text.secondary',
+                    mb: 2,
+                    lineHeight: 1.8
+                }}
+            >
                 {t('completion.message1')}
             </Typography>
 
-            <Typography variant='body1' color='text.secondary' sx={{ mb: 2, lineHeight: 1.8 }}>
+            <Typography
+                variant='body1'
+                sx={{
+                    color: 'text.secondary',
+                    mb: 2,
+                    lineHeight: 1.8
+                }}
+            >
                 {t('completion.message2')}
             </Typography>
 
@@ -66,10 +80,24 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({
                     {t('completion.noticeTitle')}
                 </Typography>
                 <Box component='ul' sx={{ m: 0, pl: 2.5 }}>
-                    <Typography component='li' variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                    <Typography
+                        component='li'
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            mb: 1
+                        }}
+                    >
                         {t('completion.noticeAlpha')}
                     </Typography>
-                    <Typography component='li' variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                    <Typography
+                        component='li'
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            mb: 1
+                        }}
+                    >
                         {t('completion.noticeUpdates')}{' '}
                         <Link href='https://github.com/teknokomo/universo-platformo-react' target='_blank' rel='noopener'>
                             {t('completion.noticeUpdatesGitHub')}
@@ -80,7 +108,14 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({
                         </Link>
                         .
                     </Typography>
-                    <Typography component='li' variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                    <Typography
+                        component='li'
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            mb: 1
+                        }}
+                    >
                         {t('completion.noticeTelegram')}{' '}
                         <Link href='https://t.me/universo_pro' target='_blank' rel='noopener'>
                             {t('completion.noticeTelegramPlatformo')}
@@ -91,7 +126,13 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({
                         </Link>
                         .
                     </Typography>
-                    <Typography component='li' variant='body2' color='text.secondary'>
+                    <Typography
+                        component='li'
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('completion.noticeHelp')}{' '}
                         <Link href='https://boosty.to/universo' target='_blank' rel='noopener'>
                             {t('completion.noticeHelpBoosty')}

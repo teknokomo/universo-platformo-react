@@ -232,9 +232,13 @@ export function MarketingActionLink({
             target={resolved.target}
             rel={resolved.rel}
             onClick={(event) => invokeMarketingAction(event, action, onAction)}
-            color='text.secondary'
             variant='body2'
-            sx={sx}
+            sx={[
+                {
+                    color: 'text.secondary'
+                },
+                ...(Array.isArray(sx) ? sx : [sx])
+            ]}
         >
             {children ?? action.label}
         </Link>

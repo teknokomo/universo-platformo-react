@@ -41,9 +41,21 @@ const ApplicationMigrations = () => {
     if (isLoading) {
         return (
             <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
-                <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
+                <Stack
+                    spacing={2}
+                    sx={{
+                        alignItems: 'center',
+                        minHeight: 400,
+                        justifyContent: 'center'
+                    }}
+                >
                     <CircularProgress size={40} />
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('migrations.loading', 'Loading migrations...')}
                     </Typography>
                 </Stack>

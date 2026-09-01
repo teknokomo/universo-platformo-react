@@ -127,7 +127,14 @@ export const SelectableListCard: React.FC<SelectableListCardProps> = ({ items, s
                                     {getVLCString(item.name, currentLocale) ?? item.codename}
                                 </Typography>
                                 {description && (
-                                    <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5, lineHeight: 1.4 }}>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary',
+                                            mt: 0.5,
+                                            lineHeight: 1.4
+                                        }}
+                                    >
                                         {description}
                                     </Typography>
                                 )}

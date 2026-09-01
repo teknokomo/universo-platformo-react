@@ -86,7 +86,12 @@ const TemplateSideMenu: React.FC<TemplateSideMenuProps> = ({ items }) => {
                                     </ListItemIcon>
                                     <ListItemText
                                         primary={
-                                            <Typography variant={selected ? 'h6' : 'body1'} color='inherit'>
+                                            <Typography
+                                                variant={selected ? 'h6' : 'body1'}
+                                                sx={{
+                                                    color: 'inherit'
+                                                }}
+                                            >
                                                 {resolveTemplateMenuLabel(item, t)}
                                             </Typography>
                                         }

@@ -788,7 +788,12 @@ const ApplicationLayouts = () => {
                                 onChange={(key, value) => void handleViewSettingChange(key, value)}
                                 onReset={() => void requestMarketingAppearanceReset(layout)}
                             />
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t(
                                     'layouts.marketing.contentHint',
                                     'Marketing content is edited through standard Object records; dashboard widgets are not used by this template.'

@@ -905,7 +905,15 @@ export const ComponentListContent = ({
                     const isDisplayAttr = rawComponent?.isDisplayComponent ?? row.isDisplayComponent ?? false
                     return (
                         <Stack spacing={0.5}>
-                            <Stack direction='row' spacing={0.5} alignItems='center' flexWrap='wrap' useFlexGap>
+                            <Stack
+                                direction='row'
+                                spacing={0.5}
+                                useFlexGap
+                                sx={{
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap'
+                                }}
+                            >
                                 {isDisplayAttr && (
                                     <Tooltip
                                         title={t(
@@ -968,7 +976,16 @@ export const ComponentListContent = ({
                     const hasLocalized = rules?.localized
                     const typeLabel = dataTypeLabelByValue.get(row.dataType) ?? row.dataType
                     return (
-                        <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center' flexWrap='wrap' useFlexGap>
+                        <Stack
+                            direction='row'
+                            spacing={0.5}
+                            useFlexGap
+                            sx={{
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                flexWrap: 'wrap'
+                            }}
+                        >
                             <Chip label={typeLabel} size='small' color={getDataTypeColor(row.dataType)} />
                             {hasVersioned && (
                                 <Chip
@@ -1496,7 +1513,13 @@ export const ComponentListContent = ({
         const menuDescriptors = isMergedSharedRow ? sharedRowDescriptors : visibleDescriptors
 
         return (
-            <Stack direction='row' spacing={0} alignItems='center'>
+            <Stack
+                direction='row'
+                spacing={0}
+                sx={{
+                    alignItems: 'center'
+                }}
+            >
                 {!isSystemView && row.dataType === 'TABLE' && (
                     <IconButton
                         size='small'
@@ -1552,7 +1575,12 @@ export const ComponentListContent = ({
                     }}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         search={true}
                         searchPlaceholder={searchPlaceholder}

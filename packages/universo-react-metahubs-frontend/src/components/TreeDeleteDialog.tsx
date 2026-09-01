@@ -126,7 +126,14 @@ export const TreeDeleteDialog = ({
                 width: 160,
                 align: 'left',
                 render: (row) => (
-                    <Typography variant='body2' color='text.secondary' fontFamily='monospace' noWrap>
+                    <Typography
+                        variant='body2'
+                        noWrap
+                        sx={{
+                            color: 'text.secondary',
+                            fontFamily: 'monospace'
+                        }}
+                    >
                         {getVLCString(row.codename, uiLocale) || getVLCString(row.codename, 'en') || row.id}
                     </Typography>
                 )

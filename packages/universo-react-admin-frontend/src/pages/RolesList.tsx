@@ -258,7 +258,13 @@ const RolesList = () => {
                 width: '15%',
                 align: 'center' as const,
                 render: (role: RoleListItem) => (
-                    <Box display='flex' gap={0.5} justifyContent='center'>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            gap: 0.5,
+                            justifyContent: 'center'
+                        }}
+                    >
                         {role.isSuperuser && (
                             <Chip size='small' label={t('roles.isSuperuser', 'Superuser')} color='error' variant='outlined' />
                         )}
@@ -272,7 +278,12 @@ const RolesList = () => {
                 width: '12%',
                 align: 'center' as const,
                 render: (role: RoleListItem) => (
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {countPermissions(role)}
                     </Typography>
                 )
@@ -413,7 +424,12 @@ const RolesList = () => {
                     }}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         search={true}
                         searchPlaceholder={t('roles.searchPlaceholder')}
@@ -508,7 +524,12 @@ const RolesList = () => {
                                                     </Box>
                                                 }
                                                 footerEndContent={
-                                                    <Typography variant='caption' color='text.secondary'>
+                                                    <Typography
+                                                        variant='caption'
+                                                        sx={{
+                                                            color: 'text.secondary'
+                                                        }}
+                                                    >
                                                         {countPermissions(role)}
                                                     </Typography>
                                                 }

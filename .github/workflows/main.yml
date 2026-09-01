@@ -33,6 +33,8 @@ jobs:
             - run: pnpm install
             - name: Check catalog versions
               run: pnpm check:catalog-versions
+            - name: Check MUI v9 migration policy
+              run: pnpm check:mui-v9-policy && pnpm test:mui-v9-policy
             - name: Check zod resolution
               run: pnpm check:zod-resolution
             - name: Check PlayCanvas Editor schema vocabulary

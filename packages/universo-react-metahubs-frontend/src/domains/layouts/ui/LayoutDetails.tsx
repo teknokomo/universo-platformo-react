@@ -725,7 +725,12 @@ export default function LayoutDetails() {
                                         onReorderPersistenceFieldDraftChange={setReorderPersistenceFieldDraft}
                                         onCommitReorderPersistenceField={() => void commitReorderPersistenceField()}
                                     />
-                                    <Typography variant='body2' color='text.secondary'>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {t(
                                             'layouts.marketing.contentHint',
                                             'Marketing content is edited through the standard Object records in this metahub; dashboard widgets are not used by this template.'

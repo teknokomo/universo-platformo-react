@@ -85,7 +85,13 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
                                   'A recommended template update is available for this metahub. You can continue using it, but applying the update is advised.'
                               )}
                     </Typography>
-                    <Stack direction='row' spacing={1} flexWrap='wrap'>
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        sx={{
+                            flexWrap: 'wrap'
+                        }}
+                    >
                         <Chip
                             size='small'
                             color={status.structureUpgradeRequired ? 'warning' : 'default'}
@@ -107,7 +113,13 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
                     </Stack>
                     {status.blockers?.length ? (
                         <Alert severity='warning'>
-                            <Typography variant='body2' fontWeight='bold' sx={{ mb: 0.5 }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    fontWeight: 'bold',
+                                    mb: 0.5
+                                }}
+                            >
                                 {t('migrations.guard.blockersTitle', 'Blocking conditions detected')}:
                             </Typography>
                             <ul style={{ margin: 0, paddingLeft: 16 }}>

@@ -175,7 +175,14 @@ const MetahubMigrations = () => {
                 sortable: true,
                 sortAccessor: (row: MigrationDisplayRow) => row.name.toLowerCase(),
                 render: (row: MigrationDisplayRow) => (
-                    <Stack direction='row' spacing={1} alignItems='center' flexWrap='wrap'>
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        sx={{
+                            alignItems: 'center',
+                            flexWrap: 'wrap'
+                        }}
+                    >
                         <Typography sx={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace' }}>{row.name}</Typography>
                         {row.kind === 'baseline' ? (
                             <Chip size='small' variant='outlined' label={t('metahubs:migrations.baselineLabel', 'Baseline')} />
@@ -230,11 +237,22 @@ const MetahubMigrations = () => {
             border={false}
             shadow={false}
         >
-            <Stack flexDirection='column' sx={{ gap: 1 }}>
+            <Stack
+                sx={{
+                    flexDirection: 'column',
+                    gap: 1
+                }}
+            >
                 <ViewHeader title={t('metahubs:migrations.title', 'Migrations')} />
 
                 <Stack sx={{ pb: 2 }} spacing={2}>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
+                    <Stack
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={2}
+                        sx={{
+                            alignItems: { xs: 'stretch', md: 'center' }
+                        }}
+                    >
                         <FormControl size='small' sx={{ minWidth: 320 }}>
                             <InputLabel id={branchLabelId}>{t('metahubs:migrations.branchLabel', 'Branch')}</InputLabel>
                             <Select
@@ -275,7 +293,13 @@ const MetahubMigrations = () => {
                     </Stack>
 
                     {isLoading ? (
-                        <Stack direction='row' spacing={1} alignItems='center'>
+                        <Stack
+                            direction='row'
+                            spacing={1}
+                            sx={{
+                                alignItems: 'center'
+                            }}
+                        >
                             <CircularProgress size={18} />
                             <Typography variant='body2'>{t('metahubs:migrations.loading', 'Loading migration state...')}</Typography>
                         </Stack>
@@ -288,7 +312,13 @@ const MetahubMigrations = () => {
                     {planQuery.data ? (
                         <Stack spacing={1}>
                             <Typography variant='subtitle2'>{t('metahubs:migrations.planTitle', 'Migration plan')}</Typography>
-                            <Stack direction='row' spacing={1} flexWrap='wrap'>
+                            <Stack
+                                direction='row'
+                                spacing={1}
+                                sx={{
+                                    flexWrap: 'wrap'
+                                }}
+                            >
                                 <Chip
                                     size='small'
                                     color={planQuery.data.structureUpgradeRequired ? 'warning' : 'success'}

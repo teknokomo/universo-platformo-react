@@ -833,7 +833,12 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         !isLoading && displayData.length === 0 && emptyStateMessage ? (
                             <TableRow>
                                 <TableCell colSpan={totalCols} sx={{ textAlign: 'center', py: 3, borderBottom: 'none' }}>
-                                    <Typography variant='body2' color='text.secondary'>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {emptyStateMessage}
                                     </Typography>
                                 </TableCell>

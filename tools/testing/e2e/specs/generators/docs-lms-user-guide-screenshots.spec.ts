@@ -24,7 +24,6 @@ import {
 import {
     createLoggedInApiContext,
     createPublicationLinkedApplication,
-    createRuntimeRow,
     disposeApiContext,
     listApplicationWorkspaces,
     sendWithCsrf,
@@ -42,12 +41,6 @@ import {
     LMS_SAMPLE_LINK,
     LMS_SECONDARY_LINK
 } from '../../support/lmsFixtureContract'
-import {
-    waitForApplicationObjectId,
-    waitForApplicationRuntimeRow,
-    waitForMetahubEnumerationId,
-    waitForOptionValueId
-} from '../../support/lmsRuntime'
 import { applicationSelectors, confirmDeleteSelectors, entityDialogSelectors } from '../../support/selectors/contracts'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -820,7 +813,13 @@ async function captureLearnerExperienceGuide(page: Page, locale: Locale, applica
     let player = page.getByTestId('learner-player')
     await expect(player, `${locale} learner player`).toBeVisible({ timeout: 30_000 })
     await ensureLearnerCourseSelected(player, `${locale} learner course heading`)
+    await page.getByRole('button', { name: localized(locale, 'Enable compact menu', 'Включить компактное меню') }).click()
+    await expect(
+        page.getByRole('button', { name: localized(locale, 'Enable wide menu', 'Включить широкое меню') }),
+        `${locale} compact learner navigation`
+    ).toBeVisible({ timeout: 30_000 })
     await captureDocsScreenshot(page, locale, 'learner-experience', page.locator('main').first())
+    await page.getByRole('button', { name: localized(locale, 'Enable wide menu', 'Включить широкое меню') }).click()
     await player.getByRole('combobox', { name: localized(locale, 'Course', 'Курс') }).click()
     await captureDocsStepScreenshot(page, locale, 'learner-experience', 1, page.locator('body'))
     await page.keyboard.press('Escape')
@@ -969,114 +968,11 @@ async function createDocsPublicWorkspace(api: ApiContext, applicationId: string)
     throw new Error('LMS docs screenshot generator could not resolve a workspace for public guest content')
 }
 
-async function seedDocsPublicGuestContent(api: ApiContext, page: Page, metahubId: string, applicationId: string): Promise<void> {
-    const [
-        learningResourcesObjectId,
-        quizzesObjectId,
-        accessLinksObjectId,
-        contentTypeEnumerationId,
-        resourceTypeEnumerationId,
-        publicationStatusEnumerationId,
-        questionTypeEnumerationId
-    ] = await Promise.all([
-        waitForApplicationObjectId(api, applicationId, 'LearningResources'),
-        waitForApplicationObjectId(api, applicationId, 'Quizzes'),
-        waitForApplicationObjectId(api, applicationId, 'AccessLinks'),
-        waitForMetahubEnumerationId(api, metahubId, 'Content Type'),
-        waitForMetahubEnumerationId(api, metahubId, 'Resource Type'),
-        waitForMetahubEnumerationId(api, metahubId, 'Publication Status'),
-        waitForMetahubEnumerationId(api, metahubId, 'Question Type')
-    ])
-    const [textValueId, quizRefValueId, pageResourceTypeValueId, publishedPublicationStatusValueId, singleChoiceValueId] =
-        await Promise.all([
-            waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'Text'),
-            waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'QuizRef'),
-            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Page'),
-            waitForOptionValueId(api, metahubId, publicationStatusEnumerationId, 'Published'),
-            waitForOptionValueId(api, metahubId, questionTypeEnumerationId, 'SingleChoice')
-        ])
-    const workspaceId = await createDocsPublicWorkspace(api, applicationId)
+async function verifyDocsPublicGuestContent(api: ApiContext, page: Page, applicationId: string): Promise<void> {
+    await createDocsPublicWorkspace(api, applicationId)
     const publicContentNodes = LMS_DEMO_CONTENT_NODES.filter((content) => typeof content.accessLinkSlug === 'string')
-    const quizRowsByKey = new Map<string, { id: string }>()
-
-    for (const seededQuiz of LMS_DEMO_QUIZZES.filter((quiz) => publicContentNodes.some((content) => content.linkedQuizKey === quiz.key))) {
-        const quizRow = await createRuntimeRow(api, applicationId, {
-            workspaceId,
-            objectCollectionId: quizzesObjectId,
-            data: {
-                Title: buildVLC(seededQuiz.title.en, seededQuiz.title.ru),
-                Description: buildVLC(seededQuiz.description.en, seededQuiz.description.ru),
-                PassingScorePercent: seededQuiz.passingScorePercent,
-                MaxAttempts: seededQuiz.maxAttempts,
-                Questions: seededQuiz.questions.en.map((question, index) => {
-                    const localizedQuestion = seededQuiz.questions.ru[index]
-                    return {
-                        Id: `${seededQuiz.key}-docs-public-question-${index + 1}`,
-                        Prompt: buildVLC(question.prompt, localizedQuestion.prompt),
-                        QuestionDescription: buildVLC(question.description, localizedQuestion.description),
-                        QuestionType: singleChoiceValueId,
-                        Difficulty: 1,
-                        Explanation: buildVLC(question.explanation, localizedQuestion.explanation),
-                        Options: question.options,
-                        SortOrder: question.sortOrder
-                    }
-                })
-            }
-        })
-        await waitForApplicationRuntimeRow(api, applicationId, quizzesObjectId, quizRow.id, { workspaceId })
-        quizRowsByKey.set(seededQuiz.key, { id: quizRow.id })
-    }
 
     for (const seededContent of publicContentNodes) {
-        const linkedQuiz = quizRowsByKey.get(seededContent.linkedQuizKey)
-        if (!linkedQuiz) {
-            throw new Error(`LMS docs public content seed could not find linked quiz ${seededContent.linkedQuizKey}`)
-        }
-
-        const contentRow = await createRuntimeRow(api, applicationId, {
-            workspaceId,
-            objectCollectionId: learningResourcesObjectId,
-            data: {
-                Title: buildVLC(seededContent.title.en, seededContent.title.ru),
-                Name: seededContent.title.en,
-                Description: buildVLC(seededContent.description.en, seededContent.description.ru),
-                ResourceType: pageResourceTypeValueId,
-                Source: { type: 'page', pageCodename: 'CourseOverview' },
-                EstimatedTimeMinutes: seededContent.estimatedDurationMinutes,
-                PublicationStatus: publishedPublicationStatusValueId,
-                ContentItems: seededContent.contentItems.en.map((item, index) => {
-                    const localizedItem = seededContent.contentItems.ru[index]
-                    const isQuizRef = item.itemType === 'QuizRef'
-                    return {
-                        ItemType: isQuizRef ? quizRefValueId : textValueId,
-                        ItemTitle: buildVLC(item.itemTitle, localizedItem.itemTitle),
-                        ...(item.itemContent
-                            ? { ItemContent: buildVLC(item.itemContent, localizedItem.itemContent ?? localizedItem.itemTitle) }
-                            : {}),
-                        ...(isQuizRef ? { QuizId: linkedQuiz.id } : {}),
-                        SortOrder: item.sortOrder
-                    }
-                })
-            }
-        })
-        await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, contentRow.id, { workspaceId })
-
-        const linkTitle = seededContent.accessLinkSlug === LMS_SECONDARY_LINK.slug ? LMS_SECONDARY_LINK.title : LMS_SAMPLE_LINK.title
-        const accessLinkRow = await createRuntimeRow(api, applicationId, {
-            workspaceId,
-            objectCollectionId: accessLinksObjectId,
-            data: {
-                Slug: seededContent.accessLinkSlug,
-                TargetType: 'content',
-                TargetId: contentRow.id,
-                ContentNodeIdRef: contentRow.id,
-                IsActive: true,
-                MaxUses: 20,
-                UseCount: 0,
-                LinkTitle: buildVLC(linkTitle.en, linkTitle.ru)
-            }
-        })
-        await waitForApplicationRuntimeRow(api, applicationId, accessLinksObjectId, accessLinkRow.id, { workspaceId })
         await expect
             .poll(
                 async () => {
@@ -1086,11 +982,15 @@ async function seedDocsPublicGuestContent(api: ApiContext, page: Page, metahubId
                     }
 
                     const payload = await response.json()
-                    return typeof payload?.id === 'string' ? payload.id : 'missing-link-id'
+                    return {
+                        idPresent: typeof payload?.id === 'string' && payload.id.length > 0,
+                        slug: payload?.slug,
+                        targetPresent: typeof payload?.targetId === 'string' && payload.targetId.length > 0
+                    }
                 },
                 { timeout: 30_000, intervals: [500, 1_000, 2_000] }
             )
-            .toBe(accessLinkRow.id)
+            .toEqual({ idPresent: true, slug: seededContent.accessLinkSlug, targetPresent: true })
     }
 }
 
@@ -1207,7 +1107,7 @@ test.describe('LMS user guide documentation screenshots', () => {
                 acknowledgeIrreversibleWorkspaceEnablement: true
             }
         })
-        await seedDocsPublicGuestContent(api, page, imported.metahubId, applicationId)
+        await verifyDocsPublicGuestContent(api, page, applicationId)
 
         for (const locale of ['en', 'ru'] as const) {
             await applyBrowserPreferences(page, { language: locale, isDarkMode: false })

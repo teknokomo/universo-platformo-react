@@ -176,6 +176,34 @@ test('does not flag valid InputBase/Select props or shared domain presentation n
     assert.deepEqual(issues, [])
 })
 
+test('detects removed System props on MUI v9 components and aliases', () => {
+    const issues = analyzeSource(`
+        import { Box, Stack as MuiStack, Typography } from '@mui/material'
+        <Box flexDirection="column" />
+        <MuiStack alignItems="center" justifyContent="space-between" />
+        <Typography mt={2} color="text.secondary" />
+    `)
+
+    for (const usage of ['Box.flexDirection', 'Stack.alignItems', 'Stack.justifyContent', 'Typography.mt', 'Typography.color']) {
+        assert.equal(
+            issues.some((issue) => issue.includes(usage)),
+            true,
+            `expected policy to report ${usage}`
+        )
+    }
+})
+
+test('keeps semantic Typography and Link color props that MUI v9 still accepts', () => {
+    const issues = analyzeSource(`
+        import Typography from '@mui/material/Typography'
+        import Link from '@mui/material/Link'
+        <Typography color="primary" />
+        <Link color="inherit" />
+    `)
+
+    assert.deepEqual(issues, [])
+})
+
 test('requires one exact catalog version within each coordinated MUI group', () => {
     const issues = analyzeMuiV9Policy({
         catalogText: `catalog:

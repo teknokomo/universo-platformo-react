@@ -164,7 +164,12 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                         <Typography variant='subtitle2'>
                             {t('layouts.interpretationNetworkEditor.displayTitle', 'Matrix display')}
                         </Typography>
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t(
                                 'layouts.interpretationNetworkEditor.description',
                                 'Choose which matrix views are available in the published application and which view opens by default.'
@@ -663,7 +668,12 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                         <Typography variant='subtitle2'>
                             {t('layouts.interpretationNetworkEditor.templatePanel', 'Template panels')}
                         </Typography>
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t(
                                 'layouts.interpretationNetworkEditor.templatePanelHelp',
                                 'Choose where saved table templates are visible in published workspaces.'

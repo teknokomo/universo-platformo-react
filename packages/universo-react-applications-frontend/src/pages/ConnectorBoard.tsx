@@ -62,7 +62,12 @@ interface InfoRowProps {
 
 const InfoRow = ({ label, value }: InfoRowProps) => (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-        <Typography variant='body2' color='text.secondary'>
+        <Typography
+            variant='body2'
+            sx={{
+                color: 'text.secondary'
+            }}
+        >
             {label}
         </Typography>
         <Box component='span' sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', fontWeight: 500 }}>
@@ -108,9 +113,21 @@ const ConnectorBoard = () => {
     if (isLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
-                <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
+                <Stack
+                    spacing={2}
+                    sx={{
+                        alignItems: 'center',
+                        minHeight: 400,
+                        justifyContent: 'center'
+                    }}
+                >
                     <CircularProgress size={40} />
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('common.loading', 'Loading...')}
                     </Typography>
                 </Stack>
@@ -213,7 +230,14 @@ const ConnectorBoard = () => {
                     <Grid size={{ xs: 12, md: 6 }}>
                         <Card variant='outlined' data-testid='application-connector-board-schema-card'>
                             <CardContent>
-                                <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 2 }}>
+                                <Stack
+                                    direction='row'
+                                    spacing={1}
+                                    sx={{
+                                        alignItems: 'center',
+                                        mb: 2
+                                    }}
+                                >
                                     <StorageIcon color='primary' />
                                     <Typography variant='h6'>{t('connectors.schema.title', 'Schema')}</Typography>
                                 </Stack>
@@ -268,7 +292,14 @@ const ConnectorBoard = () => {
                     <Grid size={{ xs: 12, md: 6 }}>
                         <Card variant='outlined' data-testid='application-connector-board-details-card'>
                             <CardContent>
-                                <Stack direction='row' alignItems='center' spacing={1} sx={{ mb: 2 }}>
+                                <Stack
+                                    direction='row'
+                                    spacing={1}
+                                    sx={{
+                                        alignItems: 'center',
+                                        mb: 2
+                                    }}
+                                >
                                     <InfoOutlinedIcon color='primary' />
                                     <Typography variant='h6'>{t('common.details', 'Details')}</Typography>
                                 </Stack>
@@ -279,7 +310,12 @@ const ConnectorBoard = () => {
 
                                 {/* Status Description */}
                                 <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                                    <Typography variant='body2' color='text.secondary'>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {schemaStatus === 'synced'
                                             ? t('connectors.statusDescription.synced', 'Schema matches current configuration')
                                             : schemaStatus === 'outdated'
@@ -301,7 +337,13 @@ const ConnectorBoard = () => {
                 </Grid>
 
                 {/* Back Button */}
-                <Box display='flex' justifyContent='center' sx={{ mt: 4 }}>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        mt: 4
+                    }}
+                >
                     <Button
                         variant='text'
                         startIcon={<ArrowBackRoundedIcon />}

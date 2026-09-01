@@ -192,14 +192,24 @@ export function ResourcePreview({ source, title, description, onOpenPage }: Reso
                     <Typography variant='subtitle1' sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
                         {safeTitle}
                     </Typography>
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {resourceTypeLabel}
                     </Typography>
                 </Box>
             </Stack>
 
             {safeDescription ? (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {safeDescription}
                 </Typography>
             ) : null}
@@ -219,7 +229,13 @@ export function ResourcePreview({ source, title, description, onOpenPage }: Reso
                     {t('resourcePreview.invalidSource', 'This resource source is not valid.')}
                 </Typography>
             ) : parsed.kind === 'deferred' ? (
-                <Typography role='status' variant='body2' color='text.secondary'>
+                <Typography
+                    role='status'
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('resourcePreview.deferredSource', 'This resource type is configured but its runtime player is not available yet.')}
                 </Typography>
             ) : (

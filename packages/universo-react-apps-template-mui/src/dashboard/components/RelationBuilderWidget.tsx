@@ -419,7 +419,12 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
             {warningText ? <Alert severity='warning'>{warningText}</Alert> : null}
             {loadErrorText ? <Alert severity='error'>{loadErrorText}</Alert> : null}
             {panel.enableRowReordering && !canPersistRowReordering ? (
-                <Typography variant='caption' color='text.secondary'>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t(
                         'app.reorderRequiresCompleteDataset',
                         'Row reordering is available only when all rows are loaded and search is cleared.'

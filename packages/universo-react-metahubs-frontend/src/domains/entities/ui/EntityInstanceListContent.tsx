@@ -1425,7 +1425,12 @@ const EntityInstanceListContent = () => {
                                     errors={errors}
                                 />
                             ) : (
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t(
                                         'entities.ledgerSchema.disabledDescription',
                                         'Enable ledger schema when this entity should store append-only facts, dimensions, resources, and projections.'
@@ -1620,14 +1625,26 @@ const EntityInstanceListContent = () => {
         (row: EntityInstanceDisplayRow) => {
             if (row.treeEntityIds.length === 0) {
                 return (
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         -
                     </Typography>
                 )
             }
 
             return (
-                <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
+                <Stack
+                    direction='row'
+                    spacing={0.5}
+                    useFlexGap
+                    sx={{
+                        flexWrap: 'wrap'
+                    }}
+                >
                     {row.treeEntityIds.slice(0, 2).map((treeEntityId) => (
                         <Chip key={treeEntityId} size='small' variant='outlined' label={hubNameById.get(treeEntityId) ?? treeEntityId} />
                     ))}
@@ -1916,7 +1933,12 @@ const EntityInstanceListContent = () => {
                 border={false}
                 shadow={false}
             >
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         title={collectionTitle}
                         description={collectionDescription}
@@ -2061,7 +2083,14 @@ const EntityInstanceListContent = () => {
                                     onClick={!row.isDeleted && canOpenStandardCollectionRow ? () => handleOpenContentRow(row) : undefined}
                                     headerAction={renderEntityActionMenu(row)}
                                     footerStartContent={
-                                        <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
+                                        <Stack
+                                            direction='row'
+                                            spacing={0.5}
+                                            useFlexGap
+                                            sx={{
+                                                flexWrap: 'wrap'
+                                            }}
+                                        >
                                             <Chip size='small' variant='outlined' label={row.codename || row.id} />
                                             {row.isDeleted ? (
                                                 <Chip
@@ -2073,7 +2102,12 @@ const EntityInstanceListContent = () => {
                                         </Stack>
                                     }
                                     footerEndContent={
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : '-'}
                                         </Typography>
                                     }

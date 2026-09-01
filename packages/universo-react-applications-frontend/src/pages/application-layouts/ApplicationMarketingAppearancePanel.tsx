@@ -133,7 +133,13 @@ export function ApplicationMarketingAppearancePanel({
                     data-testid='application-marketing-appearance-source'
                 />
             </Stack>
-            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+            <Typography
+                variant='body2'
+                sx={{
+                    color: 'text.secondary',
+                    mb: 2
+                }}
+            >
                 {t(
                     'layouts.marketing.appearanceDescription',
                     'Configure the published marketing page without editing its content records.'
@@ -194,7 +200,12 @@ export function ApplicationMarketingAppearancePanel({
                     <Typography variant='subtitle2' sx={{ mb: 0.5 }}>
                         {t('layouts.marketing.brandAsset', 'Brand asset')}
                     </Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {config.brandLogo
                             ? t('layouts.marketing.brandAssetConfigured', 'Application logo and alternative text are configured.')
                             : t(
@@ -232,7 +243,13 @@ export function ApplicationMarketingAppearancePanel({
                     <Typography variant='subtitle2' sx={{ mb: 0.5 }}>
                         {t('layouts.marketing.sectionOrder', 'Section order')}
                     </Typography>
-                    <Typography variant='body2' color='text.secondary' sx={{ mb: 0.5 }}>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            mb: 0.5
+                        }}
+                    >
                         {t(
                             'layouts.marketing.sectionOrderDescription',
                             'Choose the order in which content sections appear. The footer stays last.'
@@ -331,7 +348,12 @@ export function ApplicationMarketingAppearancePanel({
                 spacing={1}
                 sx={{ mt: 2, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}
             >
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t(
                         'layouts.marketing.resetHint',
                         'Restore the theme, colors, section order, visibility, and action policy to the marketing template defaults.'

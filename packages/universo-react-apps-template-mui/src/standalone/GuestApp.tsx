@@ -469,7 +469,15 @@ export default function GuestApp(props: GuestAppProps) {
                     <CardContent>
                         <Stack spacing={1.5}>
                             <Typography variant='h6'>{question.prompt}</Typography>
-                            {question.description ? <Typography color='text.secondary'>{question.description}</Typography> : null}
+                            {question.description ? (
+                                <Typography
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
+                                    {question.description}
+                                </Typography>
+                            ) : null}
                             <RadioGroup
                                 value={answers[question.id]?.[0] ?? ''}
                                 onChange={(event) => handleAnswerChange(question.id, event.target.value)}

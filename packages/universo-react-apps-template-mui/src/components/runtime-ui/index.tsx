@@ -209,8 +209,8 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                         {description ? (
                             <Typography
                                 variant='body2'
-                                color='text.secondary'
                                 sx={{
+                                    color: 'text.secondary',
                                     mt: 0.75,
                                     overflowWrap: 'anywhere',
                                     display: '-webkit-box',
@@ -380,7 +380,12 @@ export function FlowListTable<T extends FlowListTableData>({
                     {!isLoading && data.length === 0 ? (
                         <TableRow>
                             <StyledTableCell colSpan={columns.length + (renderActions ? 1 : 0) + (sortableRows ? 1 : 0)} align='center'>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('runtime.table.noRecords', 'No records')}
                                 </Typography>
                             </StyledTableCell>
@@ -569,7 +574,14 @@ export function ViewHeaderMUI({
                         </Typography>
                     ) : null}
                     {description ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 0.5,
+                                overflowWrap: 'anywhere'
+                            }}
+                        >
                             {description}
                         </Typography>
                     ) : null}

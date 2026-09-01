@@ -503,7 +503,12 @@ export const OptionListContent = () => {
                         )
                     )}
                     {row.allTreeEntities.length === 0 && (
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             —
                         </Typography>
                     )}
@@ -1037,7 +1042,12 @@ export const OptionListContent = () => {
                         }}
                     />
                 ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <Stack
+                        sx={{
+                            flexDirection: 'column',
+                            gap: 1
+                        }}
+                    >
                         <ViewHeader
                             search={true}
                             searchPlaceholder={t('enumerations.searchPlaceholder')}
@@ -1139,20 +1149,36 @@ export const OptionListContent = () => {
                                                             handlePendingEnumerationInteraction(enumeration.id)
                                                         }
                                                         footerEndContent={
-                                                            <Stack direction='row' spacing={1} alignItems='center'>
+                                                            <Stack
+                                                                direction='row'
+                                                                spacing={1}
+                                                                sx={{
+                                                                    alignItems: 'center'
+                                                                }}
+                                                            >
                                                                 {/* Show hub chip only in global mode */}
                                                                 {!isHubScoped && displayData.hubName && (
                                                                     <>
                                                                         <Chip label={displayData.hubName} size='small' variant='outlined' />
                                                                         {displayData.containersCount > 1 && (
-                                                                            <Typography variant='caption' color='text.secondary'>
+                                                                            <Typography
+                                                                                variant='caption'
+                                                                                sx={{
+                                                                                    color: 'text.secondary'
+                                                                                }}
+                                                                            >
                                                                                 +{displayData.containersCount - 1}
                                                                             </Typography>
                                                                         )}
                                                                     </>
                                                                 )}
                                                                 {typeof enumeration.optionValuesCount === 'number' && (
-                                                                    <Typography variant='caption' color='text.secondary'>
+                                                                    <Typography
+                                                                        variant='caption'
+                                                                        sx={{
+                                                                            color: 'text.secondary'
+                                                                        }}
+                                                                    >
                                                                         {t('enumerations.valuesCount', {
                                                                             count: enumeration.optionValuesCount
                                                                         })}

@@ -229,7 +229,14 @@ export function StructurePane({
             flex: 1,
             minWidth: 220,
             renderCell: (params) => (
-                <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'pre-wrap',
+                        overflowWrap: 'anywhere'
+                    }}
+                >
                     {String(params.value || '—')}
                 </Typography>
             )
@@ -348,7 +355,14 @@ export function StructurePane({
                         ) : null}
                         <Stack spacing={0.5}>
                             <Typography variant='subtitle2'>{t('workspace.template.description', 'Description')}</Typography>
-                            <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    whiteSpace: 'pre-wrap',
+                                    overflowWrap: 'anywhere'
+                                }}
+                            >
                                 {readInterpretationNetworkTemplateLabel(templateDetail?.description, locale) ||
                                     openTemplate?.description ||
                                     '—'}
@@ -442,7 +456,14 @@ export function StructurePane({
             minWidth: 220,
             renderCell: (params) => (
                 <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: '100%' }}>
-                    <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            whiteSpace: 'pre-wrap',
+                            overflowWrap: 'anywhere'
+                        }}
+                    >
                         {String(params.value || '—')}
                     </Typography>
                 </Box>
@@ -635,8 +656,11 @@ export function StructurePane({
                                                 </Typography>
                                                 <Typography
                                                     variant='body2'
-                                                    color='text.secondary'
-                                                    sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                                                    sx={{
+                                                        color: 'text.secondary',
+                                                        whiteSpace: 'pre-wrap',
+                                                        overflowWrap: 'anywhere'
+                                                    }}
                                                 >
                                                     {structure.description || t('workspace.structure.noDescription', 'No description')}
                                                 </Typography>

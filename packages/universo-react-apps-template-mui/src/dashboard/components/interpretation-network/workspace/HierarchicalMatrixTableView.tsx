@@ -435,13 +435,17 @@ export function HierarchicalMatrixTableView({
                         return current ? (
                             <Tooltip key={cell.id} title={title}>
                                 <Typography
-                                    color='text.primary'
                                     aria-current='page'
                                     aria-label={title}
                                     data-testid='interpretation-network-breadcrumb-item'
                                     data-cell-id={cell.id}
                                     data-cell-colored={colorBreadcrumbsByCell ? 'true' : undefined}
-                                    sx={getBreadcrumbSx(cell, colorBreadcrumbsByCell, true)}
+                                    sx={[
+                                        {
+                                            color: 'text.primary'
+                                        },
+                                        getBreadcrumbSx(cell, colorBreadcrumbsByCell, true)
+                                    ]}
                                 >
                                     {content}
                                 </Typography>
@@ -482,7 +486,12 @@ export function HierarchicalMatrixTableView({
 
             {model.rootState.kind === 'empty' ? (
                 <Paper variant='outlined' sx={{ p: 2, borderRadius: 1 }}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('workspace.hierarchicalTable.noRoot', 'Create a root cell to start the hierarchy.')}
                     </Typography>
                 </Paper>
@@ -515,10 +524,20 @@ export function HierarchicalMatrixTableView({
                                 backgroundColor: 'background.paper'
                             }}
                         >
-                            <Typography variant='subtitle2' color='warning.dark'>
+                            <Typography
+                                variant='subtitle2'
+                                sx={{
+                                    color: 'warning.dark'
+                                }}
+                            >
                                 {t('workspace.hierarchicalTable.multipleRoots', 'Multiple root cells')}
                             </Typography>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('workspace.hierarchicalTable.multipleRootsHelp', 'Choose a root cell to continue navigation.')}
                             </Typography>
                         </Paper>
@@ -605,7 +624,12 @@ export function HierarchicalMatrixTableView({
                                                 ))
                                             ) : (
                                                 <TableCell colSpan={maxChildCount} sx={{ border: 0 }}>
-                                                    <Typography variant='body2' color='text.secondary'>
+                                                    <Typography
+                                                        variant='body2'
+                                                        sx={{
+                                                            color: 'text.secondary'
+                                                        }}
+                                                    >
                                                         {t('workspace.hierarchicalTable.noChildren', 'This cell has no child cells yet.')}
                                                     </Typography>
                                                 </TableCell>
@@ -628,7 +652,12 @@ export function HierarchicalMatrixTableView({
                 </>
             ) : (
                 <Paper variant='outlined' sx={{ p: 2, borderRadius: 1 }}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('workspace.hierarchicalTable.noRoot', 'Create a root cell to start the hierarchy.')}
                     </Typography>
                 </Paper>

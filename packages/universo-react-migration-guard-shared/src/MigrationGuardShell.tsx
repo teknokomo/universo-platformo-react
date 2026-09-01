@@ -119,7 +119,14 @@ export function MigrationGuardShell<TStatus extends BaseMigrationStatus = BaseMi
     // Loading state
     if (statusQuery.isLoading) {
         return (
-            <Stack spacing={1.5} alignItems='center' justifyContent='center' sx={{ minHeight: 260 }}>
+            <Stack
+                spacing={1.5}
+                sx={{
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 260
+                }}
+            >
                 <CircularProgress size={22} />
                 <Typography variant='body2'>{loadingText}</Typography>
             </Stack>

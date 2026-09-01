@@ -67,7 +67,13 @@ export const BranchDeleteDialog = ({ open, branch, metahubId, onClose, onConfirm
                 label: t('table.email', 'Email'),
                 width: 200,
                 render: (row) => (
-                    <Typography variant='body2' color='text.secondary' noWrap>
+                    <Typography
+                        variant='body2'
+                        noWrap
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {row.email ?? '—'}
                     </Typography>
                 )

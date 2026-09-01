@@ -9,7 +9,12 @@ export default function CustomizedTreeView() {
                 <Typography component='h2' variant='subtitle2'>
                     Product tree
                 </Typography>
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     Tree view temporarily disabled for compatibility
                 </Typography>
             </CardContent>

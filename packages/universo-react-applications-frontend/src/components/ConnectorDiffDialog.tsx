@@ -705,7 +705,14 @@ export function ConnectorDiffDialog({
                     <Box key={group.kindKey} sx={{ mb: 2 }}>
                         <Typography variant='subtitle2' sx={{ mb: 1 }}>
                             {typeName}
-                            <Typography component='span' variant='body2' color='text.secondary' sx={{ ml: 1 }}>
+                            <Typography
+                                component='span'
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    ml: 1
+                                }}
+                            >
                                 {typeCodename}
                             </Typography>
                         </Typography>
@@ -739,12 +746,25 @@ export function ConnectorDiffDialog({
                                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                                         <Box sx={{ minWidth: 0 }}>
                                             <Typography variant='subtitle2'>{entityName}</Typography>
-                                            <Typography variant='body2' color='text.secondary' sx={{ fontFamily: 'monospace' }}>
+                                            <Typography
+                                                variant='body2'
+                                                sx={{
+                                                    color: 'text.secondary',
+                                                    fontFamily: 'monospace'
+                                                }}
+                                            >
                                                 {entityCodename}
                                             </Typography>
                                         </Box>
                                         {metricsSummary ? (
-                                            <Typography variant='body2' color='text.secondary' sx={{ ml: 2, alignSelf: 'center' }}>
+                                            <Typography
+                                                variant='body2'
+                                                sx={{
+                                                    color: 'text.secondary',
+                                                    ml: 2,
+                                                    alignSelf: 'center'
+                                                }}
+                                            >
                                                 {metricsSummary}
                                             </Typography>
                                         ) : null}
@@ -780,8 +800,10 @@ export function ConnectorDiffDialog({
                                                                         <Typography variant='body2'>{label}</Typography>
                                                                         <Typography
                                                                             variant='caption'
-                                                                            color='text.secondary'
-                                                                            sx={{ fontFamily: 'monospace' }}
+                                                                            sx={{
+                                                                                color: 'text.secondary',
+                                                                                fontFamily: 'monospace'
+                                                                            }}
                                                                         >
                                                                             {field.displayCodename || field.codename}
                                                                         </Typography>
@@ -799,13 +821,24 @@ export function ConnectorDiffDialog({
                                         ) : metrics.length > 0 ? (
                                             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                                 {metrics.map((metric) => (
-                                                    <Typography key={metric.key} variant='body2' color='text.secondary'>
+                                                    <Typography
+                                                        key={metric.key}
+                                                        variant='body2'
+                                                        sx={{
+                                                            color: 'text.secondary'
+                                                        }}
+                                                    >
                                                         {getEntityMetricLabel(metric)}
                                                     </Typography>
                                                 ))}
                                             </Box>
                                         ) : (
-                                            <Typography variant='body2' color='text.secondary'>
+                                            <Typography
+                                                variant='body2'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {t('connectors.diffDialog.noConfiguredPreview', 'No additional preview details')}
                                             </Typography>
                                         )}
@@ -867,7 +900,13 @@ export function ConnectorDiffDialog({
             <DialogTitle id='connector-diff-dialog-title' component='div'>
                 {t('connectors.diffDialog.title', 'Schema Changes')}
                 {connectorName && (
-                    <Typography component='div' variant='subtitle2' color='text.secondary'>
+                    <Typography
+                        component='div'
+                        variant='subtitle2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {connectorName}
                     </Typography>
                 )}
@@ -886,7 +925,12 @@ export function ConnectorDiffDialog({
                         <Box sx={{ textAlign: 'center', py: 2, mb: 2 }}>
                             <AddCircleOutlineIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
                             <Typography variant='h6'>{t('connectors.diffDialog.schemaWillBeCreated', 'Schema will be created')}</Typography>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {formatSummary(diffData?.diff?.summaryKey, diffData?.diff?.summaryParams, diffData?.diff?.summary) ||
                                     t(
                                         'connectors.diffDialog.schemaNotExists',
@@ -922,7 +966,13 @@ export function ConnectorDiffDialog({
                                                 <Typography variant='subtitle2' sx={{ fontFamily: 'monospace' }}>
                                                     {table.codename}
                                                 </Typography>
-                                                <Typography variant='body2' color='text.secondary' sx={{ ml: 2 }}>
+                                                <Typography
+                                                    variant='body2'
+                                                    sx={{
+                                                        color: 'text.secondary',
+                                                        ml: 2
+                                                    }}
+                                                >
                                                     {t('connectors.diffDialog.tableMeta', '{{fields}}, {{elements}}', {
                                                         fields: t('connectors.diffDialog.fieldsCount', '{{count}} fields', {
                                                             count: fields.length
@@ -1040,7 +1090,12 @@ export function ConnectorDiffDialog({
                         <Box sx={{ textAlign: 'center', py: 4 }}>
                             <CheckCircleOutlineIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
                             <Typography variant='h6'>{t('connectors.diffDialog.noChanges', 'No changes detected')}</Typography>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('connectors.diffDialog.schemaUpToDate', 'Schema matches current configuration')}
                             </Typography>
                         </Box>
@@ -1071,7 +1126,12 @@ export function ConnectorDiffDialog({
                                                 'Layout changes may conflict with application-side customizations. Choose how metahub layout updates should be handled during sync.'
                                             )}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {hasUnresolvedRequiredLayoutChanges
                                                 ? t(
                                                       'connectors.diffDialog.layoutResolution.required',
@@ -1150,8 +1210,11 @@ export function ConnectorDiffDialog({
                                                                 </Typography>
                                                                 <Typography
                                                                     variant='caption'
-                                                                    color='text.secondary'
-                                                                    sx={{ display: 'block', mb: 0.75 }}
+                                                                    sx={{
+                                                                        color: 'text.secondary',
+                                                                        display: 'block',
+                                                                        mb: 0.75
+                                                                    }}
                                                                 >
                                                                     {formatLayoutChangeType(change)}
                                                                 </Typography>
@@ -1255,7 +1318,13 @@ export function ConnectorDiffDialog({
                                                         <Typography variant='subtitle2' sx={{ fontFamily: 'monospace' }}>
                                                             {table.codename}
                                                         </Typography>
-                                                        <Typography variant='body2' color='text.secondary' sx={{ ml: 2 }}>
+                                                        <Typography
+                                                            variant='body2'
+                                                            sx={{
+                                                                color: 'text.secondary',
+                                                                ml: 2
+                                                            }}
+                                                        >
                                                             {t('connectors.diffDialog.tableMeta', '{{fields}}, {{elements}}', {
                                                                 fields: t('connectors.diffDialog.fieldsCount', '{{count}} fields', {
                                                                     count: fields.length

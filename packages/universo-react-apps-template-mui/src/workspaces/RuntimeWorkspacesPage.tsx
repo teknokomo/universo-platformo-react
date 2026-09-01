@@ -1269,7 +1269,14 @@ function WorkspaceMetricCard({ title, value }: { title: string; value: string })
             }}
         >
             <CardContent>
-                <Typography component='h2' variant='subtitle2' color='text.secondary' gutterBottom>
+                <Typography
+                    component='h2'
+                    variant='subtitle2'
+                    gutterBottom
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {title}
                 </Typography>
                 <Typography variant='h5' component='p' sx={{ overflowWrap: 'anywhere' }}>
@@ -1411,7 +1418,13 @@ function WorkspaceSettingCard({
                             <Typography variant='subtitle1' component='h2' sx={{ overflowWrap: 'anywhere' }}>
                                 {label}
                             </Typography>
-                            <Typography variant='body2' color='text.secondary' sx={{ overflowWrap: 'anywhere' }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    overflowWrap: 'anywhere'
+                                }}
+                            >
                                 {description}
                             </Typography>
                         </Box>

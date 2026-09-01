@@ -307,9 +307,23 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
         <>
             {binding && boundProject ? (
                 <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent='space-between' gap={1.5}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        sx={{
+                            alignItems: { sm: 'center' },
+                            justifyContent: 'space-between',
+                            gap: 1.5
+                        }}
+                    >
                         <Stack spacing={0.75} sx={{ minWidth: 0 }}>
-                            <Stack direction='row' spacing={1} flexWrap='wrap' alignItems='center'>
+                            <Stack
+                                direction='row'
+                                spacing={1}
+                                sx={{
+                                    flexWrap: 'wrap',
+                                    alignItems: 'center'
+                                }}
+                            >
                                 <Typography variant='subtitle1' sx={{ overflowWrap: 'anywhere' }}>
                                     {getLocalizedContentText(
                                         boundProject.displayName,
@@ -319,7 +333,12 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
                                 </Typography>
                                 <Chip size='small' color={statusColor(boundProject)} label={statusLabel(boundProject)} />
                             </Stack>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t(
                                     'projects.binding.counts',
                                     '{{scenes}} scenes, {{assets}} assets, {{scripts}} scripts, {{artifacts}} generated artifacts',
@@ -332,7 +351,13 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
                                 )}
                             </Typography>
                         </Stack>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            sx={{
+                                alignItems: { sm: 'center' }
+                            }}
+                        >
                             <Button
                                 size='small'
                                 variant='outlined'
@@ -379,7 +404,12 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
                     </Box>
                 </Stack>
             ) : (
-                <Stack alignItems='center' spacing={1}>
+                <Stack
+                    spacing={1}
+                    sx={{
+                        alignItems: 'center'
+                    }}
+                >
                     <EmptyListState
                         image={APIEmptySVG}
                         imageAlt={t('projects.binding.empty.imageAlt', 'No bound PlayCanvas project')}
@@ -496,7 +526,14 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
                             return (
                                 <Box component='li' {...props} key={option.id}>
                                     <Stack spacing={0.25} sx={{ minWidth: 0, width: '100%' }}>
-                                        <Stack direction='row' spacing={1} alignItems='center' flexWrap='wrap'>
+                                        <Stack
+                                            direction='row'
+                                            spacing={1}
+                                            sx={{
+                                                alignItems: 'center',
+                                                flexWrap: 'wrap'
+                                            }}
+                                        >
                                             <Typography variant='body2' sx={{ overflowWrap: 'anywhere' }}>
                                                 {getLocalizedContentText(
                                                     option.displayName,
@@ -514,7 +551,12 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
                                                 />
                                             ) : null}
                                         </Stack>
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {getLocalizedContentText(option.codename, locale, option.id)}
                                         </Typography>
                                     </Stack>
@@ -561,9 +603,21 @@ export function ProjectBindingSurface({ metahubId, entityId }: ProjectBindingSur
 
     if (instanceQuery.isLoading || projectsQuery.isLoading) {
         return wrap(
-            <Stack direction='row' spacing={1} alignItems='center' sx={{ py: 3 }}>
+            <Stack
+                direction='row'
+                spacing={1}
+                sx={{
+                    alignItems: 'center',
+                    py: 3
+                }}
+            >
                 <CircularProgress size={18} />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('projects.binding.loading', 'Loading PlayCanvas project binding...')}
                 </Typography>
             </Stack>

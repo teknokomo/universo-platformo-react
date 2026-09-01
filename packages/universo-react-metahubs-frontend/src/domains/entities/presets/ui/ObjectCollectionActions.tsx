@@ -341,7 +341,12 @@ export const ObjectCollectionLayoutTabFields = ({
         <Stack spacing={2.5}>
             {showScopedLayoutManager ? (
                 <>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'objects.layoutTab.entityLayoutsHelper',
                             'Entity layouts own widget composition and runtime behavior. The active global layout continues to work until you create an entity-specific override.'
@@ -361,7 +366,12 @@ export const ObjectCollectionLayoutTabFields = ({
                     />
                 </>
             ) : (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t(
                         'objects.layoutTab.unavailable',
                         'Entity layouts are available when this entity is opened inside a metahub context.'
@@ -537,7 +547,12 @@ const ObjectCollectionLedgerSchemaTab = ({
                     errors={mergedErrors}
                 />
             ) : (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {ctx.t(
                         'entities.ledgerSchema.disabledDescription',
                         'Enable ledger schema when this entity should store append-only facts, dimensions, resources, and projections.'

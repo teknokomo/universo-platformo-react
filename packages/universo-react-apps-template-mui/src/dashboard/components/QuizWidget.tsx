@@ -525,7 +525,12 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
             <Card variant='outlined'>
                 <CardHeader title={emptyStateTitle} />
                 <CardContent>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {emptyStateDescription}
                     </Typography>
                 </CardContent>
@@ -597,7 +602,13 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                             </Stack>
 
                             {currentQuestion.description ? (
-                                <Typography variant='body2' color='text.secondary' sx={{ mb: 1.5 }}>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary',
+                                        mb: 1.5
+                                    }}
+                                >
                                     {currentQuestion.description}
                                 </Typography>
                             ) : null}

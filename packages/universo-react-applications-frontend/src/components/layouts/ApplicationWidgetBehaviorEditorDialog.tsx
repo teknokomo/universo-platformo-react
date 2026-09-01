@@ -1368,7 +1368,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
                 <Stack spacing={2.5}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('layouts.widgetBehaviorEditor.description', 'Configure how inherited layouts can override this widget.')}
                     </Typography>
                     {datasourceWarnings.length > 0 ? (
@@ -1681,7 +1686,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 const postingCommandLabelId = `workflow-action-posting-command-${slotNumber}-label`
                                 return (
                                     <Stack key={slotNumber} spacing={1.25}>
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('layouts.workflowActions.action', 'Action')} {slotNumber}
                                         </Typography>
                                         <TextField
@@ -1846,7 +1856,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 multiline
                                 minRows={2}
                             />
-                            <Typography variant='caption' color='text.secondary'>
+                            <Typography
+                                variant='caption'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('layouts.reportDefinition.columns', 'Output columns')}
                             </Typography>
                             {Array.from({ length: REPORT_COLUMN_EDITOR_SLOTS }, (_, index) => {
@@ -1856,7 +1871,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 const columnTypeLabelId = `report-definition-column-type-${slotNumber}-label`
                                 return (
                                     <Stack key={slotNumber} spacing={1.25}>
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('layouts.reportDefinition.column', 'Column')} {slotNumber}
                                         </Typography>
                                         <TextField
@@ -1898,7 +1918,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                     </Stack>
                                 )
                             })}
-                            <Typography variant='caption' color='text.secondary'>
+                            <Typography
+                                variant='caption'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('layouts.reportDefinition.filters', 'Filters')}
                             </Typography>
                             {Array.from({ length: REPORT_FILTER_EDITOR_SLOTS }, (_, index) => {
@@ -1911,7 +1936,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 const operatorLabelId = `report-definition-filter-operator-${slotNumber}-label`
                                 return (
                                     <Stack key={slotNumber} spacing={1.25}>
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('layouts.reportDefinition.filter', 'Filter')} {slotNumber}
                                         </Typography>
                                         <TextField
@@ -1953,7 +1983,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                     </Stack>
                                 )
                             })}
-                            <Typography variant='caption' color='text.secondary'>
+                            <Typography
+                                variant='caption'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('layouts.reportDefinition.aggregations', 'Aggregations')}
                             </Typography>
                             {Array.from({ length: REPORT_AGGREGATION_EDITOR_SLOTS }, (_, index) => {
@@ -1968,7 +2003,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 const functionLabelId = `report-definition-aggregation-function-${slotNumber}-label`
                                 return (
                                     <Stack key={slotNumber} spacing={1.25}>
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('layouts.reportDefinition.aggregation', 'Aggregation')} {slotNumber}
                                         </Typography>
                                         <TextField
@@ -2104,7 +2144,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 slotProps={{ htmlInput: { min: 1, max: 100 } }}
                                 fullWidth
                             />
-                            <Typography variant='caption' color='text.secondary'>
+                            <Typography
+                                variant='caption'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('layouts.sequencePolicy.completionConditions', 'Completion conditions')}
                             </Typography>
                             {Array.from({ length: SEQUENCE_COMPLETION_EDITOR_SLOTS }, (_, index) => {
@@ -2117,7 +2162,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 const conditionKindLabelId = `sequence-policy-condition-kind-${slotNumber}-label`
                                 return (
                                     <Stack key={slotNumber} spacing={1.25}>
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('layouts.sequencePolicy.completionCondition', 'Condition')} {slotNumber}
                                         </Typography>
                                         <FormControl size='small' fullWidth>
@@ -2173,7 +2223,12 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 const params = readOverviewCardDatasourceParams(card)
                                 return (
                                     <Stack key={slotNumber} spacing={1.25}>
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('layouts.datasource.overviewCard', 'Card')} {slotNumber}
                                         </Typography>
                                         <TextField

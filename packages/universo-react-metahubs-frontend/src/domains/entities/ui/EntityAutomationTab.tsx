@@ -361,7 +361,15 @@ const EntityActionsTab = ({
             ) : null}
 
             <Box sx={panelSx}>
-                <Stack direction='row' justifyContent='space-between' alignItems='center' spacing={1} sx={{ mb: 1.5 }}>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    sx={{
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: 1.5
+                    }}
+                >
                     <Typography variant='subtitle2'>
                         {t('entities.instances.automation.actions.listTitle', 'Configured actions')}
                     </Typography>
@@ -392,14 +400,24 @@ const EntityActionsTab = ({
                     ))}
                     {actionsQuery.isLoading ? (
                         <Box sx={{ px: 1, py: 2 }}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('entities.instances.automation.actions.loading', 'Loading actions...')}
                             </Typography>
                         </Box>
                     ) : null}
                     {!actionsQuery.isLoading && actions.length === 0 ? (
                         <Box sx={{ px: 1, py: 2 }}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('entities.instances.automation.actions.empty', 'No actions configured yet.')}
                             </Typography>
                         </Box>
@@ -507,7 +525,13 @@ const EntityActionsTab = ({
                         fullWidth
                     />
 
-                    <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        sx={{
+                            justifyContent: 'flex-end'
+                        }}
+                    >
                         {draft.id ? (
                             <Button color='error' onClick={handleDelete} disabled={isSaving}>
                                 {t('entities.instances.automation.actions.deleteAction', 'Delete action')}
@@ -741,7 +765,15 @@ const EntityEventBindingsTab = ({
             ) : null}
 
             <Box sx={panelSx}>
-                <Stack direction='row' justifyContent='space-between' alignItems='center' spacing={1} sx={{ mb: 1.5 }}>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    sx={{
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: 1.5
+                    }}
+                >
                     <Typography variant='subtitle2'>
                         {t('entities.instances.automation.events.listTitle', 'Configured event bindings')}
                     </Typography>
@@ -778,14 +810,24 @@ const EntityEventBindingsTab = ({
                     ))}
                     {bindingsQuery.isLoading ? (
                         <Box sx={{ px: 1, py: 2 }}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('entities.instances.automation.events.loading', 'Loading event bindings...')}
                             </Typography>
                         </Box>
                     ) : null}
                     {!bindingsQuery.isLoading && bindings.length === 0 ? (
                         <Box sx={{ px: 1, py: 2 }}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('entities.instances.automation.events.empty', 'No event bindings configured yet.')}
                             </Typography>
                         </Box>
@@ -881,7 +923,13 @@ const EntityEventBindingsTab = ({
                         fullWidth
                     />
 
-                    <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        sx={{
+                            justifyContent: 'flex-end'
+                        }}
+                    >
                         {draft.id ? (
                             <Button color='error' onClick={handleDelete} disabled={isSaving}>
                                 {t('entities.instances.automation.events.deleteBinding', 'Delete binding')}

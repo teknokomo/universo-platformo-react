@@ -152,7 +152,12 @@ export function RuntimeTabularPartView({
         <Box sx={{ mt: 1, mb: 2 }}>
             {showTitle && label && (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant='subtitle2' color='text.secondary'>
+                    <Typography
+                        variant='subtitle2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {label}
                     </Typography>
                     {canCreate && (

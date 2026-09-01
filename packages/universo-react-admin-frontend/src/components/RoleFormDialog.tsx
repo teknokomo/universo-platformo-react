@@ -324,7 +324,12 @@ export default function RoleFormDialog({
                         label={
                             <Box>
                                 <Typography variant='body1'>{t('roles.field.isSuperuser', 'Superuser Access')}</Typography>
-                                <Typography variant='caption' color='text.secondary'>
+                                <Typography
+                                    variant='caption'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('roles.field.isSuperuserHint', 'Full platform access with permission bypass - root user')}
                                 </Typography>
                             </Box>

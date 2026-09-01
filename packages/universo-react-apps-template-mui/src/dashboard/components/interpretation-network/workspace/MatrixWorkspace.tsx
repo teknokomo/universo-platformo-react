@@ -605,7 +605,13 @@ export function MatrixWorkspace({
                             boxShadow: 'none'
                         }}
                     >
-                        <Typography variant='body2' color='text.secondary' sx={{ fontWeight: 500 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                fontWeight: 500
+                            }}
+                        >
                             {renderTreeTotalLabel(t, matrixCells.length)}
                         </Typography>
                     </Paper>

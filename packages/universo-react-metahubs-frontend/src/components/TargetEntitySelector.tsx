@@ -481,7 +481,13 @@ export const TargetEntitySelector = ({
 
             {/* Placeholder for unsupported entity kinds */}
             {targetEntityKind && !isKindSupported && (
-                <Typography variant='body2' color='text.secondary' sx={{ fontStyle: 'italic' }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        fontStyle: 'italic'
+                    }}
+                >
                     {t('ref.entityKindNotSupported', 'This entity type is not yet supported for references.')}
                 </Typography>
             )}

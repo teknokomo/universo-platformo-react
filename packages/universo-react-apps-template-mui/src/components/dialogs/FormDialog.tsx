@@ -2257,7 +2257,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
                     return (
                         <Stack spacing={1.25}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {field.label}
                                 {field.required ? ' *' : ''}
                             </Typography>
@@ -2341,7 +2346,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
                     return (
                         <Stack spacing={1}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {field.label}
                                 {field.required ? ' *' : ''}
                             </Typography>
@@ -2405,7 +2415,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             : setLabelFromOption) ?? '—'
                     return (
                         <Stack spacing={0.5}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {field.label}
                             </Typography>
                             <Typography variant='body1'>{displayLabel}</Typography>
@@ -2424,7 +2439,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     if (mode === 'label') {
                         return (
                             <Stack spacing={0.5}>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {field.label}
                                 </Typography>
                                 <Typography variant='body1'>{selectedOption?.label ?? (emptyDisplay === 'empty' ? '' : '—')}</Typography>
@@ -2546,7 +2566,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 if (copyMode) {
                     return (
                         <Box sx={{ py: 1, px: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('table.copiedUnchanged', 'Table rows are copied unchanged from the source record.')}
                             </Typography>
                         </Box>
@@ -2609,10 +2634,20 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 // Fallback: no child fields configured
                 return (
                     <Box sx={{ py: 1, px: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {field.label}
                         </Typography>
-                        <Typography variant='caption' color='text.secondary'>
+                        <Typography
+                            variant='caption'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('table.editAfterSave', 'Table data can be edited after saving the record.')}
                         </Typography>
                     </Box>
@@ -2681,7 +2716,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         ))}
                     </Stepper>
                     {currentWizardStep?.helperText ? (
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {currentWizardStep.helperText}
                         </Typography>
                     ) : null}
@@ -2692,7 +2732,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     <CircularProgress size={20} />
                 </Stack>
             ) : visibleFields.length === 0 || renderedFields.length === 0 ? (
-                <Typography color='text.secondary'>{emptyStateText}</Typography>
+                <Typography
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
+                    {emptyStateText}
+                </Typography>
             ) : (
                 renderedFields.map((field) => {
                     const required = isFieldRequired(field, formData)

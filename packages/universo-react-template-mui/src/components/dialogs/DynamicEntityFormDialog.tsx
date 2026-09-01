@@ -1462,7 +1462,12 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
                     return (
                         <Stack spacing={1}>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {field.label}
                                 {field.required ? ' *' : ''}
                             </Typography>
@@ -1514,12 +1519,23 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             </FormControl>
                             {fieldError ? <FormHelperText error>{fieldError}</FormHelperText> : null}
                             {parsed.success && domain ? (
-                                <Typography variant='caption' color='text.secondary'>
+                                <Typography
+                                    variant='caption'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('resourceSource.domainPreview', 'Domain: {{domain}}', { domain })}
                                 </Typography>
                             ) : null}
                             {parsed.success && !domain && hasResourceSourceLocator(resourceValue) ? (
-                                <Typography role='status' variant='caption' color='text.secondary'>
+                                <Typography
+                                    role='status'
+                                    variant='caption'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('resourceSource.configured', 'Resource source configured')}
                                 </Typography>
                             ) : null}
@@ -1616,7 +1632,12 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 return (
                     <Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                            <Typography variant='subtitle2' color='text.secondary'>
+                            <Typography
+                                variant='subtitle2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {field.label}
                             </Typography>
                             {!disabled && (
@@ -1705,7 +1726,12 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                                 colSpan={childFieldDefs.length + (disabled ? 0 : 1)}
                                                 sx={{ textAlign: 'center', py: 2, color: 'text.secondary', border: 0 }}
                                             >
-                                                <Typography variant='body2' color='text.secondary'>
+                                                <Typography
+                                                    variant='body2'
+                                                    sx={{
+                                                        color: 'text.secondary'
+                                                    }}
+                                                >
                                                     {t('tableField.noRowsYet', 'No rows yet. Click "Add Row" to start.')}
                                                 </Typography>
                                             </TableCell>
@@ -1777,7 +1803,13 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             <CircularProgress size={20} />
                         </Stack>
                     ) : fields.length === 0 ? (
-                        <Typography color='text.secondary'>{emptyStateText}</Typography>
+                        <Typography
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
+                            {emptyStateText}
+                        </Typography>
                     ) : (
                         fields.map((field) => <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>)
                     )}

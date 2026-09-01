@@ -193,7 +193,13 @@ const InstanceList = () => {
                     const displayName = getInstanceName(row, i18n.language)
                     return (
                         <Link to={`/admin/instance/${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                            <Stack direction='row' alignItems='center' spacing={1}>
+                            <Stack
+                                direction='row'
+                                spacing={1}
+                                sx={{
+                                    alignItems: 'center'
+                                }}
+                            >
                                 {row.is_local ? (
                                     <DnsRoundedIcon color='primary' fontSize='small' />
                                 ) : (
@@ -346,7 +352,12 @@ const InstanceList = () => {
                     }}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         search={true}
                         searchPlaceholder={t('instances.searchPlaceholder', 'Search instances...')}
@@ -420,7 +431,13 @@ const InstanceList = () => {
                                                 images={images[instance.id] || []}
                                                 href={`/admin/instance/${instance.id}`}
                                                 footerStartContent={
-                                                    <Stack direction='row' spacing={0.5} alignItems='center'>
+                                                    <Stack
+                                                        direction='row'
+                                                        spacing={0.5}
+                                                        sx={{
+                                                            alignItems: 'center'
+                                                        }}
+                                                    >
                                                         {instance.is_local ? (
                                                             <DnsRoundedIcon color='primary' fontSize='small' />
                                                         ) : (

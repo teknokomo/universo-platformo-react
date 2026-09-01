@@ -377,7 +377,12 @@ export function CellEditDialog({
                     <Typography variant='subtitle2'>{title}</Typography>
                 )}
                 {newAxisIsSystemManaged ? (
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('workspace.cell.axisCreatedAutomatically', 'Created automatically for the new cell.')}
                     </Typography>
                 ) : kind === 'existing' ? (

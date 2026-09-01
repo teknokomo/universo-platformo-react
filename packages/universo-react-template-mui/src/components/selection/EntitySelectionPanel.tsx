@@ -294,7 +294,13 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                                     id: 'codename',
                                     label: labels.codenameHeader,
                                     render: (entity) => (
-                                        <Typography variant='body2' color='text.secondary' sx={{ fontFamily: 'monospace' }}>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary',
+                                                fontFamily: 'monospace'
+                                            }}
+                                        >
                                             {getCodename(entity)}
                                         </Typography>
                                     )
@@ -320,7 +326,13 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 </Alert>
             ) : (
                 <Paper variant='outlined' sx={{ p: 3, textAlign: 'center', mb: 2, bgcolor: 'action.hover' }}>
-                    <Typography color='text.secondary'>{labels.emptyMessage}</Typography>
+                    <Typography
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
+                        {labels.emptyMessage}
+                    </Typography>
                 </Paper>
             )}
 

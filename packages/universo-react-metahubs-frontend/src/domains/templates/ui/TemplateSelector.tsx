@@ -46,7 +46,12 @@ export function TemplateSelector({
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
                 <CircularProgress size={16} />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('templates.loading', 'Loading templates...')}
                 </Typography>
             </Box>
@@ -109,8 +114,13 @@ export function TemplateSelector({
                                 {desc && (
                                     <Typography
                                         variant='caption'
-                                        color='text.secondary'
-                                        sx={{ maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35 }}
+                                        sx={{
+                                            color: 'text.secondary',
+                                            maxWidth: '100%',
+                                            whiteSpace: 'normal',
+                                            overflowWrap: 'anywhere',
+                                            lineHeight: 1.35
+                                        }}
                                     >
                                         {desc}
                                     </Typography>

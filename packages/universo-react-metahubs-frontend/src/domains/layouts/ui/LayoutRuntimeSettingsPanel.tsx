@@ -95,7 +95,13 @@ function MarketingAppearancePanel({
             <Typography variant='subtitle1' sx={{ mb: 0.5 }}>
                 {t('layouts.marketing.appearanceTitle', 'Marketing page appearance')}
             </Typography>
-            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+            <Typography
+                variant='body2'
+                sx={{
+                    color: 'text.secondary',
+                    mb: 2
+                }}
+            >
                 {t(
                     'layouts.marketing.appearanceDescription',
                     'Configure the published marketing page without editing its content records.'
@@ -217,7 +223,13 @@ export function LayoutRuntimeSettingsPanel({
                         ? t('layouts.details.objectBehaviorTitleObject', 'Entity runtime behavior')
                         : t('layouts.details.objectBehaviorTitleGlobal', 'Default entity runtime behavior')}
                 </Typography>
-                <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 2
+                    }}
+                >
                     {isScopedLayout
                         ? t(
                               'layouts.details.objectBehaviorDescriptionObject',

@@ -208,7 +208,13 @@ const BranchEditFields = ({
                 editingEntityId={editingEntityId}
             />
             {showActivateControl ? (
-                <Stack direction='row' spacing={1} alignItems='center'>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    sx={{
+                        alignItems: 'center'
+                    }}
+                >
                     <Button type='button' size='small' variant='outlined' disabled={Boolean(isActive) || isLoading} onClick={onActivate}>
                         {t('metahubs:branches.activate', 'Activate')}
                     </Button>
@@ -238,7 +244,13 @@ const SourceInfoCard = ({ text, tone = 'info' }: { text: string; tone?: 'info' |
         ) : (
             <InfoOutlinedIcon sx={{ color: 'text.secondary', mt: '2px' }} fontSize='small' />
         )}
-        <Typography color='text.secondary'>{text}</Typography>
+        <Typography
+            sx={{
+                color: 'text.secondary'
+            }}
+        >
+            {text}
+        </Typography>
     </Box>
 )
 
@@ -306,10 +318,19 @@ const BranchSourceInfoTab = ({
                                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                                         <WarningAmberOutlinedIcon sx={{ color: 'warning.main', mt: '2px' }} fontSize='small' />
                                         <Box>
-                                            <Typography color='text.primary'>
+                                            <Typography
+                                                sx={{
+                                                    color: 'text.primary'
+                                                }}
+                                            >
                                                 {t('metahubs:branches.sourceMissingItem', 'Deleted branch')}
                                             </Typography>
-                                            <Typography variant='caption' color='text.secondary'>
+                                            <Typography
+                                                variant='caption'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {node.id}
                                             </Typography>
                                         </Box>
@@ -320,7 +341,12 @@ const BranchSourceInfoTab = ({
                                         <Box>
                                             <Typography>{label}</Typography>
                                             {codenameInfo ? (
-                                                <Typography variant='caption' color='text.secondary'>
+                                                <Typography
+                                                    variant='caption'
+                                                    sx={{
+                                                        color: 'text.secondary'
+                                                    }}
+                                                >
                                                     {codenameInfo}
                                                 </Typography>
                                             ) : null}

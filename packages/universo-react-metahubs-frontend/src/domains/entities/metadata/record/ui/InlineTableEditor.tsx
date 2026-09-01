@@ -807,7 +807,12 @@ export function InlineTableEditor({
         <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
                 {showTitle !== false && (
-                    <Typography variant='subtitle2' color='text.secondary'>
+                    <Typography
+                        variant='subtitle2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {label}
                     </Typography>
                 )}
@@ -996,7 +1001,12 @@ export function InlineTableEditor({
                                     colSpan={childFields.length + (disabled ? 1 : 2)}
                                     sx={{ textAlign: 'center', py: 2, color: 'text.secondary', border: 0 }}
                                 >
-                                    <Typography variant='body2' color='text.secondary'>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {t('records.table.noRows', 'No rows yet. Click "Add Row" to add data.')}
                                     </Typography>
                                 </TableCell>

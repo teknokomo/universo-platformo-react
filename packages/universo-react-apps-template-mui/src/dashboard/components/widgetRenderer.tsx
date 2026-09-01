@@ -544,7 +544,12 @@ function DetailsTableCreateTargetMenu({ createTargets }: { createTargets?: Detai
                             <Stack spacing={0.25}>
                                 <Typography variant='body2'>{label}</Typography>
                                 {availability.disabled && disabledReason ? (
-                                    <Typography variant='caption' color='text.secondary'>
+                                    <Typography
+                                        variant='caption'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {disabledReason}
                                     </Typography>
                                 ) : null}
@@ -1009,7 +1014,12 @@ function RecordsListDetailsTableWidget({
                 sortable: false,
                 filterable: false,
                 renderCell: (params) => (
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {String(params.value ?? '')}
                     </Typography>
                 )
@@ -1085,7 +1095,12 @@ function RecordsListDetailsTableWidget({
                 {warningText ? <Alert severity='warning'>{warningText}</Alert> : null}
                 {loadErrorText ? <Alert severity='error'>{loadErrorText}</Alert> : null}
                 {!canPersistRowReordering ? (
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'app.reorderRequiresCompleteDataset',
                             'Row reordering is available only when all rows are loaded and search is cleared.'
@@ -2969,7 +2984,12 @@ function LearnerPlayerWidget({ config }: { config?: Record<string, unknown> }) {
                     <Typography variant='h6' sx={{ fontWeight: 700 }}>
                         {selectedParentTitle}
                     </Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {showPlayerProgressHeader
                             ? t('learnerPlayer.progress', '{{completed}} of {{total}} completed', {
                                   completed: completedPlayerItemCount,
@@ -3064,7 +3084,12 @@ function LearnerPlayerWidget({ config }: { config?: Record<string, unknown> }) {
                                 <Typography variant='subtitle1' sx={{ fontWeight: 700 }}>
                                     {selectedTitle}
                                 </Typography>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {selectedTargetObjectLabel}
                                 </Typography>
                             </Box>

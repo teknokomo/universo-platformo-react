@@ -159,7 +159,12 @@ function renderBlock(block: RuntimePageBlock, locale: string, index: number): Re
                     sx={{ width: '100%', maxHeight: 420, objectFit: 'contain', borderRadius: 1, bgcolor: 'background.default' }}
                 />
                 {caption ? (
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {caption}
                     </Typography>
                 ) : null}
@@ -188,13 +193,23 @@ function renderBlock(block: RuntimePageBlock, locale: string, index: number): Re
             <Stack key={blockKey} spacing={0.5}>
                 <Typography
                     variant='body1'
-                    color='text.secondary'
-                    sx={{ borderLeft: 3, borderColor: 'divider', pl: 2, fontStyle: 'italic' }}
+                    sx={{
+                        color: 'text.secondary',
+                        borderLeft: 3,
+                        borderColor: 'divider',
+                        pl: 2,
+                        fontStyle: 'italic'
+                    }}
                 >
                     {resolveLocalizedText(data.text, locale)}
                 </Typography>
                 {caption ? (
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {caption}
                     </Typography>
                 ) : null}
@@ -205,7 +220,13 @@ function renderBlock(block: RuntimePageBlock, locale: string, index: number): Re
     if (block.type === 'paragraph') {
         const data: ParagraphBlock['data'] = block.data
         return (
-            <Typography key={blockKey} variant='body1' color='text.secondary'>
+            <Typography
+                key={blockKey}
+                variant='body1'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {resolveLocalizedText(data.text, locale)}
             </Typography>
         )

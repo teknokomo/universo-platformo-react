@@ -269,7 +269,14 @@ export function InterpretationNetworkCellStyleEditor({
                     ))}
                 </ToggleButtonGroup>
                 {colorErrors[field.id] || validationErrors[field.id] ? (
-                    <Typography id={`${field.id}-error`} role='alert' color='error.main' variant='caption'>
+                    <Typography
+                        id={`${field.id}-error`}
+                        role='alert'
+                        variant='caption'
+                        sx={{
+                            color: 'error.main'
+                        }}
+                    >
                         {colorErrors[field.id] ?? validationErrors[field.id]}
                     </Typography>
                 ) : null}
@@ -332,12 +339,24 @@ export function InterpretationNetworkCellStyleEditor({
             {renderColorControl(t('cellStyle.fill', 'Fill'), fieldMap.fill)}
             {renderColorControl(t('cellStyle.textColor', 'Text color'), fieldMap.text)}
             {contrastError && styleErrors.length === 0 ? (
-                <Typography role='status' color='warning.main' variant='body2'>
+                <Typography
+                    role='status'
+                    variant='body2'
+                    sx={{
+                        color: 'warning.main'
+                    }}
+                >
                     {t('cellStyle.contrastWarning', 'This text and fill combination may be difficult to read. You can still save it.')}
                 </Typography>
             ) : null}
             {!contrastError && styleErrors.length > 0 ? (
-                <Typography role='alert' color='error.main' variant='body2'>
+                <Typography
+                    role='alert'
+                    variant='body2'
+                    sx={{
+                        color: 'error.main'
+                    }}
+                >
                     {styleErrors[0]}
                 </Typography>
             ) : null}

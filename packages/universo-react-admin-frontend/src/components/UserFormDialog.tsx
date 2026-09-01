@@ -245,7 +245,14 @@ export default function UserFormDialog({
         >
             <DialogTitle>
                 {presentation.titleActions ? (
-                    <Stack direction='row' alignItems='center' justifyContent='space-between' spacing={2}>
+                    <Stack
+                        direction='row'
+                        spacing={2}
+                        sx={{
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}
+                    >
                         <span>{title}</span>
                         {presentation.titleActions}
                     </Stack>

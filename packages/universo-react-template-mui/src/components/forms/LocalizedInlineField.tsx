@@ -440,7 +440,12 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
                 <CircularProgress size={16} />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('loading', 'Loading languages...')}
                 </Typography>
             </Box>
@@ -624,7 +629,14 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                     </>
                 )}
                 {localesError && (
-                    <Typography variant='caption' color='warning.main' sx={{ px: 2, pb: 1 }}>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'warning.main',
+                            px: 2,
+                            pb: 1
+                        }}
+                    >
                         {t('fallbackNotice', 'Using fallback languages')}
                     </Typography>
                 )}

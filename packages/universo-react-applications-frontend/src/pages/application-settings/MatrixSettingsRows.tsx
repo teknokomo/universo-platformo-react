@@ -64,7 +64,12 @@ const SettingsRow = ({
     >
         <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant='subtitle2'>{title}</Typography>
-            <Typography variant='body2' color='text.secondary'>
+            <Typography
+                variant='body2'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {description}
             </Typography>
             {extra}
@@ -216,7 +221,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                 )}
                 extra={
                     localSettings.matrixMode === 'independentRows' ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 0.5
+                            }}
+                        >
                             {t('settings.matrix.independentRowsViewConstraint', 'Vertical tree is available only for hierarchical cells.')}
                         </Typography>
                     ) : null
@@ -296,7 +307,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                 extra={
                     <>
                         {localSettings.matrixMode === 'independentRows' ? (
-                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    mt: 0.5
+                                }}
+                            >
                                 {t(
                                     'settings.matrix.independentRowsProjectionConstraint',
                                     'Independent rows always use separate row and column axes.'
@@ -304,7 +321,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                             </Typography>
                         ) : null}
                         {!tableViewAllowed ? (
-                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    mt: 0.5
+                                }}
+                            >
                                 {t(
                                     'settings.matrix.tableViewDisabledConstraint',
                                     'Enable Table view to configure table projection and breadcrumb depth.'
@@ -350,7 +373,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                 )}
                 extra={
                     !tableViewAllowed ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 0.5
+                            }}
+                        >
                             {t(
                                 'settings.matrix.tableViewDisabledConstraint',
                                 'Enable Table view to configure table projection and breadcrumb depth.'

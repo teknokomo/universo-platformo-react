@@ -395,9 +395,21 @@ const InstanceUsers = () => {
     if (instanceLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
-                <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
+                <Stack
+                    spacing={2}
+                    sx={{
+                        alignItems: 'center',
+                        minHeight: 400,
+                        justifyContent: 'center'
+                    }}
+                >
                     <CircularProgress size={40} />
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('users.loading', 'Loading...')}
                     </Typography>
                 </Stack>
@@ -418,7 +430,12 @@ const InstanceUsers = () => {
                 <Alert severity='error' sx={{ mx: 'auto', maxWidth: 600 }}>
                     {errorMessage}
                 </Alert>
-                <Box display='flex' justifyContent='center'>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center'
+                    }}
+                >
                     <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/admin')}>
                         {tc('back', 'Back')}
                     </Button>
@@ -430,7 +447,13 @@ const InstanceUsers = () => {
     return (
         <>
             <Box sx={{ pb: 2 }}>
-                <Stack direction='row' spacing={1} alignItems='center'>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    sx={{
+                        alignItems: 'center'
+                    }}
+                >
                     <Chip
                         label={t(`instances.status.${instance.status}`, instance.status)}
                         color={instance.status === 'active' ? 'success' : instance.status === 'maintenance' ? 'warning' : 'error'}
@@ -464,7 +487,12 @@ const InstanceUsers = () => {
                         }}
                     />
                 ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <Stack
+                        sx={{
+                            flexDirection: 'column',
+                            gap: 1
+                        }}
+                    >
                         <ViewHeader title={t('users.title', 'Users Management')}>
                             <ToolbarControls
                                 viewToggleEnabled

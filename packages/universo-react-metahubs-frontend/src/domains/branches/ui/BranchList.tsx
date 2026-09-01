@@ -466,7 +466,13 @@ const BranchList = () => {
     )
 
     const getStatusChips = (branch: MetahubBranch) => (
-        <Stack direction='row' spacing={0.5} flexWrap='wrap'>
+        <Stack
+            direction='row'
+            spacing={0.5}
+            sx={{
+                flexWrap: 'wrap'
+            }}
+        >
             {branch.isDefault ? <Chip size='small' label={t('metahubs:branches.badge.default', 'Default')} variant='outlined' /> : null}
             {branch.isActive ? (
                 <Chip size='small' label={t('metahubs:branches.badge.active', 'Active')} color='success' variant='outlined' />
@@ -486,7 +492,13 @@ const BranchList = () => {
                 render: (row: MetahubBranchDisplay) => (
                     <Stack spacing={0.5}>
                         <Typography sx={{ fontSize: 14, fontWeight: 600, wordBreak: 'break-word' }}>{row.name || '—'}</Typography>
-                        <Stack direction='row' spacing={0.5} flexWrap='wrap'>
+                        <Stack
+                            direction='row'
+                            spacing={0.5}
+                            sx={{
+                                flexWrap: 'wrap'
+                            }}
+                        >
                             {row.isDefault ? (
                                 <Chip size='small' label={t('metahubs:branches.badge.default', 'Default')} variant='outlined' />
                             ) : null}
@@ -736,7 +748,12 @@ const BranchList = () => {
                         }}
                     />
                 ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <Stack
+                        sx={{
+                            flexDirection: 'column',
+                            gap: 1
+                        }}
+                    >
                         <ViewHeader
                             search={true}
                             searchPlaceholder={t('metahubs:branches.searchPlaceholder', 'Search branches...')}

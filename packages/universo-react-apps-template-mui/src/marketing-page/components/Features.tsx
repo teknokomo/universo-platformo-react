@@ -106,7 +106,12 @@ export default function Features({ section, items }: FeaturesProps) {
                                 sx={{ width: '100%', maxWidth: 520, height: 500, objectFit: 'contain' }}
                             />
                         ) : (
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {selectedFeature?.description}
                             </Typography>
                         )}
@@ -146,7 +151,12 @@ export default function Features({ section, items }: FeaturesProps) {
                             <Typography gutterBottom sx={{ fontWeight: 'medium' }}>
                                 {selectedFeature?.title}
                             </Typography>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {selectedFeature?.description}
                             </Typography>
                         </Box>

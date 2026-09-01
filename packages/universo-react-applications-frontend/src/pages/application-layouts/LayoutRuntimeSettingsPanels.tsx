@@ -253,7 +253,13 @@ function PaperSection({ title, description, children }: { title: string; descrip
                 <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
                     {title}
                 </Typography>
-                <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 2
+                    }}
+                >
                     {description}
                 </Typography>
                 {children}

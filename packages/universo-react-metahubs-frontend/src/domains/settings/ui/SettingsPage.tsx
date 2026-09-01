@@ -459,7 +459,15 @@ const SettingsPage = () => {
                                         }}
                                     >
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Stack direction='row' spacing={1} alignItems='center' sx={{ mb: 0.5, flexWrap: 'wrap' }}>
+                                            <Stack
+                                                direction='row'
+                                                spacing={1}
+                                                sx={{
+                                                    alignItems: 'center',
+                                                    mb: 0.5,
+                                                    flexWrap: 'wrap'
+                                                }}
+                                            >
                                                 <Typography variant='subtitle2'>{widgetLabel}</Typography>
                                                 <Chip
                                                     size='small'
@@ -468,10 +476,20 @@ const SettingsPage = () => {
                                                     })}
                                                 />
                                             </Stack>
-                                            <Typography variant='body2' color='text.secondary'>
+                                            <Typography
+                                                variant='body2'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {t('settings.layoutWidgets.layoutLabel', 'Layout: {{layout}}', { layout: layoutTitle })}
                                             </Typography>
-                                            <Typography variant='body2' color='text.secondary'>
+                                            <Typography
+                                                variant='body2'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {extractWidgetSettingsSummary(item.widget, t)}
                                             </Typography>
                                         </Box>
@@ -479,7 +497,9 @@ const SettingsPage = () => {
                                         <Stack
                                             direction={{ xs: 'column', sm: 'row' }}
                                             spacing={1}
-                                            alignItems={{ xs: 'stretch', sm: 'center' }}
+                                            sx={{
+                                                alignItems: { xs: 'stretch', sm: 'center' }
+                                            }}
                                         >
                                             {splitPaneEnabled !== null ? (
                                                 <SettingControl
@@ -533,7 +553,13 @@ const SettingsPage = () => {
                                 <Box key={entry.key} sx={{ py: 2, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                                     {/* Label + description */}
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Stack direction='row' alignItems='center' spacing={1}>
+                                        <Stack
+                                            direction='row'
+                                            spacing={1}
+                                            sx={{
+                                                alignItems: 'center'
+                                            }}
+                                        >
                                             <Typography variant='subtitle2'>
                                                 {t(`settings.keys.${entry.key}`, {
                                                     defaultValue: t(`settings.keys.${resolveBaseEntitySettingKey(entry.key)}`, {
@@ -542,12 +568,23 @@ const SettingsPage = () => {
                                                 })}
                                             </Typography>
                                             {isLocallyModified && (
-                                                <Typography variant='caption' color='info.main' sx={{ fontStyle: 'italic' }}>
+                                                <Typography
+                                                    variant='caption'
+                                                    sx={{
+                                                        color: 'info.main',
+                                                        fontStyle: 'italic'
+                                                    }}
+                                                >
                                                     •
                                                 </Typography>
                                             )}
                                         </Stack>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(`settings.keys.${entry.key}.description`, {
                                                 defaultValue: t(`settings.keys.${resolveBaseEntitySettingKey(entry.key)}.description`, {
                                                     defaultValue: ''

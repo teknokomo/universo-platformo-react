@@ -50,7 +50,12 @@ export default function LayoutWidgetSharedBehaviorFields({ value, onChange, disa
         <Stack spacing={1.25}>
             <Stack spacing={0.5}>
                 <Typography variant='subtitle2'>{t('layouts.sharedBehavior.title', 'Shared behavior')}</Typography>
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t(
                         'layouts.sharedBehavior.description',
                         'Controls whether inherited layouts can deactivate, exclude, or move this widget.'

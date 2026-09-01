@@ -300,7 +300,13 @@ export function MaterialContentEditor({ t, locale, bodyField, value, readOnly, i
             </Menu>
 
             <Box sx={{ minWidth: 0 }}>
-                <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 1
+                    }}
+                >
                     {t('workspace.material.editorHint', 'Material content')}
                 </Typography>
                 <EditorJsBlockEditor

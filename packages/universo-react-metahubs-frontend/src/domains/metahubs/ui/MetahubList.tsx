@@ -218,7 +218,12 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
 
     return (
         <Stack spacing={1} sx={{ mt: 1 }}>
-            <Typography variant='subtitle2' color='text.secondary'>
+            <Typography
+                variant='subtitle2'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {t('createOptions.alwaysCreated')}
             </Typography>
             <FormControlLabel control={<Checkbox checked disabled />} label={t('createOptions.branch')} />
@@ -226,7 +231,12 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
 
             <Divider />
 
-            <Typography variant='subtitle2' color='text.secondary'>
+            <Typography
+                variant='subtitle2'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {t('createOptions.optionalEntities')}
             </Typography>
             {isTemplateLoading || isPresetItemsLoading ? (
@@ -235,7 +245,12 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
                     <Skeleton variant='rounded' height={32} />
                 </Stack>
             ) : presetReferences.length === 0 ? (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('createOptions.noOptionalPresets', 'This template does not define optional presets.')}
                 </Typography>
             ) : (
@@ -407,7 +422,12 @@ const MetahubList = () => {
                                     label={
                                         <Box>
                                             <Typography variant='body1'>{t('storage.externalDb')}</Typography>
-                                            <Typography variant='caption' color='text.secondary'>
+                                            <Typography
+                                                variant='caption'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {t('storage.externalDbDisabled')}
                                             </Typography>
                                         </Box>
@@ -782,7 +802,12 @@ const MetahubList = () => {
                         }}
                     />
                 ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <Stack
+                        sx={{
+                            flexDirection: 'column',
+                            gap: 1
+                        }}
+                    >
                         <ViewHeader
                             search={true}
                             searchPlaceholder={t('searchPlaceholder')}

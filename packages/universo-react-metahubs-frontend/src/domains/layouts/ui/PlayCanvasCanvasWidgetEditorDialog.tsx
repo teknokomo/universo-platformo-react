@@ -376,7 +376,12 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
             error={submitError ?? undefined}
             extraFields={() => (
                 <Stack spacing={2.5}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'layouts.playcanvasCanvasEditor.description',
                             'Bind the runtime canvas to a published PlayCanvas scene and MMOOMM runtime modules.'

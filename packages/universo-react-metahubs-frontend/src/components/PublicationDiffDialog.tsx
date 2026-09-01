@@ -81,7 +81,12 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
             <Box sx={{ minWidth: 0 }}>
                 <Box component='span'>{t('publications.diffDialog.title', 'Schema Changes')}</Box>
                 {publicationName && (
-                    <Typography variant='subtitle2' color='text.secondary'>
+                    <Typography
+                        variant='subtitle2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {publicationName}
                     </Typography>
                 )}
@@ -111,7 +116,12 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                         <CheckCircleOutlineIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
                         <Typography variant='h6'>{t('publications.diffDialog.noChanges', 'No changes detected')}</Typography>
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('publications.statusDescription.synced', 'Schema matches current configuration')}
                         </Typography>
                     </Box>

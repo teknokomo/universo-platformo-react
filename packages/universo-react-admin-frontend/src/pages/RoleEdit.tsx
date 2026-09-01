@@ -175,9 +175,21 @@ const RoleEdit = () => {
     if (isLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
-                <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
+                <Stack
+                    spacing={2}
+                    sx={{
+                        alignItems: 'center',
+                        minHeight: 400,
+                        justifyContent: 'center'
+                    }}
+                >
                     <CircularProgress size={40} />
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('roles.loadingRole', 'Loading role...')}
                     </Typography>
                 </Stack>
@@ -211,7 +223,15 @@ const RoleEdit = () => {
             <Stack spacing={2}>
                 <ViewHeader title={roleDisplayName || t('roles.editTitle', 'Edit Role')} description={roleDescription} search={false} />
 
-                <Stack direction='row' spacing={1} alignItems='center' flexWrap='wrap' useFlexGap>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    useFlexGap
+                    sx={{
+                        alignItems: 'center',
+                        flexWrap: 'wrap'
+                    }}
+                >
                     <Button startIcon={<ArrowBackRoundedIcon />} onClick={handleBack} size='small'>
                         {t('roles.backToList', 'Back to Roles')}
                     </Button>
@@ -258,7 +278,12 @@ const RoleEdit = () => {
                 />
 
                 {!isSystemRole && (
-                    <Stack direction='row' justifyContent='flex-end'>
+                    <Stack
+                        direction='row'
+                        sx={{
+                            justifyContent: 'flex-end'
+                        }}
+                    >
                         <Button
                             variant='contained'
                             startIcon={isSaving ? <CircularProgress size={16} /> : <SaveRoundedIcon />}

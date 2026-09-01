@@ -58,7 +58,12 @@ export const ContentSettingsPanel = ({
             >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.learningContent.defaultView', 'Default content view')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.learningContent.defaultViewDescription',
                             'Choose the first view mode for Learning Content project libraries.'
@@ -85,7 +90,13 @@ export const ContentSettingsPanel = ({
 
             <Box data-testid='application-setting-learning-content-resource-types' sx={{ py: 2 }}>
                 <Typography variant='subtitle2'>{t('settings.learningContent.resourceTypes', 'Resource types')}</Typography>
-                <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 2
+                    }}
+                >
                     {t(
                         'settings.learningContent.resourceTypesDescription',
                         'Enable only resource types that have safe runtime behavior. Deferred types stay visible as unsupported placeholders.'
@@ -179,7 +190,12 @@ export const ContentSettingsPanel = ({
             >
                 <Box sx={{ minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.learningContent.coursePolicy', 'Course completion policy')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.learningContent.coursePolicyDescription',
                             'Defaults for course navigation, completion calculation, and status display.'
@@ -263,7 +279,12 @@ export const ContentSettingsPanel = ({
             >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.learningContent.trackPolicy', 'Learning track order')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.learningContent.trackPolicyDescription',
                             'Default order behavior used when a new learning track is created.'
@@ -317,7 +338,12 @@ export const ContentSettingsPanel = ({
             <Box data-testid='application-setting-learning-content-player' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.learningContent.player', 'Player preset')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.learningContent.playerDescription',
                             'Controls the default learner player chrome for pages, links, courses, and tracks.'
@@ -362,13 +388,25 @@ export const ContentSettingsPanel = ({
 
             <Box data-testid='application-setting-learning-content-columns' sx={{ py: 2 }}>
                 <Typography variant='subtitle2'>{t('settings.learningContent.columns', 'Default columns')}</Typography>
-                <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 1
+                    }}
+                >
                     {t(
                         'settings.learningContent.columnsDescription',
                         'Choose the default visible columns for Learning Content library tables.'
                     )}
                 </Typography>
-                <Stack direction='row' flexWrap='wrap' gap={1}>
+                <Stack
+                    direction='row'
+                    sx={{
+                        flexWrap: 'wrap',
+                        gap: 1
+                    }}
+                >
                     {LEARNING_CONTENT_COLUMN_FIELDS.map((field) => {
                         const column = settings.columnPreset?.columns.find((item) => item.field === field)
                         const visible = column?.visible !== false

@@ -446,7 +446,12 @@ export const PublicationVersionList: React.FC = () => {
                     description={t('metahubs:errors.pleaseTryLater', 'Please try again later')}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         title={t('metahubs:publications.versions.title', 'Versions')}
                         search={true}

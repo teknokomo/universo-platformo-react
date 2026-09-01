@@ -1550,7 +1550,12 @@ const EntitiesWorkspace = () => {
                             <Box sx={COMPONENT_SECTION_SX}>
                                 <Stack spacing={1.5}>
                                     <Typography variant='subtitle2'>{t('entities.fields.tabs', 'Tabs')}</Typography>
-                                    <Typography variant='body2' color='text.secondary'>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {t(
                                             'entities.fields.tabsHelperStructured',
                                             'Choose which authoring tabs should be exposed for this entity type. General is always enabled.'
@@ -1601,7 +1606,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.fields.resourceTabs', 'Resources section tabs')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.fields.resourceTabsHelper',
                                                 'These titles are used by the shared Resources workspace for compatible entity capabilities.'
@@ -1784,7 +1794,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.dataSchema', 'Data schema')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.dataSchemaHelper',
                                                 'Enables component-driven modeling and generated value editors for the entity type.'
@@ -1820,7 +1835,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.records', 'Predefined records')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.recordsHelper',
                                                 'Reuses the existing predefined-element flows for object-collection presets and other seeded entity types.'
@@ -1854,7 +1874,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.treeAssignment', 'TreeEntity assignment')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.treeAssignmentHelper',
                                                 'Allows the entity instances page to reuse the shared hub-assignment controls and Objects-style tabs.'
@@ -1907,7 +1932,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.hierarchy', 'Hierarchy')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.hierarchyHelper',
                                                 'Adds parent-child structure support on top of the entity data schema.'
@@ -1944,7 +1974,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.nestedCollections', 'Nested collections')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.nestedCollectionsHelper',
                                                 'Allows the entity schema to define repeating child collections inside the same type.'
@@ -1978,7 +2013,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.relations', 'Relations')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.relationsHelper',
                                                 'Enables reference components and relation-aware runtime behaviors for the entity type.'
@@ -2016,7 +2056,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.projectBinding', 'Project binding')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.projectBindingHelper',
                                                 'Adds a resource tab that binds each instance to a single external authoring project, such as a PlayCanvas Editor project.'
@@ -2051,7 +2096,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.optionValues', 'OptionListEntity values')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.optionValuesHelper',
                                                 'Keeps the type compatible with enumeration-style value registries.'
@@ -2072,7 +2122,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.fixedValues', 'Constants')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.fixedValuesHelper',
                                                 'Keeps the type compatible with set-style constant registries.'
@@ -2093,7 +2148,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.actions', 'Actions')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.actionsHelper',
                                                 'Enables object-scoped actions for ECAE lifecycle orchestration.'
@@ -2114,7 +2174,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.events', 'Events')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.eventsHelper',
                                                 'Allows lifecycle event bindings on top of the action contract.'
@@ -2135,7 +2200,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.modules', 'Modules')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.modulesHelper',
                                                 'Exposes the existing EntityModulesTab for module attachments and reuse.'
@@ -2158,7 +2228,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.layoutConfig', 'Layout config')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.layoutConfigHelper',
                                                 'Enables Object-compatible layout configuration and the dedicated layout authoring tab.'
@@ -2181,7 +2256,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.runtimeBehavior', 'Runtime behavior')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.runtimeBehaviorHelper',
                                                 'Publishes layout-aware runtime behavior so the generic application surfaces can render this entity type.'
@@ -2204,7 +2284,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.physicalTable', 'Physical table')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.physicalTableHelper',
                                                 'Creates a dedicated runtime table for publication and application sync pipelines.'
@@ -2240,7 +2325,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.identityFields', 'Identity fields')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.identityFieldsHelper',
                                                 'Enables system record number and effective date settings for entity instances.'
@@ -2295,7 +2385,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.recordLifecycle', 'Record lifecycle')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.recordLifecycleHelper',
                                                 'Enables lifecycle states for transactional or hybrid entity records.'
@@ -2332,7 +2427,12 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>{t('entities.capabilities.posting', 'Posting')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.postingHelper',
                                                 'Enables record posting settings and ledger movement modules.'
@@ -2387,7 +2487,12 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='subtitle2'>
                                             {t('entities.capabilities.ledgerSchema', 'Ledger schema')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'entities.capabilities.ledgerSchemaHelper',
                                                 'Enables append-only ledger schema settings and projection metadata.'
@@ -2556,7 +2661,14 @@ const EntitiesWorkspace = () => {
                 sortable: true,
                 sortAccessor: (row: EntityTypeDisplayRow) => row.componentCount,
                 render: (row: EntityTypeDisplayRow) => (
-                    <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
+                    <Stack
+                        direction='row'
+                        spacing={0.5}
+                        useFlexGap
+                        sx={{
+                            flexWrap: 'wrap'
+                        }}
+                    >
                         {row.componentKeys.slice(0, 3).map((componentKey) => (
                             <Chip key={componentKey} size='small' variant='outlined' label={renderCapabilityLabel(componentKey, t)} />
                         ))}
@@ -2608,7 +2720,12 @@ const EntitiesWorkspace = () => {
                 border={false}
                 shadow={false}
             >
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         title={t('entities.title', 'Entities')}
                         search
@@ -2690,7 +2807,14 @@ const EntitiesWorkspace = () => {
                                     }
                                     headerAction={renderCardAction(row)}
                                     footerStartContent={
-                                        <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
+                                        <Stack
+                                            direction='row'
+                                            spacing={0.5}
+                                            useFlexGap
+                                            sx={{
+                                                flexWrap: 'wrap'
+                                            }}
+                                        >
                                             <Chip
                                                 size='small'
                                                 color={row.published ? 'success' : 'default'}
@@ -2709,7 +2833,12 @@ const EntitiesWorkspace = () => {
                                         </Stack>
                                     }
                                     footerEndContent={
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('entities.componentsCount', {
                                                 count: row.componentCount,
                                                 defaultValue: '{{count}} capabilities'
