@@ -100,8 +100,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
             onClose={presentation.dialogProps.onClose}
             maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
 

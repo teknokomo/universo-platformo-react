@@ -811,7 +811,7 @@ export default function MenuWidgetEditorDialog({
                                             onChange={(event) =>
                                                 setDraft((p) => ({ ...p, maxPrimaryItems: normalizeMaxPrimaryItems(event.target.value) }))
                                             }
-                                            inputProps={{ min: 1, max: 12, step: 1 }}
+                                            slotProps={{ htmlInput: { min: 1, max: 12, step: 1 } }}
                                             fullWidth
                                             size='small'
                                             helperText={t(

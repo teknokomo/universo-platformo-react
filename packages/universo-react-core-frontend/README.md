@@ -11,7 +11,7 @@ The main React frontend application for Universo Platformo. This is the entry po
 -   **Package**: `@universo-react/core-frontend`
 -   **Version**: `0.1.0`
 -   **Type**: React Frontend Application (Modern)
--   **Framework**: React 18 + Vite + MUI v7 + TanStack Query v5
+-   **Framework**: React 18 + Vite + MUI v9 + TanStack Query v5
 -   **Language**: TypeScript (TSX)
 -   **Pattern**: Shell application that composes `@universo-react/*` feature packages
 -   **Build System**: Vite (production build to `build/`)
@@ -83,16 +83,16 @@ index.tsx                     → Bootstrap providers & render
 
 ### Key Dependencies
 
-| Dependency                | Purpose                              |
-| ------------------------- | ------------------------------------ |
+| Dependency                      | Purpose                              |
+| ------------------------------- | ------------------------------------ |
 | `@universo-react/store`         | Redux store + ConfirmContextProvider |
 | `@universo-react/template-mui`  | Shared MUI theme, layout, SCSS       |
 | `@universo-react/auth-frontend` | AuthProvider + session hooks         |
 | `@universo-react/api-client`    | Axios wrapper with interceptors      |
 | `@universo-react/i18n`          | i18next initialization singleton     |
-| `@tanstack/react-query`   | Server state management              |
-| `react-router-dom`        | Client-side routing                  |
-| `notistack`               | Snackbar notifications               |
+| `@tanstack/react-query`         | Server state management              |
+| `react-router-dom`              | Client-side routing                  |
+| `notistack`                     | Snackbar notifications               |
 
 ## File Structure
 

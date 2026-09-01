@@ -4,6 +4,32 @@
         "name": "Name",
         "codename": "Codename"
     },
+    "resourceSource": {
+        "type": "Resource type",
+        "url": "Source URL",
+        "pageCodename": "Page codename",
+        "storageKey": "Storage key",
+        "packageDescriptor": "Package descriptor",
+        "launchMode": "Launch",
+        "configured": "Resource source configured",
+        "domainPreview": "Domain: {{domain}}",
+        "types": {
+            "page": "Page",
+            "url": "URL",
+            "video": "Video",
+            "audio": "Audio",
+            "document": "Document",
+            "scorm": "SCORM",
+            "xapi": "xAPI",
+            "embed": "Embed",
+            "file": "File"
+        },
+        "launchModes": {
+            "inline": "Inline",
+            "newTab": "New tab",
+            "download": "Download"
+        }
+    },
     "metahubs": {
         "title": "Metahubs",
         "searchPlaceholder": "Search metahubs...",
@@ -53,6 +79,7 @@
             "timeFormat": "Expected time format: HH:MM",
             "dateFormat": "Expected date format: YYYY-MM-DD",
             "datetimeFormat": "Expected date & time format: YYYY-MM-DD HH:MM",
+            "resourceSource": "Enter a valid resource source.",
             "numberLengthWithScale": "Length: {{integer}},{{scale}}",
             "range": "Range: {{min}}–{{max}}",
             "min": "Min: {{min}}",
@@ -318,7 +345,8 @@
             "default": "Default"
         },
         "templates": {
-            "dashboard": "Dashboard"
+            "dashboard": "Dashboard",
+            "marketingPage": "Marketing page"
         },
         "actions": {
             "configure": "Configure",
@@ -382,6 +410,31 @@
                     "compact": "Compact icons",
                     "overlay": "Overlay drawer"
                 }
+            }
+        },
+        "marketing": {
+            "appearanceTitle": "Marketing page appearance",
+            "appearanceDescription": "Configure the published marketing page without editing its content records.",
+            "contentHint": "Marketing content is edited through the standard Object records in this metahub; dashboard widgets are not used by this template.",
+            "themeMode": "Theme mode",
+            "theme": {
+                "system": "System",
+                "light": "Light",
+                "dark": "Dark"
+            },
+            "primaryColor": "Primary color",
+            "accentColor": "Accent color",
+            "colorHelper": "Use a hex color such as #1976d2.",
+            "sectionVisibility": "Visible sections",
+            "sections": {
+                "hero": "Hero",
+                "logos": "Logo collection",
+                "features": "Features",
+                "testimonials": "Testimonials",
+                "highlights": "Highlights",
+                "pricing": "Pricing",
+                "faq": "FAQ",
+                "footer": "Footer"
             }
         },
         "menuEditor": {
@@ -3176,6 +3229,7 @@
             "updated": "Updated",
             "rowCount_one": "{{count}} row",
             "rowCount_other": "{{count}} rows",
+            "structuredField": "Structured content",
             "addRow": "Add Row",
             "noRows": "No rows yet. Click \"Add Row\" to add data.",
             "edit": "Edit",
@@ -3190,6 +3244,7 @@
         "parentCollectionMissingTitle": "No object selected",
         "parentCollectionMissingDescription": "Select a object to manage records.",
         "parentCollectionLoadError": "Error loading object",
+        "parentCollectionLoadErrorDescription": "The selected object could not be loaded. Please try again.",
         "parentCollectionEditTitle": "Edit object",
         "actions": {
             "moveUp": "Move up",

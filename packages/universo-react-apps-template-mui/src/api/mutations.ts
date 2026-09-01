@@ -5,8 +5,10 @@ import type { RuntimeWorkspaceListParams, RuntimeWorkspaceMemberListParams } fro
 /** Query key factory for application data. */
 export const appQueryKeys = {
     all: ['application-data'] as const,
-    list: (applicationId: string, objectCollectionId?: string) => [...appQueryKeys.all, applicationId, objectCollectionId] as const,
-    row: (applicationId: string, rowId: string) => [...appQueryKeys.all, 'row', applicationId, rowId] as const
+    list: (applicationId: string, objectCollectionId?: string, workspaceId?: string | null) =>
+        [...appQueryKeys.all, applicationId, objectCollectionId, ...(workspaceId?.trim() ? [workspaceId.trim()] : [])] as const,
+    row: (applicationId: string, rowId: string, workspaceId?: string | null) =>
+        [...appQueryKeys.all, 'row', applicationId, rowId, ...(workspaceId?.trim() ? [workspaceId.trim()] : [])] as const
 }
 
 const normalizeWorkspaceParams = (params?: RuntimeWorkspaceListParams | RuntimeWorkspaceMemberListParams) => ({
@@ -35,12 +37,13 @@ export function useAppRow(options: {
     applicationId: string
     rowId: string | null
     objectCollectionId?: string
+    workspaceId?: string | null
     enabled?: boolean
 }) {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, enabled = true } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, workspaceId, enabled = true } = options
     return useQuery({
-        queryKey: appQueryKeys.row(applicationId, rowId ?? ''),
-        queryFn: () => fetchAppRow({ apiBaseUrl, applicationId, rowId: rowId!, objectCollectionId }),
+        queryKey: appQueryKeys.row(applicationId, rowId ?? '', workspaceId),
+        queryFn: () => fetchAppRow({ apiBaseUrl, applicationId, rowId: rowId!, objectCollectionId, workspaceId }),
         enabled: enabled && Boolean(rowId),
         staleTime: 0, // Always refetch for fresh data
         gcTime: 0
@@ -48,12 +51,17 @@ export function useAppRow(options: {
 }
 
 /** Create a new row and invalidate list queries. */
-export function useCreateAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
-    const { apiBaseUrl, applicationId, objectCollectionId } = options
+export function useCreateAppRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    objectCollectionId?: string
+    workspaceId?: string | null
+}) {
+    const { apiBaseUrl, applicationId, objectCollectionId, workspaceId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (data: Record<string, unknown>) => createAppRow({ apiBaseUrl, applicationId, objectCollectionId, data }),
+        mutationFn: (data: Record<string, unknown>) => createAppRow({ apiBaseUrl, applicationId, objectCollectionId, workspaceId, data }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
         }
@@ -61,30 +69,40 @@ export function useCreateAppRow(options: { apiBaseUrl: string; applicationId: st
 }
 
 /** Update an existing row and invalidate list + row queries. */
-export function useUpdateAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
-    const { apiBaseUrl, applicationId, objectCollectionId } = options
+export function useUpdateAppRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    objectCollectionId?: string
+    workspaceId?: string | null
+}) {
+    const { apiBaseUrl, applicationId, objectCollectionId, workspaceId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: (params: { rowId: string; data: Record<string, unknown> }) =>
-            updateAppRow({ apiBaseUrl, applicationId, rowId: params.rowId, objectCollectionId, data: params.data }),
+            updateAppRow({ apiBaseUrl, applicationId, rowId: params.rowId, objectCollectionId, workspaceId, data: params.data }),
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
-            queryClient.invalidateQueries({ queryKey: appQueryKeys.row(applicationId, variables.rowId) })
+            queryClient.invalidateQueries({ queryKey: appQueryKeys.row(applicationId, variables.rowId, workspaceId) })
         }
     })
 }
 
 /** Soft-delete a row and invalidate list queries. */
-export function useDeleteAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
-    const { apiBaseUrl, applicationId, objectCollectionId } = options
+export function useDeleteAppRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    objectCollectionId?: string
+    workspaceId?: string | null
+}) {
+    const { apiBaseUrl, applicationId, objectCollectionId, workspaceId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: (params: string | { rowId: string; expectedVersion?: number }) => {
             const rowId = typeof params === 'string' ? params : params.rowId
             const expectedVersion = typeof params === 'string' ? undefined : params.expectedVersion
-            return deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, expectedVersion })
+            return deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, workspaceId, expectedVersion })
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
@@ -93,16 +111,28 @@ export function useDeleteAppRow(options: { apiBaseUrl: string; applicationId: st
 }
 
 /** Restore a soft-deleted row and invalidate list queries. */
-export function useRestoreAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
-    const { apiBaseUrl, applicationId, objectCollectionId } = options
+export function useRestoreAppRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    objectCollectionId?: string
+    workspaceId?: string | null
+}) {
+    const { apiBaseUrl, applicationId, objectCollectionId, workspaceId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: (params: { rowId: string; expectedVersion?: number }) =>
-            restoreAppRow({ apiBaseUrl, applicationId, rowId: params.rowId, objectCollectionId, expectedVersion: params.expectedVersion }),
+            restoreAppRow({
+                apiBaseUrl,
+                applicationId,
+                rowId: params.rowId,
+                objectCollectionId,
+                workspaceId,
+                expectedVersion: params.expectedVersion
+            }),
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
-            queryClient.invalidateQueries({ queryKey: appQueryKeys.row(applicationId, variables.rowId) })
+            queryClient.invalidateQueries({ queryKey: appQueryKeys.row(applicationId, variables.rowId, workspaceId) })
         }
     })
 }

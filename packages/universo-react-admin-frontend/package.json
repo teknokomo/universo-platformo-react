@@ -44,8 +44,9 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
-        "@emotion/react": "^11.14.0",
-        "@emotion/styled": "^11.14.1",
+        "@emotion/react": "catalog:",
+        "@emotion/styled": "catalog:",
+        "@mui/icons-material": "catalog:",
         "@mui/material": "catalog:",
         "@tabler/icons-react": "^3.30.0",
         "@tanstack/react-query": "catalog:",

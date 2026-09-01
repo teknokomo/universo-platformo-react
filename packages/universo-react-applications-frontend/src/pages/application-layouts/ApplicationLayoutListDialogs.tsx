@@ -21,6 +21,7 @@ export interface ApplicationLayoutListDialogsProps {
     t: Translate
     tc: Translate
     scopes: ApplicationLayoutScope[]
+    templateKey: string
     createOpen: boolean
     setCreateOpen: Dispatch<SetStateAction<boolean>>
     name: string
@@ -71,6 +72,17 @@ export function ApplicationLayoutListDialogs(props: ApplicationLayoutListDialogs
                                 ))}
                             </Select>
                         </FormControl>
+                        <TextField
+                            select
+                            fullWidth
+                            disabled
+                            label={t('layouts.template', 'Template')}
+                            value={props.templateKey}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                        >
+                            <MenuItem value='dashboard'>{t('layouts.templates.dashboard', 'Dashboard')}</MenuItem>
+                            <MenuItem value='marketing-page'>{t('layouts.templates.marketingPage', 'Marketing page')}</MenuItem>
+                        </TextField>
                     </Stack>
                 </DialogContent>
                 <DialogActions>
@@ -86,19 +98,19 @@ export function ApplicationLayoutListDialogs(props: ApplicationLayoutListDialogs
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <TextField
-                            label='Name (EN)'
+                            label={t('layouts.nameEn', 'Name (English)')}
                             value={props.nameEn}
                             onChange={(event) => props.setNameEn(event.target.value)}
                             fullWidth
                         />
                         <TextField
-                            label='Name (RU)'
+                            label={t('layouts.nameRu', 'Name (Russian)')}
                             value={props.nameRu}
                             onChange={(event) => props.setNameRu(event.target.value)}
                             fullWidth
                         />
                         <TextField
-                            label='Description (EN)'
+                            label={t('layouts.descriptionEn', 'Description (English)')}
                             value={props.descriptionEn}
                             onChange={(event) => props.setDescriptionEn(event.target.value)}
                             fullWidth
@@ -106,7 +118,7 @@ export function ApplicationLayoutListDialogs(props: ApplicationLayoutListDialogs
                             minRows={2}
                         />
                         <TextField
-                            label='Description (RU)'
+                            label={t('layouts.descriptionRu', 'Description (Russian)')}
                             value={props.descriptionRu}
                             onChange={(event) => props.setDescriptionRu(event.target.value)}
                             fullWidth

@@ -202,7 +202,7 @@ export function InterpretationNetworkCellStyleEditor({
                 <Typography component='label' htmlFor={`${field.id}-hex`} variant='subtitle2'>
                     {label}
                 </Typography>
-                <Stack direction='row' spacing={1} alignItems='center' useFlexGap flexWrap='wrap'>
+                <Stack direction='row' spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                     <Box
                         component='input'
                         id={`${field.id}-picker`}
@@ -217,10 +217,12 @@ export function InterpretationNetworkCellStyleEditor({
                         id={`${field.id}-hex`}
                         value={typeof fieldValue(draft, field) === 'string' ? fieldValue(draft, field) : ''}
                         label={t('cellStyle.hex', 'Hex color')}
-                        inputProps={{
-                            maxLength: 7,
-                            spellCheck: false,
-                            'aria-describedby': colorErrors[field.id] || validationErrors[field.id] ? `${field.id}-error` : undefined
+                        slotProps={{
+                            htmlInput: {
+                                maxLength: 7,
+                                spellCheck: false,
+                                'aria-describedby': colorErrors[field.id] || validationErrors[field.id] ? `${field.id}-error` : undefined
+                            }
                         }}
                         size='small'
                         disabled={disabled}
@@ -342,7 +344,7 @@ export function InterpretationNetworkCellStyleEditor({
             {hasBorderFields ? (
                 <>
                     <Divider />
-                    <Stack direction='row' alignItems='center' justifyContent='space-between' spacing={1}>
+                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                         <Typography variant='subtitle1'>{t('cellStyle.border', 'Border')}</Typography>
                         <Button
                             type='button'

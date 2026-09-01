@@ -157,8 +157,8 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                         {headerAction}
                     </Box>
                 )}
-                <Grid container justifyContent='space-between' direction='column' sx={{ height: '100%', gap: 1.5 }}>
-                    <Box display='flex' flexDirection='column' sx={{ width: '100%' }}>
+                <Grid container sx={{ height: '100%', gap: 1.5, flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
                         <div
                             style={{
                                 width: '100%',

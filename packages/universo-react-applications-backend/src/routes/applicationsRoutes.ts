@@ -13,6 +13,7 @@ import { createRuntimeInterpretationNetworkController } from '../controllers/run
 import { createRuntimeInterpretationNetworkMatrixController } from '../controllers/runtimeInterpretationNetworkMatrixController'
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
 import { createRuntimePlayCanvasController } from '../controllers/runtimePlayCanvasController'
+import { createRuntimeMarketingPageController } from '../controllers/runtimeMarketingPageController'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
@@ -34,6 +35,7 @@ export function createApplicationsRoutes(
     const interpretationNetworkMatrix = createRuntimeInterpretationNetworkMatrixController(getDbExecutor)
     const layouts = createApplicationLayoutsController(getDbExecutor)
     const playCanvasRuntime = createRuntimePlayCanvasController(getDbExecutor)
+    const marketingPageRuntime = createRuntimeMarketingPageController(getDbExecutor)
 
     // ── Application CRUD ──
     router.get('/', readLimiter, asyncHandler(app.list))
@@ -57,6 +59,7 @@ export function createApplicationsRoutes(
     router.post('/:applicationId/layouts', writeLimiter, asyncHandler(layouts.create))
     router.get('/:applicationId/layouts/:layoutId', readLimiter, asyncHandler(layouts.detail))
     router.patch('/:applicationId/layouts/:layoutId', writeLimiter, asyncHandler(layouts.update))
+    router.post('/:applicationId/layouts/:layoutId/config/reset', writeLimiter, asyncHandler(layouts.resetConfig))
     router.delete('/:applicationId/layouts/:layoutId', writeLimiter, asyncHandler(layouts.remove))
     router.post('/:applicationId/layouts/:layoutId/copy', writeLimiter, asyncHandler(layouts.copy))
     router.get('/:applicationId/layouts/:layoutId/zone-widgets', readLimiter, asyncHandler(layouts.listWidgets))
@@ -76,6 +79,8 @@ export function createApplicationsRoutes(
     router.delete('/:applicationId/members/:memberId', writeLimiter, asyncHandler(app.removeMember))
 
     // ── Runtime rows ──
+    router.get('/:applicationId/runtime/template', readLimiter, asyncHandler(marketingPageRuntime.getTemplate))
+    router.get('/:applicationId/runtime/marketing-page', readLimiter, asyncHandler(marketingPageRuntime.getMarketingPage))
     router.get('/:applicationId/runtime', readLimiter, asyncHandler(runtime.getRuntime))
     router.get('/:applicationId/runtime/playcanvas-manifests', readLimiter, asyncHandler(playCanvasRuntime.listManifests))
     router.get('/:applicationId/runtime/interpretation-network', readLimiter, asyncHandler(interpretationNetwork.getRuntime))
@@ -175,6 +180,7 @@ export function createApplicationsRoutes(
     router.patch('/:applicationId/runtime/workspaces/:workspaceId/default', writeLimiter, asyncHandler(workspace.updateDefaultWorkspace))
     router.get('/:applicationId/runtime/workspaces/:workspaceId/settings', readLimiter, asyncHandler(workspace.listSettings))
     router.put('/:applicationId/runtime/workspaces/:workspaceId/settings', writeLimiter, asyncHandler(workspace.updateSettings))
+    router.post('/:applicationId/runtime/workspaces/:workspaceId/seed/reset', writeLimiter, asyncHandler(workspace.resetSeededContent))
     router.get('/:applicationId/runtime/workspaces/:workspaceId/members', readLimiter, asyncHandler(workspace.getMembers))
     router.post('/:applicationId/runtime/workspaces/:workspaceId/members', writeLimiter, asyncHandler(workspace.inviteMember))
     router.delete('/:applicationId/runtime/workspaces/:workspaceId/members/:userId', writeLimiter, asyncHandler(workspace.deleteMember))

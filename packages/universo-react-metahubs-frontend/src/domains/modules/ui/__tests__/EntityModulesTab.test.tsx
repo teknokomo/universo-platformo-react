@@ -249,7 +249,7 @@ describe('EntityModulesTab', () => {
         expect(mocks.lastCodeMirrorProps?.['aria-labelledby']).toBe('entity-module-source-code-label')
     })
 
-    it('renders module descriptions as multiline controls with a useful minimum height', async () => {
+    it('renders module descriptions as multiline textareas', async () => {
         mocks.list.mockResolvedValue([createModuleRecord()])
 
         renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
@@ -257,8 +257,6 @@ describe('EntityModulesTab', () => {
         const description = await screen.findByLabelText('Description')
         await waitFor(() => expect(description).toHaveValue('Widget description'))
         expect(description).toBeInstanceOf(HTMLTextAreaElement)
-        expect(description).toHaveClass('MuiInputBase-inputMultiline')
-        expect(description.closest('.MuiInputBase-root')).toHaveClass('MuiInputBase-multiline')
     })
 
     it('hides modules authoring when the user lacks manage permission for the metahub', () => {

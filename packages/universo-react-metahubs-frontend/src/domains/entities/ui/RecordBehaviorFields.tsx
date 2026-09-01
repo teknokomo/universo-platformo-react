@@ -212,7 +212,7 @@ export const RecordBehaviorFields = ({
                                             error={Boolean(errors.recordBehaviorMinLength)}
                                             helperText={errors.recordBehaviorMinLength}
                                             type='number'
-                                            inputProps={{ min: 1, max: 32, step: 1 }}
+                                            slotProps={{ htmlInput: { min: 1, max: 32, step: 1 } }}
                                             fullWidth
                                         />
                                         <FormControl fullWidth disabled={disabled}>

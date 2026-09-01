@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { dashboardLayoutConfigSchema, dashboardSideMenuConfigSchema } from './dashboardLayout'
+import { dashboardLayoutConfigSchema, dashboardSideMenuConfigSchema, type DashboardLayoutConfig } from './dashboardLayout'
 import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES, type MenuWidgetTarget } from './metahubs'
 import { moduleBackedWidgetConfigSchema, sharedBehaviorSchema } from './moduleBackedWidgetConfig'
 import { interpretationNetworkWorkspaceWidgetConfigSchema } from './interpretationNetworkLayout'
@@ -13,6 +13,12 @@ import { RESOURCE_TYPES, resourceSourceSchema } from './resourceSources'
 import { sequencePolicySchema } from './sequenceCompletion'
 import { reportDefinitionSchema } from './lmsPlatform'
 import { workflowActionSchema } from './workflowActions'
+import {
+    applicationTemplateKeySchema,
+    marketingPageConfigSchema,
+    type ApplicationTemplateKey,
+    type MarketingPageConfig
+} from './marketingPage'
 export * from './interpretationNetworkLayout'
 export * from './interpretationNetworkColor'
 
@@ -43,6 +49,42 @@ export const applicationLayoutScopeKindSchema = z.enum(APPLICATION_LAYOUT_SCOPE_
 export const applicationLayoutLocalizedContentSchema = z.record(z.string(), z.unknown()).default({})
 export const applicationLayoutWidgetKeySchema = z.enum(DASHBOARD_LAYOUT_WIDGETS.map((widget) => widget.key) as [string, ...string[]])
 export const applicationLayoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
+
+/**
+ * Layout configuration is template-owned. Keep the transport schema open so a
+ * marketing config is not stripped by the dashboard-only Zod object; callers
+ * validate it against the selected template before persisting or rendering.
+ */
+export type ApplicationLayoutConfig = (DashboardLayoutConfig | MarketingPageConfig) & Record<string, unknown>
+export const applicationLayoutConfigSchema: z.ZodType<ApplicationLayoutConfig> = z.record(z.string(), z.unknown()).default({})
+
+const isApplicationLayoutRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const MARKETING_ONLY_LAYOUT_CONFIG_KEYS = new Set([
+    'themeMode',
+    'sectionOrder',
+    'sectionVisibility',
+    'primaryColor',
+    'accentColor',
+    'brandLogo',
+    'allowEmailActions',
+    'allowTelephoneActions',
+    'externalLinkTarget'
+])
+
+export const parseApplicationLayoutConfig = (templateKey: ApplicationTemplateKey | string, config: unknown): ApplicationLayoutConfig => {
+    const key = applicationTemplateKeySchema.parse(templateKey)
+    if (key === 'marketing-page') return marketingPageConfigSchema.parse(config ?? {}) as ApplicationLayoutConfig
+    if (isApplicationLayoutRecord(config) && Object.keys(config).some((configKey) => MARKETING_ONLY_LAYOUT_CONFIG_KEYS.has(configKey))) {
+        throw new Error('Dashboard layouts cannot contain marketing-page configuration keys.')
+    }
+    const dashboardConfig = dashboardLayoutConfigSchema.parse(config ?? {}) ?? {}
+    return {
+        ...(isApplicationLayoutRecord(config) ? config : {}),
+        ...dashboardConfig
+    } as ApplicationLayoutConfig
+}
 
 const genericWidgetConfigSchema = z.record(z.unknown()).default({})
 const localizedWidgetTextSchema = z.union([z.string().min(1).max(160), applicationLayoutLocalizedContentSchema])
@@ -680,10 +722,10 @@ export const applicationLayoutSchema = z.object({
     scopeKind: applicationLayoutScopeKindSchema,
     scopeEntityId: z.string().nullable(),
     scopeEntityKind: z.string().nullable().optional(),
-    templateKey: z.string(),
+    templateKey: applicationTemplateKeySchema,
     name: applicationLayoutLocalizedContentSchema,
     description: applicationLayoutLocalizedContentSchema.nullable().optional(),
-    config: dashboardLayoutConfigSchema.default({}),
+    config: applicationLayoutConfigSchema,
     isActive: z.boolean(),
     isDefault: z.boolean(),
     sortOrder: z.number().int(),
@@ -712,20 +754,34 @@ export const applicationLayoutDetailResponseSchema = z.object({
 })
 export type ApplicationLayoutDetailResponse = z.infer<typeof applicationLayoutDetailResponseSchema>
 
-export const applicationLayoutMutationSchema = z.object({
-    name: applicationLayoutLocalizedContentSchema.optional(),
-    description: applicationLayoutLocalizedContentSchema.nullable().optional(),
-    config: dashboardLayoutConfigSchema.optional(),
-    scopeEntityId: z.string().nullable().optional(),
-    isActive: z.boolean().optional(),
-    isDefault: z.boolean().optional(),
-    sortOrder: z.number().int().optional(),
-    expectedVersion: z.number().int().positive().optional()
-})
+export const applicationLayoutMutationSchema = z
+    .object({
+        name: applicationLayoutLocalizedContentSchema.optional(),
+        description: applicationLayoutLocalizedContentSchema.nullable().optional(),
+        config: applicationLayoutConfigSchema.optional(),
+        scopeEntityId: z.string().nullable().optional(),
+        isActive: z.boolean().optional(),
+        isDefault: z.boolean().optional(),
+        sortOrder: z.number().int().optional(),
+        expectedVersion: z.number().int().positive().optional()
+    })
+    .strict()
 export type ApplicationLayoutMutation = z.infer<typeof applicationLayoutMutationSchema>
 
+/**
+ * Reset an application-owned marketing appearance override to the template
+ * defaults. The optimistic version is required so stale writes fail closed
+ * for every caller, including direct API clients.
+ */
+export const applicationLayoutConfigResetMutationSchema = z
+    .object({
+        expectedVersion: z.number().int().positive()
+    })
+    .strict()
+export type ApplicationLayoutConfigResetMutation = z.infer<typeof applicationLayoutConfigResetMutationSchema>
+
 export const applicationLayoutCreateSchema = applicationLayoutMutationSchema.extend({
-    templateKey: z.string().min(1).max(100).default('dashboard'),
+    templateKey: applicationTemplateKeySchema.default('dashboard'),
     name: applicationLayoutLocalizedContentSchema
 })
 export type ApplicationLayoutCreate = z.infer<typeof applicationLayoutCreateSchema>

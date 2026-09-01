@@ -51,6 +51,18 @@ export {
 } from './objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './dashboardLayout'
 export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './menuWidgetTargets'
+export {
+    normalizeMarketingAction,
+    parseMarketingActionHref,
+    normalizeMarketingLocalizedText,
+    normalizeMarketingMedia,
+    normalizeMarketingPageConfig,
+    normalizeMarketingPageData,
+    resolveMarketingLocalizedText,
+    toMarketingActionHref,
+    toMarketingActionLinkAttributes,
+    type MarketingActionLinkAttributes
+} from './marketingPage'
 export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './menuHref'
 export {
     validateNumber,

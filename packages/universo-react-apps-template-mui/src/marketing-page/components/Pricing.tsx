@@ -1,9 +1,8 @@
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
-import Chip from '@mui/material/Chip'
 import CardActions from '@mui/material/CardActions'
 import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
 import Container from '@mui/material/Container'
 import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
@@ -11,42 +10,21 @@ import Typography from '@mui/material/Typography'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 
-const tiers = [
-    {
-        title: 'Free',
-        price: '0',
-        description: ['10 users included', '2 GB of storage', 'Help center access', 'Email support'],
-        buttonText: 'Sign up for free',
-        buttonVariant: 'outlined',
-        buttonColor: 'primary'
-    },
-    {
-        title: 'Professional',
-        subheader: 'Recommended',
-        price: '15',
-        description: [
-            '20 users included',
-            '10 GB of storage',
-            'Help center access',
-            'Priority email support',
-            'Dedicated team',
-            'Best deals'
-        ],
-        buttonText: 'Start now',
-        buttonVariant: 'contained',
-        buttonColor: 'secondary'
-    },
-    {
-        title: 'Enterprise',
-        price: '30',
-        description: ['50 users included', '30 GB of storage', 'Help center access', 'Phone & email support'],
-        buttonText: 'Contact us',
-        buttonVariant: 'outlined',
-        buttonColor: 'primary'
-    }
-]
+import type { MarketingActionHandler, MarketingPricingTier, MarketingSectionCopy } from '../types'
+import { MarketingActionButton, MarketingEmptyState, MarketingSectionHeader, sortVisibleMarketingItems } from './MarketingPrimitives'
 
-export default function Pricing() {
+const NUMERIC_PRICE_RE = /^\d+(?:\.\d+)?$/
+
+const formatPrice = (price: string): string => (NUMERIC_PRICE_RE.test(price.trim()) ? `$${price}` : price)
+
+export interface PricingProps {
+    section: MarketingSectionCopy
+    tiers: MarketingPricingTier[]
+    onAction?: MarketingActionHandler
+}
+
+export default function Pricing({ section, tiers, onAction }: PricingProps) {
+    const visibleTiers = sortVisibleMarketingItems(tiers)
     return (
         <Container
             id='pricing'
@@ -60,111 +38,87 @@ export default function Pricing() {
                 gap: { xs: 3, sm: 6 }
             }}
         >
-            <Box
-                sx={{
-                    width: { sm: '100%', md: '60%' },
-                    textAlign: { sm: 'left', md: 'center' }
-                }}
-            >
-                <Typography component='h2' variant='h4' gutterBottom sx={{ color: 'text.primary' }}>
-                    Pricing
-                </Typography>
-                <Typography variant='body1' sx={{ color: 'text.secondary' }}>
-                    Quickly build an effective pricing table for your potential customers with this layout. <br />
-                    It&apos;s built with default Material UI components with little customization.
-                </Typography>
-            </Box>
-            <Grid container spacing={3} sx={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                {tiers.map((tier) => (
-                    <Grid size={{ xs: 12, sm: tier.title === 'Enterprise' ? 12 : 6, md: 4 }} key={tier.title}>
-                        <Card
-                            sx={[
-                                {
-                                    p: 2,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: 4
-                                },
-                                tier.title === 'Professional' &&
-                                    ((theme) => ({
-                                        border: 'none',
-                                        background: 'radial-gradient(circle at 50% 0%, hsl(220, 20%, 35%), hsl(220, 30%, 6%))',
-                                        boxShadow: `0 8px 12px hsla(220, 20%, 42%, 0.2)`,
-                                        ...theme.applyStyles('dark', {
-                                            background: 'radial-gradient(circle at 50% 0%, hsl(220, 20%, 20%), hsl(220, 30%, 16%))',
-                                            boxShadow: `0 8px 12px hsla(0, 0%, 0%, 0.8)`
-                                        })
-                                    }))
-                            ]}
-                        >
-                            <CardContent>
-                                <Box
-                                    sx={[
-                                        {
+            <MarketingSectionHeader section={section} id='pricing' />
+            {visibleTiers.length === 0 ? (
+                <MarketingEmptyState section={section.title} />
+            ) : (
+                <Grid container spacing={3} sx={{ alignItems: 'stretch', justifyContent: 'center' }}>
+                    {visibleTiers.map((tier) => (
+                        <Grid size={{ xs: 12, sm: tier.semanticKey === 'enterprise' ? 12 : 6, md: 4 }} key={tier.semanticKey}>
+                            <Card
+                                sx={[
+                                    { p: 2, display: 'flex', flexDirection: 'column', gap: 4, height: '100%' },
+                                    tier.featured
+                                        ? (theme) => ({
+                                              border: 'none',
+                                              background: 'radial-gradient(circle at 50% 0%, hsl(220, 20%, 35%), hsl(220, 30%, 6%))',
+                                              boxShadow: '0 8px 12px hsla(220, 20%, 42%, 0.2)',
+                                              ...theme.applyStyles('dark', {
+                                                  background: 'radial-gradient(circle at 50% 0%, hsl(220, 20%, 20%), hsl(220, 30%, 16%))',
+                                                  boxShadow: '0 8px 12px hsla(0, 0%, 0%, 0.8)'
+                                              })
+                                          })
+                                        : {}
+                                ]}
+                            >
+                                <CardContent>
+                                    <Box
+                                        sx={{
                                             mb: 1,
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            gap: 2
-                                        },
-                                        tier.title === 'Professional' ? { color: 'grey.100' } : { color: '' }
-                                    ]}
-                                >
-                                    <Typography component='h3' variant='h6'>
-                                        {tier.title}
-                                    </Typography>
-                                    {tier.title === 'Professional' && <Chip icon={<AutoAwesomeIcon />} label={tier.subheader} />}
-                                </Box>
-                                <Box
-                                    sx={[
-                                        {
-                                            display: 'flex',
-                                            alignItems: 'baseline'
-                                        },
-                                        tier.title === 'Professional' ? { color: 'grey.50' } : { color: null }
-                                    ]}
-                                >
-                                    <Typography component='h3' variant='h2'>
-                                        ${tier.price}
-                                    </Typography>
-                                    <Typography component='h3' variant='h6'>
-                                        &nbsp; per month
-                                    </Typography>
-                                </Box>
-                                <Divider sx={{ my: 2, opacity: 0.8, borderColor: 'divider' }} />
-                                {tier.description.map((line) => (
-                                    <Box key={line} sx={{ py: 1, display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                                        <CheckCircleRoundedIcon
-                                            sx={[
-                                                {
-                                                    width: 20
-                                                },
-                                                tier.title === 'Professional' ? { color: 'primary.light' } : { color: 'primary.main' }
-                                            ]}
-                                        />
-                                        <Typography
-                                            variant='subtitle2'
-                                            component={'span'}
-                                            sx={[tier.title === 'Professional' ? { color: 'grey.50' } : { color: null }]}
-                                        >
-                                            {line}
+                                            gap: 2,
+                                            color: tier.featured ? 'grey.100' : 'text.primary'
+                                        }}
+                                    >
+                                        <Typography component='h3' variant='h6'>
+                                            {tier.title}
+                                        </Typography>
+                                        {tier.badge ? <Chip icon={<AutoAwesomeIcon />} label={tier.badge} /> : null}
+                                    </Box>
+                                    <Box
+                                        sx={{ display: 'flex', alignItems: 'baseline', color: tier.featured ? 'grey.50' : 'text.primary' }}
+                                    >
+                                        <Typography component='span' variant='h2'>
+                                            {formatPrice(tier.price)}
+                                        </Typography>
+                                        <Typography component='span' variant='h6'>
+                                            &nbsp;{tier.period}
                                         </Typography>
                                     </Box>
-                                ))}
-                            </CardContent>
-                            <CardActions>
-                                <Button
-                                    fullWidth
-                                    variant={tier.buttonVariant as 'outlined' | 'contained'}
-                                    color={tier.buttonColor as 'primary' | 'secondary'}
-                                >
-                                    {tier.buttonText}
-                                </Button>
-                            </CardActions>
-                        </Card>
-                    </Grid>
-                ))}
-            </Grid>
+                                    <Divider sx={{ my: 2, opacity: 0.8, borderColor: 'divider' }} />
+                                    {tier.benefits.map((benefit) => (
+                                        <Box key={benefit} sx={{ py: 1, display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                                            <CheckCircleRoundedIcon
+                                                sx={{ width: 20, color: tier.featured ? 'primary.light' : 'primary.main', flexShrink: 0 }}
+                                            />
+                                            <Typography
+                                                variant='subtitle2'
+                                                component='span'
+                                                sx={{ color: tier.featured ? 'grey.50' : 'text.primary' }}
+                                            >
+                                                {benefit}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                </CardContent>
+                                <CardActions>
+                                    <MarketingActionButton
+                                        action={tier.action}
+                                        onAction={onAction}
+                                        fullWidth
+                                        variant={tier.featured ? 'contained' : 'outlined'}
+                                        color={tier.featured ? 'secondary' : 'primary'}
+                                    >
+                                        {tier.action?.label}
+                                    </MarketingActionButton>
+                                </CardActions>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+            )}
         </Container>
     )
 }

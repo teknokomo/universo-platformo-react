@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
-import { createLocalizedContent, getCodenamePrimary } from '@universo-react/utils'
+import { applicationTemplateKeySchema } from '@universo-react/types'
+import { createLocalizedContent, getCodenamePrimary, isUuidV7 } from '@universo-react/utils'
 import {
     assertSupportedModuleSdkApiVersion,
     findDisallowedModuleCapabilities,
@@ -117,6 +118,22 @@ const buildPageBlockContentValidationOptions = (component: Partial<BlockContentC
     allowedBlockTypes: component.allowedBlockTypes,
     maxBlocks: component.maxBlocks
 })
+
+const resolveSnapshotPersistedId = (value: unknown, kind: 'enumeration value' | 'element', scope: string): string | undefined => {
+    if (value === undefined || value === null || value === '') {
+        return undefined
+    }
+
+    if (!isUuidV7(value)) {
+        throw new MetahubValidationError(`Snapshot ${kind} id must be a UUID v7`, {
+            kind,
+            scope,
+            value: typeof value === 'string' ? value : typeof value
+        })
+    }
+
+    return value
+}
 
 const LAYOUT_WIDGET_ENTITY_REFERENCE_KEYS = new Set([
     'boundHubId',
@@ -1228,17 +1245,18 @@ export class SnapshotRestoreService {
             }
 
             for (const value of values) {
-                if (typeof value.id === 'string' && value.id.length > 0) {
-                    if (valueIds.has(value.id)) {
-                        throw new Error(`Duplicate enumeration value id in snapshot: ${value.id}`)
+                const persistedId = resolveSnapshotPersistedId(value.id, 'enumeration value', oldEntityId)
+                if (persistedId) {
+                    if (valueIds.has(persistedId)) {
+                        throw new Error(`Duplicate enumeration value id in snapshot: ${persistedId}`)
                     }
-                    valueIds.add(value.id)
+                    valueIds.add(persistedId)
                 }
                 await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_values')
                     .insert({
-                        id: typeof value.id === 'string' && value.id.length > 0 ? value.id : undefined,
+                        id: persistedId,
                         object_id: newEntityId,
                         codename: ensureCodenameValue(value.codename),
                         presentation: value.presentation ?? { name: {}, description: {} },
@@ -1280,17 +1298,18 @@ export class SnapshotRestoreService {
             }
 
             for (const element of entityElements) {
-                if (typeof element.id === 'string' && element.id.length > 0) {
-                    if (elementIds.has(element.id)) {
-                        throw new Error(`Duplicate element id in snapshot: ${element.id}`)
+                const persistedId = resolveSnapshotPersistedId(element.id, 'element', oldEntityId)
+                if (persistedId) {
+                    if (elementIds.has(persistedId)) {
+                        throw new Error(`Duplicate element id in snapshot: ${persistedId}`)
                     }
-                    elementIds.add(element.id)
+                    elementIds.add(persistedId)
                 }
                 await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_elements')
                     .insert({
-                        id: typeof element.id === 'string' && element.id.length > 0 ? element.id : undefined,
+                        id: persistedId,
                         object_id: newEntityId,
                         data: element.data ?? {},
                         sort_order: element.sortOrder ?? 0,
@@ -1857,7 +1876,7 @@ export class SnapshotRestoreService {
                 .insert({
                     scope_entity_id: null,
                     base_layout_id: null,
-                    template_key: layout.templateKey ?? 'dashboard',
+                    template_key: applicationTemplateKeySchema.parse(layout.templateKey),
                     name: layout.name ?? {},
                     description: layout.description ?? null,
                     config: this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
@@ -1897,7 +1916,7 @@ export class SnapshotRestoreService {
                 .insert({
                     scope_entity_id: newScopeEntityId,
                     base_layout_id: newBaseLayoutId,
-                    template_key: layout.templateKey ?? 'dashboard',
+                    template_key: applicationTemplateKeySchema.parse(layout.templateKey),
                     name: layout.name ?? {},
                     description: layout.description ?? null,
                     config: this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),

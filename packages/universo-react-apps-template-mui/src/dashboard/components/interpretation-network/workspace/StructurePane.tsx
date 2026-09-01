@@ -291,7 +291,7 @@ export function StructurePane({
                                 anchorPosition={templateMenuAnchorPosition}
                                 open
                                 onClose={closeTemplateMenu}
-                                MenuListProps={{ 'aria-label': t('workspace.template.actions', 'Template actions') }}
+                                slotProps={{ list: { 'aria-label': t('workspace.template.actions', 'Template actions') } }}
                             >
                                 <MenuItem
                                     disabled={!templateMenuId}
@@ -715,7 +715,7 @@ export function StructurePane({
             ) : selectedConcept || singleSystemMode ? (
                 <Stack spacing={1.5}>
                     {!singleSystemMode && !hideSelectedHeader ? (
-                        <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
+                        <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'center' }}>
                             <IconButton
                                 type='button'
                                 size='small'

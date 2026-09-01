@@ -9,11 +9,18 @@ import { useColorScheme } from '@mui/material/styles'
 
 type ColorModeIconDropdownProps = IconButtonProps & {
     'data-testid'?: string
+    labels?: {
+        system: string
+        light: string
+        dark: string
+    }
 }
 
 export default function ColorModeIconDropdown(props: ColorModeIconDropdownProps) {
+    const { labels, ...iconButtonProps } = props
     const { mode, systemMode, setMode } = useColorScheme()
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
+    const menuId = React.useId()
     const open = Boolean(anchorEl)
     const handleClick = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget)
@@ -53,16 +60,16 @@ export default function ColorModeIconDropdown(props: ColorModeIconDropdownProps)
                 onClick={handleClick}
                 disableRipple
                 size='small'
-                aria-controls={open ? 'color-scheme-menu' : undefined}
+                aria-controls={open ? menuId : undefined}
                 aria-haspopup='true'
                 aria-expanded={open ? 'true' : undefined}
-                {...props}
+                {...iconButtonProps}
             >
                 {icon}
             </IconButton>
             <Menu
                 anchorEl={anchorEl}
-                id='account-menu'
+                id={menuId}
                 open={open}
                 onClose={handleClose}
                 onClick={handleClose}
@@ -79,13 +86,13 @@ export default function ColorModeIconDropdown(props: ColorModeIconDropdownProps)
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
                 <MenuItem selected={mode === 'system'} onClick={handleMode('system')}>
-                    System
+                    {labels?.system ?? 'System'}
                 </MenuItem>
                 <MenuItem selected={mode === 'light'} onClick={handleMode('light')}>
-                    Light
+                    {labels?.light ?? 'Light'}
                 </MenuItem>
                 <MenuItem selected={mode === 'dark'} onClick={handleMode('dark')}>
-                    Dark
+                    {labels?.dark ?? 'Dark'}
                 </MenuItem>
             </Menu>
         </React.Fragment>

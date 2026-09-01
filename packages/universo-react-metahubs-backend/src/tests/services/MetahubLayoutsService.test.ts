@@ -84,6 +84,7 @@ describe('MetahubLayoutsService', () => {
             id: layoutId,
             scope_entity_id: null,
             base_layout_id: null,
+            template_key: 'dashboard',
             config: {
                 showViewToggle: true,
                 defaultViewMode: 'card',
@@ -102,7 +103,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [baseLayoutScopeRow]
             }
 
@@ -313,6 +314,7 @@ describe('MetahubLayoutsService', () => {
                         id: 'global-layout-1',
                         scope_entity_id: null,
                         base_layout_id: null,
+                        template_key: 'dashboard',
                         config: baseLayoutConfig
                     }
                 ]
@@ -324,6 +326,7 @@ describe('MetahubLayoutsService', () => {
                 expect(JSON.parse(String(params?.[5] ?? '{}'))).toEqual({
                     showViewToggle: true,
                     defaultViewMode: 'card',
+                    showHeader: true,
                     objectBehavior: {
                         showCreateButton: false,
                         searchMode: 'server'
@@ -571,13 +574,14 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
                         scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
+                        template_key: 'dashboard',
                         config: {}
                     }
                 ]
@@ -652,13 +656,14 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
                         scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
+                        template_key: 'dashboard',
                         config: {}
                     }
                 ]
@@ -724,13 +729,14 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
                         scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
+                        template_key: 'dashboard',
                         config: {}
                     }
                 ]
@@ -798,13 +804,14 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
                         scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
+                        template_key: 'dashboard',
                         config: {}
                     }
                 ]
@@ -894,12 +901,13 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
                     {
                         id: layoutId,
                         scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
+                        template_key: 'dashboard',
                         config: {}
                     }
                 ]
@@ -962,13 +970,14 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
                         scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
+                        template_key: 'dashboard',
                         config: {}
                     }
                 ]
@@ -1031,6 +1040,7 @@ describe('MetahubLayoutsService', () => {
                         id: layoutId,
                         scope_entity_id: null,
                         base_layout_id: null,
+                        template_key: 'dashboard',
                         is_default: false,
                         is_active: true
                     }
@@ -1179,13 +1189,17 @@ describe('MetahubLayoutsService', () => {
                 return [{ id: 'page-1', kind: 'page', capabilities: { layoutConfig: { enabled: true } } }]
             }
 
-            if (
-                sql.includes('SELECT id, scope_entity_id, base_layout_id, config') &&
-                sql.includes('_mhb_layouts') &&
-                sql.includes('FOR UPDATE')
-            ) {
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
                 if (sql.includes('scope_entity_id IS NULL')) {
-                    return [{ id: 'global-layout-1', scope_entity_id: null, base_layout_id: null, config: { showDetailsTable: true } }]
+                    return [
+                        {
+                            id: 'global-layout-1',
+                            scope_entity_id: null,
+                            base_layout_id: null,
+                            template_key: 'dashboard',
+                            config: { showDetailsTable: true }
+                        }
+                    ]
                 }
                 if (sql.includes('scope_entity_id = $1') && sql.includes('base_layout_id = $2')) {
                     return []
@@ -1221,7 +1235,15 @@ describe('MetahubLayoutsService', () => {
                 insertedScopedLayout = true
                 expect(params?.[0]).toBe('page-1')
                 expect(params?.[1]).toBe('global-layout-1')
-                return [{ id: 'page-layout-1', scope_entity_id: 'page-1', base_layout_id: 'global-layout-1', config: {} }]
+                return [
+                    {
+                        id: 'page-layout-1',
+                        scope_entity_id: 'page-1',
+                        base_layout_id: 'global-layout-1',
+                        template_key: 'dashboard',
+                        config: {}
+                    }
+                ]
             }
 
             if (sql.includes('SELECT *') && sql.includes('_mhb_layout_widget_overrides')) {
@@ -1236,8 +1258,16 @@ describe('MetahubLayoutsService', () => {
                 return []
             }
 
-            if (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
-                return [{ id: 'page-layout-1', scope_entity_id: 'page-1', base_layout_id: 'global-layout-1', config: {} }]
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: 'page-layout-1',
+                        scope_entity_id: 'page-1',
+                        base_layout_id: 'global-layout-1',
+                        template_key: 'dashboard',
+                        config: {}
+                    }
+                ]
             }
 
             if (sql.includes('UPDATE') && sql.includes('_mhb_layouts') && sql.includes('config = $1')) {

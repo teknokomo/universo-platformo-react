@@ -4,6 +4,7 @@ import { emptyTemplate } from '../../domains/templates/data/empty.template'
 import { objectEntityPreset } from '../../domains/templates/data/object.entity-preset'
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
 import { interpretationNetworkTemplate } from '../../domains/templates/data/interpretation-network.template'
+import { marketingPageTemplate } from '../../domains/templates/data/marketing-page.template'
 import { oneCCompatibleTemplate } from '../../domains/templates/data/one-c-compatible.template'
 import {
     oneCCompatibleAllPresets,
@@ -61,6 +62,39 @@ describe('TemplateManifestValidator', () => {
         }
 
         expect(() => validateTemplateManifest(invalidFormat)).toThrow()
+    })
+
+    it('accepts the data-driven marketing page template without a version bump', () => {
+        expect(() => validateTemplateManifest(cloneTemplate(marketingPageTemplate))).not.toThrow()
+        expect(marketingPageTemplate.version).toBe('0.1.0')
+        expect(marketingPageTemplate.minStructureVersion).toBe('0.1.0')
+        expect(marketingPageTemplate.seed.layouts[0]?.templateKey).toBe('marketing-page')
+        expect(marketingPageTemplate.seed.elements?.MarketingPageSection?.map((element) => element.data.SectionKey)).toEqual([
+            'hero',
+            'logos',
+            'features',
+            'testimonials',
+            'highlights',
+            'pricing',
+            'faq',
+            'footer'
+        ])
+        expect(marketingPageTemplate.seed.elements?.MarketingPageLogo).toHaveLength(6)
+        expect(marketingPageTemplate.seed.elements?.MarketingPageFeature).toHaveLength(3)
+        expect(marketingPageTemplate.seed.elements?.MarketingPageTestimonial).toHaveLength(6)
+        expect(marketingPageTemplate.seed.elements?.MarketingPageHighlight).toHaveLength(6)
+        expect(marketingPageTemplate.seed.elements?.MarketingPagePricing).toHaveLength(3)
+        expect(marketingPageTemplate.seed.elements?.MarketingPagePricingBenefit).toHaveLength(14)
+        expect(marketingPageTemplate.seed.elements?.MarketingPageFaq).toHaveLength(4)
+
+        const pricingEntity = marketingPageTemplate.seed.entities?.find((entity) => entity.codename === 'MarketingPagePricing')
+        expect(pricingEntity?.components?.some((component) => component.dataType === 'JSON')).toBe(false)
+        const benefitEntity = marketingPageTemplate.seed.entities?.find((entity) => entity.codename === 'MarketingPagePricingBenefit')
+        expect(benefitEntity?.components?.find((component) => component.codename === 'TierRef')).toMatchObject({
+            dataType: 'REF',
+            targetEntityCodename: 'MarketingPagePricing',
+            targetEntityKind: 'object'
+        })
     })
 
     it('accepts the built-in 1C-Compatible template without changing the default starter template presets', () => {

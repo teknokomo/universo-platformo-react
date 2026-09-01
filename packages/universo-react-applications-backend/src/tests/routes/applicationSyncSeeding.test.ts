@@ -13,7 +13,7 @@ describe('application sync predefined seeding', () => {
         jest.restoreAllMocks()
     })
 
-    it('deduplicates rows by id before ON CONFLICT upsert and emits warning', async () => {
+    it('rejects duplicate predefined ids before any runtime row write', async () => {
         const merge = jest.fn().mockResolvedValue(undefined)
         const onConflict = jest.fn().mockReturnValue({ merge })
         const insert = jest.fn().mockReturnValue({ onConflict })
@@ -23,8 +23,6 @@ describe('application sync predefined seeding', () => {
         const trx = {
             withSchema
         } as unknown as Knex.Transaction
-
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined)
 
         const entities = [
             {
@@ -38,26 +36,21 @@ describe('application sync predefined seeding', () => {
         const snapshot = {
             elements: {
                 '019ccefc-2f7b-7b36-82f4-85cdb1312268': [
-                    { id: 'elem-1', data: {} },
-                    { id: 'elem-1', data: {} }
+                    { id: '019ccefc-2f7b-7b39-82f4-85cdb131226b', data: {} },
+                    { id: '019ccefc-2f7b-7b39-82f4-85cdb131226b', data: {} }
                 ]
             }
         }
 
-        const warnings = await seedPredefinedElements('app_019ccefc2f7b7b3682f485cdb1312268', snapshot as never, entities, 'user-1', trx)
+        await expect(
+            seedPredefinedElements('app_019ccefc2f7b7b3682f485cdb1312268', snapshot as never, entities, 'user-1', trx)
+        ).rejects.toThrow('Duplicate predefined element id must be rejected before writing')
 
-        expect(withSchema).toHaveBeenCalled()
-        expect(table).toHaveBeenCalled()
-        expect(insert).toHaveBeenCalledTimes(1)
-
-        const insertedRows = insert.mock.calls[0]?.[0] as Array<Record<string, unknown>>
-        expect(insertedRows).toHaveLength(1)
-        expect(insertedRows[0]?.id).toBe('elem-1')
-
-        expect(onConflict).toHaveBeenCalledWith('id')
-        expect(merge).toHaveBeenCalled()
-        expect(warnings.some((warning) => warning.includes('Duplicate predefined element id "elem-1"'))).toBe(true)
-        expect(warnSpy).toHaveBeenCalled()
+        expect(withSchema).not.toHaveBeenCalled()
+        expect(table).not.toHaveBeenCalled()
+        expect(insert).not.toHaveBeenCalled()
+        expect(onConflict).not.toHaveBeenCalled()
+        expect(merge).not.toHaveBeenCalled()
     })
 
     it('preserves VLC enum codenames during runtime sync seeding', async () => {
@@ -102,7 +95,7 @@ describe('application sync predefined seeding', () => {
             optionValues: {
                 'enum-status': [
                     {
-                        id: 'value-draft',
+                        id: '019ccefc-2f7b-7b3a-82f4-85cdb131226c',
                         codename: {
                             _schema: 'vlc:1',
                             _primary: 'en',
@@ -118,7 +111,7 @@ describe('application sync predefined seeding', () => {
                         isDefault: true
                     },
                     {
-                        id: 'value-published',
+                        id: '019ccefc-2f7b-7b3b-82f4-85cdb131226d',
                         codename: {
                             _schema: 'vlc:1',
                             _primary: 'en',
@@ -162,5 +155,53 @@ describe('application sync predefined seeding', () => {
                 ru: { content: 'опубликовано' }
             }
         })
+    })
+
+    it('rejects non-UUID-v7 enumeration ids before writing runtime values', async () => {
+        const trx = {
+            withSchema: jest.fn()
+        } as unknown as Knex.Transaction
+
+        await expect(
+            syncEnumerationValues(
+                'app_test_schema',
+                {
+                    entities: {
+                        'enum-status': { id: 'enum-status', kind: 'enumeration' }
+                    },
+                    optionValues: {
+                        'enum-status': [{ id: 'value-v4', codename: 'Draft' }]
+                    }
+                } as never,
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('Snapshot enumeration value id must be a UUID v7')
+    })
+
+    it('rejects non-UUID-v7 predefined element ids before writing runtime rows', async () => {
+        const trx = {
+            withSchema: jest.fn()
+        } as unknown as Knex.Transaction
+        const entity = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312268',
+            kind: 'object',
+            codename: 'products',
+            fields: []
+        } as unknown as EntityDefinition
+
+        await expect(
+            seedPredefinedElements(
+                'app_019ccefc2f7b7b3682f485cdb1312268',
+                {
+                    elements: {
+                        [entity.id]: [{ id: 'element-v4', data: {} }]
+                    }
+                } as never,
+                [entity],
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('Snapshot predefined element id must be a UUID v7')
     })
 })

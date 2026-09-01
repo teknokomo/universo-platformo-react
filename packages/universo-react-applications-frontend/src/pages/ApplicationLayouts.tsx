@@ -12,7 +12,8 @@ import {
     LayoutAuthoringDetails,
     LayoutStateChips,
     ViewHeaderMUI as ViewHeader,
-    normalizeSideMenuConfig
+    normalizeSideMenuConfig,
+    useConfirm
 } from '@universo-react/template-mui'
 import type {
     ApplicationLayout,
@@ -44,6 +45,7 @@ import {
     listApplicationLayoutWidgetObject,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
+    resetApplicationLayoutConfig,
     resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     upsertApplicationLayoutWidget,
@@ -58,6 +60,7 @@ import { LayoutRuntimeSettingsPanels } from './application-layouts/LayoutRuntime
 import { ApplicationLayoutListDialogs } from './application-layouts/ApplicationLayoutListDialogs'
 import { ApplicationLayoutWidgetEditors } from './application-layouts/ApplicationLayoutWidgetEditors'
 import { ApplicationLayoutListMenu } from './application-layouts/ApplicationLayoutListMenu'
+import { ApplicationMarketingAppearancePanel } from './application-layouts/ApplicationMarketingAppearancePanel'
 import {
     mergeInterpretationNetworkMatrixSettings,
     parseInterpretationNetworkMatrixSettings
@@ -129,6 +132,7 @@ const ApplicationLayouts = () => {
     const { t, i18n } = useTranslation('applications')
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
+    const { confirm } = useConfirm()
     const queryClient = useQueryClient()
     const navigate = useNavigate()
 
@@ -225,8 +229,57 @@ const ApplicationLayouts = () => {
     const updateMutation = useMutation({
         mutationFn: ({ layout, data }: { layout: ApplicationLayout; data: Partial<ApplicationLayout> }) =>
             updateApplicationLayout(String(applicationId), layout.id, { ...data, expectedVersion: layout.version }),
+        onError: (error) => {
+            const apiError = extractAxiosError(error)
+            const message =
+                apiError.code === 'APPLICATION_LAYOUT_TEMPLATE_IMMUTABLE'
+                    ? t('layouts.templateImmutable', 'A layout template cannot be changed after creation.')
+                    : apiError.code === 'APPLICATION_LAYOUT_INVALID'
+                    ? t('layouts.invalidRequest', 'The layout data is invalid. Review the fields and try again.')
+                    : t('layouts.saveError', 'Failed to save layout settings.')
+            enqueueSnackbar(message, { variant: 'error' })
+        },
         onSuccess: invalidateLayouts
     })
+
+    const resetMarketingAppearanceMutation = useMutation({
+        mutationFn: ({ layout }: { layout: ApplicationLayout }) =>
+            resetApplicationLayoutConfig(String(applicationId), layout.id, { expectedVersion: layout.version }),
+        onError: (error) => {
+            const apiError = extractAxiosError(error)
+            const errorCode = apiError.code ?? apiError.message
+            const message =
+                errorCode === 'APPLICATION_LAYOUT_VERSION_CONFLICT'
+                    ? t(
+                          'layouts.marketing.resetConflict',
+                          'Marketing appearance changed while you were editing. Reload the layout and try again.'
+                      )
+                    : errorCode === 'APPLICATION_LAYOUT_MARKETING_RESET_NOT_SUPPORTED'
+                    ? t('layouts.marketing.resetUnsupported', 'Only marketing page layouts can restore marketing appearance defaults.')
+                    : t('layouts.marketing.resetError', 'Failed to restore marketing appearance defaults.')
+            enqueueSnackbar(message, { variant: 'error' })
+        },
+        onSuccess: async () => {
+            enqueueSnackbar(t('layouts.marketing.resetSuccess', 'Marketing appearance restored to template defaults.'), {
+                variant: 'success'
+            })
+            await invalidateLayouts()
+        }
+    })
+
+    const requestMarketingAppearanceReset = async (layout: ApplicationLayout) => {
+        if (resetMarketingAppearanceMutation.isPending) return
+        const confirmed = await confirm({
+            title: t('layouts.marketing.resetTitle', 'Restore marketing page defaults?'),
+            description: t(
+                'layouts.marketing.resetDescription',
+                'This restores the theme, colors, and section visibility for this application layout. Workspace content and metahub records will not change.'
+            ),
+            confirmButtonName: t('layouts.marketing.resetConfirm', 'Restore defaults'),
+            cancelButtonName: tc('actions.cancel', 'Cancel')
+        })
+        if (confirmed) resetMarketingAppearanceMutation.mutate({ layout })
+    }
 
     const deleteMutation = useMutation({
         mutationFn: (layout: ApplicationLayout) => deleteApplicationLayout(String(applicationId), layout.id, layout.version),
@@ -381,6 +434,14 @@ const ApplicationLayouts = () => {
     })
 
     const layouts = useMemo(() => layoutsQuery.data?.items ?? [], [layoutsQuery.data?.items])
+    const applicationTemplateKey = useMemo(
+        () =>
+            layouts.find((layout) => layout.scopeEntityId == null && layout.isDefault)?.templateKey ??
+            layouts.find((layout) => layout.scopeEntityId == null)?.templateKey ??
+            layouts[0]?.templateKey ??
+            'dashboard',
+        [layouts]
+    )
     const isLoading = scopesQuery.isLoading || layoutsQuery.isLoading || (Boolean(layoutId) && detailQuery.isLoading)
     const isSchemaNotReady =
         (scopesQuery.error as { response?: { data?: { error?: string } } } | null)?.response?.data?.error === 'APPLICATION_SCHEMA_NOT_READY'
@@ -392,7 +453,7 @@ const ApplicationLayouts = () => {
         }
 
         return layouts.filter((layout) => {
-            const title = resolveLocalizedText(layout.name, i18n.language, layout.id).toLowerCase()
+            const title = resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout')).toLowerCase()
             const description = resolveLocalizedText(layout.description ?? {}, i18n.language, '').toLowerCase()
             const scopeName = (scopesById.get(layout.scopeId ?? 'global')?.name ?? t('layouts.globalScope', 'Global')).toLowerCase()
             return title.includes(normalizedSearch) || description.includes(normalizedSearch) || scopeName.includes(normalizedSearch)
@@ -402,8 +463,11 @@ const ApplicationLayouts = () => {
     const handleCreate = () => {
         const selectedScope = scopesById.get(scopeId)
         createMutation.mutate({
-            templateKey: 'dashboard',
-            name: { en: name || 'Layout', ru: name || 'Макет' },
+            templateKey: applicationTemplateKey,
+            name: {
+                en: name || t('layouts.untitled', 'Untitled layout'),
+                ru: name || t('layouts.untitled', 'Untitled layout')
+            },
             scopeEntityId: selectedScope?.scopeEntityId ?? null,
             isActive: true,
             isDefault: false,
@@ -422,12 +486,13 @@ const ApplicationLayouts = () => {
 
     const handleLayoutSave = () => {
         if (!editingLayout) return
+        const fallbackName = t('layouts.untitled', 'Untitled layout')
         updateMutation.mutate({
             layout: editingLayout,
             data: {
                 name: {
-                    en: layoutNameEn || layoutNameRu || editingLayout.id,
-                    ru: layoutNameRu || layoutNameEn || editingLayout.id
+                    en: layoutNameEn || layoutNameRu || fallbackName,
+                    ru: layoutNameRu || layoutNameEn || fallbackName
                 },
                 description:
                     layoutDescriptionEn || layoutDescriptionRu
@@ -450,7 +515,7 @@ const ApplicationLayouts = () => {
 
     if (isLoading) {
         return (
-            <Stack alignItems='center' justifyContent='center' minHeight={360}>
+            <Stack sx={{ alignItems: 'center', justifyContent: 'center', minHeight: 360 }}>
                 <CircularProgress />
             </Stack>
         )
@@ -663,7 +728,15 @@ const ApplicationLayouts = () => {
 
         return (
             <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', px: { xs: 1.5, md: 2 } }}>
-                <ViewHeader title={title} description={t('layouts.detailDescription', 'Configure layout widgets.')} search={false} />
+                <ViewHeader
+                    title={title}
+                    description={
+                        layout.templateKey === 'marketing-page'
+                            ? t('layouts.marketingDetailDescription', 'Configure the published marketing page appearance.')
+                            : t('layouts.detailDescription', 'Configure layout widgets.')
+                    }
+                    search={false}
+                />
 
                 <LayoutStateChips
                     isActive={layout.isActive}
@@ -704,81 +777,101 @@ const ApplicationLayouts = () => {
                 </Alert>
 
                 <Box data-testid='application-layout-details-content' sx={{ pb: 2, width: '100%' }}>
-                    <LayoutAuthoringDetails
-                        dragHint={t('layouts.dragHint', 'Drag widgets between zones to change runtime composition.')}
-                        emptyZoneLabel={t('layouts.emptyZone', 'No widgets in this zone yet.')}
-                        addWidgetLabel={t('layouts.addWidgetAction', 'Add widget')}
-                        availableWidgetsLabel={t('layouts.availableWidgets', 'Available widgets')}
-                        moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
-                        onDragEnd={handleDragEnd}
-                        onAddWidgetRequest={handleAddWidgetRequest}
-                        beforeZonesContent={
-                            <LayoutRuntimeSettingsPanels
+                    {layout.templateKey === 'marketing-page' ? (
+                        <Stack spacing={2}>
+                            <ApplicationMarketingAppearancePanel
                                 t={t}
                                 layout={layout}
-                                objectBehaviorConfig={objectBehaviorConfig}
-                                sideMenuConfig={sideMenuConfig}
-                                onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
-                                onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
-                                onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                                isSaving={updateMutation.isPending}
+                                isResetting={resetMarketingAppearanceMutation.isPending}
+                                canManage
+                                onChange={(key, value) => void handleViewSettingChange(key, value)}
+                                onReset={() => void requestMarketingAppearanceReset(layout)}
                             />
-                        }
-                        zones={DASHBOARD_LAYOUT_ZONES.map((zone) => ({
-                            zone,
-                            title: zoneLabels[zone],
-                            availableWidgets: getAvailableWidgetsForZone(zone).map((item) => ({
-                                key: item.key,
-                                label: widgetLabelByKey[item.key] ?? item.key
-                            })),
-                            items: widgetsByZone[zone].map((widget) => {
-                                const label = getWidgetChipLabel(widget)
+                            <Typography variant='body2' color='text.secondary'>
+                                {t(
+                                    'layouts.marketing.contentHint',
+                                    'Marketing content is edited through standard Object records; dashboard widgets are not used by this template.'
+                                )}
+                            </Typography>
+                        </Stack>
+                    ) : (
+                        <LayoutAuthoringDetails
+                            dragHint={t('layouts.dragHint', 'Drag widgets between zones to change runtime composition.')}
+                            emptyZoneLabel={t('layouts.emptyZone', 'No widgets in this zone yet.')}
+                            addWidgetLabel={t('layouts.addWidgetAction', 'Add widget')}
+                            availableWidgetsLabel={t('layouts.availableWidgets', 'Available widgets')}
+                            moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
+                            onDragEnd={handleDragEnd}
+                            onAddWidgetRequest={handleAddWidgetRequest}
+                            beforeZonesContent={
+                                <LayoutRuntimeSettingsPanels
+                                    t={t}
+                                    layout={layout}
+                                    objectBehaviorConfig={objectBehaviorConfig}
+                                    sideMenuConfig={sideMenuConfig}
+                                    onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                    onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
+                                    onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                                />
+                            }
+                            zones={DASHBOARD_LAYOUT_ZONES.map((zone) => ({
+                                zone,
+                                title: zoneLabels[zone],
+                                availableWidgets: getAvailableWidgetsForZone(zone).map((item) => ({
+                                    key: item.key,
+                                    label: widgetLabelByKey[item.key] ?? item.key
+                                })),
+                                items: widgetsByZone[zone].map((widget) => {
+                                    const label = getWidgetChipLabel(widget)
 
-                                return {
-                                    id: widget.id,
-                                    label,
-                                    isActive: widget.isActive,
-                                    draggable: !moveWidgetMutation.isPending,
-                                    moveActions: DASHBOARD_LAYOUT_ZONES.filter((targetZone) => targetZone !== widget.zone).map(
-                                        (targetZone) => ({
-                                            key: `${widget.id}-${targetZone}`,
-                                            testId: `layout-widget-move-${widget.id}-${targetZone}`,
-                                            label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
-                                            onClick: () =>
-                                                moveWidgetMutation.mutate({
-                                                    widget,
-                                                    targetZone,
-                                                    targetIndex: widgetsByZone[targetZone].length
-                                                })
-                                        })
-                                    ),
-                                    onEdit: () => openStructuredWidgetEditor(widget),
-                                    onClick: () => openStructuredWidgetEditor(widget),
-                                    onRemove: () => deleteWidgetMutation.mutate(widget.id),
-                                    onToggleActive: (active) =>
-                                        toggleWidgetMutation.mutate({
-                                            widgetId: widget.id,
-                                            isActive: active
-                                        }),
-                                    editTooltip: tc('actions.edit', 'Edit'),
-                                    removeTooltip: tc('actions.delete', 'Delete'),
-                                    toggleActiveTooltip: widget.isActive
-                                        ? t('layouts.deactivate', 'Deactivate')
-                                        : t('layouts.activate', 'Activate'),
-                                    editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
-                                    removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
-                                    toggleActiveAriaLabel: widget.isActive
-                                        ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
-                                        : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
-                                    inheritedLabel:
-                                        widget.widgetKey === 'interpretationNetworkWorkspace'
-                                            ? isCustomizedWidget(layout, widget)
-                                                ? t('layouts.widgetCustomization.application', 'Customized in application')
-                                                : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
-                                            : undefined
-                                }
-                            })
-                        }))}
-                    />
+                                    return {
+                                        id: widget.id,
+                                        label,
+                                        isActive: widget.isActive,
+                                        draggable: !moveWidgetMutation.isPending,
+                                        moveActions: DASHBOARD_LAYOUT_ZONES.filter((targetZone) => targetZone !== widget.zone).map(
+                                            (targetZone) => ({
+                                                key: `${widget.id}-${targetZone}`,
+                                                testId: `layout-widget-move-${widget.id}-${targetZone}`,
+                                                label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
+                                                onClick: () =>
+                                                    moveWidgetMutation.mutate({
+                                                        widget,
+                                                        targetZone,
+                                                        targetIndex: widgetsByZone[targetZone].length
+                                                    })
+                                            })
+                                        ),
+                                        onEdit: () => openStructuredWidgetEditor(widget),
+                                        onClick: () => openStructuredWidgetEditor(widget),
+                                        onRemove: () => deleteWidgetMutation.mutate(widget.id),
+                                        onToggleActive: (active) =>
+                                            toggleWidgetMutation.mutate({
+                                                widgetId: widget.id,
+                                                isActive: active
+                                            }),
+                                        editTooltip: tc('actions.edit', 'Edit'),
+                                        removeTooltip: tc('actions.delete', 'Delete'),
+                                        toggleActiveTooltip: widget.isActive
+                                            ? t('layouts.deactivate', 'Deactivate')
+                                            : t('layouts.activate', 'Activate'),
+                                        editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
+                                        removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
+                                        toggleActiveAriaLabel: widget.isActive
+                                            ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
+                                            : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
+                                        inheritedLabel:
+                                            widget.widgetKey === 'interpretationNetworkWorkspace'
+                                                ? isCustomizedWidget(layout, widget)
+                                                    ? t('layouts.widgetCustomization.application', 'Customized in application')
+                                                    : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
+                                                : undefined
+                                    }
+                                })
+                            }))}
+                        />
+                    )}
                 </Box>
 
                 <ApplicationLayoutWidgetEditors
@@ -864,7 +957,7 @@ const ApplicationLayouts = () => {
     const menuLayout = menuState.layout
     const layoutListItems = filteredLayouts.map((layout) => ({
         id: layout.id,
-        title: resolveLocalizedText(layout.name, i18n.language, layout.id),
+        title: resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout')),
         description: resolveLocalizedText(layout.description ?? {}, i18n.language, ''),
         meta: scopesById.get(layout.scopeId ?? 'global')?.name ?? t('layouts.globalScope', 'Global'),
         statusContent: (
@@ -970,6 +1063,7 @@ const ApplicationLayouts = () => {
                 t={t}
                 tc={tc}
                 scopes={scopesQuery.data ?? []}
+                templateKey={applicationTemplateKey}
                 createOpen={createOpen}
                 setCreateOpen={setCreateOpen}
                 name={name}

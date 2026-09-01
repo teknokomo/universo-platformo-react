@@ -59,6 +59,14 @@
 
 ---
 
+## 2026-09-01 - MUI 9 Marketing Page QA Remediation
+
+-   Removed the unreferenced static marketing demo from the shared `template-mui` package and retained only the shared start-page shell primitives; the published renderer remains data-driven in `apps-template-mui`.
+-   Hardened the marketing runtime controller with bounded parallel collection loading, fail-closed required content, duplicate section rejection, selected-locale labels, and no stock-copy injection. The renderer now honors configured footer order and keeps the footer accessible.
+-   Added strict workspace API response parsing and UUID v7 checks, transactional workspace reset audit verification, authored-content protection, cross-scope mutation denial, and anonymous/member reset negatives in the browser lifecycle.
+-   Updated EN/RU GitBook platform and guide pages with marketing ownership/runtime boundaries. Focused backend and renderer tests pass; the final local-Supabase wrapper now passes after the continuation hardening, including workspace lifecycle, role mutation, reset-audit, and responsive visual baselines.
+-   Known evidence boundaries remain explicit: production Storage/imgproxy is not exercised by minimal Supabase, broad apps-template Vitest is resource-sensitive, and OntoIndex/Thermos/autoreview cannot complete in the current environment.
+
 ## 2026-08-29 - Strict PlayCanvas QA debt closure
 
 -   Completed the final structural and contract hardening pass for the PlayCanvas Editor assets and MMOOMM script-assets plan. The PlayCanvas project service/store boundary, editor compatibility routes, and realtime runtime are split into focused modules without changing the public protocol, DbExecutor/transaction semantics, optimistic locking, rollback behavior, or security gates.

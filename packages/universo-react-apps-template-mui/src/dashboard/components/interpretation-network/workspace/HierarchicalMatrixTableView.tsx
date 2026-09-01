@@ -169,10 +169,10 @@ function HierarchicalMatrixTableCell({
         <Stack
             direction='row'
             spacing={0}
-            alignItems='stretch'
             sx={{
                 minHeight: 54,
                 minWidth: 0,
+                alignItems: 'stretch',
                 position: 'relative',
                 bgcolor: cell.style.fill ?? 'background.paper',
                 color: cell.style.text ?? 'text.primary',

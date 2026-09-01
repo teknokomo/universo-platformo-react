@@ -271,7 +271,7 @@ export function MaterialContentEditor({ t, locale, bodyField, value, readOnly, i
                         {languageMenuMode === 'change' ? (
                             <>
                                 <MenuItem onClick={() => setLanguageMenuMode('actions')}>
-                                    <Stack direction='row' spacing={1} alignItems='center'>
+                                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                         <ArrowBackRoundedIcon fontSize='small' />
                                         <span>{t('workspace.material.backToLanguageActions', 'Back')}</span>
                                     </Stack>
@@ -328,7 +328,7 @@ export function MaterialContentEditor({ t, locale, bodyField, value, readOnly, i
 
             {error || validationError ? <Alert severity='error'>{validationError ?? error}</Alert> : null}
 
-            <Stack direction='row' justifyContent='flex-end'>
+            <Stack direction='row' sx={{ justifyContent: 'flex-end' }}>
                 <Button
                     type='button'
                     size='small'

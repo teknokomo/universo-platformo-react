@@ -279,7 +279,7 @@ export function LayoutAuthoringDetails({
                     {zones.map((zone) => (
                         <LayoutZoneColumn key={zone.zone} zone={zone.zone} title={zone.title}>
                             <Stack spacing={1.25}>
-                                <Stack direction='row' spacing={1} alignItems='center'>
+                                <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                     <Button
                                         size='small'
                                         startIcon={<AddRoundedIcon />}

@@ -183,7 +183,7 @@ const ComponentFormFields = ({
                                 disabled={isLoading}
                                 value={validationRules.minLength ?? ''}
                                 onChange={(e) => updateValidationRule('minLength', e.target.value ? parseInt(e.target.value, 10) : null)}
-                                inputProps={{ min: 0 }}
+                                slotProps={{ htmlInput: { min: 0 } }}
                             />
                             <TextField
                                 label={stringMaxLengthLabel}
@@ -193,7 +193,7 @@ const ComponentFormFields = ({
                                 disabled={isLoading}
                                 value={validationRules.maxLength ?? ''}
                                 onChange={(e) => updateValidationRule('maxLength', e.target.value ? parseInt(e.target.value, 10) : null)}
-                                inputProps={{ min: 1 }}
+                                slotProps={{ htmlInput: { min: 1 } }}
                                 helperText={t(
                                     'components.typeSettings.string.maxLengthHelper',
                                     'Leave empty when the value should not have a fixed length limit.'
@@ -236,7 +236,7 @@ const ComponentFormFields = ({
                                 disabled={isLoading}
                                 value={validationRules.precision ?? 10}
                                 onChange={(e) => updateValidationRule('precision', e.target.value ? parseInt(e.target.value, 10) : 10)}
-                                inputProps={{ min: 1, max: 15 }}
+                                slotProps={{ htmlInput: { min: 1, max: 15 } }}
                                 helperText='1-15'
                             />
                             <TextField
@@ -247,7 +247,7 @@ const ComponentFormFields = ({
                                 disabled={isLoading}
                                 value={validationRules.scale ?? 0}
                                 onChange={(e) => updateValidationRule('scale', e.target.value ? parseInt(e.target.value, 10) : 0)}
-                                inputProps={{ min: 0, max: Math.max(0, (validationRules.precision ?? 10) - 1) }}
+                                slotProps={{ htmlInput: { min: 0, max: Math.max(0, (validationRules.precision ?? 10) - 1) } }}
                                 helperText={`0-${Math.max(0, (validationRules.precision ?? 10) - 1)}`}
                             />
                         </Stack>
@@ -330,7 +330,7 @@ const ComponentFormFields = ({
                                 disabled={isLoading}
                                 value={validationRules.minRows ?? ''}
                                 onChange={(e) => updateValidationRule('minRows', e.target.value ? parseInt(e.target.value, 10) : null)}
-                                inputProps={{ min: 0 }}
+                                slotProps={{ htmlInput: { min: 0 } }}
                                 helperText={t('components.typeSettings.table.minRowsHelper', 'Leave empty for no limit')}
                             />
                             <TextField
@@ -341,7 +341,7 @@ const ComponentFormFields = ({
                                 disabled={isLoading}
                                 value={validationRules.maxRows ?? ''}
                                 onChange={(e) => updateValidationRule('maxRows', e.target.value ? parseInt(e.target.value, 10) : null)}
-                                inputProps={{ min: 1 }}
+                                slotProps={{ htmlInput: { min: 1 } }}
                                 helperText={t('components.typeSettings.table.maxRowsHelper', 'Leave empty for no limit')}
                             />
                         </Stack>
@@ -355,7 +355,7 @@ const ComponentFormFields = ({
                             onChange={(e) =>
                                 updateValidationRule('maxChildComponents', e.target.value ? parseInt(e.target.value, 10) : null)
                             }
-                            inputProps={{ min: 1 }}
+                            slotProps={{ htmlInput: { min: 1 } }}
                             helperText={t(
                                 'components.typeSettings.table.maxChildComponentsHelper',
                                 'Limit the number of fields in this tabular part. Leave empty for no limit.'
@@ -603,7 +603,7 @@ export const PresentationTabFields = ({
                                     rows: Number.isInteger(rawValue) && rawValue >= 2 && rawValue <= 12 ? rawValue : 4
                                 })
                             }}
-                            inputProps={{ min: 2, max: 12 }}
+                            slotProps={{ htmlInput: { min: 2, max: 12 } }}
                             helperText={t('components.presentation.multilineRowsHelper', 'Choose between 2 and 12 rows.')}
                         />
                     )}

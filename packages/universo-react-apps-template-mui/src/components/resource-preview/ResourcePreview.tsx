@@ -186,7 +186,7 @@ export function ResourcePreview({ source, title, description, onOpenPage }: Reso
                 p: { xs: 2, md: 2.5 }
             }}
         >
-            <Stack direction='row' spacing={1} alignItems='center'>
+            <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                 {getResourceIcon(readySource)}
                 <Box sx={{ minWidth: 0 }}>
                     <Typography variant='subtitle1' sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>

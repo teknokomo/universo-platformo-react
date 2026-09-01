@@ -82,4 +82,41 @@ describe('createRuntimeAdapter', () => {
             sectionId: 'object-1'
         })
     })
+
+    it('keeps explicit workspace scope on list and row requests', async () => {
+        const { createRuntimeAdapter } = await import('../runtimeAdapter')
+        const adapter = createRuntimeAdapter('app-1')
+
+        await adapter.fetchList({ limit: 20, offset: 0, locale: 'en', workspaceId: 'workspace-a' })
+        await adapter.fetchList({ limit: 20, offset: 0, locale: 'en', workspaceId: 'workspace-b' })
+        await adapter.fetchRow('row-a', { objectCollectionId: 'object-1', workspaceId: 'workspace-a' })
+        await adapter.fetchRow('row-b', { objectCollectionId: 'object-1', workspaceId: 'workspace-b' })
+
+        expect(applicationsApiMocks.getApplicationRuntime).toHaveBeenNthCalledWith(1, 'app-1', {
+            limit: 20,
+            offset: 0,
+            locale: 'en',
+            workspaceId: 'workspace-a'
+        })
+        expect(applicationsApiMocks.getApplicationRuntime).toHaveBeenNthCalledWith(2, 'app-1', {
+            limit: 20,
+            offset: 0,
+            locale: 'en',
+            workspaceId: 'workspace-b'
+        })
+        expect(applicationsApiMocks.getApplicationRuntimeRow).toHaveBeenNthCalledWith(1, {
+            applicationId: 'app-1',
+            rowId: 'row-a',
+            objectCollectionId: 'object-1',
+            sectionId: 'object-1',
+            workspaceId: 'workspace-a'
+        })
+        expect(applicationsApiMocks.getApplicationRuntimeRow).toHaveBeenNthCalledWith(2, {
+            applicationId: 'app-1',
+            rowId: 'row-b',
+            objectCollectionId: 'object-1',
+            sectionId: 'object-1',
+            workspaceId: 'workspace-b'
+        })
+    })
 })

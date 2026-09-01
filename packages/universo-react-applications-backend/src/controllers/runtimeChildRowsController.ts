@@ -467,7 +467,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
                 await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
 
-                const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, data, ctx.userId)
+                const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, data, ctx.userId, ctx.workspacesEnabled)
                 if ('error' in update) throw new UpdateFailure(400, update.error)
                 const { setClauses, values, nextParamIndex: pIdx } = update
 
@@ -662,7 +662,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 const pendingSortOnlyUpdates = sortOnlyUpdates.filter((update) => !fieldUpdateIds.has(update.childRowId))
 
                 for (const updateInput of fieldUpdates) {
-                    const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, updateInput.data, ctx.userId)
+                    const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, updateInput.data, ctx.userId, ctx.workspacesEnabled)
                     if ('error' in update) {
                         throw new UpdateFailure(400, update.error)
                     }
@@ -701,7 +701,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 }
 
                 for (const uniformUpdate of uniformUpdates) {
-                    const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, uniformUpdate.data, ctx.userId)
+                    const update = await buildChildRowUpdate(tx, ctx.schemaIdent, tc, uniformUpdate.data, ctx.userId, ctx.workspacesEnabled)
                     if ('error' in update) {
                         throw new UpdateFailure(400, update.error)
                     }
@@ -739,10 +739,12 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 ): Promise<Array<{ id: string }>> => {
                     if (updates.length === 0) return []
                     if (options.withExpectedVersion) {
+                        const seedOwnershipClause = ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''
                         return (await tx.query(
                             `
               UPDATE ${tc.tabTableIdent} AS target
               SET _tp_sort_order = ordering.sort_order,
+                  ${seedOwnershipClause}
                   _upl_updated_at = NOW(),
                   _upl_updated_by = $4,
                   _upl_version = COALESCE(target._upl_version, 1) + 1
@@ -763,10 +765,12 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                         )) as Array<{ id: string }>
                     }
 
+                    const seedOwnershipClause = ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''
                     return (await tx.query(
                         `
               UPDATE ${tc.tabTableIdent} AS target
               SET _tp_sort_order = ordering.sort_order,
+                  ${seedOwnershipClause}
                   _upl_updated_at = NOW(),
                   _upl_updated_by = $3,
                   _upl_version = COALESCE(target._upl_version, 1) + 1

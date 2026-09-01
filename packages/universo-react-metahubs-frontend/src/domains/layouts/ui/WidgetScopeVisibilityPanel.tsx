@@ -167,10 +167,16 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
                             <Switch
                                 checked={item.isVisible}
                                 disabled={disabled || isPending}
-                                inputProps={{
-                                    'aria-label': t('layouts.widgetScopeVisibility.toggleAria', 'Toggle widget visibility for {{name}}', {
-                                        name
-                                    })
+                                slotProps={{
+                                    input: {
+                                        'aria-label': t(
+                                            'layouts.widgetScopeVisibility.toggleAria',
+                                            'Toggle widget visibility for {{name}}',
+                                            {
+                                                name
+                                            }
+                                        )
+                                    }
                                 }}
                                 onChange={(_, checked) => mutation.mutate({ scopeEntityId: item.scopeEntityId, isVisible: checked })}
                                 data-testid={`layout-widget-scope-visibility-switch-${item.scopeEntityId}`}

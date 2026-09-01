@@ -1,9 +1,11 @@
 import { Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import SyncIcon from '@mui/icons-material/Sync'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo-react/template-mui'
 import { LocalizedInlineField, notifyError } from '@universo-react/template-mui'
 import type { VersionedLocalizedContent } from '@universo-react/types'
+import { isPendingEntity } from '@universo-react/utils'
 import type { Publication, PublicationAccessMode } from '../api'
 import type { PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
@@ -19,6 +21,38 @@ export interface PublicationLocalizedPayload {
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
+}
+
+type PublicationActionContext = ActionContext<PublicationDisplay, PublicationLocalizedPayload> & {
+    publicationMap?: Map<string, Publication>
+    canManagePublication?: boolean
+    isSyncing?: boolean
+}
+
+const getPublicationForAction = (ctx: PublicationActionContext): Publication | undefined => {
+    const publicationMap = ctx.publicationMap
+    if (publicationMap) {
+        return publicationMap.get(ctx.entity.id)
+    }
+
+    const entity = ctx.entity as unknown
+    if (!entity || typeof entity !== 'object') return undefined
+
+    const publication = entity as PublicationDisplay & Partial<Publication>
+    return 'schemaStatus' in publication || 'activeVersionId' in publication ? publication : undefined
+}
+
+const canSynchronizePublication = (ctx: PublicationActionContext): boolean => {
+    const publication = getPublicationForAction(ctx)
+
+    return (
+        ctx.canManagePublication === true &&
+        typeof ctx.api?.syncEntity === 'function' &&
+        !isPendingEntity(ctx.entity) &&
+        !isPendingEntity(publication) &&
+        publication?.schemaStatus !== 'pending' &&
+        Boolean(publication?.activeVersionId)
+    )
 }
 
 /**
@@ -232,6 +266,18 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
                     }
                 }
             }
+        }
+    },
+    {
+        id: 'sync',
+        labelKey: 'publications.actions.sync',
+        icon: <SyncIcon />,
+        order: 20,
+        group: 'main',
+        visible: (ctx) => canSynchronizePublication(ctx as PublicationActionContext),
+        enabled: (ctx) => (ctx as PublicationActionContext).isSyncing !== true,
+        onSelect: async (ctx) => {
+            await ctx.api?.syncEntity?.(ctx.entity.id)
         }
     },
     {

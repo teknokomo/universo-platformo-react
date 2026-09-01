@@ -261,11 +261,13 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                                             checked={checked}
                                             onChange={(_, nextChecked) => setViewAllowed(view, nextChecked)}
                                             disabled={!supported || (checked && viewSettings.allowedMatrixViews.length === 1)}
-                                            inputProps={{
-                                                'aria-label': t(
-                                                    `layouts.interpretationNetworkEditor.views.${view}`,
-                                                    MATRIX_VIEW_FALLBACK_LABELS[view]
-                                                )
+                                            slotProps={{
+                                                input: {
+                                                    'aria-label': t(
+                                                        `layouts.interpretationNetworkEditor.views.${view}`,
+                                                        MATRIX_VIEW_FALLBACK_LABELS[view]
+                                                    )
+                                                }
                                             }}
                                         />
                                     }
@@ -429,8 +431,13 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                                         showHierarchicalTableHeaders: event.target.checked
                                     }))
                                 }
-                                inputProps={{
-                                    'aria-label': t('layouts.interpretationNetworkEditor.tableHeaders', 'Show hierarchical table headers')
+                                slotProps={{
+                                    input: {
+                                        'aria-label': t(
+                                            'layouts.interpretationNetworkEditor.tableHeaders',
+                                            'Show hierarchical table headers'
+                                        )
+                                    }
                                 }}
                             />
                         }
@@ -457,8 +464,10 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                                         showHierarchicalTableHeaderCard: event.target.checked
                                     }))
                                 }
-                                inputProps={{
-                                    'aria-label': t('layouts.interpretationNetworkEditor.tableHeaderCard', 'Show focused parent card')
+                                slotProps={{
+                                    input: {
+                                        'aria-label': t('layouts.interpretationNetworkEditor.tableHeaderCard', 'Show focused parent card')
+                                    }
                                 }}
                             />
                         }
@@ -485,11 +494,13 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                                         colorBreadcrumbsByCell: event.target.checked
                                     }))
                                 }
-                                inputProps={{
-                                    'aria-label': t(
-                                        'layouts.interpretationNetworkEditor.breadcrumbColors',
-                                        'Use cell colors for breadcrumbs'
-                                    )
+                                slotProps={{
+                                    input: {
+                                        'aria-label': t(
+                                            'layouts.interpretationNetworkEditor.breadcrumbColors',
+                                            'Use cell colors for breadcrumbs'
+                                        )
+                                    }
                                 }}
                             />
                         }
@@ -512,8 +523,10 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                                         showMatrixTreeTotalCells: event.target.checked
                                     }))
                                 }
-                                inputProps={{
-                                    'aria-label': t('layouts.interpretationNetworkEditor.totalCells', 'Show total cells in tree')
+                                slotProps={{
+                                    input: {
+                                        'aria-label': t('layouts.interpretationNetworkEditor.totalCells', 'Show total cells in tree')
+                                    }
                                 }}
                             />
                         }
@@ -598,11 +611,13 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                                         allowNewAxesInCellDialog: event.target.checked
                                     }))
                                 }
-                                inputProps={{
-                                    'aria-label': t(
-                                        'layouts.interpretationNetworkEditor.newAxesInCellDialog',
-                                        'Create rows and columns from cell dialog'
-                                    )
+                                slotProps={{
+                                    input: {
+                                        'aria-label': t(
+                                            'layouts.interpretationNetworkEditor.newAxesInCellDialog',
+                                            'Create rows and columns from cell dialog'
+                                        )
+                                    }
                                 }}
                             />
                         }
@@ -625,11 +640,13 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                                         splitPane: { enabled: event.target.checked }
                                     }))
                                 }
-                                inputProps={{
-                                    'aria-label': t(
-                                        'layouts.interpretationNetworkEditor.resizablePanes',
-                                        'Allow users to resize workspace panes'
-                                    )
+                                slotProps={{
+                                    input: {
+                                        'aria-label': t(
+                                            'layouts.interpretationNetworkEditor.resizablePanes',
+                                            'Allow users to resize workspace panes'
+                                        )
+                                    }
                                 }}
                             />
                         }

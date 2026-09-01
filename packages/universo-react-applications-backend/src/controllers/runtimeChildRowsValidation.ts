@@ -256,7 +256,8 @@ export const buildChildRowUpdate = async (
     schemaIdent: string,
     tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
     data: Record<string, unknown>,
-    userId: string
+    userId: string,
+    markSeedSourceAuthored: boolean
 ): Promise<{ setClauses: string[]; values: unknown[]; nextParamIndex: number } | { error: Record<string, unknown> }> => {
     const setClauses: string[] = []
     const values: unknown[] = []
@@ -333,6 +334,11 @@ export const buildChildRowUpdate = async (
     setClauses.push(`_upl_updated_by = $${pIdx}`)
     values.push(userId)
     pIdx++
+    // Keep the immutable seed key for reconciliation while marking the row as
+    // authored. This prevents the next publication from materializing a duplicate.
+    if (markSeedSourceAuthored) {
+        setClauses.push('_seed_source_owned = false')
+    }
     setClauses.push('_upl_version = COALESCE(_upl_version, 1) + 1')
 
     return { setClauses, values, nextParamIndex: pIdx }

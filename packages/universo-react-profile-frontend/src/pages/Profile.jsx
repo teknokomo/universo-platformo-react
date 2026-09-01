@@ -304,7 +304,7 @@ const Profile = () => {
                                     onChange={(e) => setProfile({ ...profile, nickname: e.target.value })}
                                     disabled={profileLoading}
                                     required
-                                    inputProps={{ 'data-testid': 'profile-nickname-input' }}
+                                    slotProps={{ htmlInput: { 'data-testid': 'profile-nickname-input' } }}
                                     helperText={t('nicknameHelp')}
                                 />
                             </Grid>
@@ -315,7 +315,7 @@ const Profile = () => {
                                     value={profile.first_name}
                                     onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
                                     disabled={profileLoading}
-                                    inputProps={{ 'data-testid': 'profile-first-name-input' }}
+                                    slotProps={{ htmlInput: { 'data-testid': 'profile-first-name-input' } }}
                                 />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
@@ -325,7 +325,7 @@ const Profile = () => {
                                     value={profile.last_name}
                                     onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
                                     disabled={profileLoading}
-                                    inputProps={{ 'data-testid': 'profile-last-name-input' }}
+                                    slotProps={{ htmlInput: { 'data-testid': 'profile-last-name-input' } }}
                                 />
                             </Grid>
                             <Grid size={12}>

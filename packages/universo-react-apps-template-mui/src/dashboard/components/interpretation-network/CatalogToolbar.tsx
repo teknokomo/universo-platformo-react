@@ -48,19 +48,21 @@ export function CatalogToolbar({
             <Typography component='h2' variant='subtitle1' sx={{ fontWeight: 700 }}>
                 {title}
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ minWidth: 0 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ minWidth: 0, alignItems: { xs: 'stretch', sm: 'center' } }}>
                 <TextField
                     size='small'
                     fullWidth
                     value={filterValue}
                     onChange={(event) => onFilterChange(event.target.value)}
                     label={filterLabel}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position='start'>
-                                <SearchRoundedIcon fontSize='small' />
-                            </InputAdornment>
-                        )
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position='start'>
+                                    <SearchRoundedIcon fontSize='small' />
+                                </InputAdornment>
+                            )
+                        }
                     }}
                 />
                 <ToggleButtonGroup

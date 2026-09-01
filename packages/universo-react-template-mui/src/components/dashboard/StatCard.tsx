@@ -7,7 +7,6 @@ import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
-import { areaElementClasses } from '@mui/x-charts/LineChart'
 
 /**
  * Build realistic sparkline trend data that shows gradual growth to the current value.
@@ -167,7 +166,7 @@ export default function StatCard({
                                     data: chartLabels
                                 }}
                                 sx={{
-                                    [`& .${areaElementClasses.root}`]: {
+                                    '& .MuiAreaElement-root': {
                                         fill: `url(#${gradientId})`
                                     }
                                 }}

@@ -20,6 +20,25 @@ describe('queryKeys factories + invalidation helpers', () => {
 
         expect(applicationsQueryKeys.detail('m1')).toEqual(['applications', 'detail', 'm1'])
         expect(applicationsQueryKeys.members('m1')).toEqual(['applications', 'detail', 'm1', 'members'])
+        expect(applicationsQueryKeys.runtimeTable('m1', { workspaceId: 'workspace-a' })).toEqual([
+            'applications',
+            'detail',
+            'm1',
+            'runtime',
+            { limit: 50, offset: 0, locale: 'en', objectCollectionId: 'default', workspaceId: 'workspace-a' }
+        ])
+        expect(applicationsQueryKeys.runtimeRow('m1', 'row-1', 'workspace-a')).toEqual([
+            'applications',
+            'detail',
+            'm1',
+            'runtime',
+            'row',
+            'row-1',
+            'workspace-a'
+        ])
+        expect(applicationsQueryKeys.runtimeRow('m1', 'row-1', 'workspace-b')).not.toEqual(
+            applicationsQueryKeys.runtimeRow('m1', 'row-1', 'workspace-a')
+        )
 
         expect(applicationsQueryKeys.membersList('m1')).toEqual([
             'applications',

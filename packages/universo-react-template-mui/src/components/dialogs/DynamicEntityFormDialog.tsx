@@ -13,9 +13,14 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    FormControl,
+    FormHelperText,
     FormControlLabel,
     IconButton,
+    InputLabel,
     InputAdornment,
+    MenuItem,
+    Select,
     Stack,
     Table,
     TableBody,
@@ -26,8 +31,21 @@ import {
     TextField,
     Typography
 } from '@mui/material'
-import type { VersionedLocalizedContent } from '@universo-react/types'
-import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo-react/utils'
+import {
+    parseSafeExternalUrl,
+    RESOURCE_TYPES,
+    resourceSourceSchema,
+    type ResourceSource,
+    type VersionedLocalizedContent
+} from '@universo-react/types'
+import {
+    buildTableConstraintText,
+    createLocalizedContent,
+    isSemanticLongTextRuntimeField,
+    NUMBER_DEFAULTS,
+    toNumberRules,
+    validateNumber
+} from '@universo-react/utils'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
@@ -62,9 +80,11 @@ export interface DynamicFieldValidationRules {
 
 export interface DynamicFieldConfig {
     id: string
+    codename?: string
     label: string
     type: DynamicFieldType
     required?: boolean
+    multilineRows?: number
     /** @deprecated Use validationRules.localized instead */
     localized?: boolean
     placeholder?: string
@@ -100,6 +120,8 @@ export interface DynamicFieldConfig {
     childFields?: DynamicFieldConfig[]
     /** Whether to show the TABLE title (default: true) */
     tableShowTitle?: boolean
+    /** Generic UI configuration copied from the metadata component definition. */
+    uiConfig?: Record<string, unknown>
 }
 
 export interface DynamicEntityFormDialogProps {
@@ -136,6 +158,72 @@ export interface DynamicEntityFormDialogProps {
 }
 
 const normalizeLocale = (locale?: string) => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
+
+const getMultilineRows = (field: DynamicFieldConfig): number => {
+    if (typeof field.multilineRows === 'number' && Number.isInteger(field.multilineRows) && field.multilineRows > 0) {
+        return field.multilineRows
+    }
+    const rows = field.uiConfig?.rows
+    return typeof rows === 'number' && Number.isInteger(rows) && rows > 0 ? rows : 4
+}
+
+const isResourceSourceField = (field: DynamicFieldConfig): boolean =>
+    field.type === 'JSON' &&
+    (field.uiConfig?.widget === 'resourceSource' || field.uiConfig?.resourceSource === true || field.uiConfig?.resource === true)
+
+const parseResourceSourceDraft = (value: unknown): ResourceSource | Record<string, unknown> => {
+    const parsedValue = (() => {
+        if (typeof value !== 'string') return value
+        try {
+            return JSON.parse(value)
+        } catch {
+            return value
+        }
+    })()
+    const parsed = resourceSourceSchema.safeParse(parsedValue)
+    if (parsed.success) return parsed.data
+    if (parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue)) {
+        return parsedValue as Record<string, unknown>
+    }
+    return { type: 'url', url: '' }
+}
+
+const getResourceSourceType = (value: ResourceSource | Record<string, unknown>): ResourceSource['type'] =>
+    RESOURCE_TYPES.includes(value.type as ResourceSource['type']) ? (value.type as ResourceSource['type']) : 'url'
+
+const hasResourceSourceLocator = (value: ResourceSource | Record<string, unknown>): boolean => {
+    if (typeof value.url === 'string' && value.url.trim()) return true
+    if (typeof value.pageCodename === 'string' && value.pageCodename.trim()) return true
+    if (typeof value.storageKey === 'string' && value.storageKey.trim()) return true
+    const descriptor = value.packageDescriptor
+    return Boolean(
+        descriptor &&
+            typeof descriptor === 'object' &&
+            !Array.isArray(descriptor) &&
+            Object.values(descriptor as Record<string, unknown>).some((item) => typeof item === 'string' && item.trim())
+    )
+}
+
+const getResourceSourceLocator = (value: ResourceSource | Record<string, unknown>): string => {
+    if (typeof value.pageCodename === 'string') return value.pageCodename
+    if (typeof value.storageKey === 'string') return value.storageKey
+    if (typeof value.url === 'string') return value.url
+    const descriptor = value.packageDescriptor
+    if (descriptor && typeof descriptor === 'object' && !Array.isArray(descriptor)) {
+        const candidate = (descriptor as Record<string, unknown>).codename ?? (descriptor as Record<string, unknown>).name
+        return typeof candidate === 'string' ? candidate : ''
+    }
+    return ''
+}
+
+const getResourceSourceDomain = (value: ResourceSource | Record<string, unknown>): string | null => {
+    if (typeof value.url !== 'string') return null
+    try {
+        return parseSafeExternalUrl(value.url).hostname.replace(/\.$/, '').toLowerCase()
+    } catch {
+        return null
+    }
+}
 
 const isLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
     Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
@@ -441,9 +529,27 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
             size='small'
             variant='standard'
             type='text'
-            inputProps={{
-                inputMode: scale > 0 ? 'decimal' : 'numeric',
-                style: { textAlign: 'right' }
+            slotProps={{
+                htmlInput: {
+                    inputMode: scale > 0 ? 'decimal' : 'numeric',
+                    style: { textAlign: 'right' }
+                },
+                input: {
+                    sx: { fontSize: 13 },
+                    disableUnderline: true,
+                    endAdornment: !disabled ? (
+                        <InputAdornment position='end' sx={{ ml: 0 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 16, height: 12, p: 0 }}>
+                                    <ArrowDropUpIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                                <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 16, height: 12, p: 0 }}>
+                                    <ArrowDropDownIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                            </Box>
+                        </InputAdornment>
+                    ) : undefined
+                }
             }}
             value={formatValue(value)}
             onChange={handleChange}
@@ -453,22 +559,6 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
             onBlur={handleBlur}
             disabled={disabled}
             fullWidth
-            InputProps={{
-                sx: { fontSize: 13 },
-                disableUnderline: true,
-                endAdornment: !disabled ? (
-                    <InputAdornment position='end' sx={{ ml: 0 }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 16, height: 12, p: 0 }}>
-                                <ArrowDropUpIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 16, height: 12, p: 0 }}>
-                                <ArrowDropDownIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                        </Box>
-                    </InputAdornment>
-                ) : undefined
-            }}
         />
     )
 }
@@ -574,6 +664,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 return value !== undefined
             }
             if (field.type === 'JSON') {
+                if (isResourceSourceField(field)) return hasResourceSourceLocator(parseResourceSourceDraft(value))
                 if (typeof value === 'string') return value.trim() !== ''
                 if (value && typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0
                 return true
@@ -686,6 +777,13 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 return isValidDateTimeString(value) ? null : t('validation.datetimeFormat', 'Expected date & time format: YYYY-MM-DD HH:MM')
             }
 
+            if (field.type === 'JSON' && isResourceSourceField(field)) {
+                if (!hasResourceSourceLocator(parseResourceSourceDraft(value))) return null
+                return resourceSourceSchema.safeParse(parseResourceSourceDraft(value)).success
+                    ? null
+                    : t('validation.resourceSource', 'Enter a valid resource source.')
+            }
+
             return null
         },
         [t, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
@@ -768,6 +866,10 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 // Check if localized: from validationRules or legacy localized prop
                 const isLocalized = rules?.localized ?? field.localized
                 const isVersioned = rules?.versioned
+                const isMultiline =
+                    field.uiConfig?.widget === 'textarea' ||
+                    isSemanticLongTextRuntimeField({ id: field.id, codename: field.codename, label: field.label, uiConfig: field.uiConfig })
+                const multilineRows = getMultilineRows(field)
 
                 // For VLC fields, compute which locale has the minLength error
                 const vlcErrorLocale = isLocalizedContent(value) && rules?.minLength ? getVlcMinLengthError(value, rules.minLength) : null
@@ -788,6 +890,8 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             error={fieldError}
                             errorLocale={vlcErrorLocale}
                             helperText={field.helperText}
+                            multiline={isMultiline}
+                            rows={isMultiline ? multilineRows : undefined}
                             maxLength={rules?.maxLength}
                             minLength={rules?.minLength}
                         />
@@ -807,6 +911,8 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             error={fieldError}
                             errorLocale={vlcErrorLocale}
                             helperText={field.helperText}
+                            multiline={isMultiline}
+                            rows={isMultiline ? multilineRows : undefined}
                             maxLength={rules?.maxLength}
                             minLength={rules?.minLength}
                         />
@@ -817,6 +923,8 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 return (
                     <TextField
                         fullWidth
+                        multiline={isMultiline}
+                        rows={isMultiline ? multilineRows : undefined}
                         label={field.label}
                         value={typeof value === 'string' ? value : value == null ? '' : String(value)}
                         onChange={(event) => handleFieldChange(field.id, event.target.value)}
@@ -825,9 +933,11 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         placeholder={field.placeholder}
                         error={Boolean(fieldError)}
                         helperText={helperText}
-                        inputProps={{
-                            minLength: rules?.minLength ?? undefined,
-                            maxLength: rules?.maxLength ?? undefined
+                        slotProps={{
+                            htmlInput: {
+                                minLength: rules?.minLength ?? undefined,
+                                maxLength: rules?.maxLength ?? undefined
+                            }
                         }}
                     />
                 )
@@ -1182,32 +1292,34 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                 numberInputRefsRef.current.delete(field.id)
                             }
                         }}
-                        inputProps={{ style: { textAlign: 'right' } }}
-                        InputProps={{
-                            endAdornment: !disabled ? (
-                                <InputAdornment position='end'>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5, mr: -0.5 }}>
-                                        <IconButton
-                                            size='small'
-                                            tabIndex={-1}
-                                            onClick={() => handleStepUp()}
-                                            sx={{ width: 20, height: 16, p: 0 }}
-                                            aria-label={t('number.increment', 'Increment')}
-                                        >
-                                            <ArrowDropUpIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
-                                        <IconButton
-                                            size='small'
-                                            tabIndex={-1}
-                                            onClick={() => handleStepDown()}
-                                            sx={{ width: 20, height: 16, p: 0 }}
-                                            aria-label={t('number.decrement', 'Decrement')}
-                                        >
-                                            <ArrowDropDownIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
-                                    </Box>
-                                </InputAdornment>
-                            ) : undefined
+                        slotProps={{
+                            htmlInput: { style: { textAlign: 'right' } },
+                            input: {
+                                endAdornment: !disabled ? (
+                                    <InputAdornment position='end'>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5, mr: -0.5 }}>
+                                            <IconButton
+                                                size='small'
+                                                tabIndex={-1}
+                                                onClick={() => handleStepUp()}
+                                                sx={{ width: 20, height: 16, p: 0 }}
+                                                aria-label={t('number.increment', 'Increment')}
+                                            >
+                                                <ArrowDropUpIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
+                                            <IconButton
+                                                size='small'
+                                                tabIndex={-1}
+                                                onClick={() => handleStepDown()}
+                                                sx={{ width: 20, height: 16, p: 0 }}
+                                                aria-label={t('number.decrement', 'Decrement')}
+                                            >
+                                                <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
+                                        </Box>
+                                    </InputAdornment>
+                                ) : undefined
+                            }
                         }}
                     />
                 )
@@ -1257,14 +1369,163 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                         }}
                         required={field.required}
                         disabled={disabled}
-                        InputLabelProps={{ shrink: true }}
+                        slotProps={{
+                            inputLabel: { shrink: true },
+                            htmlInput: { max: maxValue }
+                        }}
                         error={Boolean(fieldError)}
                         helperText={helperText}
-                        inputProps={{ max: maxValue }}
                     />
                 )
             }
             case 'JSON': {
+                if (isResourceSourceField(field)) {
+                    const resourceValue = parseResourceSourceDraft(value)
+                    const resourceType = getResourceSourceType(resourceValue)
+                    const locator = getResourceSourceLocator(resourceValue)
+                    const domain = getResourceSourceDomain(resourceValue)
+                    const parsed = resourceSourceSchema.safeParse(resourceValue)
+                    // File resources default to a storage key; the other media
+                    // types may use either storage or a validated URL. Preserve
+                    // the existing locator kind when editing an existing value.
+                    const usesStorageLocator =
+                        typeof resourceValue.storageKey === 'string' || (resourceType === 'file' && typeof resourceValue.url !== 'string')
+                    const resourceTypeLabel = (type: ResourceSource['type']) =>
+                        t(`resourceSource.types.${type}`, type.charAt(0).toUpperCase() + type.slice(1))
+                    const updateResourceSource = (patch: Record<string, unknown>) => {
+                        const next = { ...resourceValue, ...patch, type: resourceType }
+                        handleFieldChange(field.id, next)
+                    }
+                    const locatorLabel =
+                        resourceType === 'page'
+                            ? t('resourceSource.pageCodename', 'Page codename')
+                            : usesStorageLocator
+                            ? t('resourceSource.storageKey', 'Storage key')
+                            : resourceType === 'scorm' || resourceType === 'xapi'
+                            ? t('resourceSource.packageDescriptor', 'Package descriptor')
+                            : t('resourceSource.url', 'Source URL')
+                    const locatorField =
+                        resourceType === 'scorm' || resourceType === 'xapi' ? (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={locatorLabel}
+                                value={locator}
+                                onChange={(event) =>
+                                    updateResourceSource({
+                                        packageDescriptor: { codename: event.target.value },
+                                        url: undefined,
+                                        storageKey: undefined
+                                    })
+                                }
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                            />
+                        ) : resourceType === 'page' ? (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={locatorLabel}
+                                value={locator}
+                                onChange={(event) =>
+                                    updateResourceSource({ pageCodename: event.target.value, url: undefined, storageKey: undefined })
+                                }
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                            />
+                        ) : usesStorageLocator ? (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={locatorLabel}
+                                value={locator}
+                                onChange={(event) =>
+                                    updateResourceSource({ storageKey: event.target.value, url: undefined, pageCodename: undefined })
+                                }
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                            />
+                        ) : (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={locatorLabel}
+                                value={locator}
+                                onChange={(event) =>
+                                    updateResourceSource({ url: event.target.value, pageCodename: undefined, storageKey: undefined })
+                                }
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                                placeholder='https://'
+                            />
+                        )
+
+                    return (
+                        <Stack spacing={1}>
+                            <Typography variant='body2' color='text.secondary'>
+                                {field.label}
+                                {field.required ? ' *' : ''}
+                            </Typography>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                                <FormControl size='small' sx={{ minWidth: { xs: '100%', sm: 180 } }} error={Boolean(fieldError)}>
+                                    <InputLabel id={`${field.id}-resource-type-label`}>
+                                        {t('resourceSource.type', 'Resource type')}
+                                    </InputLabel>
+                                    <Select
+                                        labelId={`${field.id}-resource-type-label`}
+                                        value={resourceType}
+                                        label={t('resourceSource.type', 'Resource type')}
+                                        onChange={(event) =>
+                                            handleFieldChange(field.id, {
+                                                type: event.target.value,
+                                                launchMode: 'inline',
+                                                url: undefined,
+                                                pageCodename: undefined,
+                                                storageKey: undefined,
+                                                packageDescriptor: undefined
+                                            })
+                                        }
+                                        disabled={disabled}
+                                    >
+                                        {RESOURCE_TYPES.map((type) => (
+                                            <MenuItem key={type} value={type}>
+                                                {resourceTypeLabel(type)}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <Box sx={{ flex: 1 }}>{locatorField}</Box>
+                            </Stack>
+                            <FormControl size='small' sx={{ maxWidth: { xs: '100%', sm: 220 } }}>
+                                <InputLabel id={`${field.id}-resource-launch-mode-label`}>
+                                    {t('resourceSource.launchMode', 'Launch')}
+                                </InputLabel>
+                                <Select
+                                    labelId={`${field.id}-resource-launch-mode-label`}
+                                    value={typeof resourceValue.launchMode === 'string' ? resourceValue.launchMode : 'inline'}
+                                    label={t('resourceSource.launchMode', 'Launch')}
+                                    onChange={(event) => updateResourceSource({ launchMode: event.target.value })}
+                                    disabled={disabled}
+                                >
+                                    <MenuItem value='inline'>{t('resourceSource.launchModes.inline', 'Inline')}</MenuItem>
+                                    <MenuItem value='newTab'>{t('resourceSource.launchModes.newTab', 'New tab')}</MenuItem>
+                                    <MenuItem value='download'>{t('resourceSource.launchModes.download', 'Download')}</MenuItem>
+                                </Select>
+                            </FormControl>
+                            {fieldError ? <FormHelperText error>{fieldError}</FormHelperText> : null}
+                            {parsed.success && domain ? (
+                                <Typography variant='caption' color='text.secondary'>
+                                    {t('resourceSource.domainPreview', 'Domain: {{domain}}', { domain })}
+                                </Typography>
+                            ) : null}
+                            {parsed.success && !domain && hasResourceSourceLocator(resourceValue) ? (
+                                <Typography role='status' variant='caption' color='text.secondary'>
+                                    {t('resourceSource.configured', 'Resource source configured')}
+                                </Typography>
+                            ) : null}
+                        </Stack>
+                    )
+                }
                 const stringValue =
                     typeof value === 'string' ? value : value && typeof value === 'object' ? JSON.stringify(value, null, 2) : ''
                 return (
@@ -1419,7 +1680,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                                                                     onChange={(e) => handleTableCellChange(rowId, child.id, e.target.value)}
                                                                     disabled={disabled}
                                                                     fullWidth
-                                                                    InputProps={{ sx: { fontSize: 13 }, disableUnderline: true }}
+                                                                    slotProps={{ input: { sx: { fontSize: 13 }, disableUnderline: true } }}
                                                                 />
                                                             )}
                                                         </TableCell>
@@ -1505,15 +1766,14 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
             onClose={presentation.dialogProps.onClose}
             maxWidth={presentation.dialogProps.maxWidth ?? dialogMaxWidth}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
             <DialogContent sx={mergeDialogSx({ overflowY: 'visible', overflowX: 'hidden' }, presentation.contentSx)}>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     {error && <Alert severity='error'>{error}</Alert>}
                     {!isReady ? (
-                        <Stack alignItems='center' justifyContent='center' sx={{ py: 3 }}>
+                        <Stack sx={{ py: 3, alignItems: 'center', justifyContent: 'center' }}>
                             <CircularProgress size={20} />
                         </Stack>
                     ) : fields.length === 0 ? (

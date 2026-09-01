@@ -15,10 +15,13 @@ interface AppThemeProps {
      */
     disableCustomTheme?: boolean
     themeComponents?: ThemeOptions['components']
+    defaultMode?: 'light' | 'dark' | 'system'
+    primaryColor?: string
+    accentColor?: string
 }
 
 export default function AppTheme(props: AppThemeProps) {
-    const { children, disableCustomTheme, themeComponents } = props
+    const { children, disableCustomTheme, themeComponents, defaultMode, primaryColor, accentColor } = props
     const theme = React.useMemo(() => {
         return disableCustomTheme
             ? {}
@@ -28,7 +31,25 @@ export default function AppTheme(props: AppThemeProps) {
                       colorSchemeSelector: 'data-mui-color-scheme',
                       cssVarPrefix: 'template'
                   },
-                  colorSchemes, // Recently added in v6 for building light & dark mode app, see https://mui.com/material-ui/customization/palette/#color-schemes
+                  colorSchemes: {
+                      ...colorSchemes,
+                      light: {
+                          ...colorSchemes.light,
+                          palette: {
+                              ...colorSchemes.light.palette,
+                              ...(primaryColor ? { primary: { ...colorSchemes.light.palette.primary, main: primaryColor } } : {}),
+                              ...(accentColor ? { secondary: { main: accentColor } } : {})
+                          }
+                      },
+                      dark: {
+                          ...colorSchemes.dark,
+                          palette: {
+                              ...colorSchemes.dark.palette,
+                              ...(primaryColor ? { primary: { ...colorSchemes.dark.palette.primary, main: primaryColor } } : {}),
+                              ...(accentColor ? { secondary: { main: accentColor } } : {})
+                          }
+                      }
+                  }, // MUI color-scheme configuration for light and dark mode, see https://mui.com/material-ui/customization/css-theme-variables/configuration/
                   typography,
                   shadows,
                   shape,
@@ -41,12 +62,12 @@ export default function AppTheme(props: AppThemeProps) {
                       ...themeComponents
                   }
               })
-    }, [disableCustomTheme, themeComponents])
+    }, [accentColor, disableCustomTheme, primaryColor, themeComponents])
     if (disableCustomTheme) {
         return <React.Fragment>{children}</React.Fragment>
     }
     return (
-        <ThemeProvider theme={theme} disableTransitionOnChange>
+        <ThemeProvider theme={theme} defaultMode={defaultMode} disableTransitionOnChange>
             {children}
         </ThemeProvider>
     )

@@ -1733,7 +1733,7 @@ const EntitiesWorkspace = () => {
                                     )
                                 }
                                 type='number'
-                                inputProps={{ min: 0, step: 1 }}
+                                slotProps={{ htmlInput: { min: 0, step: 1 } }}
                                 fullWidth
                             />
                             <Box sx={COMPONENT_SECTION_SX}>
@@ -1809,7 +1809,7 @@ const EntitiesWorkspace = () => {
                                                     updateComponentConfig('dataSchema', { maxComponents: event.target.value })
                                                 }
                                                 disabled={isLoading || isStructureLocked}
-                                                inputProps={{ min: 1 }}
+                                                slotProps={{ htmlInput: { min: 1 } }}
                                                 fullWidth
                                             />
                                         ) : null}
@@ -1843,7 +1843,7 @@ const EntitiesWorkspace = () => {
                                                 value={capabilities.records.maxElements ?? ''}
                                                 onChange={(event) => updateComponentConfig('records', { maxElements: event.target.value })}
                                                 disabled={isLoading || isStructureLocked}
-                                                inputProps={{ min: 1 }}
+                                                slotProps={{ htmlInput: { min: 1 } }}
                                                 fullWidth
                                             />
                                         ) : null}
@@ -1969,7 +1969,7 @@ const EntitiesWorkspace = () => {
                                                     updateComponentConfig('nestedCollections', { maxCollections: event.target.value })
                                                 }
                                                 disabled={isLoading || isStructureLocked}
-                                                inputProps={{ min: 1 }}
+                                                slotProps={{ htmlInput: { min: 1 } }}
                                                 fullWidth
                                             />
                                         ) : null}
@@ -2473,7 +2473,7 @@ const EntitiesWorkspace = () => {
                                 multiline
                                 minRows={8}
                                 fullWidth
-                                InputProps={{ sx: { fontFamily: 'monospace' } }}
+                                slotProps={{ input: { sx: { fontFamily: 'monospace' } } }}
                             />
                             <TextField
                                 label={t('entities.fields.config', 'Config JSON')}
@@ -2488,7 +2488,7 @@ const EntitiesWorkspace = () => {
                                 multiline
                                 minRows={8}
                                 fullWidth
-                                InputProps={{ sx: { fontFamily: 'monospace' } }}
+                                slotProps={{ input: { sx: { fontFamily: 'monospace' } } }}
                             />
                         </Stack>
                     )

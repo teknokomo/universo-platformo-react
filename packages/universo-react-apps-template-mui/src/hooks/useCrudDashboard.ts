@@ -446,6 +446,8 @@ export interface UseCrudDashboardOptions {
     staleTime?: number
     /** Initial runtime section id resolved from route params. */
     initialSectionId?: string
+    /** Explicit workspace selected by the runtime route. Omitted means server default workspace. */
+    workspaceId?: string | null
     /**
      * Resolve a route-owned section after the bootstrap response exposes runtime metadata.
      * A resolved value has precedence over the configured start menu item.
@@ -565,6 +567,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         pageSizeOptions = [10, 20, 50],
         staleTime = 0,
         initialSectionId,
+        workspaceId,
         resolvePreferredSectionId,
         cellRenderers,
         createDefaultContext: createDefaultContextOption
@@ -615,6 +618,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const runtimeSort = useMemo(() => mapGridSortModel(sortModel), [sortModel])
     const runtimeFilters = useMemo(() => mapGridFilterModel(filterModel), [filterModel])
     const normalizedSearchValue = searchValue.trim()
+    const normalizedWorkspaceId = workspaceId?.trim() || null
 
     const setSortModel = useCallback((model: GridSortModel) => {
         setSortModelState(model)
@@ -637,8 +641,13 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         setFilterModelState({ items: [] })
     }, [])
 
-    // Query key helpers
-    const queryKeyPrefix = adapter?.queryKeyPrefix ?? EMPTY_KEY_PREFIX
+    // Query key helpers. Explicit workspace routes get a dedicated prefix so
+    // optimistic updates cannot modify another workspace's cached rows.
+    const baseQueryKeyPrefix = adapter?.queryKeyPrefix ?? EMPTY_KEY_PREFIX
+    const queryKeyPrefix = useMemo(
+        () => (normalizedWorkspaceId ? [...baseQueryKeyPrefix, 'workspace', normalizedWorkspaceId] : baseQueryKeyPrefix),
+        [baseQueryKeyPrefix, normalizedWorkspaceId]
+    )
     const pendingInteractionMessage = t('app.pendingCreateBlocked', {
         defaultValue: 'This item is still being created. Please wait a moment and try again.'
     })
@@ -649,7 +658,15 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 'list',
                 selectedSectionId,
                 selectedObjectCollectionId,
-                { limit, offset, locale, search: normalizedSearchValue, sort: runtimeSort, filters: runtimeFilters }
+                {
+                    limit,
+                    offset,
+                    locale,
+                    workspaceId: normalizedWorkspaceId,
+                    search: normalizedSearchValue,
+                    sort: runtimeSort,
+                    filters: runtimeFilters
+                }
             ] as const,
         [
             queryKeyPrefix,
@@ -658,6 +675,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             limit,
             offset,
             locale,
+            normalizedWorkspaceId,
             normalizedSearchValue,
             runtimeFilters,
             runtimeSort
@@ -676,13 +694,20 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 locale,
                 objectCollectionId: selectedObjectCollectionId,
                 sectionId: selectedSectionId,
+                ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
                 search: normalizedSearchValue || undefined,
                 sort: runtimeSort,
                 filters: runtimeFilters
             }),
         enabled: Boolean(adapter),
         staleTime,
-        placeholderData: (prev) => prev
+        placeholderData: (previousData, previousQuery) => {
+            const previousKeyTail = previousQuery?.queryKey.at(-1)
+            if (!previousKeyTail || typeof previousKeyTail !== 'object' || !('workspaceId' in previousKeyTail)) {
+                return previousData
+            }
+            return previousKeyTail.workspaceId === normalizedWorkspaceId ? previousData : undefined
+        }
     })
 
     const appData = listQuery.data
@@ -792,9 +817,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const activeRuntimeTarget = useMemo(
         () => ({
             objectCollectionId: activeObjectCollectionId,
-            sectionId: selectedSectionId ?? preferredSectionId ?? activeSectionId
+            sectionId: selectedSectionId ?? preferredSectionId ?? activeSectionId,
+            ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {})
         }),
-        [activeObjectCollectionId, activeSectionId, preferredSectionId, selectedSectionId]
+        [activeObjectCollectionId, activeSectionId, normalizedWorkspaceId, preferredSectionId, selectedSectionId]
     )
     const makeRowKey = useCallback(
         (rowId: string | null | undefined) =>
@@ -803,9 +829,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 'row',
                 activeRuntimeTarget.sectionId ?? null,
                 activeRuntimeTarget.objectCollectionId ?? null,
+                activeRuntimeTarget.workspaceId ?? null,
                 rowId ?? null
             ] as const,
-        [activeRuntimeTarget.objectCollectionId, activeRuntimeTarget.sectionId, queryKeyPrefix]
+        [activeRuntimeTarget.objectCollectionId, activeRuntimeTarget.sectionId, activeRuntimeTarget.workspaceId, queryKeyPrefix]
     )
     const rowKey = useMemo(() => makeRowKey(sourceRowId), [makeRowKey, sourceRowId])
     const tableColumnRefs = useMemo(
@@ -825,10 +852,18 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 'copy-table-data',
                 activeRuntimeTarget.sectionId ?? null,
                 activeRuntimeTarget.objectCollectionId ?? null,
+                activeRuntimeTarget.workspaceId ?? null,
                 sourceRowId,
                 tableColumnRefs.map((column) => column.fieldId).join(',')
             ] as const,
-        [activeRuntimeTarget.objectCollectionId, activeRuntimeTarget.sectionId, queryKeyPrefix, sourceRowId, tableColumnRefs]
+        [
+            activeRuntimeTarget.objectCollectionId,
+            activeRuntimeTarget.sectionId,
+            activeRuntimeTarget.workspaceId,
+            queryKeyPrefix,
+            sourceRowId,
+            tableColumnRefs
+        ]
     )
 
     // Schema fingerprint (M4)
@@ -882,7 +917,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                         parentRowId: sourceRowId,
                         componentId: column.componentId,
                         objectCollectionId: activeRuntimeTarget.objectCollectionId,
-                        sectionId: activeRuntimeTarget.sectionId
+                        sectionId: activeRuntimeTarget.sectionId,
+                        ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {})
                     })
                     return [column.fieldId, rows] as const
                 })
@@ -938,6 +974,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             return adapter.copyRow(params.rowId, {
                 objectCollectionId: activeRuntimeTarget.objectCollectionId,
                 sectionId: activeRuntimeTarget.sectionId,
+                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
                 copyChildTables: true,
                 data: params.data,
                 expectedVersion: params.expectedVersion
@@ -1049,6 +1086,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             await adapter.reorderRows({
                 objectCollectionId: activeRuntimeTarget.objectCollectionId,
                 sectionId: activeRuntimeTarget.sectionId,
+                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
                 orderedRowIds: params.orderedRowIds,
                 expectedVersionsByRowId: params.expectedVersionsByRowId
             })
@@ -1068,6 +1106,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             return adapter.recordCommand(params.rowId, params.command, {
                 objectCollectionId: activeRuntimeTarget.objectCollectionId,
                 sectionId: activeRuntimeTarget.sectionId,
+                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
                 expectedVersion: params.expectedVersion
             })
         },
@@ -1087,6 +1126,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             return adapter.workflowAction(params.rowId, params.actionCodename, {
                 objectCollectionId: activeRuntimeTarget.objectCollectionId,
                 sectionId: activeRuntimeTarget.sectionId,
+                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
                 expectedVersion: params.expectedVersion
             })
         },

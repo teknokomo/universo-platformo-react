@@ -509,7 +509,7 @@ export function EditorJsBlockEditor({
                     fullWidth
                     multiline
                     minRows={10}
-                    inputProps={{ spellCheck: false }}
+                    slotProps={{ htmlInput: { spellCheck: false } }}
                 />
             ) : null}
         </Stack>

@@ -330,6 +330,94 @@ describe('runtimeRowsController server-owned field enforcement', () => {
     })
 })
 
+describe('runtimeRowsController seeded-row delete ownership', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockRuntimeQuery.mockReset()
+        mockRuntimeQuery.mockResolvedValue([])
+    })
+
+    it('marks a soft-deleted workspace seed parent and its children as authored', async () => {
+        const { executor } = createMockDbExecutor()
+        const controller = createRuntimeRowsController(() => executor)
+        const res = createResponse()
+
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName: 'runtime_schema',
+            schemaIdent: 'runtime_schema',
+            manager: executor,
+            userId: 'user-1',
+            role: 'owner',
+            permissions: {
+                createContent: true,
+                editContent: true,
+                deleteContent: true,
+                restoreContent: true,
+                viewContent: true,
+                manageContent: true,
+                manageSettings: true,
+                manageUsers: true
+            },
+            workflowCapabilities: {},
+            currentWorkspaceId: '019f2000-0000-7000-8000-000000000010',
+            workspacesEnabled: true,
+            applicationSettings: {}
+        })
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'missing-widget',
+            structureMode: 'multiple',
+            resolvedObjects: {}
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects')) {
+                return [
+                    {
+                        id: mutableObjectCollectionId,
+                        kind: 'object',
+                        codename: { _primary: 'en', locales: { en: { content: 'Structure' } } },
+                        table_name: 'structure',
+                        config: { systemFields: { lifecycleContract: { delete: { mode: 'soft' } } } }
+                    }
+                ]
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) {
+                return [
+                    {
+                        id: 'table-component',
+                        codename: 'Items',
+                        column_name: 'items',
+                        data_type: 'TABLE',
+                        is_required: false,
+                        validation_rules: {},
+                        ui_config: {}
+                    }
+                ]
+            }
+            if (sql.includes('SELECT *') && sql.includes('FROM runtime_schema."structure"')) {
+                return [{ id: '019f2000-0000-7000-8000-000000000002', _upl_locked: false, _upl_version: 1 }]
+            }
+            if (sql.includes('UPDATE runtime_schema."structure"')) return [{ id: '019f2000-0000-7000-8000-000000000002' }]
+            if (sql.includes('UPDATE runtime_schema."items"')) return [{ id: '019f2000-0000-7000-8000-000000000003' }]
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.deleteRow(
+            createRuntimeRequest({
+                method: 'DELETE',
+                query: { objectCollectionId: mutableObjectCollectionId }
+            }),
+            res
+        )
+
+        expect(res.json).toHaveBeenCalledWith({ status: 'deleted' })
+        const parentDeleteCall = executor.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE runtime_schema."structure"'))
+        const childDeleteCall = executor.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE runtime_schema."items"'))
+        expect(String(parentDeleteCall?.[0])).toContain('_seed_source_owned = false')
+        expect(String(childDeleteCall?.[0])).toContain('_seed_source_owned = false')
+    })
+})
+
 describe('runtimeRowsController single-system Structure protection', () => {
     beforeEach(() => {
         jest.clearAllMocks()

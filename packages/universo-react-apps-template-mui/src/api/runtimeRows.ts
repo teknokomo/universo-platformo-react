@@ -27,13 +27,19 @@ export async function fetchAppRow(options: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
-    let url = buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
+    const queryParams = new URLSearchParams()
     if (resolvedSectionId) {
-        url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
+        queryParams.set('objectCollectionId', resolvedSectionId)
     }
+    if (workspaceId?.trim()) {
+        queryParams.set('workspaceId', workspaceId.trim())
+    }
+    const queryString = queryParams.toString()
+    const url = `${buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)}${queryString ? `?${queryString}` : ''}`
 
     const res = await fetch(url, { credentials: 'include' })
     if (!res.ok) {
@@ -162,10 +168,11 @@ export async function restoreAppRow(options: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion?: number
     restoreTarget?: RuntimeRestoreTarget
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, expectedVersion, restoreTarget } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion, restoreTarget } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = {}
     if (resolvedSectionId) {
@@ -178,7 +185,8 @@ export async function restoreAppRow(options: {
         body.restoreTarget = restoreTarget
     }
 
-    const res = await fetchWithCsrf(apiBaseUrl, buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/restore`), {
+    const url = appendWorkspaceId(buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/restore`), workspaceId)
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -236,11 +244,12 @@ export async function runAppRecordCommand(options: {
     command: RuntimeRecordCommand
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion?: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, command, objectCollectionId, sectionId, expectedVersion } = options
+    const { apiBaseUrl, applicationId, rowId, command, objectCollectionId, sectionId, workspaceId, expectedVersion } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
-    const url = buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/${command}`)
+    const url = appendWorkspaceId(buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/${command}`), workspaceId)
     const body: Record<string, unknown> = {}
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
@@ -263,11 +272,15 @@ export async function runAppWorkflowAction(options: {
     actionCodename: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, actionCodename, objectCollectionId, sectionId, expectedVersion } = options
+    const { apiBaseUrl, applicationId, rowId, actionCodename, objectCollectionId, sectionId, workspaceId, expectedVersion } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
-    const url = buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`)
+    const url = appendWorkspaceId(
+        buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`),
+        workspaceId
+    )
     const body: Record<string, unknown> = { expectedVersion }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
 

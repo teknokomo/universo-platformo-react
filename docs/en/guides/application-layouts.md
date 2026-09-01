@@ -52,6 +52,12 @@ Inactive layouts remain available in the control panel and can be reactivated la
 
 Application Settings derive feature-specific tabs from this active materialized runtime state. For example, the Interpretation Network Matrix tab appears only when an active `interpretationNetworkWorkspace` widget exists, and changes are saved to that widget's config. LMS Learning Content settings are not shown or saved for unrelated application configurations unless the materialized runtime state contains matching LMS configuration.
 
+For a `marketing-page` layout, the immutable template key selects the
+marketing renderer and its typed appearance config. Dashboard zones and
+widgets are not injected into that layout; section order and visibility are
+validated by the marketing contract. Content changes are made through the
+published Object records, not through dashboard CRUD controls.
+
 ## Side Menu Modes
 
 The layout configuration includes side-menu behavior for published applications. Administrators can enable any combination of:

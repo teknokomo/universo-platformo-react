@@ -1,6 +1,6 @@
 # @universo-react/apps-template-mui
 
-> 🎨 **Modern Package** — TypeScript-first dashboard template with Material-UI v7
+> 🎨 **Modern Package** — TypeScript-first dashboard and marketing-page templates with Material UI v9
 
 Runtime dashboard template for published applications in the Universo Platformo ecosystem. Provides a zone-based widget system, data-driven grid rendering, app-side content authoring, and reusable CRUD UI components without depending on the legacy `@universo-react/template-mui` package.
 
@@ -11,7 +11,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 | **Version**      | 0.1.0                                  |
 | **Type**         | React Frontend Package (TypeScript)    |
 | **Status**       | ✅ Active Development                  |
-| **Framework**    | React 18 + TypeScript + Material-UI v7 |
+| **Framework**    | React 18 + TypeScript + Material UI v9 |
 | **Package Name** | `@universo-react/apps-template-mui`    |
 
 ## Key Features
@@ -23,6 +23,14 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **DashboardDetailsContext**: React Context providing table data (rows, columns, pagination) to nested widgets
 -   **Layout Config**: Boolean-driven visibility flags (`showSideMenu`, `showHeader`, `showColumnsContainer`, etc.)
 -   **Runtime Layout Selection**: Runtime consumes application-side materialized layouts and widgets, but renders only active layouts and active widgets
+
+### 📣 Data-driven Marketing Page
+
+-   **MUI 9 reference composition**: App bar, hero, logos, features, testimonials, highlights, pricing, FAQ, and footer are rendered from a typed `MarketingPageData` view model.
+-   **Entity-owned content**: The published application runtime receives localized records from the `marketing-page` metahub template; no section owns a hardcoded demo array.
+-   **Safe actions and media**: Internal, anchor, external, email, and telephone actions are validated before rendering; unsafe URLs and missing media fail closed with localized feedback.
+-   **Application appearance**: Theme mode, bounded colors, and section visibility are configured in the typed application layout without enabling dashboard widgets.
+-   **One theme boundary**: Hosted and standalone shells own providers; `MarketingPage` is presentational and provider-free.
 
 ### 📊 ColumnsContainer Widget
 

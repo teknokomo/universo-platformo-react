@@ -69,4 +69,19 @@ describe('InlineTableEditor', () => {
             }
         })
     })
+
+    it('does not render structured child values as object strings', () => {
+        render(
+            <InlineTableEditor
+                label='Media'
+                value={[{ __rowId: 'row-1', source: { type: 'file', storageKey: 'marketing/hero.webp' } }]}
+                onChange={() => undefined}
+                locale='en'
+                childFields={[{ id: 'source', label: 'Source', type: 'JSON' }]}
+            />
+        )
+
+        expect(screen.queryByText('[object Object]')).not.toBeInTheDocument()
+        expect(screen.getByText('—')).toBeInTheDocument()
+    })
 })

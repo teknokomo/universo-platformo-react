@@ -985,7 +985,8 @@ export const resolveRuntimeSchema = async (
     queryHelper: <TRow = unknown>(req: Request, sql: string, parameters?: unknown[]) => Promise<TRow[]>,
     req: Request,
     res: Response,
-    applicationId: string
+    applicationId: string,
+    workspaceIdOverride?: string | null
 ): Promise<RuntimeSchemaContext | null> => {
     if (!UUID_REGEX.test(applicationId)) {
         res.status(400).json({ error: 'Invalid application ID format' })
@@ -1026,7 +1027,12 @@ export const resolveRuntimeSchema = async (
         return null
     }
 
-    const requestedWorkspaceId = typeof req.query.workspaceId === 'string' ? req.query.workspaceId : null
+    const requestedWorkspaceId =
+        typeof workspaceIdOverride === 'string'
+            ? workspaceIdOverride
+            : typeof req.query.workspaceId === 'string'
+            ? req.query.workspaceId
+            : null
     if (requestedWorkspaceId && !UUID_REGEX.test(requestedWorkspaceId)) {
         res.status(400).json({ error: 'Invalid workspace ID format' })
         return null
@@ -1039,7 +1045,8 @@ export const resolveRuntimeSchema = async (
                 schemaName,
                 workspacesEnabled: application.workspacesEnabled,
                 userId,
-                actorUserId: userId
+                actorUserId: userId,
+                allowUnassigned: permissions.manageApplication === true
             })
 
             currentWorkspaceId = resolveRequestedRuntimeWorkspaceId(requestedWorkspaceId, workspaceAccess)

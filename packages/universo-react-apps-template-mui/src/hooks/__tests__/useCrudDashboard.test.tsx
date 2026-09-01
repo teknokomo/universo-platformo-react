@@ -182,6 +182,82 @@ function renderCrudDashboard(adapter: CrudDataAdapter, options: Partial<Omit<Use
 }
 
 describe('useCrudDashboard optimistic mutations', () => {
+    it('forwards explicit workspace scope and isolates list caches when the workspace changes', async () => {
+        const fetchList = vi.fn().mockImplementation(async ({ workspaceId }: { workspaceId?: string }) => ({
+            ...createAppData(),
+            rows: [{ id: workspaceId === 'workspace-a' ? 'row-a' : 'row-b', name: workspaceId ?? 'default' }]
+        }))
+        const adapter = createAdapter({ fetchList })
+        const { getState, queryClient, rerender } = renderCrudDashboard(adapter, { workspaceId: 'workspace-a' })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'workspace-a' }))
+            expect(getState().rows).toEqual([expect.objectContaining({ id: 'row-a' })])
+        })
+
+        await act(async () => {
+            rerender({ workspaceId: 'workspace-b' })
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(expect.objectContaining({ workspaceId: 'workspace-b' }))
+            expect(getState().rows).toEqual([expect.objectContaining({ id: 'row-b' })])
+        })
+
+        const workspaceKeys = queryClient
+            .getQueryCache()
+            .getAll()
+            .map((query) => query.queryKey)
+            .filter((key) => key.includes('list'))
+            .map((key) => key.at(-1))
+            .filter((value): value is { workspaceId?: string | null } => Boolean(value && typeof value === 'object'))
+
+        expect(workspaceKeys).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ workspaceId: 'workspace-a' }),
+                expect.objectContaining({ workspaceId: 'workspace-b' })
+            ])
+        )
+    })
+
+    it('does not apply an optimistic mutation to another workspace cache', async () => {
+        const createDeferredRow = createDeferred<Record<string, unknown>>()
+        const fetchList = vi.fn().mockImplementation(async ({ workspaceId }: { workspaceId?: string }) => ({
+            ...createAppData(),
+            rows: [{ id: workspaceId === 'workspace-a' ? 'row-a' : 'row-b', name: workspaceId ?? 'default' }]
+        }))
+        const adapter = createAdapter({
+            fetchList,
+            createRow: vi.fn(() => createDeferredRow.promise)
+        })
+        const { getState, queryClient, rerender } = renderCrudDashboard(adapter, { workspaceId: 'workspace-a' })
+
+        await waitFor(() => expect(getState().rows).toEqual([expect.objectContaining({ id: 'row-a' })]))
+        await act(async () => {
+            rerender({ workspaceId: 'workspace-b' })
+        })
+        await waitFor(() => expect(getState().rows).toEqual([expect.objectContaining({ id: 'row-b' })]))
+
+        await act(async () => {
+            getState().handleOpenCreate()
+            await getState().handleFormSubmit({ name: 'Workspace B row' })
+        })
+
+        await waitFor(() => {
+            const listQueries = queryClient.getQueriesData<AppDataResponse>({ queryKey: ['runtime', 'app-1'] })
+            const workspaceA = listQueries.find(([key]) => key.some((part) => part === 'workspace-a'))?.[1]
+            const workspaceB = listQueries.find(([key]) => key.some((part) => part === 'workspace-b'))?.[1]
+
+            expect(workspaceA?.rows).toEqual([expect.objectContaining({ id: 'row-a' })])
+            expect(workspaceB?.rows).toEqual(
+                expect.arrayContaining([expect.objectContaining({ name: 'Workspace B row', __pending: true })])
+            )
+        })
+
+        createDeferredRow.resolve({ id: 'row-b-created', name: 'Workspace B row' })
+        await waitFor(() => expect(getState().isSubmitting).toBe(false))
+    })
+
     it('gives the route section precedence over a stale object collection query parameter', async () => {
         const previousUrl = window.location.href
         window.history.replaceState({}, '', '/a/app-1/route-section?objectCollectionId=stale-section')

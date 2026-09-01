@@ -190,9 +190,7 @@ const SimpleInlineField: React.FC<SimpleFieldProps> = ({
             multiline={multiline}
             rows={rows}
             size={size}
-            inputProps={{
-                maxLength: maxLength ?? undefined
-            }}
+            slotProps={{ htmlInput: { maxLength: maxLength ?? undefined } }}
         />
     )
 }
@@ -263,9 +261,7 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
             multiline={multiline}
             rows={rows}
             size={size}
-            inputProps={{
-                maxLength: maxLength ?? undefined
-            }}
+            slotProps={{ htmlInput: { maxLength: maxLength ?? undefined } }}
         />
     )
 }
@@ -466,7 +462,7 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                 rows={rows}
                 size={size}
                 value=''
-                InputLabelProps={{ shrink: false }}
+                slotProps={{ inputLabel: { shrink: false } }}
             />
         )
     }
@@ -538,13 +534,13 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                             rows={rows}
                             size={size}
                             value={entry?.content ?? ''}
-                            InputLabelProps={{ shrink: shouldShrink }}
+                            slotProps={{
+                                inputLabel: { shrink: shouldShrink },
+                                htmlInput: { maxLength: maxLength ?? undefined }
+                            }}
                             onChange={(event) => handleLocaleChange(locale, event.target.value)}
                             onFocus={() => setFocusedLocale(locale)}
                             onBlur={() => setFocusedLocale((prev) => (prev === locale ? null : prev))}
-                            inputProps={{
-                                maxLength: maxLength ?? undefined
-                            }}
                         />
                         <Box
                             sx={{
@@ -590,7 +586,7 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                 {menuMode !== 'main' && (
                     <>
                         <MenuItem onClick={() => setMenuMode('main')}>
-                            <Stack direction='row' spacing={1} alignItems='center'>
+                            <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                 <ArrowBackRoundedIcon fontSize='small' />
                                 <span>{t('back', 'Back')}</span>
                             </Stack>

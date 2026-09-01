@@ -292,8 +292,16 @@ export function useRecordListData() {
         return map
     }, [sortedElements])
 
-    // Visible component columns (first 4)
-    const visibleComponentsForColumns = useMemo(() => orderedComponents.slice(0, 4), [orderedComponents])
+    // Only expose components explicitly intended for list display. Structured
+    // resource-source fields stay available in forms but must not leak JSON or
+    // storage descriptors into the authoring table.
+    const visibleComponentsForColumns = useMemo(
+        () =>
+            orderedComponents
+                .filter((component) => component.uiConfig?.hidden !== true && component.uiConfig?.gridHidden !== true)
+                .slice(0, 4),
+        [orderedComponents]
+    )
 
     const visibleRefComponentsForColumns = useMemo(
         () =>

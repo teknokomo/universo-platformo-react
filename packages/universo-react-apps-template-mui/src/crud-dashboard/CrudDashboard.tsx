@@ -1,5 +1,5 @@
 import CssBaseline from '@mui/material/CssBaseline'
-import { createHashRouter, RouterProvider } from 'react-router'
+import { createHashRouter, RouterProvider } from 'react-router-dom'
 import DashboardLayout from './components/DashboardLayout'
 import EmployeeList from './components/EmployeeList'
 import EmployeeShow from './components/EmployeeShow'

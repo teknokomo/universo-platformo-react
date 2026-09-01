@@ -11,6 +11,62 @@ import { buildRuntimeSnapshotForApplicationSync } from '../../routes/sync/syncEn
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 
 describe('sync layout materialization helpers', () => {
+    it('preserves marketing layouts and never injects dashboard widgets', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'marketing-layout',
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing' },
+                    description: null,
+                    config: { themeMode: 'light', sectionOrder: ['hero', 'footer'] },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [],
+            defaultLayoutId: 'marketing-layout'
+        }
+
+        const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(snapshot, [])
+
+        expect(runtimeSnapshot.layouts?.[0]).toMatchObject({ templateKey: 'marketing-page', config: snapshot.layouts?.[0]?.config })
+        expect(normalizeSnapshotLayoutZoneWidgets(runtimeSnapshot)).toEqual([])
+    })
+
+    it('rejects dashboard widgets attached to a marketing layout instead of silently rendering them', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'marketing-layout',
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'invalid-widget',
+                    layoutId: 'marketing-layout',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 1,
+                    config: {},
+                    isActive: true
+                }
+            ]
+        }
+
+        expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/cannot contain dashboard widgets/)
+    })
+
     it('builds the same runtime snapshot for sync apply and preview comparisons', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {

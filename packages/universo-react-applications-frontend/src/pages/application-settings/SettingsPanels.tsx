@@ -180,7 +180,7 @@ export const GeneralSettingsPanel = ({
                                 const nextValue = event.target.checked
                                 onVisibilityChange(nextValue === currentVisibility ? undefined : nextValue)
                             }}
-                            inputProps={testIdInputProps('application-settings-visibility-switch')}
+                            slotProps={{ input: testIdInputProps('application-settings-visibility-switch') }}
                         />
                     }
                     label={effectiveVisibility ? t('settings.visibilityPublic', 'Public') : t('settings.visibilityClosed', 'Closed')}
@@ -267,7 +267,7 @@ export const GeneralSettingsPanel = ({
                         <Switch
                             checked={settings.sectionLinksEnabled}
                             onChange={(event) => onSettingsChange({ sectionLinksEnabled: event.target.checked })}
-                            inputProps={testIdInputProps('application-settings-section-links-switch')}
+                            slotProps={{ input: testIdInputProps('application-settings-section-links-switch') }}
                         />
                     }
                     label=''
@@ -725,9 +725,11 @@ export const LimitsSettingsPanel = ({
                             label={t('settings.maxRows', 'Max rows')}
                             value={item.inputValue}
                             onChange={(event) => onLimitChange(item.objectId, event.target.value)}
-                            inputProps={{
-                                min: 1,
-                                ...testIdInputProps(`application-settings-limit-input-${item.objectId}`)
+                            slotProps={{
+                                htmlInput: {
+                                    min: 1,
+                                    ...testIdInputProps(`application-settings-limit-input-${item.objectId}`)
+                                }
                             }}
                             helperText={t('settings.emptyMeansUnlimited', 'Leave empty for unlimited')}
                         />

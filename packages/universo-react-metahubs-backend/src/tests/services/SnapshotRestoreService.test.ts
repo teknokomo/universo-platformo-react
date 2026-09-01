@@ -2488,7 +2488,7 @@ describe('SnapshotRestoreService', () => {
             optionValues: {
                 'old-enum-id': [
                     {
-                        id: 'enum-value-id',
+                        id: '019ccefc-2f7b-7b37-82f4-85cdb1312269',
                         objectId: 'old-enum-id',
                         codename: 'Published',
                         presentation: { name: { en: 'Published' } },
@@ -2500,9 +2500,9 @@ describe('SnapshotRestoreService', () => {
             elements: {
                 'old-object-id': [
                     {
-                        id: 'element-id',
+                        id: '019ccefc-2f7b-7b38-82f4-85cdb131226a',
                         objectId: 'old-object-id',
-                        data: { status: 'enum-value-id' },
+                        data: { status: '019ccefc-2f7b-7b37-82f4-85cdb1312269' },
                         sortOrder: 1
                     }
                 ]
@@ -2515,11 +2515,35 @@ describe('SnapshotRestoreService', () => {
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
         expect(insertedRows['_mhb_values']?.[0]).toMatchObject({
-            id: 'enum-value-id'
+            id: '019ccefc-2f7b-7b37-82f4-85cdb1312269'
         })
         expect(insertedRows['_mhb_elements']?.[0]).toMatchObject({
-            id: 'element-id',
-            data: { status: 'enum-value-id' }
+            id: '019ccefc-2f7b-7b38-82f4-85cdb131226a',
+            data: { status: '019ccefc-2f7b-7b37-82f4-85cdb1312269' }
         })
+    })
+
+    it('rejects non-UUID-v7 persisted ids before restoring snapshot rows', async () => {
+        const snapshot = makeMinimalSnapshot({
+            optionValues: {
+                'old-object-id': [
+                    {
+                        id: '550e8400-e29b-41d4-a716-446655440000',
+                        codename: 'Draft',
+                        presentation: { name: { en: 'Draft' } },
+                        sortOrder: 1,
+                        isDefault: true
+                    }
+                ]
+            }
+        })
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            name: 'MetahubValidationError',
+            message: 'Snapshot enumeration value id must be a UUID v7'
+        })
+        expect(insertedRows['_mhb_values']).toBeUndefined()
     })
 })

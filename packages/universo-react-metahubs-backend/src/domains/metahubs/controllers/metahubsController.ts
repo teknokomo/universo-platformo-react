@@ -2380,6 +2380,14 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 })
             }
 
+            if (error instanceof MetahubValidationError) {
+                return res.status(400).json({
+                    error: 'Invalid snapshot data',
+                    code: 'INVALID_SNAPSHOT_DATA',
+                    details: safeErrorMessage(error)
+                })
+            }
+
             return res.status(500).json({
                 error: 'Snapshot import failed and created resources were cleaned up',
                 code: 'METAHUB_IMPORT_ROLLED_BACK',

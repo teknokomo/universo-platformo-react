@@ -13,6 +13,7 @@ import {
     type EntityDefinition
 } from '@universo-react/schema-ddl'
 import { ComponentDefinitionDataType } from '@universo-react/types'
+import { isUuidV7 } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncQueryBuilder, type ApplicationSyncTransaction, getApplicationSyncKnex } from '../../ddl'
 import {
@@ -56,8 +57,6 @@ export async function seedPredefinedElements(
     const executor = trx ?? knex
     const now = new Date()
     const warnings: string[] = []
-    const seenDuplicateElementIds = new Set<string>()
-
     const objectOrder = resolveObjectSeedingOrder(entities)
 
     const applySeed = async (activeTrx: ApplicationSyncTransaction) => {
@@ -69,6 +68,17 @@ export async function seedPredefinedElements(
             const entity = entityMap.get(objectId)
             if (!entity) continue
             if (!hasPhysicalRuntimeTable(entity)) continue
+
+            const elementIds = new Set<string>()
+            for (const element of elements) {
+                if (!isUuidV7(element.id)) {
+                    throw new Error(`Snapshot predefined element id must be a UUID v7: ${String(element.id)}`)
+                }
+                if (elementIds.has(element.id)) {
+                    throw new Error(`Duplicate predefined element id must be rejected before writing: ${element.id}`)
+                }
+                elementIds.add(element.id)
+            }
 
             const tableName = resolveEntityTableName(entity)
             // Build field map: codename -> { columnName, component }
@@ -152,30 +162,10 @@ export async function seedPredefinedElements(
             const validRows = rows.filter((row): row is Record<string, unknown> => row !== null)
             if (validRows.length === 0) continue
 
-            // PostgreSQL ON CONFLICT DO UPDATE cannot affect the same target row twice.
-            // Keep the last row for each id deterministically and emit a warning for visibility.
-            const deduplicatedRowsById = new Map<string, Record<string, unknown>>()
-            for (const row of validRows) {
-                const rowId = String(row.id ?? '')
-                if (rowId.length === 0) {
-                    continue
-                }
-                if (deduplicatedRowsById.has(rowId) && !seenDuplicateElementIds.has(rowId)) {
-                    const duplicateMessage =
-                        `[SchemaSync] Duplicate predefined element id "${rowId}" detected for ${tableName}; ` +
-                        `the last occurrence will be applied.`
-                    console.warn(duplicateMessage)
-                    warnings.push(duplicateMessage)
-                    seenDuplicateElementIds.add(rowId)
-                }
-                deduplicatedRowsById.set(rowId, row)
-            }
-
-            const deduplicatedRows = Array.from(deduplicatedRowsById.values())
-            if (deduplicatedRows.length === 0) continue
+            if (validRows.length === 0) continue
 
             const mergeColumns = ['_upl_updated_at', '_upl_updated_by', ...dataColumns]
-            await activeTrx.withSchema(schemaName).table(tableName).insert(deduplicatedRows).onConflict('id').merge(mergeColumns)
+            await activeTrx.withSchema(schemaName).table(tableName).insert(validRows).onConflict('id').merge(mergeColumns)
 
             // Seed TABLE child rows
             if (tableFields.length > 0) {
@@ -319,7 +309,10 @@ export async function syncEnumerationValues(
             const presentation: { name?: unknown; description?: unknown } = isRecord(value.presentation)
                 ? (value.presentation as { name?: unknown; description?: unknown })
                 : {}
-            const id = typeof value.id === 'string' ? value.id : ''
+            if (!isUuidV7(value.id)) {
+                throw new Error(`Snapshot enumeration value id must be a UUID v7: ${String(value.id)}`)
+            }
+            const id = value.id
             const codename = normalizeSnapshotCodenameValue(value.codename, `enumeration value "${id || objectId}"`)
 
             return {

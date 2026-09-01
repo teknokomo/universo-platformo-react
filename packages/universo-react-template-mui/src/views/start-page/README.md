@@ -1,15 +1,9 @@
-# Marketing page template
+# Start-page shell primitives
 
-## Usage
+This directory contains the small navigation primitives used by
+`StartLayoutMUI`. The former static marketing demo was removed; the
+data-driven published marketing template lives in
+`@universo-react/apps-template-mui` under `src/marketing-page`.
 
-<!-- #target-branch-reference -->
-
-1. Copy these folders (`marketing-page` and `shared-theme`) into your project, or one of the [example projects](https://github.com/mui/material-ui/tree/master/examples).
-2. Make sure your project has the required dependencies: @mui/material, @mui/icons-material, @emotion/styled, @emotion/react.
-3. Import and use the `MarketingPage` component.
-
-## Demo
-
-<!-- #host-reference -->
-
-View the demo at https://mui.com/material-ui/getting-started/templates/marketing-page/.
+`AppAppBar` and `SitemarkIcon` remain shared by the start shell and must stay
+provider-free. Do not copy demo arrays or add page-specific data here.

@@ -99,38 +99,40 @@ export const PaginationControls = ({
                 rowsPerPageOptions={rowsPerPageOptions}
                 labelRowsPerPage={t('pagination.rowsPerPage')}
                 // Style rows-per-page Select to look like navigation buttons
-                SelectProps={{
-                    variant: 'outlined',
-                    size: 'small',
-                    sx: {
-                        height: 36,
-                        borderRadius: 1,
-                        bgcolor: 'background.paper',
-                        boxShadow: 'none', // Remove any shadow that makes border look thicker
-                        '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'divider',
-                            borderWidth: '1px' // Thinner border like navigation buttons
-                        },
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'divider',
-                            borderWidth: '1px'
-                        },
-                        '&.Mui-focused': {
-                            boxShadow: 'none', // Remove focus shadow
+                slotProps={{
+                    select: {
+                        variant: 'outlined',
+                        size: 'small',
+                        sx: {
+                            height: 36,
+                            borderRadius: 1,
+                            bgcolor: 'background.paper',
+                            boxShadow: 'none', // Remove any shadow that makes border look thicker
                             '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'primary.main',
+                                borderColor: 'divider',
+                                borderWidth: '1px' // Thinner border like navigation buttons
+                            },
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: 'divider',
                                 borderWidth: '1px'
+                            },
+                            '&.Mui-focused': {
+                                boxShadow: 'none', // Remove focus shadow
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'primary.main',
+                                    borderWidth: '1px'
+                                }
+                            },
+                            // Reduce inner padding for select text
+                            '& .MuiSelect-select': {
+                                py: 0.25, // 2px vertical padding
+                                px: 0, // 0px horizontal padding (minimal)
+                                paddingRight: '12px !important' // Reserve space for dropdown icon (half of 24px)
+                            },
+                            // Remove icon outline/shadow effects
+                            '& .MuiSelect-icon': {
+                                color: 'text.secondary'
                             }
-                        },
-                        // Reduce inner padding for select text
-                        '& .MuiSelect-select': {
-                            py: 0.25, // 2px vertical padding
-                            px: 0, // 0px horizontal padding (minimal)
-                            paddingRight: '12px !important' // Reserve space for dropdown icon (half of 24px)
-                        },
-                        // Remove icon outline/shadow effects
-                        '& .MuiSelect-icon': {
-                            color: 'text.secondary'
                         }
                     }
                 }}

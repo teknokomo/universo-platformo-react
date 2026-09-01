@@ -47,7 +47,8 @@ import {
     extractInstalledReleaseMetadataString,
     extractInstalledReleaseMetadataSchemaSnapshot,
     extractSetConstantRefConfig,
-    resolveApplicationReleaseVersion
+    resolveApplicationReleaseVersion,
+    parseApplicationTemplateKey
 } from './syncHelpers'
 
 // --- Runtime data loaders ---
@@ -491,7 +492,7 @@ export async function loadApplicationRuntimeLayouts(
         const normalizedLayouts = layouts.map((row) => ({
             id: String(row.id ?? ''),
             scopeEntityId: typeof row.scope_entity_id === 'string' && row.scope_entity_id.length > 0 ? row.scope_entity_id : null,
-            templateKey: typeof row.template_key === 'string' && row.template_key.length > 0 ? row.template_key : 'dashboard',
+            templateKey: parseApplicationTemplateKey(row.template_key, `runtime layout ${String(row.id ?? '')}`),
             name: isRecord(row.name) ? row.name : {},
             description: isRecord(row.description) ? row.description : null,
             config: isRecord(row.config) ? row.config : {},

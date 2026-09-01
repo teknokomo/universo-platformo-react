@@ -704,7 +704,8 @@ const authorizeAndBuildRoomOptions = async (token: string | null, options: unkno
                 workspacesEnabled: application.workspacesEnabled,
                 userId,
                 actorUserId: userId,
-                ensurePersonalWorkspace: false
+                ensurePersonalWorkspace: false,
+                allowUnassigned: permissions.manageApplication === true
             })
             const requestedWorkspaceId = typeof access.workspaceId === 'string' ? access.workspaceId : null
             currentWorkspaceId = requestedWorkspaceId ?? workspaceAccess.defaultWorkspaceId
@@ -1051,7 +1052,8 @@ const validateRuntimeAccess: RuntimeAccessValidator = async (subject, roomOption
                 workspacesEnabled: application.workspacesEnabled,
                 userId: subject.ownerUserId,
                 actorUserId: subject.ownerUserId,
-                ensurePersonalWorkspace: false
+                ensurePersonalWorkspace: false,
+                allowUnassigned: resolveEffectiveRolePermissions(role, application.settings ?? {}).manageApplication === true
             })
             return Boolean(roomOptions.workspaceId && workspaceAccess.allowedWorkspaceIds.includes(roomOptions.workspaceId))
         }

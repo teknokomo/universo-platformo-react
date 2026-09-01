@@ -747,11 +747,13 @@ export function buildTabularColumns({
                                     '&:before, &:after': { display: 'none !important' }
                                 }}
                                 MenuProps={{
-                                    PaperProps: {
-                                        sx: {
-                                            '& .MuiMenuItem-root': { minHeight: 36 },
-                                            '& .MuiMenuItem-root.Mui-selected': {
-                                                bgcolor: 'action.selected'
+                                    slotProps: {
+                                        paper: {
+                                            sx: {
+                                                '& .MuiMenuItem-root': { minHeight: 36 },
+                                                '& .MuiMenuItem-root.Mui-selected': {
+                                                    bgcolor: 'action.selected'
+                                                }
                                             }
                                         }
                                     }

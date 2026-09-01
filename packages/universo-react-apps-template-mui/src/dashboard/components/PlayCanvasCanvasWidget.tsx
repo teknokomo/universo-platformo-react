@@ -654,7 +654,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
 
     return (
         <Box data-testid='playcanvas-canvas-widget' sx={{ width: '100%', minWidth: 0 }}>
-            <Stack direction='row' spacing={1} alignItems='center' sx={{ mb: 1, minWidth: 0, flexWrap: 'wrap', rowGap: 1 }}>
+            <Stack direction='row' spacing={1} sx={{ mb: 1, minWidth: 0, flexWrap: 'wrap', rowGap: 1, alignItems: 'center' }}>
                 <Typography variant='h6' sx={{ flex: 1, minWidth: 0 }}>
                     {title}
                 </Typography>
@@ -769,11 +769,11 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                     <Stack
                         direction='row'
                         spacing={1}
-                        alignItems='center'
                         sx={{
                             mb: 1,
                             minWidth: 0,
                             flexWrap: 'wrap',
+                            alignItems: 'center',
                             rowGap: 0.5,
                             '@media (max-width: 900px), (max-height: 700px)': {
                                 mb: 0.5

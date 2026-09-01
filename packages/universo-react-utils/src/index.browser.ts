@@ -24,6 +24,7 @@ export {
 
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'
+export { isSemanticLongTextRuntimeField, type RuntimeFieldSemanticInput } from './ui-utils/fieldSemantics'
 
 // API error handling utilities
 export * as api from './api/error-handlers'
@@ -88,6 +89,18 @@ export {
 } from './validation/objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './validation/dashboardLayout'
 export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './validation/menuWidgetTargets'
+export {
+    normalizeMarketingAction,
+    parseMarketingActionHref,
+    normalizeMarketingLocalizedText,
+    normalizeMarketingMedia,
+    normalizeMarketingPageConfig,
+    normalizeMarketingPageData,
+    resolveMarketingLocalizedText,
+    toMarketingActionHref,
+    toMarketingActionLinkAttributes,
+    type MarketingActionLinkAttributes
+} from './validation/marketingPage'
 
 export {
     validateNumber,
@@ -136,7 +149,7 @@ export { OptimisticLockError, type ConflictInfo } from './errors/OptimisticLockE
 export { isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors/conflictDetection'
 
 // UUID utilities (browser-safe)
-export { generateUuidV7, isValidUuid } from './uuid'
+export { generateUuidV7, isValidUuid, isUuidV7 } from './uuid'
 
 // Explicit imports to avoid pulling in Node "net" dependency when bundling for the browser.
 import { createTimeSyncEstimator } from './net/timeSync'

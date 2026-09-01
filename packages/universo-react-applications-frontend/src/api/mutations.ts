@@ -15,14 +15,19 @@ export interface RuntimeCellMutationVariables {
     value: boolean | null
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
 }
 
 export interface PendingRuntimeCellMutation extends RuntimeCellMutationVariables {
     submittedAt: number
 }
 
-export const getRuntimeCellMutationKey = (applicationId: string | undefined) =>
-    ['applications', 'updateCell', applicationId ?? 'unknown'] as const
+export const getRuntimeCellMutationKey = (applicationId: string | undefined, workspaceId?: string | null) => {
+    const normalizedWorkspaceId = workspaceId?.trim()
+    return normalizedWorkspaceId
+        ? (['applications', 'updateCell', applicationId ?? 'unknown', normalizedWorkspaceId] as const)
+        : (['applications', 'updateCell', applicationId ?? 'unknown'] as const)
+}
 
 export const getRuntimeCellPendingKey = (rowId: string, field: string) => `${rowId}::${field}`
 
@@ -57,14 +62,15 @@ export function useRuntimeRow(options: {
     rowId: string | null
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     enabled?: boolean
 }) {
-    const { applicationId, rowId, objectCollectionId, sectionId, enabled = true } = options
+    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId, enabled = true } = options
     return useQuery({
-        queryKey: applicationId && rowId ? applicationsQueryKeys.runtimeRow(applicationId, rowId) : ['noop'],
+        queryKey: applicationId && rowId ? applicationsQueryKeys.runtimeRow(applicationId, rowId, workspaceId) : ['noop'],
         queryFn: async () => {
             if (!applicationId || !rowId) throw new Error('Missing IDs')
-            return getApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId })
+            return getApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId, workspaceId })
         },
         enabled: enabled && Boolean(applicationId && rowId),
         staleTime: 0,
@@ -73,14 +79,19 @@ export function useRuntimeRow(options: {
 }
 
 /** Create a new runtime row and invalidate list queries. */
-export function useCreateRuntimeRow(options: { applicationId: string | undefined; objectCollectionId?: string; sectionId?: string }) {
-    const { applicationId, objectCollectionId, sectionId } = options
+export function useCreateRuntimeRow(options: {
+    applicationId: string | undefined
+    objectCollectionId?: string
+    sectionId?: string
+    workspaceId?: string | null
+}) {
+    const { applicationId, objectCollectionId, sectionId, workspaceId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: async (data: Record<string, unknown>) => {
             if (!applicationId) throw new Error('Application ID is missing')
-            return createApplicationRuntimeRow({ applicationId, data, objectCollectionId, sectionId })
+            return createApplicationRuntimeRow({ applicationId, data, objectCollectionId, sectionId, workspaceId })
         },
         onSuccess: async () => {
             if (!applicationId) return
@@ -90,32 +101,49 @@ export function useCreateRuntimeRow(options: { applicationId: string | undefined
 }
 
 /** Update an existing runtime row and invalidate list + row queries. */
-export function useUpdateRuntimeRow(options: { applicationId: string | undefined; objectCollectionId?: string; sectionId?: string }) {
-    const { applicationId, objectCollectionId, sectionId } = options
+export function useUpdateRuntimeRow(options: {
+    applicationId: string | undefined
+    objectCollectionId?: string
+    sectionId?: string
+    workspaceId?: string | null
+}) {
+    const { applicationId, objectCollectionId, sectionId, workspaceId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: async (params: { rowId: string; data: Record<string, unknown> }) => {
             if (!applicationId) throw new Error('Application ID is missing')
-            return updateApplicationRuntimeRow({ applicationId, rowId: params.rowId, data: params.data, objectCollectionId, sectionId })
+            return updateApplicationRuntimeRow({
+                applicationId,
+                rowId: params.rowId,
+                data: params.data,
+                objectCollectionId,
+                sectionId,
+                workspaceId
+            })
         },
         onSuccess: async (_data, variables) => {
             if (!applicationId) return
             await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(applicationId) })
-            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeRow(applicationId, variables.rowId) })
+            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeRow(applicationId, variables.rowId, workspaceId) })
         }
     })
 }
 
 /** Soft-delete a runtime row and invalidate list queries. */
-export function useDeleteRuntimeRow(options: { applicationId: string | undefined; objectCollectionId?: string; sectionId?: string }) {
-    const { applicationId, objectCollectionId, sectionId } = options
+export function useDeleteRuntimeRow(options: {
+    applicationId: string | undefined
+    objectCollectionId?: string
+    sectionId?: string
+    workspaceId?: string | null
+}) {
+    const { applicationId, objectCollectionId, sectionId, workspaceId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: async (rowId: string) => {
             if (!applicationId) throw new Error('Application ID is missing')
-            return deleteApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId })
+            return deleteApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId, workspaceId })
         },
         onSuccess: async () => {
             if (!applicationId) return
@@ -129,10 +157,15 @@ export function useDeleteRuntimeRow(options: { applicationId: string | undefined
  * Uses "via UI" optimistic approach: component reads mutation.variables + isPending
  * to show the optimistic checked state directly in render — no cache manipulation.
  */
-export function useUpdateRuntimeCell(options: { applicationId: string | undefined; objectCollectionId?: string; sectionId?: string }) {
-    const { applicationId, objectCollectionId, sectionId } = options
+export function useUpdateRuntimeCell(options: {
+    applicationId: string | undefined
+    objectCollectionId?: string
+    sectionId?: string
+    workspaceId?: string | null
+}) {
+    const { applicationId, objectCollectionId, sectionId, workspaceId } = options
     const queryClient = useQueryClient()
-    const mutationKey = getRuntimeCellMutationKey(applicationId)
+    const mutationKey = getRuntimeCellMutationKey(applicationId, workspaceId)
 
     return useMutation({
         mutationKey,
@@ -144,7 +177,8 @@ export function useUpdateRuntimeCell(options: { applicationId: string | undefine
                 field: params.field,
                 value: params.value,
                 objectCollectionId: params.objectCollectionId ?? objectCollectionId,
-                sectionId: params.sectionId ?? sectionId
+                sectionId: params.sectionId ?? sectionId,
+                workspaceId: params.workspaceId ?? workspaceId
             })
         },
         onSettled: () => {
@@ -154,12 +188,15 @@ export function useUpdateRuntimeCell(options: { applicationId: string | undefine
     })
 }
 
-export function usePendingRuntimeCellMutations(options: { applicationId: string | undefined }): PendingRuntimeCellMutation[] {
-    const { applicationId } = options
+export function usePendingRuntimeCellMutations(options: {
+    applicationId: string | undefined
+    workspaceId?: string | null
+}): PendingRuntimeCellMutation[] {
+    const { applicationId, workspaceId } = options
 
     return useMutationState({
         filters: {
-            mutationKey: getRuntimeCellMutationKey(applicationId),
+            mutationKey: getRuntimeCellMutationKey(applicationId, workspaceId),
             status: 'pending'
         },
         select: (mutation): PendingRuntimeCellMutation | undefined => {

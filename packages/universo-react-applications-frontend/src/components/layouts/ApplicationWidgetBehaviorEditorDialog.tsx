@@ -1560,7 +1560,7 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                                         maxRows: event.target.value
                                                     }))
                                                 }
-                                                inputProps={{ min: 1, max: 100 }}
+                                                slotProps={{ htmlInput: { min: 1, max: 100 } }}
                                                 fullWidth
                                             />
                                         </>
@@ -1658,7 +1658,7 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                                         maxRows: event.target.value
                                                     }))
                                                 }
-                                                inputProps={{ min: 1, max: 100 }}
+                                                slotProps={{ htmlInput: { min: 1, max: 100 } }}
                                                 fullWidth
                                             />
                                         </>
@@ -2092,7 +2092,7 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 label={t('layouts.sequencePolicy.retryLimit', 'Retry limit')}
                                 value={normalizeDatasourceScalarText(sequencePolicy?.retryLimit)}
                                 onChange={(event) => updateSequencePolicy({ retryLimit: event.target.value })}
-                                inputProps={{ min: 0, max: 100 }}
+                                slotProps={{ htmlInput: { min: 0, max: 100 } }}
                                 fullWidth
                             />
                             <TextField
@@ -2101,7 +2101,7 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                 label={t('layouts.sequencePolicy.maxAttempts', 'Max attempts')}
                                 value={normalizeDatasourceScalarText(sequencePolicy?.maxAttempts)}
                                 onChange={(event) => updateSequencePolicy({ maxAttempts: event.target.value })}
-                                inputProps={{ min: 1, max: 100 }}
+                                slotProps={{ htmlInput: { min: 1, max: 100 } }}
                                 fullWidth
                             />
                             <Typography variant='caption' color='text.secondary'>

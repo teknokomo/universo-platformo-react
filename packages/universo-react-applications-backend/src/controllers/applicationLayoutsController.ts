@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { applicationLayoutWidgetConfigBatchMutationSchema, applicationLayoutWidgetResetBatchMutationSchema } from '@universo-react/types'
+import {
+    applicationLayoutConfigResetMutationSchema,
+    applicationLayoutWidgetConfigBatchMutationSchema,
+    applicationLayoutWidgetResetBatchMutationSchema
+} from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { getRequestDbExecutor } from '../utils'
@@ -18,6 +22,7 @@ import {
     listApplicationLayoutWidgets,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
+    resetApplicationLayoutConfig,
     resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     updateApplicationLayout,
@@ -50,7 +55,25 @@ const parseOffset = (value: unknown): number => {
     return Number.isInteger(parsed) ? Math.max(parsed, 0) : 0
 }
 
+const parseExpectedVersion = (value: unknown): number | undefined => {
+    if (value === undefined) {
+        return undefined
+    }
+    if (typeof value !== 'string' || !/^[1-9]\d*$/u.test(value)) {
+        throw new Error('APPLICATION_LAYOUT_EXPECTED_VERSION_INVALID')
+    }
+    const parsed = Number(value)
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        throw new Error('APPLICATION_LAYOUT_EXPECTED_VERSION_INVALID')
+    }
+    return parsed
+}
+
 const handleKnownError = (res: Response, error: unknown): boolean => {
+    if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'APPLICATION_LAYOUT_INVALID' })
+        return true
+    }
     const message = error instanceof Error ? error.message : ''
     if (message === 'APPLICATION_LAYOUT_VERSION_CONFLICT') {
         res.status(409).json({ error: 'APPLICATION_LAYOUT_VERSION_CONFLICT' })
@@ -64,7 +87,15 @@ const handleKnownError = (res: Response, error: unknown): boolean => {
         res.status(400).json({ error: message })
         return true
     }
+    if (message === 'APPLICATION_LAYOUT_EXPECTED_VERSION_INVALID') {
+        res.status(400).json({ error: message })
+        return true
+    }
     if (message === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT') {
+        res.status(409).json({ error: message })
+        return true
+    }
+    if (message === 'APPLICATION_LAYOUT_MARKETING_RESET_NOT_SUPPORTED') {
         res.status(409).json({ error: message })
         return true
     }
@@ -191,11 +222,37 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
             }
         },
 
+        async resetConfig(req: Request, res: Response) {
+            const ctx = await ensureSchema(req, res)
+            if (!ctx) return
+            const parsedBody = applicationLayoutConfigResetMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_CONFIG_RESET_INVALID' })
+                return
+            }
+            try {
+                const item = await resetApplicationLayoutConfig(
+                    ctx.executor,
+                    ctx.schemaName,
+                    req.params.layoutId,
+                    parsedBody.data,
+                    ctx.userId
+                )
+                if (!item) {
+                    res.status(404).json({ error: 'Layout not found' })
+                    return
+                }
+                res.json({ item })
+            } catch (error) {
+                if (!handleKnownError(res, error)) throw error
+            }
+        },
+
         async remove(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
             try {
-                const expectedVersion = typeof req.query.expectedVersion === 'string' ? Number(req.query.expectedVersion) : undefined
+                const expectedVersion = parseExpectedVersion(req.query.expectedVersion)
                 const deleted = await deleteApplicationLayout(
                     ctx.executor,
                     ctx.schemaName,

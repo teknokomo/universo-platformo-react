@@ -172,7 +172,7 @@ export const FixedValueGeneralFields = ({
                                         fullWidth
                                         value={typeof validationRules.minLength === 'number' ? validationRules.minLength : ''}
                                         onChange={(e) => updateValidationRule('minLength', e.target.value ? Number(e.target.value) : null)}
-                                        inputProps={{ min: 0 }}
+                                        slotProps={{ htmlInput: { min: 0 } }}
                                     />
                                     <TextField
                                         label={labels.stringMaxLength}
@@ -181,7 +181,7 @@ export const FixedValueGeneralFields = ({
                                         fullWidth
                                         value={typeof validationRules.maxLength === 'number' ? validationRules.maxLength : ''}
                                         onChange={(e) => updateValidationRule('maxLength', e.target.value ? Number(e.target.value) : null)}
-                                        inputProps={{ min: 1 }}
+                                        slotProps={{ htmlInput: { min: 1 } }}
                                     />
                                 </Stack>
                                 <FormControlLabel
@@ -217,7 +217,7 @@ export const FixedValueGeneralFields = ({
                                         fullWidth
                                         value={typeof validationRules.precision === 'number' ? validationRules.precision : 10}
                                         onChange={(e) => updateValidationRule('precision', e.target.value ? Number(e.target.value) : 10)}
-                                        inputProps={{ min: 1, max: 15 }}
+                                        slotProps={{ htmlInput: { min: 1, max: 15 } }}
                                     />
                                     <TextField
                                         label={labels.numberScale}
@@ -226,7 +226,7 @@ export const FixedValueGeneralFields = ({
                                         fullWidth
                                         value={typeof validationRules.scale === 'number' ? validationRules.scale : 0}
                                         onChange={(e) => updateValidationRule('scale', e.target.value ? Number(e.target.value) : 0)}
-                                        inputProps={{ min: 0, max: 14 }}
+                                        slotProps={{ htmlInput: { min: 0, max: 14 } }}
                                     />
                                 </Stack>
                                 <Stack direction='row' spacing={1.5}>
@@ -358,9 +358,11 @@ export const ConstantValueFields = ({ values, setValue, isLoading, uiLocale, err
                 disabled={isLoading}
                 error={Boolean(error)}
                 helperText={error ?? helperText}
-                inputProps={{
-                    minLength: minStringLength ?? undefined,
-                    maxLength: maxStringLength ?? undefined
+                slotProps={{
+                    htmlInput: {
+                        minLength: minStringLength ?? undefined,
+                        maxLength: maxStringLength ?? undefined
+                    }
                 }}
             />
         )
@@ -450,7 +452,7 @@ export const ConstantValueFields = ({ values, setValue, isLoading, uiLocale, err
                 disabled={isLoading}
                 error={Boolean(error)}
                 helperText={error ?? helperText ?? constraints.join(', ')}
-                inputProps={{ style: { textAlign: 'right' } }}
+                slotProps={{ htmlInput: { style: { textAlign: 'right' } } }}
             />
         )
     }
@@ -511,10 +513,12 @@ export const ConstantValueFields = ({ values, setValue, isLoading, uiLocale, err
             }}
             fullWidth
             disabled={isLoading}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { max: maxDateValue }
+            }}
             error={Boolean(error)}
             helperText={error ?? helperText}
-            inputProps={{ max: maxDateValue }}
         />
     )
 }

@@ -149,7 +149,7 @@ function OccupiedMatrixTableCell({
                     : {})
             }}
         >
-            <Stack direction='row' spacing={0} alignItems='stretch' sx={{ minHeight: 54, minWidth: 0 }}>
+            <Stack direction='row' spacing={0} sx={{ minHeight: 54, minWidth: 0, alignItems: 'stretch' }}>
                 <Tooltip title={t('workspace.cell.drag', 'Drag cell')}>
                     <span style={{ display: 'flex', alignSelf: 'stretch' }}>
                         <IconButton

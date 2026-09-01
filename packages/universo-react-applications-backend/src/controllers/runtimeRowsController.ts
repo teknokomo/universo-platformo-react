@@ -5958,11 +5958,13 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const updateWhereSql = ['id = $3', runtimeRowCondition, 'COALESCE(_upl_locked, false) = false', updateAccessClause]
                     .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
                     .join(' AND ')
+                const seedOwnershipClause = ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''
 
                 const updated = (await txManager.query(
                     `
             UPDATE ${dataTableIdent}
             SET ${quoteIdentifier(field)} = $1,
+                ${seedOwnershipClause}
                 _upl_updated_at = NOW(),
                 _upl_updated_by = $2,
                 _upl_version = COALESCE(_upl_version, 1) + 1
@@ -6332,6 +6334,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         setClauses.push(`_upl_updated_by = $${paramIndex}`)
         values.push(ctx.userId)
         paramIndex++
+        // Keep the immutable seed key for reconciliation while marking the row
+        // as authored. This prevents the next publication from materializing a
+        // duplicate row for the same source element.
+        if (ctx.workspacesEnabled) {
+            setClauses.push('_seed_source_owned = false')
+        }
         setClauses.push(`_upl_version = COALESCE(_upl_version, 1) + 1`)
 
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
@@ -8258,6 +8266,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                       `
               UPDATE ${dataTableIdent}
               SET ${runtimeDeleteSetClause},
+                  ${ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''}
                   _upl_version = COALESCE(_upl_version, 1) + 1
               WHERE ${deleteWhereSql}
                 ${deleteExpectedVersionPredicate}
@@ -8298,6 +8307,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         `
               UPDATE ${tabTableIdent}
               SET ${runtimeDeleteSetClause},
+                  ${ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''}
                   _upl_version = COALESCE(_upl_version, 1) + 1
               WHERE _tp_parent_id = $2
                 AND ${runtimeRowCondition}
@@ -9621,6 +9631,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 ]
                     .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
                     .join(' AND ')
+                const seedOwnershipClause = ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''
 
                 const updatedRows = await tx.query<{ id: string }>(
                     `
@@ -9629,6 +9640,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         )
         UPDATE ${dataTableIdent} AS target
         SET ${quoteIdentifier(reorderFieldAttr.column_name)} = incoming.sort_order,
+            ${seedOwnershipClause}
+            _upl_updated_at = NOW(),
             _upl_updated_by = $${parameters.length + 1},
             _upl_version = COALESCE(target._upl_version, 1) + 1
         FROM incoming

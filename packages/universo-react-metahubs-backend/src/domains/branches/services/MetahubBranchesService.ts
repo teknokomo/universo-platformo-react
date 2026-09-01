@@ -568,6 +568,7 @@ export class MetahubBranchesService {
 
             return savedBranch
         } catch (error) {
+            log.error(`Initial branch creation failed before rollback for schema "${schemaName}"`, error)
             const existingBranch = await findBranchBySchemaName(this.exec, schemaName)
             if (!existingBranch) {
                 const cleanupError = await this.cleanupSchemaWithDiagnostics(schemaName, 'createDefaultBranch')

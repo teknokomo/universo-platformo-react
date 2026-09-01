@@ -55,6 +55,7 @@ export {
 
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'
+export { isSemanticLongTextRuntimeField, type RuntimeFieldSemanticInput } from './ui-utils/fieldSemantics'
 
 // API error handling utilities
 export * from './api/error-handlers'
@@ -176,7 +177,7 @@ export { getAuthFeatureConfig, isRegistrationEnabled, isLoginEnabled, isEmailCon
 export { OptimisticLockError, type ConflictInfo, isOptimisticLockConflict, extractConflictInfo, hasAxiosResponse } from './errors'
 
 // UUID utilities
-export { generateUuidV7, isValidUuid } from './uuid'
+export { generateUuidV7, isValidUuid, isUuidV7 } from './uuid'
 
 // Number validation utilities for precision/scale constraints
 export {
@@ -202,6 +203,18 @@ export {
 } from './validation/objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './validation/dashboardLayout'
 export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './validation/menuWidgetTargets'
+export {
+    normalizeMarketingAction,
+    parseMarketingActionHref,
+    normalizeMarketingLocalizedText,
+    normalizeMarketingMedia,
+    normalizeMarketingPageConfig,
+    normalizeMarketingPageData,
+    resolveMarketingLocalizedText,
+    toMarketingActionHref,
+    toMarketingActionLinkAttributes,
+    type MarketingActionLinkAttributes
+} from './validation/marketingPage'
 
 export {
     validateNumber,

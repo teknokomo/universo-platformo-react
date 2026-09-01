@@ -3,6 +3,11 @@ import type { Request, Response } from 'express'
 const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
 const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
+const mockEnsureRuntimePermission = jest.fn((res: Response, ctx: { permissions: Record<string, boolean> }, permission: string) => {
+    if (ctx.permissions[permission]) return true
+    res.status(403).json({ error: 'Insufficient permissions for this action' })
+    return false
+})
 const mockListUserWorkspaces = jest.fn()
 const mockGetUserWorkspace = jest.fn()
 const mockCreateSharedWorkspace = jest.fn()
@@ -17,10 +22,12 @@ const mockGetWorkspaceMembership = jest.fn()
 const mockAssertRuntimeWorkspaceExists = jest.fn()
 const mockListRuntimeWorkspaceSettings = jest.fn()
 const mockUpdateWorkspaceSettingOverrides = jest.fn()
+const mockResetWorkspaceSeededElements = jest.fn()
 
 jest.mock('../../shared/runtimeHelpers', () => ({
     __esModule: true,
     createQueryHelper: (...args: unknown[]) => mockCreateQueryHelper(...args),
+    ensureRuntimePermission: (...args: unknown[]) => mockEnsureRuntimePermission(...args),
     resolveRuntimeSchema: (...args: unknown[]) => mockResolveRuntimeSchema(...args)
 }))
 
@@ -32,7 +39,8 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
         roleNotFound: 'WORKSPACE_ROLE_NOT_FOUND',
         memberNotFound: 'WORKSPACE_MEMBER_NOT_FOUND',
         personalWorkspaceMutationBlocked: 'PERSONAL_WORKSPACE_MUTATION_BLOCKED',
-        lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED'
+        lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED',
+        workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED'
     },
     RuntimeWorkspaceError: class RuntimeWorkspaceError extends Error {
         code: string
@@ -77,9 +85,15 @@ jest.mock('../../services/workspaceSettingsService', () => ({
     updateWorkspaceSettingOverrides: (...args: unknown[]) => mockUpdateWorkspaceSettingOverrides(...args)
 }))
 
+jest.mock('../../services/applicationWorkspaces', () => ({
+    __esModule: true,
+    resetWorkspaceSeededElements: (...args: unknown[]) => mockResetWorkspaceSeededElements(...args)
+}))
+
 import { createRuntimeWorkspaceController } from '../../controllers/runtimeWorkspaceController'
 import { RuntimeWorkspaceError, RUNTIME_WORKSPACE_ERROR_CODES } from '../../services/runtimeWorkspaceService'
 import { WorkspaceSettingsError, WORKSPACE_SETTINGS_ERROR_CODES } from '../../services/workspaceSettingsService'
+import { WorkspaceSeedResetError, WORKSPACE_SEED_RESET_ERROR_CODES } from '../../services/runtimeWorkspaceErrors'
 
 function createResponse() {
     const json = jest.fn()
@@ -147,6 +161,7 @@ describe('runtimeWorkspaceController', () => {
         mockAssertRuntimeWorkspaceExists.mockReset()
         mockListRuntimeWorkspaceSettings.mockReset()
         mockUpdateWorkspaceSettingOverrides.mockReset()
+        mockResetWorkspaceSeededElements.mockReset()
     })
 
     it('lists workspaces for a workspace-enabled application', async () => {
@@ -180,7 +195,8 @@ describe('runtimeWorkspaceController', () => {
             userId: baseCtx.userId,
             limit: 25,
             offset: 0,
-            search: 'main'
+            search: 'main',
+            includeUnassigned: false
         })
         expect(res.json).toHaveBeenCalledWith({
             items: [
@@ -192,7 +208,11 @@ describe('runtimeWorkspaceController', () => {
             total: 1,
             limit: 25,
             offset: 0,
-            currentWorkspaceId: baseCtx.currentWorkspaceId
+            currentWorkspaceId: baseCtx.currentWorkspaceId,
+            permissions: {
+                canCreateSharedWorkspace: false,
+                canManageApplication: false
+            }
         })
     })
 
@@ -200,6 +220,10 @@ describe('runtimeWorkspaceController', () => {
         const controller = createRuntimeWorkspaceController(() => manager as never)
         const res = createResponse()
         mockCreateSharedWorkspace.mockResolvedValue({ id: 'workspace-2' })
+        mockResolveRuntimeSchema.mockResolvedValue({
+            ...baseCtx,
+            permissions: { ...baseCtx.permissions, manageApplication: true }
+        })
 
         await controller.createWorkspace(
             {
@@ -218,6 +242,23 @@ describe('runtimeWorkspaceController', () => {
         })
         expect(res.status).toHaveBeenCalledWith(201)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ id: 'workspace-2' })
+    })
+
+    it('forbids a workspace member from creating a shared workspace', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+
+        await controller.createWorkspace(
+            {
+                params: { applicationId: 'app-1' },
+                body: { name: vlc('Member workspace') }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Insufficient permissions for this action' })
+        expect(mockCreateSharedWorkspace).not.toHaveBeenCalled()
     })
 
     it('returns a route workspace detail only when it belongs to the current runtime user', async () => {
@@ -244,12 +285,84 @@ describe('runtimeWorkspaceController', () => {
         expect(mockGetUserWorkspace).toHaveBeenCalledWith(manager, {
             schemaName: baseCtx.schemaName,
             userId: baseCtx.userId,
-            workspaceId
+            workspaceId,
+            allowUnassigned: false
         })
         expect(res.json).toHaveBeenCalledWith(
             expect.objectContaining({
                 id: workspaceId,
                 roleCodename: 'member'
+            })
+        )
+    })
+
+    it('allows an application administrator to open an unassigned workspace detail', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        const adminContext = {
+            ...baseCtx,
+            permissions: { ...baseCtx.permissions, manageApplication: true }
+        }
+        mockResolveRuntimeSchema.mockResolvedValue(adminContext)
+        mockGetUserWorkspace.mockResolvedValue({
+            id: workspaceId,
+            name: vlc('Admin workspace'),
+            description: vlc('Admin workspace description'),
+            workspaceType: 'shared',
+            personalUserId: null,
+            status: 'active',
+            isDefault: false,
+            roleCodename: 'admin'
+        })
+
+        await controller.getWorkspace(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockGetUserWorkspace).toHaveBeenCalledWith(manager, {
+            schemaName: adminContext.schemaName,
+            userId: adminContext.userId,
+            workspaceId,
+            allowUnassigned: true
+        })
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ roleCodename: 'admin' }))
+    })
+
+    it('maps unresolved workspace copy references to a conflict response', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'owner',
+            isDefault: true,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockCopyWorkspace.mockRejectedValue(
+            new RuntimeWorkspaceError(
+                RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyReferenceUnresolved,
+                'Workspace copy contains a required reference to a row that was not copied'
+            )
+        )
+
+        await controller.copyWorkspaceDetails(
+            {
+                params: { applicationId: 'app-1', workspaceId },
+                body: { name: vlc('Workspace copy'), description: vlc('Description') }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                error: 'Workspace copy contains a required reference to a row that was not copied',
+                code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED'
             })
         )
     })
@@ -773,5 +886,228 @@ describe('runtimeWorkspaceController', () => {
                 code: 'WORKSPACE_SETTING_VERSION_CONFLICT'
             })
         )
+    })
+
+    it('resets only seeded workspace content for an owner or application administrator', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'owner',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockResetWorkspaceSeededElements.mockResolvedValue({
+            resetRows: 13,
+            operationId: '018f8a78-7b8f-7c1d-a111-222233334587'
+        })
+
+        await controller.resetSeededContent(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResolveRuntimeSchema).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.any(Function),
+            expect.anything(),
+            res,
+            'app-1',
+            workspaceId
+        )
+        expect(mockResetWorkspaceSeededElements).toHaveBeenCalledWith(manager, {
+            schemaName: baseCtx.schemaName,
+            workspaceId,
+            actorUserId: baseCtx.userId,
+            currentUserId: baseCtx.userId
+        })
+        expect(res.json).toHaveBeenCalledWith({
+            resetRows: 13,
+            operationId: '018f8a78-7b8f-7c1d-a111-222233334587',
+            canManage: true
+        })
+    })
+
+    it('rejects seeded content reset for a regular workspace member', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'member',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+
+        await controller.resetSeededContent(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResetWorkspaceSeededElements).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(403)
+    })
+
+    it('allows an application administrator to reset an unassigned workspace', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        const adminContext = {
+            ...baseCtx,
+            permissions: { ...baseCtx.permissions, manageApplication: true }
+        }
+        mockResolveRuntimeSchema.mockResolvedValue(adminContext)
+        mockGetWorkspaceMembership.mockResolvedValue(null)
+        mockAssertRuntimeWorkspaceExists.mockResolvedValue(undefined)
+        mockResetWorkspaceSeededElements.mockResolvedValue({
+            resetRows: 7,
+            operationId: '018f8a78-7b8f-7c1d-a111-222233334588'
+        })
+
+        await controller.resetSeededContent(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockAssertRuntimeWorkspaceExists).toHaveBeenCalledWith(manager, {
+            schemaName: adminContext.schemaName,
+            workspaceId
+        })
+        expect(mockResetWorkspaceSeededElements).toHaveBeenCalledWith(manager, {
+            schemaName: adminContext.schemaName,
+            workspaceId,
+            actorUserId: adminContext.userId,
+            currentUserId: adminContext.userId
+        })
+        expect(res.json).toHaveBeenCalledWith({
+            resetRows: 7,
+            operationId: '018f8a78-7b8f-7c1d-a111-222233334588',
+            canManage: true
+        })
+    })
+
+    it('maps a typed seeded-content reset failure to a conflict response', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'owner',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockResetWorkspaceSeededElements.mockRejectedValue(
+            new WorkspaceSeedResetError(WORKSPACE_SEED_RESET_ERROR_CODES.resetFailed, 'Workspace seeded content could not be reset')
+        )
+
+        await controller.resetSeededContent(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results.at(-1)?.value.json).toHaveBeenCalledWith({
+            error: 'Workspace seeded content could not be reset',
+            code: WORKSPACE_SEED_RESET_ERROR_CODES.resetFailed
+        })
+    })
+
+    it('maps a typed missing workspace reset error to not found', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'owner',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockResetWorkspaceSeededElements.mockRejectedValue(
+            new WorkspaceSeedResetError(WORKSPACE_SEED_RESET_ERROR_CODES.workspaceNotFound, 'Workspace not found')
+        )
+
+        await controller.resetSeededContent(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(404)
+        expect(res.status.mock.results.at(-1)?.value.json).toHaveBeenCalledWith({
+            error: 'Workspace not found',
+            code: WORKSPACE_SEED_RESET_ERROR_CODES.workspaceNotFound
+        })
+    })
+
+    it('does not turn an unknown reset error into a conflict response', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'owner',
+            isDefault: false,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockResetWorkspaceSeededElements.mockRejectedValue(new Error('database connection lost'))
+
+        await expect(
+            controller.resetSeededContent(
+                {
+                    params: { applicationId: 'app-1', workspaceId }
+                } as unknown as Request,
+                res
+            )
+        ).rejects.toThrow('database connection lost')
+
+        expect(res.status).not.toHaveBeenCalled()
+    })
+
+    it('rejects reset requests with invalid parameters or disabled workspaces before mutation', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const invalidResponse = createResponse()
+
+        await controller.resetSeededContent(
+            {
+                params: { applicationId: 'app-1', workspaceId: 'not-a-uuid' }
+            } as unknown as Request,
+            invalidResponse
+        )
+
+        expect(invalidResponse.status).toHaveBeenCalledWith(400)
+        expect(mockResolveRuntimeSchema).not.toHaveBeenCalled()
+
+        const disabledResponse = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue({ ...baseCtx, workspacesEnabled: false })
+
+        await controller.resetSeededContent(
+            {
+                params: { applicationId: 'app-1', workspaceId }
+            } as unknown as Request,
+            disabledResponse
+        )
+
+        expect(disabledResponse.status).toHaveBeenCalledWith(400)
+        expect(mockGetWorkspaceMembership).not.toHaveBeenCalled()
+        expect(mockResetWorkspaceSeededElements).not.toHaveBeenCalled()
     })
 })

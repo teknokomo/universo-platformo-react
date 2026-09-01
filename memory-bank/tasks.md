@@ -1,3 +1,124 @@
+# MUI 9 Platform Upgrade and Data-Driven Marketing Page Template (2026-08-30)
+
+## QA remediation implementation (2026-08-31)
+
+> This execution checklist is authoritative for the current IMPLEMENT pass. It closes the acceptance defects found by the QA review without changing the schema or metahub-template version.
+
+-   [x] Restore marketing application routing so landing content and workspace/application subroutes are independently reachable in hosted and standalone shells.
+-   [x] Enforce workspace RBAC server-side and in the UI, seed every newly-created workspace atomically, and add negative/positive role tests.
+-   [x] Implement complete workspace copy/archive handling for parent and child tables with explicit lifecycle, owner, audit, and identifier remapping rules.
+-   [x] Align marketing data ownership with the metahub→publication→application→workspace model, add persisted site settings, and make query/cache keys workspace-aware.
+-   [x] Replace raw marketing media URL fields with the canonical typed resource-source contract, preserve storage/file resources, and remove production hotlink-only assumptions.
+-   [x] Finish MUI 9 slot API migration, tighten version/policy checks, and pass strict typechecking for every changed frontend package.
+-   [x] Complete runtime UX/a11y semantics, i18n, browser lifecycle coverage, changed-file coverage gates, docs, and final verification.
+
+> Status: implementation and all feasible local acceptance gates complete; workspace CRUD, cross-scope content mutation, and reset operation audit are proven through focused tests and the minimal-Supabase browser lifecycle. Production Storage/imgproxy media and independent review tools remain environment-dependent evidence boundaries.
+> Source plan: `memory-bank/plan/mui-9-marketing-page-template-plan-2026-08-30.md`
+> Scope: clean-break implementation for the disposable test database; no schema, snapshot, or metahub-template version bump.
+
+## Continuation remediation (2026-09-01)
+
+-   [x] Replace dashboard workspace-switcher fixtures with valid UUID v7 values and retain the raw-ID leakage assertion.
+-   [x] Remove the navigation-only lead callback from hosted and standalone marketing runtime dispatch; render CTA links when no approved lead endpoint exists.
+-   [x] Reject duplicate predefined element IDs before any seed write and preserve persisted legal-link ordering during normalization.
+-   [x] Add browser proof for a pristine seeded workspace reset (`resetRows > 0`) and direct member content-mutation denial with a no-change readback.
+-   [x] Re-run the complete local minimal-Supabase wrapper after the continuation edits, then refresh plan/progress evidence and run final static/documentation gates.
+
+## Contract
+
+-   Upgrade every direct MUI consumer to the approved coherent MUI 9/Core-X policy, with direct dependency ownership, lockfile proof, and no generated `.backup` JavaScript copied into source.
+-   Add the data-driven `marketing-page` metahub/application template beside the existing dashboard without weakening dashboard contracts or routing marketing data through dashboard hooks.
+-   Keep the entity-first model (Hub/Object/Page/Set/Enumeration), initial seed ownership and explicit reset semantics, UUID v7 persisted identifiers, SQL-first `DbExecutor` access, EN/RU i18n, and the isolated `apps-template-mui` boundary.
+-   Require focused Jest/Vitest tests, real browser Playwright proof on minimal local Supabase, inspected screenshots, documentation checks, and Thermos/autoreview evidence before completion.
+
+## Checklist
+
+### Phase 0 — Preconditions and decisions
+
+-   [x] Record branch/worktree/runtime/tool versions, dirty-file provenance, baseline package/build/test/checker results, and the OntoIndex stale-index warning.
+-   [x] Resolve exact MUI/Core-X/Lab/Emotion, React/react-is, Pro-license, browser-floor, authenticated-route, actions/media, seed ownership, fixture, and screenshot policies.
+-   [x] Capture `.backup/templates` provenance and a field-level marketing baseline contract (sections, counts, labels, copy, actions, media/alt, order, light/dark).
+
+### Phase 1 — MUI 9 dependency and API migration
+
+-   [x] Update centralized catalog, lockfile, every direct consumer manifest/peer, direct testing dependencies, and stale MUI documentation.
+-   [x] Run the approved Core/System/X migration work, manually migrate residual APIs, remove unused Base dependencies, retain only type-only Pro augmentation, and preserve product dashboard behavior.
+-   [x] Add and wire the MUI policy checker; pass frozen install, package builds, focused lints/tests, dashboard regression coverage, isolation guards, and residual scans.
+
+### Phase 2 — Shared contracts and utilities
+
+-   [x] Add the neutral metahub/application registry, strict Zod schemas, discriminated runtime envelope, safe-link/media/action contracts, and provenance/semantic-key types to shared packages.
+-   [x] Reuse existing URL/media, UUID v7, and safe-display helpers; add focused contract tests and keep backend/React dependency cycles out of the shared contracts.
+
+### Phase 3 — Marketing metahub and seed
+
+-   [x] Register the eighth metahub template with unchanged `version`/`minStructureVersion` and existing basic presets.
+-   [x] Seed localized, ordered Object records and relations for the stock sections, with deterministic media, semantic keys, transaction rollback, and initial-only ownership.
+-   [x] Extend registry/manifest/seed shape and transaction tests, including invalid values and no-version-bump assertions.
+
+### Phase 4 — Layout/publication/sync
+
+-   [x] Make layout services/controllers, snapshot serialization/restore, publication, hash/import/export, and sync template-aware; remove dashboard defaults/injection and fail closed on unknown keys.
+-   [x] Keep `templateKey` immutable unless separately approved, preserve UUID/SQL/RLS contracts, and cover dashboard and marketing core round trips.
+
+### Phase 5 — Workspace/application settings
+
+-   [x] Implement initial-only seeded ownership, authored transitions, scoped cleanup, permission-checked reset-to-source, and focused `RETURNING`/IDOR tests.
+-   [x] Extend typed application settings for marketing appearance/theme/branding/section/action/provenance fields with `manageApplication` enforcement.
+
+### Phase 6 — Runtime transport
+
+-   [x] Add backend marketing read-model aggregation with bounded metadata-backed queries, locale fallback, RLS/RBAC, safe error mapping, and no arbitrary client table access.
+-   [x] Split runtime bootstrap into independent dashboard/marketing branches before dashboard CRUD hooks; keep strict dashboard fields and omit them from marketing responses.
+
+### Phase 7 — Renderer and host dispatch
+
+-   [x] Replace static marketing demo arrays with typed presentational sections, export and dispatch `marketing-page` in hosted/standalone shells, and keep one theme boundary.
+-   [x] Implement safe data-driven actions, media/error states, i18n, package isolation, and regression tests without adding a newsletter backend or legacy fork.
+
+### Phase 8 — Authoring UI and accessibility
+
+-   [x] Complete the browser-proven UI Contract across template picker, layout/content authoring, generic CRUD, relations, media, workspace lifecycle, and export/import. The marketing flow covers workspace create/edit/copy/delete/reset, localized content edit/publish/sync/reload, safe media, and export/import with the existing primitives.
+-   [x] Add EN/RU keys, localized runtime labels/errors, multiline metadata, keyboard/focus semantics, safe display, no-overflow safeguards, and browser axe coverage for the marketing runtime matrix.
+
+### Phase 9 — Fixtures and Phase 10 test system
+
+-   [x] Build the deterministic equivalent lifecycle gate with run isolation, a field-level semantic contract, and documented local/full media boundaries; a promoted product fixture is intentionally not required in this slice. The runtime flow compares the materialized read model with every seeded semantic field, and the matrix wrapper runs serially (`--workers 1`) with bounded retries.
+-   [x] Add focused Jest/Vitest/RTL tests and Playwright runtime/RBAC/matrix/visual tests; provision matrix applications independently and archive reports/screenshots safely. The broad apps-template suite remains resource-sensitive and was not used as the marketing acceptance oracle; focused acceptance suites and the full marketing wrapper are green.
+
+### Phase 11 — Documentation and Phase 12 closeout
+
+-   [x] Update package READMEs, EN/RU GitBook pages/SUMMARY, reviewed runtime screenshots/assets/provenance/drift checks, and migration notes.
+-   [ ] Run the final independent review gates from an environment where OntoIndex and Thermos/autoreview can complete. All feasible local implementation, API, browser, visual, accessibility, and documentation gates are complete; the remaining unchecked state is an infrastructure/tooling limitation, not an unimplemented product path.
+
+### Implementation evidence (2026-09-01)
+
+-   `pnpm run test:e2e:marketing-page:verify:local-supabase` exited 0 after the workspace lifecycle hardening: minimal Supabase doctor/start/stop, 36/36 production build, contract, setup plus five Chromium marketing flow tests (6 tests total, including workspace CRUD, cross-scope mutation, and reset with UUID v7 `operationId`), four locale/theme matrix projects plus setup, screenshot provenance, i18n, GitBook asset, and link checks all passed.
+-   Workspace reset now records a transactional `_app_workspace_operation_audit` row and returns a validated UUID v7 `operationId`; unknown database errors fail closed, while not-found/reference failures map to typed localized responses. No schema, snapshot, or metahub-template version was bumped.
+-   Workspace copy preserves the stable seed key but transfers ownership to authored content; parent/child soft-delete and reorder paths clear seed ownership. Focused applications-backend suites pass `119/119`; apps-template workspace/API suites pass `30/30` plus marketing renderer/normalization `13/13`; applications-frontend runtime/layout suites pass `52/52`.
+-   Static MUI/catalog/isolation/no-LMS/marketing-contract checks, scoped package builds/lints, Prettier, `git diff --check`, and all documentation gates pass. Real EN/light desktop, RU/light tablet, and EN/dark mobile screenshots were inspected with `view_image` and show no page-level overflow or visible technical leakage.
+-   Follow-up package verification after the MUI 9 test-contract cleanup passed: `applications-frontend` 31 files/242 tests, `metahubs-frontend` 85 files/396 tests, `apps-template-mui` typecheck, the isolated MUI multiline-textarea regression, and the marketing/backend targeted suites. The test now asserts the MUI 9 semantic textarea contract instead of removed internal CSS class names.
+-   The broad `apps-template-mui` Vitest command was interrupted after a resource-sensitive Interpretation Network tail (including known loopback `EPERM` attempts and React act warnings) without a terminal summary; this is not conflated with the green focused suites or browser acceptance wrapper. Production Storage/imgproxy media remains outside the minimal-Supabase proof. OntoIndex reports a stale/degraded index, and Thermos/autoreview could not complete in the read-only Codex state environment.
+
+## Implementation notes
+
+-   Product code changes must stay within the approved plan and preserve unrelated dirty user files.
+-   Every task is announced before work, verified with the narrowest relevant gate, and marked complete only after evidence is recorded below.
+
+## Evidence log (2026-08-31)
+
+-   `pnpm install --frozen-lockfile --ignore-scripts` passed; `check:mui-v9-policy`, `check:catalog-versions`, `check:apps-template-isolation`, and `check:runtime-no-lms-forks` passed.
+-   Root `pnpm build` and the E2E production build passed for all 36 workspace projects. Focused marketing schema, utility, controller, seed/manifest, layout, runtime, renderer, and UI tests passed. The full `apps-template-mui` Vitest invocation has a known long-running Interpretation Network workspace-widget tail under the MUI 9 DOM/runtime changes; it is tracked separately from the green focused suites and browser wrapper.
+-   `pnpm run check:marketing-page-template-contract` passed with the exact stock section order/counts, localized content, media/action metadata, footer/social targets, and unchanged template/snapshot versions.
+-   After publish/sync, `marketingPageRuntimeMaterialization.ts` compares the actual runtime read model with seed copy, actions, media/alt, relations, prices/benefits, FAQ, and footer; decimal-price storage formatting and backend icon canonicalization are normalized explicitly.
+-   Publication list sync is a localized production action guarded by manage permission, active version, pending state, and disabled-state handling; seven focused tests cover the action contract.
+-   `pnpm run test:e2e:marketing-page:verify:local-supabase` exited 0: minimal Supabase doctor, 36/36 E2E build, contract, Chromium runtime/permission/authoring/snapshot-roundtrip flows (`5 passed`), EN/RU × light/dark responsive/a11y matrix (`5 passed`), screenshot provenance, EN/RU i18n (113 pairs), GitBook assets, and link checks all passed; Supabase stopped in `finally`.
+-   The matrix passed at 1920×1080, 768×1024, and 390×844 with keyboard FAQ interaction, mobile drawer Escape/focus return, anchors, no unsafe links, no technical leakage, no page overflow, and no console/page/API errors. EN/light desktop and mobile screenshots were inspected with `view_image`; 12 Playwright baselines are tracked.
+-   Remaining acceptance boundaries: a separate full-stack Storage/imgproxy media suite, the broad unrelated repository regression inventory, and independent review tooling. Workspace CRUD, appearance reset audit, content-row cross-scope mutation, template-picker/content edit→publish→sync→reload, export/import, responsive screenshots, and browser axe scans are covered by the passing wrapper; deterministic local-reference media is documented as a minimal-profile boundary.
+-   OntoIndex remains stale/degraded for the dirty worktree and the scan cap prevents a complete independent changed-file proof; direct impact/source checks and focused tests remain authoritative. The Thermos/autoreview helper could not complete because the Codex state database is read-only; a writable temporary-home retry hung and was stopped, so no clean independent autoreview claim is made.
+
+---
+
 # PlayCanvas Editor Assets Pipeline + MMOOMM Script Assets (2026-08-25)
 
 > Status: complete — implementation and post-QA remediation verified

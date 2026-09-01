@@ -13,9 +13,30 @@ export type {
     ZoneWidgets
 } from './dashboard/Dashboard'
 
+export { default as MarketingPage } from './marketing-page/MarketingPage'
+export { default as MarketingRuntimeContent } from './marketing-page/MarketingRuntimeContent'
+export type { MarketingRuntimeContentProps } from './marketing-page/MarketingRuntimeContent'
+export { normalizeMarketingPageRuntime } from './marketing-page/normalize'
+export type {
+    MarketingAction,
+    MarketingActionHandler,
+    MarketingFeature,
+    MarketingFaqItem,
+    MarketingFooterData,
+    MarketingHeroData,
+    MarketingHighlight,
+    MarketingLogo,
+    MarketingMedia,
+    MarketingPageData,
+    MarketingPageProps,
+    MarketingPricingTier,
+    MarketingSectionCopy,
+    MarketingTestimonial
+} from './marketing-page/types'
+
 // Layout
-export { default as AppMainLayout } from './layouts/AppMainLayout'
-export type { AppMainLayoutProps } from './layouts/AppMainLayout'
+export { default as AppMainLayout, AppMainLayoutContext } from './layouts/AppMainLayout'
+export type { AppMainLayoutAppearance, AppMainLayoutProps } from './layouts/AppMainLayout'
 
 // i18n side-effect registration
 export { appsTranslations } from './i18n'
@@ -60,7 +81,8 @@ export { default as LanguageSwitcher } from './components/LanguageSwitcher'
 export { getDataGridLocaleText } from './utils/getDataGridLocale'
 
 // API — adapter pattern
-export type { AppDataResponse } from './api/api'
+export { fetchRuntimeTemplate, fetchMarketingPageRuntime } from './api/api'
+export type { AppDataResponse, RuntimeTemplateResponse, MarketingPageRuntimeResponse } from './api/api'
 export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand, RuntimeRestoreTarget } from './api/types'
 export { createStandaloneAdapter } from './api/adapters'
 export { updateLearningContentProgress } from './api/api'

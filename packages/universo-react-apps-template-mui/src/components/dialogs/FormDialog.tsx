@@ -1689,7 +1689,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 required={field.required}
                                 disabled={disabled}
                                 sx={{ bgcolor: 'background.default' }}
-                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
+                                MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } } }}
                             >
                                 {!field.required && <MenuItem value=''> </MenuItem>}
                                 {stringOptions.map((option) => (
@@ -1739,7 +1739,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 required={field.required}
                                 disabled={disabled || !targetCodename || !isAllowed || pickerState?.loading}
                                 sx={{ bgcolor: 'background.default' }}
-                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
+                                MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } } }}
                             >
                                 {!field.required && <MenuItem value=''> </MenuItem>}
                                 {!hasSelectedOption && stringValue ? (
@@ -1771,9 +1771,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         placeholder={field.placeholder}
                         error={Boolean(fieldError)}
                         helperText={helperText}
-                        inputProps={{
-                            minLength: minLength ?? undefined,
-                            maxLength: maxLength ?? undefined
+                        slotProps={{
+                            htmlInput: {
+                                minLength: minLength ?? undefined,
+                                maxLength: maxLength ?? undefined
+                            }
                         }}
                     />
                 )
@@ -2094,32 +2096,34 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 numberInputRefsRef.current.delete(field.id)
                             }
                         }}
-                        inputProps={{ style: { textAlign: 'right' } }}
-                        InputProps={{
-                            endAdornment: !disabled ? (
-                                <InputAdornment position='end'>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5, mr: -0.5 }}>
-                                        <IconButton
-                                            size='small'
-                                            tabIndex={-1}
-                                            onClick={() => handleStepUp()}
-                                            sx={{ width: 20, height: 16, p: 0 }}
-                                            aria-label={t('number.increment', 'Increment')}
-                                        >
-                                            <ArrowDropUpIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
-                                        <IconButton
-                                            size='small'
-                                            tabIndex={-1}
-                                            onClick={() => handleStepDown()}
-                                            sx={{ width: 20, height: 16, p: 0 }}
-                                            aria-label={t('number.decrement', 'Decrement')}
-                                        >
-                                            <ArrowDropDownIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
-                                    </Box>
-                                </InputAdornment>
-                            ) : undefined
+                        slotProps={{
+                            htmlInput: { style: { textAlign: 'right' } },
+                            input: {
+                                endAdornment: !disabled ? (
+                                    <InputAdornment position='end'>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5, mr: -0.5 }}>
+                                            <IconButton
+                                                size='small'
+                                                tabIndex={-1}
+                                                onClick={() => handleStepUp()}
+                                                sx={{ width: 20, height: 16, p: 0 }}
+                                                aria-label={t('number.increment', 'Increment')}
+                                            >
+                                                <ArrowDropUpIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
+                                            <IconButton
+                                                size='small'
+                                                tabIndex={-1}
+                                                onClick={() => handleStepDown()}
+                                                sx={{ width: 20, height: 16, p: 0 }}
+                                                aria-label={t('number.decrement', 'Decrement')}
+                                            >
+                                                <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
+                                        </Box>
+                                    </InputAdornment>
+                                ) : undefined
+                            }
                         }}
                     />
                 )
@@ -2167,10 +2171,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         }}
                         required={field.required}
                         disabled={disabled}
-                        InputLabelProps={{ shrink: true }}
+                        slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: maxValue } }}
                         error={Boolean(fieldError)}
                         helperText={helperText}
-                        inputProps={{ max: maxValue }}
                     />
                 )
             }
@@ -2219,7 +2222,8 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 disabled={disabled}
                                 error={Boolean(fieldError)}
                             />
-                        ) : resourceType === 'file' || typeof resourceValue.storageKey === 'string' ? (
+                        ) : typeof resourceValue.storageKey === 'string' ||
+                          (resourceType === 'file' && typeof resourceValue.url !== 'string') ? (
                             <TextField
                                 fullWidth
                                 size='small'
@@ -2384,7 +2388,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         value={safeJsonDisplayValue}
                         required={field.required}
                         disabled={disabled}
-                        inputProps={{ readOnly: true }}
+                        slotProps={{ htmlInput: { readOnly: true } }}
                         placeholder={field.placeholder}
                         error={Boolean(fieldError)}
                         helperText={fieldError || jsonHelperText}
@@ -2464,7 +2468,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 required={field.required}
                                 disabled={disabled}
                                 sx={{ bgcolor: 'background.default' }}
-                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
+                                MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } } }}
                             >
                                 {!field.required && allowEmpty && <MenuItem value=''> </MenuItem>}
                                 {!allowEmpty && <MenuItem value='' sx={{ display: 'none' }} />}
@@ -2491,7 +2495,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 required={field.required}
                                 disabled={disabled}
                                 sx={{ bgcolor: 'background.default' }}
-                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
+                                MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } } }}
                             >
                                 {!field.required && <MenuItem value=''> </MenuItem>}
                                 {field.refOptions.map((option) => (
@@ -2684,7 +2688,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 </Stack>
             ) : null}
             {!isReady ? (
-                <Stack alignItems='center' justifyContent='center' sx={{ py: 3 }}>
+                <Stack sx={{ py: 3, alignItems: 'center', justifyContent: 'center' }}>
                     <CircularProgress size={20} />
                 </Stack>
             ) : visibleFields.length === 0 || renderedFields.length === 0 ? (
@@ -2767,7 +2771,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             maxWidth={dialogMaxWidth}
             fullWidth
             aria-describedby={contentHeaderId}
-            PaperProps={{ sx: { borderRadius: 1 } }}
+            slotProps={{ paper: { sx: { borderRadius: 1 } } }}
         >
             <DialogTitle>{title}</DialogTitle>
             <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>{formBody}</DialogContent>

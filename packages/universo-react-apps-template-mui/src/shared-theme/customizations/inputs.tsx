@@ -447,12 +447,6 @@ export const inputsCustomizations: Components<Theme> = {
                 '&.MuiInputBase-inputSizeSmall': {
                     ...sharedInputSpacingSmall
                 }
-            },
-            inputMultiline: {
-                ...sharedInputSpacing,
-                '&.MuiInputBase-inputSizeSmall': {
-                    ...sharedInputSpacingSmall
-                }
             }
         }
     },

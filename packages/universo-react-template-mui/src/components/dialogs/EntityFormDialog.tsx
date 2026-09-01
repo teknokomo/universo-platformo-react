@@ -378,7 +378,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                             variant='outlined'
                             error={!!fieldErrors.name}
                             helperText={fieldErrors.name}
-                            InputProps={{ sx: { borderRadius: 1 } }}
+                            slotProps={{ input: { sx: { borderRadius: 1 } } }}
                         />
                         <TextField
                             label={descriptionLabel}
@@ -388,7 +388,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                             fullWidth
                             disabled={isLoading}
                             variant='outlined'
-                            InputProps={{ sx: { borderRadius: 1 } }}
+                            slotProps={{ input: { sx: { borderRadius: 1 } } }}
                         />
                     </>
                 )}
@@ -408,8 +408,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             onClose={presentation.dialogProps.onClose}
             maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
             <DialogContent sx={presentation.contentSx}>{renderContent()}</DialogContent>

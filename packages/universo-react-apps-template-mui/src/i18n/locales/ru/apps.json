@@ -296,6 +296,11 @@
         "settingsBooleanEnabled": "Включено",
         "settingsBooleanDisabled": "Отключено",
         "settingsStructuredReadonly": "Эта структурная настройка управляется в настройках приложения.",
+        "resetSeededContent": "Сбросить исходные данные",
+        "resetSeededContentTitle": "Сбросить исходные данные?",
+        "resetSeededContentConfirm": "Будут восстановлены записи, которые всё ещё принадлежат источнику опубликованного шаблона. Авторские записи останутся без изменений.",
+        "resetSeededContentAction": "Сбросить данные",
+        "resettingSeededContent": "Сброс…",
         "settingSources": {
             "default": "По умолчанию",
             "metahub": "Метахаб",
@@ -348,6 +353,7 @@
         "inviteUserId": "ID пользователя",
         "inviteRole": "Роль",
         "roleOwner": "Владелец",
+        "roleAdmin": "Администратор приложения",
         "roleMember": "Участник",
         "default": "Основное",
         "setDefault": "Сделать основным",
@@ -391,6 +397,8 @@
             "invalidRequestBody": "Некорректные данные запроса",
             "settingNotAllowed": "Эта настройка рабочего пространства заблокирована",
             "settingVersionConflict": "Эта настройка рабочего пространства изменилась. Обновите данные и попробуйте снова.",
+            "seedResetFailed": "Не удалось сбросить исходные данные рабочего пространства.",
+            "copyReferenceUnresolved": "Не удалось скопировать обязательную связь рабочего пространства.",
             "personalMutationBlocked": "Личное рабочее пространство нельзя изменить",
             "personalDeleteBlocked": "Личное рабочее пространство нельзя удалить"
         },
@@ -559,6 +567,67 @@
             "versionMismatchDescription": "Версия realtime несовместима. Перезагрузите приложение."
         },
         "webglUnavailable": "3D-рендеринг недоступен на этом устройстве или в браузере."
+    },
+    "marketingPage": {
+        "fallbacks": {
+            "navigationLabel": "Ссылка",
+            "logoName": "Логотип клиента",
+            "featureTitle": "Возможность",
+            "testimonialAuthor": "Клиент",
+            "highlightTitle": "Преимущество",
+            "pricingBenefit": "Преимущество",
+            "pricingTitle": "Тариф",
+            "pricingPeriod": "в месяц",
+            "faqQuestion": "Вопрос",
+            "footerGroupTitle": "Ссылки",
+            "footerLink": "Ссылка",
+            "socialLink": "Социальная ссылка",
+            "heroTitle": "Наши новые",
+            "heroAccent": "продукты",
+            "heroSubmit": "Начать",
+            "heroTerms": "Условия",
+            "brandName": "Material UI",
+            "newsletterTitle": "Подписка на новости",
+            "emailLabel": "Электронная почта",
+            "emailPlaceholder": "Ваш адрес электронной почты",
+            "newsletterSubmit": "Подписаться",
+            "newsletterSuccess": "Спасибо за подписку!",
+            "newsletterError": "Не удалось оформить подписку.",
+            "copyrightText": "Copyright ©",
+            "copyrightLabel": "Sitemark",
+            "logoCollectionTitle": "Нам доверяют лучшие компании",
+            "featuresTitle": "Возможности продукта",
+            "testimonialsTitle": "Отзывы",
+            "highlightsTitle": "Преимущества",
+            "pricingSectionTitle": "Тарифы",
+            "faqSectionTitle": "Часто задаваемые вопросы",
+            "authSignIn": "Войти",
+            "authSignUp": "Зарегистрироваться"
+        },
+        "actions": {
+            "signIn": "Войти",
+            "signUp": "Зарегистрироваться"
+        },
+        "navigation": {
+            "openMenu": "Открыть меню",
+            "closeMenu": "Закрыть меню",
+            "skipToContent": "Перейти к содержимому"
+        },
+        "form": {
+            "invalidEmail": "Введите корректный email.",
+            "submitError": "Не удалось обработать запрос. Попробуйте ещё раз.",
+            "submitted": "Спасибо! Мы свяжемся с вами.",
+            "submitting": "Отправка..."
+        },
+        "colorMode": {
+            "label": "Цветовая схема",
+            "system": "Системная",
+            "light": "Светлая",
+            "dark": "Тёмная"
+        },
+        "empty": "Для раздела «{{section}}» пока нет настроенного содержимого.",
+        "mediaMissing": "Медиа недоступно",
+        "mediaDeferred": "Медиа настроено, но недоступно в этом приложении."
     },
     "guest": {
         "invalidLink": "Публичная гостевая ссылка недействительна.",

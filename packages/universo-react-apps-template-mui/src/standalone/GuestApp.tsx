@@ -483,7 +483,7 @@ export default function GuestApp(props: GuestAppProps) {
                 </Card>
             ))}
 
-            <Stack direction='row' spacing={1} justifyContent='flex-end'>
+            <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end' }}>
                 {activeQuizId ? (
                     <Button variant='text' onClick={handleBackToContent}>
                         {t('guest.backToContent', 'Back to content')}
@@ -525,7 +525,7 @@ export default function GuestApp(props: GuestAppProps) {
                         <CardContent>
                             <Stack spacing={2}>
                                 {linkQuery.isLoading ? (
-                                    <Stack direction='row' spacing={1} alignItems='center'>
+                                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                         <CircularProgress size={20} />
                                         <Typography>{t('guest.loadingLink', 'Loading access link...')}</Typography>
                                     </Stack>
@@ -571,7 +571,7 @@ export default function GuestApp(props: GuestAppProps) {
                         />
                         <CardContent>
                             {runtimeQuery.isLoading ? (
-                                <Stack direction='row' spacing={1} alignItems='center'>
+                                <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                     <CircularProgress size={20} />
                                     <Typography>{t('guest.loadingContent', 'Loading content...')}</Typography>
                                 </Stack>
@@ -593,7 +593,7 @@ export default function GuestApp(props: GuestAppProps) {
                                         <Alert severity='success'>
                                             {t('guest.contentCompleted', 'Content complete. Progress has been recorded for this session.')}
                                         </Alert>
-                                        <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                                        <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end' }}>
                                             <Button
                                                 variant='outlined'
                                                 onClick={() => {
@@ -613,7 +613,7 @@ export default function GuestApp(props: GuestAppProps) {
                                         />
                                         {currentItem?.itemTitle ? <Typography variant='h6'>{currentItem.itemTitle}</Typography> : null}
                                         {renderContentItem()}
-                                        <Stack direction='row' spacing={1} justifyContent='space-between'>
+                                        <Stack direction='row' spacing={1} sx={{ justifyContent: 'space-between' }}>
                                             <Button
                                                 variant='outlined'
                                                 onClick={() => handleMoveContent(currentItemIndex - 1)}

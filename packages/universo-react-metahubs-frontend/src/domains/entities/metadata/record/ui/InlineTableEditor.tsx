@@ -87,7 +87,9 @@ function extractDisplayString(value: unknown, locale: string): string {
         }
         return ''
     }
-    return String(value)
+    // Structured values are edited through the form dialog and should never
+    // appear as `[object Object]` in the compact inline table surface.
+    return ''
 }
 
 /**
@@ -379,9 +381,27 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
             size='small'
             variant='standard'
             type='text'
-            inputProps={{
-                inputMode: scale > 0 ? 'decimal' : 'numeric',
-                style: { textAlign: 'right' }
+            slotProps={{
+                htmlInput: {
+                    inputMode: scale > 0 ? 'decimal' : 'numeric',
+                    style: { textAlign: 'right' }
+                },
+                input: {
+                    sx: { fontSize: 13 },
+                    disableUnderline: true,
+                    endAdornment: !disabled ? (
+                        <InputAdornment position='end' sx={{ ml: 0 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 16, height: 12, p: 0 }}>
+                                    <ArrowDropUpIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                                <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 16, height: 12, p: 0 }}>
+                                    <ArrowDropDownIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                            </Box>
+                        </InputAdornment>
+                    ) : undefined
+                }
             }}
             value={formatValue(value)}
             onChange={handleChange}
@@ -390,22 +410,6 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
             onClick={handleClick}
             disabled={disabled}
             fullWidth
-            InputProps={{
-                sx: { fontSize: 13 },
-                disableUnderline: true,
-                endAdornment: !disabled ? (
-                    <InputAdornment position='end' sx={{ ml: 0 }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 16, height: 12, p: 0 }}>
-                                <ArrowDropUpIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                            <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 16, height: 12, p: 0 }}>
-                                <ArrowDropDownIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                        </Box>
-                    </InputAdornment>
-                ) : undefined
-            }}
         />
     )
 }
@@ -718,8 +722,12 @@ export function InlineTableEditor({
             )
         }
 
-        const displayValue = isVlcField(field) ? extractDisplayString(rawValue, locale) : rawValue ?? ''
-        const displayText = displayValue == null ? '' : String(displayValue)
+        const displayValue =
+            isVlcField(field) || (rawValue !== null && typeof rawValue === 'object')
+                ? extractDisplayString(rawValue, locale)
+                : rawValue ?? ''
+        const displayText =
+            displayValue == null || displayValue === '' ? (rawValue && typeof rawValue === 'object' ? '—' : '') : String(displayValue)
 
         if (disabled) {
             return (
@@ -754,7 +762,7 @@ export function InlineTableEditor({
                     // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                     fullWidth
-                    InputProps={{ sx: { fontSize: 13 } }}
+                    slotProps={{ input: { sx: { fontSize: 13 } } }}
                     sx={{ '& .MuiInput-underline:before': { borderBottom: 'none' } }}
                 />
             )

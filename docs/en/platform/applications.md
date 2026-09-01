@@ -71,6 +71,16 @@ Owners and members receive a personal workspace during bootstrap or access grant
 Runtime rows are resolved inside the selected workspace, and supported object limits are enforced per workspace rather than globally.
 This keeps applications aligned with the broader platform goal of collaborative ERP and CMS style runtime data management.
 
+## Marketing Page Runtime
+
+Applications created from a `marketing-page` publication dispatch to the
+data-driven marketing renderer before dashboard CRUD state is initialized.
+Appearance settings (theme mode, approved colors, section visibility, and
+order) are application-owned, while copy and content records remain in the
+published Object model. Workspace content is isolated and can be reset only by
+an authorized owner or application administrator. See [Marketing Page
+Template](marketing-page-template.md) for the complete runtime contract.
+
 ## Delivery Flow
 
 1. Link the application to a publication.

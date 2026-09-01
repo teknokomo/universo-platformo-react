@@ -420,8 +420,7 @@ export const PublicationApplicationList: React.FC = () => {
                 onClose={createDialogPresentation.dialogProps.onClose}
                 maxWidth={resolveDialogMaxWidth(createDialogPresentation.dialogProps.maxWidth, 'sm')}
                 fullWidth={createDialogPresentation.dialogProps.fullWidth ?? true}
-                disableEscapeKeyDown={createDialogPresentation.dialogProps.disableEscapeKeyDown}
-                PaperProps={mergeDialogPaperProps(undefined, createDialogPresentation.dialogProps.PaperProps)}
+                slotProps={{ paper: mergeDialogPaperProps(undefined, createDialogPresentation.dialogProps.PaperProps) }}
             >
                 <DialogTitle>
                     {renderDialogTitle(

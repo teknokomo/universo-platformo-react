@@ -572,6 +572,8 @@ const PublicationList = () => {
             metahubId,
             metahub, // Pass metahub for MetahubInfoPanel in edit dialog
             isMetahubLoading, // Pass loading state for metahub
+            canManagePublication: metahub?.permissions?.manageMetahub === true,
+            isSyncing: syncPublicationMutation.isPending,
             canDeletePublication: true,
             api: {
                 updateEntity: (id: string, data: Record<string, unknown>) => {

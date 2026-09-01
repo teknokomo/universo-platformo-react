@@ -14,6 +14,11 @@ import {
 import { appQueryKeys } from './mutations'
 import type { CrudDataAdapter } from './types'
 
+const withWorkspaceId = (workspaceId?: string | null): { workspaceId?: string } => {
+    const normalizedWorkspaceId = workspaceId?.trim()
+    return normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}
+}
+
 /**
  * Create a `CrudDataAdapter` for the standalone (direct HTTP fetch) mode.
  *
@@ -35,7 +40,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 locale,
                 objectCollectionId,
                 sectionId,
-                workspaceId,
+                ...withWorkspaceId(workspaceId),
                 search,
                 sort,
                 filters,
@@ -48,10 +53,11 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 applicationId,
                 rowId,
                 objectCollectionId: target?.objectCollectionId,
-                sectionId: target?.sectionId ?? target?.objectCollectionId
+                sectionId: target?.sectionId ?? target?.objectCollectionId,
+                ...withWorkspaceId(target?.workspaceId)
             }),
 
-        fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId }) => {
+        fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId, workspaceId }) => {
             const resolvedSectionId = sectionId ?? objectCollectionId
             if (!resolvedSectionId) return []
             const response = await fetchTabularRows({
@@ -60,7 +66,8 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 parentRecordId: parentRowId,
                 componentId,
                 objectCollectionId: resolvedSectionId,
-                sectionId: resolvedSectionId
+                sectionId: resolvedSectionId,
+                ...withWorkspaceId(workspaceId)
             })
             return response.items
         },
@@ -71,7 +78,8 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 applicationId,
                 data,
                 objectCollectionId: target?.objectCollectionId,
-                sectionId: target?.sectionId ?? target?.objectCollectionId
+                sectionId: target?.sectionId ?? target?.objectCollectionId,
+                ...withWorkspaceId(target?.workspaceId)
             }),
 
         updateRow: (rowId, data, target, expectedVersion) =>
@@ -82,6 +90,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 data,
                 objectCollectionId: target?.objectCollectionId,
                 sectionId: target?.sectionId ?? target?.objectCollectionId,
+                ...withWorkspaceId(target?.workspaceId),
                 expectedVersion
             }),
 
@@ -92,6 +101,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 rowId,
                 objectCollectionId: target?.objectCollectionId,
                 sectionId: target?.sectionId ?? target?.objectCollectionId,
+                ...withWorkspaceId(target?.workspaceId),
                 expectedVersion
             }),
 
@@ -102,6 +112,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 rowId,
                 objectCollectionId: target?.objectCollectionId,
                 sectionId: target?.sectionId ?? target?.objectCollectionId,
+                ...withWorkspaceId(target?.workspaceId),
                 expectedVersion,
                 restoreTarget
             }),
@@ -113,6 +124,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 rowId,
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
+                ...withWorkspaceId(data?.workspaceId),
                 copyChildTables: data?.copyChildTables,
                 data: data?.data,
                 expectedVersion: data?.expectedVersion
@@ -126,6 +138,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 command,
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
+                ...withWorkspaceId(data?.workspaceId),
                 expectedVersion: data?.expectedVersion
             }),
 
@@ -137,15 +150,17 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 actionCodename,
                 objectCollectionId: data.objectCollectionId,
                 sectionId: data.sectionId ?? data.objectCollectionId,
+                ...withWorkspaceId(data.workspaceId),
                 expectedVersion: data.expectedVersion
             }),
 
-        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds, expectedVersionsByRowId }) =>
+        reorderRows: ({ objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId }) =>
             reorderAppRows({
                 apiBaseUrl,
                 applicationId,
                 objectCollectionId,
                 sectionId: sectionId ?? objectCollectionId,
+                ...withWorkspaceId(workspaceId),
                 orderedRowIds,
                 expectedVersionsByRowId
             })

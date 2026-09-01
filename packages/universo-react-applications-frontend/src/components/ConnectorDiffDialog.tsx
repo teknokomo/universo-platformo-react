@@ -39,9 +39,9 @@ import {
     Checkbox,
     Switch
 } from '@mui/material'
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlineOutlined'
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlineOutlined'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -602,11 +602,13 @@ export function ConnectorDiffDialog({
                                 <Switch
                                     checked
                                     disabled
-                                    inputProps={{
-                                        'aria-label': t(
-                                            'connectors.diffDialog.workspace.requiredSwitchLabel',
-                                            'Application workspaces are enabled by the source metahub'
-                                        )
+                                    slotProps={{
+                                        input: {
+                                            'aria-label': t(
+                                                'connectors.diffDialog.workspace.requiredSwitchLabel',
+                                                'Application workspaces are enabled by the source metahub'
+                                            )
+                                        }
                                     }}
                                 />
                             }
@@ -1015,13 +1017,16 @@ export function ConnectorDiffDialog({
                                             </ListItemIcon>
                                             <ListItemText
                                                 primary={formatStructuredChange(change)}
-                                                primaryTypographyProps={
-                                                    change.type === 'UI_LAYOUT_UPDATE' ||
-                                                    change.type === 'UI_LAYOUTS_UPDATE' ||
-                                                    change.type === 'SYSTEM_METADATA_UPDATE'
-                                                        ? { fontSize: 13 }
-                                                        : { fontFamily: 'monospace', fontSize: 13 }
-                                                }
+                                                slotProps={{
+                                                    primary: {
+                                                        sx:
+                                                            change.type === 'UI_LAYOUT_UPDATE' ||
+                                                            change.type === 'UI_LAYOUTS_UPDATE' ||
+                                                            change.type === 'SYSTEM_METADATA_UPDATE'
+                                                                ? { fontSize: 13 }
+                                                                : { fontFamily: 'monospace', fontSize: 13 }
+                                                    }
+                                                }}
                                             />
                                         </ListItem>
                                     ))}
@@ -1347,13 +1352,16 @@ export function ConnectorDiffDialog({
                                                 </ListItemIcon>
                                                 <ListItemText
                                                     primary={formatStructuredChange(change)}
-                                                    primaryTypographyProps={
-                                                        change.type === 'UI_LAYOUT_UPDATE' ||
-                                                        change.type === 'UI_LAYOUTS_UPDATE' ||
-                                                        change.type === 'SYSTEM_METADATA_UPDATE'
-                                                            ? { fontSize: 13 }
-                                                            : { fontFamily: 'monospace', fontSize: 13 }
-                                                    }
+                                                    slotProps={{
+                                                        primary: {
+                                                            sx:
+                                                                change.type === 'UI_LAYOUT_UPDATE' ||
+                                                                change.type === 'UI_LAYOUTS_UPDATE' ||
+                                                                change.type === 'SYSTEM_METADATA_UPDATE'
+                                                                    ? { fontSize: 13 }
+                                                                    : { fontFamily: 'monospace', fontSize: 13 }
+                                                        }
+                                                    }}
                                                 />
                                             </ListItem>
                                         ))}
@@ -1388,7 +1396,7 @@ export function ConnectorDiffDialog({
                                             </ListItemIcon>
                                             <ListItemText
                                                 primary={formatStructuredChange(change)}
-                                                primaryTypographyProps={{ fontFamily: 'monospace', fontSize: 13 }}
+                                                slotProps={{ primary: { sx: { fontFamily: 'monospace', fontSize: 13 } } }}
                                             />
                                         </ListItem>
                                     ))}

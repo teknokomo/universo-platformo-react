@@ -6,6 +6,51 @@ beforeEach(() => {
 })
 
 describe('applications-frontend api wrappers', () => {
+    it('propagates explicit workspace scope to runtime list and row mutations', async () => {
+        const get = vi.fn().mockResolvedValue({ data: {} })
+        const patch = vi.fn().mockResolvedValue({ data: { id: 'row-1' } })
+        const post = vi.fn().mockResolvedValue({ data: { id: 'row-1' } })
+        const del = vi.fn().mockResolvedValue({ data: undefined })
+
+        vi.doMock('../apiClient', () => ({
+            default: { get, post, patch, delete: del }
+        }))
+
+        const api = await import('../applications')
+
+        await api.getApplicationRuntime('app-1', {
+            limit: 20,
+            offset: 0,
+            locale: 'en',
+            workspaceId: 'workspace-a'
+        })
+        await api.updateApplicationRuntimeRow({
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'object-1',
+            workspaceId: 'workspace-b',
+            data: { title: 'Updated' }
+        })
+
+        expect(get).toHaveBeenCalledWith('/applications/app-1/runtime', {
+            params: {
+                limit: 20,
+                offset: 0,
+                locale: 'en',
+                objectCollectionId: undefined,
+                search: undefined,
+                sort: undefined,
+                filters: undefined,
+                workspaceId: 'workspace-a'
+            }
+        })
+        expect(patch).toHaveBeenCalledWith(
+            '/applications/app-1/runtime/rows/row-1',
+            { data: { title: 'Updated' }, objectCollectionId: 'object-1' },
+            { params: { workspaceId: 'workspace-b' } }
+        )
+    })
+
     it('applications api: list + CRUD wrappers call correct endpoints', async () => {
         const get = vi.fn()
         const post = vi.fn()
@@ -107,6 +152,11 @@ describe('applications-frontend api wrappers', () => {
             ]
         })
         expect(resetWidgets).toEqual([{ id: 'widget-1', isCustomized: false }])
+
+        post.mockResolvedValueOnce({ data: { item: { id: 'layout-1', templateKey: 'marketing-page', version: 8 } } })
+        const resetLayout = await api.resetApplicationLayoutConfig('app-1', 'layout-1', { expectedVersion: 7 })
+        expect(post).toHaveBeenCalledWith('/applications/app-1/layouts/layout-1/config/reset', { expectedVersion: 7 })
+        expect(resetLayout).toEqual({ id: 'layout-1', templateKey: 'marketing-page', version: 8 })
 
         await api.getApplicationRuntime('app-1', {
             limit: 25,

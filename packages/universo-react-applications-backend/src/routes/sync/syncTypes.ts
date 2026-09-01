@@ -4,7 +4,12 @@
 
 import { z } from 'zod'
 import type { EntityDefinition, SchemaSnapshot, SchemaDiff } from '@universo-react/schema-ddl'
-import { ComponentDefinitionDataType, type ApplicationLayoutWidget, type VersionedLocalizedContent } from '@universo-react/types'
+import {
+    ComponentDefinitionDataType,
+    type ApplicationLayoutWidget,
+    type ApplicationTemplateKey,
+    type VersionedLocalizedContent
+} from '@universo-react/types'
 import type { ApplicationRecord, ApplicationCopySourceRecord } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import type {
@@ -250,7 +255,7 @@ export type PersistedAppLayout = {
     id: string
     scopeEntityId: string | null
     scopeEntityKind?: string | null
-    templateKey: string
+    templateKey: ApplicationTemplateKey
     name: Record<string, unknown>
     description: Record<string, unknown> | null
     config: Record<string, unknown>

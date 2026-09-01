@@ -407,7 +407,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
 
     return (
         <Stack spacing={1.25} data-testid={`runtime-relation-panel-${panel.id}`} sx={{ minWidth: 0 }}>
-            <Stack direction='row' justifyContent='space-between' alignItems='center' gap={1} sx={{ minWidth: 0 }}>
+            <Stack direction='row' sx={{ minWidth: 0, justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                 <Typography variant='subtitle2'>
                     {readLocalizedWidgetText(panel.title, details?.locale) ??
                         formatMetadataFallbackLabel(panel.id, details?.locale, t('relationBuilder.untitledPanel', 'Related records'))}
@@ -433,7 +433,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
                 sortableRows={canPersistRowReordering}
                 onSortableDragEnd={handleSortableDragEnd}
                 renderActions={(row) => (
-                    <Stack direction='row' justifyContent='flex-end'>
+                    <Stack direction='row' sx={{ justifyContent: 'flex-end' }}>
                         <IconButton
                             size='small'
                             aria-label={t('app.edit', 'Edit')}

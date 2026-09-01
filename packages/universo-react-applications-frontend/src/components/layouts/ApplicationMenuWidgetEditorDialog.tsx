@@ -344,7 +344,7 @@ export default function ApplicationMenuWidgetEditorDialog({
                             onChange={(event) =>
                                 setDraft((current) => ({ ...current, maxPrimaryItems: normalizeMaxPrimaryItems(event.target.value) }))
                             }
-                            inputProps={{ min: 1, max: 12, step: 1 }}
+                            slotProps={{ htmlInput: { min: 1, max: 12, step: 1 } }}
                             fullWidth
                             helperText={t(
                                 'layouts.menuEditor.maxPrimaryItemsHint',

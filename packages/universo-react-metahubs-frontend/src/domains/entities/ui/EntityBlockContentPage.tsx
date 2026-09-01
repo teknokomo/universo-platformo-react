@@ -496,7 +496,7 @@ export const EntityBlockContentPage = () => {
                         anchorEl={languageMenuAnchor}
                         open={Boolean(languageMenuAnchor)}
                         onClose={closeLanguageMenu}
-                        TransitionProps={{ onExited: resetClosedLanguageMenu }}
+                        slotProps={{ transition: { onExited: resetClosedLanguageMenu } }}
                     >
                         {languageMenuMode === 'tab' ? (
                             <>

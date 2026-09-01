@@ -34,7 +34,8 @@ const apiMocks = vi.hoisted(() => ({
     deleteRuntimeWorkspace: vi.fn(),
     removeRuntimeWorkspaceMember: vi.fn(),
     updateDefaultRuntimeWorkspace: vi.fn(),
-    updateRuntimeWorkspaceSettings: vi.fn()
+    updateRuntimeWorkspaceSettings: vi.fn(),
+    resetRuntimeWorkspaceSeededContent: vi.fn()
 }))
 
 const i18nState = vi.hoisted(() => ({
@@ -45,10 +46,14 @@ const i18nState = vi.hoisted(() => ({
             'workspace.settingKeys.sectionLinksEnabled.description': 'Generate a separate URL for each application menu section.',
             'workspace.settingKeys.dashboardDefaultMode': 'Runtime start dashboard',
             'workspace.settingKeys.dashboardDefaultMode.description':
-                'Controls which dashboard section opens first in the published application.'
+                'Controls which dashboard section opens first in the published application.',
+            'workspace.errors.copyReferenceUnresolved': 'A required workspace reference could not be copied.',
+            'workspace.errors.seedResetFailed': 'Seeded workspace content could not be reset.'
         },
         ru: {
-            'workspace.errors.userNotFound': 'Пользователь не найден'
+            'workspace.errors.userNotFound': 'Пользователь не найден',
+            'workspace.errors.copyReferenceUnresolved': 'Не удалось скопировать обязательную связь рабочего пространства.',
+            'workspace.errors.seedResetFailed': 'Не удалось сбросить исходные данные рабочего пространства.'
         }
     } as Record<string, string>
 }))
@@ -236,7 +241,7 @@ vi.mock('../../components/dialogs/FormDialog', () => ({
                                 (document.querySelector(`input[aria-label="${field.label}"]`) as HTMLInputElement | null)?.value ?? ''
                             ])
                         )
-                        void props.onSubmit(values)
+                        void props.onSubmit(values).catch(() => undefined)
                     }}
                 >
                     {props.saveButtonText ?? 'Save'}
@@ -279,7 +284,8 @@ vi.mock('../../api/workspaces', () => ({
     deleteRuntimeWorkspace: (...args: unknown[]) => apiMocks.deleteRuntimeWorkspace(...args),
     removeRuntimeWorkspaceMember: (...args: unknown[]) => apiMocks.removeRuntimeWorkspaceMember(...args),
     updateDefaultRuntimeWorkspace: (...args: unknown[]) => apiMocks.updateDefaultRuntimeWorkspace(...args),
-    updateRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.updateRuntimeWorkspaceSettings(...args)
+    updateRuntimeWorkspaceSettings: (...args: unknown[]) => apiMocks.updateRuntimeWorkspaceSettings(...args),
+    resetRuntimeWorkspaceSeededContent: (...args: unknown[]) => apiMocks.resetRuntimeWorkspaceSeededContent(...args)
 }))
 
 const createQueryClient = () =>
@@ -327,7 +333,11 @@ describe('RuntimeWorkspacesPage', () => {
             total: 2,
             limit: 20,
             offset: 0,
-            currentWorkspaceId: 'ws-personal'
+            currentWorkspaceId: 'ws-personal',
+            permissions: {
+                canCreateSharedWorkspace: true,
+                canManageApplication: true
+            }
         })
         apiMocks.fetchRuntimeWorkspace.mockImplementation(async ({ workspaceId }: { workspaceId: string }) => {
             if (workspaceId === 'ws-shared') {
@@ -391,6 +401,11 @@ describe('RuntimeWorkspacesPage', () => {
         apiMocks.copyRuntimeWorkspace.mockResolvedValue({ id: 'ws-copy' })
         apiMocks.deleteRuntimeWorkspace.mockResolvedValue(undefined)
         apiMocks.updateDefaultRuntimeWorkspace.mockResolvedValue(undefined)
+        apiMocks.resetRuntimeWorkspaceSeededContent.mockResolvedValue({
+            resetRows: 0,
+            operationId: '019f7f10-0000-7000-8000-000000000004',
+            canManage: true
+        })
         apiMocks.fetchRuntimeWorkspaceSettings.mockResolvedValue({
             canManage: true,
             items: [
@@ -509,6 +524,36 @@ describe('RuntimeWorkspacesPage', () => {
         })
     })
 
+    it('hides shared-workspace creation when the server denies the capability', async () => {
+        apiMocks.fetchRuntimeWorkspaces.mockResolvedValueOnce({
+            items: [
+                {
+                    id: 'ws-member',
+                    name: vlc('Member space'),
+                    description: vlc('Read-only shared workspace'),
+                    workspaceType: 'shared',
+                    personalUserId: null,
+                    status: 'active',
+                    isDefault: true,
+                    roleCodename: 'member'
+                }
+            ],
+            total: 1,
+            limit: 20,
+            offset: 0,
+            currentWorkspaceId: 'ws-member',
+            permissions: {
+                canCreateSharedWorkspace: false,
+                canManageApplication: false
+            }
+        })
+
+        renderPage()
+
+        expect(await screen.findByRole('button', { name: 'Member space' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+    })
+
     it('opens workspace actions and supports edit, copy, and delete flows', async () => {
         renderPage()
         await screen.findByRole('button', { name: 'Class A' })
@@ -582,6 +627,26 @@ describe('RuntimeWorkspacesPage', () => {
         })
     }, 30_000)
 
+    it('localizes unresolved workspace copy references by backend error code', async () => {
+        i18nState.language = 'ru'
+        apiMocks.copyRuntimeWorkspace.mockRejectedValueOnce(
+            Object.assign(new Error('Backend copy details'), { code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED' })
+        )
+
+        renderPage({ locale: 'ru' })
+        await screen.findByRole('button', { name: 'Class A' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[1])
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy' }))
+        const dialog = await screen.findByRole('dialog')
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Copy' }))
+
+        expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+            'Не удалось скопировать обязательную связь рабочего пространства.'
+        )
+        expect(within(dialog).queryByText('Backend copy details')).not.toBeInTheDocument()
+    })
+
     it('renders the selected workspace dashboard on the workspace detail route', async () => {
         renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'dashboard' })
 
@@ -615,7 +680,11 @@ describe('RuntimeWorkspacesPage', () => {
             total: 25,
             limit: 20,
             offset: 0,
-            currentWorkspaceId: 'ws-personal'
+            currentWorkspaceId: 'ws-personal',
+            permissions: {
+                canCreateSharedWorkspace: true,
+                canManageApplication: true
+            }
         })
         apiMocks.fetchRuntimeWorkspace.mockResolvedValueOnce({
             id: 'ws-hidden',
@@ -868,6 +937,40 @@ describe('RuntimeWorkspacesPage', () => {
                 })
             )
         })
+    })
+
+    it('confirms and executes an authorized seeded-content reset', async () => {
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'settings' })
+
+        expect(await screen.findByRole('heading', { name: 'Class A: Settings' })).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Reset seeded content' }))
+        const dialog = await screen.findByRole('dialog')
+        expect(dialog).toHaveTextContent('Reset seeded content?')
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm remove' }))
+
+        await waitFor(() => {
+            expect(apiMocks.resetRuntimeWorkspaceSeededContent).toHaveBeenCalledWith({
+                apiBaseUrl: '/api/v1',
+                applicationId: 'app-1',
+                workspaceId: 'ws-shared'
+            })
+        })
+    })
+
+    it('localizes a seeded-content reset failure by backend error code', async () => {
+        i18nState.language = 'ru'
+        apiMocks.resetRuntimeWorkspaceSeededContent.mockRejectedValueOnce(
+            Object.assign(new Error('Backend reset details'), { code: 'WORKSPACE_SEED_RESET_FAILED' })
+        )
+
+        renderPage({ locale: 'ru', routeWorkspaceId: 'ws-shared', routeSection: 'settings' })
+        expect(await screen.findByRole('heading', { name: 'Class A: Settings' })).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Reset seeded content' }))
+        const dialog = await screen.findByRole('dialog')
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm remove' }))
+
+        expect(await within(dialog).findByRole('alert')).toHaveTextContent('Не удалось сбросить исходные данные рабочего пространства.')
+        expect(within(dialog).queryByText('Backend reset details')).not.toBeInTheDocument()
     })
 
     it('does not fetch workspace settings on dashboard or access routes and keeps member fetches off settings routes', async () => {

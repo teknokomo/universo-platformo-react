@@ -89,6 +89,14 @@ Object records use the same entity-owned pattern: the preset provides a focused 
 4. Let application sync materialize the flattened runtime layouts, widgets, and modules into application tables.
 5. Open the published runtime on `/a/:applicationId`.
 
+## Marketing Page Template
+
+The built-in `marketing-page` template uses the standard Object model for
+landing-page sections, localized copy, links, media references, and ordering.
+It is selected in the template picker and follows the same create -> publish
+-> application flow as every other metahub. See [Marketing Page Template](marketing-page-template.md)
+for the entity model, seed ownership, and runtime verification contract.
+
 ## Modules And Layouts Together
 
 The quiz flow is a good example of why metahubs stay the source of truth.

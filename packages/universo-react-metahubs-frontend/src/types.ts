@@ -18,6 +18,7 @@ import type {
     SharedBehavior,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
+    ApplicationTemplateKey,
     BranchCopyOptions,
     ComponentSystemMetadata
 } from '@universo-react/types'
@@ -182,7 +183,7 @@ export interface BlockingBranchUser {
 
 // ============ LAYOUT ENTITY ============
 
-export type LayoutTemplateKey = 'dashboard'
+export type LayoutTemplateKey = ApplicationTemplateKey
 
 export interface MetahubLayout {
     id: string

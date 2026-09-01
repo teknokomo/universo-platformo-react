@@ -481,7 +481,7 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
                             updateDraft({ minHeight: Number.isFinite(parsed) ? Math.trunc(parsed) : 560 })
                         }}
                         type='number'
-                        inputProps={{ min: 320, max: 1200, step: 20 }}
+                        slotProps={{ htmlInput: { min: 320, max: 1200, step: 20 } }}
                         fullWidth
                         size='small'
                     />

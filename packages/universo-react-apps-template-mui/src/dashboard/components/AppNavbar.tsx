@@ -30,7 +30,7 @@ const Toolbar = styled(MuiToolbar)(({ theme }) => ({
     justifyContent: 'space-between',
     gap: '8px',
     flexShrink: 0,
-    [`& ${tabsClasses.flexContainer}`]: {
+    [`& .${tabsClasses.list}`]: {
         gap: '8px',
         p: '8px',
         pb: 0

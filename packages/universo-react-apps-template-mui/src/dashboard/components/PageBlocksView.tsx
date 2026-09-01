@@ -281,7 +281,7 @@ export default function PageBlocksView({
         >
             {showProgressHeader ? (
                 <Stack data-testid='runtime-page-progress' spacing={0.75} sx={{ pb: 1, borderBottom: 1, borderColor: 'divider' }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
                         <Box sx={{ flex: 1 }}>
                             <Typography variant='subtitle2'>
                                 {t('pageBlocks.progress', {
@@ -307,7 +307,7 @@ export default function PageBlocksView({
             {showOutline && outline.length > 1 ? (
                 <Stack data-testid='runtime-page-outline' spacing={0.75} sx={{ pb: 1, borderBottom: 1, borderColor: 'divider' }}>
                     <Typography variant='subtitle2'>{t('pageBlocks.outline', 'Outline')}</Typography>
-                    <Stack direction='row' flexWrap='wrap' gap={1}>
+                    <Stack direction='row' sx={{ flexWrap: 'wrap', gap: 1 }}>
                         {outline.map((item) => (
                             <Link
                                 key={item.id}

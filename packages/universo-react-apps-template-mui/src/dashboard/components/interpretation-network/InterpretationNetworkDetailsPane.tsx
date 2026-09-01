@@ -186,7 +186,7 @@ export function InterpretationNetworkDetailsPane({
                 }}
             >
                 <Stack spacing={1.5}>
-                    <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
+                    <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'center' }}>
                         <Tooltip title={t('workspace.material.backToMaterials', 'Back to materials')}>
                             <IconButton
                                 type='button'

@@ -132,7 +132,7 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
 
     return (
         <Box>
-            <Stack direction='row' alignItems='center' spacing={1} mb={1}>
+            <Stack direction='row' spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
                 <Typography variant='subtitle2'>{label}</Typography>
                 {availableToAdd.length > 0 && !disabled && (
                     <>

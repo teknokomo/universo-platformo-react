@@ -10,11 +10,10 @@
     "dependencies": {
         "@casl/react": "^5.0.0",
         "@emotion/cache": "^11.4.0",
-        "@emotion/react": "^11.10.6",
-        "@emotion/styled": "^11.10.6",
+        "@emotion/react": "catalog:",
+        "@emotion/styled": "catalog:",
         "@universo-react/store": "workspace:*",
         "@universo-react/template-mui": "workspace:*",
-        "@mui/base": "5.0.0-beta.40",
         "@mui/icons-material": "catalog:",
         "@mui/material": "catalog:",
         "@mui/system": "catalog:",

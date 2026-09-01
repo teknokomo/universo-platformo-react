@@ -104,11 +104,7 @@ export default function AppAppBar() {
                             anchor='top'
                             open={open}
                             onClose={toggleDrawer(false)}
-                            PaperProps={{
-                                sx: {
-                                    top: 'var(--template-frame-height, 0px)'
-                                }
-                            }}
+                            slotProps={{ paper: { sx: { top: 'var(--template-frame-height, 0px)' } } }}
                         >
                             <Box sx={{ p: 2, backgroundColor: 'background.default' }}>
                                 <Box

@@ -596,7 +596,7 @@ describe('ApplicationSettings', () => {
         )
 
         await userEvent.click(screen.getByRole('tab', { name: 'Access' }))
-        await userEvent.click(screen.getByRole('checkbox', { name: 'member readReports' }))
+        await userEvent.click(screen.getByRole('switch', { name: 'member readReports' }))
         await userEvent.click(screen.getByTestId('application-settings-access-save'))
 
         await waitFor(() => {
@@ -698,7 +698,7 @@ describe('ApplicationSettings', () => {
 
         expect(screen.getByTestId('application-settings-unsupported-scope-warning')).toBeInTheDocument()
 
-        await userEvent.click(screen.getByRole('checkbox', { name: 'member readReports' }))
+        await userEvent.click(screen.getByRole('switch', { name: 'member readReports' }))
         await userEvent.click(screen.getByTestId('application-settings-access-save'))
 
         await waitFor(() => {

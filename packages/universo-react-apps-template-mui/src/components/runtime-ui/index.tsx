@@ -178,9 +178,9 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
             }}
         >
             <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0, position: 'relative' }}>
-                <Stack direction='row' spacing={1} alignItems='flex-start' justifyContent='space-between' sx={{ minWidth: 0 }}>
+                <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'flex-start', justifyContent: 'space-between' }}>
                     <Box sx={{ minWidth: 0 }}>
-                        <Stack direction='row' spacing={0.75} alignItems='center' sx={{ minWidth: 0 }}>
+                        <Stack direction='row' spacing={0.75} sx={{ minWidth: 0, alignItems: 'center' }}>
                             {data.color ? (
                                 <Box
                                     aria-hidden='true'
@@ -231,7 +231,7 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                 </Stack>
                 <Box sx={{ flexGrow: 1 }} />
                 {footerStartContent || footerEndContent ? (
-                    <Stack direction='row' spacing={1} alignItems='center' justifyContent='space-between'>
+                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box>{footerStartContent}</Box>
                         <Box>{footerEndContent}</Box>
                     </Stack>
@@ -590,7 +590,7 @@ export function ViewHeaderMUI({
                         value={searchValue ?? ''}
                         placeholder={effectiveSearchPlaceholder}
                         onChange={onSearchChange}
-                        inputProps={{ 'aria-label': effectiveSearchPlaceholder }}
+                        slotProps={{ htmlInput: { 'aria-label': effectiveSearchPlaceholder } }}
                         sx={{ minWidth: { xs: '100%', sm: 260 } }}
                     />
                 ) : null}
@@ -638,8 +638,8 @@ export function ToolbarControls({
         <Stack
             direction='row'
             spacing={1}
-            alignItems='center'
             sx={{
+                alignItems: 'center',
                 flexWrap: 'wrap',
                 justifyContent: { xs: 'flex-end', sm: 'flex-start' },
                 minWidth: 0,
@@ -727,7 +727,7 @@ export function ColumnVisibilityControl({
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={() => setAnchorEl(null)}
-                MenuListProps={{ 'aria-label': effectiveMenuLabel }}
+                slotProps={{ list: { 'aria-label': effectiveMenuLabel } }}
             >
                 {options.map((option) => {
                     const disabled = option.disabled || (option.visible && visibleCount <= 1)

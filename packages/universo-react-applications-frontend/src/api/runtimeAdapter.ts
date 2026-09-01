@@ -14,9 +14,15 @@ import {
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
 
-const resolveRuntimeTarget = (target?: { objectCollectionId?: string; sectionId?: string }) => ({
+const withWorkspaceId = (workspaceId?: string | null): { workspaceId?: string } => {
+    const normalizedWorkspaceId = workspaceId?.trim()
+    return normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}
+}
+
+const resolveRuntimeTarget = (target?: { objectCollectionId?: string; sectionId?: string; workspaceId?: string | null }) => ({
     objectCollectionId: target?.objectCollectionId,
-    sectionId: target?.sectionId ?? target?.objectCollectionId
+    sectionId: target?.sectionId ?? target?.objectCollectionId,
+    ...withWorkspaceId(target?.workspaceId)
 })
 
 /**
@@ -29,13 +35,14 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
     return {
         queryKeyPrefix: applicationsQueryKeys.runtimeAll(applicationId),
 
-        fetchList: ({ limit, offset, locale, objectCollectionId, sectionId, search, sort, filters }) =>
+        fetchList: ({ limit, offset, locale, objectCollectionId, sectionId, workspaceId, search, sort, filters }) =>
             getApplicationRuntime(applicationId, {
                 limit,
                 offset,
                 locale,
                 objectCollectionId,
                 sectionId,
+                ...withWorkspaceId(workspaceId),
                 search,
                 sort,
                 filters
@@ -48,7 +55,7 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 ...resolveRuntimeTarget(target)
             }),
 
-        fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId }) => {
+        fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId, workspaceId }) => {
             const resolvedSectionId = sectionId ?? objectCollectionId
             if (!resolvedSectionId) return []
             return listApplicationRuntimeTabularRows({
@@ -56,7 +63,8 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 rowId: parentRowId,
                 componentId,
                 objectCollectionId: resolvedSectionId,
-                sectionId: resolvedSectionId
+                sectionId: resolvedSectionId,
+                ...withWorkspaceId(workspaceId)
             })
         },
 
@@ -99,6 +107,7 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 rowId,
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
+                ...withWorkspaceId(data?.workspaceId),
                 copyChildTables: data?.copyChildTables,
                 data: data?.data,
                 expectedVersion: data?.expectedVersion
@@ -111,6 +120,7 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 command,
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
+                ...withWorkspaceId(data?.workspaceId),
                 expectedVersion: data?.expectedVersion
             }),
 
@@ -121,14 +131,16 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 actionCodename,
                 objectCollectionId: data.objectCollectionId,
                 sectionId: data.sectionId ?? data.objectCollectionId,
+                ...withWorkspaceId(data.workspaceId),
                 expectedVersion: data.expectedVersion
             }),
 
-        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds, expectedVersionsByRowId }) =>
+        reorderRows: ({ objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId }) =>
             reorderApplicationRuntimeRows({
                 applicationId,
                 objectCollectionId,
                 sectionId: sectionId ?? objectCollectionId,
+                ...withWorkspaceId(workspaceId),
                 orderedRowIds,
                 expectedVersionsByRowId
             })

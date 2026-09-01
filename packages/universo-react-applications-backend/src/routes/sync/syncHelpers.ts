@@ -15,9 +15,11 @@ import {
     ApplicationSchemaStatus,
     ComponentDefinitionDataType,
     DASHBOARD_LAYOUT_WIDGETS,
+    applicationTemplateKeySchema,
     normalizeInterpretationNetworkHexColor,
     type ApplicationLifecycleContract,
     type ApplicationLayoutWidget,
+    type ApplicationTemplateKey,
     type ComponentDefinitionValidationRules,
     type MenuWidgetConfig,
     type VersionedLocalizedContent
@@ -79,6 +81,19 @@ const buildDashboardWidgetVisibilityConfig = (items: Array<{ widgetKey: string; 
 
 const normalizeLayoutZone = (value: unknown): ApplicationLayoutWidget['zone'] => {
     return value === 'left' || value === 'right' || value === 'top' || value === 'bottom' || value === 'center' ? value : 'center'
+}
+
+/**
+ * Validate the persisted application template discriminator at every sync
+ * boundary. A missing/unknown key is data corruption, not permission to
+ * silently reinterpret a marketing layout as a dashboard.
+ */
+export const parseApplicationTemplateKey = (value: unknown, context: string): ApplicationTemplateKey => {
+    const parsed = applicationTemplateKeySchema.safeParse(value)
+    if (!parsed.success) {
+        throw new Error(`[SchemaSync] Invalid application template key in ${context}`)
+    }
+    return parsed.data
 }
 
 // --- Core utilities ---
@@ -638,10 +653,7 @@ const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot):
                     typeof normalizedLayout.scopeEntityId === 'string' && normalizedLayout.scopeEntityId.length > 0
                         ? normalizedLayout.scopeEntityId
                         : null,
-                templateKey:
-                    typeof normalizedLayout.templateKey === 'string' && normalizedLayout.templateKey.length > 0
-                        ? normalizedLayout.templateKey
-                        : 'dashboard',
+                templateKey: parseApplicationTemplateKey(normalizedLayout.templateKey, `layout ${String(normalizedLayout.id ?? '')}`),
                 name: isRecord(normalizedLayout.name) ? normalizedLayout.name : {},
                 description: isRecord(normalizedLayout.description) ? normalizedLayout.description : null,
                 config: isRecord(normalizedLayout.config) ? normalizedLayout.config : {},
@@ -720,8 +732,9 @@ export const withWorkspaceRuntimeLayoutWidgets = (
         const layout = (rawLayout ?? {}) as SnapshotLayoutRow
         const layoutId = typeof layout.id === 'string' && layout.id.length > 0 ? layout.id : ''
         const scopeEntityId = typeof layout.scopeEntityId === 'string' && layout.scopeEntityId.length > 0 ? layout.scopeEntityId : null
+        const templateKey = parseApplicationTemplateKey(layout.templateKey, `workspace layout ${layoutId}`)
 
-        if (!layoutId || scopeEntityId) {
+        if (!layoutId || scopeEntityId || templateKey !== 'dashboard') {
             continue
         }
 
@@ -767,7 +780,7 @@ const normalizeSnapshotScopedLayouts = (snapshot: PublishedApplicationSnapshot):
             id: String(layout.id ?? ''),
             scopeEntityId: typeof layout.scopeEntityId === 'string' && layout.scopeEntityId.length > 0 ? layout.scopeEntityId : null,
             baseLayoutId: typeof layout.baseLayoutId === 'string' && layout.baseLayoutId.length > 0 ? layout.baseLayoutId : '',
-            templateKey: typeof layout.templateKey === 'string' && layout.templateKey.length > 0 ? layout.templateKey : 'dashboard',
+            templateKey: parseApplicationTemplateKey(layout.templateKey, `scoped layout ${String(layout.id ?? '')}`),
             name: isRecord(layout.name) ? layout.name : {},
             description: isRecord(layout.description) ? layout.description : null,
             config: isRecord(layout.config) ? layout.config : {},
@@ -803,6 +816,18 @@ const materializeSnapshotLayoutsAndWidgets = (
     const rawWidgets = normalizeSnapshotWidgetEntries(snapshot)
     const scopedLayouts = normalizeSnapshotScopedLayouts(snapshot)
     const overrideRows = normalizeSnapshotLayoutWidgetOverrides(snapshot)
+    const widgetsByLayoutId = new Map<string, MaterializedSnapshotWidget[]>()
+    for (const widget of rawWidgets) {
+        const bucket = widgetsByLayoutId.get(widget.layoutId) ?? []
+        bucket.push(widget)
+        widgetsByLayoutId.set(widget.layoutId, bucket)
+    }
+
+    for (const layout of globalLayouts) {
+        if (layout.templateKey !== 'dashboard' && (widgetsByLayoutId.get(layout.id)?.length ?? 0) > 0) {
+            throw new Error(`Layout ${layout.id} uses ${layout.templateKey} and cannot contain dashboard widgets`)
+        }
+    }
 
     if (scopedLayouts.length === 0) {
         const layouts = ensureScopedDefaultLayouts(globalLayouts)
@@ -820,12 +845,6 @@ const materializeSnapshotLayoutsAndWidgets = (
     }
 
     const baseLayoutMap = new Map(globalLayouts.map((layout) => [layout.id, layout]))
-    const widgetsByLayoutId = new Map<string, MaterializedSnapshotWidget[]>()
-    for (const widget of rawWidgets) {
-        const bucket = widgetsByLayoutId.get(widget.layoutId) ?? []
-        bucket.push(widget)
-        widgetsByLayoutId.set(widget.layoutId, bucket)
-    }
 
     const overrideMap = new Map<string, NormalizedLayoutWidgetOverride>()
     for (const override of overrideRows) {
@@ -841,10 +860,34 @@ const materializeSnapshotLayoutsAndWidgets = (
             continue
         }
 
+        const scopedTemplateKey = parseApplicationTemplateKey(scopedLayout.templateKey, `scoped layout ${scopedLayout.id}`)
+        if (scopedTemplateKey !== baseLayout.templateKey) {
+            throw new Error(`Scoped layout ${scopedLayout.id} must use the same template as its base layout`)
+        }
+
+        const ownedWidgetsForLayout = widgetsByLayoutId.get(scopedLayout.id) ?? []
+        if (scopedTemplateKey !== 'dashboard') {
+            if (ownedWidgetsForLayout.length > 0 || (widgetsByLayoutId.get(baseLayout.id)?.length ?? 0) > 0) {
+                throw new Error(`Layout ${scopedLayout.id} uses ${scopedTemplateKey} and cannot contain dashboard widgets`)
+            }
+            materializedLayouts.push({
+                id: scopedLayout.id,
+                scopeEntityId: scopedLayout.scopeEntityId,
+                templateKey: scopedTemplateKey,
+                name: Object.keys(scopedLayout.name).length > 0 ? scopedLayout.name : baseLayout.name,
+                description: scopedLayout.description ?? baseLayout.description,
+                config: { ...baseLayout.config, ...scopedLayout.config },
+                isActive: scopedLayout.isActive,
+                isDefault: scopedLayout.isDefault,
+                sortOrder: scopedLayout.sortOrder
+            })
+            continue
+        }
+
         const materializedScopedWidgets: MaterializedSnapshotWidget[] = []
 
         const baseWidgets = widgetsByLayoutId.get(scopedLayout.baseLayoutId) ?? []
-        const ownedWidgets = (widgetsByLayoutId.get(scopedLayout.id) ?? []).map((item) => ({
+        const ownedWidgets = ownedWidgetsForLayout.map((item) => ({
             ...item,
             layoutId: scopedLayout.id
         }))
@@ -884,7 +927,7 @@ const materializeSnapshotLayoutsAndWidgets = (
         materializedLayouts.push({
             id: scopedLayout.id,
             scopeEntityId: scopedLayout.scopeEntityId,
-            templateKey: scopedLayout.templateKey || baseLayout.templateKey,
+            templateKey: scopedTemplateKey,
             name: Object.keys(scopedLayout.name).length > 0 ? scopedLayout.name : baseLayout.name,
             description: scopedLayout.description ?? baseLayout.description,
             config: {

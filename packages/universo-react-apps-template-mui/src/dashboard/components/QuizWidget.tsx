@@ -488,7 +488,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
         return (
             <Card variant='outlined'>
                 <CardContent>
-                    <Stack direction='row' spacing={1.5} alignItems='center'>
+                    <Stack direction='row' spacing={1.5} sx={{ alignItems: 'center' }}>
                         <CircularProgress size={20} />
                         <Typography variant='body2'>{t('loading', 'Loading quiz...')}</Typography>
                     </Stack>
@@ -539,7 +539,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                 <LinearProgress variant='determinate' value={100} />
                 <CardHeader title={quizModel.title} subheader={quizModel.description || undefined} />
                 <CardContent>
-                    <Stack spacing={2.5} alignItems='flex-start'>
+                    <Stack spacing={2.5} sx={{ alignItems: 'flex-start' }}>
                         <Typography variant='h5'>{t('complete', 'Quiz complete!')}</Typography>
                         <Typography variant='h3' sx={{ fontWeight: 700 }}>
                             {t('scoreSummary', {
@@ -569,7 +569,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
             <CardHeader title={quizModel.title} subheader={quizModel.description || undefined} />
             <CardContent>
                 <Stack spacing={3}>
-                    <Stack direction='row' spacing={1.5} alignItems='center' justifyContent='space-between'>
+                    <Stack direction='row' spacing={1.5} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                         <Typography variant='overline'>
                             {t('questionOf', {
                                 defaultValue: 'Question {{current}} of {{total}}',
@@ -582,7 +582,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
 
                     {currentQuestion ? (
                         <Box>
-                            <Stack direction='row' spacing={1} alignItems='center' sx={{ mb: 1.5 }}>
+                            <Stack direction='row' spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
                                 <Typography variant='h6'>{currentQuestion.prompt}</Typography>
                                 {currentQuestion.difficulty ? (
                                     <Chip
@@ -695,7 +695,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
 
                     {submitMutation.isError ? <Alert severity='error'>{t('submitError', 'Failed to submit quiz answers.')}</Alert> : null}
 
-                    <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                    <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end' }}>
                         <Button variant='text' onClick={resetQuiz} disabled={submitMutation.isPending}>
                             {t('reset', 'Restart')}
                         </Button>

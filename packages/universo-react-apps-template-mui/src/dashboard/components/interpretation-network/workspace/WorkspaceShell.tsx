@@ -100,7 +100,7 @@ export function WorkspaceShell({
         <Stack data-testid='interpretation-network-workspace' spacing={2} sx={{ minWidth: 0, width: '100%', pt: 2 }}>
             {!singleSystemMode && structure.selectedConcept ? (
                 <Paper variant='outlined' data-testid='interpretation-network-structure-header' sx={{ p: 1.25, borderRadius: 1 }}>
-                    <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
+                    <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'center' }}>
                         <IconButton
                             type='button'
                             size='small'

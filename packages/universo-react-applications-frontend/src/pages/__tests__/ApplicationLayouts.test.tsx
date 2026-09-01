@@ -14,6 +14,7 @@ const apiMocks = vi.hoisted(() => ({
     upsertApplicationLayoutWidget: vi.fn(),
     deleteApplicationLayoutWidget: vi.fn(),
     resetApplicationLayoutWidgetConfigsBatch: vi.fn(),
+    resetApplicationLayoutConfig: vi.fn(),
     updateApplicationLayoutWidgetConfig: vi.fn(),
     createApplicationLayout: vi.fn(),
     updateApplicationLayout: vi.fn(),
@@ -22,6 +23,9 @@ const apiMocks = vi.hoisted(() => ({
 }))
 const snackbarMocks = vi.hoisted(() => ({
     enqueueSnackbar: vi.fn()
+}))
+const confirmMocks = vi.hoisted(() => ({
+    confirm: vi.fn()
 }))
 
 vi.mock('notistack', () => ({
@@ -51,7 +55,13 @@ vi.mock('react-i18next', () => ({
                     'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.',
                 'settings.matrix.reset': 'Restore metahub settings',
                 'settings.matrix.singleSystemMetadataMissing':
-                    'Single-system mode cannot be enabled because the Structure metadata is incomplete.'
+                    'Single-system mode cannot be enabled because the Structure metadata is incomplete.',
+                'layouts.marketing.reset': 'Restore template defaults',
+                'layouts.marketing.resetTitle': 'Restore marketing page defaults?',
+                'layouts.marketing.resetDescription':
+                    'This restores the theme, colors, and section visibility for this application layout. Workspace content and metahub records will not change.',
+                'layouts.marketing.resetConfirm': 'Restore defaults',
+                'layouts.marketing.resetSuccess': 'Marketing appearance restored to template defaults.'
             }
             const template = dictionary[key] ?? fallback ?? key
             if (!params) return template
@@ -165,7 +175,8 @@ vi.mock('@universo-react/template-mui', () => ({
         ) : null,
     LocalizedInlineField: ({ label }: { label: string }) => <div>{label}</div>,
     EmptyListState: ({ title }: { title: string }) => <div>{title}</div>,
-    APIEmptySVG: 'api-empty'
+    APIEmptySVG: 'api-empty',
+    useConfirm: () => ({ confirm: confirmMocks.confirm })
 }))
 
 vi.mock('../../api/applications', () => ({
@@ -178,6 +189,7 @@ vi.mock('../../api/applications', () => ({
     upsertApplicationLayoutWidget: apiMocks.upsertApplicationLayoutWidget,
     deleteApplicationLayoutWidget: apiMocks.deleteApplicationLayoutWidget,
     resetApplicationLayoutWidgetConfigsBatch: apiMocks.resetApplicationLayoutWidgetConfigsBatch,
+    resetApplicationLayoutConfig: apiMocks.resetApplicationLayoutConfig,
     updateApplicationLayoutWidgetConfig: apiMocks.updateApplicationLayoutWidgetConfig,
     createApplicationLayout: apiMocks.createApplicationLayout,
     updateApplicationLayout: apiMocks.updateApplicationLayout,
@@ -210,6 +222,38 @@ const renderPage = (initialEntry = '/a/app-1/admin/layouts/layout-1') => {
 
     return { ...result, queryClient }
 }
+
+const createMarketingLayout = (config: Record<string, unknown> = {}) => ({
+    id: 'layout-1',
+    scopeId: 'global',
+    scopeKind: 'global',
+    scopeEntityId: null,
+    templateKey: 'marketing-page',
+    name: { en: 'Marketing' },
+    description: null,
+    config: {
+        themeMode: 'dark',
+        sectionOrder: ['hero', 'logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
+        sectionVisibility: { hero: false },
+        primaryColor: '#1976d2',
+        accentColor: '#9c27b0',
+        allowEmailActions: true,
+        allowTelephoneActions: true,
+        externalLinkTarget: 'new-tab',
+        ...config
+    },
+    isActive: true,
+    isDefault: true,
+    sortOrder: 0,
+    sourceKind: 'application',
+    sourceLayoutId: null,
+    sourceSnapshotHash: null,
+    sourceContentHash: null,
+    localContentHash: null,
+    syncState: 'clean',
+    isSourceExcluded: false,
+    version: 7
+})
 
 describe('ApplicationLayouts', () => {
     beforeEach(() => {
@@ -358,6 +402,8 @@ describe('ApplicationLayouts', () => {
         apiMocks.upsertApplicationLayoutWidget.mockResolvedValue({})
         apiMocks.deleteApplicationLayoutWidget.mockResolvedValue(undefined)
         apiMocks.resetApplicationLayoutWidgetConfigsBatch.mockResolvedValue([])
+        apiMocks.resetApplicationLayoutConfig.mockResolvedValue({})
+        confirmMocks.confirm.mockResolvedValue(true)
         apiMocks.updateApplicationLayoutWidgetConfig.mockResolvedValue({})
         apiMocks.createApplicationLayout.mockResolvedValue({})
         apiMocks.updateApplicationLayout.mockResolvedValue({})
@@ -625,5 +671,116 @@ describe('ApplicationLayouts', () => {
             )
         ).toBeInTheDocument()
         expect(screen.queryByDisplayValue(/\{/)).not.toBeInTheDocument()
+    })
+
+    it('confirms and resets marketing appearance to template defaults with the layout version', async () => {
+        const user = userEvent.setup()
+        const marketingLayout = createMarketingLayout()
+        apiMocks.listApplicationLayouts.mockResolvedValue({
+            items: [marketingLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValue({ item: marketingLayout, widgets: [] })
+        apiMocks.updateApplicationLayout.mockResolvedValue(marketingLayout)
+        apiMocks.resetApplicationLayoutConfig.mockResolvedValueOnce({
+            ...marketingLayout,
+            config: {
+                themeMode: 'system',
+                sectionOrder: ['hero', 'logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
+                sectionVisibility: {},
+                allowEmailActions: true,
+                allowTelephoneActions: true,
+                externalLinkTarget: 'new-tab'
+            },
+            version: 8
+        })
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByTestId('application-marketing-appearance-panel')).toBeInTheDocument())
+        const resetButton = screen.getByRole('button', { name: 'Restore template defaults' })
+        expect(resetButton).toBeEnabled()
+        await user.click(resetButton)
+
+        await waitFor(() => {
+            expect(confirmMocks.confirm).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    title: 'Restore marketing page defaults?',
+                    confirmButtonName: 'Restore defaults'
+                })
+            )
+            expect(apiMocks.resetApplicationLayoutConfig).toHaveBeenCalledWith('app-1', 'layout-1', { expectedVersion: 7 })
+        })
+    })
+
+    it('does not reset marketing appearance when the confirmation is cancelled', async () => {
+        const user = userEvent.setup()
+        const marketingLayout = createMarketingLayout({
+            themeMode: 'system',
+            sectionVisibility: {}
+        })
+        confirmMocks.confirm.mockResolvedValueOnce(false)
+        apiMocks.listApplicationLayouts.mockResolvedValueOnce({
+            items: [marketingLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValueOnce({ item: marketingLayout, widgets: [] })
+
+        renderPage()
+        await waitFor(() => expect(screen.getByTestId('application-marketing-appearance-panel')).toBeInTheDocument())
+        await user.click(screen.getByRole('button', { name: 'Restore template defaults' }))
+
+        await waitFor(() => expect(confirmMocks.confirm).toHaveBeenCalled())
+        expect(apiMocks.resetApplicationLayoutConfig).not.toHaveBeenCalled()
+    })
+
+    it('edits marketing section order and action policy through typed controls', async () => {
+        const user = userEvent.setup()
+        const marketingLayout = createMarketingLayout()
+        apiMocks.listApplicationLayouts.mockResolvedValue({
+            items: [marketingLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValue({ item: marketingLayout, widgets: [] })
+        apiMocks.updateApplicationLayout.mockResolvedValue(marketingLayout)
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByTestId('application-marketing-appearance-panel')).toBeInTheDocument())
+        await user.click(screen.getByTestId('application-marketing-section-down-hero'))
+        await waitFor(() => {
+            expect(apiMocks.updateApplicationLayout).toHaveBeenCalledWith(
+                'app-1',
+                'layout-1',
+                expect.objectContaining({
+                    expectedVersion: 7,
+                    config: expect.objectContaining({
+                        sectionOrder: ['logos', 'hero', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
+                        allowEmailActions: true,
+                        allowTelephoneActions: true
+                    })
+                })
+            )
+        })
+
+        apiMocks.updateApplicationLayout.mockClear()
+        await user.click(screen.getByLabelText('Allow email actions'))
+        await waitFor(() => {
+            expect(apiMocks.updateApplicationLayout).toHaveBeenCalledWith(
+                'app-1',
+                'layout-1',
+                expect.objectContaining({ config: expect.objectContaining({ allowEmailActions: false }) })
+            )
+        })
+
+        apiMocks.updateApplicationLayout.mockClear()
+        await user.click(screen.getByLabelText('Allow telephone actions'))
+        await waitFor(() => {
+            expect(apiMocks.updateApplicationLayout).toHaveBeenCalledWith(
+                'app-1',
+                'layout-1',
+                expect.objectContaining({ config: expect.objectContaining({ allowTelephoneActions: false }) })
+            )
+        })
     })
 })

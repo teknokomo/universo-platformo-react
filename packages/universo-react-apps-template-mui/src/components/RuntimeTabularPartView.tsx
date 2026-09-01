@@ -24,6 +24,8 @@ export interface RuntimeTabularPartViewProps {
     parentRecordId: string
     /** TABLE component UUID. */
     componentId: string
+    /** Current workspace scope for child-row requests. */
+    workspaceId?: string | null
     /** Child components from the parent form's FieldConfig. */
     childFields: FieldConfig[]
     /** Whether to show the component label above the table. */
@@ -51,6 +53,7 @@ export function RuntimeTabularPartView({
     objectCollectionId,
     parentRecordId,
     componentId,
+    workspaceId,
     childFields,
     showTitle = true,
     label,
@@ -72,17 +75,19 @@ export function RuntimeTabularPartView({
                 objectCollectionId,
                 parentRecordId,
                 componentId,
+                workspaceId,
                 childFields: stableChildFields,
                 permissions
             }),
-        [apiBaseUrl, applicationId, objectCollectionId, parentRecordId, componentId, stableChildFields, permissions]
+        [apiBaseUrl, applicationId, objectCollectionId, parentRecordId, componentId, workspaceId, stableChildFields, permissions]
     )
 
     const state = useCrudDashboard({
         adapter,
         locale,
         defaultPageSize: PAGE_SIZE_THRESHOLD,
-        pageSizeOptions: [10, 25, PAGE_SIZE_THRESHOLD]
+        pageSizeOptions: [10, 25, PAGE_SIZE_THRESHOLD],
+        workspaceId
     })
 
     const labels = useMemo(

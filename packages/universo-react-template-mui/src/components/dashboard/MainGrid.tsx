@@ -127,7 +127,7 @@ export default function MainGrid({ layoutConfig, details }: { layoutConfig?: Das
                         )}
                         {showDetailsSidePanel && (
                             <Grid size={{ xs: 12, lg: 3 }}>
-                                <Stack gap={2} direction={{ xs: 'column', sm: 'row', lg: 'column' }}>
+                                <Stack direction={{ xs: 'column', sm: 'row', lg: 'column' }} sx={{ gap: 2 }}>
                                     <CustomizedTreeView />
                                     <ChartUserByCountry />
                                 </Stack>
