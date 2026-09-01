@@ -265,7 +265,13 @@ export const LedgerSchemaFields = ({
 
             <Box sx={SECTION_SX}>
                 <Stack spacing={1.5}>
-                    <Stack direction='row' justifyContent='space-between' alignItems='center'>
+                    <Stack
+                        direction='row'
+                        sx={{
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}
+                    >
                         <Typography variant='subtitle2'>{t('entities.ledgerSchema.fieldRoles.title', 'Field roles')}</Typography>
                         <Chip
                             icon={<AddRoundedIcon fontSize='small' />}
@@ -276,7 +282,12 @@ export const LedgerSchemaFields = ({
                         />
                     </Stack>
                     {value.fieldRoles.length === 0 ? (
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('entities.ledgerSchema.fieldRoles.empty', 'No field roles configured.')}
                         </Typography>
                     ) : null}
@@ -285,7 +296,9 @@ export const LedgerSchemaFields = ({
                             key={`${role.fieldCodename}-${index}`}
                             direction={{ xs: 'column', sm: 'row' }}
                             spacing={1}
-                            alignItems='center'
+                            sx={{
+                                alignItems: 'center'
+                            }}
                         >
                             <FormControl fullWidth disabled={disabled}>
                                 <InputLabel id={`ledger-role-field-${index}`}>
@@ -367,7 +380,13 @@ export const LedgerSchemaFields = ({
             {allowProjections ? (
                 <Box sx={SECTION_SX}>
                     <Stack spacing={1.5}>
-                        <Stack direction='row' justifyContent='space-between' alignItems='center'>
+                        <Stack
+                            direction='row'
+                            sx={{
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}
+                        >
                             <Typography variant='subtitle2'>{t('entities.ledgerSchema.projections.title', 'Projections')}</Typography>
                             <Chip
                                 icon={<AddRoundedIcon fontSize='small' />}
@@ -378,7 +397,12 @@ export const LedgerSchemaFields = ({
                             />
                         </Stack>
                         {value.projections.length === 0 ? (
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('entities.ledgerSchema.projections.empty', 'No projections configured.')}
                             </Typography>
                         ) : null}

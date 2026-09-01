@@ -123,7 +123,12 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
                 <CircularProgress size={16} />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     Loading languages...
                 </Typography>
             </Box>
@@ -132,7 +137,7 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
 
     return (
         <Box>
-            <Stack direction='row' alignItems='center' spacing={1} mb={1}>
+            <Stack direction='row' spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
                 <Typography variant='subtitle2'>{label}</Typography>
                 {availableToAdd.length > 0 && !disabled && (
                     <>
@@ -149,7 +154,12 @@ export const LocalizedFieldEditor: React.FC<LocalizedFieldEditorProps> = ({
                     </>
                 )}
                 {localesError && (
-                    <Typography variant='caption' color='warning.main'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'warning.main'
+                        }}
+                    >
                         (Using fallback languages)
                     </Typography>
                 )}

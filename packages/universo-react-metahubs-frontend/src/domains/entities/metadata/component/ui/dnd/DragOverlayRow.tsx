@@ -24,8 +24,22 @@ export const DragOverlayRow: React.FC<DragOverlayRowProps> = ({ component }) => 
             }}
         >
             <DragIndicatorIcon fontSize='small' sx={{ color: 'primary.main' }} />
-            <Stack direction='row' alignItems='center' spacing={1} sx={{ flex: 1, overflow: 'hidden' }}>
-                <Typography variant='body2' fontWeight={500} noWrap>
+            <Stack
+                direction='row'
+                spacing={1}
+                sx={{
+                    alignItems: 'center',
+                    flex: 1,
+                    overflow: 'hidden'
+                }}
+            >
+                <Typography
+                    variant='body2'
+                    noWrap
+                    sx={{
+                        fontWeight: 500
+                    }}
+                >
                     {component.name || component.codename}
                 </Typography>
                 <Chip label={component.dataType} size='small' sx={{ ml: 'auto' }} />

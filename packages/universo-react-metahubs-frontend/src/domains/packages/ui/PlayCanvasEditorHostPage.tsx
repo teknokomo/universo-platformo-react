@@ -891,8 +891,8 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                 data-testid={fullScreen ? 'playcanvas-editor-fullscreen-chrome' : 'playcanvas-editor-host-chrome'}
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={fullScreen ? 1 : 1.5}
-                alignItems={{ xs: 'stretch', sm: 'center' }}
                 sx={{
+                    alignItems: { xs: 'stretch', sm: 'center' },
                     width: '100%',
                     maxWidth: '100%',
                     minWidth: 0,
@@ -903,8 +903,11 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                 <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
-                    alignItems={{ xs: 'stretch', sm: 'center' }}
-                    sx={{ minWidth: 0, flexShrink: 0 }}
+                    sx={{
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        minWidth: 0,
+                        flexShrink: 0
+                    }}
                 >
                     <Button
                         component='a'
@@ -945,9 +948,13 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
                 <Stack
                     direction='row'
                     spacing={1}
-                    alignItems='center'
-                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
-                    sx={{ minWidth: 0, maxWidth: '100%', flexShrink: 1 }}
+                    sx={{
+                        alignItems: 'center',
+                        justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        flexShrink: 1
+                    }}
                 >
                     <Chip
                         size='small'
@@ -1018,9 +1025,21 @@ export default function PlayCanvasEditorHostPage({ fullScreen = false }: PlayCan
 
     if (hostQuery.isLoading) {
         return (
-            <Stack direction='row' spacing={1} alignItems='center' sx={{ p: fullScreen ? 2 : 3 }}>
+            <Stack
+                direction='row'
+                spacing={1}
+                sx={{
+                    alignItems: 'center',
+                    p: fullScreen ? 2 : 3
+                }}
+            >
                 <CircularProgress size={18} />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('packages.editorHost.loading', 'Loading editor...')}
                 </Typography>
             </Stack>

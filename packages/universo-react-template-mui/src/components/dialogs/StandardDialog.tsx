@@ -10,7 +10,7 @@ import {
     type DialogContentProps,
     type DialogActionsProps
 } from '@mui/material'
-import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
+import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation, type DialogPaperProps } from './dialogPresentation'
 
 export interface StandardDialogProps {
     open: boolean
@@ -20,7 +20,7 @@ export interface StandardDialogProps {
     actions?: ReactNode
     maxWidth?: DialogProps['maxWidth']
     fullWidth?: boolean
-    paperProps?: DialogProps['PaperProps']
+    paperProps?: DialogPaperProps
     dialogTitleProps?: DialogTitleProps
     dialogContentProps?: DialogContentProps
     dialogActionsProps?: DialogActionsProps
@@ -68,8 +68,7 @@ export function StandardDialog({
             onClose={presentation.dialogProps.onClose}
             maxWidth={presentation.dialogProps.maxWidth ?? maxWidth}
             fullWidth={presentation.dialogProps.fullWidth ?? fullWidth}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergedPaperProps}
+            slotProps={{ paper: mergedPaperProps }}
         >
             <DialogTitle {...dialogTitleProps}>{titleNode}</DialogTitle>
             <DialogContent {...dialogContentProps} sx={mergeDialogSx(presentation.contentSx, dialogContentProps?.sx)}>

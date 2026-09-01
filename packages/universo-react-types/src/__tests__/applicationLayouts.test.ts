@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+    applicationLayoutConfigResetMutationSchema,
     applicationLayoutWidgetConfigBatchMutationSchema,
     applicationLayoutWidgetResetBatchMutationSchema,
     applicationLayoutWidgetSchema,
@@ -14,6 +15,13 @@ import {
 } from '../common/applicationLayouts'
 
 describe('application layout widget config contracts', () => {
+    it('validates the application-level marketing appearance reset payload', () => {
+        expect(applicationLayoutConfigResetMutationSchema.parse({ expectedVersion: 3 })).toEqual({ expectedVersion: 3 })
+        expect(applicationLayoutConfigResetMutationSchema.safeParse({}).success).toBe(false)
+        expect(applicationLayoutConfigResetMutationSchema.safeParse({ expectedVersion: 0 }).success).toBe(false)
+        expect(applicationLayoutConfigResetMutationSchema.safeParse({ unexpected: true }).success).toBe(false)
+    })
+
     it('parses source-aware widget customization fields with safe defaults', () => {
         const baseWidget = {
             id: '018f8a78-7b8f-7c1d-a111-2222333344a1',

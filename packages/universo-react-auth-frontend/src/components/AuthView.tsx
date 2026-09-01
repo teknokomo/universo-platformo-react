@@ -362,8 +362,10 @@ export const AuthView = ({
                                     value={email}
                                     onChange={(event) => setEmail(event.target.value)}
                                     disabled={submitting}
-                                    inputProps={{ 'data-testid': 'auth-email-input' }}
-                                    InputProps={{ startAdornment: adornment.email }}
+                                    slotProps={{
+                                        htmlInput: { 'data-testid': 'auth-email-input' },
+                                        input: { startAdornment: adornment.email }
+                                    }}
                                 />
                                 <TextField
                                     fullWidth
@@ -372,8 +374,10 @@ export const AuthView = ({
                                     value={password}
                                     onChange={(event) => setPassword(event.target.value)}
                                     disabled={submitting}
-                                    inputProps={{ 'data-testid': 'auth-password-input' }}
-                                    InputProps={{ startAdornment: adornment.password }}
+                                    slotProps={{
+                                        htmlInput: { 'data-testid': 'auth-password-input' },
+                                        input: { startAdornment: adornment.password }
+                                    }}
                                 />
 
                                 {/* Consent checkboxes - only shown in register mode when labels are provided */}

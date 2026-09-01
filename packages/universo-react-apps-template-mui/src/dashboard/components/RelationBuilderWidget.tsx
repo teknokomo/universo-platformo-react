@@ -407,7 +407,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
 
     return (
         <Stack spacing={1.25} data-testid={`runtime-relation-panel-${panel.id}`} sx={{ minWidth: 0 }}>
-            <Stack direction='row' justifyContent='space-between' alignItems='center' gap={1} sx={{ minWidth: 0 }}>
+            <Stack direction='row' sx={{ minWidth: 0, justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                 <Typography variant='subtitle2'>
                     {readLocalizedWidgetText(panel.title, details?.locale) ??
                         formatMetadataFallbackLabel(panel.id, details?.locale, t('relationBuilder.untitledPanel', 'Related records'))}
@@ -419,7 +419,12 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
             {warningText ? <Alert severity='warning'>{warningText}</Alert> : null}
             {loadErrorText ? <Alert severity='error'>{loadErrorText}</Alert> : null}
             {panel.enableRowReordering && !canPersistRowReordering ? (
-                <Typography variant='caption' color='text.secondary'>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t(
                         'app.reorderRequiresCompleteDataset',
                         'Row reordering is available only when all rows are loaded and search is cleared.'
@@ -433,7 +438,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
                 sortableRows={canPersistRowReordering}
                 onSortableDragEnd={handleSortableDragEnd}
                 renderActions={(row) => (
-                    <Stack direction='row' justifyContent='flex-end'>
+                    <Stack direction='row' sx={{ justifyContent: 'flex-end' }}>
                         <IconButton
                             size='small'
                             aria-label={t('app.edit', 'Edit')}

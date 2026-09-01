@@ -12,6 +12,8 @@ const mockListApplicationLayoutWidgets = jest.fn()
 const mockListApplicationLayoutWidgetObject = jest.fn()
 const mockGetApplicationLayoutDetail = jest.fn()
 const mockCreateApplicationLayout = jest.fn()
+const mockDeleteApplicationLayout = jest.fn()
+const mockResetApplicationLayoutConfig = jest.fn()
 const mockUpdateApplicationLayoutWidgetConfigsBatch = jest.fn()
 const mockResetApplicationLayoutWidgetConfigsBatch = jest.fn()
 
@@ -36,7 +38,7 @@ jest.mock('../../persistence/applicationLayoutsStore', () => ({
     applicationLayoutTablesExist: (...args: unknown[]) => mockApplicationLayoutTablesExist(...args),
     copyApplicationLayout: jest.fn(),
     createApplicationLayout: (...args: unknown[]) => mockCreateApplicationLayout(...args),
-    deleteApplicationLayout: jest.fn(),
+    deleteApplicationLayout: (...args: unknown[]) => mockDeleteApplicationLayout(...args),
     deleteApplicationLayoutWidget: jest.fn(),
     getApplicationLayoutDetail: (...args: unknown[]) => mockGetApplicationLayoutDetail(...args),
     getApplicationRuntimeSchemaName: (...args: unknown[]) => mockGetApplicationRuntimeSchemaName(...args),
@@ -45,6 +47,7 @@ jest.mock('../../persistence/applicationLayoutsStore', () => ({
     listApplicationLayoutWidgets: (...args: unknown[]) => mockListApplicationLayoutWidgets(...args),
     listApplicationLayouts: (...args: unknown[]) => mockListApplicationLayouts(...args),
     moveApplicationLayoutWidget: jest.fn(),
+    resetApplicationLayoutConfig: (...args: unknown[]) => mockResetApplicationLayoutConfig(...args),
     resetApplicationLayoutWidgetConfigsBatch: (...args: unknown[]) => mockResetApplicationLayoutWidgetConfigsBatch(...args),
     toggleApplicationLayoutWidget: jest.fn(),
     updateApplicationLayout: jest.fn(),
@@ -164,6 +167,123 @@ describe('applicationLayoutsController', () => {
             items: [{ id: 'global', scopeKind: 'global', objectCollectionId: null, name: 'Global' }]
         })
     })
+
+    it('resets marketing appearance through the owner/admin application boundary', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = { expectedVersion: 7 }
+        const item = { id: '018f8a78-7b8f-7c1d-a111-2222333344a1', templateKey: 'marketing-page', version: 8 }
+        mockResetApplicationLayoutConfig.mockResolvedValue(item)
+
+        await controller.resetConfig(
+            {
+                params: { applicationId: 'app-1', layoutId: item.id },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(mockResetApplicationLayoutConfig).toHaveBeenCalledWith(executor, 'app_runtime_schema', item.id, body, 'user-1')
+        expect(res.json).toHaveBeenCalledWith({ item })
+    })
+
+    it('rejects malformed marketing appearance reset payloads before the store boundary', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+
+        await controller.resetConfig(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                body: { expectedVersion: 0, unexpected: true }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResetApplicationLayoutConfig).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_LAYOUT_CONFIG_RESET_INVALID'
+        })
+    })
+
+    it.each(['abc', '0', '-1', '1.5', '9007199254740992'])(
+        'rejects malformed delete expectedVersion %s before the store boundary',
+        async (expectedVersion) => {
+            const controller = createApplicationLayoutsController(() => executor as never)
+            const res = createResponse()
+
+            await controller.remove(
+                {
+                    params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                    query: { expectedVersion }
+                } as unknown as Request,
+                res
+            )
+
+            expect(mockDeleteApplicationLayout).not.toHaveBeenCalled()
+            expect(res.status).toHaveBeenCalledWith(400)
+            expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+                error: 'APPLICATION_LAYOUT_EXPECTED_VERSION_INVALID'
+            })
+        }
+    )
+
+    it('passes a valid delete expectedVersion to the store', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        mockDeleteApplicationLayout.mockResolvedValue(true)
+
+        await controller.remove(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                query: { expectedVersion: '7' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockDeleteApplicationLayout).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-1', 'user-1', 7)
+        expect(res.status).toHaveBeenCalledWith(204)
+    })
+
+    it('requires an optimistic version before entering the reset store boundary', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+
+        await controller.resetConfig(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                body: {}
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResetApplicationLayoutConfig).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_LAYOUT_CONFIG_RESET_INVALID'
+        })
+    })
+
+    it.each(['APPLICATION_LAYOUT_VERSION_CONFLICT', 'APPLICATION_LAYOUT_MARKETING_RESET_NOT_SUPPORTED'])(
+        'maps marketing appearance reset conflict %s to HTTP 409',
+        async (code) => {
+            const controller = createApplicationLayoutsController(() => executor as never)
+            const res = createResponse()
+            mockResetApplicationLayoutConfig.mockRejectedValue(new Error(code))
+
+            await controller.resetConfig(
+                {
+                    params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                    body: { expectedVersion: 7 }
+                } as unknown as Request,
+                res
+            )
+
+            expect(res.status).toHaveBeenCalledWith(409)
+            expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: code })
+        }
+    )
 
     it('maps atomic widget config batch conflicts to HTTP 409 for owner/admin writes', async () => {
         const controller = createApplicationLayoutsController(() => executor as never)

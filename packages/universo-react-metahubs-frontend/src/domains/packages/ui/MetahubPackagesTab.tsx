@@ -387,7 +387,12 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             width: 64,
             align: 'center',
             render: (_row, index) => (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {index + 1}
                 </Typography>
             )
@@ -401,7 +406,13 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                         {row.name}
                     </Typography>
                     {row.description ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'normal' }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                whiteSpace: 'normal'
+                            }}
+                        >
                             {row.description}
                         </Typography>
                     ) : null}
@@ -436,7 +447,12 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             render: (row) => (
                 <Stack spacing={0.5}>
                     <Typography variant='body2'>{t('packages.upstream.pinnedVersion', 'Pinned upstream version')}</Typography>
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {row.upstreamVersion}
                     </Typography>
                 </Stack>
@@ -447,7 +463,13 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             label: t('packages.columns.surface', 'Surface'),
             width: 180,
             render: (row) => (
-                <Stack direction='row' flexWrap='wrap' gap={0.5}>
+                <Stack
+                    direction='row'
+                    sx={{
+                        flexWrap: 'wrap',
+                        gap: 0.5
+                    }}
+                >
                     {row.runtimeTargets.length > 0
                         ? row.runtimeTargets.map((target) => (
                               <Chip key={target} size='small' label={t(`packages.runtimeTargets.${target}`, target)} />
@@ -475,9 +497,21 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
 
     if (catalogQuery.isLoading || attachedQuery.isLoading) {
         return (
-            <Stack direction='row' spacing={1} alignItems='center' sx={{ py: 3 }}>
+            <Stack
+                direction='row'
+                spacing={1}
+                sx={{
+                    alignItems: 'center',
+                    py: 3
+                }}
+            >
                 <CircularProgress size={18} />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('packages.loading', 'Loading packages...')}
                 </Typography>
             </Stack>
@@ -523,7 +557,12 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             {!canManagePackages && !permissionsLoading ? (
                 <Alert severity='info'>{t('packages.readOnly', 'You can view connected packages, but cannot change them.')}</Alert>
             ) : null}
-            <Typography variant='body2' color='text.secondary'>
+            <Typography
+                variant='body2'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {t('packages.connectedCount', '{{count}} connected', { count: connectedRows.length })}
             </Typography>
             <Box>
@@ -749,7 +788,12 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                             <Typography variant='body2'>
                                 {t('packages.dialogs.changeVersion.resetConfig', 'Reset package display settings to defaults')}
                             </Typography>
-                            <Typography variant='caption' color='text.secondary'>
+                            <Typography
+                                variant='caption'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t(
                                     'packages.dialogs.changeVersion.resetConfigHelper',
                                     'Use this when the current display settings are not compatible with the selected version.'
@@ -869,9 +913,20 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                         ) : null}
                         {settingsDraft.row.authoringSurface.kind === 'playcanvasEditor' ? (
                             settingsProjectsQuery.isLoading ? (
-                                <Stack direction='row' spacing={1} alignItems='center'>
+                                <Stack
+                                    direction='row'
+                                    spacing={1}
+                                    sx={{
+                                        alignItems: 'center'
+                                    }}
+                                >
                                     <CircularProgress size={18} />
-                                    <Typography variant='body2' color='text.secondary'>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {t('packages.projects.loading', 'Loading PlayCanvas projects...')}
                                     </Typography>
                                 </Stack>

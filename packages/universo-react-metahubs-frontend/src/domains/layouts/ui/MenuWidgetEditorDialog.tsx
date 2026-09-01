@@ -267,7 +267,13 @@ function SortableItemRow({
                 <Typography variant='body2' noWrap>
                     {label || '—'}
                 </Typography>
-                <Stack direction='row' spacing={0.5} alignItems='center'>
+                <Stack
+                    direction='row'
+                    spacing={0.5}
+                    sx={{
+                        alignItems: 'center'
+                    }}
+                >
                     <Chip label={kindLabel} size='small' variant='outlined' />
                     {!item.isActive && <Chip label='off' size='small' color='warning' variant='outlined' />}
                 </Stack>
@@ -811,7 +817,7 @@ export default function MenuWidgetEditorDialog({
                                             onChange={(event) =>
                                                 setDraft((p) => ({ ...p, maxPrimaryItems: normalizeMaxPrimaryItems(event.target.value) }))
                                             }
-                                            inputProps={{ min: 1, max: 12, step: 1 }}
+                                            slotProps={{ htmlInput: { min: 1, max: 12, step: 1 } }}
                                             fullWidth
                                             size='small'
                                             helperText={t(
@@ -907,7 +913,14 @@ export default function MenuWidgetEditorDialog({
 
                         {/* --- Menu items DnD --- */}
                         <Box>
-                            <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ mb: 1 }}>
+                            <Stack
+                                direction='row'
+                                sx={{
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    mb: 1
+                                }}
+                            >
                                 <Typography variant='subtitle2'>{t('layouts.menuEditor.items')}</Typography>
                                 <Button size='small' startIcon={<AddRoundedIcon />} onClick={handleAddItem}>
                                     {t('layouts.menuEditor.addItem')}
@@ -915,7 +928,14 @@ export default function MenuWidgetEditorDialog({
                             </Stack>
 
                             {draft.items.length === 0 ? (
-                                <Typography variant='body2' color='text.secondary' sx={{ py: 2, textAlign: 'center' }}>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary',
+                                        py: 2,
+                                        textAlign: 'center'
+                                    }}
+                                >
                                     {t('layouts.menuEditor.itemsEmpty')}
                                 </Typography>
                             ) : (

@@ -434,7 +434,15 @@ export function EditorJsBlockEditor({
     return (
         <Stack spacing={1.5}>
             {isLoading ? (
-                <Stack direction='row' spacing={1} alignItems='center' color='text.secondary' data-testid='editorjs-block-editor-loading'>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    data-testid='editorjs-block-editor-loading'
+                    sx={{
+                        alignItems: 'center',
+                        color: 'text.secondary'
+                    }}
+                >
                     <CircularProgress size={18} />
                     <Typography variant='body2'>{mergedLabels.loading}</Typography>
                 </Stack>
@@ -509,7 +517,7 @@ export function EditorJsBlockEditor({
                     fullWidth
                     multiline
                     minRows={10}
-                    inputProps={{ spellCheck: false }}
+                    slotProps={{ htmlInput: { spellCheck: false } }}
                 />
             ) : null}
         </Stack>

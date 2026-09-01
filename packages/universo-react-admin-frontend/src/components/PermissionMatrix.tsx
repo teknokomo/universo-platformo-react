@@ -191,7 +191,12 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
                     <FormControlLabel
                         control={<Switch checked={allSelected} onChange={toggleAll} disabled={disabled} color='primary' />}
                         label={
-                            <Typography variant='body2' fontWeight='medium'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    fontWeight: 'medium'
+                                }}
+                            >
                                 {t('roles.permissions.selectAll', 'Grant all permissions')}
                             </Typography>
                         }
@@ -277,7 +282,14 @@ export function PermissionMatrix({ permissions, onChange, disabled = false, show
                 </Table>
             </TableContainer>
 
-            <Typography variant='caption' color='text.secondary' sx={{ mt: 1, display: 'block' }}>
+            <Typography
+                variant='caption'
+                sx={{
+                    color: 'text.secondary',
+                    mt: 1,
+                    display: 'block'
+                }}
+            >
                 {t('roles.permissions.hint', 'Check individual cells or use row/column headers for bulk selection. "*" means all actions.')}
             </Typography>
         </Box>

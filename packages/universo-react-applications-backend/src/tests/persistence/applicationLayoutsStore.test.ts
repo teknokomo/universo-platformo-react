@@ -2,6 +2,7 @@ import {
     deleteApplicationLayout,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
+    resetApplicationLayoutConfig,
     resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     updateApplicationLayoutWidgetConfig,
@@ -30,6 +31,155 @@ describe('applicationLayoutsStore', () => {
         expect(executor.query.mock.calls[0]?.[1]).toEqual([100, 0])
         expect(executor.query.mock.calls[1]?.[0]).toContain('scope_entity_id IS NULL')
         expect(executor.query.mock.calls[1]?.[1]).toEqual([])
+    })
+
+    it('resets only marketing layout appearance and records an optimistic versioned update', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+        const layoutRow = {
+            id: layoutId,
+            scope_entity_id: null,
+            template_key: 'marketing-page',
+            name: { en: 'Marketing' },
+            description: null,
+            config: {
+                themeMode: 'dark',
+                sectionVisibility: { hero: false },
+                primaryColor: '#1976d2'
+            },
+            is_active: true,
+            is_default: true,
+            sort_order: 0,
+            source_kind: 'application',
+            source_layout_id: null,
+            source_snapshot_hash: null,
+            source_content_hash: null,
+            local_content_hash: 'before-reset',
+            sync_state: 'clean',
+            is_source_excluded: false,
+            source_deleted_at: null,
+            source_deleted_by: null,
+            version: 4
+        }
+        txExecutor.query
+            .mockResolvedValueOnce([]) // advisory lock
+            .mockResolvedValueOnce([layoutRow]) // current layout
+            .mockResolvedValueOnce([]) // current widgets
+            .mockResolvedValueOnce([{ ...layoutRow, config: {}, version: 5 }]) // updated layout
+
+        const saved = await resetApplicationLayoutConfig(
+            executor,
+            'app_018f8a787b8f7c1da111222233334444',
+            layoutId,
+            { expectedVersion: 4 },
+            'user-1'
+        )
+
+        expect(saved).toEqual(
+            expect.objectContaining({
+                templateKey: 'marketing-page',
+                version: 5,
+                config: expect.objectContaining({
+                    themeMode: 'system',
+                    sectionOrder: ['hero', 'logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
+                    sectionVisibility: {},
+                    allowEmailActions: true,
+                    allowTelephoneActions: true,
+                    externalLinkTarget: 'new-tab'
+                })
+            })
+        )
+        expect(txExecutor.query).toHaveBeenCalledTimes(4)
+        expect(txExecutor.query.mock.calls[0]?.[1]).toEqual([
+            'app_018f8a787b8f7c1da111222233334444:layout:018f8a78-7b8f-7c1d-a111-2222333344a1'
+        ])
+        expect(txExecutor.query.mock.calls[3]?.[0]).toContain('SET config = $2::jsonb')
+        expect(txExecutor.query.mock.calls[3]?.[0]).toContain('_upl_updated_by = $5')
+        expect(txExecutor.query.mock.calls[3]?.[1]?.slice(0, 2)).toEqual([layoutId, expect.any(String)])
+        expect(txExecutor.query.mock.calls[3]?.[1]?.[4]).toBe('user-1')
+        expect(txExecutor.query.mock.calls[3]?.[1]?.[5]).toBe(4)
+    })
+
+    it('rejects a stale marketing appearance reset before issuing an update', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        txExecutor.query
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    scope_entity_id: null,
+                    template_key: 'marketing-page',
+                    name: { en: 'Marketing' },
+                    description: null,
+                    config: {},
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    source_kind: 'application',
+                    source_layout_id: null,
+                    source_snapshot_hash: null,
+                    source_content_hash: null,
+                    local_content_hash: 'hash-local',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    source_deleted_at: null,
+                    source_deleted_by: null,
+                    version: 8
+                }
+            ])
+            .mockResolvedValueOnce([])
+
+        await expect(
+            resetApplicationLayoutConfig(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                { expectedVersion: 7 },
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        expect(txExecutor.query).toHaveBeenCalledTimes(3)
+    })
+
+    it('does not reset a dashboard layout through the marketing endpoint store contract', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        txExecutor.query
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    source_kind: 'application',
+                    source_layout_id: null,
+                    source_snapshot_hash: null,
+                    source_content_hash: null,
+                    local_content_hash: 'hash-local',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    source_deleted_at: null,
+                    source_deleted_by: null,
+                    version: 2
+                }
+            ])
+            .mockResolvedValueOnce([])
+
+        await expect(
+            resetApplicationLayoutConfig(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                '018f8a78-7b8f-7c1d-a111-2222333344a1',
+                { expectedVersion: 2 },
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_MARKETING_RESET_NOT_SUPPORTED')
+        expect(txExecutor.query).toHaveBeenCalledTimes(3)
     })
 
     it('reassigns the default layout when deleting the current default layout', async () => {
@@ -100,6 +250,28 @@ describe('applicationLayoutsStore', () => {
                 'user-1'
             )
         ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
+    })
+
+    it('rejects a valid dashboard widget when the parent layout is marketing-page', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        txExecutor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([])
+
+        await expect(
+            upsertApplicationLayoutWidget(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                'marketing-layout',
+                {
+                    zone: 'top',
+                    widgetKey: 'header',
+                    config: {}
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
+
+        const insertSql = txExecutor.query.mock.calls.map(([sql]) => String(sql)).find((sql) => sql.includes('INSERT INTO'))
+        expect(insertSql).toContain("layout_guard.template_key = 'dashboard'")
     })
 
     it('reorders widgets with a single batch update query', async () => {

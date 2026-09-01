@@ -496,9 +496,11 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                 <Stack
                                                     direction={{ xs: 'column', sm: 'row' }}
                                                     spacing={1}
-                                                    justifyContent='center'
-                                                    alignItems='center'
-                                                    sx={interactionBlocked ? { opacity: 0.72 } : undefined}
+                                                    sx={{
+                                                        ...(interactionBlocked ? { opacity: 0.72 } : {}),
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center'
+                                                    }}
                                                 >
                                                     {renderActions(row)}
                                                 </Stack>
@@ -656,9 +658,11 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                         <Stack
                                             direction={{ xs: 'column', sm: 'row' }}
                                             spacing={1}
-                                            justifyContent='center'
-                                            alignItems='center'
-                                            sx={interactionBlocked ? { opacity: 0.72 } : undefined}
+                                            sx={{
+                                                ...(interactionBlocked ? { opacity: 0.72 } : {}),
+                                                justifyContent: 'center',
+                                                alignItems: 'center'
+                                            }}
                                         >
                                             {renderActions ? renderActions(row) : null}
                                         </Stack>
@@ -829,7 +833,12 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         !isLoading && displayData.length === 0 && emptyStateMessage ? (
                             <TableRow>
                                 <TableCell colSpan={totalCols} sx={{ textAlign: 'center', py: 3, borderBottom: 'none' }}>
-                                    <Typography variant='body2' color='text.secondary'>
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {emptyStateMessage}
                                     </Typography>
                                 </TableCell>

@@ -241,12 +241,18 @@ export default function UserFormDialog({
             onClose={presentation.dialogProps.onClose}
             maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm') as DialogProps['maxWidth']}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>
                 {presentation.titleActions ? (
-                    <Stack direction='row' alignItems='center' justifyContent='space-between' spacing={2}>
+                    <Stack
+                        direction='row'
+                        spacing={2}
+                        sx={{
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}
+                    >
                         <span>{title}</span>
                         {presentation.titleActions}
                     </Stack>

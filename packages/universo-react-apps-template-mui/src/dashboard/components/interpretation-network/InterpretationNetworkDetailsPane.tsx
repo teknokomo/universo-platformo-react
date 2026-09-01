@@ -136,7 +136,14 @@ export function InterpretationNetworkDetailsPane({
                 flex: 1,
                 minWidth: 220,
                 renderCell: (params) => (
-                    <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            whiteSpace: 'pre-wrap',
+                            overflowWrap: 'anywhere'
+                        }}
+                    >
                         {String(params.value || '—')}
                     </Typography>
                 )
@@ -186,7 +193,7 @@ export function InterpretationNetworkDetailsPane({
                 }}
             >
                 <Stack spacing={1.5}>
-                    <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
+                    <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'center' }}>
                         <Tooltip title={t('workspace.material.backToMaterials', 'Back to materials')}>
                             <IconButton
                                 type='button'
@@ -337,7 +344,13 @@ export function InterpretationNetworkDetailsPane({
                                         <Typography variant='subtitle2' sx={{ fontWeight: 700 }} noWrap>
                                             {material.title}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap' }}>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary',
+                                                whiteSpace: 'pre-wrap'
+                                            }}
+                                        >
                                             {material.description || t('workspace.material.noDescription', 'No description')}
                                         </Typography>
                                     </CardContent>

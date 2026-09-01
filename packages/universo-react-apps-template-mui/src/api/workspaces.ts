@@ -1,5 +1,9 @@
 import { z } from 'zod'
+import { isUuidV7 } from '@universo-react/utils'
 import { fetchWithCsrf } from './api'
+
+const uuidSchema = z.string().uuid()
+const workspaceIdSchema = uuidSchema.refine((value) => isUuidV7(value), 'Workspace identifiers must be UUID v7.')
 
 const settingDefinitionSchema = z.object({
     key: z.string(),
@@ -11,18 +15,20 @@ const settingDefinitionSchema = z.object({
 })
 
 const workspaceSchema = z.object({
-    id: z.string(),
+    id: workspaceIdSchema,
     name: z.unknown(),
     description: z.unknown(),
     workspaceType: z.string(),
-    personalUserId: z.string().nullable().optional(),
+    // Auth users are managed by Supabase and may use a UUID version other than v7.
+    personalUserId: uuidSchema.nullable().optional(),
     status: z.string(),
     isDefault: z.boolean(),
     roleCodename: z.string()
 })
 
 const workspaceMemberSchema = z.object({
-    userId: z.string(),
+    // Auth user identifiers are external to this feature and are not required to be UUID v7.
+    userId: uuidSchema,
     roleCodename: z.string(),
     email: z.string().nullable().optional(),
     nickname: z.string().nullable().optional(),
@@ -34,7 +40,13 @@ const workspaceListResponseSchema = z.object({
     total: z.number().default(0),
     limit: z.number().default(100),
     offset: z.number().default(0),
-    currentWorkspaceId: z.string().nullable().optional()
+    currentWorkspaceId: workspaceIdSchema.nullable().optional(),
+    permissions: z
+        .object({
+            canCreateSharedWorkspace: z.boolean().default(false),
+            canManageApplication: z.boolean().default(false)
+        })
+        .default({ canCreateSharedWorkspace: false, canManageApplication: false })
 })
 
 const workspaceMembersResponseSchema = z.object({
@@ -43,6 +55,12 @@ const workspaceMembersResponseSchema = z.object({
     limit: z.number().default(100),
     offset: z.number().default(0)
 })
+
+const runtimeWorkspaceMutationResponseSchema = z
+    .object({
+        id: workspaceIdSchema
+    })
+    .strict()
 
 const runtimeWorkspaceSettingSchema = z.object({
     key: z.string(),
@@ -59,10 +77,19 @@ const runtimeWorkspaceSettingsResponseSchema = z.object({
     canManage: z.boolean().default(false)
 })
 
+const runtimeWorkspaceResetResponseSchema = z
+    .object({
+        resetRows: z.number().int().nonnegative(),
+        operationId: uuidSchema.refine((value) => isUuidV7(value), 'Workspace operation identifiers must be UUID v7.'),
+        canManage: z.boolean().default(false)
+    })
+    .strict()
+
 export type RuntimeWorkspace = z.infer<typeof workspaceSchema>
 export type RuntimeWorkspaceMember = z.infer<typeof workspaceMemberSchema>
 export type RuntimeWorkspaceListResponse = z.infer<typeof workspaceListResponseSchema>
 export type RuntimeWorkspaceMembersResponse = z.infer<typeof workspaceMembersResponseSchema>
+export type RuntimeWorkspaceMutationResponse = z.infer<typeof runtimeWorkspaceMutationResponseSchema>
 export type RuntimeWorkspaceSetting = z.infer<typeof runtimeWorkspaceSettingSchema>
 export type RuntimeWorkspaceSettingsResponse = z.infer<typeof runtimeWorkspaceSettingsResponseSchema>
 
@@ -102,19 +129,39 @@ const applyListParams = (url: URL, params?: RuntimeWorkspaceListParams): void =>
 
 const extractErrorDetails = async (response: Response, fallback: string): Promise<{ message: string; code?: string }> => {
     const text = await response.text().catch(() => '')
-    if (!text) return { message: `${fallback} (${response.status})` }
+    if (!text) return { message: fallback }
     try {
-        const parsed = JSON.parse(text)
-        const message = parsed?.error ?? parsed?.message
-        const normalizedMessage = typeof message === 'string' && message.trim() ? message : `${fallback} (${response.status})`
-        const code = typeof parsed?.code === 'string' && parsed.code.trim() ? parsed.code : ''
+        const parsed = z
+            .object({ code: z.string().trim().min(1).optional() })
+            .passthrough()
+            .safeParse(JSON.parse(text))
+        const code = parsed.success ? parsed.data.code : undefined
         return {
-            message: normalizedMessage,
+            message: fallback,
             ...(code ? { code } : {})
         }
     } catch {
-        return { message: text }
+        return { message: fallback }
     }
+}
+
+async function parseRuntimeWorkspaceResponse<TSchema extends z.ZodTypeAny>(
+    response: Response,
+    schema: TSchema,
+    fallback: string
+): Promise<z.infer<TSchema>> {
+    let payload: unknown
+    try {
+        payload = await response.json()
+    } catch {
+        throw new RuntimeWorkspaceApiError(fallback)
+    }
+
+    const parsed = schema.safeParse(payload)
+    if (!parsed.success) {
+        throw new RuntimeWorkspaceApiError(fallback)
+    }
+    return parsed.data
 }
 
 const throwRuntimeWorkspaceApiError = async (response: Response, fallback: string): Promise<never> => {
@@ -135,11 +182,7 @@ export async function fetchRuntimeWorkspaces(options: {
         await throwRuntimeWorkspaceApiError(response, 'Failed to load workspaces')
     }
 
-    const parsed = workspaceListResponseSchema.safeParse(await response.json())
-    if (!parsed.success) {
-        throw new Error('Workspace list response validation failed')
-    }
-    return parsed.data
+    return parseRuntimeWorkspaceResponse(response, workspaceListResponseSchema, 'Failed to load workspaces')
 }
 
 export async function fetchRuntimeWorkspace(options: {
@@ -154,11 +197,7 @@ export async function fetchRuntimeWorkspace(options: {
         await throwRuntimeWorkspaceApiError(response, 'Failed to load workspace')
     }
 
-    const parsed = workspaceSchema.safeParse(await response.json())
-    if (!parsed.success) {
-        throw new Error('Workspace response validation failed')
-    }
-    return parsed.data
+    return parseRuntimeWorkspaceResponse(response, workspaceSchema, 'Failed to load workspace')
 }
 
 export async function createRuntimeWorkspace(options: {
@@ -166,7 +205,7 @@ export async function createRuntimeWorkspace(options: {
     applicationId: string
     name: unknown
     description: unknown
-}): Promise<{ id: string }> {
+}): Promise<RuntimeWorkspaceMutationResponse> {
     const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, '/workspaces')
     const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), {
         method: 'POST',
@@ -176,7 +215,7 @@ export async function createRuntimeWorkspace(options: {
     if (!response.ok) {
         await throwRuntimeWorkspaceApiError(response, 'Failed to create workspace')
     }
-    return response.json()
+    return parseRuntimeWorkspaceResponse(response, runtimeWorkspaceMutationResponseSchema, 'Failed to create workspace')
 }
 
 export async function updateRuntimeWorkspace(options: {
@@ -206,7 +245,7 @@ export async function copyRuntimeWorkspace(options: {
     workspaceId: string
     name: unknown
     description: unknown
-}): Promise<{ id: string }> {
+}): Promise<RuntimeWorkspaceMutationResponse> {
     const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/copy`)
     const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), {
         method: 'POST',
@@ -216,7 +255,7 @@ export async function copyRuntimeWorkspace(options: {
     if (!response.ok) {
         await throwRuntimeWorkspaceApiError(response, 'Failed to copy workspace')
     }
-    return response.json()
+    return parseRuntimeWorkspaceResponse(response, runtimeWorkspaceMutationResponseSchema, 'Failed to copy workspace')
 }
 
 export async function deleteRuntimeWorkspace(options: { apiBaseUrl: string; applicationId: string; workspaceId: string }): Promise<void> {
@@ -256,11 +295,7 @@ export async function fetchRuntimeWorkspaceMembers(options: {
         await throwRuntimeWorkspaceApiError(response, 'Failed to load workspace members')
     }
 
-    const parsed = workspaceMembersResponseSchema.safeParse(await response.json())
-    if (!parsed.success) {
-        throw new Error('Workspace members response validation failed')
-    }
-    return parsed.data
+    return parseRuntimeWorkspaceResponse(response, workspaceMembersResponseSchema, 'Failed to load workspace members')
 }
 
 export async function inviteRuntimeWorkspaceMember(options: {
@@ -306,11 +341,7 @@ export async function fetchRuntimeWorkspaceSettings(options: {
         await throwRuntimeWorkspaceApiError(response, 'Failed to load workspace settings')
     }
 
-    const parsed = runtimeWorkspaceSettingsResponseSchema.safeParse(await response.json())
-    if (!parsed.success) {
-        throw new Error('Workspace settings response validation failed')
-    }
-    return parsed.data
+    return parseRuntimeWorkspaceResponse(response, runtimeWorkspaceSettingsResponseSchema, 'Failed to load workspace settings')
 }
 
 export async function updateRuntimeWorkspaceSettings(options: {
@@ -333,9 +364,19 @@ export async function updateRuntimeWorkspaceSettings(options: {
         await throwRuntimeWorkspaceApiError(response, 'Failed to update workspace settings')
     }
 
-    const parsed = runtimeWorkspaceSettingsResponseSchema.safeParse(await response.json())
-    if (!parsed.success) {
-        throw new Error('Workspace settings response validation failed')
+    return parseRuntimeWorkspaceResponse(response, runtimeWorkspaceSettingsResponseSchema, 'Failed to update workspace settings')
+}
+
+export async function resetRuntimeWorkspaceSeededContent(options: {
+    apiBaseUrl: string
+    applicationId: string
+    workspaceId: string
+}): Promise<{ resetRows: number; operationId: string; canManage: boolean }> {
+    const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/seed/reset`)
+    const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), { method: 'POST' })
+    if (!response.ok) {
+        await throwRuntimeWorkspaceApiError(response, 'Failed to reset seeded workspace content')
     }
-    return parsed.data
+
+    return parseRuntimeWorkspaceResponse(response, runtimeWorkspaceResetResponseSchema, 'Failed to reset seeded workspace content')
 }

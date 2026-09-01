@@ -56,6 +56,7 @@
     -   [Exclusions](platform/metahubs/exclusions.md)
     -   [Shared Behavior Settings](platform/metahubs/shared-behavior-settings.md)
 -   [Applications](platform/applications.md)
+-   [Marketing Page Template](platform/marketing-page-template.md)
 -   [PlayCanvas Editor Package](platform/playcanvas-editor.md)
 -   [PlayCanvas Editor Assets](platform/playcanvas-editor-assets.md)
 -   [PlayCanvas Projects](platform/playcanvas-projects.md)

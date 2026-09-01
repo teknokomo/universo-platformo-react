@@ -115,7 +115,7 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
 
     if (isLoading) {
         return (
-            <Stack direction='row' spacing={0.5} alignItems='center'>
+            <Stack direction='row' spacing={0.5} sx={{ alignItems: 'center' }}>
                 <CircularProgress size={16} />
             </Stack>
         )
@@ -166,7 +166,7 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
             inputProps={{ 'aria-label': t('workspace.switch', 'Switch workspace') }}
             title={t('workspace.switch', 'Switch workspace')}
             renderValue={() => (
-                <Stack direction='row' alignItems='center' sx={{ minWidth: 0, width: '100%' }}>
+                <Stack direction='row' sx={{ minWidth: 0, width: '100%', alignItems: 'center' }}>
                     <WorkspaceListItemAvatar>
                         <WorkspaceAvatar alt={currentName}>
                             {currentIsPersonal ? (
@@ -179,8 +179,10 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
                     <ListItemText
                         primary={currentName}
                         secondary={currentRoleLabel ? `${currentTypeLabel} · ${currentRoleLabel}` : currentTypeLabel}
-                        primaryTypographyProps={{ variant: 'body2', noWrap: true, fontWeight: 600 }}
-                        secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
+                        slotProps={{
+                            primary: { variant: 'body2', noWrap: true, sx: { fontWeight: 600 } },
+                            secondary: { variant: 'caption', noWrap: true }
+                        }}
                         sx={{ minWidth: 0, my: 0 }}
                     />
                     {switchMutation.isPending ? <CircularProgress size={16} sx={{ ml: 1 }} /> : null}
@@ -220,8 +222,10 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
                         <ListItemText
                             primary={name}
                             secondary={`${typeLabel} · ${roleLabel}`}
-                            primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                            secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
+                            slotProps={{
+                                primary: { variant: 'body2', noWrap: true },
+                                secondary: { variant: 'caption', noWrap: true }
+                            }}
                         />
                     </MenuItem>
                 )

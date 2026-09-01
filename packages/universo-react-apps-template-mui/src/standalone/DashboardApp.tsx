@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { sanitizeApplicationLearningContentSettings } from '@universo-react/types'
 import Dashboard from '../dashboard/Dashboard'
@@ -18,12 +22,13 @@ import type {
 } from '../dashboard/Dashboard'
 import AppMainLayout from '../layouts/AppMainLayout'
 import { createStandaloneAdapter } from '../api/adapters'
-import { updateLearningContentProgress } from '../api/api'
+import { fetchRuntimeTemplate, updateLearningContentProgress } from '../api/api'
 import type { AppDataResponse } from '../api/api'
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
 import { CrudDialogs } from '../components/CrudDialogs'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { RuntimeWorkspacesPage } from '../workspaces/RuntimeWorkspacesPage'
+import MarketingRuntimeContent from '../marketing-page/MarketingRuntimeContent'
 
 export interface DashboardAppProps {
     applicationId: string
@@ -69,7 +74,35 @@ const readCurrentRouteSource = (): string => {
 
 const readCurrentRoutePathname = (routeSource: string): string => {
     if (typeof window === 'undefined') return ''
-    return routeSource.split(/[?#]/, 1)[0] ?? window.location.pathname
+    const hashRoute = window.location.hash.startsWith('#/') ? window.location.hash.slice(1) : ''
+    const pathname = hashRoute || routeSource
+    return pathname.split(/[?#]/, 1)[0] ?? window.location.pathname
+}
+
+const isStandaloneRuntimeRootRoute = (applicationId: string): boolean => {
+    if (typeof window === 'undefined') return true
+
+    const routeSource = window.location.hash.startsWith('#/') ? window.location.hash.slice(1) : window.location.pathname
+    const routePathname = routeSource.split(/[?#]/, 1)[0] ?? ''
+    const applicationPath = `/a/${applicationId}`
+    if (routePathname !== applicationPath && !routePathname.startsWith(`${applicationPath}/`)) {
+        return false
+    }
+
+    return routePathname.slice(applicationPath.length).split('/').filter(Boolean).length === 0
+}
+
+const readStandaloneWorkspaceId = (): string | null => {
+    if (typeof window === 'undefined') return null
+
+    const routeSource = window.location.hash.startsWith('#/')
+        ? window.location.hash.slice(1)
+        : `${window.location.pathname}${window.location.search}`
+    const searchStart = routeSource.indexOf('?')
+    if (searchStart === -1) return null
+
+    const params = new URLSearchParams(routeSource.slice(searchStart + 1).split('#', 1)[0])
+    return params.get('workspaceId')
 }
 
 const hasMatrixCellRouteParam = (routeSource: string): boolean => {
@@ -213,7 +246,7 @@ const toStandaloneSectionLinkMenuItem = (
     }
 }
 
-export default function DashboardApp(props: DashboardAppProps) {
+function DashboardRuntimeContent(props: DashboardAppProps) {
     const { t } = useTranslation('apps')
     const [routeSource, setRouteSource] = useState(readCurrentRouteSource)
     const navigate = useCallback((href: string) => {
@@ -236,8 +269,9 @@ export default function DashboardApp(props: DashboardAppProps) {
 
     const routePathname = readCurrentRoutePathname(routeSource)
     const isWorkspacesRoute = useMemo(() => {
-        return /\/a\/[0-9a-fA-F-]{16,}\/workspaces/.test(routePathname)
-    }, [routePathname])
+        const workspacePath = `/a/${props.applicationId}/workspaces`
+        return routePathname === workspacePath || routePathname.startsWith(`${workspacePath}/`)
+    }, [props.applicationId, routePathname])
     const runtimeRouteSegments = useMemo(() => {
         const marker = `/a/${props.applicationId}`
         const suffix = routePathname.startsWith(marker) ? routePathname.slice(marker.length) : ''
@@ -247,6 +281,7 @@ export default function DashboardApp(props: DashboardAppProps) {
         !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
     const routeWorkspaceId =
         isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[1] ?? '') ? runtimeRouteSegments[1] : null
+    const requestedWorkspaceId = routeWorkspaceId ?? readStandaloneWorkspaceId()
     const workspaceRouteSection =
         isWorkspacesRoute && runtimeRouteSegments[2] === 'access'
             ? 'access'
@@ -270,6 +305,7 @@ export default function DashboardApp(props: DashboardAppProps) {
         adapter,
         locale: props.locale,
         initialSectionId: routeSectionId,
+        workspaceId: requestedWorkspaceId,
         resolvePreferredSectionId: resolveRoutePreferredSectionId,
         createDefaultContext: buildLearningContentCreateDefaultContext
     })
@@ -803,4 +839,57 @@ export default function DashboardApp(props: DashboardAppProps) {
             ) : null}
         </AppMainLayout>
     )
+}
+
+function RuntimeBoundary({ children, error, loading }: { children?: ReactNode; error?: boolean; loading?: boolean }) {
+    const { t } = useTranslation('apps')
+    if (loading) {
+        return (
+            <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3 }}>
+                <CircularProgress aria-label={t('runtime.loading', 'Loading application')} />
+            </Box>
+        )
+    }
+    if (error) {
+        return (
+            <Box sx={{ maxWidth: 640, mx: 'auto', p: 3 }}>
+                <Alert severity='error'>{t('runtime.loadError', 'The application could not be loaded.')}</Alert>
+            </Box>
+        )
+    }
+    return <>{children}</>
+}
+
+export default function DashboardApp(props: DashboardAppProps) {
+    const { t } = useTranslation('apps')
+    const workspaceId = readStandaloneWorkspaceId()
+    const templateQuery = useQuery({
+        queryKey: ['standalone-runtime-template', props.applicationId],
+        queryFn: () => fetchRuntimeTemplate({ apiBaseUrl: props.apiBaseUrl, applicationId: props.applicationId }),
+        enabled: Boolean(props.applicationId),
+        staleTime: 60_000
+    })
+
+    if (!props.applicationId) return <DashboardRuntimeContent {...props} />
+    if (templateQuery.isLoading) return <RuntimeBoundary loading />
+    if (templateQuery.isError || !templateQuery.data) return <RuntimeBoundary error />
+    if (templateQuery.data.templateKey === 'marketing-page' && isStandaloneRuntimeRootRoute(props.applicationId)) {
+        return (
+            <MarketingRuntimeContent
+                {...props}
+                workspaceId={workspaceId}
+                loadingLabel={t('runtime.loading', 'Loading application')}
+                errorLabel={t('runtime.loadError', 'The application could not be loaded.')}
+                onAction={(action) => {
+                    if (action.actionKind !== 'internal' || typeof window === 'undefined') return
+                    if (action.href.startsWith('#')) {
+                        window.location.hash = action.href.slice(1)
+                        return
+                    }
+                    window.location.assign(action.href)
+                }}
+            />
+        )
+    }
+    return <DashboardRuntimeContent {...props} />
 }

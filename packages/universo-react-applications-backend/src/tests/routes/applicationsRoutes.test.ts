@@ -14530,4 +14530,29 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ id: copiedChildRowId, status: 'created' })
         })
     })
+
+    it('registers workspace copy and seeded-content reset as authenticated write routes', () => {
+        const { dataSource } = buildDataSource()
+        const router = createApplicationsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+        const stack = (
+            router as unknown as {
+                stack: Array<{
+                    route?: {
+                        path: string
+                        methods: Record<string, boolean>
+                        stack: Array<{ handle: unknown }>
+                    }
+                }>
+            }
+        ).stack
+
+        for (const path of [
+            '/:applicationId/runtime/workspaces/:workspaceId/copy',
+            '/:applicationId/runtime/workspaces/:workspaceId/seed/reset'
+        ]) {
+            const routeLayer = stack.find((layer) => layer.route?.path === path)
+            expect(routeLayer?.route?.methods.post).toBe(true)
+            expect(routeLayer?.route?.stack[0]?.handle).toBe(mockRateLimiter)
+        }
+    })
 })

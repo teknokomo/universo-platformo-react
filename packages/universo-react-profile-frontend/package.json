@@ -38,6 +38,9 @@
     "author": "Vladimir Levadnij and Teknokomo",
     "license": "Omsk Open License",
     "dependencies": {
+        "@emotion/react": "catalog:",
+        "@emotion/styled": "catalog:",
+        "@mui/material": "catalog:",
         "@universo-react/auth-frontend": "workspace:*",
         "@universo-react/i18n": "workspace:*",
         "@universo-react/template-mui": "workspace:*",

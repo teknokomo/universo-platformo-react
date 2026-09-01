@@ -84,7 +84,12 @@ const CodenamePreview = ({ style, alphabet, allowMixed, showMixedPreviewOnly = f
 
     return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-            <Typography variant='caption' color='text.secondary'>
+            <Typography
+                variant='caption'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {t('settings.metahubs.codenamePreview.title')}:
             </Typography>
             {variants.map((variant) => (
@@ -259,7 +264,12 @@ const AdminSettings = () => {
                                 >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.general.dialogSizePreset')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.general.dialogSizePresetDescription')}
                                         </Typography>
                                     </Box>
@@ -285,7 +295,12 @@ const AdminSettings = () => {
                                 >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.general.dialogAllowFullscreen')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.general.dialogAllowFullscreenDescription')}
                                         </Typography>
                                     </Box>
@@ -306,7 +321,12 @@ const AdminSettings = () => {
                                 >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.general.dialogAllowResize')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.general.dialogAllowResizeDescription')}
                                         </Typography>
                                     </Box>
@@ -327,7 +347,12 @@ const AdminSettings = () => {
                                 >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.general.dialogCloseBehavior')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.general.dialogCloseBehaviorDescription')}
                                         </Typography>
                                     </Box>
@@ -379,7 +404,12 @@ const AdminSettings = () => {
                                 >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameStyle')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.metahubs.codenameStyleDescription')}
                                         </Typography>
                                         <CodenamePreview
@@ -407,7 +437,12 @@ const AdminSettings = () => {
                                 >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameAlphabet')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.metahubs.codenameAlphabetDescription')}
                                         </Typography>
                                         <CodenamePreview
@@ -441,7 +476,12 @@ const AdminSettings = () => {
                                             <Typography variant='subtitle2'>
                                                 {t('settings.metahubs.codenameAllowMixedAlphabets')}
                                             </Typography>
-                                            <Typography variant='body2' color='text.secondary'>
+                                            <Typography
+                                                variant='body2'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {t('settings.metahubs.codenameAllowMixedAlphabetsDescription')}
                                             </Typography>
                                             <CodenamePreview
@@ -474,7 +514,12 @@ const AdminSettings = () => {
                                             <Typography variant='subtitle2'>
                                                 {t('settings.metahubs.codenameAutoConvertMixedAlphabets')}
                                             </Typography>
-                                            <Typography variant='body2' color='text.secondary'>
+                                            <Typography
+                                                variant='body2'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {t('settings.metahubs.codenameAutoConvertMixedAlphabetsDescription')}
                                             </Typography>
                                         </Box>
@@ -498,7 +543,12 @@ const AdminSettings = () => {
                                 >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameLocalizedEnabled')}</Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.metahubs.codenameLocalizedEnabledDescription')}
                                         </Typography>
                                     </Box>
@@ -518,7 +568,12 @@ const AdminSettings = () => {
                                         <Typography variant='subtitle2'>
                                             {t('settings.metahubs.platformSystemComponentsConfigurable')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.metahubs.platformSystemComponentsConfigurableDescription')}
                                         </Typography>
                                     </Box>
@@ -543,7 +598,12 @@ const AdminSettings = () => {
                                         <Typography variant='subtitle2'>
                                             {t('settings.metahubs.platformSystemComponentsRequired')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.metahubs.platformSystemComponentsRequiredDescription')}
                                         </Typography>
                                     </Box>
@@ -568,7 +628,12 @@ const AdminSettings = () => {
                                         <Typography variant='subtitle2'>
                                             {t('settings.metahubs.platformSystemComponentsIgnoreMetahubSettings')}
                                         </Typography>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t('settings.metahubs.platformSystemComponentsIgnoreMetahubSettingsDescription')}
                                         </Typography>
                                     </Box>

@@ -296,6 +296,11 @@
         "settingsBooleanEnabled": "Enabled",
         "settingsBooleanDisabled": "Disabled",
         "settingsStructuredReadonly": "This structured setting is managed in application settings.",
+        "resetSeededContent": "Reset seeded content",
+        "resetSeededContentTitle": "Reset seeded content?",
+        "resetSeededContentConfirm": "This restores records that are still owned by the published template source. Authored records remain unchanged.",
+        "resetSeededContentAction": "Reset content",
+        "resettingSeededContent": "Resetting…",
         "settingSources": {
             "default": "Default",
             "metahub": "Metahub",
@@ -348,6 +353,7 @@
         "inviteUserId": "User ID",
         "inviteRole": "Role",
         "roleOwner": "Owner",
+        "roleAdmin": "Application administrator",
         "roleMember": "Member",
         "default": "Default",
         "setDefault": "Set default",
@@ -391,6 +397,8 @@
             "invalidRequestBody": "Invalid request body",
             "settingNotAllowed": "This workspace setting is locked",
             "settingVersionConflict": "This workspace setting changed. Reload and try again.",
+            "seedResetFailed": "Seeded workspace content could not be reset.",
+            "copyReferenceUnresolved": "A required workspace reference could not be copied.",
             "personalMutationBlocked": "Personal workspace cannot be changed",
             "personalDeleteBlocked": "Personal workspace cannot be deleted"
         },
@@ -559,6 +567,67 @@
             "versionMismatchDescription": "Realtime version mismatch. Reload the application."
         },
         "webglUnavailable": "3D rendering is not available on this device or browser."
+    },
+    "marketingPage": {
+        "fallbacks": {
+            "navigationLabel": "Link",
+            "logoName": "Customer logo",
+            "featureTitle": "Feature",
+            "testimonialAuthor": "Customer",
+            "highlightTitle": "Highlight",
+            "pricingBenefit": "Benefit",
+            "pricingTitle": "Plan",
+            "pricingPeriod": "per month",
+            "faqQuestion": "Question",
+            "footerGroupTitle": "Links",
+            "footerLink": "Link",
+            "socialLink": "Social link",
+            "heroTitle": "Our latest",
+            "heroAccent": "products",
+            "heroSubmit": "Start now",
+            "heroTerms": "Terms",
+            "brandName": "Material UI",
+            "newsletterTitle": "Join the newsletter",
+            "emailLabel": "Email",
+            "emailPlaceholder": "Your email address",
+            "newsletterSubmit": "Subscribe",
+            "newsletterSuccess": "Thanks for subscribing!",
+            "newsletterError": "Subscription could not be completed.",
+            "copyrightText": "Copyright ©",
+            "copyrightLabel": "Sitemark",
+            "logoCollectionTitle": "Trusted by the best companies",
+            "featuresTitle": "Product features",
+            "testimonialsTitle": "Testimonials",
+            "highlightsTitle": "Highlights",
+            "pricingSectionTitle": "Pricing",
+            "faqSectionTitle": "Frequently asked questions",
+            "authSignIn": "Sign in",
+            "authSignUp": "Sign up"
+        },
+        "actions": {
+            "signIn": "Sign in",
+            "signUp": "Sign up"
+        },
+        "navigation": {
+            "openMenu": "Open menu",
+            "closeMenu": "Close menu",
+            "skipToContent": "Skip to content"
+        },
+        "form": {
+            "invalidEmail": "Enter a valid email address.",
+            "submitError": "We could not process your request. Please try again.",
+            "submitted": "Thanks! We will be in touch.",
+            "submitting": "Submitting..."
+        },
+        "colorMode": {
+            "label": "Color mode",
+            "system": "System",
+            "light": "Light",
+            "dark": "Dark"
+        },
+        "empty": "No {{section}} content is configured yet.",
+        "mediaMissing": "Media is unavailable",
+        "mediaDeferred": "Media is configured but is not available in this runtime."
     },
     "guest": {
         "invalidLink": "Public guest link is invalid.",

@@ -69,9 +69,21 @@ const MetahubBoard = () => {
     if (isMetahubLoading || isSummaryLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
-                <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
+                <Stack
+                    spacing={2}
+                    sx={{
+                        alignItems: 'center',
+                        minHeight: 400,
+                        justifyContent: 'center'
+                    }}
+                >
                     <CircularProgress size={40} />
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('board.loading', 'Loading dashboard...')}
                     </Typography>
                 </Stack>
@@ -227,7 +239,13 @@ const MetahubBoard = () => {
                 </Grid>
 
                 {/* Back Button */}
-                <Box display='flex' justifyContent='center' sx={{ mt: 2 }}>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        mt: 2
+                    }}
+                >
                     <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/metahubs')}>
                         {t('actions.backToList', 'Back to Metahubs')}
                     </Button>

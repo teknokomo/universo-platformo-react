@@ -6,10 +6,10 @@ import EditIcon from '@mui/icons-material/Edit'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import StarIcon from '@mui/icons-material/Star'
-import StarOutlineIcon from '@mui/icons-material/StarOutline'
+import StarOutlineIcon from '@mui/icons-material/StarOutlineOutlined'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import { useCommonTranslations } from '@universo-react/i18n'
@@ -417,7 +417,13 @@ const NestedComponentList = ({
                     const rawComponent = childComponentMap.get(row.id)
                     const isDisplayAttr = rawComponent?.isDisplayComponent ?? getDisplayComponentFlag(row)
                     return (
-                        <Stack direction='row' spacing={0.5} alignItems='center'>
+                        <Stack
+                            direction='row'
+                            spacing={0.5}
+                            sx={{
+                                alignItems: 'center'
+                            }}
+                        >
                             {isDisplayAttr && (
                                 <Tooltip
                                     title={t(
@@ -455,7 +461,16 @@ const NestedComponentList = ({
                     const hasLocalized = rules?.localized
                     const typeLabel = childDataTypeLabelByValue.get(row.dataType) ?? row.dataType
                     return (
-                        <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center' flexWrap='wrap' useFlexGap>
+                        <Stack
+                            direction='row'
+                            spacing={0.5}
+                            useFlexGap
+                            sx={{
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                flexWrap: 'wrap'
+                            }}
+                        >
                             <Chip label={typeLabel} size='small' color={getDataTypeColor(row.dataType)} />
                             {hasVersioned && (
                                 <Chip
@@ -1246,8 +1261,20 @@ const NestedComponentList = ({
     return (
         <ExistingCodenamesProvider entities={codenameEntities}>
             <Box>
-                <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ mb: 1 }}>
-                    <Typography variant='caption' color='text.secondary'>
+                <Stack
+                    direction='row'
+                    sx={{
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: 1
+                    }}
+                >
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('components.childComponents', 'Child Components')} ({childComponents.length})
                     </Typography>
                     <Tooltip

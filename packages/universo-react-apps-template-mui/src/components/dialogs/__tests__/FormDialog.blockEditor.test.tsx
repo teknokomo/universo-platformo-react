@@ -672,6 +672,43 @@ describe('FormDialog block editor fields', () => {
         })
     })
 
+    it('keeps a URL-backed file source visible and unchanged while editing', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'source',
+                label: 'Source',
+                type: 'JSON',
+                required: true,
+                uiConfig: {
+                    widget: 'resourceSource'
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Edit file source'
+                fields={fields}
+                initialData={{ source: { type: 'file', url: 'https://cdn.example.test/course.webp' } }}
+                locale='en'
+                onClose={vi.fn()}
+                onSubmit={onSubmit}
+            />
+        )
+
+        expect(screen.getByRole('textbox', { name: /Source URL/i })).toHaveValue('https://cdn.example.test/course.webp')
+        await userEvent.click(screen.getByTestId('entity-form-submit'))
+
+        expect(onSubmit).toHaveBeenCalledWith({
+            source: {
+                type: 'file',
+                url: 'https://cdn.example.test/course.webp'
+            }
+        })
+    })
+
     it('keeps optional resource source fields quiet until a source is entered', async () => {
         const onSubmit = vi.fn().mockResolvedValue(undefined)
         const fields: FieldConfig[] = [

@@ -118,8 +118,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             aria-describedby='confirm-delete-dialog-description'
             disableEnforceFocus
             disableRestoreFocus
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle id='confirm-delete-dialog-title'>{titleNode}</DialogTitle>
             <DialogContent sx={mergeDialogSx(presentation.contentSx)}>

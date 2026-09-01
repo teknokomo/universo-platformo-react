@@ -70,8 +70,7 @@ export function ConnectorDeleteDialog({
             onClose={presentation.dialogProps.onClose}
             maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm')}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
             <DialogContent sx={mergeDialogSx(presentation.contentSx)}>

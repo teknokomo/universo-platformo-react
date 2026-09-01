@@ -161,6 +161,8 @@ const uiConfigSchema = z
         placeholder: z.record(z.string()).optional(),
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),
+        gridHidden: z.boolean().optional(),
+        formHidden: z.boolean().optional(),
         width: z.number().optional(),
         editor: z.enum(['editorjs']).optional(),
         blockContent: z.boolean().optional(),

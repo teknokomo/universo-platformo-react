@@ -67,7 +67,13 @@ export const ConnectorPublicationInfoPanel = ({
     if (isLoading) {
         return (
             <Box sx={{ p: 2 }}>
-                <Typography color='text.secondary'>{t('common.loading', 'Loading...')}</Typography>
+                <Typography
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
+                    {t('common.loading', 'Loading...')}
+                </Typography>
             </Box>
         )
     }
@@ -92,15 +98,32 @@ export const ConnectorPublicationInfoPanel = ({
                     bgcolor: 'action.hover'
                 }}
             >
-                <Stack direction='row' alignItems='center' spacing={1} mb={1}>
-                    <Typography variant='subtitle2' color='text.secondary'>
+                <Stack
+                    direction='row'
+                    spacing={1}
+                    sx={{
+                        alignItems: 'center',
+                        mb: 1
+                    }}
+                >
+                    <Typography
+                        variant='subtitle2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('connectors.metahubs.title', 'Linked Metahubs')}
                     </Typography>
                     <LockIcon fontSize='small' color='action' />
                 </Stack>
 
                 {linkedPublications.length === 0 ? (
-                    <Typography color='text.secondary' variant='body2'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('connectors.metahubs.noLinked', 'No metahubs linked yet')}
                     </Typography>
                 ) : (
@@ -143,7 +166,13 @@ export const ConnectorPublicationInfoPanel = ({
                     borderRadius: 1
                 }}
             >
-                <Typography variant='subtitle2' color='text.secondary' mb={1.5}>
+                <Typography
+                    variant='subtitle2'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 1.5
+                    }}
+                >
                     {t('connectors.metahubInfo.constraints', 'Connector Constraints')}
                 </Typography>
 
@@ -152,7 +181,13 @@ export const ConnectorPublicationInfoPanel = ({
                         <FormControlLabel
                             control={<Switch checked={isSinglePublication} disabled size='small' />}
                             label={
-                                <Stack direction='row' alignItems='center' spacing={0.5}>
+                                <Stack
+                                    direction='row'
+                                    spacing={0.5}
+                                    sx={{
+                                        alignItems: 'center'
+                                    }}
+                                >
                                     <Typography variant='body2'>{t('connectors.metahubs.singleLimit', 'Single metahub')}</Typography>
                                     <LockIcon fontSize='inherit' color='action' />
                                 </Stack>
@@ -160,7 +195,13 @@ export const ConnectorPublicationInfoPanel = ({
                         />
                     </Tooltip>
 
-                    <Typography variant='caption' color='text.secondary' sx={{ pl: 4.5 }}>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary',
+                            pl: 4.5
+                        }}
+                    >
                         {t('connectors.metahubInfo.isSingleHelp', 'Connector can only be linked to one Metahub')}
                     </Typography>
 
@@ -168,7 +209,13 @@ export const ConnectorPublicationInfoPanel = ({
                         <FormControlLabel
                             control={<Switch checked={isRequiredPublication} disabled size='small' />}
                             label={
-                                <Stack direction='row' alignItems='center' spacing={0.5}>
+                                <Stack
+                                    direction='row'
+                                    spacing={0.5}
+                                    sx={{
+                                        alignItems: 'center'
+                                    }}
+                                >
                                     <Typography variant='body2'>{t('connectors.metahubs.required', 'Required')}</Typography>
                                     <LockIcon fontSize='inherit' color='action' />
                                 </Stack>
@@ -176,7 +223,13 @@ export const ConnectorPublicationInfoPanel = ({
                         />
                     </Tooltip>
 
-                    <Typography variant='caption' color='text.secondary' sx={{ pl: 4.5 }}>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary',
+                            pl: 4.5
+                        }}
+                    >
                         {t('connectors.metahubInfo.isRequiredHelp', 'Connector must have at least one Metahub linked')}
                     </Typography>
                 </Stack>

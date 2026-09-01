@@ -48,7 +48,12 @@ export const AccessPanel = ({ accessMode = 'full', onChange, isLoading = false, 
                         label={
                             <Box>
                                 <Typography variant='body1'>{t('publications.access.modeFull', 'Full Access')}</Typography>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('publications.access.modeFullDescription', 'All Metahub data is accessible through the Publication')}
                                 </Typography>
                             </Box>
@@ -60,7 +65,12 @@ export const AccessPanel = ({ accessMode = 'full', onChange, isLoading = false, 
                         label={
                             <Box>
                                 <Typography variant='body1'>{t('publications.access.modeRestricted', 'Restricted Access')}</Typography>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t(
                                         'publications.access.modeRestrictedDescription',
                                         'Access is controlled by configuration (coming soon)'
@@ -75,7 +85,12 @@ export const AccessPanel = ({ accessMode = 'full', onChange, isLoading = false, 
 
             {accessMode === 'restricted' && (
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'publications.access.configPlaceholder',
                             'Restricted access configuration will be available in future versions.'

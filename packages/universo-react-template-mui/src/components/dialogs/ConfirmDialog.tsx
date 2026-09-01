@@ -49,9 +49,6 @@ export const ConfirmDialog = () => {
             aria-describedby='confirm-dialog-description'
             container={portalElement ?? undefined}
             disablePortal={!portalElement}
-            PaperProps={{
-                'data-confirm-dialog-request-id': confirmState.requestId || undefined
-            }}
             sx={{
                 zIndex: (theme) => theme.zIndex.modal + 20,
                 '& .MuiBackdrop-root': {

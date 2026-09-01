@@ -152,7 +152,13 @@ export default function LayoutDetails() {
     const widgetObjects = widgetObjectsQuery.data ?? EMPTY_WIDGET_OBJECTS
     const isGlobalLayout = layout?.scopeEntityId == null
     const uiLocale = normalizeLocale(i18n.language)
-    const layoutName = layout ? getVLCString(layout.name, uiLocale) || getVLCString(layout.name, 'en') || layout.templateKey : ''
+    const layoutName = layout
+        ? getVLCString(layout.name, uiLocale) ||
+          getVLCString(layout.name, 'en') ||
+          (layout.templateKey === 'marketing-page'
+              ? t('layouts.templates.marketingPage', 'Marketing page')
+              : t('layouts.templates.dashboard', 'Dashboard'))
+        : ''
     const layoutConfig = (layout?.config ?? {}) as Partial<ResolvedDashboardLayoutConfig>
     const sideMenuConfig = useMemo(() => normalizeEditableSideMenuConfig(layout?.config?.sideMenu), [layout?.config?.sideMenu])
     const objectBehaviorConfig = useMemo(
@@ -681,7 +687,14 @@ export default function LayoutDetails() {
             <Stack spacing={2} sx={{ width: '100%' }}>
                 <ViewHeader
                     title={layoutName || t('layouts.details.title', 'Layout')}
-                    description={t('layouts.details.description', 'Configure dashboard zones and widgets.')}
+                    description={
+                        layout?.templateKey === 'marketing-page'
+                            ? t(
+                                  'layouts.marketing.appearanceDescription',
+                                  'Configure the published marketing page without editing its content records.'
+                              )
+                            : t('layouts.details.description', 'Configure dashboard zones and widgets.')
+                    }
                     search={false}
                 />
 
@@ -694,19 +707,12 @@ export default function LayoutDetails() {
                         <Typography color='error'>{t('layouts.zoneErrors.load', 'Failed to load layout zones')}</Typography>
                     ) : (
                         <Stack spacing={2}>
-                            <LayoutAuthoringDetails
-                                dragHint={t('layouts.details.dragHint', 'Drag widgets between zones to change runtime composition.')}
-                                emptyZoneLabel={t('layouts.empty', 'No layouts yet')}
-                                addWidgetLabel={t('layouts.details.addWidget', 'Add widget')}
-                                availableWidgetsLabel={t('layouts.details.widgetObjectsTitle', 'Available widgets')}
-                                moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
-                                zones={authoringZones}
-                                onDragEnd={handleDragEnd}
-                                onAddWidgetRequest={handleAddWidgetRequest}
-                                beforeZonesContent={
+                            {layout?.templateKey === 'marketing-page' ? (
+                                <>
                                     <LayoutRuntimeSettingsPanel
                                         t={t}
-                                        isScopedLayout={Boolean(layout?.scopeEntityId)}
+                                        templateKey='marketing-page'
+                                        isScopedLayout={Boolean(layout.scopeEntityId)}
                                         layoutConfig={layoutConfig}
                                         objectBehaviorConfig={objectBehaviorConfig}
                                         sideMenuConfig={sideMenuConfig}
@@ -719,8 +725,47 @@ export default function LayoutDetails() {
                                         onReorderPersistenceFieldDraftChange={setReorderPersistenceFieldDraft}
                                         onCommitReorderPersistenceField={() => void commitReorderPersistenceField()}
                                     />
-                                }
-                            />
+                                    <Typography
+                                        variant='body2'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
+                                        {t(
+                                            'layouts.marketing.contentHint',
+                                            'Marketing content is edited through the standard Object records in this metahub; dashboard widgets are not used by this template.'
+                                        )}
+                                    </Typography>
+                                </>
+                            ) : (
+                                <LayoutAuthoringDetails
+                                    dragHint={t('layouts.details.dragHint', 'Drag widgets between zones to change runtime composition.')}
+                                    emptyZoneLabel={t('layouts.empty', 'No layouts yet')}
+                                    addWidgetLabel={t('layouts.details.addWidget', 'Add widget')}
+                                    availableWidgetsLabel={t('layouts.details.widgetObjectsTitle', 'Available widgets')}
+                                    moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
+                                    zones={authoringZones}
+                                    onDragEnd={handleDragEnd}
+                                    onAddWidgetRequest={handleAddWidgetRequest}
+                                    beforeZonesContent={
+                                        <LayoutRuntimeSettingsPanel
+                                            t={t}
+                                            isScopedLayout={Boolean(layout?.scopeEntityId)}
+                                            layoutConfig={layoutConfig}
+                                            objectBehaviorConfig={objectBehaviorConfig}
+                                            sideMenuConfig={sideMenuConfig}
+                                            reorderPersistenceFieldDraft={reorderPersistenceFieldDraft}
+                                            viewSettingsSaving={viewSettingsSaving}
+                                            canManageLayouts={canManageLayouts}
+                                            onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                            onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
+                                            onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                                            onReorderPersistenceFieldDraftChange={setReorderPersistenceFieldDraft}
+                                            onCommitReorderPersistenceField={() => void commitReorderPersistenceField()}
+                                        />
+                                    }
+                                />
+                            )}
                         </Stack>
                     )}
                 </Box>

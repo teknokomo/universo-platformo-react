@@ -2,6 +2,7 @@ import apiClient from './apiClient'
 import type {
     ApplicationCopyOptions,
     ApplicationLayout,
+    ApplicationLayoutConfigResetMutation,
     ApplicationLayoutCreate,
     ApplicationLayoutDetailResponse,
     ApplicationLayoutMutation,
@@ -50,6 +51,21 @@ export interface ApplicationCreateInput {
 }
 
 export interface ApplicationCopyInput extends Partial<ApplicationInput>, Partial<ApplicationCopyOptions> {}
+
+const normalizeRuntimeWorkspaceId = (workspaceId?: string | null): string | undefined => {
+    const normalized = workspaceId?.trim()
+    return normalized || undefined
+}
+
+const withRuntimeWorkspaceParam = <T extends Record<string, unknown>>(
+    params: T,
+    workspaceId?: string | null
+): T & {
+    workspaceId?: string
+} => {
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    return normalizedWorkspaceId ? { ...params, workspaceId: normalizedWorkspaceId } : params
+}
 
 // Extended pagination params with showAll for admin users
 export interface ApplicationPaginationParams extends PaginationParams {
@@ -121,6 +137,7 @@ export const getApplicationRuntime = async (
         search?: string
         sort?: RuntimeDatasourceSort[]
         filters?: RuntimeDatasourceFilter[]
+        workspaceId?: string | null
     }
 ): Promise<ApplicationRuntimeResponse> => {
     const resolvedSectionId = params?.sectionId ?? params?.objectCollectionId
@@ -132,7 +149,8 @@ export const getApplicationRuntime = async (
             objectCollectionId: resolvedSectionId,
             search: params?.search,
             sort: params?.sort ? JSON.stringify(params.sort) : undefined,
-            filters: params?.filters ? JSON.stringify(params.filters) : undefined
+            filters: params?.filters ? JSON.stringify(params.filters) : undefined,
+            ...withRuntimeWorkspaceParam({}, params?.workspaceId)
         }
     })
     return response.data
@@ -145,13 +163,21 @@ export const updateApplicationRuntimeCell = async (params: {
     value: boolean | null
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
 }): Promise<void> => {
-    const { applicationId, rowId, field, value, objectCollectionId, sectionId } = params
-    await apiClient.patch(`/applications/${applicationId}/runtime/${rowId}`, {
+    const { applicationId, rowId, field, value, objectCollectionId, sectionId, workspaceId } = params
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    const url = `/applications/${applicationId}/runtime/${rowId}`
+    const body = {
         field,
         value,
         objectCollectionId: sectionId ?? objectCollectionId
-    })
+    }
+    if (normalizedWorkspaceId) {
+        await apiClient.patch(url, body, { params: { workspaceId: normalizedWorkspaceId } })
+    } else {
+        await apiClient.patch(url, body)
+    }
 }
 
 /** Fetch a single runtime row (raw data, VLC not resolved — for edit forms). */
@@ -160,11 +186,12 @@ export const getApplicationRuntimeRow = async (params: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, objectCollectionId, sectionId } = params
+    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const response = await apiClient.get<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, {
-        params: resolvedSectionId ? { objectCollectionId: resolvedSectionId } : undefined
+        params: withRuntimeWorkspaceParam(resolvedSectionId ? { objectCollectionId: resolvedSectionId } : {}, workspaceId)
     })
     return response.data
 }
@@ -176,13 +203,14 @@ export const listApplicationRuntimeTabularRows = async (params: {
     componentId: string
     objectCollectionId: string
     sectionId?: string
+    workspaceId?: string | null
 }): Promise<Array<Record<string, unknown>>> => {
-    const { applicationId, rowId, componentId, objectCollectionId, sectionId } = params
+    const { applicationId, rowId, componentId, objectCollectionId, sectionId, workspaceId } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const response = await apiClient.get<{ items?: Array<Record<string, unknown>> }>(
         `/applications/${applicationId}/runtime/rows/${rowId}/tabular/${componentId}`,
         {
-            params: { objectCollectionId: resolvedSectionId }
+            params: withRuntimeWorkspaceParam({ objectCollectionId: resolvedSectionId }, workspaceId)
         }
     )
     return Array.isArray(response.data?.items) ? response.data.items : []
@@ -194,12 +222,18 @@ export const createApplicationRuntimeRow = async (params: {
     data: Record<string, unknown>
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, data, objectCollectionId, sectionId } = params
+    const { applicationId, data, objectCollectionId, sectionId, workspaceId } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-    const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows`, body)
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    const response = normalizedWorkspaceId
+        ? await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows`, body, {
+              params: { workspaceId: normalizedWorkspaceId }
+          })
+        : await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows`, body)
     return response.data
 }
 
@@ -210,14 +244,20 @@ export const updateApplicationRuntimeRow = async (params: {
     data: Record<string, unknown>
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion?: number
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, data, objectCollectionId, sectionId, expectedVersion } = params
+    const { applicationId, rowId, data, objectCollectionId, sectionId, workspaceId, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
-    const response = await apiClient.patch<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, body)
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    const response = normalizedWorkspaceId
+        ? await apiClient.patch<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, body, {
+              params: { workspaceId: normalizedWorkspaceId }
+          })
+        : await apiClient.patch<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, body)
     return response.data
 }
 
@@ -227,13 +267,16 @@ export const deleteApplicationRuntimeRow = async (params: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion?: number
 }): Promise<void> => {
-    const { applicationId, rowId, objectCollectionId, sectionId, expectedVersion } = params
+    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const requestParams: Record<string, unknown> = {}
     if (resolvedSectionId) requestParams.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') requestParams.expectedVersion = expectedVersion
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    if (normalizedWorkspaceId) requestParams.workspaceId = normalizedWorkspaceId
     await apiClient.delete(`/applications/${applicationId}/runtime/rows/${rowId}`, {
         params: Object.keys(requestParams).length > 0 ? requestParams : undefined
     })
@@ -245,16 +288,24 @@ export const restoreApplicationRuntimeRow = async (params: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion?: number
     restoreTarget?: RuntimeRestoreTarget
 }): Promise<void> => {
-    const { applicationId, rowId, objectCollectionId, sectionId, expectedVersion, restoreTarget } = params
+    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion, restoreTarget } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = {}
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
     if (restoreTarget) body.restoreTarget = restoreTarget
-    await apiClient.post(`/applications/${applicationId}/runtime/rows/${rowId}/restore`, body)
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    if (normalizedWorkspaceId) {
+        await apiClient.post(`/applications/${applicationId}/runtime/rows/${rowId}/restore`, body, {
+            params: { workspaceId: normalizedWorkspaceId }
+        })
+    } else {
+        await apiClient.post(`/applications/${applicationId}/runtime/rows/${rowId}/restore`, body)
+    }
 }
 
 /** Copy a runtime row. */
@@ -263,17 +314,23 @@ export const copyApplicationRuntimeRow = async (params: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     copyChildTables?: boolean
     data?: Record<string, unknown>
     expectedVersion?: number
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true, data, expectedVersion } = params
+    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId, copyChildTables = true, data, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { copyChildTables }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (data && Object.keys(data).length > 0) body.data = data
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
-    const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body)
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    const response = normalizedWorkspaceId
+        ? await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body, {
+              params: { workspaceId: normalizedWorkspaceId }
+          })
+        : await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body)
     return response.data
 }
 
@@ -283,14 +340,20 @@ export const runApplicationRuntimeRecordCommand = async (params: {
     command: RuntimeRecordCommand
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion?: number
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, command, objectCollectionId, sectionId, expectedVersion } = params
+    const { applicationId, rowId, command, objectCollectionId, sectionId, workspaceId, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = {}
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
-    const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/${command}`, body)
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    const response = normalizedWorkspaceId
+        ? await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/${command}`, body, {
+              params: { workspaceId: normalizedWorkspaceId }
+          })
+        : await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/${command}`, body)
     return response.data
 }
 
@@ -300,16 +363,24 @@ export const runApplicationRuntimeWorkflowAction = async (params: {
     actionCodename: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersion: number
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, actionCodename, objectCollectionId, sectionId, expectedVersion } = params
+    const { applicationId, rowId, actionCodename, objectCollectionId, sectionId, workspaceId, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { expectedVersion }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
-    const response = await apiClient.post<Record<string, unknown>>(
-        `/applications/${applicationId}/runtime/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`,
-        body
-    )
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    const response = normalizedWorkspaceId
+        ? await apiClient.post<Record<string, unknown>>(
+              `/applications/${applicationId}/runtime/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`,
+              body,
+              { params: { workspaceId: normalizedWorkspaceId } }
+          )
+        : await apiClient.post<Record<string, unknown>>(
+              `/applications/${applicationId}/runtime/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`,
+              body
+          )
     return response.data
 }
 
@@ -318,16 +389,24 @@ export const reorderApplicationRuntimeRows = async (params: {
     orderedRowIds: string[]
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     expectedVersionsByRowId?: Record<string, number>
 }): Promise<void> => {
-    const { applicationId, orderedRowIds, objectCollectionId, sectionId, expectedVersionsByRowId } = params
+    const { applicationId, orderedRowIds, objectCollectionId, sectionId, workspaceId, expectedVersionsByRowId } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { orderedRowIds }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (expectedVersionsByRowId && Object.keys(expectedVersionsByRowId).length > 0) {
         body.expectedVersionsByRowId = expectedVersionsByRowId
     }
-    await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body)
+    const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
+    if (normalizedWorkspaceId) {
+        await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body, {
+            params: { workspaceId: normalizedWorkspaceId }
+        })
+    } else {
+        await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body)
+    }
 }
 
 // ============ APPLICATION LAYOUTS ============
@@ -383,6 +462,18 @@ export const updateApplicationLayout = async (
     data: ApplicationLayoutMutation
 ): Promise<ApplicationLayout> => {
     const response = await apiClient.patch<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}`, data)
+    return response.data.item
+}
+
+export const resetApplicationLayoutConfig = async (
+    applicationId: string,
+    layoutId: string,
+    data: ApplicationLayoutConfigResetMutation
+): Promise<ApplicationLayout> => {
+    const response = await apiClient.post<{ item: ApplicationLayout }>(
+        `/applications/${applicationId}/layouts/${layoutId}/config/reset`,
+        data
+    )
     return response.data.item
 }
 

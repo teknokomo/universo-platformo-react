@@ -195,7 +195,13 @@ export const MarketplaceTable = ({
                                                 </Typography>
                                             </StyledTableCell>
                                             <StyledTableCell key='3'>
-                                                <Stack flexDirection='row' sx={{ gap: 1, flexWrap: 'wrap' }}>
+                                                <Stack
+                                                    sx={{
+                                                        flexDirection: 'row',
+                                                        gap: 1,
+                                                        flexWrap: 'wrap'
+                                                    }}
+                                                >
                                                     {row.framework &&
                                                         row.framework.length > 0 &&
                                                         row.framework.map((framework, index) => (
@@ -210,7 +216,13 @@ export const MarketplaceTable = ({
                                                 </Stack>
                                             </StyledTableCell>
                                             <StyledTableCell key='4'>
-                                                <Stack flexDirection='row' sx={{ gap: 1, flexWrap: 'wrap' }}>
+                                                <Stack
+                                                    sx={{
+                                                        flexDirection: 'row',
+                                                        gap: 1,
+                                                        flexWrap: 'wrap'
+                                                    }}
+                                                >
                                                     {row.usecases &&
                                                         row.usecases.length > 0 &&
                                                         row.usecases.map((usecase, index) => (
@@ -225,7 +237,13 @@ export const MarketplaceTable = ({
                                                 </Stack>
                                             </StyledTableCell>
                                             <StyledTableCell key='5'>
-                                                <Stack flexDirection='row' sx={{ gap: 1, flexWrap: 'wrap' }}>
+                                                <Stack
+                                                    sx={{
+                                                        flexDirection: 'row',
+                                                        gap: 1,
+                                                        flexWrap: 'wrap'
+                                                    }}
+                                                >
                                                     {row.categories &&
                                                         row.categories.map((tag, index) => (
                                                             <Chip

@@ -243,7 +243,12 @@ export function TabularPartEditor({
         <Box sx={{ mt: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: showTitle ? 'space-between' : 'flex-end', mb: 1 }}>
                 {showTitle && (
-                    <Typography variant='subtitle2' color='text.secondary'>
+                    <Typography
+                        variant='subtitle2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {label}
                     </Typography>
                 )}

@@ -12,7 +12,6 @@ import { useTreeItem, UseTreeItemParameters } from '@mui/x-tree-view/useTreeItem
 import { TreeItemContent, TreeItemIconContainer, TreeItemLabel, TreeItemRoot } from '@mui/x-tree-view/TreeItem'
 import { TreeItemIcon } from '@mui/x-tree-view/TreeItemIcon'
 import { TreeItemProvider } from '@mui/x-tree-view/TreeItemProvider'
-import { TreeViewBaseItem } from '@mui/x-tree-view/models'
 import { useTheme } from '@mui/material/styles'
 
 type Color = 'blue' | 'green'
@@ -21,9 +20,10 @@ type ExtendedTreeItemProps = {
     color?: Color
     id: string
     label: string
+    children?: ExtendedTreeItemProps[]
 }
 
-const ITEMS: TreeViewBaseItem<ExtendedTreeItemProps>[] = [
+const ITEMS: ExtendedTreeItemProps[] = [
     {
         id: '1',
         label: 'Website',
@@ -127,6 +127,7 @@ const CustomTreeItem = React.forwardRef(function CustomTreeItem(props: CustomTre
         <TreeItemProvider id={id} itemId={itemId}>
             <TreeItemRoot {...getRootProps(other)}>
                 <TreeItemContent
+                    status={status}
                     {...getContentProps({
                         className: clsx('content', {
                             expanded: status.expanded,

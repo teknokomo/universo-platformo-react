@@ -46,7 +46,12 @@ export function TemplateSelector({
         return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
                 <CircularProgress size={16} />
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('templates.loading', 'Loading templates...')}
                 </Typography>
             </Box>
@@ -67,24 +72,21 @@ export function TemplateSelector({
                 onChange={(e) => onChange(e.target.value || undefined)}
                 disabled={disabled}
                 MenuProps={{
-                    PaperProps: {
-                        style: {
-                            width: 'min(640px, calc(100vw - 32px))',
-                            minWidth: 'min(360px, calc(100vw - 32px))',
-                            maxWidth: 'calc(100vw - 32px)'
+                    slotProps: {
+                        paper: {
+                            sx: {
+                                width: 'min(640px, calc(100vw - 32px))',
+                                minWidth: 'min(360px, calc(100vw - 32px))',
+                                maxWidth: 'calc(100vw - 32px)'
+                            }
                         },
-                        sx: {
-                            width: 'min(640px, calc(100vw - 32px))',
-                            minWidth: 'min(360px, calc(100vw - 32px))',
-                            maxWidth: 'calc(100vw - 32px)'
-                        }
-                    },
-                    MenuListProps: {
-                        sx: {
-                            py: 0.5,
-                            width: '100%',
-                            minWidth: 0,
-                            maxWidth: 'calc(100vw - 32px)'
+                        list: {
+                            sx: {
+                                py: 0.5,
+                                width: '100%',
+                                minWidth: 0,
+                                maxWidth: 'calc(100vw - 32px)'
+                            }
                         }
                     }
                 }}
@@ -112,8 +114,13 @@ export function TemplateSelector({
                                 {desc && (
                                     <Typography
                                         variant='caption'
-                                        color='text.secondary'
-                                        sx={{ maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35 }}
+                                        sx={{
+                                            color: 'text.secondary',
+                                            maxWidth: '100%',
+                                            whiteSpace: 'normal',
+                                            overflowWrap: 'anywhere',
+                                            lineHeight: 1.35
+                                        }}
                                     >
                                         {desc}
                                     </Typography>

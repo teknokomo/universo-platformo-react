@@ -192,7 +192,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                         boxShadow: 1
                     }}
                 >
-                    <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 0.5 }}>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary',
+                            display: 'block',
+                            mb: 0.5
+                        }}
+                    >
                         {t('steps.progress', { current: activeStep + 1, total: STEPS.length })}
                     </Typography>
                     <Typography variant='subtitle2' sx={{ fontWeight: 600, mb: 1 }}>

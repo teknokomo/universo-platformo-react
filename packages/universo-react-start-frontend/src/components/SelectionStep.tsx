@@ -32,14 +32,22 @@ export const SelectionStep: React.FC<SelectionStepProps> = ({ title, subtitle, i
                     <Typography
                         key={index}
                         variant='body1'
-                        color='text.secondary'
-                        sx={{ mb: index === subtitleParagraphs.length - 1 ? 3 : 2 }}
+                        sx={{
+                            color: 'text.secondary',
+                            mb: index === subtitleParagraphs.length - 1 ? 3 : 2
+                        }}
                     >
                         {paragraph}
                     </Typography>
                 ))
             ) : (
-                <Typography variant='body1' color='text.secondary' sx={{ mb: 3 }}>
+                <Typography
+                    variant='body1'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 3
+                    }}
+                >
                     {subtitle}
                 </Typography>
             )}

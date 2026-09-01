@@ -8,7 +8,10 @@ import {
     runtimePageBlockSchema,
     reportDefinitionSchema,
     workflowActionSchema,
-    readLocalizedTextValue
+    readLocalizedTextValue,
+    applicationTemplateKeySchema,
+    marketingPageRuntimeViewModelSchema,
+    type MarketingPageRuntimeViewModel
 } from '@universo-react/types'
 import { extractErrorMessage, fetchWithCsrf } from './client'
 export { buildAppsApiUrl, extractErrorMessage, fetchWithCsrf } from './client'
@@ -160,6 +163,16 @@ export const appDataResponseSchema = z.object({
 
 export type AppDataResponse = z.infer<typeof appDataResponseSchema>
 
+export const runtimeTemplateResponseSchema = z
+    .object({
+        templateKey: applicationTemplateKeySchema,
+        config: z.record(z.unknown()).optional().default({})
+    })
+    .strict()
+
+export type RuntimeTemplateResponse = z.infer<typeof runtimeTemplateResponseSchema>
+export type MarketingPageRuntimeResponse = MarketingPageRuntimeViewModel
+
 /** @deprecated Use AppDataResponse instead */
 export type ApplicationRuntimeResponse = AppDataResponse
 
@@ -232,6 +245,30 @@ const buildAppApiUrl = (apiBaseUrl: string, applicationId: string, path = ''): s
     }
 
     return new URL(apiPath, window.location.origin).toString()
+}
+
+export async function fetchRuntimeTemplate(options: { apiBaseUrl: string; applicationId: string }): Promise<RuntimeTemplateResponse> {
+    const res = await fetch(buildAppApiUrl(options.apiBaseUrl, options.applicationId, '/template'), { credentials: 'include' })
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Runtime template API request failed'))
+    const parsed = runtimeTemplateResponseSchema.safeParse(await res.json())
+    if (!parsed.success) throw new Error('Runtime template API response validation failed')
+    return parsed.data
+}
+
+export async function fetchMarketingPageRuntime(options: {
+    apiBaseUrl: string
+    applicationId: string
+    locale: string
+    workspaceId?: string | null
+}): Promise<MarketingPageRuntimeResponse> {
+    const url = new URL(buildAppApiUrl(options.apiBaseUrl, options.applicationId, '/marketing-page'))
+    url.searchParams.set('locale', options.locale)
+    if (options.workspaceId?.trim()) url.searchParams.set('workspaceId', options.workspaceId.trim())
+    const res = await fetch(url.toString(), { credentials: 'include' })
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Marketing page runtime API request failed'))
+    const parsed = marketingPageRuntimeViewModelSchema.safeParse(await res.json())
+    if (!parsed.success) throw new Error('Marketing page runtime response validation failed')
+    return parsed.data
 }
 
 export async function fetchAppData(options: {

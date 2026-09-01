@@ -102,7 +102,14 @@ export function MigrationsTab({ applicationId }: MigrationsTabProps) {
 
     if (isLoading) {
         return (
-            <Box display='flex' justifyContent='center' alignItems='center' py={4}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    py: 4
+                }}
+            >
                 <CircularProgress size={40} />
             </Box>
         )
@@ -118,12 +125,27 @@ export function MigrationsTab({ applicationId }: MigrationsTabProps) {
 
     if (migrations.length === 0) {
         return (
-            <Box textAlign='center' py={4}>
+            <Box
+                sx={{
+                    textAlign: 'center',
+                    py: 4
+                }}
+            >
                 <HistoryIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                <Typography variant='h6' color='text.secondary'>
+                <Typography
+                    variant='h6'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('migrations.noMigrations', 'No migrations yet')}
                 </Typography>
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('migrations.noMigrationsHint', 'Migrations will appear here after schema synchronization')}
                 </Typography>
             </Box>
@@ -137,7 +159,13 @@ export function MigrationsTab({ applicationId }: MigrationsTabProps) {
                 {t('migrations.title', 'Migration History')}
             </Typography>
 
-            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+            <Typography
+                variant='body2'
+                sx={{
+                    color: 'text.secondary',
+                    mb: 2
+                }}
+            >
                 {t('migrations.description', 'Schema changes applied to this application database.')}
             </Typography>
 
@@ -216,8 +244,19 @@ function MigrationRow({ applicationId, migration, isLatest, isExpanded, onToggle
                     </IconButton>
                 </TableCell>
                 <TableCell>
-                    <Box display='flex' alignItems='center' gap={1}>
-                        <Typography variant='body2' fontFamily='monospace'>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1
+                        }}
+                    >
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                fontFamily: 'monospace'
+                            }}
+                        >
                             {migration.name}
                         </Typography>
                         {isLatest && (
@@ -272,7 +311,12 @@ function MigrationRow({ applicationId, migration, isLatest, isExpanded, onToggle
                             <Typography variant='subtitle2' gutterBottom>
                                 {t('migrations.summary', 'Summary')}
                             </Typography>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {migration.summary}
                             </Typography>
                             {migrationDetail?.seedWarnings && migrationDetail.seedWarnings.length > 0 && (
@@ -321,7 +365,13 @@ function RollbackDialog({ open, analysis, isAnalyzing, isRollingBack, error, onC
             </DialogTitle>
             <DialogContent>
                 {isAnalyzing ? (
-                    <Box display='flex' justifyContent='center' py={2}>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            py: 2
+                        }}
+                    >
                         <CircularProgress size={24} />
                         <Typography variant='body2' sx={{ ml: 2 }}>
                             {t('migrations.analyzing', 'Analyzing rollback path...')}

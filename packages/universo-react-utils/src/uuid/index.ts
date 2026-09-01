@@ -25,6 +25,16 @@ export function isValidUuid(value: string): boolean {
 }
 
 /**
+ * Validate that a value is a canonical UUID v7 string.
+ *
+ * Persisted identifiers are required to use UUID v7 so that database ordering
+ * and index locality remain deterministic across metahubs and applications.
+ */
+export function isUuidV7(value: unknown): value is string {
+    return typeof value === 'string' && isValidUuid(value) && value[14]?.toLowerCase() === '7'
+}
+
+/**
  * Extract timestamp from UUID v7
  * UUID v7 encodes Unix timestamp in milliseconds in the first 48 bits
  * @param uuid - UUID v7 string

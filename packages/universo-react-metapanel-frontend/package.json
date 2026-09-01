@@ -28,7 +28,10 @@
         "dist/i18n/index.mjs",
         "dist/i18n/index.js"
     ],
-    "files": ["dist", "src"],
+    "files": [
+        "dist",
+        "src"
+    ],
     "scripts": {
         "clean": "rimraf dist",
         "build": "tsdown",
@@ -37,8 +40,8 @@
         "test": "vitest run --config vitest.config.ts"
     },
     "dependencies": {
-        "@emotion/react": "^11.14.0",
-        "@emotion/styled": "^11.14.1",
+        "@emotion/react": "catalog:",
+        "@emotion/styled": "catalog:",
         "@mui/icons-material": "catalog:",
         "@mui/material": "catalog:",
         "@mui/x-charts": "catalog:",

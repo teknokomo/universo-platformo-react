@@ -1,4 +1,5 @@
 import { getPoolExecutor, qSchemaTable } from '@universo-react/database'
+import { applicationTemplateKeySchema } from '@universo-react/types'
 import type { MetahubSchemaService } from '../metahubs/services/MetahubSchemaService'
 import type { MetahubSnapshot } from '../publications/services/SnapshotSerializer'
 import { createLogger } from '../../utils/logger'
@@ -222,7 +223,7 @@ export async function attachLayoutsToSnapshot(options: {
             id: String(r.id),
             scopeEntityId: typeof r.scope_entity_id === 'string' ? r.scope_entity_id : null,
             baseLayoutId: typeof r.base_layout_id === 'string' ? r.base_layout_id : null,
-            templateKey: String(r.template_key ?? 'dashboard'),
+            templateKey: applicationTemplateKeySchema.parse(r.template_key),
             name: (r.name as Record<string, unknown>) ?? {},
             description: (r.description as Record<string, unknown> | null) ?? null,
             config: (r.config as Record<string, unknown>) ?? {},
@@ -334,7 +335,7 @@ export async function attachLayoutsToSnapshot(options: {
                     baseWidgetId: String(row.base_widget_id),
                     zone: row.zone,
                     sortOrder: typeof row.sort_order === 'number' ? row.sort_order : null,
-                    config: null,
+                    config: row.config && typeof row.config === 'object' && !Array.isArray(row.config) ? row.config : null,
                     isActive: typeof row.is_active === 'boolean' ? row.is_active : null,
                     isDeletedOverride: row.is_deleted_override === true
                 }))
@@ -342,12 +343,10 @@ export async function attachLayoutsToSnapshot(options: {
             snapshot.layoutWidgetOverrides = []
         }
     } catch (e) {
-        log.warn('Failed to load metahub layout config (ignored)', e)
-        snapshot.layouts = []
-        snapshot.scopedLayouts = []
-        snapshot.layoutZoneWidgets = []
-        snapshot.layoutWidgetOverrides = []
-        snapshot.defaultLayoutId = null
-        snapshot.layoutConfig = {}
+        // A publication must never silently turn a malformed or unavailable
+        // layout into an empty dashboard. Callers can expose a safe diagnostic
+        // while retaining the original error for server logs.
+        log.error('Failed to load metahub layout config', e)
+        throw e
     }
 }

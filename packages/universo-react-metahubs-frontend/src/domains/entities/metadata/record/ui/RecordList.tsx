@@ -232,7 +232,7 @@ const ReferenceFieldAutocomplete = ({
             getOptionLabel={(option) => option.name}
             isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
             popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-            PopperComponent={StyledPopper}
+            slots={{ popper: StyledPopper }}
             slotProps={{
                 popupIndicator: {
                     disableRipple: true,
@@ -271,18 +271,21 @@ const ReferenceFieldAutocomplete = ({
                     placeholder={placeholder}
                     error={Boolean(error)}
                     helperText={helperText}
-                    InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                            <>
-                                {isObjectTarget ? (
-                                    isLoadingElements || isLoadingComponents
-                                ) : isLoadingEntities ? (
-                                    <CircularProgress color='inherit' size={16} />
-                                ) : null}
-                                {params.InputProps.endAdornment}
-                            </>
-                        )
+                    slotProps={{
+                        ...params.slotProps,
+                        input: {
+                            ...params.slotProps.input,
+                            endAdornment: (
+                                <>
+                                    {isObjectTarget ? (
+                                        isLoadingElements || isLoadingComponents
+                                    ) : isLoadingEntities ? (
+                                        <CircularProgress color='inherit' size={16} />
+                                    ) : null}
+                                    {params.slotProps.input.endAdornment}
+                                </>
+                            )
+                        }
                     }}
                 />
             )}
@@ -398,7 +401,12 @@ const EnumerationFieldAutocomplete = ({
             isLoading && options.length === 0 ? '\u00A0' : effectiveOptionForLabel?.label ?? (emptyDisplay === 'empty' ? '' : '—')
         return (
             <FormControl fullWidth error={Boolean(error)}>
-                <Typography variant='caption' color='text.secondary'>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {label}
                 </Typography>
                 <Typography variant='body1'>{labelText}</Typography>
@@ -410,7 +418,13 @@ const EnumerationFieldAutocomplete = ({
     if (mode === 'radio') {
         return (
             <FormControl fullWidth error={Boolean(error)} disabled={disabled}>
-                <Typography variant='caption' color='text.secondary' sx={{ mb: 0.5 }}>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary',
+                        mb: 0.5
+                    }}
+                >
                     {label}
                 </Typography>
                 <RadioGroup value={effectiveValueForRadio} onChange={(event) => onChange(event.target.value || null)}>
@@ -446,7 +460,7 @@ const EnumerationFieldAutocomplete = ({
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
             popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-            PopperComponent={StyledPopper}
+            slots={{ popper: StyledPopper }}
             slotProps={{
                 popupIndicator: {
                     disableRipple: true,
@@ -486,14 +500,17 @@ const EnumerationFieldAutocomplete = ({
                     placeholder={placeholder}
                     error={Boolean(error)}
                     helperText={helperText}
-                    InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                            <>
-                                {isLoading ? <CircularProgress color='inherit' size={16} /> : null}
-                                {params.InputProps.endAdornment}
-                            </>
-                        )
+                    slotProps={{
+                        ...params.slotProps,
+                        input: {
+                            ...params.slotProps.input,
+                            endAdornment: (
+                                <>
+                                    {isLoading ? <CircularProgress color='inherit' size={16} /> : null}
+                                    {params.slotProps.input.endAdornment}
+                                </>
+                            )
+                        }
                     }}
                 />
             )}
@@ -682,6 +699,7 @@ const RecordList = () => {
 
                             return {
                                 id: childKey,
+                                codename: typeof child.codename === 'string' ? child.codename : undefined,
                                 label: getVLCString(child.name, i18n.language) || childKey,
                                 type: child.dataType as DynamicFieldConfig['type'],
                                 required: child.isRequired,
@@ -698,7 +716,8 @@ const RecordList = () => {
                                 enumPresentationMode: effectiveChildEnumPresentationMode,
                                 defaultEnumValueId: effectiveChildDefaultEnumValueId,
                                 enumAllowEmpty: effectiveChildEnumAllowEmpty,
-                                enumLabelEmptyDisplay: childEnumLabelEmptyDisplay as DynamicFieldConfig['enumLabelEmptyDisplay']
+                                enumLabelEmptyDisplay: childEnumLabelEmptyDisplay as DynamicFieldConfig['enumLabelEmptyDisplay'],
+                                uiConfig: childUiConfig
                             }
                         })
                 }
@@ -719,6 +738,7 @@ const RecordList = () => {
 
                 return {
                     id: componentKey,
+                    codename: typeof component.codename === 'string' ? component.codename : undefined,
                     label: getVLCString(component.name, i18n.language) || componentKey,
                     type: component.dataType as DynamicFieldConfig['type'],
                     required: component.isRequired,
@@ -741,7 +761,8 @@ const RecordList = () => {
                     enumAllowEmpty: resolvedTargetEntityKind === 'set' ? false : enumAllowEmpty,
                     enumLabelEmptyDisplay,
                     childFields,
-                    tableShowTitle: component.dataType === 'TABLE' ? uiConfig.showTitle !== false : undefined
+                    tableShowTitle: component.dataType === 'TABLE' ? uiConfig.showTitle !== false : undefined,
+                    uiConfig
                 }
             }),
         [
@@ -990,14 +1011,14 @@ const RecordList = () => {
                         }
                         case 'JSON':
                             return (
-                                <Typography sx={{ fontFamily: 'monospace', fontSize: 12 }} noWrap>
-                                    {JSON.stringify(value)}
+                                <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                                    {t('records.table.structuredField', 'Structured content')}
                                 </Typography>
                             )
                         default:
                             return (
                                 <Typography sx={{ fontSize: 14 }} noWrap>
-                                    {String(value)}
+                                    {typeof value === 'object' ? t('records.table.structuredField', 'Structured content') : String(value)}
                                 </Typography>
                             )
                     }
@@ -1298,7 +1319,10 @@ const RecordList = () => {
                 image={APIEmptySVG}
                 imageAlt={t('records.parentCollectionLoadError', 'Error loading object')}
                 title={t('records.parentCollectionLoadError', 'Error loading object')}
-                description={objectResolutionError instanceof Error ? objectResolutionError.message : String(objectResolutionError || '')}
+                description={t(
+                    'records.parentCollectionLoadErrorDescription',
+                    'The selected object could not be loaded. Please try again.'
+                )}
             />
         )
     }
@@ -1504,7 +1528,7 @@ const RecordList = () => {
                     }}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack direction='column' sx={{ gap: 1 }}>
                     <ViewHeader
                         search={true}
                         searchPlaceholder={t('records.searchPlaceholder')}

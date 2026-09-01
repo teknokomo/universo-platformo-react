@@ -15,9 +15,9 @@ import {
     ListItemText,
     Divider
 } from '@mui/material'
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlineOutlined'
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlineOutlined'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import { useTranslation } from 'react-i18next'
 import {
     mergeDialogPaperProps,
@@ -81,7 +81,12 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
             <Box sx={{ minWidth: 0 }}>
                 <Box component='span'>{t('publications.diffDialog.title', 'Schema Changes')}</Box>
                 {publicationName && (
-                    <Typography variant='subtitle2' color='text.secondary'>
+                    <Typography
+                        variant='subtitle2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {publicationName}
                     </Typography>
                 )}
@@ -97,8 +102,7 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
             maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'md')}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
             aria-labelledby='publication-diff-dialog-title'
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle id='publication-diff-dialog-title'>{titleNode}</DialogTitle>
             <DialogContent dividers sx={mergeDialogSx(presentation.contentSx)}>
@@ -112,7 +116,12 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                         <CheckCircleOutlineIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
                         <Typography variant='h6'>{t('publications.diffDialog.noChanges', 'No changes detected')}</Typography>
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('publications.statusDescription.synced', 'Schema matches current configuration')}
                         </Typography>
                     </Box>
@@ -139,7 +148,7 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
                                             </ListItemIcon>
                                             <ListItemText
                                                 primary={change}
-                                                primaryTypographyProps={{ fontFamily: 'monospace', fontSize: 13 }}
+                                                slotProps={{ primary: { sx: { fontFamily: 'monospace', fontSize: 13 } } }}
                                             />
                                         </ListItem>
                                     ))}
@@ -168,7 +177,7 @@ const PublicationDiffDialog = ({ open, publication, metahubId, onClose, onSync, 
                                             </ListItemIcon>
                                             <ListItemText
                                                 primary={change}
-                                                primaryTypographyProps={{ fontFamily: 'monospace', fontSize: 13 }}
+                                                slotProps={{ primary: { sx: { fontFamily: 'monospace', fontSize: 13 } } }}
                                             />
                                         </ListItem>
                                     ))}

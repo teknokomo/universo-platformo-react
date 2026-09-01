@@ -340,7 +340,12 @@ const AdminAccess = () => {
                     }}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         search={true}
                         searchPlaceholder={t('access.searchPlaceholder', 'Search by email or nickname...')}

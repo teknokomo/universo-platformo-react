@@ -57,6 +57,7 @@ import {
     fetchRuntimeWorkspaces,
     inviteRuntimeWorkspaceMember,
     removeRuntimeWorkspaceMember,
+    resetRuntimeWorkspaceSeededContent,
     updateRuntimeWorkspace,
     updateDefaultRuntimeWorkspace,
     updateRuntimeWorkspaceSettings,
@@ -112,6 +113,14 @@ const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = 
         key: 'workspace.errors.settingVersionConflict',
         fallback: 'This workspace setting changed. Reload and try again.'
     },
+    WORKSPACE_SEED_RESET_FAILED: {
+        key: 'workspace.errors.seedResetFailed',
+        fallback: 'Seeded workspace content could not be reset.'
+    },
+    WORKSPACE_COPY_REFERENCE_UNRESOLVED: {
+        key: 'workspace.errors.copyReferenceUnresolved',
+        fallback: 'Workspace copy contains a required reference that could not be copied.'
+    },
     PERSONAL_WORKSPACE_MUTATION_BLOCKED: {
         key: 'workspace.errors.personalMutationBlocked',
         fallback: 'Personal workspace cannot be changed'
@@ -129,6 +138,7 @@ const LEGACY_WORKSPACE_ERROR_TRANSLATIONS: Array<[string, WorkspaceErrorTranslat
     ['Workspace not found', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACE_NOT_FOUND],
     ['Workspaces are not enabled for this application', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACES_DISABLED],
     ['Invalid request body', WORKSPACE_ERROR_TRANSLATIONS.INVALID_REQUEST_BODY],
+    ['Workspace copy contains a required reference', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACE_COPY_REFERENCE_UNRESOLVED],
     ['Personal workspace cannot be deleted', WORKSPACE_ERROR_TRANSLATIONS.PERSONAL_WORKSPACE_MUTATION_BLOCKED]
 ]
 
@@ -244,6 +254,12 @@ const readWorkspaceRoleChangeValue = (value: unknown): 'owner' | 'member' => {
     return role === 'owner' ? 'owner' : 'member'
 }
 
+const resolveWorkspaceRoleLabel = (roleCodename: string, translate: (key: string, fallback: string) => string): string => {
+    if (roleCodename === 'owner') return translate('workspace.roleOwner', 'Owner')
+    if (roleCodename === 'admin') return translate('workspace.roleAdmin', 'Application administrator')
+    return translate('workspace.roleMember', 'Member')
+}
+
 const appendCopySuffix = (value: string, locale: string): string => `${value} ${locale.startsWith('ru') ? '(копия)' : '(copy)'}`
 
 const readCheckboxChangeValue = (value: unknown): boolean => {
@@ -316,6 +332,7 @@ export function RuntimeWorkspacesPage({
     const [workspaceMenuTarget, setWorkspaceMenuTarget] = useState<WorkspaceViewRow | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [removeTarget, setRemoveTarget] = useState<RuntimeWorkspaceMember | null>(null)
+    const [resetSeededContentOpen, setResetSeededContentOpen] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
 
     useEffect(() => {
@@ -332,6 +349,7 @@ export function RuntimeWorkspacesPage({
         queryFn: () => fetchRuntimeWorkspaces({ apiBaseUrl, applicationId, params: workspaceParams })
     })
     const workspaces = useMemo(() => workspacesQuery.data?.items ?? [], [workspacesQuery.data?.items])
+    const canCreateSharedWorkspace = workspacesQuery.data?.permissions?.canCreateSharedWorkspace === true
     const workspaceDetailQuery = useQuery({
         queryKey: routeWorkspaceId
             ? workspaceQueryKeys.detail(applicationId, routeWorkspaceId)
@@ -493,6 +511,21 @@ export function RuntimeWorkspacesPage({
         onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
+    const resetSeededContentMutation = useMutation({
+        mutationFn: () =>
+            resetRuntimeWorkspaceSeededContent({
+                apiBaseUrl,
+                applicationId,
+                workspaceId: routeWorkspaceId!
+            }),
+        onSuccess: async () => {
+            setResetSeededContentOpen(false)
+            setFormError(null)
+            await invalidateWorkspaceData()
+        },
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
+    })
+
     const inviteMutation = useMutation({
         mutationFn: (data: { email: string; roleCodename: 'owner' | 'member' }) =>
             inviteRuntimeWorkspaceMember({
@@ -555,7 +588,7 @@ export function RuntimeWorkspacesPage({
                 id: 'name',
                 label: t('workspace.fields.name', 'Name'),
                 render: (row) => (
-                    <Stack direction='row' spacing={0.75} alignItems='center' sx={{ minWidth: 0 }}>
+                    <Stack direction='row' spacing={0.75} sx={{ minWidth: 0, alignItems: 'center' }}>
                         <Typography component='span' noWrap>
                             {row.displayName}
                         </Typography>
@@ -581,13 +614,7 @@ export function RuntimeWorkspacesPage({
             {
                 id: 'role',
                 label: t('workspace.fields.role', 'Role'),
-                render: (row) => (
-                    <Chip
-                        size='small'
-                        variant='outlined'
-                        label={row.roleCodename === 'owner' ? t('workspace.roleOwner', 'Owner') : t('workspace.roleMember', 'Member')}
-                    />
-                )
+                render: (row) => <Chip size='small' variant='outlined' label={resolveWorkspaceRoleLabel(row.roleCodename, t)} />
             }
         ],
         [t]
@@ -600,13 +627,7 @@ export function RuntimeWorkspacesPage({
             {
                 id: 'role',
                 label: t('workspace.fields.role', 'Role'),
-                render: (row) => (
-                    <Chip
-                        size='small'
-                        variant='outlined'
-                        label={row.roleCodename === 'owner' ? t('workspace.roleOwner', 'Owner') : t('workspace.roleMember', 'Member')}
-                    />
-                )
+                render: (row) => <Chip size='small' variant='outlined' label={resolveWorkspaceRoleLabel(row.roleCodename, t)} />
             }
         ],
         [t]
@@ -678,6 +699,9 @@ export function RuntimeWorkspacesPage({
         </IconButton>
     )
 
+    const canManageWorkspace = workspaceMenuTarget?.roleCodename === 'owner'
+    const canDeleteWorkspace = canManageWorkspace && workspaceMenuTarget?.workspaceType === 'shared'
+
     const renderWorkspaceList = () => (
         <>
             <ViewHeader
@@ -697,14 +721,18 @@ export function RuntimeWorkspacesPage({
                     onViewModeChange={setViewMode}
                     cardViewTitle={t('toolbar.cardView', 'Card view')}
                     listViewTitle={t('toolbar.tableView', 'Table view')}
-                    primaryAction={{
-                        label: t('app.create', 'Create'),
-                        startIcon: <AddRoundedIcon />,
-                        onClick: () => {
-                            setFormError(null)
-                            setCreateOpen(true)
-                        }
-                    }}
+                    primaryAction={
+                        canCreateSharedWorkspace
+                            ? {
+                                  label: t('app.create', 'Create'),
+                                  startIcon: <AddRoundedIcon />,
+                                  onClick: () => {
+                                      setFormError(null)
+                                      setCreateOpen(true)
+                                  }
+                              }
+                            : undefined
+                    }
                 />
             </ViewHeader>
 
@@ -754,11 +782,7 @@ export function RuntimeWorkspacesPage({
                                                 <Chip
                                                     size='small'
                                                     variant='outlined'
-                                                    label={
-                                                        workspace.roleCodename === 'owner'
-                                                            ? t('workspace.roleOwner', 'Owner')
-                                                            : t('workspace.roleMember', 'Member')
-                                                    }
+                                                    label={resolveWorkspaceRoleLabel(workspace.roleCodename, t)}
                                                 />
                                             }
                                         />
@@ -771,7 +795,7 @@ export function RuntimeWorkspacesPage({
                                 customColumns={workspaceColumns}
                                 isLoading={workspacesQuery.isFetching}
                                 renderActions={(row) => (
-                                    <Stack direction='row' spacing={1} justifyContent='flex-end'>
+                                    <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end' }}>
                                         {renderWorkspaceActions(row)}
                                     </Stack>
                                 )}
@@ -821,11 +845,7 @@ export function RuntimeWorkspacesPage({
                     />
                     <WorkspaceMetricCard
                         title={t('workspace.fields.role', 'Role')}
-                        value={
-                            selectedWorkspace.roleCodename === 'owner'
-                                ? t('workspace.roleOwner', 'Owner')
-                                : t('workspace.roleMember', 'Member')
-                        }
+                        value={resolveWorkspaceRoleLabel(selectedWorkspace.roleCodename, t)}
                     />
                     <WorkspaceMetricCard
                         title={t('workspace.members', 'Members')}
@@ -910,11 +930,7 @@ export function RuntimeWorkspacesPage({
                                             <Chip
                                                 size='small'
                                                 variant='outlined'
-                                                label={
-                                                    member.roleCodename === 'owner'
-                                                        ? t('workspace.roleOwner', 'Owner')
-                                                        : t('workspace.roleMember', 'Member')
-                                                }
+                                                label={resolveWorkspaceRoleLabel(member.roleCodename, t)}
                                             />
                                         }
                                         footerEndContent={renderMemberActions(member)}
@@ -949,7 +965,20 @@ export function RuntimeWorkspacesPage({
                 title={workspaceName ? `${workspaceName}: ${t('workspace.settings', 'Settings')}` : t('workspace.settings', 'Settings')}
                 description={t('workspace.settingsDescription', 'Workspace-level overrides for application settings.')}
                 controlsWrap
-            />
+            >
+                <Button
+                    variant='outlined'
+                    color='warning'
+                    startIcon={<RestartAltRoundedIcon />}
+                    disabled={settingsQuery.data?.canManage !== true || resetSeededContentMutation.isPending}
+                    onClick={() => {
+                        setFormError(null)
+                        setResetSeededContentOpen(true)
+                    }}
+                >
+                    {t('workspace.resetSeededContent', 'Reset seeded content')}
+                </Button>
+            </ViewHeader>
 
             {!selectedWorkspace && !selectedWorkspaceIsLoading && selectedWorkspaceLoadFailed ? (
                 <Alert severity='error'>{t('workspace.errorLoad', 'Failed to load workspaces')}</Alert>
@@ -1039,44 +1068,48 @@ export function RuntimeWorkspacesPage({
                     <StarRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
                     {t('workspace.setDefault', 'Set default')}
                 </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        if (workspaceMenuTarget) {
-                            setFormError(null)
-                            setEditTarget(workspaceMenuTarget)
-                        }
-                        closeWorkspaceMenu()
-                    }}
-                >
-                    <EditRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {t('workspace.actions.edit', 'Edit')}
-                </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        if (workspaceMenuTarget) {
-                            setFormError(null)
-                            setCopyTarget(workspaceMenuTarget)
-                        }
-                        closeWorkspaceMenu()
-                    }}
-                >
-                    <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {t('workspace.actions.copy', 'Copy')}
-                </MenuItem>
-                <Divider />
-                <MenuItem
-                    disabled={workspaceMenuTarget?.workspaceType === 'personal'}
-                    onClick={() => {
-                        if (workspaceMenuTarget) {
-                            setFormError(null)
-                            setDeleteTarget(workspaceMenuTarget)
-                        }
-                        closeWorkspaceMenu()
-                    }}
-                >
-                    <DeleteRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                    {t('workspace.actions.delete', 'Delete')}
-                </MenuItem>
+                {canManageWorkspace ? (
+                    <>
+                        <MenuItem
+                            onClick={() => {
+                                if (workspaceMenuTarget) {
+                                    setFormError(null)
+                                    setEditTarget(workspaceMenuTarget)
+                                }
+                                closeWorkspaceMenu()
+                            }}
+                        >
+                            <EditRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {t('workspace.actions.edit', 'Edit')}
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => {
+                                if (workspaceMenuTarget) {
+                                    setFormError(null)
+                                    setCopyTarget(workspaceMenuTarget)
+                                }
+                                closeWorkspaceMenu()
+                            }}
+                        >
+                            <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {t('workspace.actions.copy', 'Copy')}
+                        </MenuItem>
+                        <Divider />
+                        <MenuItem
+                            disabled={!canDeleteWorkspace}
+                            onClick={() => {
+                                if (workspaceMenuTarget && canDeleteWorkspace) {
+                                    setFormError(null)
+                                    setDeleteTarget(workspaceMenuTarget)
+                                }
+                                closeWorkspaceMenu()
+                            }}
+                        >
+                            <DeleteRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                            {t('workspace.actions.delete', 'Delete')}
+                        </MenuItem>
+                    </>
+                ) : null}
             </Menu>
 
             <FormDialog
@@ -1198,6 +1231,27 @@ export function RuntimeWorkspacesPage({
                 }}
                 onConfirm={() => (removeTarget ? removeMutation.mutateAsync(removeTarget) : undefined)}
             />
+
+            <ConfirmDeleteDialog
+                open={resetSeededContentOpen}
+                title={t('workspace.resetSeededContentTitle', 'Reset seeded content?')}
+                description={t(
+                    'workspace.resetSeededContentConfirm',
+                    'This restores records that are still owned by the published template source. Authored records remain unchanged.'
+                )}
+                confirmButtonText={t('workspace.resetSeededContentAction', 'Reset content')}
+                deletingButtonText={t('workspace.resettingSeededContent', 'Resetting...')}
+                cancelButtonText={t('app.cancel', 'Cancel')}
+                error={resetSeededContentOpen ? formError ?? undefined : undefined}
+                loading={resetSeededContentMutation.isPending}
+                onCancel={() => {
+                    setFormError(null)
+                    setResetSeededContentOpen(false)
+                }}
+                onConfirm={async () => {
+                    await resetSeededContentMutation.mutateAsync()
+                }}
+            />
         </Box>
     )
 }
@@ -1215,7 +1269,14 @@ function WorkspaceMetricCard({ title, value }: { title: string; value: string })
             }}
         >
             <CardContent>
-                <Typography component='h2' variant='subtitle2' color='text.secondary' gutterBottom>
+                <Typography
+                    component='h2'
+                    variant='subtitle2'
+                    gutterBottom
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {title}
                 </Typography>
                 <Typography variant='h5' component='p' sx={{ overflowWrap: 'anywhere' }}>
@@ -1295,7 +1356,7 @@ function WorkspaceSettingCard({
                         label={label}
                         value={typeof normalizedValue === 'string' ? normalizedValue : ''}
                         disabled={!canManage}
-                        inputProps={{ 'data-testid': `runtime-workspace-setting-${setting.key}` }}
+                        slotProps={{ htmlInput: { 'data-testid': `runtime-workspace-setting-${setting.key}` } }}
                         onChange={(event) => onChange(readInputChangeValue(event))}
                     >
                         {optionItems.map((option) => (
@@ -1314,7 +1375,7 @@ function WorkspaceSettingCard({
                         label={label}
                         value={typeof normalizedValue === 'number' ? normalizedValue : 0}
                         disabled={!canManage}
-                        inputProps={{ 'data-testid': `runtime-workspace-setting-${setting.key}` }}
+                        slotProps={{ htmlInput: { 'data-testid': `runtime-workspace-setting-${setting.key}` } }}
                         onChange={(event) => onChange(readNumericInputValue(event))}
                     />
                 )
@@ -1326,7 +1387,7 @@ function WorkspaceSettingCard({
                         label={label}
                         value={typeof normalizedValue === 'string' ? normalizedValue : ''}
                         disabled={!canManage}
-                        inputProps={{ 'data-testid': `runtime-workspace-setting-${setting.key}` }}
+                        slotProps={{ htmlInput: { 'data-testid': `runtime-workspace-setting-${setting.key}` } }}
                         onChange={(event) => onChange(readInputChangeValue(event))}
                     />
                 )
@@ -1357,11 +1418,17 @@ function WorkspaceSettingCard({
                             <Typography variant='subtitle1' component='h2' sx={{ overflowWrap: 'anywhere' }}>
                                 {label}
                             </Typography>
-                            <Typography variant='body2' color='text.secondary' sx={{ overflowWrap: 'anywhere' }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    overflowWrap: 'anywhere'
+                                }}
+                            >
                                 {description}
                             </Typography>
                         </Box>
-                        <Stack direction='row' spacing={1} useFlexGap flexWrap='wrap'>
+                        <Stack direction='row' spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                             <Chip size='small' variant='outlined' label={sourceChipLabel} />
                             <Chip
                                 size='small'

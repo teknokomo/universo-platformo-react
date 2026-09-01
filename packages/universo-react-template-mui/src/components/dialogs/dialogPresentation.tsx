@@ -1,5 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type MouseEvent,
+    type ReactNode,
+    type Ref
+} from 'react'
 import type { DialogProps, SxProps, Theme } from '@mui/material'
+import type { PaperProps } from '@mui/material/Paper'
 import { Box, IconButton, Stack, Tooltip, useMediaQuery, useTheme } from '@mui/material'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
@@ -49,8 +61,14 @@ export interface DialogPresentationResolvedDialogProps {
     onClose: NonNullable<DialogProps['onClose']>
     maxWidth: DialogMaxWidth
     fullWidth: NonNullable<DialogProps['fullWidth']>
-    PaperProps: DialogProps['PaperProps']
-    disableEscapeKeyDown: NonNullable<DialogProps['disableEscapeKeyDown']>
+    PaperProps: DialogPaperProps
+    /** MUI 9 handles this policy through the `onClose` reason callback. */
+    disableEscapeKeyDown: boolean
+}
+
+export type DialogPaperProps = PaperProps & {
+    ref?: Ref<HTMLDivElement>
+    [key: string]: unknown
 }
 
 export interface DialogPresentationHookResult {
@@ -128,10 +146,7 @@ export const mergeDialogSx = (...parts: Array<SxProps<Theme> | undefined>): SxPr
     return merged.length > 0 ? merged : undefined
 }
 
-export const mergeDialogPaperProps = (
-    baseProps?: DialogProps['PaperProps'],
-    overrideProps?: DialogProps['PaperProps']
-): DialogProps['PaperProps'] => ({
+export const mergeDialogPaperProps = (baseProps?: DialogPaperProps, overrideProps?: DialogPaperProps): DialogPaperProps => ({
     ...baseProps,
     ...overrideProps,
     ref: (node: HTMLDivElement | null) => {
@@ -452,7 +467,7 @@ export function useDialogPresentation({
         if (!enabled) return null
 
         return (
-            <Stack direction='row' spacing={0.5} alignItems='center' sx={{ mr: -1 }}>
+            <Stack direction='row' spacing={0.5} sx={{ mr: -1, alignItems: 'center' }}>
                 {allowResize && hasCustomSize ? (
                     <Tooltip title={titleActionLabels.resetSize}>
                         <span>

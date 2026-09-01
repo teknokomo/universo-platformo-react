@@ -16,7 +16,7 @@ import { builtinTemplates } from '../domains/templates/data'
 const findWidget = (widgets: Array<{ widgetKey: string }>, key: string) => widgets.find((w) => w.widgetKey === key)
 
 describe('interpretation-network template shape', () => {
-    it('keeps the exact seven built-in metahub templates registered', () => {
+    it('keeps the built-in metahub template registry ordered', () => {
         expect(builtinTemplates.map((template) => template.codename)).toEqual([
             'basic',
             'basic-demo',
@@ -24,7 +24,8 @@ describe('interpretation-network template shape', () => {
             'lms',
             '1c-compatible',
             'playcanvas',
-            'interpretation-network'
+            'interpretation-network',
+            'marketing-page'
         ])
     })
 

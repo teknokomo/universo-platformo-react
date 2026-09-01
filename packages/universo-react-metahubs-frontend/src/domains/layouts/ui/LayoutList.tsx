@@ -52,12 +52,12 @@ import * as layoutsApi from '../api'
 import { useCopyLayout, useCreateLayout, useDeleteLayout, useUpdateLayout } from '../hooks/mutations'
 import type { Metahub, MetahubCreateLayoutPayload, MetahubLayout, MetahubLayoutLocalizedPayload } from '../../../types'
 import { getVLCString } from '../../../types'
-import type { VersionedLocalizedContent } from '@universo-react/types'
+import type { ApplicationTemplateKey, VersionedLocalizedContent } from '@universo-react/types'
 import { normalizeLayoutCopyOptions } from '@universo-react/utils'
 import { isPendingEntity, getPendingAction } from '@universo-react/utils'
 
 type LayoutFormValues = {
-    templateKey: 'dashboard'
+    templateKey: ApplicationTemplateKey
     nameVlc: VersionedLocalizedContent<string> | null
     descriptionVlc: VersionedLocalizedContent<string> | null
     isActive: boolean
@@ -315,7 +315,7 @@ export const LayoutListContent = ({
             getVLCString(dialogs.copy.item.description, uiLocale) || getVLCString(dialogs.copy.item.description, 'en') || ''
 
         return {
-            templateKey: 'dashboard',
+            templateKey: dialogs.copy.item.templateKey,
             nameVlc: appendLocalizedCopySuffix(ensureLocalizedContent(dialogs.copy.item.name, uiLocale, sourceName), uiLocale, sourceName),
             descriptionVlc: ensureLocalizedContent(dialogs.copy.item.description ?? null, uiLocale, sourceDescription),
             isActive: Boolean(dialogs.copy.item.isActive),
@@ -369,7 +369,7 @@ export const LayoutListContent = ({
                 ...(descriptionInput ?? {})
             }
             const payload: MetahubLayoutLocalizedPayload = {
-                templateKey: 'dashboard',
+                templateKey: values.templateKey,
                 name: Object.keys(mergedNameInput).length > 0 ? mergedNameInput : { [uiLocale]: '' },
                 description: Object.keys(mergedDescriptionInput).length > 0 ? mergedDescriptionInput : undefined,
                 namePrimaryLocale: namePrimaryLocale ?? existingName.primaryLocale,
@@ -543,13 +543,14 @@ export const LayoutListContent = ({
                     <TextField
                         select
                         fullWidth
-                        disabled
+                        disabled={isLoading || dialogs.edit.open}
                         label={t('layouts.fields.uiTemplate', 'User interface template')}
                         value={values.templateKey || 'dashboard'}
                         onChange={(e) => setValue('templateKey', e.target.value)}
-                        InputLabelProps={{ shrink: true }}
+                        slotProps={{ inputLabel: { shrink: true } }}
                     >
                         <MenuItem value='dashboard'>{t('layouts.templates.dashboard', 'Dashboard')}</MenuItem>
+                        <MenuItem value='marketing-page'>{t('layouts.templates.marketingPage', 'Marketing page')}</MenuItem>
                     </TextField>
                     <Divider />
                     <Stack spacing={1}>
@@ -576,7 +577,7 @@ export const LayoutListContent = ({
                 </>
             )
         },
-        [i18n.language, t, tc]
+        [dialogs.edit.open, i18n.language, t, tc]
     )
 
     const renderCopyGeneralFields = useCallback(
@@ -648,8 +649,17 @@ export const LayoutListContent = ({
                     id: layout.id,
                     title: layoutName,
                     description: layoutDescription,
-                    meta: layout.templateKey,
-                    metaContent: <Typography sx={{ fontSize: 14, fontFamily: 'monospace' }}>{layout.templateKey}</Typography>,
+                    meta:
+                        layout.templateKey === 'marketing-page'
+                            ? t('layouts.templates.marketingPage', 'Marketing page')
+                            : t('layouts.templates.dashboard', 'Dashboard'),
+                    metaContent: (
+                        <Typography sx={{ fontSize: 14 }}>
+                            {layout.templateKey === 'marketing-page'
+                                ? t('layouts.templates.marketingPage', 'Marketing page')
+                                : t('layouts.templates.dashboard', 'Dashboard')}
+                        </Typography>
+                    ),
                     titleContent: isPendingEntity(layout) ? (
                         <ButtonBase
                             onClick={() => handlePendingLayoutInteraction(layout.id)}

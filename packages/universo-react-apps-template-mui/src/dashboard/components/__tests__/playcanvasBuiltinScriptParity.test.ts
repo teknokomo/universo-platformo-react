@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
     assertPlayCanvasBuiltinScriptCatalog,
@@ -6,7 +7,7 @@ import {
     readCanonicalPlayCanvasBuiltinAsset
 } from '../../../../../../tools/testing/e2e/support/playcanvasBuiltinScriptParity'
 
-const repoRoot = path.resolve(process.cwd(), '../..')
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../')
 
 describe('PlayCanvas builtin script catalog', () => {
     it('keeps the canonical assets valid and free of the removed frontend duplicate', () => {

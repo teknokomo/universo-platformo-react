@@ -809,13 +809,27 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
             ) : null}
 
             {showSearchScopeHint ? (
-                <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 1.5 }}>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary',
+                        display: 'block',
+                        mb: 1.5
+                    }}
+                >
                     {t('app.localSearchScope', 'Search applies to loaded rows only.')}
                 </Typography>
             ) : null}
 
             {showRowReorderHint ? (
-                <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mb: 1.5 }}>
+                <Typography
+                    variant='caption'
+                    sx={{
+                        color: 'text.secondary',
+                        display: 'block',
+                        mb: 1.5
+                    }}
+                >
                     {t(
                         'app.reorderRequiresCompleteDataset',
                         'Row reordering is available only when all rows are loaded and search is cleared.'

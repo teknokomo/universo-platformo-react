@@ -1199,7 +1199,12 @@ export const EntityModulesTab = ({
         <List dense disablePadding sx={{ maxHeight: isCompactLayout ? 260 : 480, overflowY: 'auto' }}>
             {modulesQuery.isLoading ? (
                 <Box sx={{ px: 2, py: 3 }}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('modules.loading', 'Loading attached modules...')}
                     </Typography>
                 </Box>
@@ -1220,7 +1225,12 @@ export const EntityModulesTab = ({
             })}
             {!modulesQuery.isLoading && modules.length === 0 ? (
                 <Box sx={{ px: 2, py: 3 }}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('modules.empty', 'No modules are attached to this entity yet.')}
                     </Typography>
                 </Box>
@@ -1374,7 +1384,12 @@ export const EntityModulesTab = ({
             ) : null}
             <Stack spacing={1} sx={{ minWidth: 0 }}>
                 <Typography variant='subtitle2'>{t('modules.fields.capabilities', 'Capabilities')}</Typography>
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t(
                         'modules.capabilities.help',
                         'Only declared capabilities are injected into the runtime. External and visual sources remain reserved for later phases.'
@@ -1507,8 +1522,10 @@ export const EntityModulesTab = ({
             <Stack
                 direction={isCompactLayout ? 'column-reverse' : 'row'}
                 spacing={1}
-                justifyContent='space-between'
-                alignItems={isCompactLayout ? 'stretch' : 'center'}
+                sx={{
+                    justifyContent: 'space-between',
+                    alignItems: isCompactLayout ? 'stretch' : 'center'
+                }}
             >
                 <Button color='error' onClick={handleRequestDelete} disabled={!draft.id || isSaving}>
                     {t('modules.delete', 'Delete')}
@@ -1534,14 +1551,22 @@ export const EntityModulesTab = ({
                         <Stack spacing={1.5} sx={{ minWidth: 0 }}>
                             <Stack
                                 direction='row'
-                                justifyContent='space-between'
-                                alignItems='flex-start'
                                 spacing={1.5}
-                                sx={{ minWidth: 0 }}
+                                sx={{
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    minWidth: 0
+                                }}
                             >
                                 <Box sx={{ minWidth: 0, flex: 1 }}>
                                     <Typography variant='subtitle2'>{t('modules.listTitle', 'Attached modules')}</Typography>
-                                    <Typography variant='body2' color='text.secondary' noWrap>
+                                    <Typography
+                                        variant='body2'
+                                        noWrap
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {`${t('modules.currentSelection', 'Selected')}: ${selectedModuleLabel}`}
                                     </Typography>
                                 </Box>
@@ -1588,7 +1613,15 @@ export const EntityModulesTab = ({
                                 data-testid='entity-modules-sidebar'
                                 sx={{ minWidth: 0, border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
                             >
-                                <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ px: 1.5, py: 1 }}>
+                                <Stack
+                                    direction='row'
+                                    sx={{
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        px: 1.5,
+                                        py: 1
+                                    }}
+                                >
                                     <Typography variant='subtitle2'>{t('modules.listTitle', 'Attached modules')}</Typography>
                                     <Button size='small' onClick={handleNew} disabled={isSaving}>
                                         {t('modules.new', 'New')}
@@ -1626,7 +1659,14 @@ export const EntityModulesTab = ({
                             : t('modules.deleteDialog.inlineDescription', 'This will delete the module from the metahub.')}
                     </DialogContentText>
                     {draft.storageMode === 'file' && draft.sourcePath ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 1, overflowWrap: 'anywhere' }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 1,
+                                overflowWrap: 'anywhere'
+                            }}
+                        >
                             {t('modules.fields.sourcePath', 'Source path')}: {draft.sourcePath}
                         </Typography>
                     ) : null}

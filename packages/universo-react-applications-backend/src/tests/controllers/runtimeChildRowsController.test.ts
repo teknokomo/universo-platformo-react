@@ -21,6 +21,7 @@ jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkSurf
 }))
 
 import { createRuntimeChildRowsController } from '../../controllers/runtimeChildRowsController'
+import { buildChildRowUpdate } from '../../controllers/runtimeChildRowsValidation'
 import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -80,6 +81,22 @@ const createRequest = (body: unknown): Request =>
         query: { objectCollectionId },
         body
     } as unknown as Request)
+
+describe('runtime child row seed ownership contract', () => {
+    it('only emits seed ownership mutations for workspace-enabled tables', async () => {
+        const { executor } = createMockDbExecutor()
+        const context = tabularContext as Parameters<typeof buildChildRowUpdate>[2]
+
+        const nonWorkspaceUpdate = await buildChildRowUpdate(executor, 'runtime_schema', context, { CellValue: 'edited' }, 'user-1', false)
+        const workspaceUpdate = await buildChildRowUpdate(executor, 'runtime_schema', context, { CellValue: 'edited' }, 'user-1', true)
+
+        expect('error' in nonWorkspaceUpdate).toBe(false)
+        expect('error' in workspaceUpdate).toBe(false)
+        if ('error' in nonWorkspaceUpdate || 'error' in workspaceUpdate) return
+        expect(nonWorkspaceUpdate.setClauses).not.toContain('_seed_source_owned = false')
+        expect(workspaceUpdate.setClauses).toContain('_seed_source_owned = false')
+    })
+})
 
 describe('runtimeChildRowsController server-owned field enforcement', () => {
     let executor: ReturnType<typeof createMockDbExecutor>['executor']
@@ -283,5 +300,50 @@ describe('runtimeChildRowsController server-owned field enforcement', () => {
             code: 'INTERPRETATION_NETWORK_AMBIGUOUS_WIDGET_CONTEXT'
         })
         expect(executor.transaction).not.toHaveBeenCalled()
+    })
+
+    it('marks a soft-deleted workspace seed child row as authored', async () => {
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName: 'runtime_schema',
+            schemaIdent: 'runtime_schema',
+            manager: executor,
+            userId: 'user-1',
+            permissions: { createContent: true, editContent: true, deleteContent: true },
+            currentWorkspaceId: '019f2000-0000-7000-8000-000000000010',
+            workspacesEnabled: true
+        })
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'missing-widget',
+            structureMode: 'multiple',
+            resolvedObjects: {}
+        })
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            lifecycleContract: resolveApplicationLifecycleContractFromConfig({
+                systemFields: { lifecycleContract: { delete: { mode: 'soft' } } }
+            })
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation"')) {
+                return [{ id: recordId, _upl_locked: false }]
+            }
+            if (sql.includes('SELECT id, COALESCE(_upl_version, 1)::int AS version')) {
+                return [{ id: childRowId, version: 1 }]
+            }
+            if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 1 }]
+            if (sql.includes('UPDATE runtime_schema."interpretation_matrix_rows"')) return [{ id: childRowId }]
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        const controller = createRuntimeChildRowsController(() => executor)
+        const res = createResponse()
+        await controller.deleteChildRow(createRequest({ expectedVersion: 1 }), res)
+
+        expect(res.json).toHaveBeenCalledWith({ status: 'deleted' })
+        const deleteCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes('UPDATE runtime_schema."interpretation_matrix_rows"')
+        )
+        expect(String(deleteCall?.[0])).toContain('_seed_source_owned = false')
     })
 })

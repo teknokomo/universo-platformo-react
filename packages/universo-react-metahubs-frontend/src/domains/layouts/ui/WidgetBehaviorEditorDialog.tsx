@@ -61,7 +61,12 @@ export default function WidgetBehaviorEditorDialog({
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
                 <Stack spacing={2.5}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'layouts.widgetBehaviorEditor.description',
                             'Configure how scoped entity layouts can override this inherited widget.'

@@ -190,9 +190,15 @@ export const TargetEntitySelector = ({
     // Get display name for constant
     const getConstantDisplayName = useCallback(
         (constant: FixedValue): string => {
-            return getVLCString(constant.name, uiLocale) || getVLCString(constant.name, 'en') || constant.codename
+            return (
+                getVLCString(constant.name, uiLocale) ||
+                getVLCString(constant.name, 'en') ||
+                getVLCString(constant.codename, uiLocale) ||
+                getVLCString(constant.codename, 'en') ||
+                t('ref.unnamedConstant', 'Unnamed constant')
+            )
         },
-        [uiLocale]
+        [t, uiLocale]
     )
     const getTargetEntityDisplayName = useCallback(
         (entity: MetahubEntityInstance): string => {
@@ -201,10 +207,10 @@ export const TargetEntitySelector = ({
                 getVLCString(entity.name, 'en') ||
                 getVLCString(entity.codename, uiLocale) ||
                 getVLCString(entity.codename, 'en') ||
-                String(entity.codename ?? entity.id)
+                t('ref.unnamedEntity', 'Unnamed entity')
             )
         },
-        [uiLocale]
+        [t, uiLocale]
     )
 
     const selectedTargetEntity = useMemo(() => {
@@ -322,12 +328,12 @@ export const TargetEntitySelector = ({
                     disabled={disabled}
                     disableClearable
                     options={selectableTargetEntities}
-                    value={selectedTargetEntity}
+                    value={selectedTargetEntity ?? undefined}
                     onChange={handleTargetEntityChange}
                     getOptionLabel={(entity) => getTargetEntityDisplayName(entity)}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                    PopperComponent={StyledPopper}
+                    slots={{ popper: StyledPopper }}
                     slotProps={{
                         popupIndicator: {
                             disableRipple: true,
@@ -360,20 +366,23 @@ export const TargetEntitySelector = ({
                             placeholder={targetEntityPlaceholder}
                             error={Boolean(error && !targetEntityId)}
                             helperText={targetEntityHelperText}
-                            InputProps={{
-                                ...params.InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingTargetEntities ? <CircularProgress color='inherit' size={16} /> : null}
-                                        {params.InputProps.endAdornment}
-                                    </>
-                                )
+                            slotProps={{
+                                ...params.slotProps,
+                                input: {
+                                    ...params.slotProps.input,
+                                    endAdornment: (
+                                        <>
+                                            {isLoadingTargetEntities ? <CircularProgress color='inherit' size={16} /> : null}
+                                            {params.slotProps.input.endAdornment}
+                                        </>
+                                    )
+                                }
                             }}
                         />
                     )}
                     renderOption={(props, entity) => (
                         <Box component='li' {...props} key={entity.id}>
-                            <Stack direction='row' spacing={1} alignItems='center'>
+                            <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                 <Typography variant='body2'>{getTargetEntityDisplayName(entity)}</Typography>
                                 <Chip label={String(entity.codename ?? entity.id)} size='small' variant='outlined' sx={{ fontSize: 11 }} />
                             </Stack>
@@ -391,12 +400,12 @@ export const TargetEntitySelector = ({
                     disabled={disabled}
                     disableClearable
                     options={availableConstants}
-                    value={selectedConstant}
+                    value={selectedConstant ?? undefined}
                     onChange={handleConstantChange}
                     getOptionLabel={(constant) => getConstantDisplayName(constant)}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                    PopperComponent={StyledPopper}
+                    slots={{ popper: StyledPopper }}
                     slotProps={{
                         popupIndicator: {
                             disableRipple: true,
@@ -433,22 +442,34 @@ export const TargetEntitySelector = ({
                                     ? targetConstantError
                                     : t('ref.targetConstantHint', 'Select constant from the selected set')
                             }
-                            InputProps={{
-                                ...params.InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingConstants ? <CircularProgress color='inherit' size={16} /> : null}
-                                        {params.InputProps.endAdornment}
-                                    </>
-                                )
+                            slotProps={{
+                                ...params.slotProps,
+                                input: {
+                                    ...params.slotProps.input,
+                                    endAdornment: (
+                                        <>
+                                            {isLoadingConstants ? <CircularProgress color='inherit' size={16} /> : null}
+                                            {params.slotProps.input.endAdornment}
+                                        </>
+                                    )
+                                }
                             }}
                         />
                     )}
                     renderOption={(props, constant) => (
                         <Box component='li' {...props} key={constant.id}>
-                            <Stack direction='row' spacing={1} alignItems='center'>
+                            <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                 <Typography variant='body2'>{getConstantDisplayName(constant)}</Typography>
-                                <Chip label={constant.codename} size='small' variant='outlined' sx={{ fontSize: 11 }} />
+                                <Chip
+                                    label={
+                                        getVLCString(constant.codename, uiLocale) ||
+                                        getVLCString(constant.codename, 'en') ||
+                                        t('ref.unnamedConstant', 'Unnamed constant')
+                                    }
+                                    size='small'
+                                    variant='outlined'
+                                    sx={{ fontSize: 11 }}
+                                />
                             </Stack>
                         </Box>
                     )}
@@ -460,7 +481,13 @@ export const TargetEntitySelector = ({
 
             {/* Placeholder for unsupported entity kinds */}
             {targetEntityKind && !isKindSupported && (
-                <Typography variant='body2' color='text.secondary' sx={{ fontStyle: 'italic' }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        fontStyle: 'italic'
+                    }}
+                >
                     {t('ref.entityKindNotSupported', 'This entity type is not yet supported for references.')}
                 </Typography>
             )}

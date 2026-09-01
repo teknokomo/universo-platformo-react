@@ -724,8 +724,9 @@ export default function NavbarBreadcrumbs() {
                 component={NavLink}
                 to='/'
                 underline='none'
-                color='text.secondary'
+                aria-label='Home'
                 sx={{
+                    color: 'text.secondary',
                     fontSize: '1rem',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -735,7 +736,6 @@ export default function NavbarBreadcrumbs() {
                     textDecoration: 'none',
                     '&:hover': { textDecoration: 'none' }
                 }}
-                aria-label='Home'
             >
                 <HomeRoundedIcon sx={{ fontSize: '1.2rem', verticalAlign: 'middle', transform: 'translateY(-0.04rem)' }} />
             </Link>
@@ -751,8 +751,10 @@ export default function NavbarBreadcrumbs() {
                         key={crumb.to}
                         to={crumb.to}
                         underline='none'
-                        color='text.secondary'
-                        sx={{ fontSize: '1rem' }}
+                        sx={{
+                            color: 'text.secondary',
+                            fontSize: '1rem'
+                        }}
                     >
                         {crumb.label}
                     </Link>

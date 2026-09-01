@@ -42,7 +42,13 @@ export const ConnectorMetahubInfoWrapper = ({ applicationId, connectorId, uiLoca
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 3 }}>
                 <CircularProgress size={24} sx={{ mr: 1 }} />
-                <Typography color='text.secondary'>{t('common.loading', 'Loading...')}</Typography>
+                <Typography
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
+                    {t('common.loading', 'Loading...')}
+                </Typography>
             </Box>
         )
     }

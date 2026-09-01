@@ -160,7 +160,12 @@ export function ApplicationLayoutWidgetEditors({
                             'The workspace switcher uses the published application workspace state and has no widget-specific settings yet.'
                         )}
                     </Alert>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'layouts.workspaceSwitcherEditor.hint',
                             'Use application settings to control which workspace settings can be changed inside workspaces.'

@@ -222,7 +222,7 @@ export function MatrixCellButton({
             }}
         >
             {showDropIndicator ? <Box data-testid='interpretation-network-drop-indicator' sx={{ position: 'absolute', inset: 0 }} /> : null}
-            <Stack direction='row' spacing={0} alignItems='stretch' sx={{ minHeight: 64, minWidth: 0 }}>
+            <Stack direction='row' spacing={0} sx={{ minHeight: 64, minWidth: 0, alignItems: 'stretch' }}>
                 <Tooltip title={dragLabel}>
                     <Box
                         aria-label={dragLabel}

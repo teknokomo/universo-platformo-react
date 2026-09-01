@@ -9,7 +9,12 @@ export const RuntimeContextMissing = ({ message }: { message: string }) => <Aler
 export const WorkspaceLoading = ({ label }: { label: string }) => (
     <Stack data-testid='interpretation-network-workspace' spacing={1.5}>
         <LinearProgress aria-label={label} />
-        <Typography variant='body2' color='text.secondary'>
+        <Typography
+            variant='body2'
+            sx={{
+                color: 'text.secondary'
+            }}
+        >
             {label}
         </Typography>
     </Stack>

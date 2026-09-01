@@ -270,7 +270,12 @@ export function LayoutAuthoringDetails({
         <Stack spacing={2}>
             {beforeZonesContent}
 
-            <Typography variant='body2' color='text.secondary'>
+            <Typography
+                variant='body2'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {dragHint}
             </Typography>
 
@@ -279,7 +284,7 @@ export function LayoutAuthoringDetails({
                     {zones.map((zone) => (
                         <LayoutZoneColumn key={zone.zone} zone={zone.zone} title={zone.title}>
                             <Stack spacing={1.25}>
-                                <Stack direction='row' spacing={1} alignItems='center'>
+                                <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                     <Button
                                         size='small'
                                         startIcon={<AddRoundedIcon />}
@@ -289,7 +294,12 @@ export function LayoutAuthoringDetails({
                                         {addWidgetLabel}
                                     </Button>
                                     {zone.availableWidgets.length === 0 ? (
-                                        <Typography variant='caption' color='text.secondary'>
+                                        <Typography
+                                            variant='caption'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {availableWidgetsLabel}: 0
                                         </Typography>
                                     ) : null}
@@ -301,7 +311,12 @@ export function LayoutAuthoringDetails({
                                             <SortableLayoutWidgetChip key={item.id} {...item} moveWidgetLabel={moveWidgetLabel} />
                                         ))}
                                         {zone.items.length === 0 ? (
-                                            <Typography variant='caption' color='text.secondary'>
+                                            <Typography
+                                                variant='caption'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {emptyZoneLabel}
                                             </Typography>
                                         ) : null}

@@ -41,7 +41,7 @@ export const LocalizedVariantTabs = ({
     onOpenActions,
     onTabKeyDown
 }: LocalizedVariantTabsProps) => (
-    <Stack direction='row' spacing={1} alignItems='flex-start' sx={{ mb: 1.5, flexWrap: 'wrap' }}>
+    <Stack direction='row' spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <Box
             role='tablist'
             aria-label={labels.tabList}
@@ -62,8 +62,8 @@ export const LocalizedVariantTabs = ({
                         key={item.code}
                         direction='row'
                         spacing={0.25}
-                        alignItems='flex-start'
                         sx={{
+                            alignItems: 'flex-start',
                             borderBottom: 2,
                             borderColor: selected ? 'text.primary' : 'transparent',
                             color: selected ? 'text.primary' : 'text.secondary',

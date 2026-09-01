@@ -159,7 +159,12 @@ function renderBlock(block: RuntimePageBlock, locale: string, index: number): Re
                     sx={{ width: '100%', maxHeight: 420, objectFit: 'contain', borderRadius: 1, bgcolor: 'background.default' }}
                 />
                 {caption ? (
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {caption}
                     </Typography>
                 ) : null}
@@ -188,13 +193,23 @@ function renderBlock(block: RuntimePageBlock, locale: string, index: number): Re
             <Stack key={blockKey} spacing={0.5}>
                 <Typography
                     variant='body1'
-                    color='text.secondary'
-                    sx={{ borderLeft: 3, borderColor: 'divider', pl: 2, fontStyle: 'italic' }}
+                    sx={{
+                        color: 'text.secondary',
+                        borderLeft: 3,
+                        borderColor: 'divider',
+                        pl: 2,
+                        fontStyle: 'italic'
+                    }}
                 >
                     {resolveLocalizedText(data.text, locale)}
                 </Typography>
                 {caption ? (
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {caption}
                     </Typography>
                 ) : null}
@@ -205,7 +220,13 @@ function renderBlock(block: RuntimePageBlock, locale: string, index: number): Re
     if (block.type === 'paragraph') {
         const data: ParagraphBlock['data'] = block.data
         return (
-            <Typography key={blockKey} variant='body1' color='text.secondary'>
+            <Typography
+                key={blockKey}
+                variant='body1'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {resolveLocalizedText(data.text, locale)}
             </Typography>
         )
@@ -281,7 +302,7 @@ export default function PageBlocksView({
         >
             {showProgressHeader ? (
                 <Stack data-testid='runtime-page-progress' spacing={0.75} sx={{ pb: 1, borderBottom: 1, borderColor: 'divider' }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
                         <Box sx={{ flex: 1 }}>
                             <Typography variant='subtitle2'>
                                 {t('pageBlocks.progress', {
@@ -307,7 +328,7 @@ export default function PageBlocksView({
             {showOutline && outline.length > 1 ? (
                 <Stack data-testid='runtime-page-outline' spacing={0.75} sx={{ pb: 1, borderBottom: 1, borderColor: 'divider' }}>
                     <Typography variant='subtitle2'>{t('pageBlocks.outline', 'Outline')}</Typography>
-                    <Stack direction='row' flexWrap='wrap' gap={1}>
+                    <Stack direction='row' sx={{ flexWrap: 'wrap', gap: 1 }}>
                         {outline.map((item) => (
                             <Link
                                 key={item.id}

@@ -2,11 +2,12 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import MenuList from '@mui/material/MenuList'
 import { RowActionsMenu } from '../RowActionsMenu'
 import type { CrudDashboardState } from '../../hooks/useCrudDashboard'
 
 vi.mock('@mui/material/Menu', () => ({
-    default: ({ open, children }: { open: boolean; children?: ReactNode }) => (open ? <div role='menu'>{children}</div> : null)
+    default: ({ open, children }: { open: boolean; children?: ReactNode }) => (open ? <MenuList>{children}</MenuList> : null)
 }))
 
 const recordBehavior = {

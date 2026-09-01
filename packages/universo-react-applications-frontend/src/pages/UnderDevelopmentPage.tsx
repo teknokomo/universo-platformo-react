@@ -35,16 +35,33 @@ const UnderDevelopmentPage = ({ isPrivileged = false }: UnderDevelopmentPageProp
                 p: 4
             }}
         >
-            <Stack spacing={2} alignItems='center' sx={{ maxWidth: 480, textAlign: 'center' }}>
+            <Stack
+                spacing={2}
+                sx={{
+                    alignItems: 'center',
+                    maxWidth: 480,
+                    textAlign: 'center'
+                }}
+            >
                 <ConstructionIcon sx={{ fontSize: 64, color: 'text.secondary', opacity: 0.5 }} />
 
-                <Typography variant='h5' color='text.primary'>
+                <Typography
+                    variant='h5'
+                    sx={{
+                        color: 'text.primary'
+                    }}
+                >
                     {isPrivileged
                         ? t('underDevelopment.title', 'Section under development')
                         : t('underDevelopment.memberTitle', 'Application is under development')}
                 </Typography>
 
-                <Typography variant='body1' color='text.secondary'>
+                <Typography
+                    variant='body1'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {isPrivileged
                         ? t(
                               'underDevelopment.description',

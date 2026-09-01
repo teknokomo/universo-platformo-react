@@ -9,6 +9,9 @@ import {
     type DashboardLayoutWidgetKey,
     type DashboardLayoutZone,
     resolveSharedBehavior,
+    applicationTemplateKeySchema,
+    marketingPageConfigSchema,
+    type ApplicationTemplateKey,
     type SharedBehavior,
     type VersionedLocalizedContent
 } from '@universo-react/types'
@@ -18,7 +21,7 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
 import { MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
 
-export type LayoutTemplateKey = 'dashboard'
+export type LayoutTemplateKey = ApplicationTemplateKey
 
 export interface MetahubLayoutRow {
     id: string
@@ -87,6 +90,7 @@ type LayoutScopeRow = {
     id: string
     scope_entity_id?: string | null
     base_layout_id?: string | null
+    template_key?: unknown
     config?: unknown
 }
 
@@ -159,7 +163,7 @@ const stripDashboardWidgetVisibilityConfig = (config: unknown): Record<string, u
     return nextConfig
 }
 
-const layoutTemplateKeySchema = z.literal('dashboard')
+const layoutTemplateKeySchema = applicationTemplateKeySchema
 const layoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
 const layoutWidgetKeySchema = z.enum(
     DASHBOARD_LAYOUT_WIDGETS.map((w) => w.key) as [DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]
@@ -175,7 +179,11 @@ export const createLayoutSchema = z
     .object({
         scopeEntityId: z.string().uuid().optional(),
         baseLayoutId: z.string().uuid().optional(),
-        templateKey: layoutTemplateKeySchema.default('dashboard'),
+        // Omitted keys inherit the base layout for scoped layouts and default to
+        // dashboard only for a new global layout. Keeping this optional prevents
+        // an omitted value from silently changing a marketing layout into a
+        // dashboard when a scoped layout is created from it.
+        templateKey: layoutTemplateKeySchema.optional(),
         name: z.any(),
         description: z.any().optional().nullable(),
         namePrimaryLocale: z.string().optional(),
@@ -291,11 +299,12 @@ export class MetahubLayoutsService {
     }
 
     private mapRow(row: DbRow): MetahubLayoutRow {
+        const templateKey = applicationTemplateKeySchema.parse(row.template_key)
         return {
             id: String(row.id),
             scopeEntityId: typeof row.scope_entity_id === 'string' ? row.scope_entity_id : null,
             baseLayoutId: typeof row.base_layout_id === 'string' ? row.base_layout_id : null,
-            templateKey: (row.template_key ?? 'dashboard') as LayoutTemplateKey,
+            templateKey,
             name: row.name as VersionedLocalizedContent<string>,
             description: (row.description as VersionedLocalizedContent<string> | null) ?? null,
             config: (row.config as Record<string, unknown>) ?? {},
@@ -341,11 +350,21 @@ export class MetahubLayoutsService {
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         return queryOne<LayoutScopeRow>(
             db,
-            `SELECT id, scope_entity_id, base_layout_id, config
+            `SELECT id, scope_entity_id, base_layout_id, template_key, config
              FROM ${lt}
              WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
             [layoutId]
         )
+    }
+
+    private assertDashboardLayoutTemplate(layout: LayoutScopeRow | DbRow | null | undefined): void {
+        const parsed = applicationTemplateKeySchema.safeParse(layout?.template_key)
+        if (!parsed.success) {
+            throw new MetahubValidationError('Layout template is invalid')
+        }
+        if (parsed.data !== 'dashboard') {
+            throw new MetahubValidationError('Zone widgets are supported only by dashboard layouts')
+        }
     }
 
     private async assertScopeEntitySupportsLayout(db: SqlQueryable, schemaName: string, scopeEntityId: string): Promise<void> {
@@ -392,7 +411,7 @@ export class MetahubLayoutsService {
         if (requestedBaseLayoutId) {
             const baseLayout = await queryOne<LayoutScopeRow>(
                 db,
-                `SELECT id, scope_entity_id, base_layout_id, config FROM ${lt}
+                `SELECT id, scope_entity_id, base_layout_id, template_key, config FROM ${lt}
                  WHERE id = $1
                    AND scope_entity_id IS NULL
                    AND _upl_deleted = false
@@ -409,7 +428,7 @@ export class MetahubLayoutsService {
 
         const fallbackBaseLayout = await queryOne<LayoutScopeRow>(
             db,
-            `SELECT id, scope_entity_id, base_layout_id, config FROM ${lt}
+            `SELECT id, scope_entity_id, base_layout_id, template_key, config FROM ${lt}
              WHERE scope_entity_id IS NULL
                AND is_active = true
                AND _upl_deleted = false
@@ -756,6 +775,11 @@ export class MetahubLayoutsService {
             return
         }
 
+        const templateKey = applicationTemplateKeySchema.parse(layoutRow.template_key)
+        if (templateKey !== 'dashboard') {
+            return
+        }
+
         const currentConfig = layoutRow?.config && typeof layoutRow.config === 'object' ? layoutRow.config : {}
         let nextConfig = stripDashboardWidgetVisibilityConfig(currentConfig)
 
@@ -791,6 +815,11 @@ export class MetahubLayoutsService {
         const layoutRow = await this.getLayoutScopeRow(db, schemaName, layoutId)
 
         if (!layoutRow) {
+            return
+        }
+
+        const templateKey = applicationTemplateKeySchema.parse(layoutRow.template_key)
+        if (templateKey !== 'dashboard') {
             return
         }
 
@@ -1047,12 +1076,13 @@ export class MetahubLayoutsService {
         }
     ): Promise<LayoutScopeRow> {
         const { baseLayout, baseLayoutId, scopeEntityId, userId } = params
+        this.assertDashboardLayoutTemplate(baseLayout)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const ot = qSchemaTable(schemaName, '_mhb_objects')
 
         const scopedLayout = await queryOne<LayoutScopeRow>(
             tx,
-            `SELECT id, scope_entity_id, base_layout_id, config
+            `SELECT id, scope_entity_id, base_layout_id, template_key, config
                FROM ${lt}
               WHERE scope_entity_id = $1
                 AND base_layout_id = $2
@@ -1083,31 +1113,27 @@ export class MetahubLayoutsService {
         )
         const now = new Date()
         const scopedName = this.buildAutoScopedLayoutName(scopeEntity?.presentation, scopeEntity?.codename)
+        const baseTemplateKey = applicationTemplateKeySchema.parse(baseLayout.template_key)
+        const baseConfig = baseTemplateKey === 'dashboard' ? stripDashboardWidgetVisibilityConfig(baseLayout.config) : baseLayout.config
         const created = await queryOneOrThrow<DbRow>(
             tx,
             `INSERT INTO ${lt} (scope_entity_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
                 _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
                 _upl_version, _upl_archived, _upl_deleted, _upl_locked,
                 _mhb_published, _mhb_archived, _mhb_deleted)
-             VALUES ($1, $2, 'dashboard', $3, NULL, $4, true, true, 0, NULL,
-                $5, $6, $5, $6,
+             VALUES ($1, $2, $3, $4, NULL, $5, true, true, 0, NULL,
+                $6, $7, $6, $7,
                 1, false, false, false,
                 true, false, false)
-             RETURNING id, scope_entity_id, base_layout_id, config`,
-            [
-                scopeEntityId,
-                baseLayoutId,
-                JSON.stringify(scopedName),
-                JSON.stringify(stripDashboardWidgetVisibilityConfig(baseLayout.config)),
-                now,
-                userId ?? null
-            ]
+             RETURNING id, scope_entity_id, base_layout_id, template_key, config`,
+            [scopeEntityId, baseLayoutId, baseTemplateKey, JSON.stringify(scopedName), JSON.stringify(baseConfig), now, userId ?? null]
         )
 
         return {
             id: String(created.id),
             scope_entity_id: typeof created.scope_entity_id === 'string' ? created.scope_entity_id : scopeEntityId,
             base_layout_id: typeof created.base_layout_id === 'string' ? created.base_layout_id : baseLayoutId,
+            template_key: applicationTemplateKeySchema.parse(created.template_key),
             config: created.config
         }
     }
@@ -1129,7 +1155,7 @@ export class MetahubLayoutsService {
 
             const baseLayout = await queryOne<LayoutScopeRow>(
                 tx,
-                `SELECT id, scope_entity_id, base_layout_id, config
+                `SELECT id, scope_entity_id, base_layout_id, template_key, config
                    FROM ${lt}
                   WHERE id = $1
                     AND scope_entity_id IS NULL
@@ -1141,6 +1167,7 @@ export class MetahubLayoutsService {
             if (!baseLayout) {
                 throw this.createNotFoundError('Global layout not found')
             }
+            this.assertDashboardLayoutTemplate(baseLayout)
 
             const baseWidget = await queryOne<DbRow>(
                 tx,
@@ -1218,10 +1245,26 @@ export class MetahubLayoutsService {
                 )
             }
 
-            const baseLayoutConfig = stripDashboardWidgetVisibilityConfig(baseLayout?.config)
-            const nextConfig = scopeEntityId
-                ? { ...baseLayoutConfig, ...stripDashboardWidgetVisibilityConfig(input.config) }
-                : input.config ?? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
+            const baseTemplateKey = baseLayout ? applicationTemplateKeySchema.parse(baseLayout.template_key) : null
+            if (baseTemplateKey && input.templateKey && input.templateKey !== baseTemplateKey) {
+                throw this.createConflictError('Scoped layout template must match its base layout')
+            }
+            const templateKey = input.templateKey ?? baseTemplateKey ?? 'dashboard'
+            const baseLayoutConfig =
+                templateKey === 'dashboard' ? stripDashboardWidgetVisibilityConfig(baseLayout?.config) : baseLayout?.config
+            let nextConfig = scopeEntityId
+                ? { ...(baseLayoutConfig && typeof baseLayoutConfig === 'object' ? baseLayoutConfig : {}), ...(input.config ?? {}) }
+                : input.config ??
+                  (templateKey === 'dashboard'
+                      ? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
+                      : {})
+            if (templateKey === 'marketing-page') {
+                const parsedConfig = marketingPageConfigSchema.safeParse(nextConfig)
+                if (!parsedConfig.success) {
+                    throw new MetahubValidationError('Marketing layout configuration is invalid')
+                }
+                nextConfig = parsedConfig.data
+            }
             const created = await queryOneOrThrow<DbRow>(
                 tx,
                 `INSERT INTO ${lt} (scope_entity_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
@@ -1233,7 +1276,7 @@ export class MetahubLayoutsService {
                 [
                     scopeEntityId,
                     baseLayout?.id ?? null,
-                    input.templateKey ?? 'dashboard',
+                    templateKey,
                     JSON.stringify(input.name),
                     input.description ? JSON.stringify(input.description) : null,
                     JSON.stringify(nextConfig),
@@ -1273,6 +1316,21 @@ export class MetahubLayoutsService {
             }
 
             const scopeEntityId = typeof existing.scope_entity_id === 'string' ? existing.scope_entity_id : null
+            const existingTemplateKey = applicationTemplateKeySchema.parse(existing.template_key)
+            const nextTemplateKey = input.templateKey ?? existingTemplateKey
+
+            if (nextTemplateKey !== existingTemplateKey) {
+                throw this.createConflictError('Layout template cannot change after creation')
+            }
+
+            let nextConfig = input.config !== undefined ? input.config : existing.config ?? {}
+            if (existingTemplateKey === 'marketing-page') {
+                const parsedConfig = marketingPageConfigSchema.safeParse(nextConfig)
+                if (!parsedConfig.success) {
+                    throw new MetahubValidationError('Marketing layout configuration is invalid')
+                }
+                nextConfig = parsedConfig.data
+            }
 
             const nextIsActive = input.isActive ?? Boolean(existing.is_active)
             const nextIsDefault = input.isDefault ?? Boolean(existing.is_default)
@@ -1324,7 +1382,9 @@ export class MetahubLayoutsService {
             if (input.name !== undefined) updateData.name = JSON.stringify(input.name)
             if (input.description !== undefined)
                 updateData.description = input.description != null ? JSON.stringify(input.description) : null
-            if (input.config !== undefined) updateData.config = input.config != null ? JSON.stringify(input.config) : null
+            if (input.config !== undefined || existingTemplateKey === 'marketing-page') {
+                updateData.config = nextConfig != null ? JSON.stringify(nextConfig) : null
+            }
             if (input.sortOrder !== undefined) updateData.sort_order = input.sortOrder
             if (input.isActive !== undefined) updateData.is_active = nextIsActive
             if (input.isDefault !== undefined) updateData.is_default = nextIsDefault
@@ -1425,6 +1485,7 @@ export class MetahubLayoutsService {
         if (!layout) {
             throw new MetahubNotFoundError('Layout', layoutId)
         }
+        this.assertDashboardLayoutTemplate(layout)
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
@@ -1463,6 +1524,7 @@ export class MetahubLayoutsService {
             if (!layoutScope) {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
+            this.assertDashboardLayoutTemplate(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1622,6 +1684,7 @@ export class MetahubLayoutsService {
             if (!layoutScope) {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
+            this.assertDashboardLayoutTemplate(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1723,6 +1786,7 @@ export class MetahubLayoutsService {
             if (!layoutScope) {
                 return
             }
+            this.assertDashboardLayoutTemplate(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1814,6 +1878,7 @@ export class MetahubLayoutsService {
             if (!layoutScope) {
                 throw this.createNotFoundError('Layout not found')
             }
+            this.assertDashboardLayoutTemplate(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1887,6 +1952,7 @@ export class MetahubLayoutsService {
             if (!layoutScope) {
                 throw this.createNotFoundError('Layout not found')
             }
+            this.assertDashboardLayoutTemplate(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)

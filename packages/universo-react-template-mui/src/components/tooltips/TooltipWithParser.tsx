@@ -78,7 +78,7 @@ export const TooltipWithParser: React.FC<TooltipWithParserProps> = ({ title, sx,
         <Tooltip
             title={parse(title)}
             placement={placement}
-            componentsProps={{
+            slotProps={{
                 tooltip: {
                     sx: { maxWidth }
                 }

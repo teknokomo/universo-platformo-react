@@ -446,7 +446,12 @@ export const PublicationVersionList: React.FC = () => {
                     description={t('metahubs:errors.pleaseTryLater', 'Please try again later')}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         title={t('metahubs:publications.versions.title', 'Versions')}
                         search={true}
@@ -542,8 +547,7 @@ export const PublicationVersionList: React.FC = () => {
                 onClose={createDialogPresentation.dialogProps.onClose}
                 maxWidth={resolveDialogMaxWidth(createDialogPresentation.dialogProps.maxWidth, 'sm')}
                 fullWidth={createDialogPresentation.dialogProps.fullWidth ?? true}
-                disableEscapeKeyDown={createDialogPresentation.dialogProps.disableEscapeKeyDown}
-                PaperProps={mergeDialogPaperProps(undefined, createDialogPresentation.dialogProps.PaperProps)}
+                slotProps={{ paper: mergeDialogPaperProps(undefined, createDialogPresentation.dialogProps.PaperProps) }}
             >
                 <DialogTitle>
                     {renderDialogTitle(t('metahubs:publications.versions.create', 'Create version'), createDialogPresentation.titleActions)}
@@ -652,8 +656,7 @@ export const PublicationVersionList: React.FC = () => {
                 onClose={activateDialogPresentation.dialogProps.onClose}
                 maxWidth={resolveDialogMaxWidth(activateDialogPresentation.dialogProps.maxWidth, 'sm')}
                 fullWidth={activateDialogPresentation.dialogProps.fullWidth ?? true}
-                disableEscapeKeyDown={activateDialogPresentation.dialogProps.disableEscapeKeyDown}
-                PaperProps={mergeDialogPaperProps(undefined, activateDialogPresentation.dialogProps.PaperProps)}
+                slotProps={{ paper: mergeDialogPaperProps(undefined, activateDialogPresentation.dialogProps.PaperProps) }}
             >
                 <DialogTitle>
                     {renderDialogTitle(
@@ -681,8 +684,7 @@ export const PublicationVersionList: React.FC = () => {
                 onClose={editDialogPresentation.dialogProps.onClose}
                 maxWidth={resolveDialogMaxWidth(editDialogPresentation.dialogProps.maxWidth, 'sm')}
                 fullWidth={editDialogPresentation.dialogProps.fullWidth ?? true}
-                disableEscapeKeyDown={editDialogPresentation.dialogProps.disableEscapeKeyDown}
-                PaperProps={mergeDialogPaperProps(undefined, editDialogPresentation.dialogProps.PaperProps)}
+                slotProps={{ paper: mergeDialogPaperProps(undefined, editDialogPresentation.dialogProps.PaperProps) }}
             >
                 <DialogTitle>
                     {renderDialogTitle(t('metahubs:publications.versions.edit', 'Edit version'), editDialogPresentation.titleActions)}
@@ -791,8 +793,7 @@ export const PublicationVersionList: React.FC = () => {
                 onClose={deleteDialogPresentation.dialogProps.onClose}
                 maxWidth={resolveDialogMaxWidth(deleteDialogPresentation.dialogProps.maxWidth, 'sm')}
                 fullWidth={deleteDialogPresentation.dialogProps.fullWidth ?? true}
-                disableEscapeKeyDown={deleteDialogPresentation.dialogProps.disableEscapeKeyDown}
-                PaperProps={mergeDialogPaperProps(undefined, deleteDialogPresentation.dialogProps.PaperProps)}
+                slotProps={{ paper: mergeDialogPaperProps(undefined, deleteDialogPresentation.dialogProps.PaperProps) }}
             >
                 <DialogTitle>{t('metahubs:publications.versions.delete', 'Delete version')}</DialogTitle>
                 <DialogContent sx={mergeDialogSx(deleteDialogPresentation.contentSx)}>

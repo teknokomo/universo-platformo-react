@@ -11,6 +11,7 @@ const dashboardMocks = vi.hoisted(() => ({
     handleOpenEdit: vi.fn(),
     handleOpenCopy: vi.fn(),
     onSelectObjectCollection: vi.fn(),
+    templateKey: 'dashboard',
     capturedCrudOptions: null as null | { createDefaultContext?: (appData: unknown) => unknown }
 }))
 
@@ -27,6 +28,14 @@ vi.mock('../../layouts/AppMainLayout', () => ({
 
 vi.mock('../../api/adapters', () => ({
     createStandaloneAdapter: vi.fn(() => ({ queryKeyPrefix: ['standalone', 'app-1'] }))
+}))
+
+vi.mock('@tanstack/react-query', () => ({
+    useQuery: () => ({ isLoading: false, isError: false, data: { templateKey: dashboardMocks.templateKey } })
+}))
+
+vi.mock('../../marketing-page/MarketingRuntimeContent', () => ({
+    default: () => <div data-testid='marketing-runtime-content'>marketing</div>
 }))
 
 vi.mock('../../dashboard/Dashboard', () => ({
@@ -222,9 +231,30 @@ describe('DashboardApp', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         dashboardMocks.dashboardStateOverrides = {}
+        dashboardMocks.templateKey = 'dashboard'
         dashboardMocks.onSelectObjectCollection.mockReset()
         dashboardMocks.capturedCrudOptions = null
         window.history.pushState({}, '', '/')
+    })
+
+    it('renders the marketing runtime only at the standalone application root', () => {
+        dashboardMocks.templateKey = 'marketing-page'
+        window.history.pushState({}, '', '/a/app-1')
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('marketing-runtime-content')).toHaveTextContent('marketing')
+        expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
+    })
+
+    it('keeps standalone workspace routes on the dashboard runtime for marketing applications', () => {
+        dashboardMocks.templateKey = 'marketing-page'
+        window.history.pushState({}, '', '/a/app-1/workspaces')
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1:list:dashboard')
+        expect(screen.queryByTestId('marketing-runtime-content')).not.toBeInTheDocument()
     })
 
     it('keeps dialog surface by default when no page runtime surface is configured', () => {

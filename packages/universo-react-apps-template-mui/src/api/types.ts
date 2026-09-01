@@ -23,6 +23,8 @@ export interface RuntimeListQueryParams {
 export interface RuntimeRowTarget {
     objectCollectionId?: string
     sectionId?: string
+    /** Explicit workspace selected by a route; omitted means the server default workspace. */
+    workspaceId?: string | null
 }
 
 /**
@@ -57,6 +59,7 @@ export interface CrudDataAdapter {
         componentId: string
         objectCollectionId?: string
         sectionId?: string
+        workspaceId?: string | null
     }): Promise<Array<Record<string, unknown>>>
 
     /** Create a new row. Returns the created row. */
@@ -83,6 +86,7 @@ export interface CrudDataAdapter {
             copyChildTables?: boolean
             objectCollectionId?: string
             sectionId?: string
+            workspaceId?: string | null
             data?: Record<string, unknown>
             expectedVersion?: number
         }
@@ -92,20 +96,21 @@ export interface CrudDataAdapter {
     recordCommand?(
         rowId: string,
         command: RuntimeRecordCommand,
-        data?: { objectCollectionId?: string; sectionId?: string; expectedVersion?: number }
+        data?: { objectCollectionId?: string; sectionId?: string; workspaceId?: string | null; expectedVersion?: number }
     ): Promise<Record<string, unknown>>
 
     /** Execute a metadata-defined workflow transition on a runtime row. */
     workflowAction?(
         rowId: string,
         actionCodename: string,
-        data: { objectCollectionId?: string; sectionId?: string; expectedVersion: number }
+        data: { objectCollectionId?: string; sectionId?: string; workspaceId?: string | null; expectedVersion: number }
     ): Promise<Record<string, unknown>>
 
     /** Persist a complete runtime row order for objects that explicitly support reordering. */
     reorderRows?(params: {
         objectCollectionId?: string
         sectionId?: string
+        workspaceId?: string | null
         orderedRowIds: string[]
         expectedVersionsByRowId?: Record<string, number>
     }): Promise<void>

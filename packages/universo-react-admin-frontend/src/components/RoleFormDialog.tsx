@@ -324,7 +324,12 @@ export default function RoleFormDialog({
                         label={
                             <Box>
                                 <Typography variant='body1'>{t('roles.field.isSuperuser', 'Superuser Access')}</Typography>
-                                <Typography variant='caption' color='text.secondary'>
+                                <Typography
+                                    variant='caption'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('roles.field.isSuperuserHint', 'Full platform access with permission bypass - root user')}
                                 </Typography>
                             </Box>
@@ -368,8 +373,7 @@ export default function RoleFormDialog({
             onClose={presentation.dialogProps.onClose}
             maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm') as DialogProps['maxWidth']}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
             <DialogContent sx={mergeDialogSx(presentation.contentSx, { mt: 1, pt: '16px !important' })}>

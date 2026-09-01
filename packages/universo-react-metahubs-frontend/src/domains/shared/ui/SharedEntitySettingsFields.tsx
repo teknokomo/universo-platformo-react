@@ -258,7 +258,12 @@ export const SharedEntitySettingsFields = ({
                     {section === 'all' ? (
                         <Typography variant='subtitle2'>{t('shared.behavior.title', 'Shared behavior')}</Typography>
                     ) : null}
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'shared.behavior.description',
                             'Control how this shared entity behaves inside target objects and which overrides remain available there.'
@@ -288,7 +293,13 @@ export const SharedEntitySettingsFields = ({
 
             {showExclusionsSection ? (
                 <Box>
-                    <Typography variant='body2' color='text.secondary' sx={{ mb: 1.5 }}>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            mb: 1.5
+                        }}
+                    >
                         {t(
                             'shared.exclusions.description',
                             'Disable inheritance for selected target objects while keeping this shared entity available everywhere else.'
@@ -316,9 +327,20 @@ export const SharedEntitySettingsFields = ({
                     ) : null}
 
                     {sharedEntityId && targetsQuery.isLoading ? (
-                        <Stack direction='row' spacing={1} alignItems='center'>
+                        <Stack
+                            direction='row'
+                            spacing={1}
+                            sx={{
+                                alignItems: 'center'
+                            }}
+                        >
                             <CircularProgress size={16} />
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {t('shared.exclusions.loading', 'Loading available targets...')}
                             </Typography>
                         </Stack>

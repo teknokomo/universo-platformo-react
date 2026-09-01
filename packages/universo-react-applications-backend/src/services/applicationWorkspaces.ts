@@ -1,43 +1,28 @@
-import type { DbExecutor, SqlQueryable } from '@universo-react/utils'
+import { isUuidV7, type DbExecutor, type SqlQueryable } from '@universo-react/utils'
 import { qColumn, qSchema, qSchemaTable, qTable } from '@universo-react/database'
+import { generateChildTableName, hasPhysicalRuntimeTable, resolveEntityTableName, type EntityDefinition } from '@universo-react/schema-ddl'
+import { ApplicationMembershipState, normalizeInterpretationNetworkHexColor, type VersionedLocalizedContent } from '@universo-react/types'
+import { WorkspaceSeedResetError, WORKSPACE_SEED_RESET_ERROR_CODES } from './runtimeWorkspaceErrors'
 import {
-    generateChildTableName,
-    hasPhysicalRuntimeTable,
-    resolveEntityTableName,
-    resolveFieldColumnName,
-    type EntityDefinition,
-    type Component
-} from '@universo-react/schema-ddl'
-import {
-    ApplicationMembershipState,
-    isLedgerSchemaCapableEntity,
-    normalizeLedgerConfigFromConfig,
-    normalizeInterpretationNetworkHexColor,
-    type EntityTypeCapabilities,
-    type LedgerConfig,
-    type VersionedLocalizedContent
-} from '@universo-react/types'
+    ensureLedgerIdempotencyIndex,
+    ensureWorkspaceScopedColumn,
+    ensureWorkspaceScopedPolicies,
+    ensureWorkspaceSupportTables
+} from '../ddl/applicationWorkspacesSchema'
 
 const WORKSPACES_TABLE = '_app_workspaces'
 const WORKSPACE_ROLES_TABLE = '_app_workspace_roles'
 const WORKSPACE_USER_ROLES_TABLE = '_app_workspace_user_roles'
 const APP_SETTINGS_TABLE = '_app_settings'
 const APP_LIMITS_TABLE = '_app_limits'
-const WORKSPACE_SETTINGS_TABLE = '_app_workspace_settings'
-const WORKSPACE_POLICY_SELECT = 'workspace_select'
-const WORKSPACE_POLICY_INSERT = 'workspace_insert'
-const WORKSPACE_POLICY_UPDATE = 'workspace_update'
-const WORKSPACE_POLICY_DELETE = 'workspace_delete'
 const WORKSPACE_LIMIT_SCOPE_KIND = 'workspace'
 const WORKSPACE_LIMIT_OBJECT_KIND = 'object'
 const WORKSPACE_LIMIT_METRIC_KEY = 'rows'
 const WORKSPACE_LIMIT_PERIOD_KEY = 'lifetime'
 const WORKSPACE_SEED_TEMPLATE_KEY = 'workspace_seed_template'
+const WORKSPACE_OPERATIONS_TABLE = '_app_workspace_operation_audit'
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
-const CURRENT_WORKSPACE_SETTING = `NULLIF(current_setting('app.current_workspace_id', true), '')`
-const normalizeLedgerFieldKey = (value: string): string => value.trim().toLowerCase()
-const normalizeLedgerFieldIdentity = (value: string): string => value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
 const runtimeCodenameTextSql = (columnRef: string): string =>
     `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
 
@@ -105,6 +90,7 @@ type ObjectWorkspaceUsageRow = {
 
 type WorkspaceScopedTableRow = {
     tableName: string
+    objectId?: string | null
 }
 
 type ActiveWorkspaceSeedRow = {
@@ -152,6 +138,8 @@ type RuntimeColumnDefinitionRow = {
 type WorkspaceSeedExistingRow = {
     id: string
     seedSourceKey: string
+    /** Whether the row is still controlled by the published seed source. */
+    seedSourceOwned?: boolean
 }
 
 type WorkspaceSeedElementRow = {
@@ -351,428 +339,83 @@ export async function runtimeWorkspaceTablesExist(executor: SqlQueryable, schema
     return exists === true
 }
 
-const qWorkspaceColumn = () => qColumn('workspace_id')
-
-const buildWorkspaceAwareActiveRowSql = (): string =>
-    `(${qWorkspaceColumn()} IS NOT NULL AND ${qWorkspaceColumn()}::text = ${CURRENT_WORKSPACE_SETTING})`
-
-async function ensureWorkspaceSupportTable(executor: DbExecutor, schemaName: string, tableName: string, ddl: string): Promise<void> {
-    const qt = qSchemaTable(schemaName, tableName)
-    const rows = await executor.query<{ exists: boolean }>(
+/**
+ * Return every physical runtime table that is partitioned by workspace.
+ *
+ * TABLE components are materialized as independent `tbl_*` tables, so looking
+ * only at `_app_objects.table_name` silently drops tabular parts during
+ * workspace copy/archive operations. The component metadata is the canonical
+ * source for those child table names. By default only active metadata is
+ * considered; archival callers can include inactive metadata so no live rows
+ * are left behind when an object definition was archived before its workspace.
+ */
+export async function listWorkspaceScopedBusinessTables(
+    executor: SqlQueryable,
+    schemaName: string,
+    options: { includeInactiveMetadata?: boolean } = {}
+): Promise<string[]> {
+    const objectsQt = qSchemaTable(schemaName, '_app_objects')
+    const componentsQt = qSchemaTable(schemaName, '_app_components')
+    const parentRows = await executor.query<WorkspaceScopedTableRow>(
         `
-        SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = $1
-              AND table_name = $2
-        ) AS exists
+        SELECT DISTINCT
+            c.table_name AS "tableName",
+            o.id AS "objectId"
+        FROM information_schema.columns c
+        INNER JOIN ${objectsQt} o ON o.table_name = c.table_name
+        WHERE c.table_schema = $1
+          AND c.column_name = 'workspace_id'
+          AND o.table_name IS NOT NULL
+          ${options.includeInactiveMetadata ? '' : 'AND o._upl_deleted = false AND o._app_deleted = false'}
+        ORDER BY c.table_name ASC
         `,
-        [schemaName, tableName]
+        [schemaName]
     )
 
-    if (rows[0]?.exists === true) {
-        return
+    const objectIds = parentRows
+        .map((row) => row.objectId)
+        .filter((objectId): objectId is string => typeof objectId === 'string' && objectId.length > 0)
+    const childComponentRows =
+        objectIds.length > 0
+            ? await executor.query<{ componentId: string }>(
+                  `
+                SELECT DISTINCT c.id AS "componentId"
+                FROM ${componentsQt} c
+                WHERE c.object_id = ANY($1::uuid[])
+                  AND c.parent_component_id IS NULL
+                  AND c.data_type = 'TABLE'
+                  ${options.includeInactiveMetadata ? '' : 'AND c._upl_deleted = false AND c._app_deleted = false'}
+                ORDER BY c.id ASC
+                `,
+                  [objectIds]
+              )
+            : []
+
+    const candidateNames = Array.from(
+        new Set([...parentRows.map((row) => row.tableName), ...childComponentRows.map((row) => generateChildTableName(row.componentId))])
+    )
+    if (candidateNames.length === 0) {
+        return []
     }
 
-    await executor.query(ddl.split('__TABLE__').join(qt))
+    // A stale component row must not make copy/archive issue SQL against a
+    // table that has not been materialized yet.
+    const existingRows = await executor.query<{ tableName: string }>(
+        `
+        SELECT table_name AS "tableName"
+        FROM information_schema.tables
+        WHERE table_schema = $1
+          AND table_type = 'BASE TABLE'
+          AND table_name = ANY($2::text[])
+        ORDER BY table_name ASC
+        `,
+        [schemaName, candidateNames]
+    )
+    const existingNames = new Set(existingRows.map((row) => row.tableName))
+    return candidateNames.filter((tableName) => existingNames.has(tableName))
 }
 
-async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaName: string): Promise<void> {
-    await ensureWorkspaceSupportTable(
-        executor,
-        schemaName,
-        WORKSPACES_TABLE,
-        `
-        CREATE TABLE __TABLE__ (
-            id UUID PRIMARY KEY,
-            name JSONB NOT NULL,
-            description JSONB NOT NULL,
-            workspace_type TEXT NOT NULL DEFAULT 'personal',
-            codename TEXT NULL,
-            personal_user_id UUID NULL,
-            status TEXT NOT NULL DEFAULT 'active',
-            _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_created_by UUID NULL,
-            _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_updated_by UUID NULL,
-            _upl_deleted BOOLEAN NOT NULL DEFAULT false,
-            _upl_deleted_at TIMESTAMPTZ NULL,
-            _upl_deleted_by UUID NULL,
-            _upl_version BIGINT NOT NULL DEFAULT 1,
-            _upl_locked BOOLEAN NOT NULL DEFAULT false,
-            _app_deleted BOOLEAN NOT NULL DEFAULT false,
-            _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
-        )
-        `
-    )
-
-    await ensureWorkspaceSupportTable(
-        executor,
-        schemaName,
-        WORKSPACE_ROLES_TABLE,
-        `
-        CREATE TABLE __TABLE__ (
-            id UUID PRIMARY KEY,
-            codename TEXT NOT NULL,
-            name JSONB NOT NULL,
-            _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_created_by UUID NULL,
-            _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_updated_by UUID NULL,
-            _upl_deleted BOOLEAN NOT NULL DEFAULT false,
-            _upl_deleted_at TIMESTAMPTZ NULL,
-            _upl_deleted_by UUID NULL,
-            _upl_version BIGINT NOT NULL DEFAULT 1,
-            _app_deleted BOOLEAN NOT NULL DEFAULT false,
-            _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
-        )
-        `
-    )
-
-    await ensureWorkspaceSupportTable(
-        executor,
-        schemaName,
-        WORKSPACE_USER_ROLES_TABLE,
-        `
-        CREATE TABLE __TABLE__ (
-            id UUID PRIMARY KEY,
-            workspace_id UUID NOT NULL,
-            user_id UUID NOT NULL,
-            role_id UUID NOT NULL,
-            is_default_workspace BOOLEAN NOT NULL DEFAULT false,
-            _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_created_by UUID NULL,
-            _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_updated_by UUID NULL,
-            _upl_deleted BOOLEAN NOT NULL DEFAULT false,
-            _upl_deleted_at TIMESTAMPTZ NULL,
-            _upl_deleted_by UUID NULL,
-            _upl_version BIGINT NOT NULL DEFAULT 1,
-            _app_deleted BOOLEAN NOT NULL DEFAULT false,
-            _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
-        )
-        `
-    )
-
-    await ensureWorkspaceSupportTable(
-        executor,
-        schemaName,
-        APP_LIMITS_TABLE,
-        `
-        CREATE TABLE __TABLE__ (
-            id UUID PRIMARY KEY,
-            scope_kind TEXT NOT NULL DEFAULT '${WORKSPACE_LIMIT_SCOPE_KIND}',
-            scope_id UUID NULL,
-            object_kind TEXT NOT NULL DEFAULT '${WORKSPACE_LIMIT_OBJECT_KIND}',
-            object_id UUID NULL,
-            metric_key TEXT NOT NULL DEFAULT '${WORKSPACE_LIMIT_METRIC_KEY}',
-            period_key TEXT NOT NULL DEFAULT '${WORKSPACE_LIMIT_PERIOD_KEY}',
-            max_value BIGINT NULL,
-            _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_created_by UUID NULL,
-            _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_updated_by UUID NULL,
-            _upl_deleted BOOLEAN NOT NULL DEFAULT false,
-            _upl_deleted_at TIMESTAMPTZ NULL,
-            _upl_deleted_by UUID NULL,
-            _upl_version BIGINT NOT NULL DEFAULT 1,
-            _app_deleted BOOLEAN NOT NULL DEFAULT false,
-            _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
-        )
-        `
-    )
-
-    await ensureWorkspaceSupportTable(
-        executor,
-        schemaName,
-        WORKSPACE_SETTINGS_TABLE,
-        `
-        CREATE TABLE __TABLE__ (
-            id UUID PRIMARY KEY,
-            workspace_id UUID NOT NULL,
-            key TEXT NOT NULL,
-            value JSONB NOT NULL,
-            _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_created_by UUID NULL,
-            _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            _upl_updated_by UUID NULL,
-            _upl_deleted BOOLEAN NOT NULL DEFAULT false,
-            _upl_deleted_at TIMESTAMPTZ NULL,
-            _upl_deleted_by UUID NULL,
-            _upl_version BIGINT NOT NULL DEFAULT 1,
-            _app_deleted BOOLEAN NOT NULL DEFAULT false,
-            _app_deleted_at TIMESTAMPTZ NULL,
-            _app_deleted_by UUID NULL
-        )
-        `
-    )
-
-    const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
-    const workspaceRolesQt = qSchemaTable(schemaName, WORKSPACE_ROLES_TABLE)
-    const workspaceUserRolesQt = qSchemaTable(schemaName, WORKSPACE_USER_ROLES_TABLE)
-    const appLimitsQt = qSchemaTable(schemaName, APP_LIMITS_TABLE)
-    const workspaceSettingsQt = qSchemaTable(schemaName, WORKSPACE_SETTINGS_TABLE)
-
-    await executor.query(
-        `
-        ALTER TABLE ${workspacesQt}
-        ADD COLUMN IF NOT EXISTS codename TEXT NULL;
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_user_roles_workspace_fk')};
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        ADD CONSTRAINT ${qTable('_app_workspace_user_roles_workspace_fk')}
-        FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE;
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_user_roles_role_fk')};
-
-        ALTER TABLE ${workspaceUserRolesQt}
-        ADD CONSTRAINT ${qTable('_app_workspace_user_roles_role_fk')}
-        FOREIGN KEY (role_id) REFERENCES ${workspaceRolesQt}(id) ON DELETE RESTRICT;
-
-        ALTER TABLE ${appLimitsQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_limits_object_fk')};
-
-        ALTER TABLE ${appLimitsQt}
-        ADD CONSTRAINT ${qTable('_app_limits_object_fk')}
-        FOREIGN KEY (object_id) REFERENCES ${qSchemaTable(schemaName, '_app_objects')}(id) ON DELETE CASCADE;
-
-        ALTER TABLE ${workspaceSettingsQt}
-        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_settings_workspace_fk')};
-
-        ALTER TABLE ${workspaceSettingsQt}
-        ADD CONSTRAINT ${qTable('_app_workspace_settings_workspace_fk')}
-        FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE;
-        `
-    )
-
-    await executor.query(
-        `
-        DROP INDEX IF EXISTS ${qTable(`${WORKSPACE_USER_ROLES_TABLE}_role_active_uidx`)};
-
-        WITH ranked_memberships AS (
-            SELECT
-                wur.id,
-                ROW_NUMBER() OVER (
-                    PARTITION BY wur.workspace_id, wur.user_id
-                    ORDER BY wur.is_default_workspace DESC, wur._upl_created_at ASC, wur.id ASC
-                ) AS row_rank
-            FROM ${workspaceUserRolesQt} wur
-            WHERE wur._upl_deleted = false
-              AND wur._app_deleted = false
-        )
-        UPDATE ${workspaceUserRolesQt} target
-        SET _upl_deleted = true,
-            _upl_deleted_at = NOW(),
-            _upl_updated_at = NOW(),
-            _upl_version = COALESCE(target._upl_version, 1) + 1,
-            _app_deleted = true,
-            _app_deleted_at = NOW()
-        FROM ranked_memberships ranked
-        WHERE target.id = ranked.id
-          AND ranked.row_rank > 1;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_ROLES_TABLE}_codename_active_uidx`)}
-        ON ${workspaceRolesQt}(codename)
-        WHERE _upl_deleted = false AND _app_deleted = false;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACES_TABLE}_personal_user_active_uidx`)}
-        ON ${workspacesQt}(personal_user_id)
-        WHERE workspace_type = 'personal' AND _upl_deleted = false AND _app_deleted = false;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACES_TABLE}_codename_active_uidx`)}
-        ON ${workspacesQt}(codename)
-        WHERE codename IS NOT NULL AND _upl_deleted = false AND _app_deleted = false;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_USER_ROLES_TABLE}_default_active_uidx`)}
-        ON ${workspaceUserRolesQt}(user_id)
-        WHERE is_default_workspace = true AND _upl_deleted = false AND _app_deleted = false;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_USER_ROLES_TABLE}_membership_active_uidx`)}
-        ON ${workspaceUserRolesQt}(workspace_id, user_id)
-        WHERE _upl_deleted = false AND _app_deleted = false;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${APP_LIMITS_TABLE}_workspace_object_global_active_uidx`)}
-        ON ${appLimitsQt}(scope_kind, object_kind, object_id, metric_key, period_key)
-        WHERE scope_id IS NULL AND _upl_deleted = false AND _app_deleted = false;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${APP_LIMITS_TABLE}_workspace_object_scoped_active_uidx`)}
-        ON ${appLimitsQt}(scope_kind, scope_id, object_kind, object_id, metric_key, period_key)
-        WHERE scope_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false;
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_SETTINGS_TABLE}_workspace_key_active_uidx`)}
-        ON ${workspaceSettingsQt}(workspace_id, key)
-        WHERE _upl_deleted = false AND _app_deleted = false;
-
-        CREATE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_USER_ROLES_TABLE}_user_idx`)}
-        ON ${workspaceUserRolesQt}(user_id);
-
-        CREATE INDEX IF NOT EXISTS ${qTable(`${APP_LIMITS_TABLE}_object_idx`)}
-        ON ${appLimitsQt}(object_id);
-
-        CREATE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_SETTINGS_TABLE}_workspace_idx`)}
-        ON ${workspaceSettingsQt}(workspace_id);
-
-        CREATE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_SETTINGS_TABLE}_key_idx`)}
-        ON ${workspaceSettingsQt}(key);
-        `
-    )
-}
-
-async function ensureWorkspaceScopedColumn(executor: DbExecutor, schemaName: string, tableName: string): Promise<void> {
-    const qt = qSchemaTable(schemaName, tableName)
-    const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
-    const workspaceColumn = qWorkspaceColumn()
-    const seedSourceColumn = qColumn('_seed_source_key')
-    const workspaceConstraintName = qTable(`${tableName}_workspace_id_fk`)
-    await executor.query(
-        `
-        ALTER TABLE ${qt}
-        ADD COLUMN IF NOT EXISTS ${workspaceColumn} UUID NULL;
-
-        ALTER TABLE ${qt}
-        ADD COLUMN IF NOT EXISTS ${seedSourceColumn} TEXT NULL;
-
-        ALTER TABLE ${qt}
-        DROP CONSTRAINT IF EXISTS ${workspaceConstraintName};
-
-        ALTER TABLE ${qt}
-        ADD CONSTRAINT ${workspaceConstraintName}
-        FOREIGN KEY (${workspaceColumn}) REFERENCES ${workspacesQt}(id) ON DELETE RESTRICT;
-
-        CREATE INDEX IF NOT EXISTS ${qTable(`${tableName}_workspace_id_idx`)}
-        ON ${qt}(${workspaceColumn});
-
-        CREATE INDEX IF NOT EXISTS ${qTable(`${tableName}_seed_source_key_idx`)}
-        ON ${qt}(${seedSourceColumn});
-
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${tableName}_workspace_seed_source_active_uidx`)}
-        ON ${qt}(${workspaceColumn}, ${seedSourceColumn})
-        WHERE ${seedSourceColumn} IS NOT NULL AND _upl_deleted = false AND _app_deleted = false;
-        `
-    )
-}
-
-function resolveLedgerConfig(config: Record<string, unknown> | undefined): LedgerConfig {
-    return normalizeLedgerConfigFromConfig(config)
-}
-
-function resolveRuntimeComponents(entity: EntityDefinition): EntityTypeCapabilities | undefined {
-    if (entity.capabilities) {
-        return entity.capabilities
-    }
-    if (isRecord(entity.config?.capabilities)) {
-        return entity.config.capabilities as unknown as EntityTypeCapabilities
-    }
-    return undefined
-}
-
-function isLedgerSchemaRuntimeEntity(entity: EntityDefinition): boolean {
-    return isLedgerSchemaCapableEntity(resolveRuntimeComponents(entity))
-}
-
-function findLedgerIdempotencyField(fields: Component[], keyField: string): Component | null {
-    const normalized = normalizeLedgerFieldKey(keyField)
-    const normalizedIdentity = normalizeLedgerFieldIdentity(keyField)
-
-    return (
-        fields.find((field) => {
-            if (field.dataType === 'TABLE' || field.parentComponentId) {
-                return false
-            }
-            const columnName = resolveFieldColumnName(field)
-            return (
-                normalizeLedgerFieldKey(field.codename) === normalized ||
-                normalizeLedgerFieldKey(columnName) === normalized ||
-                normalizeLedgerFieldIdentity(field.codename) === normalizedIdentity ||
-                normalizeLedgerFieldIdentity(columnName) === normalizedIdentity
-            )
-        }) ?? null
-    )
-}
-
-function buildRuntimeIndexName(tableName: string, suffix: string): string {
-    return `${tableName}_${suffix}`.slice(0, 63)
-}
-
-async function ensureLedgerIdempotencyIndex(executor: DbExecutor, schemaName: string, entity: EntityDefinition): Promise<void> {
-    if (!isLedgerSchemaRuntimeEntity(entity) || !hasPhysicalRuntimeTable(entity)) {
-        return
-    }
-
-    const keyFields = resolveLedgerConfig(entity.config).idempotency.keyFields
-    if (keyFields.length === 0) {
-        return
-    }
-
-    const keyColumns = keyFields
-        .map((keyField) => findLedgerIdempotencyField(entity.fields, keyField))
-        .filter((field): field is Component => Boolean(field))
-        .map((field) => resolveFieldColumnName(field))
-
-    if (keyColumns.length !== keyFields.length) {
-        return
-    }
-
-    const tableName = resolveEntityTableName(entity)
-    const tableIdent = qSchemaTable(schemaName, tableName)
-    const quotedKeyColumns = keyColumns.map((columnName) => qColumn(columnName))
-    const notNullConditions = quotedKeyColumns.map((columnName) => `${columnName} IS NOT NULL`)
-    await executor.query(
-        `
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(buildRuntimeIndexName(tableName, 'ledger_idempotency_uidx'))}
-        ON ${tableIdent}(${[qColumn('workspace_id'), ...quotedKeyColumns].join(', ')})
-        WHERE ${notNullConditions.join(' AND ')} AND ${ACTIVE_ROW_SQL};
-        `
-    )
-}
-
-async function recreateWorkspacePolicy(executor: DbExecutor, tableIdent: string, policyName: string, sql: string): Promise<void> {
-    await executor.query(`DROP POLICY IF EXISTS ${qTable(policyName)} ON ${tableIdent}`)
-    await executor.query(sql)
-}
-
-async function ensureWorkspaceScopedPolicies(executor: DbExecutor, schemaName: string, tableName: string): Promise<void> {
-    const tableIdent = qSchemaTable(schemaName, tableName)
-    const workspaceColumn = qWorkspaceColumn()
-    const selectPredicate = buildWorkspaceAwareActiveRowSql()
-    const mutatePredicate = `${workspaceColumn}::text = ${CURRENT_WORKSPACE_SETTING}`
-
-    await executor.query(`ALTER TABLE ${tableIdent} ENABLE ROW LEVEL SECURITY`)
-
-    await recreateWorkspacePolicy(
-        executor,
-        tableIdent,
-        WORKSPACE_POLICY_SELECT,
-        `CREATE POLICY ${qTable(WORKSPACE_POLICY_SELECT)} ON ${tableIdent} FOR SELECT USING (${selectPredicate})`
-    )
-    await recreateWorkspacePolicy(
-        executor,
-        tableIdent,
-        WORKSPACE_POLICY_INSERT,
-        `CREATE POLICY ${qTable(WORKSPACE_POLICY_INSERT)} ON ${tableIdent} FOR INSERT WITH CHECK (${mutatePredicate})`
-    )
-    await recreateWorkspacePolicy(
-        executor,
-        tableIdent,
-        WORKSPACE_POLICY_UPDATE,
-        `CREATE POLICY ${qTable(
-            WORKSPACE_POLICY_UPDATE
-        )} ON ${tableIdent} FOR UPDATE USING (${mutatePredicate}) WITH CHECK (${mutatePredicate})`
-    )
-    await recreateWorkspacePolicy(
-        executor,
-        tableIdent,
-        WORKSPACE_POLICY_DELETE,
-        `CREATE POLICY ${qTable(WORKSPACE_POLICY_DELETE)} ON ${tableIdent} FOR DELETE USING (${mutatePredicate})`
-    )
-}
+const qWorkspaceColumn = () => qColumn('workspace_id')
 
 export async function ensureApplicationRuntimeWorkspaceSchema(
     executor: DbExecutor,
@@ -839,7 +482,7 @@ async function ensureWorkspaceRole(
     }
 
     const [{ id }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-    await executor.query(
+    const roleRows = await executor.query<{ id: string }>(
         `
         INSERT INTO ${qt} (
             id,
@@ -849,11 +492,20 @@ async function ensureWorkspaceRole(
             _upl_updated_by
         )
         VALUES ($1, $2, $3::jsonb, $4, $5)
+        ON CONFLICT (codename)
+            WHERE _upl_deleted = false AND _app_deleted = false
+        DO UPDATE SET codename = EXCLUDED.codename
+        RETURNING id
         `,
         [id, input.codename, JSON.stringify(input.name), input.actorUserId ?? null, input.actorUserId ?? null]
     )
 
-    return id
+    const persistedRoleId = roleRows[0]?.id
+    if (!persistedRoleId) {
+        throw new Error('WORKSPACE_ROLE_CREATE_FAILED')
+    }
+
+    return persistedRoleId
 }
 
 export async function ensureWorkspaceRoleSeeds(
@@ -1173,39 +825,6 @@ const normalizeWorkspaceSeedValueWithReferences = (
     return normalizeWorkspaceSeedValue(resolvedValue, component, columnType)
 }
 
-async function softDeleteWorkspaceSeedRowsByIds(
-    executor: DbExecutor,
-    input: {
-        schemaName: string
-        tableName: string
-        rowIds: string[]
-        actorUserId?: string | null
-    }
-): Promise<void> {
-    if (input.rowIds.length === 0) {
-        return
-    }
-
-    const tableQt = qSchemaTable(input.schemaName, input.tableName)
-    await executor.query(
-        `
-        UPDATE ${tableQt}
-        SET _upl_deleted = true,
-            _upl_deleted_at = NOW(),
-            _upl_deleted_by = $2,
-            _upl_updated_at = NOW(),
-            _upl_updated_by = $2,
-            _upl_version = COALESCE(_upl_version, 1) + 1,
-            _app_deleted = true,
-            _app_deleted_at = NOW(),
-            _app_deleted_by = $2
-        WHERE id = ANY($1::uuid[])
-          AND ${ACTIVE_ROW_SQL}
-        `,
-        [input.rowIds, input.actorUserId ?? null]
-    )
-}
-
 async function loadRuntimeObjectSeedMetadata(
     executor: SqlQueryable,
     schemaName: string
@@ -1300,14 +919,24 @@ async function upsertWorkspaceSeedRow(
         rowId?: string | null
         workspaceId: string
         seedSourceKey: string
+        existingSeedSourceOwned?: boolean
         values: Array<{ columnName: string; value: unknown; columnType: string }>
         actorUserId?: string | null
         parentRowId?: string | null
         sortOrder?: number | null
+        overwriteExisting?: boolean
     }
 ): Promise<string> {
     const tableQt = qSchemaTable(input.schemaName, input.tableName)
     const existingId = input.rowId ?? null
+
+    // Seed synchronization is deliberately initial-only. Once a row exists in a
+    // workspace, a later publication must not overwrite a user's value or revive
+    // a row they removed. An explicit reset flow can opt into overwriteExisting.
+    if (existingId && (input.overwriteExisting !== true || input.existingSeedSourceOwned === false)) {
+        return existingId
+    }
+
     const rowId = existingId ?? (await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id'))[0]?.id ?? null
 
     if (!rowId) {
@@ -1315,9 +944,9 @@ async function upsertWorkspaceSeedRow(
     }
 
     const assignments: string[] = []
-    const columns: string[] = [qColumn('id'), qWorkspaceColumn(), qColumn('_seed_source_key')]
-    const placeholders: string[] = ['$1', '$2', '$3']
-    const parameters: unknown[] = [rowId, input.workspaceId, input.seedSourceKey]
+    const columns: string[] = [qColumn('id'), qWorkspaceColumn(), qColumn('_seed_source_key'), qColumn('_seed_source_owned')]
+    const placeholders: string[] = ['$1', '$2', '$3', '$4']
+    const parameters: unknown[] = [rowId, input.workspaceId, input.seedSourceKey, true]
     let parentPlaceholder: string | null = null
     let sortOrderPlaceholder: string | null = null
 
@@ -1349,6 +978,7 @@ async function upsertWorkspaceSeedRow(
         const updateAssignments = [
             `${qWorkspaceColumn()} = $2`,
             `${qColumn('_seed_source_key')} = $3`,
+            `${qColumn('_seed_source_owned')} = true`,
             ...(parentPlaceholder ? [`${qColumn('_tp_parent_id')} = ${parentPlaceholder}`] : []),
             ...(sortOrderPlaceholder ? [`${qColumn('_tp_sort_order')} = ${sortOrderPlaceholder}`] : []),
             ...assignments,
@@ -1362,14 +992,20 @@ async function upsertWorkspaceSeedRow(
             '_app_deleted_at = NULL',
             '_app_deleted_by = NULL'
         ]
-        await executor.query(
+        const updatedRows = await executor.query<{ id: string }>(
             `
             UPDATE ${tableQt}
             SET ${updateAssignments.join(',\n                ')}
             WHERE id = $1
+              AND ${qWorkspaceColumn()} = $2
+            RETURNING id
             `,
             parameters
         )
+
+        if (updatedRows.length === 0) {
+            throw new Error(`Workspace seed row ${rowId} was not found in ${input.tableName}`)
+        }
 
         return rowId
     }
@@ -1406,29 +1042,29 @@ async function syncWorkspaceSeededChildRows(
         objectIdByCodename: Map<string, string>
         actorUserId?: string | null
         currentUserId?: string | null
+        overwriteExisting?: boolean
     }
 ): Promise<void> {
     const childTableName = generateChildTableName(input.tableComponent.componentId)
     const childTableQt = qSchemaTable(input.schemaName, childTableName)
     const existingRows = await executor.query<WorkspaceSeedExistingRow>(
         `
-        SELECT id, _seed_source_key AS "seedSourceKey"
+        SELECT id, _seed_source_key AS "seedSourceKey", _seed_source_owned AS "seedSourceOwned"
         FROM ${childTableQt}
         WHERE ${qWorkspaceColumn()} = $1
           AND _tp_parent_id = $2
           AND ${qColumn('_seed_source_key')} IS NOT NULL
-          AND ${ACTIVE_ROW_SQL}
+        ORDER BY _upl_created_at ASC, id ASC
         `,
         [input.workspaceId, input.parentRowId]
     )
 
-    const existingBySeedSourceKey = new Map(existingRows.map((row) => [row.seedSourceKey, row.id]))
-    const desiredSeedSourceKeys = new Set<string>()
-
+    const existingBySeedSourceKey = new Map(
+        existingRows.map((row) => [row.seedSourceKey, { id: row.id, seedSourceOwned: row.seedSourceOwned !== false }])
+    )
     for (const [index, rawChildRow] of input.childRows.entries()) {
         const rowData = isRecord(rawChildRow) ? rawChildRow : {}
         const seedSourceKey = buildChildSeedSourceKey(input.parentSeedSourceKey, input.tableComponent.componentId, index)
-        desiredSeedSourceKeys.add(seedSourceKey)
 
         const values = input.childComponents.map((component) => ({
             columnName: component.columnName,
@@ -1449,24 +1085,21 @@ async function syncWorkspaceSeededChildRows(
         await upsertWorkspaceSeedRow(executor, {
             schemaName: input.schemaName,
             tableName: childTableName,
-            rowId: existingBySeedSourceKey.get(seedSourceKey) ?? null,
+            rowId: existingBySeedSourceKey.get(seedSourceKey)?.id ?? null,
             workspaceId: input.workspaceId,
             seedSourceKey,
+            existingSeedSourceOwned: existingBySeedSourceKey.get(seedSourceKey)?.seedSourceOwned,
             values,
             actorUserId: input.actorUserId,
             parentRowId: input.parentRowId,
-            sortOrder: typeof rowData._tp_sort_order === 'number' ? rowData._tp_sort_order : index
+            sortOrder: typeof rowData._tp_sort_order === 'number' ? rowData._tp_sort_order : index,
+            overwriteExisting: input.overwriteExisting
         })
     }
 
-    const staleRowIds = existingRows.filter((row) => !desiredSeedSourceKeys.has(row.seedSourceKey)).map((row) => row.id)
-
-    await softDeleteWorkspaceSeedRowsByIds(executor, {
-        schemaName: input.schemaName,
-        tableName: childTableName,
-        rowIds: staleRowIds,
-        actorUserId: input.actorUserId
-    })
+    // Do not infer deletion from a changed source template. Workspace content is
+    // user-owned after first materialization; removal is an explicit user action
+    // or an authorized reset, never a publication side effect.
 }
 
 export async function syncWorkspaceSeededElements(
@@ -1476,6 +1109,7 @@ export async function syncWorkspaceSeededElements(
         workspaceId: string
         actorUserId?: string | null
         currentUserId?: string | null
+        overwriteExisting?: boolean
     }
 ): Promise<void> {
     const template = await loadWorkspaceSeedTemplate(executor, input.schemaName)
@@ -1516,19 +1150,20 @@ export async function syncWorkspaceSeededElements(
             : Array.isArray(legacyRows)
             ? (legacyRows as unknown[])
             : []
-        const desiredSeedSourceKeys = new Set<string>()
         const tableQt = qSchemaTable(input.schemaName, object.tableName)
         const existingRows = await executor.query<WorkspaceSeedExistingRow>(
             `
-            SELECT id, _seed_source_key AS "seedSourceKey"
+            SELECT id, _seed_source_key AS "seedSourceKey", _seed_source_owned AS "seedSourceOwned"
             FROM ${tableQt}
             WHERE ${qWorkspaceColumn()} = $1
               AND ${qColumn('_seed_source_key')} IS NOT NULL
-              AND ${ACTIVE_ROW_SQL}
+            ORDER BY _upl_created_at ASC, id ASC
             `,
             [input.workspaceId]
         )
-        const existingBySeedSourceKey = new Map(existingRows.map((row) => [row.seedSourceKey, row.id]))
+        const existingBySeedSourceKey = new Map(
+            existingRows.map((row) => [row.seedSourceKey, { id: row.id, seedSourceOwned: row.seedSourceOwned !== false }])
+        )
 
         for (const rawElement of entityRows) {
             const element = (rawElement ?? {}) as WorkspaceSeedElementRow
@@ -1537,7 +1172,6 @@ export async function syncWorkspaceSeededElements(
                 continue
             }
 
-            desiredSeedSourceKeys.add(seedSourceKey)
             const rowData = isRecord(element.data) ? element.data : {}
             const values = topLevelComponents.map((component) => ({
                 columnName: component.columnName,
@@ -1558,11 +1192,13 @@ export async function syncWorkspaceSeededElements(
             const rowId = await upsertWorkspaceSeedRow(executor, {
                 schemaName: input.schemaName,
                 tableName: object.tableName,
-                rowId: existingBySeedSourceKey.get(seedSourceKey) ?? null,
+                rowId: existingBySeedSourceKey.get(seedSourceKey)?.id ?? null,
                 workspaceId: input.workspaceId,
                 seedSourceKey,
+                existingSeedSourceOwned: existingBySeedSourceKey.get(seedSourceKey)?.seedSourceOwned,
                 values,
-                actorUserId: input.actorUserId
+                actorUserId: input.actorUserId,
+                overwriteExisting: input.overwriteExisting
             })
             rememberSeedRowId(object.objectId, seedSourceKey, rowId)
 
@@ -1583,40 +1219,15 @@ export async function syncWorkspaceSeededElements(
                     duplicateSeedSourceKeys,
                     objectIdByCodename,
                     actorUserId: input.actorUserId,
-                    currentUserId: input.currentUserId
+                    currentUserId: input.currentUserId,
+                    overwriteExisting: input.overwriteExisting
                 })
             }
         }
 
-        const staleRows = existingRows.filter((row) => !desiredSeedSourceKeys.has(row.seedSourceKey))
-        const staleRowIds = staleRows.map((row) => row.id)
-        for (const tableComponent of tableComponents) {
-            const childTableName = generateChildTableName(tableComponent.componentId)
-            await executor.query(
-                `
-                UPDATE ${qSchemaTable(input.schemaName, childTableName)}
-                SET _upl_deleted = true,
-                    _upl_deleted_at = NOW(),
-                    _upl_deleted_by = $2,
-                    _upl_updated_at = NOW(),
-                    _upl_updated_by = $2,
-                    _upl_version = COALESCE(_upl_version, 1) + 1,
-                    _app_deleted = true,
-                    _app_deleted_at = NOW(),
-                    _app_deleted_by = $2
-                WHERE _tp_parent_id = ANY($1::uuid[])
-                  AND ${ACTIVE_ROW_SQL}
-                `,
-                [staleRowIds, input.actorUserId ?? null]
-            )
-        }
-
-        await softDeleteWorkspaceSeedRowsByIds(executor, {
-            schemaName: input.schemaName,
-            tableName: object.tableName,
-            rowIds: staleRowIds,
-            actorUserId: input.actorUserId
-        })
+        // A source publication cannot remove or archive workspace rows. This
+        // prevents stale-template cleanup from deleting authored content; reset
+        // is intentionally a separate, permission-checked operation.
     }
 
     let pendingObjects = resolveWorkspaceSeedObjectOrder(objects, components)
@@ -1647,6 +1258,114 @@ export async function syncWorkspaceSeededElements(
 
         pendingObjects = deferredObjects
     }
+}
+
+/**
+ * Reset only rows that are still owned by the published seed source.
+ * Authored rows retain their stable `_seed_source_key` for reconciliation but set
+ * `_seed_source_owned = false`; they are intentionally preserved. The operation
+ * is explicit and transactional; regular publication never calls it.
+ */
+export async function resetWorkspaceSeededElements(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        workspaceId: string
+        actorUserId?: string | null
+        currentUserId?: string | null
+    }
+): Promise<{ resetRows: number; operationId: string }> {
+    return executor.transaction(async (tx) => {
+        const workspaceRows = await tx.query<{ id: string }>(
+            `
+            SELECT id
+            FROM ${qSchemaTable(input.schemaName, WORKSPACES_TABLE)}
+            WHERE id = $1
+              AND ${ACTIVE_ROW_SQL}
+            LIMIT 1
+            `,
+            [input.workspaceId]
+        )
+        if (workspaceRows.length === 0) {
+            throw new WorkspaceSeedResetError(WORKSPACE_SEED_RESET_ERROR_CODES.workspaceNotFound, 'Workspace not found')
+        }
+
+        // Discover only materialized workspace tables. Metadata can refer to a
+        // TABLE component before its physical table exists; issuing dynamic SQL
+        // against that stale name would make an otherwise safe reset fail.
+        const tableNames = await listWorkspaceScopedBusinessTables(tx, input.schemaName)
+
+        let resetRows = 0
+        for (const tableName of tableNames) {
+            const reset = await tx.query<{ id: string }>(
+                `
+                UPDATE ${qSchemaTable(input.schemaName, tableName)}
+                SET _upl_deleted = true,
+                    _upl_deleted_at = NOW(),
+                    _upl_deleted_by = $2,
+                    _upl_updated_at = NOW(),
+                    _upl_updated_by = $2,
+                    _upl_version = COALESCE(_upl_version, 1) + 1,
+                    _app_deleted = true,
+                    _app_deleted_at = NOW(),
+                    _app_deleted_by = $2
+                WHERE ${qWorkspaceColumn()} = $1
+                  AND ${qColumn('_seed_source_key')} IS NOT NULL
+                  AND COALESCE(${qColumn('_seed_source_owned')}, true) = true
+                  AND ${ACTIVE_ROW_SQL}
+                RETURNING id
+                `,
+                [input.workspaceId, input.actorUserId ?? null]
+            )
+            resetRows += reset.length
+        }
+
+        try {
+            await syncWorkspaceSeededElements(tx, {
+                schemaName: input.schemaName,
+                workspaceId: input.workspaceId,
+                actorUserId: input.actorUserId,
+                currentUserId: input.currentUserId,
+                overwriteExisting: true
+            })
+        } catch (error) {
+            if (error instanceof WorkspaceSeedReferenceResolutionError) {
+                throw new WorkspaceSeedResetError(
+                    WORKSPACE_SEED_RESET_ERROR_CODES.resetFailed,
+                    'Workspace seeded content could not be reset',
+                    error
+                )
+            }
+            throw error
+        }
+
+        const operationRows = await tx.query<{ id: string }>(
+            `
+            INSERT INTO ${qSchemaTable(input.schemaName, WORKSPACE_OPERATIONS_TABLE)} (
+                id,
+                workspace_id,
+                operation_kind,
+                affected_rows,
+                actor_user_id,
+                source_key,
+                _upl_created_by,
+                _upl_updated_by
+            )
+            VALUES (public.uuid_generate_v7(), $1, $2, $3, $4, $5, $4, $4)
+            RETURNING id
+            `,
+            [input.workspaceId, 'seed_reset', resetRows, input.actorUserId ?? null, WORKSPACE_SEED_TEMPLATE_KEY]
+        )
+        const operationId = operationRows[0]?.id
+        if (!isUuidV7(operationId)) {
+            throw new WorkspaceSeedResetError(
+                WORKSPACE_SEED_RESET_ERROR_CODES.resetFailed,
+                'Workspace seeded content reset could not be recorded'
+            )
+        }
+
+        return { resetRows, operationId }
+    })
 }
 
 export async function syncWorkspaceSeededElementsForAllActiveWorkspaces(
@@ -1695,12 +1414,12 @@ export async function ensurePersonalWorkspaceForUser(
         [userId]
     )
 
-    const workspaceId =
-        existingWorkspaceRows[0]?.id ?? (await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id'))[0].id
-    const createdWorkspace = !existingWorkspaceRows[0]
+    let workspaceId = existingWorkspaceRows[0]?.id
+    let createdWorkspace = false
 
-    if (createdWorkspace) {
-        await executor.query(
+    if (!workspaceId) {
+        const [{ id: generatedWorkspaceId }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+        const insertedWorkspaceRows = await executor.query<{ id: string }>(
             `
             INSERT INTO ${workspacesQt} (
                 id,
@@ -1713,9 +1432,13 @@ export async function ensurePersonalWorkspaceForUser(
                 _upl_updated_by
             )
             VALUES ($1, $2::jsonb, $3::jsonb, 'personal', $4, 'active', $5, $6)
+            ON CONFLICT (personal_user_id)
+                WHERE workspace_type = 'personal' AND _upl_deleted = false AND _app_deleted = false
+                DO NOTHING
+            RETURNING id
             `,
             [
-                workspaceId,
+                generatedWorkspaceId,
                 JSON.stringify(MAIN_WORKSPACE_NAME),
                 JSON.stringify(MAIN_WORKSPACE_DESCRIPTION),
                 userId,
@@ -1723,6 +1446,30 @@ export async function ensurePersonalWorkspaceForUser(
                 actorUserId ?? null
             ]
         )
+
+        workspaceId = insertedWorkspaceRows[0]?.id
+        if (workspaceId) {
+            createdWorkspace = true
+        } else {
+            const concurrentWorkspaceRows = await executor.query<{ id: string }>(
+                `
+                SELECT id
+                FROM ${workspacesQt}
+                WHERE workspace_type = 'personal'
+                  AND personal_user_id = $1
+                  AND ${ACTIVE_ROW_SQL}
+                ORDER BY _upl_created_at ASC, id ASC
+                LIMIT 1
+                `,
+                [userId]
+            )
+            workspaceId = concurrentWorkspaceRows[0]?.id ?? generatedWorkspaceId
+            createdWorkspace = concurrentWorkspaceRows.length === 0
+        }
+    }
+
+    if (!workspaceId) {
+        throw new Error('PERSONAL_WORKSPACE_CREATE_FAILED')
     }
 
     const seededRoles = await ensureWorkspaceRoleSeeds(executor, schemaName, actorUserId)
@@ -1769,6 +1516,9 @@ export async function ensurePersonalWorkspaceForUser(
                 _upl_updated_by
             )
             VALUES ($1, $2, $3, $4, true, $5, $6)
+            ON CONFLICT (workspace_id, user_id)
+                WHERE _upl_deleted = false AND _app_deleted = false
+            DO NOTHING
             `,
             [relationId, workspaceId, userId, desiredRoleId, actorUserId ?? null, actorUserId ?? null]
         )
@@ -1897,7 +1647,11 @@ export async function archivePersonalWorkspaceForUser(
             _upl_deleted_at = NOW(),
             _upl_deleted_by = $2,
             _upl_updated_at = NOW(),
-            _upl_updated_by = $2
+            _upl_updated_by = $2,
+            _upl_version = COALESCE(_upl_version, 1) + 1,
+            _app_deleted = true,
+            _app_deleted_at = NOW(),
+            _app_deleted_by = $2
         WHERE workspace_id = ANY($1::uuid[])
           AND ${ACTIVE_ROW_SQL}
         `,
@@ -1912,7 +1666,11 @@ export async function archivePersonalWorkspaceForUser(
             _upl_deleted_at = NOW(),
             _upl_deleted_by = $2,
             _upl_updated_at = NOW(),
-            _upl_updated_by = $2
+            _upl_updated_by = $2,
+            _upl_version = COALESCE(_upl_version, 1) + 1,
+            _app_deleted = true,
+            _app_deleted_at = NOW(),
+            _app_deleted_by = $2
         WHERE id = ANY($1::uuid[])
           AND ${ACTIVE_ROW_SQL}
         `,
@@ -1927,30 +1685,17 @@ export async function archiveWorkspaceScopedBusinessRows(
         workspaceIds: string[]
         actorUserId?: string | null
     }
-): Promise<void> {
+): Promise<number> {
     if (input.workspaceIds.length === 0) {
-        return
+        return 0
     }
 
-    const objectsQt = qSchemaTable(input.schemaName, '_app_objects')
-    const scopedTables = await executor.query<WorkspaceScopedTableRow>(
-        `
-        SELECT DISTINCT c.table_name AS "tableName"
-        FROM information_schema.columns c
-        INNER JOIN ${objectsQt} o ON o.table_name = c.table_name
-        WHERE c.table_schema = $1
-          AND c.column_name = 'workspace_id'
-          AND o.table_name IS NOT NULL
-          AND o._upl_deleted = false
-          AND o._app_deleted = false
-        ORDER BY c.table_name ASC
-        `,
-        [input.schemaName]
-    )
+    const scopedTables = await listWorkspaceScopedBusinessTables(executor, input.schemaName, { includeInactiveMetadata: true })
+    let archivedRows = 0
 
-    for (const table of scopedTables) {
-        const tableIdent = qSchemaTable(input.schemaName, table.tableName)
-        await executor.query(
+    for (const tableName of scopedTables) {
+        const tableIdent = qSchemaTable(input.schemaName, tableName)
+        const rows = await executor.query<{ id: string }>(
             `
             UPDATE ${tableIdent}
             SET _upl_deleted = true,
@@ -1964,10 +1709,38 @@ export async function archiveWorkspaceScopedBusinessRows(
                 _app_deleted_by = $2
             WHERE ${qWorkspaceColumn()} = ANY($1::uuid[])
               AND ${ACTIVE_ROW_SQL}
+            RETURNING id
             `,
             [input.workspaceIds, input.actorUserId ?? null]
         )
+        archivedRows += rows.length
     }
+
+    // Workspace settings are application runtime state, not metadata-backed
+    // business tables, so they are intentionally outside the discovery query
+    // above. Archive them in the same transaction as content rows to prevent
+    // stale overrides surviving a workspace deletion or user/application exit.
+    const settingsRows = await executor.query<{ id: string }>(
+        `
+        UPDATE ${qSchemaTable(input.schemaName, '_app_workspace_settings')}
+        SET _upl_deleted = true,
+            _upl_deleted_at = NOW(),
+            _upl_deleted_by = $2,
+            _upl_updated_at = NOW(),
+            _upl_updated_by = $2,
+            _upl_version = COALESCE(_upl_version, 1) + 1,
+            _app_deleted = true,
+            _app_deleted_at = NOW(),
+            _app_deleted_by = $2
+        WHERE workspace_id = ANY($1::uuid[])
+          AND ${ACTIVE_ROW_SQL}
+        RETURNING id
+        `,
+        [input.workspaceIds, input.actorUserId ?? null]
+    )
+    archivedRows += settingsRows.length
+
+    return archivedRows
 }
 
 export async function resolveRuntimeWorkspaceAccess(
@@ -1978,6 +1751,12 @@ export async function resolveRuntimeWorkspaceAccess(
         userId: string
         actorUserId?: string | null
         ensurePersonalWorkspace?: boolean
+        /**
+         * Application administrators may manage an application workspace even
+         * when they are not listed in that workspace's membership table. Keep
+         * this opt-in so ordinary runtime callers remain membership-scoped.
+         */
+        allowUnassigned?: boolean
     }
 ): Promise<RuntimeWorkspaceAccess> {
     if (!input.workspacesEnabled) {
@@ -2013,17 +1792,19 @@ export async function resolveRuntimeWorkspaceAccess(
         SELECT
             wur.workspace_id AS "workspaceId",
             wur.is_default_workspace AS "isDefaultWorkspace"
-        FROM ${workspaceUserRolesQt} wur
-        INNER JOIN ${workspaceQt} w ON w.id = wur.workspace_id
-        WHERE wur.user_id = $1
-          AND wur.${'"_upl_deleted"'} = false
-          AND wur.${'"_app_deleted"'} = false
-          AND w.${'"_upl_deleted"'} = false
+        FROM ${workspaceQt} w
+        LEFT JOIN ${workspaceUserRolesQt} wur
+          ON wur.workspace_id = w.id
+         AND wur.user_id = $1
+         AND wur.${'"_upl_deleted"'} = false
+         AND wur.${'"_app_deleted"'} = false
+        WHERE w.${'"_upl_deleted"'} = false
           AND w.${'"_app_deleted"'} = false
           AND COALESCE(w.status, 'active') = 'active'
-        ORDER BY wur.is_default_workspace DESC, wur._upl_created_at ASC, wur.id ASC
+          AND (wur.id IS NOT NULL OR $2::boolean = true)
+        ORDER BY COALESCE(wur.is_default_workspace, false) DESC, w._upl_created_at ASC, w.id ASC
         `,
-        [input.userId]
+        [input.userId, input.allowUnassigned === true]
     )
 
     const uniqueWorkspaceIds = Array.from(new Set(rows.map((row) => row.workspaceId)))

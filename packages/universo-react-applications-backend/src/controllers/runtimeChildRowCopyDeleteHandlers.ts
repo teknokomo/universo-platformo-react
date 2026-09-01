@@ -372,6 +372,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
                           `
                 UPDATE ${tc.tabTableIdent}
                 SET ${runtimeDeleteSetClause},
+                    ${ctx.workspacesEnabled ? '_seed_source_owned = false,' : ''}
                     _upl_version = COALESCE(_upl_version, 1) + 1
                 WHERE id = $2
                   AND _tp_parent_id = $3

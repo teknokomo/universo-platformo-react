@@ -56,9 +56,21 @@ const InstanceBoard = () => {
     if (isLoading) {
         return (
             <Box sx={{ maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', width: '100%' }}>
-                <Stack spacing={2} alignItems='center' minHeight={400} justifyContent='center'>
+                <Stack
+                    spacing={2}
+                    sx={{
+                        alignItems: 'center',
+                        minHeight: 400,
+                        justifyContent: 'center'
+                    }}
+                >
                     <CircularProgress size={40} />
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('board.loading', 'Loading dashboard...')}
                     </Typography>
                 </Stack>
@@ -85,7 +97,12 @@ const InstanceBoard = () => {
                 <Alert severity='error' sx={{ mx: 'auto', maxWidth: 600 }}>
                     {errorMessage}
                 </Alert>
-                <Box display='flex' justifyContent='center'>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center'
+                    }}
+                >
                     <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/admin')}>
                         {t('common.back', 'Back')}
                     </Button>
@@ -186,7 +203,13 @@ const InstanceBoard = () => {
                 </Grid>
 
                 {/* Navigation to Access page */}
-                <Box display='flex' justifyContent='center' sx={{ mt: 2 }}>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        mt: 2
+                    }}
+                >
                     <Button
                         variant='text'
                         startIcon={<ArrowBackRoundedIcon />}

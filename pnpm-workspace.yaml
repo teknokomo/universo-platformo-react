@@ -58,25 +58,26 @@ catalog:
     '@vitejs/plugin-react': ^4.3.4
     vitest: ^2.1.8
 
-    # MUI ecosystem - v7.x (latest stable)
-    # Note: MUI X packages do not follow Material UI versioning. Keep X versions unchanged during MUI v7 upgrade.
-    '@mui/material': ^7.3.7
-    '@mui/icons-material': ^7.3.7
-    '@mui/system': ^7.3.7
-    '@mui/lab': ^7.0.0
+    # MUI ecosystem - v9.x (one coordinated Core/X policy)
+    # Keep exact versions here so every workspace package resolves one MUI major and patch line.
+    '@mui/material': 9.2.0
+    '@mui/icons-material': 9.2.0
+    '@mui/system': 9.2.0
+    '@mui/utils': 9.2.0
     '@emotion/react': ^11.14.0
     '@emotion/styled': ^11.14.1
 
-    # MUI X - Advanced components (v8.x)
-    # Required by MUI v7 templates (apps-template-mui) and aligns runtime/dashboard APIs.
-    '@mui/x-charts': ^8.27.0
-    '@mui/x-data-grid': ^8.27.0
-    '@mui/x-data-grid-pro': ^8.27.0
-    '@mui/x-date-pickers': ^8.27.0
-    '@mui/x-date-pickers-pro': ^8.27.0
-    '@mui/x-tree-view': ^8.27.0
+    # MUI X - Advanced components (v9.x)
+    # Required by the dashboard/runtime templates and aligned with Material UI v9.
+    '@mui/x-charts': 9.8.0
+    '@mui/x-data-grid': 9.8.0
+    '@mui/x-data-grid-pro': 9.8.0
+    '@mui/x-date-pickers': 9.8.0
+    '@mui/x-date-pickers-pro': 9.8.0
+    '@mui/x-tree-view': 9.8.0
 
     # Testing utilities
+    '@axe-core/playwright': 4.11.1
     '@playwright/test': ^1.58.2
     '@testing-library/react': ^14.3.1
     '@testing-library/jest-dom': ^6.8.0

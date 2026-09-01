@@ -23,7 +23,7 @@ import {
     Alert
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 
 import { CompactListTable } from '../table/CompactListTable'
@@ -254,7 +254,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
         <Box>
             {/* Header with Add button */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant='subtitle1' fontWeight={500}>
+                <Typography variant='subtitle1' sx={{ fontWeight: 500 }}>
                     {labels.title}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -294,7 +294,13 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                                     id: 'codename',
                                     label: labels.codenameHeader,
                                     render: (entity) => (
-                                        <Typography variant='body2' color='text.secondary' fontFamily='monospace'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary',
+                                                fontFamily: 'monospace'
+                                            }}
+                                        >
                                             {getCodename(entity)}
                                         </Typography>
                                     )
@@ -320,7 +326,13 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                 </Alert>
             ) : (
                 <Paper variant='outlined' sx={{ p: 3, textAlign: 'center', mb: 2, bgcolor: 'action.hover' }}>
-                    <Typography color='text.secondary'>{labels.emptyMessage}</Typography>
+                    <Typography
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
+                        {labels.emptyMessage}
+                    </Typography>
                 </Paper>
             )}
 
@@ -378,12 +390,14 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             data-testid='entity-selection-search'
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position='start'>
-                                        <SearchIcon fontSize='small' />
-                                    </InputAdornment>
-                                )
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position='start'>
+                                            <SearchIcon fontSize='small' />
+                                        </InputAdornment>
+                                    )
+                                }
                             }}
                         />
                     </Box>
@@ -405,7 +419,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                                         <ListItemText
                                             primary={getDisplayName(entity)}
                                             secondary={getCodename(entity)}
-                                            secondaryTypographyProps={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                                            slotProps={{ secondary: { sx: { fontFamily: 'monospace', fontSize: '0.75rem' } } }}
                                         />
                                     </ListItemButton>
                                 </ListItem>

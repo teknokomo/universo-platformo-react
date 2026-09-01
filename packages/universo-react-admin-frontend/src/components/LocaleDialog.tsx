@@ -204,8 +204,7 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
             onClose={presentation.dialogProps.onClose}
             maxWidth={resolveDialogMaxWidth(presentation.dialogProps.maxWidth, 'sm') as DialogProps['maxWidth']}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
 
@@ -276,7 +275,7 @@ const LocaleDialog = ({ open, onClose, onSuccess, locale }: LocaleDialogProps) =
                         helperText={t('locales.sortOrderHelp', 'Display order in locale lists (lower = first)')}
                         fullWidth
                         disabled={isLoading}
-                        inputProps={{ min: 0 }}
+                        slotProps={{ htmlInput: { min: 0 } }}
                     />
 
                     {/* Enabled for Content */}

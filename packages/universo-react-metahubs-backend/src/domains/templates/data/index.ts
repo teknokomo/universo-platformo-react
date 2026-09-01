@@ -11,6 +11,7 @@ import { lmsTemplate } from './lms.template'
 import { oneCCompatibleTemplate } from './one-c-compatible.template'
 import { playcanvasTemplate } from './playcanvas.template'
 import { interpretationNetworkTemplate } from './interpretation-network.template'
+import { marketingPageTemplate } from './marketing-page.template'
 import { objectEntityPreset } from './object.entity-preset'
 import { projectEntityPreset } from './project.entity-preset'
 import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
@@ -32,7 +33,8 @@ export const builtinTemplates: MetahubTemplateManifest[] = [
     lmsTemplate,
     oneCCompatibleTemplate,
     playcanvasTemplate,
-    interpretationNetworkTemplate
+    interpretationNetworkTemplate,
+    marketingPageTemplate
 ]
 
 export const builtinEntityTypePresets: EntityTypePresetManifest[] = [

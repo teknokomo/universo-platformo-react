@@ -50,8 +50,7 @@ export function ConflictResolutionDialog({
             onClose={presentation.dialogProps.onClose}
             maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
             <DialogContent sx={mergeDialogSx(presentation.contentSx)}>
@@ -59,16 +58,37 @@ export function ConflictResolutionDialog({
                     {t('conflict.description')}
                 </Alert>
                 <Box sx={{ mb: 2 }}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('conflict.modifiedBy')}: <strong>{updatedBy}</strong>
                     </Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('conflict.modifiedAt')}: <strong>{formattedDate}</strong>
                     </Typography>
-                    <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            mt: 1
+                        }}
+                    >
                         {t('conflict.yourVersion')}: <strong>{conflict.expectedVersion}</strong>
                     </Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('conflict.serverVersion')}: <strong>{conflict.actualVersion}</strong>
                     </Typography>
                 </Box>

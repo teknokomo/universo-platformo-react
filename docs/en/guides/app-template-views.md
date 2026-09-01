@@ -97,3 +97,8 @@ with shared components from `@universo-react/template-mui`:
 
 The enhancement is guarded by `isEnhancedMode` which activates only when
 `showViewToggle` or `showFilterBar` is explicitly set in the layout config.
+
+The `marketing-page` template is a separate cards-and-sections renderer. It
+does not initialize DataGrid view state or consume these dashboard-only view
+settings. Use the [Marketing Page Template](../platform/marketing-page-template.md)
+guide for its data contract and responsive checks.

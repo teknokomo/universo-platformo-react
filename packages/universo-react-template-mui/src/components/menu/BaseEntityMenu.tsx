@@ -1,4 +1,5 @@
 import React, { useState, Suspense } from 'react'
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { i18n as I18nInstance } from 'i18next'
 import { Menu, MenuItem, Divider, IconButton } from '@mui/material'
@@ -72,6 +73,8 @@ export interface ActionContext<TEntity = unknown, TData = unknown> {
     api?: {
         updateEntity?: (id: string, data: TData) => Promise<void>
         deleteEntity?: (id: string) => Promise<void>
+        /** Synchronize an entity with its published/runtime representation. */
+        syncEntity?: (id: string, confirmDestructive?: boolean) => Promise<void>
     }
     helpers?: {
         enqueueSnackbar?: SnackbarNotifier
@@ -307,11 +310,13 @@ export const BaseEntityMenu = <TEntity = unknown, TData = unknown>({
                 onClose={handleClose}
                 anchorEl={anchorEl}
                 disableAutoFocusItem
-                MenuListProps={{
-                    autoFocusItem: false,
-                    onClick: (event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
+                slotProps={{
+                    list: {
+                        autoFocusItem: false,
+                        onClick: (event: MouseEvent<HTMLUListElement>) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                        }
                     }
                 }}
             >

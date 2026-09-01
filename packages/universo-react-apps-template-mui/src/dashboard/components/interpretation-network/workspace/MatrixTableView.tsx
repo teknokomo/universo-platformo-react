@@ -149,7 +149,7 @@ function OccupiedMatrixTableCell({
                     : {})
             }}
         >
-            <Stack direction='row' spacing={0} alignItems='stretch' sx={{ minHeight: 54, minWidth: 0 }}>
+            <Stack direction='row' spacing={0} sx={{ minHeight: 54, minWidth: 0, alignItems: 'stretch' }}>
                 <Tooltip title={t('workspace.cell.drag', 'Drag cell')}>
                     <span style={{ display: 'flex', alignSelf: 'stretch' }}>
                         <IconButton
@@ -438,7 +438,12 @@ export function MatrixTableView({
                     {table.rows.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={Math.max(1, table.columns.length + 1)} align='center'>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t('workspace.matrixEmpty', 'Create a structure again to restore its root matrix cell.')}
                                 </Typography>
                             </TableCell>

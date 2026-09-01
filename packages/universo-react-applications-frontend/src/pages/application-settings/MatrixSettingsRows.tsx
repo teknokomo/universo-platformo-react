@@ -64,7 +64,12 @@ const SettingsRow = ({
     >
         <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant='subtitle2'>{title}</Typography>
-            <Typography variant='body2' color='text.secondary'>
+            <Typography
+                variant='body2'
+                sx={{
+                    color: 'text.secondary'
+                }}
+            >
                 {description}
             </Typography>
             {extra}
@@ -216,7 +221,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                 )}
                 extra={
                     localSettings.matrixMode === 'independentRows' ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 0.5
+                            }}
+                        >
                             {t('settings.matrix.independentRowsViewConstraint', 'Vertical tree is available only for hierarchical cells.')}
                         </Typography>
                     ) : null
@@ -249,7 +260,7 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                                                 }
                                             })
                                         }
-                                        inputProps={testIdInputProps(`application-settings-matrix-view-${view}`)}
+                                        slotProps={{ input: testIdInputProps(`application-settings-matrix-view-${view}`) }}
                                     />
                                 }
                                 label={t(`settings.matrix.views.${view}`, MATRIX_VIEW_FALLBACK_LABELS[view])}
@@ -296,7 +307,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                 extra={
                     <>
                         {localSettings.matrixMode === 'independentRows' ? (
-                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    mt: 0.5
+                                }}
+                            >
                                 {t(
                                     'settings.matrix.independentRowsProjectionConstraint',
                                     'Independent rows always use separate row and column axes.'
@@ -304,7 +321,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                             </Typography>
                         ) : null}
                         {!tableViewAllowed ? (
-                            <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    mt: 0.5
+                                }}
+                            >
                                 {t(
                                     'settings.matrix.tableViewDisabledConstraint',
                                     'Enable Table view to configure table projection and breadcrumb depth.'
@@ -350,7 +373,13 @@ export const MatrixViewRows = ({ t, isSaving, localSettings, setLocalSettings }:
                 )}
                 extra={
                     !tableViewAllowed ? (
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 0.5
+                            }}
+                        >
                             {t(
                                 'settings.matrix.tableViewDisabledConstraint',
                                 'Enable Table view to configure table projection and breadcrumb depth.'
@@ -457,7 +486,7 @@ export const MatrixTableOptionRows = ({ t, isSaving, localSettings, setLocalSett
                                     showHierarchicalTableHeaders: event.target.checked
                                 }))
                             }
-                            inputProps={testIdInputProps('application-settings-matrix-table-headers')}
+                            slotProps={{ input: testIdInputProps('application-settings-matrix-table-headers') }}
                         />
                     }
                     label={t('settings.matrix.enabled', 'Enabled')}
@@ -482,7 +511,7 @@ export const MatrixTableOptionRows = ({ t, isSaving, localSettings, setLocalSett
                                     showHierarchicalTableHeaderCard: event.target.checked
                                 }))
                             }
-                            inputProps={testIdInputProps('application-settings-matrix-table-header-card')}
+                            slotProps={{ input: testIdInputProps('application-settings-matrix-table-header-card') }}
                         />
                     }
                     label={t('settings.matrix.enabled', 'Enabled')}
@@ -507,7 +536,7 @@ export const MatrixTableOptionRows = ({ t, isSaving, localSettings, setLocalSett
                                     colorBreadcrumbsByCell: event.target.checked
                                 }))
                             }
-                            inputProps={testIdInputProps('application-settings-matrix-breadcrumb-colors')}
+                            slotProps={{ input: testIdInputProps('application-settings-matrix-breadcrumb-colors') }}
                         />
                     }
                     label={t('settings.matrix.enabled', 'Enabled')}
@@ -532,7 +561,7 @@ export const MatrixTableOptionRows = ({ t, isSaving, localSettings, setLocalSett
                                     showMatrixTreeTotalCells: event.target.checked
                                 }))
                             }
-                            inputProps={testIdInputProps('application-settings-matrix-total-cells')}
+                            slotProps={{ input: testIdInputProps('application-settings-matrix-total-cells') }}
                         />
                     }
                     label={t('settings.matrix.enabled', 'Enabled')}
@@ -629,7 +658,7 @@ export const MatrixHierarchyRows = ({ t, isSaving, localSettings, setLocalSettin
                                     }
                                 }))
                             }
-                            inputProps={testIdInputProps('application-settings-matrix-position-numbering-enabled')}
+                            slotProps={{ input: testIdInputProps('application-settings-matrix-position-numbering-enabled') }}
                         />
                     }
                     label={t('settings.matrix.enabled', 'Enabled')}
@@ -657,7 +686,7 @@ export const MatrixHierarchyRows = ({ t, isSaving, localSettings, setLocalSettin
                                     }
                                 }))
                             }
-                            inputProps={testIdInputProps('application-settings-matrix-position-numbering-root')}
+                            slotProps={{ input: testIdInputProps('application-settings-matrix-position-numbering-root') }}
                         />
                     }
                     label={t('settings.matrix.includeRoot', 'Include root')}
@@ -674,11 +703,13 @@ export const MatrixHierarchyRows = ({ t, isSaving, localSettings, setLocalSettin
                     label={t('settings.matrix.startIndex', 'Start number')}
                     value={localSettings.positionNumbering.startIndex}
                     disabled={isSaving || !localSettings.positionNumbering.enabled}
-                    inputProps={{
-                        min: 0,
-                        max: 999,
-                        step: 1,
-                        ...testIdInputProps('application-settings-matrix-position-start')
+                    slotProps={{
+                        htmlInput: {
+                            min: 0,
+                            max: 999,
+                            step: 1,
+                            ...testIdInputProps('application-settings-matrix-position-start')
+                        }
                     }}
                     sx={{ width: { xs: '100%', sm: 180 } }}
                     onChange={(event) => {
@@ -717,7 +748,7 @@ export const MatrixBehaviorRows = ({ t, isSaving, localSettings, setLocalSetting
                                 splitPane: { enabled: event.target.checked }
                             }))
                         }
-                        inputProps={testIdInputProps('application-settings-matrix-resizable-panes')}
+                        slotProps={{ input: testIdInputProps('application-settings-matrix-resizable-panes') }}
                     />
                 }
                 label={t('settings.matrix.enabled', 'Enabled')}
@@ -742,7 +773,7 @@ export const MatrixBehaviorRows = ({ t, isSaving, localSettings, setLocalSetting
                                 allowNewAxesInCellDialog: event.target.checked
                             }))
                         }
-                        inputProps={testIdInputProps('application-settings-matrix-new-axes-in-cell-dialog')}
+                        slotProps={{ input: testIdInputProps('application-settings-matrix-new-axes-in-cell-dialog') }}
                     />
                 }
                 label={t('settings.matrix.enabled', 'Enabled')}

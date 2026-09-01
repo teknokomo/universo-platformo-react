@@ -527,7 +527,7 @@ function DetailsTableCreateTargetMenu({ createTargets }: { createTargets?: Detai
                 anchorEl={anchorEl}
                 open={open}
                 onClose={handleCloseMenu}
-                MenuListProps={{ 'aria-label': t('app.createTargetMenu', 'Create content') }}
+                slotProps={{ list: { 'aria-label': t('app.createTargetMenu', 'Create content') } }}
             >
                 {targets.map((target) => {
                     const label = readTargetLabel(target)
@@ -544,7 +544,12 @@ function DetailsTableCreateTargetMenu({ createTargets }: { createTargets?: Detai
                             <Stack spacing={0.25}>
                                 <Typography variant='body2'>{label}</Typography>
                                 {availability.disabled && disabledReason ? (
-                                    <Typography variant='caption' color='text.secondary'>
+                                    <Typography
+                                        variant='caption'
+                                        sx={{
+                                            color: 'text.secondary'
+                                        }}
+                                    >
                                         {disabledReason}
                                     </Typography>
                                 ) : null}
@@ -1009,7 +1014,12 @@ function RecordsListDetailsTableWidget({
                 sortable: false,
                 filterable: false,
                 renderCell: (params) => (
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {String(params.value ?? '')}
                     </Typography>
                 )
@@ -1085,7 +1095,12 @@ function RecordsListDetailsTableWidget({
                 {warningText ? <Alert severity='warning'>{warningText}</Alert> : null}
                 {loadErrorText ? <Alert severity='error'>{loadErrorText}</Alert> : null}
                 {!canPersistRowReordering ? (
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'app.reorderRequiresCompleteDataset',
                             'Row reordering is available only when all rows are loaded and search is cleared.'
@@ -2535,7 +2550,7 @@ function ReportDetailsTableWidget({ definition, reportCodename }: { definition?:
 
     return (
         <Stack spacing={1.5} data-testid='runtime-report-details-table'>
-            <Stack direction='row' justifyContent='flex-end'>
+            <Stack direction='row' sx={{ justifyContent: 'flex-end' }}>
                 <Button
                     type='button'
                     size='small'
@@ -2964,12 +2979,17 @@ function LearnerPlayerWidget({ config }: { config?: Record<string, unknown> }) {
 
     return (
         <Stack data-testid='learner-player' spacing={2}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='h6' sx={{ fontWeight: 700 }}>
                         {selectedParentTitle}
                     </Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {showPlayerProgressHeader
                             ? t('learnerPlayer.progress', '{{completed}} of {{total}} completed', {
                                   completed: completedPlayerItemCount,
@@ -3045,7 +3065,7 @@ function LearnerPlayerWidget({ config }: { config?: Record<string, unknown> }) {
                                         onClick={() => setSelectedItemId(row.id)}
                                         sx={{ justifyContent: 'flex-start', textAlign: 'left' }}
                                     >
-                                        <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0, width: '100%' }}>
+                                        <Stack direction='row' spacing={1} sx={{ minWidth: 0, width: '100%', alignItems: 'center' }}>
                                             <Typography component='span' variant='body2' sx={{ flex: 1, minWidth: 0 }} noWrap>
                                                 {index + 1}. {readItemTitle(row)}
                                             </Typography>
@@ -3059,12 +3079,17 @@ function LearnerPlayerWidget({ config }: { config?: Record<string, unknown> }) {
                 ) : null}
                 <Grid size={{ xs: 12, md: showPlayerOutline ? 8 : 12 }}>
                     <Stack spacing={2} data-testid='learner-player-content'>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography variant='subtitle1' sx={{ fontWeight: 700 }}>
                                     {selectedTitle}
                                 </Typography>
-                                <Typography variant='body2' color='text.secondary'>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {selectedTargetObjectLabel}
                                 </Typography>
                             </Box>

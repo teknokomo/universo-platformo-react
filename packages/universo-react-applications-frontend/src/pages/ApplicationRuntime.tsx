@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Checkbox from '@mui/material/Checkbox'
 import AddIcon from '@mui/icons-material/Add'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -13,6 +14,8 @@ import {
     CrudDialogs,
     RowActionsMenu,
     RuntimeWorkspacesPage,
+    MarketingRuntimeContent,
+    fetchRuntimeTemplate,
     updateLearningContentProgress,
     type AppDataResponse,
     type CellRendererOverrides,
@@ -135,7 +138,7 @@ const toRuntimeSectionLinkMenuItem = (
     }
 }
 
-const ApplicationRuntime = () => {
+const DashboardApplicationRuntime = () => {
     const routeParams = useParams<{ applicationId: string; '*': string }>()
     const navigate = useNavigate()
     const applicationId = routeParams.applicationId
@@ -148,6 +151,7 @@ const ApplicationRuntime = () => {
         !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
     const routeWorkspaceId =
         isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[1] ?? '') ? runtimeRouteSegments[1] : null
+    const requestedWorkspaceId = routeWorkspaceId ?? searchParams.get('workspaceId')
     const workspaceRouteSection =
         isWorkspacesRoute && runtimeRouteSegments[2] === 'access'
             ? 'access'
@@ -163,8 +167,8 @@ const ApplicationRuntime = () => {
     )
 
     // Inline cell mutation for BOOLEAN checkboxes (section id passed dynamically).
-    const updateCellMutation = useUpdateRuntimeCell({ applicationId })
-    const pendingRuntimeCellMutations = usePendingRuntimeCellMutations({ applicationId })
+    const updateCellMutation = useUpdateRuntimeCell({ applicationId, workspaceId: requestedWorkspaceId })
+    const pendingRuntimeCellMutations = usePendingRuntimeCellMutations({ applicationId, workspaceId: requestedWorkspaceId })
 
     // Stabilize cellRenderers — use refs to avoid DataGrid column re-creation on mutation state changes
     const cellMutateRef = useRef(updateCellMutation.mutate)
@@ -224,6 +228,7 @@ const ApplicationRuntime = () => {
         pageSizeOptions: [10, 25, 50, 100],
         staleTime: 30_000,
         initialSectionId: routeSectionId,
+        workspaceId: requestedWorkspaceId,
         resolvePreferredSectionId: resolveRoutePreferredSectionId,
         cellRenderers,
         createDefaultContext: buildLearningContentCreateDefaultContext
@@ -997,6 +1002,54 @@ const ApplicationRuntime = () => {
             ) : null}
         </>
     )
+}
+
+const ApplicationRuntime = () => {
+    const routeParams = useParams<{ applicationId: string; '*': string }>()
+    const applicationId = routeParams.applicationId
+    const runtimeSubRoute = routeParams['*'] ?? ''
+    const isRuntimeRootRoute = runtimeSubRoute.split('/').filter(Boolean).length === 0
+    const navigate = useNavigate()
+    const [runtimeSearchParams] = useSearchParams()
+    const requestedWorkspaceId = runtimeSearchParams.get('workspaceId')
+    const { t, i18n } = useTranslation('applications')
+    const templateQuery = useQuery({
+        queryKey: ['hosted-runtime-template', applicationId],
+        queryFn: () => fetchRuntimeTemplate({ apiBaseUrl: '/api/v1', applicationId: applicationId as string }),
+        enabled: Boolean(applicationId),
+        staleTime: 60_000
+    })
+
+    if (!applicationId) return <Alert severity='error'>{t('app.errors.missingApplicationId', 'Application ID is missing in URL')}</Alert>
+    if (templateQuery.isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
+                <CircularProgress aria-label={t('app.runtime.loading', 'Loading application')} />
+            </Box>
+        )
+    }
+    if (templateQuery.isError || !templateQuery.data)
+        return <Alert severity='error'>{t('app.errors.loadFailed', 'Failed to load runtime data')}</Alert>
+    // A marketing template owns only the public landing route. Workspace and
+    // section routes must keep the existing dashboard/workspace controller;
+    // otherwise the marketing renderer would hide those routes behind its
+    // single-page shell.
+    if (templateQuery.data.templateKey === 'marketing-page' && isRuntimeRootRoute) {
+        return (
+            <MarketingRuntimeContent
+                applicationId={applicationId}
+                locale={i18n.language}
+                apiBaseUrl='/api/v1'
+                workspaceId={requestedWorkspaceId}
+                loadingLabel={t('app.runtime.loading', 'Loading application')}
+                errorLabel={t('app.errors.loadFailed', 'Failed to load runtime data')}
+                onAction={(action) => {
+                    if (action.actionKind === 'internal') navigate(action.href)
+                }}
+            />
+        )
+    }
+    return <DashboardApplicationRuntime />
 }
 
 export default ApplicationRuntime

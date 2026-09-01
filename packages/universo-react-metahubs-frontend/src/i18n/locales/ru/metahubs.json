@@ -4,6 +4,32 @@
         "name": "Название",
         "codename": "Кодовое имя"
     },
+    "resourceSource": {
+        "type": "Тип ресурса",
+        "url": "URL источника",
+        "pageCodename": "Кодовое имя страницы",
+        "storageKey": "Ключ хранилища",
+        "packageDescriptor": "Описание пакета",
+        "launchMode": "Открытие",
+        "configured": "Источник ресурса настроен",
+        "domainPreview": "Домен: {{domain}}",
+        "types": {
+            "page": "Страница",
+            "url": "URL",
+            "video": "Видео",
+            "audio": "Аудио",
+            "document": "Документ",
+            "scorm": "SCORM",
+            "xapi": "xAPI",
+            "embed": "Встраивание",
+            "file": "Файл"
+        },
+        "launchModes": {
+            "inline": "Встроенно",
+            "newTab": "Новая вкладка",
+            "download": "Скачать"
+        }
+    },
     "metahubs": {
         "title": "Метахабы",
         "searchPlaceholder": "Поиск метахабов...",
@@ -58,6 +84,7 @@
             "timeFormat": "Ожидается время в формате ЧЧ:ММ",
             "dateFormat": "Ожидается дата в формате ГГГГ-ММ-ДД",
             "datetimeFormat": "Ожидаются дата и время в формате ГГГГ-ММ-ДД ЧЧ:ММ",
+            "resourceSource": "Введите корректный источник ресурса.",
             "numberLengthWithScale": "Длина: {{integer}},{{scale}}",
             "numberLength": "Длина: {{integer}}",
             "range": "Диапазон: {{min}}–{{max}}",
@@ -324,7 +351,8 @@
             "default": "По умолчанию"
         },
         "templates": {
-            "dashboard": "Дашборд"
+            "dashboard": "Дашборд",
+            "marketingPage": "Маркетинговая страница"
         },
         "actions": {
             "configure": "Настроить",
@@ -388,6 +416,31 @@
                     "compact": "Компактное с иконками",
                     "overlay": "Шторка поверх контента"
                 }
+            }
+        },
+        "marketing": {
+            "appearanceTitle": "Внешний вид маркетинговой страницы",
+            "appearanceDescription": "Настройте опубликованную маркетинговую страницу, не изменяя записи её контента.",
+            "contentHint": "Контент маркетинговой страницы редактируется через стандартные записи объектов этого метахаба; виджеты дашборда для шаблона не используются.",
+            "themeMode": "Режим темы",
+            "theme": {
+                "system": "Системный",
+                "light": "Светлая",
+                "dark": "Тёмная"
+            },
+            "primaryColor": "Основной цвет",
+            "accentColor": "Акцентный цвет",
+            "colorHelper": "Используйте hex-цвет, например #1976d2.",
+            "sectionVisibility": "Видимые секции",
+            "sections": {
+                "hero": "Первый экран",
+                "logos": "Логотипы",
+                "features": "Возможности",
+                "testimonials": "Отзывы",
+                "highlights": "Преимущества",
+                "pricing": "Тарифы",
+                "faq": "Частые вопросы",
+                "footer": "Подвал"
             }
         },
         "menuEditor": {
@@ -3227,6 +3280,7 @@
             "rowCount_few": "{{count}} записи",
             "rowCount_many": "{{count}} записей",
             "rowCount_other": "{{count}} записей",
+            "structuredField": "Структурированное содержимое",
             "addRow": "Добавить строку",
             "noRows": "Строк пока нет. Нажмите «Добавить строку» для добавления данных.",
             "edit": "Редактировать",
@@ -3241,6 +3295,7 @@
         "parentCollectionMissingTitle": "Объект не выбран",
         "parentCollectionMissingDescription": "Выберите объект для управления записями.",
         "parentCollectionLoadError": "Ошибка загрузки объекта",
+        "parentCollectionLoadErrorDescription": "Не удалось загрузить выбранный объект. Попробуйте ещё раз.",
         "parentCollectionEditTitle": "Редактировать объект",
         "actions": {
             "moveUp": "Переместить вверх",

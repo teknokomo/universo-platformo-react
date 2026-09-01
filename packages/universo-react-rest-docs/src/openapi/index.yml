@@ -2404,6 +2404,55 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /applications/{applicationId}/layouts/{layoutId}/config/reset:
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/layouts/{layoutId}/config/reset
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_layouts_layoutId_config_reset
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /applications/{applicationId}/layouts/{layoutId}/copy:
     post:
       tags:
@@ -4187,6 +4236,41 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /applications/{applicationId}/runtime/marketing-page:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/marketing-page
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_marketing_page
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /applications/{applicationId}/runtime/modules:
     get:
       tags:
@@ -5433,6 +5517,41 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /applications/{applicationId}/runtime/template:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/template
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_template
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /applications/{applicationId}/runtime/workspaces:
     get:
       tags:
@@ -5876,6 +5995,56 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+      security: *a1
+  /applications/{applicationId}/runtime/workspaces/{workspaceId}/seed/reset:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/workspaces/{workspaceId}/seed/reset
+      description: Auto-generated from
+        packages/universo-react-applications-backend/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_workspaces_workspaceId_seed_reset
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: workspaceId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
       security: *a1
   /applications/{applicationId}/runtime/workspaces/{workspaceId}/settings:
     get:

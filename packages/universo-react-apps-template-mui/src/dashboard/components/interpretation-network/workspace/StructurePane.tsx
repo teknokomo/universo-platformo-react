@@ -229,7 +229,14 @@ export function StructurePane({
             flex: 1,
             minWidth: 220,
             renderCell: (params) => (
-                <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary',
+                        whiteSpace: 'pre-wrap',
+                        overflowWrap: 'anywhere'
+                    }}
+                >
                     {String(params.value || '—')}
                 </Typography>
             )
@@ -291,7 +298,7 @@ export function StructurePane({
                                 anchorPosition={templateMenuAnchorPosition}
                                 open
                                 onClose={closeTemplateMenu}
-                                MenuListProps={{ 'aria-label': t('workspace.template.actions', 'Template actions') }}
+                                slotProps={{ list: { 'aria-label': t('workspace.template.actions', 'Template actions') } }}
                             >
                                 <MenuItem
                                     disabled={!templateMenuId}
@@ -348,7 +355,14 @@ export function StructurePane({
                         ) : null}
                         <Stack spacing={0.5}>
                             <Typography variant='subtitle2'>{t('workspace.template.description', 'Description')}</Typography>
-                            <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary',
+                                    whiteSpace: 'pre-wrap',
+                                    overflowWrap: 'anywhere'
+                                }}
+                            >
                                 {readInterpretationNetworkTemplateLabel(templateDetail?.description, locale) ||
                                     openTemplate?.description ||
                                     '—'}
@@ -442,7 +456,14 @@ export function StructurePane({
             minWidth: 220,
             renderCell: (params) => (
                 <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: '100%' }}>
-                    <Typography variant='body2' color='text.secondary' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            whiteSpace: 'pre-wrap',
+                            overflowWrap: 'anywhere'
+                        }}
+                    >
                         {String(params.value || '—')}
                     </Typography>
                 </Box>
@@ -635,8 +656,11 @@ export function StructurePane({
                                                 </Typography>
                                                 <Typography
                                                     variant='body2'
-                                                    color='text.secondary'
-                                                    sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                                                    sx={{
+                                                        color: 'text.secondary',
+                                                        whiteSpace: 'pre-wrap',
+                                                        overflowWrap: 'anywhere'
+                                                    }}
                                                 >
                                                     {structure.description || t('workspace.structure.noDescription', 'No description')}
                                                 </Typography>
@@ -715,7 +739,7 @@ export function StructurePane({
             ) : selectedConcept || singleSystemMode ? (
                 <Stack spacing={1.5}>
                     {!singleSystemMode && !hideSelectedHeader ? (
-                        <Stack direction='row' spacing={1} alignItems='center' sx={{ minWidth: 0 }}>
+                        <Stack direction='row' spacing={1} sx={{ minWidth: 0, alignItems: 'center' }}>
                             <IconButton
                                 type='button'
                                 size='small'

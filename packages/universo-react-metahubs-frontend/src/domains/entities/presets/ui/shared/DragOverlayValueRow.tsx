@@ -18,12 +18,25 @@ export const DragOverlayValueRow: React.FC<DragOverlayValueRowProps> = ({ value 
             maxWidth: 320
         }}
     >
-        <Stack direction='row' spacing={1} alignItems='center'>
+        <Stack
+            direction='row'
+            spacing={1}
+            sx={{
+                alignItems: 'center'
+            }}
+        >
             <Typography variant='body2' noWrap sx={{ fontWeight: 500 }}>
                 {value.name || value.codename || '—'}
             </Typography>
             {value.codename && (
-                <Typography variant='caption' color='text.secondary' noWrap sx={{ fontFamily: 'monospace' }}>
+                <Typography
+                    variant='caption'
+                    noWrap
+                    sx={{
+                        color: 'text.secondary',
+                        fontFamily: 'monospace'
+                    }}
+                >
                     {value.codename}
                 </Typography>
             )}

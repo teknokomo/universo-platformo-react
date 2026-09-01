@@ -40,33 +40,35 @@ export function ColorPicker({ value, onChange, label = 'Color', disabled = false
             disabled={disabled}
             error={error}
             helperText={helperText}
-            InputProps={{
-                endAdornment: (
-                    <InputAdornment position='end'>
-                        <Box
-                            component='input'
-                            type='color'
-                            value={value || '#9e9e9e'}
-                            onChange={handleNativeColorChange}
-                            disabled={disabled}
-                            sx={{
-                                width: 24,
-                                height: 24,
-                                padding: 0,
-                                border: 'none',
-                                cursor: disabled ? 'default' : 'pointer',
-                                '&::-webkit-color-swatch-wrapper': {
-                                    padding: 0
-                                },
-                                '&::-webkit-color-swatch': {
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    borderRadius: 1
-                                }
-                            }}
-                        />
-                    </InputAdornment>
-                )
+            slotProps={{
+                input: {
+                    endAdornment: (
+                        <InputAdornment position='end'>
+                            <Box
+                                component='input'
+                                type='color'
+                                value={value || '#9e9e9e'}
+                                onChange={handleNativeColorChange}
+                                disabled={disabled}
+                                sx={{
+                                    width: 24,
+                                    height: 24,
+                                    padding: 0,
+                                    border: 'none',
+                                    cursor: disabled ? 'default' : 'pointer',
+                                    '&::-webkit-color-swatch-wrapper': {
+                                        padding: 0
+                                    },
+                                    '&::-webkit-color-swatch': {
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1
+                                    }
+                                }}
+                            />
+                        </InputAdornment>
+                    )
+                }
             }}
         />
     )

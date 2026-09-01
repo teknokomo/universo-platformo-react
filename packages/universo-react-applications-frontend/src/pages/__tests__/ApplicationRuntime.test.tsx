@@ -20,6 +20,7 @@ const runtimeMocks = vi.hoisted(() => ({
     updateLearningContentProgress: vi.fn().mockResolvedValue({ persisted: true }),
     setPaginationModel: vi.fn(),
     dashboardStateOverrides: {} as Record<string, unknown>,
+    templateKey: 'dashboard',
     triggerRerender: undefined as undefined | (() => void)
 }))
 
@@ -38,6 +39,13 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
+// Dashboard interaction tests exercise the existing runtime surface. The
+// template-dispatch query is covered by the marketing runtime contract tests;
+// keep this suite deterministic and independent from a QueryClient provider.
+vi.mock('@tanstack/react-query', () => ({
+    useQuery: vi.fn(() => ({ isLoading: false, isError: false, data: { templateKey: runtimeMocks.templateKey } }))
+}))
+
 vi.mock('../../api/runtimeAdapter', () => ({
     createRuntimeAdapter: vi.fn(() => ({ queryKeyPrefix: ['runtime', 'app-1'] }))
 }))
@@ -54,6 +62,7 @@ vi.mock('@universo-react/apps-template-mui', async () => {
 
     return {
         ...actual,
+        MarketingRuntimeContent: () => <div data-testid='marketing-runtime-content'>marketing</div>,
         AppsDashboard: ({
             details,
             layoutConfig,
@@ -380,7 +389,26 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.handleOpenDelete.mockReset()
         runtimeMocks.updateLearningContentProgress.mockClear()
         runtimeMocks.dashboardStateOverrides = {}
+        runtimeMocks.templateKey = 'dashboard'
         runtimeMocks.triggerRerender = undefined
+    })
+
+    it('keeps workspace routes on the dashboard runtime for marketing applications', () => {
+        runtimeMocks.templateKey = 'marketing-page'
+
+        renderRuntimePageAt('/applications/app-1/runtime/workspaces')
+
+        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1:list:dashboard')
+        expect(screen.queryByTestId('marketing-runtime-content')).not.toBeInTheDocument()
+    })
+
+    it('renders the marketing runtime only at the application root', () => {
+        runtimeMocks.templateKey = 'marketing-page'
+
+        renderRuntimePageAt('/applications/app-1/runtime')
+
+        expect(screen.getByTestId('marketing-runtime-content')).toHaveTextContent('marketing')
+        expect(screen.queryByTestId('apps-dashboard')).not.toBeInTheDocument()
     })
 
     it('resolves the Structure section as the preferred target for a Matrix deep link', () => {

@@ -344,7 +344,7 @@ export default function ApplicationMenuWidgetEditorDialog({
                             onChange={(event) =>
                                 setDraft((current) => ({ ...current, maxPrimaryItems: normalizeMaxPrimaryItems(event.target.value) }))
                             }
-                            inputProps={{ min: 1, max: 12, step: 1 }}
+                            slotProps={{ htmlInput: { min: 1, max: 12, step: 1 } }}
                             fullWidth
                             helperText={t(
                                 'layouts.menuEditor.maxPrimaryItemsHint',
@@ -422,12 +422,23 @@ export default function ApplicationMenuWidgetEditorDialog({
                             <Typography variant='subtitle2'>{t('layouts.menuEditor.itemsTitle', 'Menu items')}</Typography>
                             {draft.items.map((item, index) => (
                                 <Paper key={item.id} variant='outlined' sx={{ px: 1.5, py: 1, borderRadius: 1.5 }}>
-                                    <Stack direction='row' spacing={1} alignItems='center'>
+                                    <Stack
+                                        direction='row'
+                                        spacing={1}
+                                        sx={{
+                                            alignItems: 'center'
+                                        }}
+                                    >
                                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                             <Typography variant='body2' noWrap>
                                                 {getVLCString(item.title, uiLocale) || getVLCString(item.title, 'en') || '—'}
                                             </Typography>
-                                            <Typography variant='caption' color='text.secondary'>
+                                            <Typography
+                                                variant='caption'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {t(`layouts.menuEditor.kinds.${item.kind}`, item.kind)}
                                             </Typography>
                                         </Box>

@@ -311,12 +311,12 @@ export function MatrixWorkspace({
                 sx={{
                     mb: 1,
                     alignItems: toolbarLayout === 'vertical' ? 'stretch' : 'center',
-                    justifyContent: toolbarLayout === 'vertical' ? 'flex-start' : 'space-between'
+                    justifyContent: toolbarLayout === 'vertical' ? 'flex-start' : 'space-between',
+                    flexWrap: 'wrap'
                 }}
                 useFlexGap
-                flexWrap='wrap'
             >
-                <Stack direction='row' spacing={1} sx={{ minWidth: 0 }} useFlexGap flexWrap='wrap'>
+                <Stack direction='row' spacing={1} useFlexGap sx={{ minWidth: 0, flexWrap: 'wrap' }}>
                     {allowedMatrixViews.length > 1 ? (
                         <ToggleButtonGroup
                             exclusive
@@ -362,7 +362,7 @@ export function MatrixWorkspace({
                     ) : null}
                 </Stack>
                 {matrixMode === 'hierarchicalCells' ? (
-                    <Stack direction='row' spacing={1} alignItems='center'>
+                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                         {canSaveTemplate ? (
                             <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
                                 <span>
@@ -401,7 +401,7 @@ export function MatrixWorkspace({
                         </Tooltip>
                     </Stack>
                 ) : (
-                    <Stack direction='row' spacing={1} alignItems='center'>
+                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                         {canSaveTemplate ? (
                             <Tooltip title={t('workspace.template.saveAsTemplate', 'Save as template')}>
                                 <span>
@@ -605,7 +605,13 @@ export function MatrixWorkspace({
                             boxShadow: 'none'
                         }}
                     >
-                        <Typography variant='body2' color='text.secondary' sx={{ fontWeight: 500 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                fontWeight: 500
+                            }}
+                        >
                             {renderTreeTotalLabel(t, matrixCells.length)}
                         </Typography>
                     </Paper>

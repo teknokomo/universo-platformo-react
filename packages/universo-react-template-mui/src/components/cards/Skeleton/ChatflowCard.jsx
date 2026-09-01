@@ -9,7 +9,12 @@ const ChatflowCard = () => (
         <CardContent>
             <Grid container direction='column'>
                 <Grid item>
-                    <Grid container justifyContent='space-between'>
+                    <Grid
+                        container
+                        sx={{
+                            justifyContent: 'space-between'
+                        }}
+                    >
                         <Grid item>
                             <Skeleton variant='rectangular' width={44} height={44} />
                         </Grid>

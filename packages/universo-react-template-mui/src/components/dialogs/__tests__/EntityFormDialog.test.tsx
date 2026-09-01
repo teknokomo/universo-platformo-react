@@ -19,8 +19,7 @@ const DialogPresentationHarness = ({ onClose = () => undefined }: { onClose?: ()
                 onClose={presentation.dialogProps.onClose}
                 maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
                 fullWidth={presentation.dialogProps.fullWidth ?? true}
-                disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-                PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+                slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
             >
                 <DialogTitle>{presentation.titleActions ?? 'Dialog harness'}</DialogTitle>
                 <div>Dialog harness content</div>

@@ -693,7 +693,15 @@ export const SelectableOptionListContent = ({
                 align: 'left' as const,
                 render: (row: OptionValueDisplay) => (
                     <Stack spacing={0.5}>
-                        <Stack direction='row' spacing={0.5} alignItems='center' flexWrap='wrap' useFlexGap>
+                        <Stack
+                            direction='row'
+                            spacing={0.5}
+                            useFlexGap
+                            sx={{
+                                alignItems: 'center',
+                                flexWrap: 'wrap'
+                            }}
+                        >
                             {row.isDefault && (
                                 <Tooltip title={t('optionValues.defaultTooltip', 'This value is used by default.')} arrow>
                                     <StarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
@@ -1056,7 +1064,12 @@ export const SelectableOptionListContent = ({
                     description={t('errors.pleaseTryLater')}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         search={true}
                         searchPlaceholder={t('optionValues.searchPlaceholder', 'Search enumeration values...')}

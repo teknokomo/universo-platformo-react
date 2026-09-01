@@ -126,7 +126,12 @@ const RoleUsers = () => {
                         <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
                             {row.fullName ? getInitials(row.fullName) : <PersonRoundedIcon fontSize='small' />}
                         </Avatar>
-                        <Typography variant='body2' fontWeight={500}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                fontWeight: 500
+                            }}
+                        >
                             {row.fullName || t('roles.users.anonymous')}
                         </Typography>
                     </Box>
@@ -138,7 +143,12 @@ const RoleUsers = () => {
                 width: '30%',
                 align: 'left' as const,
                 render: (row: RoleUser) => (
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {row.email || '-'}
                     </Typography>
                 )
@@ -149,7 +159,12 @@ const RoleUsers = () => {
                 width: '20%',
                 align: 'left' as const,
                 render: (row: RoleUser) => (
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {formatDate(row.assignedAt, 'short')}
                     </Typography>
                 )
@@ -195,7 +210,12 @@ const RoleUsers = () => {
             border={false}
             shadow={false}
         >
-            <Stack flexDirection='column' sx={{ gap: 1 }}>
+            <Stack
+                sx={{
+                    flexDirection: 'column',
+                    gap: 1
+                }}
+            >
                 <ViewHeader
                     search={true}
                     searchPlaceholder={t('roles.users.searchPlaceholder')}
@@ -252,7 +272,12 @@ const RoleUsers = () => {
                                         images={[]}
                                         footerStartContent={<StatusChip status={user.status} t={t} />}
                                         footerEndContent={
-                                            <Typography variant='caption' color='text.secondary'>
+                                            <Typography
+                                                variant='caption'
+                                                sx={{
+                                                    color: 'text.secondary'
+                                                }}
+                                            >
                                                 {formatDate(user.assignedAt, 'short')}
                                             </Typography>
                                         }

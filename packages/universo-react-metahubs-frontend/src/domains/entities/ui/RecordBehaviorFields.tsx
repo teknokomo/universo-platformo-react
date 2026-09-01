@@ -150,7 +150,12 @@ export const RecordBehaviorFields = ({
             <Box sx={SECTION_SX}>
                 <Stack spacing={1.5}>
                     <Typography variant='subtitle2'>{t('entities.recordBehavior.mode.title', 'Record mode')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'entities.recordBehavior.mode.helper',
                             'Choose whether records act as references, transactional documents, or a hybrid collection.'
@@ -212,7 +217,7 @@ export const RecordBehaviorFields = ({
                                             error={Boolean(errors.recordBehaviorMinLength)}
                                             helperText={errors.recordBehaviorMinLength}
                                             type='number'
-                                            inputProps={{ min: 1, max: 32, step: 1 }}
+                                            slotProps={{ htmlInput: { min: 1, max: 32, step: 1 } }}
                                             fullWidth
                                         />
                                         <FormControl fullWidth disabled={disabled}>

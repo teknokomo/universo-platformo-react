@@ -77,7 +77,12 @@ function SortableColumnRow({
                         <DragIndicatorRoundedIcon fontSize='small' />
                     </IconButton>
                     <Box sx={{ flexGrow: 1, minWidth: 80 }}>
-                        <Typography variant='caption' color='text.secondary'>
+                        <Typography
+                            variant='caption'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('layouts.columnsEditor.width', 'Width')}: {column.width}/12
                         </Typography>
                         <Slider
@@ -209,7 +214,12 @@ export default function ApplicationColumnsContainerEditorDialog({ open, config, 
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
                 <Stack spacing={2.5}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'layouts.columnsEditor.description',
                             'Build a multi-column center widget composition and reorder columns with drag and drop.'
@@ -295,7 +305,12 @@ export default function ApplicationColumnsContainerEditorDialog({ open, config, 
                         />
                     ) : null}
                     {!isDirty ? (
-                        <Typography variant='caption' color='text.secondary'>
+                        <Typography
+                            variant='caption'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t('layouts.columnsEditor.noChanges', 'No changes yet.')}
                         </Typography>
                     ) : null}

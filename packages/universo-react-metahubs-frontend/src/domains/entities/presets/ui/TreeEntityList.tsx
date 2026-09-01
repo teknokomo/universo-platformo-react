@@ -590,7 +590,12 @@ export const TreeEntityListContent = () => {
                     const parentHub = getDirectParentHub(row)
                     if (!parentHub) {
                         return (
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 —
                             </Typography>
                         )
@@ -1012,7 +1017,12 @@ export const TreeEntityListContent = () => {
                         }}
                     />
                 ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <Stack
+                        sx={{
+                            flexDirection: 'column',
+                            gap: 1
+                        }}
+                    >
                         <ViewHeader
                             search={true}
                             searchPlaceholder={t('hubs.searchPlaceholder')}
@@ -1068,7 +1078,12 @@ export const TreeEntityListContent = () => {
                                 </Box>
                                 {!allowHubNesting && (
                                     <Box sx={{ px: 2, pt: 1 }}>
-                                        <Typography variant='body2' color='text.secondary'>
+                                        <Typography
+                                            variant='body2'
+                                            sx={{
+                                                color: 'text.secondary'
+                                            }}
+                                        >
                                             {t(
                                                 'hubs.nestingDisabledHint',
                                                 'TreeEntity nesting is disabled in settings. You can still edit and unlink existing parent relations.'
@@ -1129,12 +1144,23 @@ export const TreeEntityListContent = () => {
                                                         onPendingInteractionAttempt={() => handlePendingHubInteraction(hub.id)}
                                                         footerEndContent={
                                                             showParentHubInfo || showItemsCount ? (
-                                                                <Stack direction='row' spacing={1} alignItems='center'>
+                                                                <Stack
+                                                                    direction='row'
+                                                                    spacing={1}
+                                                                    sx={{
+                                                                        alignItems: 'center'
+                                                                    }}
+                                                                >
                                                                     {showParentHubInfo && (
                                                                         <Chip label={parentHub?.name} size='small' variant='outlined' />
                                                                     )}
                                                                     {showItemsCount && (
-                                                                        <Typography variant='caption' color='text.secondary'>
+                                                                        <Typography
+                                                                            variant='caption'
+                                                                            sx={{
+                                                                                color: 'text.secondary'
+                                                                            }}
+                                                                        >
                                                                             {t('hubs.itemsCount', { count: itemsCount })}
                                                                         </Typography>
                                                                     )}

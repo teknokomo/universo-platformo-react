@@ -86,7 +86,13 @@ const ApplicationMigrationGuard = ({ children }: ApplicationMigrationGuardProps)
                                   )}
                         </Typography>
 
-                        <Stack direction='row' spacing={1} flexWrap='wrap'>
+                        <Stack
+                            direction='row'
+                            spacing={1}
+                            sx={{
+                                flexWrap: 'wrap'
+                            }}
+                        >
                             <Chip
                                 size='small'
                                 color={status.structureUpgradeRequired ? 'warning' : 'default'}
@@ -103,7 +109,13 @@ const ApplicationMigrationGuard = ({ children }: ApplicationMigrationGuardProps)
 
                         {status.blockers?.length ? (
                             <Alert severity='warning'>
-                                <Typography variant='body2' fontWeight='bold' sx={{ mb: 0.5 }}>
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        fontWeight: 'bold',
+                                        mb: 0.5
+                                    }}
+                                >
                                     {t('migrationGuard.blockersTitle', 'Blocking conditions detected')}:
                                 </Typography>
                                 <ul style={{ margin: 0, paddingLeft: 16 }}>

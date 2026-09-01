@@ -345,7 +345,13 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                                             label={ctx.t('copy.createSchema', 'Create application schema')}
                                         />
                                         {!copyOptions.copyConnector ? (
-                                            <Typography variant='caption' color='text.secondary' sx={{ ml: 4 }}>
+                                            <Typography
+                                                variant='caption'
+                                                sx={{
+                                                    color: 'text.secondary',
+                                                    ml: 4
+                                                }}
+                                            >
                                                 {ctx.t(
                                                     'copy.createSchemaDisabledHint',
                                                     'Enable "Copy connector" to make schema creation available.'

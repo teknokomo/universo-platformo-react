@@ -11,7 +11,7 @@
 -   **Пакет**: `@universo-react/core-frontend`
 -   **Версия**: `0.1.0`
 -   **Тип**: React Frontend Application (Современный)
--   **Фреймворк**: React 18 + Vite + MUI v7 + TanStack Query v5
+-   **Фреймворк**: React 18 + Vite + MUI v9 + TanStack Query v5
 -   **Язык**: TypeScript (TSX)
 -   **Паттерн**: Оболочка приложения, компонующая `@universo-react/*` функциональные пакеты
 -   **Система сборки**: Vite (продакшн-сборка в `build/`)
@@ -83,16 +83,16 @@ index.tsx                     → Загрузка провайдеров и р�
 
 ### Ключевые зависимости
 
-| Зависимость               | Назначение                           |
-| ------------------------- | ------------------------------------ |
+| Зависимость                     | Назначение                           |
+| ------------------------------- | ------------------------------------ |
 | `@universo-react/store`         | Redux store + ConfirmContextProvider |
 | `@universo-react/template-mui`  | Общая MUI тема, лейаут, SCSS         |
 | `@universo-react/auth-frontend` | AuthProvider + хуки сессии           |
 | `@universo-react/api-client`    | Обёртка Axios с интерцепторами       |
 | `@universo-react/i18n`          | Синглтон инициализации i18next       |
-| `@tanstack/react-query`   | Управление серверным состоянием      |
-| `react-router-dom`        | Клиентская маршрутизация             |
-| `notistack`               | Snackbar уведомления                 |
+| `@tanstack/react-query`         | Управление серверным состоянием      |
+| `react-router-dom`              | Клиентская маршрутизация             |
+| `notistack`                     | Snackbar уведомления                 |
 
 ## Файловая структура
 

@@ -1586,6 +1586,61 @@ export async function listApplicationWorkspaces(api, applicationId) {
     return response.json()
 }
 
+export async function createApplicationWorkspace(api, applicationId, payload) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/workspaces`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Creating application workspace for ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function updateApplicationWorkspace(api, applicationId, workspaceId, payload) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Updating application workspace ${workspaceId}`)
+    }
+
+    return response.json()
+}
+
+export async function copyApplicationWorkspace(api, applicationId, workspaceId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}/copy`,
+        payload
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Copying application workspace ${workspaceId}`)
+    }
+
+    return response.json()
+}
+
+export async function deleteApplicationWorkspace(api, applicationId, workspaceId) {
+    const response = await sendWithCsrf(api, 'DELETE', `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}`)
+    if (!response.ok && response.status !== 404) {
+        throw await buildError(response, `Deleting application workspace ${workspaceId}`)
+    }
+
+    return response.status !== 404
+}
+
+export async function resetApplicationWorkspaceSeededContent(api, applicationId, workspaceId) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}/seed/reset`,
+        {}
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Resetting seeded content in application workspace ${workspaceId}`)
+    }
+
+    return response.json()
+}
+
 export async function setApplicationDefaultWorkspace(api, applicationId, workspaceId) {
     const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}/default`, {})
     if (!response.ok) {
@@ -1632,6 +1687,21 @@ export async function getApplicationRuntime(api, applicationId, params = {}) {
         objects: resolvedObjects,
         activeObjectId: resolvedActiveObjectId
     }
+}
+
+export async function getMarketingPageRuntime(api, applicationId, locale = 'en', workspaceId = null) {
+    const query = new URLSearchParams({ locale: String(locale) })
+    if (workspaceId) {
+        query.set('workspaceId', String(workspaceId))
+    }
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/runtime/marketing-page?${query.toString()}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching marketing-page runtime for application ${applicationId}`)
+    }
+
+    return response.json()
 }
 
 export async function addApplicationMember(api, applicationId, payload) {
@@ -1772,7 +1842,9 @@ export async function getRuntimeRow(api, applicationId, rowId, params = {}) {
 }
 
 export async function postRuntimeRow(api, applicationId, rowId, payload = {}) {
-    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows/${rowId}/post`, payload)
+    const { workspaceId, ...body } = payload ?? {}
+    const query = workspaceId ? `?workspaceId=${encodeURIComponent(String(workspaceId))}` : ''
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows/${rowId}/post${query}`, body)
     if (!response.ok) {
         throw await buildError(response, `Posting runtime row ${rowId} in application ${applicationId}`)
     }
@@ -1781,7 +1853,9 @@ export async function postRuntimeRow(api, applicationId, rowId, payload = {}) {
 }
 
 export async function unpostRuntimeRow(api, applicationId, rowId, payload = {}) {
-    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows/${rowId}/unpost`, payload)
+    const { workspaceId, ...body } = payload ?? {}
+    const query = workspaceId ? `?workspaceId=${encodeURIComponent(String(workspaceId))}` : ''
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows/${rowId}/unpost${query}`, body)
     if (!response.ok) {
         throw await buildError(response, `Unposting runtime row ${rowId} in application ${applicationId}`)
     }

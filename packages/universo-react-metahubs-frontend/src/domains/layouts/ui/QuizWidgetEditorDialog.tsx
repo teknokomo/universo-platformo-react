@@ -195,7 +195,12 @@ export default function QuizWidgetEditorDialog({
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
                 <Stack spacing={2.5}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'layouts.quizEditor.description',
                             'Choose which published quiz behavior this widget should use for the selected page or application scope.'

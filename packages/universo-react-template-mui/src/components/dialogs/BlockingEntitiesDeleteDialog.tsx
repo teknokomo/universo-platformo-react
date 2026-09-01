@@ -155,8 +155,7 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
             onClose={presentation.dialogProps.onClose}
             maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
             <DialogContent dividers sx={mergeDialogSx(presentation.contentSx)}>
@@ -180,7 +179,13 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
                             linkMode={getBlockingEntityLink ? 'all-cells' : undefined}
                             columns={columns}
                         />
-                        <Typography variant='body2' color='text.secondary' sx={{ mt: 2 }}>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary',
+                                mt: 2
+                            }}
+                        >
                             {labels.resolutionHint}
                         </Typography>
                     </>

@@ -145,7 +145,12 @@ export const GeneralSettingsPanel = ({
             >
                 <Box sx={{ minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.visibilityTitle', 'Application visibility')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {effectiveVisibility
                             ? t(
                                   'settings.visibilityPublicDescription',
@@ -156,7 +161,13 @@ export const GeneralSettingsPanel = ({
                                   'Closed applications are visible only to current members and users with global application access.'
                               )}
                     </Typography>
-                    <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary',
+                            mt: 1
+                        }}
+                    >
                         {t('settings.workspaceModeLabel', 'Workspace mode')}:{' '}
                         <Box component='span' sx={{ fontWeight: 600 }}>
                             {workspacesEnabled
@@ -164,7 +175,12 @@ export const GeneralSettingsPanel = ({
                                 : t('settings.workspaceModeDisabled', 'Disabled')}
                         </Box>
                     </Typography>
-                    <Typography variant='caption' color='text.secondary'>
+                    <Typography
+                        variant='caption'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.workspaceModeReadOnly',
                             'Workspace mode is selected during application creation and cannot be changed after the runtime structure is defined.'
@@ -180,7 +196,7 @@ export const GeneralSettingsPanel = ({
                                 const nextValue = event.target.checked
                                 onVisibilityChange(nextValue === currentVisibility ? undefined : nextValue)
                             }}
-                            inputProps={testIdInputProps('application-settings-visibility-switch')}
+                            slotProps={{ input: testIdInputProps('application-settings-visibility-switch') }}
                         />
                     }
                     label={effectiveVisibility ? t('settings.visibilityPublic', 'Public') : t('settings.visibilityClosed', 'Closed')}
@@ -190,7 +206,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-dialogSizePreset' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dialogSizePreset', 'Popup window size')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t('settings.dialogSizePresetDescription', 'Default size for popup windows in this application control panel.')}
                     </Typography>
                 </Box>
@@ -213,7 +234,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-dialogAllowFullscreen' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dialogAllowFullscreen', 'Allow fullscreen expansion')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.dialogAllowFullscreenDescription',
                             'Show a header action that expands application popup windows almost to the full viewport.'
@@ -234,7 +260,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-dialogAllowResize' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dialogAllowResize', 'Allow popup resize')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.dialogAllowResizeDescription',
                             'Show a resize handle and remember the custom popup size in this browser for this application.'
@@ -255,7 +286,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-sectionLinksEnabled' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.sectionLinksEnabled', 'Section-specific links')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.sectionLinksEnabledDescription',
                             'Give every application menu section its own browser URL based on the section identifier.'
@@ -267,7 +303,7 @@ export const GeneralSettingsPanel = ({
                         <Switch
                             checked={settings.sectionLinksEnabled}
                             onChange={(event) => onSettingsChange({ sectionLinksEnabled: event.target.checked })}
-                            inputProps={testIdInputProps('application-settings-section-links-switch')}
+                            slotProps={{ input: testIdInputProps('application-settings-section-links-switch') }}
                         />
                     }
                     label=''
@@ -277,7 +313,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-dialogCloseBehavior' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dialogCloseBehavior', 'Popup window type')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.dialogCloseBehaviorDescription',
                             'Choose whether application popup windows stay modal or can close when the user clicks outside the window.'
@@ -304,7 +345,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-dashboardDefaultMode' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dashboardDefaultMode', 'Runtime dashboard default')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.dashboardDefaultModeDescription',
                             'Choose how the published application resolves the initial dashboard section.'
@@ -333,7 +379,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-datasourceExecutionPolicy' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.datasourceExecutionPolicy', 'Datasource execution')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.datasourceExecutionPolicyDescription',
                             'Control whether layout datasources are always scoped to the active runtime workspace.'
@@ -362,7 +413,12 @@ export const GeneralSettingsPanel = ({
             <Box data-testid='application-setting-workspaceOpenBehavior' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.workspaceOpenBehavior', 'Workspace opening')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.workspaceOpenBehaviorDescription',
                             'Choose which workspace should open first when users enter the published application.'
@@ -433,7 +489,12 @@ export const ConnectorsSettingsPanel = ({
             >
                 <Box sx={{ minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.schemaDiffLocalizedLabels', 'Localized schema change labels')}</Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography
+                        variant='body2'
+                        sx={{
+                            color: 'text.secondary'
+                        }}
+                    >
                         {t(
                             'settings.schemaDiffLocalizedLabelsDescription',
                             'Show entity type, entity, and field labels in the current interface language when the source metahub provides localized values.'
@@ -559,7 +620,12 @@ export const AccessSettingsPanel = ({
                                 <Typography variant='body2' sx={{ fontWeight: 600 }}>
                                     {t(capability.labelKey, capability.fallback)}
                                 </Typography>
-                                <Typography variant='caption' color='text.secondary'>
+                                <Typography
+                                    variant='caption'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {capability.capability}
                                 </Typography>
                             </Box>
@@ -596,7 +662,12 @@ export const AccessSettingsPanel = ({
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, mb: 1 }}>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography variant='subtitle2'>{t('settings.workspaceOverrides.title', 'Workspace overrides')}</Typography>
-                        <Typography variant='body2' color='text.secondary'>
+                        <Typography
+                            variant='body2'
+                            sx={{
+                                color: 'text.secondary'
+                            }}
+                        >
                             {t(
                                 'settings.workspaceOverrides.description',
                                 'Choose which application settings workspace owners can override inside a published workspace.'
@@ -624,7 +695,12 @@ export const AccessSettingsPanel = ({
                                 <Typography variant='body2' sx={{ fontWeight: 600 }}>
                                     {t(definition.labelKey, definition.key)}
                                 </Typography>
-                                <Typography variant='caption' color='text.secondary'>
+                                <Typography
+                                    variant='caption'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
                                     {t(definition.descriptionKey, definition.key)}
                                 </Typography>
                             </Box>
@@ -716,7 +792,12 @@ export const LimitsSettingsPanel = ({
                     >
                         <Box>
                             <Typography variant='subtitle2'>{item.name || item.codename}</Typography>
-                            <Typography variant='body2' color='text.secondary'>
+                            <Typography
+                                variant='body2'
+                                sx={{
+                                    color: 'text.secondary'
+                                }}
+                            >
                                 {item.codenameDisplay || item.codename}
                             </Typography>
                         </Box>
@@ -725,9 +806,11 @@ export const LimitsSettingsPanel = ({
                             label={t('settings.maxRows', 'Max rows')}
                             value={item.inputValue}
                             onChange={(event) => onLimitChange(item.objectId, event.target.value)}
-                            inputProps={{
-                                min: 1,
-                                ...testIdInputProps(`application-settings-limit-input-${item.objectId}`)
+                            slotProps={{
+                                htmlInput: {
+                                    min: 1,
+                                    ...testIdInputProps(`application-settings-limit-input-${item.objectId}`)
+                                }
                             }}
                             helperText={t('settings.emptyMeansUnlimited', 'Leave empty for unlimited')}
                         />

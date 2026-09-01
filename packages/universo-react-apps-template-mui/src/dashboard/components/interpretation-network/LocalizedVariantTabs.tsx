@@ -45,7 +45,7 @@ export function LocalizedVariantTabs({
     onTabKeyDown
 }: LocalizedVariantTabsProps) {
     return (
-        <Stack direction='row' spacing={1} alignItems='flex-start' sx={{ flexWrap: 'wrap', minWidth: 0 }}>
+        <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap', minWidth: 0, alignItems: 'flex-start' }}>
             <Box
                 role='tablist'
                 aria-label={labels.tabList}
@@ -67,11 +67,11 @@ export function LocalizedVariantTabs({
                             key={item.code}
                             direction='row'
                             spacing={0.25}
-                            alignItems='flex-start'
                             sx={{
                                 borderBottom: 2,
                                 borderColor: selected ? 'text.primary' : 'transparent',
                                 color: selected ? 'text.primary' : 'text.secondary',
+                                alignItems: 'flex-start',
                                 transition: (theme) =>
                                     theme.transitions.create(['border-color', 'color'], {
                                         duration: theme.transitions.duration.shortest

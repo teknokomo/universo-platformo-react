@@ -176,7 +176,13 @@ const LocalesList = () => {
                 label: t('locales.code', 'Code'),
                 width: '15%',
                 render: (locale: LocaleItem) => (
-                    <Stack direction='row' alignItems='center' spacing={1}>
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        sx={{
+                            alignItems: 'center'
+                        }}
+                    >
                         <Chip
                             label={locale.code.toUpperCase()}
                             size='small'
@@ -195,7 +201,13 @@ const LocalesList = () => {
                     <Typography>
                         {getLocaleName(locale)}
                         {locale.nativeName && (
-                            <Typography component='span' color='text.secondary' sx={{ ml: 1 }}>
+                            <Typography
+                                component='span'
+                                sx={{
+                                    color: 'text.secondary',
+                                    ml: 1
+                                }}
+                            >
                                 ({locale.nativeName})
                             </Typography>
                         )}
@@ -207,7 +219,13 @@ const LocalesList = () => {
                 label: t('locales.enabledContent', 'Content'),
                 width: '20%',
                 render: (locale: LocaleItem) => (
-                    <Stack direction='row' alignItems='center' spacing={1}>
+                    <Stack
+                        direction='row'
+                        spacing={1}
+                        sx={{
+                            alignItems: 'center'
+                        }}
+                    >
                         <Switch
                             checked={locale.isEnabledContent}
                             onChange={() => handleToggleContent(locale)}
@@ -241,7 +259,13 @@ const LocalesList = () => {
                 width: '20%',
                 align: 'right' as const,
                 render: (locale: LocaleItem) => (
-                    <Stack direction='row' spacing={0.5} justifyContent='flex-end'>
+                    <Stack
+                        direction='row'
+                        spacing={0.5}
+                        sx={{
+                            justifyContent: 'flex-end'
+                        }}
+                    >
                         {!locale.isDefaultContent && locale.isEnabledContent && (
                             <Tooltip title={t('locales.setDefaultContent', 'Set as default for content')}>
                                 <IconButton size='small' onClick={() => handleSetDefaultContent(locale)}>
@@ -280,7 +304,12 @@ const LocalesList = () => {
     }, [])
 
     return (
-        <Stack flexDirection='column' sx={{ gap: 1 }}>
+        <Stack
+            sx={{
+                flexDirection: 'column',
+                gap: 1
+            }}
+        >
             <Box sx={{ px: { xs: 0, md: 2 } }}>
                 <ViewHeader
                     title={t('locales.title', 'Languages')}

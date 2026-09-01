@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { DASHBOARD_LAYOUT_WIDGETS, type LayoutCopyOptions } from '@universo-react/types'
+import {
+    DASHBOARD_LAYOUT_WIDGETS,
+    applicationTemplateKeySchema,
+    marketingPageConfigSchema,
+    type LayoutCopyOptions
+} from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import type { SqlQueryable } from '../../../utils'
 import { queryMany, queryOne } from '@universo-react/utils/database'
@@ -245,8 +250,18 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 copyWidgets: parsed.data.copyWidgets,
                 deactivateAllWidgets: parsed.data.deactivateAllWidgets
             })
+            const isDashboardLayout = sourceLayout.templateKey === 'dashboard'
+            if (!isDashboardLayout && parsed.data.deactivateAllWidgets) {
+                return res.status(409).json({ error: 'Widget options are supported only by dashboard layouts' })
+            }
+            if (!isDashboardLayout) {
+                const marketingConfig = marketingPageConfigSchema.safeParse(sourceLayout.config)
+                if (!marketingConfig.success) {
+                    return res.status(409).json({ error: 'Marketing layout configuration is invalid' })
+                }
+            }
             const shouldDeactivateWidgets =
-                copyOptions.copyWidgets && (parsed.data.deactivateAllWidgets ?? copyOptions.deactivateAllWidgets)
+                isDashboardLayout && copyOptions.copyWidgets && (parsed.data.deactivateAllWidgets ?? copyOptions.deactivateAllWidgets)
 
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
             const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
@@ -258,7 +273,9 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 const now = new Date()
 
                 const sourceConfig = sourceLayout.config ?? {}
-                const layoutConfig = copyOptions.copyWidgets
+                const layoutConfig = !isDashboardLayout
+                    ? sourceConfig
+                    : copyOptions.copyWidgets
                     ? shouldDeactivateWidgets
                         ? { ...sourceConfig, ...buildDashboardLayoutConfig([]) }
                         : sourceConfig
@@ -284,7 +301,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                     [
                         isScopedLayout ? sourceLayout.scopeEntityId : null,
                         isScopedLayout ? sourceLayout.baseLayoutId : null,
-                        sourceLayout.templateKey ?? 'dashboard',
+                        sourceLayout.templateKey,
                         JSON.stringify(nameVlc),
                         descriptionVlc ? JSON.stringify(descriptionVlc) : null,
                         JSON.stringify(layoutConfig),
@@ -309,7 +326,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                     })
                 }
 
-                if (copyOptions.copyWidgets) {
+                if (isDashboardLayout && copyOptions.copyWidgets) {
                     const sourceWidgets = await queryMany<SourceWidgetRow>(
                         trx,
                         `SELECT id, zone, widget_key, sort_order, config, is_active
@@ -470,7 +487,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 id: created.id,
                 scopeEntityId: created.scope_entity_id ?? null,
                 baseLayoutId: created.base_layout_id ?? null,
-                templateKey: created.template_key ?? 'dashboard',
+                templateKey: applicationTemplateKeySchema.parse(created.template_key),
                 name: created.name ?? {},
                 description: created.description ?? null,
                 config: created.config ?? {},

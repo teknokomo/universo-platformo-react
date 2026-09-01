@@ -116,10 +116,7 @@ export interface MetahubSnapshot {
     packages?: MetahubSnapshotPackage[]
     playcanvasProjects?: PlayCanvasProjectSnapshotSection
     playcanvasRuntimeManifests?: PlayCanvasRuntimeManifest[]
-    /**
-     * Active UI layouts captured at publication time.
-     * MVP: only the Dashboard template is supported.
-     */
+    /** Active UI layouts captured at publication time for the selected template. */
     layouts?: MetahubLayoutSnapshot[]
     scopedLayouts?: MetahubScopedLayoutSnapshot[]
     /**

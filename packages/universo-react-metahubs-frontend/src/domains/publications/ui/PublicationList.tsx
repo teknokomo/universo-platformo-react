@@ -572,6 +572,8 @@ const PublicationList = () => {
             metahubId,
             metahub, // Pass metahub for MetahubInfoPanel in edit dialog
             isMetahubLoading, // Pass loading state for metahub
+            canManagePublication: metahub?.permissions?.manageMetahub === true,
+            isSyncing: syncPublicationMutation.isPending,
             canDeletePublication: true,
             api: {
                 updateEntity: (id: string, data: Record<string, unknown>) => {
@@ -780,7 +782,12 @@ const PublicationList = () => {
                     }}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         search={true}
                         onSearchChange={handleSearchChange}

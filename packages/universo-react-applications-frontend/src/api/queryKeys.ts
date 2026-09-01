@@ -106,14 +106,22 @@ export const applicationsQueryKeys = {
 
     runtimeTable: (
         applicationId: string,
-        params?: { limit?: number; offset?: number; locale?: string; objectCollectionId?: string; sectionId?: string }
+        params?: {
+            limit?: number
+            offset?: number
+            locale?: string
+            objectCollectionId?: string
+            sectionId?: string
+            workspaceId?: string | null
+        }
     ) => {
         const resolvedSectionId = params?.sectionId ?? params?.objectCollectionId
         const normalized = {
             limit: params?.limit ?? 50,
             offset: params?.offset ?? 0,
             locale: params?.locale ?? 'en',
-            objectCollectionId: resolvedSectionId ?? 'default'
+            objectCollectionId: resolvedSectionId ?? 'default',
+            ...(params?.workspaceId?.trim() ? { workspaceId: params.workspaceId.trim() } : {})
         }
         return [...applicationsQueryKeys.detail(applicationId), 'runtime', normalized] as const
     },
@@ -122,8 +130,14 @@ export const applicationsQueryKeys = {
     runtimeAll: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime'] as const,
 
     /** Key for fetching a single runtime row (raw data for edit forms). */
-    runtimeRow: (applicationId: string, rowId: string) =>
-        [...applicationsQueryKeys.detail(applicationId), 'runtime', 'row', rowId] as const,
+    runtimeRow: (applicationId: string, rowId: string, workspaceId?: string | null) =>
+        [
+            ...applicationsQueryKeys.detail(applicationId),
+            'runtime',
+            'row',
+            rowId,
+            ...(workspaceId?.trim() ? [workspaceId.trim()] : [])
+        ] as const,
     settings: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'settings'] as const,
     settingsLimits: (applicationId: string, locale = 'en') =>
         [...applicationsQueryKeys.settings(applicationId), 'limits', normalizeLocaleForKey(locale)] as const

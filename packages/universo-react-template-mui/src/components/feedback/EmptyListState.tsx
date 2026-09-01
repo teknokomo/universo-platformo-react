@@ -65,9 +65,9 @@ export const EmptyListState: React.FC<EmptyListStateProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 py: 4,
+                flexDirection: 'column',
                 ...sx
             }}
-            flexDirection='column'
         >
             <Box sx={{ p: 2, height: 'auto' }}>
                 <img

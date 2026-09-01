@@ -19,7 +19,8 @@ import AddIcon from '@mui/icons-material/Add'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
+import { useSearchParams } from 'react-router-dom'
 import { useDialogs } from '../hooks/useDialogs/useDialogs'
 import useNotifications from '../hooks/useNotifications/useNotifications'
 import { deleteOne as deleteEmployee, getMany as getEmployees, type Employee } from '../data/employees'
@@ -234,7 +235,7 @@ export default function EmployeeList() {
             title={pageTitle}
             breadcrumbs={[{ title: pageTitle }]}
             actions={
-                <Stack direction='row' alignItems='center' spacing={1}>
+                <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                     <Tooltip title='Reload data' placement='right' enterDelay={1000}>
                         <div>
                             <IconButton size='small' aria-label='refresh' onClick={handleRefresh}>

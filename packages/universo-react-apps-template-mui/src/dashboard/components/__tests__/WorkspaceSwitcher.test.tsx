@@ -125,6 +125,9 @@ const createQueryClient = () =>
         }
     })
 
+const personalWorkspaceId = '019e4ca0-c279-7383-a4cb-25b40f100001'
+const sharedWorkspaceId = '019e4ca0-c279-7383-a4cb-25b40f100002'
+
 describe('WorkspaceSwitcher', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -140,7 +143,7 @@ describe('WorkspaceSwitcher', () => {
                         json: async () => ({
                             items: [
                                 {
-                                    id: 'ws-1',
+                                    id: personalWorkspaceId,
                                     name: {
                                         _schema: '1',
                                         _primary: 'en',
@@ -163,7 +166,7 @@ describe('WorkspaceSwitcher', () => {
                                     roleCodename: 'owner'
                                 },
                                 {
-                                    id: 'ws-2',
+                                    id: sharedWorkspaceId,
                                     name: {
                                         _schema: '1',
                                         _primary: 'en',
@@ -210,7 +213,7 @@ describe('WorkspaceSwitcher', () => {
                         {
                             applicationId: 'app-1',
                             apiBaseUrl: '/api/v1',
-                            currentWorkspaceId: 'ws-1',
+                            currentWorkspaceId: personalWorkspaceId,
                             workspacesEnabled: true,
                             rows: [],
                             columns: [],
@@ -225,17 +228,17 @@ describe('WorkspaceSwitcher', () => {
 
         const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
         expect(screen.getByRole('combobox', { name: 'Switch workspace' })).toBeInTheDocument()
-        expect(workspaceSelect).toHaveValue('ws-1')
+        expect(workspaceSelect).toHaveValue(personalWorkspaceId)
         expect(screen.getByRole('option', { name: /Main/ })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /Manage workspaces/ })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /Manage workspaces/ })).not.toBeInTheDocument()
 
-        fireEvent.change(workspaceSelect, { target: { value: 'ws-2' } })
+        fireEvent.change(workspaceSelect, { target: { value: sharedWorkspaceId } })
 
         await waitFor(() => {
             expect(mocks.fetchWithCsrf).toHaveBeenCalledWith(
                 '/api/v1',
-                expect.stringContaining('/api/v1/applications/app-1/runtime/workspaces/ws-2/default'),
+                expect.stringContaining(`/api/v1/applications/app-1/runtime/workspaces/${sharedWorkspaceId}/default`),
                 expect.objectContaining({ method: 'PATCH' })
             )
         })
@@ -252,7 +255,7 @@ describe('WorkspaceSwitcher', () => {
                         {
                             applicationId: 'app-1',
                             apiBaseUrl: '/api/v1',
-                            currentWorkspaceId: 'ws-1',
+                            currentWorkspaceId: personalWorkspaceId,
                             workspacesEnabled: true,
                             rows: [],
                             columns: [],
@@ -266,7 +269,7 @@ describe('WorkspaceSwitcher', () => {
         )
 
         const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
-        expect(workspaceSelect).toHaveValue('ws-1')
+        expect(workspaceSelect).toHaveValue(personalWorkspaceId)
         expect(screen.getByTestId('runtime-workspace-switcher-value')).toHaveTextContent('Основное')
         expect(screen.getByRole('option', { name: /Основное/ })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /Класс А/ })).toBeInTheDocument()
@@ -274,7 +277,7 @@ describe('WorkspaceSwitcher', () => {
     })
 
     it('uses a localized untitled fallback instead of exposing raw workspace IDs', async () => {
-        const rawWorkspaceId = '019e4ca0-c279-7383-a4cb-25b40f100001'
+        const rawWorkspaceId = '019e4ca0-c279-7383-a4cb-25b40f100003'
         vi.stubGlobal(
             'fetch',
             vi.fn(async (input: string | URL) => {
@@ -346,7 +349,7 @@ describe('WorkspaceSwitcher', () => {
                         {
                             applicationId: 'app-1',
                             apiBaseUrl: '/api/v1',
-                            currentWorkspaceId: 'ws-1',
+                            currentWorkspaceId: personalWorkspaceId,
                             workspacesEnabled: true,
                             navigate,
                             rows: [],

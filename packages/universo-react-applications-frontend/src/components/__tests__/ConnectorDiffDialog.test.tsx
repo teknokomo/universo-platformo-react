@@ -759,7 +759,7 @@ describe('ConnectorDiffDialog', () => {
         const applyButton = screen.getByRole('button', { name: 'Create Schema' })
         expect(applyButton).toBeEnabled()
         expect(screen.queryByRole('checkbox', { name: /workspaces cannot be turned off/i })).not.toBeInTheDocument()
-        expect(screen.getByRole('switch', { name: 'Application workspaces are enabled' })).toBeDisabled()
+        expect(screen.getByRole('switch', { name: 'Application workspaces are enabled by the source metahub' })).toBeDisabled()
         expect(
             screen.getByText(
                 'Application workspaces are enabled because the source metahub requires workspace-isolated application data. The schema will be created with workspace isolation automatically.'

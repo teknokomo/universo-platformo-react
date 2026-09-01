@@ -88,11 +88,23 @@ export function ImportSnapshotDialog({ open, onClose, onConfirm, isLoading, erro
             }
         >
             <Stack spacing={2}>
-                <Typography variant='body2' color='text.secondary'>
+                <Typography
+                    variant='body2'
+                    sx={{
+                        color: 'text.secondary'
+                    }}
+                >
                     {t('export.fileSelectLabel')}
                 </Typography>
 
-                <Stack direction='row' spacing={1.5} alignItems='center' sx={{ flexWrap: 'wrap' }}>
+                <Stack
+                    direction='row'
+                    spacing={1.5}
+                    sx={{
+                        alignItems: 'center',
+                        flexWrap: 'wrap'
+                    }}
+                >
                     <Button component='label' variant='outlined' startIcon={<UploadFileRoundedIcon />} disabled={isLoading}>
                         {t('export.chooseFile')}
                         <Box

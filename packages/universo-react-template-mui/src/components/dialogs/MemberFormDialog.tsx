@@ -221,8 +221,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
             onClose={presentation.dialogProps.onClose}
             maxWidth={presentation.dialogProps.maxWidth ?? 'sm'}
             fullWidth={presentation.dialogProps.fullWidth ?? true}
-            disableEscapeKeyDown={presentation.dialogProps.disableEscapeKeyDown}
-            PaperProps={mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps)}
+            slotProps={{ paper: mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle>{titleNode}</DialogTitle>
             <form onSubmit={handleSubmit(onSubmit)}>

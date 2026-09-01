@@ -187,6 +187,7 @@ describe('attachLayoutsToSnapshot', () => {
             expect.objectContaining({ id: 'layout-global-active', isActive: true, isDefault: true }),
             expect.objectContaining({ id: 'layout-global-inactive', isActive: false, isDefault: false })
         ])
+        expect(snapshot.layouts?.map((layout) => layout.templateKey)).toEqual(['dashboard', 'dashboard'])
 
         expect(snapshot.scopedLayouts).toEqual([
             expect.objectContaining({ id: 'layout-object-active', scopeEntityId: 'object-1', baseLayoutId: 'layout-global-active' }),
@@ -214,7 +215,7 @@ describe('attachLayoutsToSnapshot', () => {
                 id: 'override-active',
                 layoutId: 'layout-object-active',
                 baseWidgetId: 'widget-global-active',
-                config: null
+                config: { ignored: true }
             }),
             expect.objectContaining({
                 id: 'override-inactive',
@@ -223,6 +224,36 @@ describe('attachLayoutsToSnapshot', () => {
                 isActive: false
             })
         ])
+    })
+
+    it('fails closed when a stored layout template key is unknown', async () => {
+        const poolExecutor = createPoolExecutor()
+        poolExecutor.query.mockImplementationOnce(async () => [
+            {
+                id: 'layout-corrupt',
+                scope_entity_id: null,
+                base_layout_id: null,
+                template_key: 'legacy-template',
+                name: { en: 'Corrupt' },
+                description: null,
+                config: {},
+                is_active: true,
+                is_default: true,
+                sort_order: 0
+            }
+        ])
+        mockGetPoolExecutor.mockReturnValue(poolExecutor)
+
+        const snapshot = {} as MetahubSnapshot
+        await expect(
+            attachLayoutsToSnapshot({
+                schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
+                snapshot,
+                metahubId: 'metahub-1',
+                userId: 'user-1'
+            })
+        ).rejects.toThrow()
+        expect(snapshot.layouts).toBeUndefined()
     })
 })
 

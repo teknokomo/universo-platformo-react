@@ -653,7 +653,15 @@ export const FixedValueListContent = ({
                 align: 'left' as const,
                 render: (row: FixedValueDisplay) => (
                     <Stack spacing={0.5}>
-                        <Stack direction='row' spacing={0.75} alignItems='center' flexWrap='wrap' useFlexGap>
+                        <Stack
+                            direction='row'
+                            spacing={0.75}
+                            useFlexGap
+                            sx={{
+                                alignItems: 'center',
+                                flexWrap: 'wrap'
+                            }}
+                        >
                             <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.name || '—'}</Typography>
                             {includeShared && isSharedEntityRow(row) ? (
                                 <Chip label={t('metahubs:shared.list.badge', 'Shared')} size='small' color='info' variant='outlined' />
@@ -789,7 +797,12 @@ export const FixedValueListContent = ({
                     description={t('errors.pleaseTryLater', 'Please try later')}
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                <Stack
+                    sx={{
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
                     <ViewHeader
                         title={title === undefined ? t('fixedValues.title', 'Constants') : title}
                         search

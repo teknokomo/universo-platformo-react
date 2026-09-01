@@ -11,17 +11,24 @@ function buildTabularUrl(
     parentRecordId: string,
     componentId: string,
     objectCollectionId: string,
-    childRowId?: string
+    childRowId?: string,
+    workspaceId?: string | null,
+    operation?: string
 ): string {
     const base = apiBaseUrl.replace(/\/$/, '')
     let path = `${base}/applications/${applicationId}/runtime/rows/${parentRecordId}/tabular/${componentId}`
     if (childRowId) {
-        path += `/${childRowId}`
+        path += `/${encodeURIComponent(childRowId)}`
     }
-    path += `?objectCollectionId=${encodeURIComponent(objectCollectionId)}`
-
-    if (/^https?:\/\//i.test(base)) return new URL(path).toString()
-    return new URL(path, window.location.origin).toString()
+    if (operation) {
+        path += `/${operation}`
+    }
+    const parsed = /^https?:\/\//i.test(base) ? new URL(path) : new URL(path, window.location.origin)
+    parsed.searchParams.set('objectCollectionId', objectCollectionId)
+    if (workspaceId?.trim()) {
+        parsed.searchParams.set('workspaceId', workspaceId.trim())
+    }
+    return parsed.toString()
 }
 
 /**
@@ -48,6 +55,8 @@ export interface TabularPartAdapterParams {
     objectCollectionId: string
     parentRecordId: string
     componentId: string
+    /** Explicit workspace scope for child-row requests. */
+    workspaceId?: string | null
     permissions?: Partial<AppDataResponse['permissions']>
     /** Column definitions for the child table (used to build AppDataResponse). */
     childFields: Array<{
@@ -105,7 +114,7 @@ const normalizeDataType = (value: string): AppDataResponse['columns'][number]['d
  * - DELETE `/:appId/runtime/rows/:recordId/tabular/:attrId/:childRowId?objectCollectionId=…`
  */
 export function createTabularPartAdapter(params: TabularPartAdapterParams): CrudDataAdapter {
-    const { apiBaseUrl, applicationId, objectCollectionId, parentRecordId, componentId, childFields, permissions } = params
+    const { apiBaseUrl, applicationId, objectCollectionId, parentRecordId, componentId, workspaceId, childFields, permissions } = params
     const normalizedPermissions: AppDataResponse['permissions'] = {
         manageMembers: permissions?.manageMembers === true,
         manageApplication: permissions?.manageApplication === true,
@@ -115,18 +124,30 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
         readReports: permissions?.readReports === true
     }
 
-    const url = (resolvedObjectId: string, childRowId?: string) =>
-        buildTabularUrl(apiBaseUrl, applicationId, parentRecordId, componentId, resolvedObjectId, childRowId)
+    const url = (resolvedObjectId: string, childRowId?: string, requestedWorkspaceId?: string | null, operation?: string) =>
+        buildTabularUrl(
+            apiBaseUrl,
+            applicationId,
+            parentRecordId,
+            componentId,
+            resolvedObjectId,
+            childRowId,
+            requestedWorkspaceId ?? workspaceId,
+            operation
+        )
 
     return {
-        queryKeyPrefix: ['tabular', parentRecordId, componentId] as const,
+        queryKeyPrefix: ['tabular', parentRecordId, componentId, workspaceId?.trim() || null] as const,
 
         async fetchList(listParams): Promise<AppDataResponse> {
             const resolvedObjectId = listParams.objectCollectionId ?? objectCollectionId
             const { limit, offset } = listParams
+            const requestedWorkspaceId = listParams.workspaceId ?? workspaceId
 
             // Pass limit/offset to backend for server-side pagination
-            const listUrl = `${url(resolvedObjectId)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`
+            const listUrl = `${url(resolvedObjectId, undefined, requestedWorkspaceId)}&limit=${encodeURIComponent(
+                limit
+            )}&offset=${encodeURIComponent(offset)}`
             const res = await fetch(listUrl, { credentials: 'include' })
             if (!res.ok) throw new Error(await extractError(res, 'Fetch tabular rows failed'))
 
@@ -197,9 +218,10 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
          */
         async fetchRow(rowId: string, target?: RuntimeRowTarget): Promise<Record<string, unknown>> {
             const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
+            const requestedWorkspaceId = target?.workspaceId ?? workspaceId
             // The LIST endpoint already returns full row data —
             // return a single item by fetching the list and filtering.
-            const res = await fetch(url(resolvedObjectId), { credentials: 'include' })
+            const res = await fetch(url(resolvedObjectId, undefined, requestedWorkspaceId), { credentials: 'include' })
             if (!res.ok) throw new Error(await extractError(res, 'Fetch tabular row failed'))
 
             const json = (await res.json()) as { items: Array<Record<string, unknown> & { id: string }> }
@@ -211,7 +233,8 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
 
         async createRow(data: Record<string, unknown>, target?: RuntimeRowTarget): Promise<Record<string, unknown>> {
             const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
-            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId), {
+            const requestedWorkspaceId = target?.workspaceId ?? workspaceId
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, undefined, requestedWorkspaceId), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data })
@@ -227,9 +250,10 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             expectedVersion?: number
         ): Promise<Record<string, unknown>> {
             const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
+            const requestedWorkspaceId = target?.workspaceId ?? workspaceId
             const body: Record<string, unknown> = { data }
             if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
-            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId), {
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId, requestedWorkspaceId), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
@@ -238,15 +262,25 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return res.json()
         },
 
-        async deleteRow(rowId: string, target?: RuntimeRowTarget): Promise<void> {
+        async deleteRow(rowId: string, target?: RuntimeRowTarget, expectedVersion?: number): Promise<void> {
             const resolvedObjectId = target?.sectionId ?? target?.objectCollectionId ?? objectCollectionId
-            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId), { method: 'DELETE' })
+            const requestedWorkspaceId = target?.workspaceId ?? workspaceId
+            const deleteUrl = url(resolvedObjectId, rowId, requestedWorkspaceId)
+            const parsedUrl = new URL(deleteUrl)
+            if (typeof expectedVersion === 'number') {
+                parsedUrl.searchParams.set('expectedVersion', String(expectedVersion))
+            }
+            const res = await fetchWithCsrf(apiBaseUrl, parsedUrl.toString(), { method: 'DELETE' })
             if (!res.ok) throw new Error(await extractError(res, 'Delete tabular row failed'))
         },
 
-        async copyRow(rowId: string, data?: { objectCollectionId?: string; sectionId?: string }): Promise<Record<string, unknown>> {
+        async copyRow(
+            rowId: string,
+            data?: { objectCollectionId?: string; sectionId?: string; workspaceId?: string | null }
+        ): Promise<Record<string, unknown>> {
             const resolvedObjectId = data?.sectionId ?? data?.objectCollectionId ?? objectCollectionId
-            const copyUrl = `${url(resolvedObjectId, rowId)}/copy`
+            const requestedWorkspaceId = data?.workspaceId ?? workspaceId
+            const copyUrl = url(resolvedObjectId, rowId, requestedWorkspaceId, 'copy')
             const res = await fetchWithCsrf(apiBaseUrl, copyUrl, { method: 'POST' })
             if (!res.ok) throw new Error(await extractError(res, 'Copy tabular row failed'))
             return res.json()
