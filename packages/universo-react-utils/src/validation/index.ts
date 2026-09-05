@@ -63,6 +63,17 @@ export {
     toMarketingActionLinkAttributes,
     type MarketingActionLinkAttributes
 } from './marketingPage'
+export {
+    validateMarketingSnapshotLayouts,
+    validateSnapshotLayoutIdentities,
+    SnapshotLayoutValidationError,
+    MarketingSnapshotValidationError,
+    type MarketingSnapshotLike,
+    type MarketingSnapshotEntityLike,
+    type MarketingSnapshotLayoutLike,
+    type MarketingSnapshotWidgetLike,
+    type MarketingSnapshotOverrideLike
+} from './marketingSnapshot'
 export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './menuHref'
 export {
     validateNumber,

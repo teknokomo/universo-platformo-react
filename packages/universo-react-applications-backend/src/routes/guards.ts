@@ -255,8 +255,6 @@ export async function ensureApplicationAccess(
     if (!membership) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
-            userId,
-            applicationId,
             action: 'access',
             reason: 'not_member'
         })
@@ -269,9 +267,6 @@ export async function ensureApplicationAccess(
         if (!requiredRoles.includes(userRole)) {
             console.warn('[SECURITY] Permission denied', {
                 timestamp: new Date().toISOString(),
-                userId,
-                applicationId,
-                userRole,
                 requiredRoles,
                 reason: 'insufficient_role'
             })
@@ -323,8 +318,6 @@ export async function ensureConnectorAccess(
     if (!connector) {
         console.warn('[SECURITY] Permission denied', {
             timestamp: new Date().toISOString(),
-            userId,
-            connectorId,
             action: 'access',
             reason: 'connector_not_found'
         })

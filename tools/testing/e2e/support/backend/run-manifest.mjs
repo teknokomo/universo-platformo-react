@@ -1,9 +1,16 @@
 import fs from 'fs/promises'
+import { randomUUID } from 'crypto'
 import { loadE2eEnvironment, manifestPath } from '../env/load-e2e-env.mjs'
 
-export async function readRunManifest() {
-    loadE2eEnvironment()
+let manifestWriteQueue = Promise.resolve()
 
+const enqueueManifestOperation = (operation) => {
+    const next = manifestWriteQueue.then(operation, operation)
+    manifestWriteQueue = next.catch(() => undefined)
+    return next
+}
+
+const readRunManifestUnlocked = async () => {
     try {
         const raw = await fs.readFile(manifestPath, 'utf8')
         return JSON.parse(raw)
@@ -16,32 +23,48 @@ export async function readRunManifest() {
     }
 }
 
-export async function writeRunManifest(manifest) {
-    loadE2eEnvironment()
-    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8')
+const writeRunManifestUnlocked = async (manifest) => {
+    const temporaryPath = `${manifestPath}.${process.pid}.${randomUUID()}.tmp`
+    await fs.writeFile(temporaryPath, JSON.stringify(manifest, null, 2), 'utf8')
+    await fs.rename(temporaryPath, manifestPath)
     return manifest
 }
 
-export async function updateRunManifest(updater) {
-    const currentManifest = await readRunManifest()
-    if (!currentManifest) {
-        throw new Error('E2E run manifest does not exist')
-    }
+export async function readRunManifest() {
+    loadE2eEnvironment()
+    return readRunManifestUnlocked()
+}
 
-    const nextManifest = await updater(currentManifest)
-    return writeRunManifest(nextManifest)
+export async function writeRunManifest(manifest) {
+    loadE2eEnvironment()
+    return enqueueManifestOperation(() => writeRunManifestUnlocked(manifest))
+}
+
+export async function updateRunManifest(updater) {
+    loadE2eEnvironment()
+    return enqueueManifestOperation(async () => {
+        const currentManifest = await readRunManifestUnlocked()
+        if (!currentManifest) {
+            throw new Error('E2E run manifest does not exist')
+        }
+
+        const nextManifest = await updater(currentManifest)
+        return writeRunManifestUnlocked(nextManifest)
+    })
 }
 
 export async function removeRunManifest() {
     loadE2eEnvironment()
 
-    try {
-        await fs.unlink(manifestPath)
-    } catch (error) {
-        if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
-            throw error
+    return enqueueManifestOperation(async () => {
+        try {
+            await fs.unlink(manifestPath)
+        } catch (error) {
+            if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
+                throw error
+            }
         }
-    }
+    })
 }
 
 export async function recordCreatedMetahub(resource) {

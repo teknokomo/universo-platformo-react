@@ -19,7 +19,7 @@ import type {
     ObjectCollectionRuntimeViewConfig,
     ResolvedDashboardLayoutConfig
 } from '@universo-react/types'
-import { defaultDashboardLayoutConfig, MARKETING_SECTION_KEYS, marketingPageConfigSchema } from '@universo-react/types'
+import { defaultDashboardLayoutConfig, marketingPageConfigSchema } from '@universo-react/types'
 import { EDITABLE_SIDE_MENU_MODES } from '@universo-react/template-mui'
 import type { TFunction } from 'i18next'
 
@@ -64,6 +64,7 @@ function MarketingAppearancePanel({
     const persistedAccentColor = typeof layoutConfig.accentColor === 'string' ? layoutConfig.accentColor : ''
     const [primaryColorDraft, setPrimaryColorDraft] = useState(persistedPrimaryColor)
     const [accentColorDraft, setAccentColorDraft] = useState(persistedAccentColor)
+    const [colorErrors, setColorErrors] = useState<{ primaryColor?: boolean; accentColor?: boolean }>({})
 
     useEffect(() => {
         setPrimaryColorDraft(persistedPrimaryColor)
@@ -77,19 +78,14 @@ function MarketingAppearancePanel({
         const normalized = value.trim()
         const persistedValue = key === 'primaryColor' ? persistedPrimaryColor : persistedAccentColor
         if (normalized === persistedValue) return
+        const nextConfig = { ...config, [key]: normalized || undefined }
+        if (!marketingPageConfigSchema.safeParse(nextConfig).success) {
+            setColorErrors((current) => ({ ...current, [key]: true }))
+            return
+        }
+        setColorErrors((current) => ({ ...current, [key]: false }))
         onViewSettingChange(key, normalized || undefined)
     }
-    const sectionLabels: Record<(typeof MARKETING_SECTION_KEYS)[number], string> = {
-        hero: t('layouts.marketing.sections.hero', 'Hero'),
-        logos: t('layouts.marketing.sections.logos', 'Logo collection'),
-        features: t('layouts.marketing.sections.features', 'Features'),
-        testimonials: t('layouts.marketing.sections.testimonials', 'Testimonials'),
-        highlights: t('layouts.marketing.sections.highlights', 'Highlights'),
-        pricing: t('layouts.marketing.sections.pricing', 'Pricing'),
-        faq: t('layouts.marketing.sections.faq', 'FAQ'),
-        footer: t('layouts.marketing.sections.footer', 'Footer')
-    }
-
     return (
         <Paper variant='outlined' sx={{ p: 2 }} data-testid='marketing-appearance-panel'>
             <Typography variant='subtitle1' sx={{ mb: 0.5 }}>
@@ -104,7 +100,7 @@ function MarketingAppearancePanel({
             >
                 {t(
                     'layouts.marketing.appearanceDescription',
-                    'Configure the published marketing page without editing its content records.'
+                    'Configure the published marketing page appearance and actions. Widget composition is managed below.'
                 )}
             </Typography>
             <Stack spacing={1.5}>
@@ -127,9 +123,14 @@ function MarketingAppearancePanel({
                     size='small'
                     label={t('layouts.marketing.primaryColor', 'Primary color')}
                     value={primaryColorDraft}
+                    error={colorErrors.primaryColor === true}
                     disabled={viewSettingsSaving || !canManageLayouts}
                     placeholder='#1976d2'
-                    helperText={t('layouts.marketing.colorHelper', 'Use a hex color such as #1976d2.')}
+                    helperText={
+                        colorErrors.primaryColor
+                            ? t('layouts.marketing.invalidColor', 'Enter a valid contrast-safe hex color.')
+                            : t('layouts.marketing.colorHelper', 'Use a hex color such as #1976d2.')
+                    }
                     onChange={(event) => setPrimaryColorDraft(event.target.value)}
                     onBlur={() => commitColor('primaryColor', primaryColorDraft)}
                     onKeyDown={(event) => {
@@ -144,9 +145,14 @@ function MarketingAppearancePanel({
                     size='small'
                     label={t('layouts.marketing.accentColor', 'Accent color')}
                     value={accentColorDraft}
+                    error={colorErrors.accentColor === true}
                     disabled={viewSettingsSaving || !canManageLayouts}
                     placeholder='#9c27b0'
-                    helperText={t('layouts.marketing.colorHelper', 'Use a hex color such as #9c27b0.')}
+                    helperText={
+                        colorErrors.accentColor
+                            ? t('layouts.marketing.invalidColor', 'Enter a valid contrast-safe hex color.')
+                            : t('layouts.marketing.colorHelper', 'Use a hex color such as #9c27b0.')
+                    }
                     onChange={(event) => setAccentColorDraft(event.target.value)}
                     onBlur={() => commitColor('accentColor', accentColorDraft)}
                     onKeyDown={(event) => {
@@ -159,27 +165,45 @@ function MarketingAppearancePanel({
                 />
                 <Box>
                     <Typography variant='subtitle2' sx={{ mb: 0.5 }}>
-                        {t('layouts.marketing.sectionVisibility', 'Visible sections')}
+                        {t('layouts.marketing.actionPolicy', 'Action policy')}
                     </Typography>
                     <Stack spacing={0.25}>
-                        {MARKETING_SECTION_KEYS.map((key) => (
-                            <FormControlLabel
-                                key={key}
-                                control={
-                                    <Switch
-                                        checked={config.sectionVisibility[key] !== false}
-                                        disabled={viewSettingsSaving || !canManageLayouts}
-                                        onChange={(_, checked) =>
-                                            onViewSettingChange('sectionVisibility', {
-                                                ...config.sectionVisibility,
-                                                [key]: checked
-                                            })
-                                        }
-                                    />
-                                }
-                                label={sectionLabels[key]}
-                            />
-                        ))}
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={config.allowEmailActions}
+                                    disabled={viewSettingsSaving || !canManageLayouts}
+                                    onChange={(_, checked) => onViewSettingChange('allowEmailActions', checked)}
+                                />
+                            }
+                            label={t('layouts.marketing.allowEmailActions', 'Allow email actions')}
+                        />
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={config.allowTelephoneActions}
+                                    disabled={viewSettingsSaving || !canManageLayouts}
+                                    onChange={(_, checked) => onViewSettingChange('allowTelephoneActions', checked)}
+                                />
+                            }
+                            label={t('layouts.marketing.allowTelephoneActions', 'Allow telephone actions')}
+                        />
+                        <FormControl size='small' sx={{ mt: 0.5, maxWidth: 260 }}>
+                            <InputLabel id='metahub-marketing-link-target-label'>
+                                {t('layouts.marketing.externalLinkTarget', 'External link target')}
+                            </InputLabel>
+                            <Select
+                                id='metahub-marketing-link-target'
+                                labelId='metahub-marketing-link-target-label'
+                                value={config.externalLinkTarget}
+                                label={t('layouts.marketing.externalLinkTarget', 'External link target')}
+                                disabled={viewSettingsSaving || !canManageLayouts}
+                                onChange={(event) => onViewSettingChange('externalLinkTarget', event.target.value)}
+                            >
+                                <MenuItem value='same-tab'>{t('layouts.marketing.linkTarget.sameTab', 'Same tab')}</MenuItem>
+                                <MenuItem value='new-tab'>{t('layouts.marketing.linkTarget.newTab', 'New tab')}</MenuItem>
+                            </Select>
+                        </FormControl>
                     </Stack>
                 </Box>
             </Stack>

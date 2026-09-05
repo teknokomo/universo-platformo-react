@@ -1,8 +1,14 @@
 import { z } from 'zod'
 import {
-    DASHBOARD_LAYOUT_WIDGETS,
+    APPLICATION_TEMPLATE_REGISTRY,
     applicationTemplateKeySchema,
+    LAYOUT_WIDGET_DEFINITIONS,
+    LAYOUT_ZONE_DEFINITIONS,
     marketingPageConfigSchema,
+    parseApplicationLayoutWidgetConfig,
+    type ApplicationLayoutWidgetKey,
+    type ApplicationLayoutZone,
+    type ApplicationTemplateKey,
     type LayoutCopyOptions
 } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
@@ -19,7 +25,7 @@ import {
     updateLayoutZoneWidgetConfigSchema,
     toggleLayoutZoneWidgetActiveSchema
 } from '../services/MetahubLayoutsService'
-import { OptimisticLockError, localizedContent, validation } from '@universo-react/utils'
+import { OptimisticLockError, generateUuidV7, localizedContent, validation } from '@universo-react/utils'
 import { buildDashboardLayoutConfig } from '../../shared'
 import { MetahubDomainError } from '../../shared/domainErrors'
 
@@ -51,11 +57,53 @@ type SourceLayoutWidgetOverrideRow = {
     is_deleted_override?: boolean
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const prepareCopiedWidgetConfig = (
+    templateKey: ApplicationTemplateKey,
+    widgetKey: unknown,
+    zone: unknown,
+    config: unknown
+): Record<string, unknown> => {
+    const definition = LAYOUT_WIDGET_DEFINITIONS.find((item) => item.key === widgetKey)
+    if (!definition || definition.templateKey !== templateKey || !definition.allowedZones.includes(zone as ApplicationLayoutZone)) {
+        throw new MetahubDomainError({
+            message: 'Layout widget configuration is invalid',
+            statusCode: 409,
+            code: 'VALIDATION_ERROR'
+        })
+    }
+
+    const rawConfig = isRecord(config) ? config : {}
+    if (templateKey === 'dashboard') return rawConfig
+
+    try {
+        return parseApplicationLayoutWidgetConfig(widgetKey as ApplicationLayoutWidgetKey, {
+            ...rawConfig,
+            instanceKey: generateUuidV7()
+        })
+    } catch {
+        throw new MetahubDomainError({
+            message: 'Marketing widget configuration is invalid',
+            statusCode: 409,
+            code: 'VALIDATION_ERROR'
+        })
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
+
+const parseExpectedVersionQuery = (value: unknown): number | null => {
+    if (typeof value !== 'string' || !/^[1-9]\d*$/u.test(value)) {
+        return null
+    }
+    const parsed = Number(value)
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
 
 const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     const locales = (name as { locales?: Record<string, { content?: string }> } | undefined)?.locales ?? {}
@@ -135,7 +183,8 @@ const listQuerySchema = z.object({
 
 const updateWidgetScopeVisibilitySchema = z
     .object({
-        isVisible: z.boolean()
+        isVisible: z.boolean(),
+        expectedVersion: z.number().int().positive()
     })
     .strict()
 
@@ -251,9 +300,6 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 deactivateAllWidgets: parsed.data.deactivateAllWidgets
             })
             const isDashboardLayout = sourceLayout.templateKey === 'dashboard'
-            if (!isDashboardLayout && parsed.data.deactivateAllWidgets) {
-                return res.status(409).json({ error: 'Widget options are supported only by dashboard layouts' })
-            }
             if (!isDashboardLayout) {
                 const marketingConfig = marketingPageConfigSchema.safeParse(sourceLayout.config)
                 if (!marketingConfig.success) {
@@ -261,7 +307,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 }
             }
             const shouldDeactivateWidgets =
-                isDashboardLayout && copyOptions.copyWidgets && (parsed.data.deactivateAllWidgets ?? copyOptions.deactivateAllWidgets)
+                copyOptions.copyWidgets && (parsed.data.deactivateAllWidgets ?? copyOptions.deactivateAllWidgets)
 
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
             const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
@@ -326,7 +372,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                     })
                 }
 
-                if (isDashboardLayout && copyOptions.copyWidgets) {
+                if (copyOptions.copyWidgets) {
                     const sourceWidgets = await queryMany<SourceWidgetRow>(
                         trx,
                         `SELECT id, zone, widget_key, sort_order, config, is_active
@@ -341,6 +387,12 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                         const params: unknown[] = []
                         let idx = 1
                         for (const widget of sourceWidgets) {
+                            const copiedWidgetConfig = prepareCopiedWidgetConfig(
+                                sourceLayout.templateKey,
+                                widget.widget_key,
+                                widget.zone,
+                                widget.config
+                            )
                             placeholders.push(
                                 `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${idx + 7}, $${
                                     idx + 6
@@ -351,7 +403,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                                 widget.zone,
                                 widget.widget_key,
                                 widget.sort_order ?? 1,
-                                JSON.stringify(widget.config ?? {}),
+                                JSON.stringify(copiedWidgetConfig),
                                 shouldDeactivateWidgets ? false : widget.is_active !== false,
                                 now,
                                 userId ?? null,
@@ -573,21 +625,36 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
     const remove = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { layoutId } = req.params
+            const expectedVersion = parseExpectedVersionQuery(req.query.expectedVersion)
+            if (expectedVersion === null) {
+                return res.status(400).json({ error: 'Invalid expected version' })
+            }
 
             const layoutsService = new MetahubLayoutsService(exec, schemaService)
-            await layoutsService.deleteLayout(metahubId, layoutId, userId)
+            await layoutsService.deleteLayout(metahubId, layoutId, expectedVersion, userId)
             return res.status(204).send()
         },
         { permission: 'manageMetahub' }
     )
 
     const widgetsObject = createHandler(async ({ res }) => {
+        const items = LAYOUT_WIDGET_DEFINITIONS.map((widget) => ({
+            key: widget.key,
+            allowedZones: widget.allowedZones,
+            multiInstance: widget.multiInstance,
+            templateKey: widget.templateKey,
+            labelKey: widget.labelKey,
+            defaultLabel: widget.defaultLabel
+        }))
+        const templates = (Object.keys(APPLICATION_TEMPLATE_REGISTRY) as ApplicationTemplateKey[]).map((templateKey) => ({
+            ...APPLICATION_TEMPLATE_REGISTRY[templateKey],
+            zones: LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === templateKey),
+            widgets: items.filter((widget) => widget.templateKey === templateKey)
+        }))
+
         return res.json({
-            items: DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({
-                key: widget.key,
-                allowedZones: widget.allowedZones,
-                multiInstance: widget.multiInstance
-            }))
+            items,
+            templates
         })
     })
 
@@ -641,8 +708,13 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 return res.status(400).json({ error: 'Invalid widget ID' })
             }
 
+            const expectedVersion = parseExpectedVersionQuery(req.query.expectedVersion)
+            if (expectedVersion === null) {
+                return res.status(400).json({ error: 'Invalid expected version' })
+            }
+
             const layoutsService = new MetahubLayoutsService(exec, schemaService)
-            await layoutsService.removeLayoutZoneWidget(metahubId, layoutId, parseResult.data, userId)
+            await layoutsService.removeLayoutZoneWidget(metahubId, layoutId, parseResult.data, userId, expectedVersion)
             return res.status(204).send()
         },
         { permission: 'manageMetahub' }
@@ -669,9 +741,29 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 layoutId,
                 widgetIdResult.data,
                 parsed.data.config,
-                userId
+                userId,
+                parsed.data.expectedVersion
             )
             return res.json({ item: widget })
+        },
+        { permission: 'manageMetahub' }
+    )
+
+    const resetZoneWidgetOverride = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const { layoutId, widgetId } = req.params
+            const widgetIdResult = z.string().uuid().safeParse(widgetId)
+            if (!widgetIdResult.success) {
+                return res.status(400).json({ error: 'Invalid widget ID' })
+            }
+            const expectedVersion = parseExpectedVersionQuery(req.query.expectedVersion)
+            if (expectedVersion === null) {
+                return res.status(400).json({ error: 'Invalid expected version' })
+            }
+
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            await layoutsService.resetLayoutZoneWidgetOverride(metahubId, layoutId, widgetIdResult.data, userId, expectedVersion)
+            return res.status(204).send()
         },
         { permission: 'manageMetahub' }
     )
@@ -697,7 +789,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 layoutId,
                 widgetIdResult.data,
                 parsed.data.isActive,
-                userId
+                userId,
+                parsed.data.expectedVersion
             )
             return res.json({ item: widget })
         },
@@ -747,7 +840,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 widgetIdResult.data,
                 scopeEntityIdResult.data,
                 parsed.data.isVisible,
-                userId
+                userId,
+                parsed.data.expectedVersion
             )
             const item = items.find((row) => row.scopeEntityId === scopeEntityIdResult.data)
             return res.json({ item })
@@ -767,6 +861,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         assignZoneWidget,
         moveZoneWidget,
         removeZoneWidget,
+        resetZoneWidgetOverride,
         updateZoneWidgetConfig,
         toggleZoneWidgetActive,
         listWidgetScopeVisibility,

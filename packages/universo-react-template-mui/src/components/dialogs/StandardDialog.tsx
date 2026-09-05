@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import {
     Box,
     Dialog,
@@ -41,6 +41,8 @@ export function StandardDialog({
     dialogActionsProps,
     disablePresentationControls = false
 }: StandardDialogProps) {
+    const generatedTitleId = `standard-dialog-title-${useId().replace(/:/g, '')}`
+    const titleId = dialogTitleProps?.id ?? generatedTitleId
     const presentation = useDialogPresentation({
         open,
         onClose: onClose ?? (() => undefined),
@@ -66,11 +68,14 @@ export function StandardDialog({
         <Dialog
             open={open}
             onClose={presentation.dialogProps.onClose}
+            aria-labelledby={titleId}
             maxWidth={presentation.dialogProps.maxWidth ?? maxWidth}
             fullWidth={presentation.dialogProps.fullWidth ?? fullWidth}
             slotProps={{ paper: mergedPaperProps }}
         >
-            <DialogTitle {...dialogTitleProps}>{titleNode}</DialogTitle>
+            <DialogTitle {...dialogTitleProps} id={titleId}>
+                {titleNode}
+            </DialogTitle>
             <DialogContent {...dialogContentProps} sx={mergeDialogSx(presentation.contentSx, dialogContentProps?.sx)}>
                 {children}
             </DialogContent>

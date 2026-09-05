@@ -116,8 +116,6 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             fullWidth={presentation.dialogProps.fullWidth ?? true}
             aria-labelledby='confirm-delete-dialog-title'
             aria-describedby='confirm-delete-dialog-description'
-            disableEnforceFocus
-            disableRestoreFocus
             slotProps={{ paper: mergeDialogPaperProps(undefined, presentation.dialogProps.PaperProps) }}
         >
             <DialogTitle id='confirm-delete-dialog-title'>{titleNode}</DialogTitle>

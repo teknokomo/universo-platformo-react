@@ -21,6 +21,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Allow owner/admin visibility changes after creation while keeping workspace mode structural.
 -   Expose runtime sync, diff, and release-bundle routes for managed application schemas.
 -   Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
+-   Widget placement mutations are instance-based: dashboard and marketing widget keys may be added or duplicated without a per-key singleton limit. Every inserted row receives a server-owned identity; marketing rows receive a unique `instanceKey`, while source-lineage uniqueness remains enforced only for inherited materialization.
 -   Materialize curated runtime menu contracts from `menuWidget` config, including explicit section items, hub/object codename resolution, overflow items, start-page selection, and workspace entry placement.
 -   Own transactional Object commands for `recordBehavior`: atomic record numbering, `post` / `unpost` / `void` transitions, lifecycle hooks, and posted-row immutability checks.
 -   Apply declarative `beforePost` module movements through the generic Ledger service inside the posting transaction.
@@ -72,6 +73,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   The route surface now includes public join/leave flows, settings endpoints for per-workspace object limits, and runtime workspace settings endpoints under `/applications/:applicationId/runtime/workspaces/:workspaceId/settings`.
 -   Runtime Ledger endpoints are mounted under `/applications/:applicationId/runtime/ledgers` and keep append/reverse/query behavior separate from generic Object row CRUD.
 -   Application layout endpoints are mounted under `/applications/:applicationId/layouts` and `/applications/:applicationId/layout-scopes`.
+-   Application layout mutations, including `POST /applications/:applicationId/layouts/:layoutId/copy`, require the current positive `expectedVersion`; copy reads the layout and widget composition under one optimistic snapshot and returns `409` for stale callers.
 -   Workspace setting overrides are filtered by the current application workspace override policy during update and copy flows, and application administrators can manage them without being workspace members.
 -   Materialized layout widgets retain the latest metahub baseline in nullable `_app_widgets.source_config`; application admins can atomically reset effective widget configuration with optimistic concurrency, and removed source widgets cannot restore stale settings.
 -   `initializeRateLimiters()` prepares package-level rate limiting before route creation.

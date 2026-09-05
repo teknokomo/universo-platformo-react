@@ -111,21 +111,41 @@ describe('marketing page validation utilities', () => {
                 templateKey: 'marketing-page',
                 locale: 'en',
                 config: {},
-                records: [
+                widgets: [
                     {
-                        id: uuidV7,
-                        semanticKey: 'site-settings',
-                        locale: 'en',
-                        order: 0,
-                        isVisible: true,
-                        scope: 'application',
-                        provenance,
-                        kind: 'siteSettings',
-                        brandName: localized,
-                        heroTitle: localized,
-                        heroSubtitle: localized
+                        instanceKey: 'hero',
+                        zone: 'marketing-main',
+                        sortOrder: 0,
+                        isActive: true,
+                        widgetKey: 'marketing.hero',
+                        config: {
+                            instanceKey: 'hero',
+                            source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+                        },
+                        data: {
+                            records: [
+                                {
+                                    id: uuidV7,
+                                    semanticKey: 'site-settings',
+                                    locale: 'en',
+                                    order: 0,
+                                    isVisible: true,
+                                    scope: 'application',
+                                    provenance,
+                                    kind: 'siteSettings',
+                                    brandName: localized,
+                                    heroTitle: localized,
+                                    heroSubtitle: localized
+                                }
+                            ]
+                        }
                     }
-                ]
+                ],
+                runtime: {
+                    layoutId: uuidV7,
+                    layoutVersion: 1,
+                    layoutHash: 'a'.repeat(64)
+                }
             }).templateKey
         ).toBe('marketing-page')
     })

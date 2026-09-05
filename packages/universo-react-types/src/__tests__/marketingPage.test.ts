@@ -7,6 +7,8 @@ import {
     MARKETING_PAGE_TEMPLATE_KEY,
     createRuntimeViewModelSchema,
     marketingActionSchema,
+    marketingCollectionWidgetConfigSchema,
+    marketingNavigationWidgetConfigSchema,
     marketingMediaSchema,
     marketingPageConfigSchema,
     marketingPageDataSchema,
@@ -64,8 +66,6 @@ describe('marketing page contracts', () => {
     it('preserves template-owned layout config and validates it by template key', () => {
         const config = {
             themeMode: 'dark' as const,
-            sectionOrder: ['hero', 'footer'] as const,
-            sectionVisibility: { faq: false },
             allowEmailActions: false,
             allowTelephoneActions: true,
             externalLinkTarget: 'same-tab' as const
@@ -130,16 +130,59 @@ describe('marketing page contracts', () => {
         ).toBe(false)
     })
 
-    it('normalizes configuration defaults and rejects duplicate section order', () => {
+    it('normalizes appearance configuration defaults and rejects composition fields', () => {
         expect(marketingPageConfigSchema.parse({})).toMatchObject({
             themeMode: 'system',
-            sectionOrder: ['hero', 'logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
             allowEmailActions: true,
             allowTelephoneActions: true,
             externalLinkTarget: 'new-tab'
         })
-        expect(marketingPageConfigSchema.safeParse({ sectionOrder: ['hero', 'hero'] }).success).toBe(false)
+        expect(marketingPageConfigSchema.safeParse({ sectionOrder: ['hero', 'footer'] }).success).toBe(false)
         expect(marketingPageConfigSchema.safeParse({ sectionVisibility: { internal: true } }).success).toBe(false)
+    })
+
+    it('binds widget sources to built-in Object entities and collection variants', () => {
+        expect(
+            marketingNavigationWidgetConfigSchema.safeParse({
+                instanceKey: 'navigation',
+                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' }
+            }).success
+        ).toBe(true)
+        expect(
+            marketingCollectionWidgetConfigSchema.safeParse({
+                instanceKey: 'features',
+                variant: 'features',
+                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object', fieldMap: { title: 'description' } },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'features' }
+            }).success
+        ).toBe(true)
+        expect(
+            marketingCollectionWidgetConfigSchema.safeParse({
+                instanceKey: 'features',
+                variant: 'features',
+                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object', fieldMap: { title: 'PhysicalTitleColumn' } }
+            }).success
+        ).toBe(false)
+        expect(
+            marketingCollectionWidgetConfigSchema.safeParse({
+                instanceKey: 'features',
+                variant: 'features',
+                source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' }
+            }).success
+        ).toBe(false)
+        expect(
+            marketingNavigationWidgetConfigSchema.safeParse({
+                instanceKey: 'navigation',
+                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'hub' }
+            }).success
+        ).toBe(false)
+        expect(
+            marketingNavigationWidgetConfigSchema.safeParse({
+                instanceKey: 'navigation',
+                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object' }
+            }).success
+        ).toBe(false)
     })
 
     it('accepts only opaque theme colors with an accessible foreground choice', () => {
@@ -150,7 +193,7 @@ describe('marketing page contracts', () => {
         expect(marketingThemeColorSchema.safeParse('hsl(0 0% 50%)').success).toBe(false)
     })
 
-    it('validates the data-driven record union and rejects duplicate semantic identities', () => {
+    it('validates widget-owned record payloads and rejects duplicate widget instances', () => {
         const faqRecord = {
             ...baseRecord,
             id: '0190a9b5-3cde-7abc-8def-0123456789ac',
@@ -158,11 +201,44 @@ describe('marketing page contracts', () => {
             question: text,
             answer: text
         }
+        const runtime = {
+            layoutId: uuidV7,
+            layoutVersion: 1,
+            layoutHash: 'a'.repeat(64)
+        }
+        const heroWidget = {
+            instanceKey: 'hero',
+            zone: 'marketing-main' as const,
+            sortOrder: 0,
+            isActive: true,
+            widgetKey: 'marketing.hero' as const,
+            config: {
+                instanceKey: 'hero',
+                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' as const }
+            },
+            data: { records: [siteSettingsRecord] }
+        }
         const parsed = marketingPageDataSchema.safeParse({
             templateKey: 'marketing-page',
             locale: 'en',
             config: {},
-            records: [siteSettingsRecord, faqRecord]
+            widgets: [
+                heroWidget,
+                {
+                    instanceKey: 'faq',
+                    zone: 'marketing-main' as const,
+                    sortOrder: 1,
+                    isActive: true,
+                    widgetKey: 'marketing.collection' as const,
+                    config: {
+                        instanceKey: 'faq',
+                        variant: 'faq' as const,
+                        source: { entityCodename: 'MarketingPageFaq', entityKind: 'object' as const }
+                    },
+                    data: { records: [faqRecord] }
+                }
+            ],
+            runtime
         })
         expect(parsed.success).toBe(true)
 
@@ -171,7 +247,8 @@ describe('marketing page contracts', () => {
                 templateKey: 'marketing-page',
                 locale: 'en',
                 config: {},
-                records: [siteSettingsRecord, { ...siteSettingsRecord, id: '0190a9b5-3cde-7abc-8def-0123456789ac' }]
+                widgets: [heroWidget, { ...heroWidget, sortOrder: 1 }],
+                runtime
             }).success
         ).toBe(false)
 
@@ -180,7 +257,8 @@ describe('marketing page contracts', () => {
                 templateKey: 'marketing-page',
                 locale: 'en',
                 config: {},
-                records: [siteSettingsRecord],
+                widgets: [heroWidget],
+                runtime,
                 unexpected: true
             }).success
         ).toBe(false)
@@ -192,7 +270,28 @@ describe('marketing page contracts', () => {
         expect(
             runtimeSchema.safeParse({
                 templateKey: 'marketing-page',
-                marketingPage: { templateKey: 'marketing-page', locale: 'en', config: {}, records: [] }
+                marketingPage: {
+                    templateKey: 'marketing-page',
+                    locale: 'en',
+                    config: {},
+                    widgets: [
+                        {
+                            ...{
+                                instanceKey: 'hero',
+                                zone: 'marketing-main',
+                                sortOrder: 0,
+                                isActive: true,
+                                widgetKey: 'marketing.hero',
+                                config: {
+                                    instanceKey: 'hero',
+                                    source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+                                },
+                                data: { records: [siteSettingsRecord] }
+                            }
+                        }
+                    ],
+                    runtime: { layoutId: uuidV7, layoutVersion: 1, layoutHash: 'b'.repeat(64) }
+                }
             }).success
         ).toBe(true)
         expect(runtimeSchema.safeParse({ templateKey: 'dashboard', dashboard: { status: 'ready' } }).success).toBe(true)

@@ -41,6 +41,11 @@ vi.mock('react-i18next', () => ({
                 'layouts.widgets.overviewCards': 'Overview cards',
                 'layouts.widgets.interpretationNetworkWorkspace': 'Interpretation network workspace',
                 'layouts.widgets.workspaceSwitcher': 'Workspace switcher',
+                'layouts.widgets.marketing.hero': 'Hero',
+                'layouts.widgets.marketing.collection': 'Collection',
+                'layouts.zones.marketingHeader': 'Marketing header',
+                'layouts.zones.marketingMain': 'Marketing content',
+                'layouts.zones.marketingFooter': 'Marketing footer',
                 'layouts.widgets.recordsTable': 'Records table',
                 'layouts.interpretationNetworkEditor.title': 'Interpretation network workspace',
                 'layouts.workspaceSwitcherEditor.title': 'Workspace switcher',
@@ -59,7 +64,7 @@ vi.mock('react-i18next', () => ({
                 'layouts.marketing.reset': 'Restore template defaults',
                 'layouts.marketing.resetTitle': 'Restore marketing page defaults?',
                 'layouts.marketing.resetDescription':
-                    'This restores the theme, colors, and section visibility for this application layout. Workspace content and metahub records will not change.',
+                    'This restores the theme, colors, and action policy for this application layout. Widget composition and content records will not change.',
                 'layouts.marketing.resetConfirm': 'Restore defaults',
                 'layouts.marketing.resetSuccess': 'Marketing appearance restored to template defaults.'
             }
@@ -119,12 +124,22 @@ vi.mock('@universo-react/template-mui', () => ({
             {viewMode === 'list' ? <div data-testid='flow-list-table' /> : null}
         </div>
     ),
-    LayoutAuthoringDetails: ({ zones, onDragEnd }: any) => (
+    LayoutAuthoringDetails: ({ zones, onDragEnd, onAddWidgetRequest, beforeZonesContent }: any) => (
         <div data-testid='layout-authoring-details'>
+            {beforeZonesContent}
             {Array.isArray(zones)
                 ? zones.map((zone: any) => (
                       <div key={zone.zone}>
                           <h2>{zone.title}</h2>
+                          {(zone.availableWidgets ?? []).map((widget: any) => (
+                              <button
+                                  key={`${zone.zone}-${widget.key}`}
+                                  type='button'
+                                  onClick={() => onAddWidgetRequest?.(zone.zone, widget.key)}
+                              >
+                                  add-{widget.label}
+                              </button>
+                          ))}
                           {(zone.items ?? []).map((item: any) => (
                               <div key={item.id}>
                                   <button type='button' onClick={item.onClick}>
@@ -141,6 +156,27 @@ vi.mock('@universo-react/template-mui', () => ({
             </button>
         </div>
     ),
+    MarketingWidgetConfigDialog: ({ open, title, onSave, onCancel }: any) =>
+        open ? (
+            <div role='dialog' aria-label={title} data-testid='marketing-widget-config-dialog-mock'>
+                <h2>{title}</h2>
+                <button
+                    type='button'
+                    onClick={() =>
+                        onSave({
+                            instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                            source: { entityCodename: 'marketingContent', entityKind: 'object' },
+                            ...(title.includes('Collection') ? { variant: 'features' } : {})
+                        })
+                    }
+                >
+                    save-marketing-widget
+                </button>
+                <button type='button' onClick={onCancel}>
+                    cancel-marketing-widget
+                </button>
+            </div>
+        ) : null,
     LayoutStateChips: ({ labels, isDefault, sourceKind, syncState, isActive }: any) => (
         <div>
             <span>{isActive ? labels.active : labels.inactive}</span>
@@ -233,8 +269,6 @@ const createMarketingLayout = (config: Record<string, unknown> = {}) => ({
     description: null,
     config: {
         themeMode: 'dark',
-        sectionOrder: ['hero', 'logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
-        sectionVisibility: { hero: false },
         primaryColor: '#1976d2',
         accentColor: '#9c27b0',
         allowEmailActions: true,
@@ -383,10 +417,34 @@ describe('ApplicationLayouts', () => {
             ]
         })
         apiMocks.listApplicationLayoutWidgetObject.mockResolvedValue([
-            { key: 'menuWidget', allowedZones: ['left', 'center'], multiInstance: true },
-            { key: 'overviewCards', allowedZones: ['top', 'right'], multiInstance: false },
-            { key: 'interpretationNetworkWorkspace', allowedZones: ['center'], multiInstance: true },
-            { key: 'workspaceSwitcher', allowedZones: ['left'], multiInstance: false }
+            {
+                key: 'menuWidget',
+                allowedZones: ['left', 'center'],
+                multiInstance: true,
+                labelKey: 'layouts.widgets.menuWidget',
+                defaultLabel: 'Menu'
+            },
+            {
+                key: 'overviewCards',
+                allowedZones: ['top', 'right'],
+                multiInstance: true,
+                labelKey: 'layouts.widgets.overviewCards',
+                defaultLabel: 'Overview cards'
+            },
+            {
+                key: 'interpretationNetworkWorkspace',
+                allowedZones: ['center'],
+                multiInstance: true,
+                labelKey: 'layouts.widgets.interpretationNetworkWorkspace',
+                defaultLabel: 'Interpretation network workspace'
+            },
+            {
+                key: 'workspaceSwitcher',
+                allowedZones: ['left'],
+                multiInstance: true,
+                labelKey: 'layouts.widgets.workspaceSwitcher',
+                defaultLabel: 'Workspace switcher'
+            }
         ])
         apiMocks.moveApplicationLayoutWidget.mockResolvedValue({
             id: 'widget-center-1',
@@ -429,6 +487,7 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Customized in application')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Back to applications' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'add-Workspace switcher' })).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'move-widget-center-to-top' }))
 
@@ -686,8 +745,6 @@ describe('ApplicationLayouts', () => {
             ...marketingLayout,
             config: {
                 themeMode: 'system',
-                sectionOrder: ['hero', 'logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
-                sectionVisibility: {},
                 allowEmailActions: true,
                 allowTelephoneActions: true,
                 externalLinkTarget: 'new-tab'
@@ -716,8 +773,7 @@ describe('ApplicationLayouts', () => {
     it('does not reset marketing appearance when the confirmation is cancelled', async () => {
         const user = userEvent.setup()
         const marketingLayout = createMarketingLayout({
-            themeMode: 'system',
-            sectionVisibility: {}
+            themeMode: 'system'
         })
         confirmMocks.confirm.mockResolvedValueOnce(false)
         apiMocks.listApplicationLayouts.mockResolvedValueOnce({
@@ -734,52 +790,95 @@ describe('ApplicationLayouts', () => {
         expect(apiMocks.resetApplicationLayoutConfig).not.toHaveBeenCalled()
     })
 
-    it('edits marketing section order and action policy through typed controls', async () => {
+    it('edits marketing widget composition through the shared widget configuration dialog', async () => {
         const user = userEvent.setup()
         const marketingLayout = createMarketingLayout()
         apiMocks.listApplicationLayouts.mockResolvedValue({
             items: [marketingLayout],
             pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
         })
-        apiMocks.getApplicationLayout.mockResolvedValue({ item: marketingLayout, widgets: [] })
-        apiMocks.updateApplicationLayout.mockResolvedValue(marketingLayout)
+        apiMocks.getApplicationLayout.mockResolvedValue({
+            item: marketingLayout,
+            widgets: [
+                {
+                    id: 'widget-marketing-hero',
+                    layoutId: 'layout-1',
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    sortOrder: 0,
+                    config: {
+                        instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
+                        showLeadForm: true
+                    },
+                    isActive: true,
+                    version: 2
+                }
+            ]
+        })
+        apiMocks.listApplicationLayoutWidgetObject.mockResolvedValue([
+            {
+                key: 'marketing.hero',
+                allowedZones: ['marketing-main'],
+                multiInstance: true,
+                templateKey: 'marketing-page',
+                labelKey: 'layouts.widgets.marketing.hero',
+                defaultLabel: 'Hero'
+            },
+            {
+                key: 'marketing.collection',
+                allowedZones: ['marketing-main'],
+                multiInstance: true,
+                templateKey: 'marketing-page',
+                labelKey: 'layouts.widgets.marketing.collection',
+                defaultLabel: 'Collection'
+            }
+        ])
+        apiMocks.upsertApplicationLayoutWidget.mockResolvedValueOnce({})
+        apiMocks.updateApplicationLayoutWidgetConfig.mockResolvedValueOnce({})
 
         renderPage()
 
         await waitFor(() => expect(screen.getByTestId('application-marketing-appearance-panel')).toBeInTheDocument())
-        await user.click(screen.getByTestId('application-marketing-section-down-hero'))
+        expect(screen.getByText('Marketing header')).toBeInTheDocument()
+        expect(screen.getByText('Marketing content')).toBeInTheDocument()
+        expect(screen.getByText('Marketing footer')).toBeInTheDocument()
+        expect(screen.getByText('Hero')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'add-Collection' }))
+        expect(screen.getByTestId('marketing-widget-config-dialog-mock')).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'save-marketing-widget' }))
+
         await waitFor(() => {
-            expect(apiMocks.updateApplicationLayout).toHaveBeenCalledWith(
+            expect(apiMocks.upsertApplicationLayoutWidget).toHaveBeenCalledWith('app-1', 'layout-1', {
+                zone: 'marketing-main',
+                widgetKey: 'marketing.collection',
+                expectedVersion: 7,
+                config: {
+                    instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    source: { entityCodename: 'marketingContent', entityKind: 'object' },
+                    variant: 'features'
+                }
+            })
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Hero' }))
+        expect(screen.getByTestId('marketing-widget-config-dialog-mock')).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'save-marketing-widget' }))
+
+        await waitFor(() => {
+            expect(apiMocks.updateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
                 'app-1',
                 'layout-1',
+                'widget-marketing-hero',
                 expect.objectContaining({
-                    expectedVersion: 7,
+                    expectedVersion: 2,
                     config: expect.objectContaining({
-                        sectionOrder: ['logos', 'hero', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'],
-                        allowEmailActions: true,
-                        allowTelephoneActions: true
+                        instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                        source: { entityCodename: 'marketingContent', entityKind: 'object' }
                     })
                 })
-            )
-        })
-
-        apiMocks.updateApplicationLayout.mockClear()
-        await user.click(screen.getByLabelText('Allow email actions'))
-        await waitFor(() => {
-            expect(apiMocks.updateApplicationLayout).toHaveBeenCalledWith(
-                'app-1',
-                'layout-1',
-                expect.objectContaining({ config: expect.objectContaining({ allowEmailActions: false }) })
-            )
-        })
-
-        apiMocks.updateApplicationLayout.mockClear()
-        await user.click(screen.getByLabelText('Allow telephone actions'))
-        await waitFor(() => {
-            expect(apiMocks.updateApplicationLayout).toHaveBeenCalledWith(
-                'app-1',
-                'layout-1',
-                expect.objectContaining({ config: expect.objectContaining({ allowTelephoneActions: false }) })
             )
         })
     })

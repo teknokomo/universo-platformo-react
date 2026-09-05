@@ -4,11 +4,12 @@ import type {
     MetahubCreateLayoutPayload,
     MetahubLayout,
     MetahubLayoutLocalizedPayload,
+    MetahubLayoutUpdatePayload,
     MetahubLayoutZoneWidget,
     PaginationParams,
     PaginatedResponse
 } from '../../../types'
-import type { DashboardLayoutWidgetKey, DashboardLayoutZone, LayoutCopyOptions } from '@universo-react/types'
+import type { ApplicationLayoutWidgetKey, ApplicationLayoutZone, LayoutCopyOptions } from '@universo-react/types'
 
 export type LayoutScopeParams = {
     scopeEntityId?: string | null
@@ -23,6 +24,7 @@ export type LayoutWidgetScopeVisibility = {
     name: unknown
     layoutId: string | null
     layoutName: unknown
+    version: number
     isVisible: boolean
     isOverridden: boolean
 }
@@ -84,15 +86,16 @@ export const copyLayout = (metahubId: string, layoutId: string, data: LayoutCopy
 
 /**
  * Update a layout
- * @param data.expectedVersion - Optional version for optimistic locking. If provided and doesn't match, returns 409 Conflict
+ * @param data.expectedVersion - Required version for optimistic locking.
  */
-export const updateLayout = (metahubId: string, layoutId: string, data: Partial<MetahubLayoutLocalizedPayload>) =>
+export const updateLayout = (metahubId: string, layoutId: string, data: MetahubLayoutUpdatePayload) =>
     apiClient.patch<MetahubLayout>(`/metahub/${metahubId}/layout/${layoutId}`, data)
 
 /**
  * Delete a layout
  */
-export const deleteLayout = (metahubId: string, layoutId: string) => apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}`)
+export const deleteLayout = (metahubId: string, layoutId: string, expectedVersion: number) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}`, { params: { expectedVersion } })
 
 export const getLayoutZoneWidgetObjects = async (metahubId: string, layoutId: string): Promise<DashboardLayoutWidgetItem[]> => {
     const response = await apiClient.get<{ items: DashboardLayoutWidgetItem[] }>(
@@ -110,10 +113,11 @@ export const assignLayoutZoneWidget = (
     metahubId: string,
     layoutId: string,
     data: {
-        zone: DashboardLayoutZone
-        widgetKey: DashboardLayoutWidgetKey
+        zone: ApplicationLayoutZone
+        widgetKey: ApplicationLayoutWidgetKey
         sortOrder?: number
         config?: Record<string, unknown>
+        expectedVersion: number
     }
 ) => apiClient.put<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget`, data)
 
@@ -122,22 +126,44 @@ export const moveLayoutZoneWidget = (
     layoutId: string,
     data: {
         widgetId: string
-        targetZone?: DashboardLayoutZone
+        targetZone?: ApplicationLayoutZone
         targetIndex?: number
+        expectedVersion: number
     }
 ) => apiClient.patch<{ items: MetahubLayoutZoneWidget[] }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widgets/move`, data)
 
-export const removeLayoutZoneWidget = (metahubId: string, layoutId: string, widgetId: string) =>
-    apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}`)
-
-export const updateLayoutZoneWidgetConfig = (metahubId: string, layoutId: string, widgetId: string, config: Record<string, unknown>) =>
-    apiClient.patch<{ item: MetahubLayoutZoneWidget }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/config`, {
-        config
+export const removeLayoutZoneWidget = (metahubId: string, layoutId: string, widgetId: string, expectedVersion: number) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}`, {
+        params: { expectedVersion }
     })
 
-export const toggleLayoutZoneWidgetActive = (metahubId: string, layoutId: string, widgetId: string, isActive: boolean) =>
+export const resetLayoutZoneWidgetOverride = (metahubId: string, layoutId: string, widgetId: string, expectedVersion: number) =>
+    apiClient.post<void>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/reset`, undefined, {
+        params: { expectedVersion }
+    })
+
+export const updateLayoutZoneWidgetConfig = (
+    metahubId: string,
+    layoutId: string,
+    widgetId: string,
+    config: Record<string, unknown>,
+    expectedVersion: number
+) =>
+    apiClient.patch<{ item: MetahubLayoutZoneWidget }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/config`, {
+        config,
+        expectedVersion
+    })
+
+export const toggleLayoutZoneWidgetActive = (
+    metahubId: string,
+    layoutId: string,
+    widgetId: string,
+    isActive: boolean,
+    expectedVersion: number
+) =>
     apiClient.patch<{ item: MetahubLayoutZoneWidget }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/toggle-active`, {
-        isActive
+        isActive,
+        expectedVersion
     })
 
 export const listLayoutWidgetScopeVisibility = async (
@@ -156,9 +182,10 @@ export const updateLayoutWidgetScopeVisibility = (
     layoutId: string,
     widgetId: string,
     scopeEntityId: string,
-    isVisible: boolean
+    isVisible: boolean,
+    expectedVersion: number
 ) =>
     apiClient.patch<{ item: LayoutWidgetScopeVisibility }>(
         `/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/scope-visibility/${scopeEntityId}`,
-        { isVisible }
+        { isVisible, expectedVersion }
     )

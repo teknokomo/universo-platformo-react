@@ -15,7 +15,7 @@ import {
 } from '@universo-react/schema-ddl'
 import { quoteQualifiedIdentifier } from '@universo-react/migrations-core'
 import { ComponentDefinitionDataType, type ApplicationPackageDefinition, type PackageSourceDescriptor } from '@universo-react/types'
-import type { DbExecutor } from '@universo-react/utils'
+import { validateMarketingSnapshotLayouts, validateSnapshotLayoutIdentities, type DbExecutor } from '@universo-react/utils'
 import {
     createApplicationReleaseBundle,
     extractInstalledReleaseVersion,
@@ -656,6 +656,8 @@ export function buildApplicationSyncSourceFromPublication(options: {
         publicationSnapshot: Record<string, unknown>
     }
 }): ApplicationSchemaSyncSource {
+    validateMarketingSnapshotLayouts(options.syncContext.snapshot)
+    validateSnapshotLayoutIdentities(options.syncContext.snapshot)
     const bundle = createPublicationApplicationReleaseBundle({
         application: options.application,
         syncContext: options.syncContext
@@ -679,11 +681,13 @@ export function buildApplicationSyncSourceFromPublication(options: {
 }
 
 export function buildApplicationSyncSourceFromBundle(bundle: ApplicationReleaseBundle): ApplicationSchemaSyncSource {
-    const artifacts = validateApplicationReleaseBundleArtifacts(bundle)
     const snapshot = bundle.snapshot
     if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
         throw new Error('Invalid application release bundle snapshot')
     }
+    validateMarketingSnapshotLayouts(snapshot)
+    validateSnapshotLayoutIdentities(snapshot)
+    const artifacts = validateApplicationReleaseBundleArtifacts(bundle)
 
     return {
         bundle,
@@ -755,6 +759,12 @@ export async function createExistingApplicationReleaseBundle(options: {
     if (runtimeLayouts.layoutZoneWidgets.length > 0) {
         snapshot.layoutZoneWidgets = runtimeLayouts.layoutZoneWidgets
     }
+
+    // Validate the reconstructed snapshot before exposing it as a release
+    // bundle. Imports already preflight this contract; exports must not emit a
+    // bundle that the next application would reject or partially materialize.
+    validateMarketingSnapshotLayouts(snapshot)
+    validateSnapshotLayoutIdentities(snapshot)
 
     const snapshotHash = resolveApplicationReleaseSnapshotHash(snapshot)
     const releaseLineage = resolveRuntimeApplicationReleaseLineage(application, snapshotHash)

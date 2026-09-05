@@ -1,7 +1,19 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Box, CircularProgress, FormControl, IconButton, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material'
+import {
+    Alert,
+    Box,
+    Button,
+    CircularProgress,
+    FormControl,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Select,
+    Stack,
+    Typography
+} from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +23,7 @@ import {
     LayoutAuthoringList,
     LayoutAuthoringDetails,
     LayoutStateChips,
+    MarketingWidgetConfigDialog,
     ViewHeaderMUI as ViewHeader,
     normalizeSideMenuConfig,
     useConfirm
@@ -19,18 +32,28 @@ import type {
     ApplicationLayout,
     ApplicationLayoutCreate,
     ApplicationLayoutScope,
+    ApplicationLayoutZone,
+    ApplicationLayoutWidgetKey,
     ApplicationLayoutWidget,
     ApplicationLayoutWidgetMutation,
+    ApplicationTemplateKey,
     ColumnsContainerConfig,
     DashboardLayoutZone,
     ObjectCollectionRuntimeViewConfig,
     MenuWidgetConfig,
     DashboardSideMenuConfig
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES } from '@universo-react/types'
+import {
+    DASHBOARD_LAYOUT_ZONES,
+    LAYOUT_ZONE_DEFINITIONS,
+    MARKETING_LAYOUT_ZONES,
+    MARKETING_SOURCE_CODENAMES,
+    MARKETING_WIDGET_REGISTRY
+} from '@universo-react/types'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
     extractAxiosError,
+    getCodenamePrimary,
     normalizeObjectCollectionRuntimeViewConfig,
     setObjectCollectionLayoutBehaviorConfig
 } from '@universo-react/utils'
@@ -65,6 +88,7 @@ import {
     mergeInterpretationNetworkMatrixSettings,
     parseInterpretationNetworkMatrixSettings
 } from './application-layouts/interpretationNetworkWidgetSettings'
+import type { ApplicationLayoutWidgetDefinition } from '../api/applications'
 
 const resolveLocalizedText = (value: unknown, locale: string, fallback: string): string => {
     if (!value || typeof value !== 'object') return fallback
@@ -116,6 +140,22 @@ const isCustomizedWidget = (layout: ApplicationLayout, widget: ApplicationLayout
         ? widget.sourceConfig !== null && widget.isCustomized === true
         : isApplicationCustomizedLayoutWidget(layout)
 
+const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<ApplicationTemplateKey, readonly ApplicationLayoutZone[]>> = {
+    dashboard: DASHBOARD_LAYOUT_ZONES,
+    'marketing-page': MARKETING_LAYOUT_ZONES
+}
+
+const isMarketingWidgetKey = (value: ApplicationLayoutWidgetKey): value is keyof typeof MARKETING_WIDGET_REGISTRY =>
+    Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, value)
+
+type MarketingWidgetEditorState = {
+    open: boolean
+    zone: ApplicationLayoutZone | null
+    widgetId: string | null
+    widgetKey: keyof typeof MARKETING_WIDGET_REGISTRY | null
+    config: Record<string, unknown> | null
+}
+
 const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
     return normalizeSideMenuConfig(
         (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined) as MenuWidgetConfig['sideMenu']
@@ -158,6 +198,13 @@ const ApplicationLayouts = () => {
     const [interpretationNetworkDraft, setInterpretationNetworkDraft] = useState<InterpretationNetworkMatrixSettings | null>(null)
     const [interpretationNetworkDraftHasChanges, setInterpretationNetworkDraftHasChanges] = useState(false)
     const [workspaceSwitcherEditingWidget, setWorkspaceSwitcherEditingWidget] = useState<ApplicationLayoutWidget | null>(null)
+    const [marketingWidgetEditor, setMarketingWidgetEditor] = useState<MarketingWidgetEditorState>({
+        open: false,
+        zone: null,
+        widgetId: null,
+        widgetKey: null,
+        config: null
+    })
     const layoutDetailQueryKey =
         applicationId && layoutId ? applicationsQueryKeys.layoutDetail(applicationId, layoutId) : ['application-layout-detail-empty']
 
@@ -217,8 +264,28 @@ const ApplicationLayouts = () => {
         }
     }
 
+    const notifyLayoutMutationError = (error: unknown, fallbackKey: string, fallbackMessage: string) => {
+        const apiError = extractAxiosError(error)
+        const message =
+            apiError.code === 'APPLICATION_LAYOUT_VERSION_CONFLICT'
+                ? t('layouts.versionConflict', 'This layout changed in another session. Reload it and try again.')
+                : t(fallbackKey, fallbackMessage)
+        enqueueSnackbar(message, { variant: 'error' })
+    }
+
+    const notifyWidgetMutationError = (error: unknown, fallbackKey: string, fallbackMessage: string) => {
+        const apiError = extractAxiosError(error)
+        const message =
+            apiError.code === 'APPLICATION_LAYOUT_WIDGET_VERSION_CONFLICT' ||
+            apiError.message === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'
+                ? t('layouts.widgetVersionConflict', 'This widget changed in another session. Reload the layout and try again.')
+                : t(fallbackKey, fallbackMessage)
+        enqueueSnackbar(message, { variant: 'error' })
+    }
+
     const createMutation = useMutation({
         mutationFn: (payload: ApplicationLayoutCreate) => createApplicationLayout(String(applicationId), payload),
+        onError: (error) => notifyLayoutMutationError(error, 'layouts.createError', 'Failed to create layout.'),
         onSuccess: async () => {
             setCreateOpen(false)
             setName('')
@@ -236,6 +303,8 @@ const ApplicationLayouts = () => {
                     ? t('layouts.templateImmutable', 'A layout template cannot be changed after creation.')
                     : apiError.code === 'APPLICATION_LAYOUT_INVALID'
                     ? t('layouts.invalidRequest', 'The layout data is invalid. Review the fields and try again.')
+                    : apiError.code === 'APPLICATION_LAYOUT_VERSION_CONFLICT'
+                    ? t('layouts.versionConflict', 'This layout changed in another session. Reload it and try again.')
                     : t('layouts.saveError', 'Failed to save layout settings.')
             enqueueSnackbar(message, { variant: 'error' })
         },
@@ -273,7 +342,7 @@ const ApplicationLayouts = () => {
             title: t('layouts.marketing.resetTitle', 'Restore marketing page defaults?'),
             description: t(
                 'layouts.marketing.resetDescription',
-                'This restores the theme, colors, and section visibility for this application layout. Workspace content and metahub records will not change.'
+                'This restores the theme, colors, and action policy for this application layout. Widget composition and content records will not change.'
             ),
             confirmButtonName: t('layouts.marketing.resetConfirm', 'Restore defaults'),
             cancelButtonName: tc('actions.cancel', 'Cancel')
@@ -283,17 +352,42 @@ const ApplicationLayouts = () => {
 
     const deleteMutation = useMutation({
         mutationFn: (layout: ApplicationLayout) => deleteApplicationLayout(String(applicationId), layout.id, layout.version),
+        onError: (error) => notifyLayoutMutationError(error, 'layouts.deleteError', 'Failed to delete layout.'),
         onSuccess: invalidateLayouts
     })
 
+    const requestDeleteLayout = async (layout: ApplicationLayout) => {
+        if (deleteMutation.isPending) return
+        const confirmed = await confirm({
+            title: t('layouts.deleteTitle', 'Delete layout?'),
+            description: t(
+                'layouts.deleteDescription',
+                'This removes the layout and its widget placements. Content records and entity data will not be deleted.'
+            ),
+            confirmButtonName: tc('actions.delete', 'Delete'),
+            cancelButtonName: tc('actions.cancel', 'Cancel')
+        })
+        if (!confirmed) return
+        try {
+            await deleteMutation.mutateAsync(layout)
+        } catch {
+            // The mutation reports a localized error and leaves the list available for retry.
+        }
+    }
+
     const copyMutation = useMutation({
-        mutationFn: (layout: ApplicationLayout) => copyApplicationLayout(String(applicationId), layout.id),
+        mutationFn: (layout: ApplicationLayout) => copyApplicationLayout(String(applicationId), layout.id, layout.version),
+        onError: (error) => notifyLayoutMutationError(error, 'layouts.copyError', 'Failed to copy layout.'),
         onSuccess: invalidateLayouts
     })
 
     const toggleWidgetMutation = useMutation({
-        mutationFn: ({ widgetId, isActive }: { widgetId: string; isActive: boolean }) =>
-            toggleApplicationLayoutWidget(String(applicationId), String(layoutId), widgetId, { isActive }),
+        mutationFn: ({ widget, isActive }: { widget: ApplicationLayoutWidget; isActive: boolean }) =>
+            toggleApplicationLayoutWidget(String(applicationId), String(layoutId), widget.id, {
+                isActive,
+                expectedVersion: widget.version
+            }),
+        onError: (error) => notifyWidgetMutationError(error, 'layouts.widgetToggleError', 'Failed to change widget visibility.'),
         onSuccess: async () => {
             await invalidateLayouts()
         }
@@ -308,7 +402,36 @@ const ApplicationLayouts = () => {
             zone: ApplicationLayoutWidgetMutation['zone']
             widgetKey: ApplicationLayoutWidgetMutation['widgetKey']
             config?: Record<string, unknown>
-        }) => upsertApplicationLayoutWidget(String(applicationId), String(layoutId), { zone, widgetKey, config: config ?? {} }),
+        }) => {
+            const expectedVersion = detailQuery.data?.item.version
+            if (typeof expectedVersion !== 'number') throw new Error('APPLICATION_LAYOUT_VERSION_UNAVAILABLE')
+            return upsertApplicationLayoutWidget(String(applicationId), String(layoutId), {
+                zone,
+                widgetKey,
+                config: config ?? {},
+                expectedVersion
+            })
+        },
+        onError: (error) => notifyWidgetMutationError(error, 'layouts.widgetAddError', 'Failed to add widget.'),
+        onSuccess: async () => {
+            await invalidateLayouts()
+        }
+    })
+
+    const duplicateWidgetMutation = useMutation({
+        mutationFn: (widget: ApplicationLayoutWidget) => {
+            const expectedVersion = detailQuery.data?.item.version
+            if (typeof expectedVersion !== 'number') throw new Error('APPLICATION_LAYOUT_VERSION_UNAVAILABLE')
+            const config = { ...widget.config }
+            if (isMarketingWidgetKey(widget.widgetKey)) delete config.instanceKey
+            return upsertApplicationLayoutWidget(String(applicationId), String(layoutId), {
+                zone: widget.zone,
+                widgetKey: widget.widgetKey,
+                config,
+                expectedVersion
+            })
+        },
+        onError: (error) => notifyWidgetMutationError(error, 'layouts.widgetDuplicateError', 'Failed to duplicate widget.'),
         onSuccess: async () => {
             await invalidateLayouts()
         }
@@ -330,13 +453,16 @@ const ApplicationLayouts = () => {
                 targetIndex,
                 expectedVersion: widget.version
             }),
+        onError: (error) => notifyWidgetMutationError(error, 'layouts.widgetMoveError', 'Failed to move widget.'),
         onSuccess: async () => {
             await invalidateLayouts()
         }
     })
 
     const deleteWidgetMutation = useMutation({
-        mutationFn: (widgetId: string) => deleteApplicationLayoutWidget(String(applicationId), String(layoutId), widgetId),
+        mutationFn: (widget: ApplicationLayoutWidget) =>
+            deleteApplicationLayoutWidget(String(applicationId), String(layoutId), widget.id, widget.version),
+        onError: (error) => notifyWidgetMutationError(error, 'layouts.widgetDeleteError', 'Failed to remove widget.'),
         onSuccess: async () => {
             await invalidateLayouts()
         }
@@ -398,7 +524,7 @@ const ApplicationLayouts = () => {
                     {
                         layoutId: String(layoutId),
                         widgetId: widget.id,
-                        ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
+                        expectedVersion: widget.version
                     }
                 ]
             }),
@@ -442,7 +568,8 @@ const ApplicationLayouts = () => {
             'dashboard',
         [layouts]
     )
-    const isLoading = scopesQuery.isLoading || layoutsQuery.isLoading || (Boolean(layoutId) && detailQuery.isLoading)
+    const isLoading =
+        scopesQuery.isLoading || layoutsQuery.isLoading || (Boolean(layoutId) && (detailQuery.isLoading || widgetObjectQuery.isLoading))
     const isSchemaNotReady =
         (scopesQuery.error as { response?: { data?: { error?: string } } } | null)?.response?.data?.error === 'APPLICATION_SCHEMA_NOT_READY'
 
@@ -484,26 +611,30 @@ const ApplicationLayouts = () => {
         setLayoutDescriptionRu(resolveLocalizedText(layout.description ?? {}, 'ru', ''))
     }
 
-    const handleLayoutSave = () => {
+    const handleLayoutSave = async () => {
         if (!editingLayout) return
         const fallbackName = t('layouts.untitled', 'Untitled layout')
-        updateMutation.mutate({
-            layout: editingLayout,
-            data: {
-                name: {
-                    en: layoutNameEn || layoutNameRu || fallbackName,
-                    ru: layoutNameRu || layoutNameEn || fallbackName
-                },
-                description:
-                    layoutDescriptionEn || layoutDescriptionRu
-                        ? {
-                              en: layoutDescriptionEn || layoutDescriptionRu,
-                              ru: layoutDescriptionRu || layoutDescriptionEn
-                          }
-                        : null
-            }
-        })
-        setEditingLayout(null)
+        try {
+            await updateMutation.mutateAsync({
+                layout: editingLayout,
+                data: {
+                    name: {
+                        en: layoutNameEn || layoutNameRu || fallbackName,
+                        ru: layoutNameRu || layoutNameEn || fallbackName
+                    },
+                    description:
+                        layoutDescriptionEn || layoutDescriptionRu
+                            ? {
+                                  en: layoutDescriptionEn || layoutDescriptionRu,
+                                  ru: layoutDescriptionRu || layoutDescriptionEn
+                              }
+                            : null
+                }
+            })
+            setEditingLayout(null)
+        } catch {
+            // The mutation reports a localized error and keeps the edit dialog open.
+        }
     }
 
     const openMenu = (event: React.MouseEvent<HTMLElement>, layout: ApplicationLayout) => {
@@ -532,14 +663,40 @@ const ApplicationLayouts = () => {
         )
     }
 
+    if (layoutId && (detailQuery.isError || widgetObjectQuery.isError)) {
+        return (
+            <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', px: 2 }}>
+                <ViewHeader title={t('layouts.title', 'Layouts')} search={false} />
+                <Alert
+                    severity='error'
+                    action={
+                        <Button
+                            color='inherit'
+                            size='small'
+                            onClick={() => {
+                                void detailQuery.refetch()
+                                void widgetObjectQuery.refetch()
+                            }}
+                        >
+                            {tc('actions.retry', 'Retry')}
+                        </Button>
+                    }
+                >
+                    {t('layouts.detailLoadError', 'Failed to load the layout. Try again.')}
+                </Alert>
+            </Stack>
+        )
+    }
+
     if (layoutId && detailQuery.data) {
         const layout = detailQuery.data.item
-        const title = resolveLocalizedText(layout.name, i18n.language, layout.id)
+        const title = resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout'))
         const widgets = detailQuery.data.widgets
-        const widgetObject = widgetObjectQuery.data ?? []
-        const widgetLabelByKey = Object.fromEntries(
-            widgetObject.map((item) => [item.key, t(`layouts.widgets.${item.key}`, item.key)])
-        ) as Record<string, string>
+        const widgetObject: ApplicationLayoutWidgetDefinition[] = widgetObjectQuery.data ?? []
+        const widgetLabelByKey = Object.fromEntries(widgetObject.map((item) => [item.key, t(item.labelKey, item.defaultLabel)])) as Record<
+            string,
+            string
+        >
         const sectionOptions = (scopesQuery.data ?? [])
             .filter((scope) => scope.scopeEntityId)
             .map((scope) => ({ id: String(scope.scopeEntityId), label: scope.name }))
@@ -550,24 +707,33 @@ const ApplicationLayouts = () => {
                 label: scope.name,
                 codename: resolveLocalizedText(scope.codename ?? {}, 'en', scope.tableName ?? scope.name)
             }))
-        const widgetsByZone = DASHBOARD_LAYOUT_ZONES.reduce<Record<DashboardLayoutZone, ApplicationLayoutWidget[]>>((accumulator, zone) => {
+        const marketingSourceOptions = (scopesQuery.data ?? [])
+            .filter((scope) => scope.scopeEntityId)
+            .map((scope) => {
+                const value = getCodenamePrimary(scope.codename).trim()
+                if (!value || !MARKETING_SOURCE_CODENAMES.includes(value as (typeof MARKETING_SOURCE_CODENAMES)[number])) return null
+                return {
+                    value,
+                    label: scope.name,
+                    entityKind: 'object' as const
+                }
+            })
+            .filter((option): option is { value: string; label: string; entityKind: 'object' } => option !== null)
+            .sort((left, right) => left.label.localeCompare(right.label))
+        const layoutZones = LAYOUT_ZONES_BY_TEMPLATE[layout.templateKey]
+        const widgetsByZone = layoutZones.reduce<Record<ApplicationLayoutZone, ApplicationLayoutWidget[]>>((accumulator, zone) => {
             accumulator[zone] = widgets
                 .filter((widget) => widget.zone === zone)
                 .slice()
                 .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
             return accumulator
-        }, {} as Record<DashboardLayoutZone, ApplicationLayoutWidget[]>)
+        }, {} as Record<ApplicationLayoutZone, ApplicationLayoutWidget[]>)
 
         const objectBehaviorConfig = normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout.config))
         const sideMenuConfig = normalizeEditableSideMenuConfig(layout.config?.sideMenu)
-        const allAssignedWidgetKeys = new Set(widgets.map((item) => item.widgetKey))
-        const zoneLabels: Record<DashboardLayoutZone, string> = {
-            top: t('layouts.zones.top', 'Top'),
-            left: t('layouts.zones.left', 'Left'),
-            center: t('layouts.zones.center', 'Center'),
-            right: t('layouts.zones.right', 'Right'),
-            bottom: t('layouts.zones.bottom', 'Bottom')
-        }
+        const zoneLabels = Object.fromEntries(
+            LAYOUT_ZONE_DEFINITIONS.map((zone) => [zone.key, t(zone.labelKey, zone.defaultLabel)])
+        ) as Record<ApplicationLayoutZone, string>
 
         const handleLayoutConfigUpdate = async (nextConfig: Record<string, unknown>) => {
             await updateMutation.mutateAsync({
@@ -607,7 +773,8 @@ const ApplicationLayouts = () => {
             let targetIndex = 0
 
             if (overId.startsWith('zone:')) {
-                targetZone = overId.replace('zone:', '') as DashboardLayoutZone
+                targetZone = overId.replace('zone:', '') as ApplicationLayoutZone
+                if (!layoutZones.includes(targetZone)) return
                 targetIndex = widgetsByZone[targetZone].length
             } else {
                 const overItem = widgets.find((item) => item.id === overId)
@@ -631,11 +798,23 @@ const ApplicationLayouts = () => {
             })
         }
 
-        const getAvailableWidgetsForZone = (zone: DashboardLayoutZone) =>
-            widgetObject.filter((item) => item.allowedZones.includes(zone) && (item.multiInstance || !allAssignedWidgetKeys.has(item.key)))
+        const getAvailableWidgetsForZone = (zone: ApplicationLayoutZone) =>
+            widgetObject.filter(
+                (item) => (item.templateKey === undefined || item.templateKey === layout.templateKey) && item.allowedZones.includes(zone)
+            )
 
         const getWidgetChipLabel = (widget: ApplicationLayoutWidget): string => {
-            const base = widgetLabelByKey[widget.widgetKey] ?? t(`layouts.widgets.${widget.widgetKey}`, widget.widgetKey)
+            const base = widgetLabelByKey[widget.widgetKey] ?? t('layouts.widgets.unknown', 'Widget')
+
+            if (isMarketingWidgetKey(widget.widgetKey)) {
+                const variant = widget.config?.variant
+                return widget.widgetKey === 'marketing.collection' && typeof variant === 'string'
+                    ? `${base}: ${t(
+                          `layouts.marketing.widget.variants.${variant}`,
+                          t('layouts.marketing.widget.collection', 'Collection')
+                      )}`
+                    : base
+            }
 
             if (widget.widgetKey === 'menuWidget') {
                 const config = widget.config as MenuWidgetConfig | undefined
@@ -648,7 +827,9 @@ const ApplicationLayouts = () => {
                 if (!config?.columns?.length) return base
                 const nestedWidgets = config.columns
                     .flatMap((column) =>
-                        (column.widgets ?? []).map((columnWidget) => widgetLabelByKey[columnWidget.widgetKey] ?? columnWidget.widgetKey)
+                        (column.widgets ?? []).map(
+                            (columnWidget) => widgetLabelByKey[columnWidget.widgetKey] ?? t('layouts.widgets.unknown', 'Widget')
+                        )
                     )
                     .join(', ')
                 return nestedWidgets ? `${base}: ${nestedWidgets}` : base
@@ -658,6 +839,16 @@ const ApplicationLayouts = () => {
         }
 
         const openStructuredWidgetEditor = (widget: ApplicationLayoutWidget) => {
+            if (isMarketingWidgetKey(widget.widgetKey)) {
+                setMarketingWidgetEditor({
+                    open: true,
+                    zone: widget.zone,
+                    widgetId: widget.id,
+                    widgetKey: widget.widgetKey,
+                    config: widget.config
+                })
+                return
+            }
             if (widget.widgetKey === 'menuWidget') {
                 setMenuEditorZone(widget.zone)
                 setEditingWidget(widget)
@@ -706,24 +897,49 @@ const ApplicationLayouts = () => {
             })
         }
 
-        const handleAddWidgetRequest = (zone: DashboardLayoutZone, widgetKey: ApplicationLayoutWidgetMutation['widgetKey']) => {
+        const handleAddWidgetRequest = (zone: ApplicationLayoutZone, widgetKey: ApplicationLayoutWidgetMutation['widgetKey']) => {
+            if (isMarketingWidgetKey(widgetKey)) {
+                setMarketingWidgetEditor({ open: true, zone, widgetId: null, widgetKey, config: null })
+                return
+            }
+            if (!DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) return
+            const dashboardZone = zone as DashboardLayoutZone
             if (widgetKey === 'menuWidget') {
-                setMenuEditorZone(zone)
+                setMenuEditorZone(dashboardZone)
                 setEditingWidget(null)
                 return
             }
 
             if (widgetKey === 'columnsContainer') {
-                setColumnsEditorZone(zone)
+                setColumnsEditorZone(dashboardZone)
                 setEditingWidget(null)
                 return
             }
 
             addWidgetMutation.mutate({
-                zone,
+                zone: dashboardZone,
                 widgetKey,
                 config: buildInitialWidgetConfig(widgetKey)
             })
+        }
+
+        const requestDeleteWidget = async (widget: ApplicationLayoutWidget) => {
+            if (deleteWidgetMutation.isPending) return
+            const confirmed = await confirm({
+                title: t('layouts.deleteWidgetTitle', 'Remove widget?'),
+                description: t(
+                    'layouts.deleteWidgetDescription',
+                    'This removes the widget placement from this layout. Its content records and entity data will not be deleted.'
+                ),
+                confirmButtonName: tc('actions.delete', 'Delete'),
+                cancelButtonName: tc('actions.cancel', 'Cancel')
+            })
+            if (!confirmed) return
+            try {
+                await deleteWidgetMutation.mutateAsync(widget)
+            } catch {
+                // The mutation reports a localized error and keeps the layout open.
+            }
         }
 
         return (
@@ -777,39 +993,27 @@ const ApplicationLayouts = () => {
                 </Alert>
 
                 <Box data-testid='application-layout-details-content' sx={{ pb: 2, width: '100%' }}>
-                    {layout.templateKey === 'marketing-page' ? (
-                        <Stack spacing={2}>
-                            <ApplicationMarketingAppearancePanel
-                                t={t}
-                                layout={layout}
-                                isSaving={updateMutation.isPending}
-                                isResetting={resetMarketingAppearanceMutation.isPending}
-                                canManage
-                                onChange={(key, value) => void handleViewSettingChange(key, value)}
-                                onReset={() => void requestMarketingAppearanceReset(layout)}
-                            />
-                            <Typography
-                                variant='body2'
-                                sx={{
-                                    color: 'text.secondary'
-                                }}
-                            >
-                                {t(
-                                    'layouts.marketing.contentHint',
-                                    'Marketing content is edited through standard Object records; dashboard widgets are not used by this template.'
-                                )}
-                            </Typography>
-                        </Stack>
-                    ) : (
-                        <LayoutAuthoringDetails
-                            dragHint={t('layouts.dragHint', 'Drag widgets between zones to change runtime composition.')}
-                            emptyZoneLabel={t('layouts.emptyZone', 'No widgets in this zone yet.')}
-                            addWidgetLabel={t('layouts.addWidgetAction', 'Add widget')}
-                            availableWidgetsLabel={t('layouts.availableWidgets', 'Available widgets')}
-                            moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
-                            onDragEnd={handleDragEnd}
-                            onAddWidgetRequest={handleAddWidgetRequest}
-                            beforeZonesContent={
+                    <LayoutAuthoringDetails
+                        dragHint={t('layouts.dragHint', 'Drag widgets between zones to change runtime composition.')}
+                        emptyZoneLabel={t('layouts.emptyZone', 'No widgets in this zone yet.')}
+                        addWidgetLabel={t('layouts.addWidgetAction', 'Add widget')}
+                        availableWidgetsLabel={t('layouts.availableWidgets', 'Available widgets')}
+                        dragHandleLabel={t('layouts.dragHandleLabel', 'Reorder widget')}
+                        moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
+                        onDragEnd={handleDragEnd}
+                        onAddWidgetRequest={handleAddWidgetRequest}
+                        beforeZonesContent={
+                            layout.templateKey === 'marketing-page' ? (
+                                <ApplicationMarketingAppearancePanel
+                                    t={t}
+                                    layout={layout}
+                                    isSaving={updateMutation.isPending}
+                                    isResetting={resetMarketingAppearanceMutation.isPending}
+                                    canManage
+                                    onChange={(key, value) => void handleViewSettingChange(key, value)}
+                                    onReset={() => void requestMarketingAppearanceReset(layout)}
+                                />
+                            ) : (
                                 <LayoutRuntimeSettingsPanels
                                     t={t}
                                     layout={layout}
@@ -819,65 +1023,101 @@ const ApplicationLayouts = () => {
                                     onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
                                     onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
                                 />
-                            }
-                            zones={DASHBOARD_LAYOUT_ZONES.map((zone) => ({
-                                zone,
-                                title: zoneLabels[zone],
-                                availableWidgets: getAvailableWidgetsForZone(zone).map((item) => ({
-                                    key: item.key,
-                                    label: widgetLabelByKey[item.key] ?? item.key
-                                })),
-                                items: widgetsByZone[zone].map((widget) => {
-                                    const label = getWidgetChipLabel(widget)
+                            )
+                        }
+                        zones={layoutZones.map((zone) => ({
+                            zone,
+                            title: zoneLabels[zone],
+                            availableWidgets: getAvailableWidgetsForZone(zone).map((item) => ({
+                                key: item.key,
+                                label: widgetLabelByKey[item.key] ?? item.defaultLabel ?? t('layouts.widgets.unknown', 'Widget')
+                            })),
+                            items: widgetsByZone[zone].map((widget) => {
+                                const label = getWidgetChipLabel(widget)
+                                const canDuplicate = true
 
-                                    return {
-                                        id: widget.id,
-                                        label,
-                                        isActive: widget.isActive,
-                                        draggable: !moveWidgetMutation.isPending,
-                                        moveActions: DASHBOARD_LAYOUT_ZONES.filter((targetZone) => targetZone !== widget.zone).map(
-                                            (targetZone) => ({
-                                                key: `${widget.id}-${targetZone}`,
-                                                testId: `layout-widget-move-${widget.id}-${targetZone}`,
-                                                label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
-                                                onClick: () =>
-                                                    moveWidgetMutation.mutate({
-                                                        widget,
-                                                        targetZone,
-                                                        targetIndex: widgetsByZone[targetZone].length
-                                                    })
-                                            })
-                                        ),
-                                        onEdit: () => openStructuredWidgetEditor(widget),
-                                        onClick: () => openStructuredWidgetEditor(widget),
-                                        onRemove: () => deleteWidgetMutation.mutate(widget.id),
-                                        onToggleActive: (active) =>
-                                            toggleWidgetMutation.mutate({
-                                                widgetId: widget.id,
-                                                isActive: active
-                                            }),
-                                        editTooltip: tc('actions.edit', 'Edit'),
-                                        removeTooltip: tc('actions.delete', 'Delete'),
-                                        toggleActiveTooltip: widget.isActive
-                                            ? t('layouts.deactivate', 'Deactivate')
-                                            : t('layouts.activate', 'Activate'),
-                                        editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
-                                        removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
-                                        toggleActiveAriaLabel: widget.isActive
-                                            ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
-                                            : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
-                                        inheritedLabel:
-                                            widget.widgetKey === 'interpretationNetworkWorkspace'
-                                                ? isCustomizedWidget(layout, widget)
-                                                    ? t('layouts.widgetCustomization.application', 'Customized in application')
-                                                    : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
-                                                : undefined
-                                    }
-                                })
-                            }))}
-                        />
-                    )}
+                                return {
+                                    id: widget.id,
+                                    label,
+                                    isActive: widget.isActive,
+                                    draggable: !moveWidgetMutation.isPending,
+                                    moveActions: layoutZones
+                                        .filter((targetZone) => targetZone !== widget.zone)
+                                        .map((targetZone) => ({
+                                            key: `${widget.id}-${targetZone}`,
+                                            testId: `layout-widget-move-${widget.id}-${targetZone}`,
+                                            label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
+                                            onClick: () =>
+                                                moveWidgetMutation.mutate({
+                                                    widget,
+                                                    targetZone,
+                                                    targetIndex: widgetsByZone[targetZone].length
+                                                })
+                                        })),
+                                    onEdit: () => openStructuredWidgetEditor(widget),
+                                    onClick: () => openStructuredWidgetEditor(widget),
+                                    onDuplicate: canDuplicate
+                                        ? () => {
+                                              if (!duplicateWidgetMutation.isPending) {
+                                                  duplicateWidgetMutation.mutate(widget)
+                                              }
+                                          }
+                                        : undefined,
+                                    onRemove: () => void requestDeleteWidget(widget),
+                                    onToggleActive: (active) => {
+                                        if (!toggleWidgetMutation.isPending) toggleWidgetMutation.mutate({ widget, isActive: active })
+                                    },
+                                    editTooltip: tc('actions.edit', 'Edit'),
+                                    removeTooltip: tc('actions.delete', 'Delete'),
+                                    toggleActiveTooltip: widget.isActive
+                                        ? t('layouts.deactivate', 'Deactivate')
+                                        : t('layouts.activate', 'Activate'),
+                                    editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
+                                    duplicateTooltip: canDuplicate ? t('layouts.duplicateWidget', 'Duplicate widget') : undefined,
+                                    duplicateAriaLabel: canDuplicate
+                                        ? t('layouts.duplicateWidgetNamed', 'Duplicate widget: {{label}}', { label })
+                                        : undefined,
+                                    removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
+                                    toggleActiveAriaLabel: widget.isActive
+                                        ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
+                                        : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
+                                    inheritedLabel:
+                                        isMarketingWidgetKey(widget.widgetKey) || widget.widgetKey === 'interpretationNetworkWorkspace'
+                                            ? isCustomizedWidget(layout, widget)
+                                                ? t('layouts.widgetCustomization.application', 'Customized in application')
+                                                : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
+                                            : undefined
+                                }
+                            })
+                        }))}
+                    />
                 </Box>
+
+                {marketingWidgetEditor.open && marketingWidgetEditor.widgetKey ? (
+                    <MarketingWidgetConfigDialog
+                        open={marketingWidgetEditor.open}
+                        widgetKey={marketingWidgetEditor.widgetKey}
+                        initialConfig={marketingWidgetEditor.config}
+                        sourceOptions={marketingSourceOptions}
+                        title={widgetLabelByKey[marketingWidgetEditor.widgetKey] ?? t('layouts.widgets.unknown', 'Widget')}
+                        t={t}
+                        onSave={async (config) => {
+                            const { widgetId, zone, widgetKey } = marketingWidgetEditor
+                            if (!widgetKey || !zone) return
+                            if (widgetId) {
+                                const widget = widgets.find((item) => item.id === widgetId)
+                                if (!widget) return
+                                await updateWidgetConfigMutation.mutateAsync({ widget, config })
+                            } else {
+                                await addWidgetMutation.mutateAsync({ zone, widgetKey, config })
+                            }
+                            setMarketingWidgetEditor({ open: false, zone: null, widgetId: null, widgetKey: null, config: null })
+                        }}
+                        onCancel={() =>
+                            setMarketingWidgetEditor({ open: false, zone: null, widgetId: null, widgetKey: null, config: null })
+                        }
+                    />
+                ) : null}
 
                 <ApplicationLayoutWidgetEditors
                     t={t}
@@ -897,37 +1137,51 @@ const ApplicationLayouts = () => {
                     isInterpretationNetworkCustomized={
                         interpretationNetworkEditingWidget ? isCustomizedWidget(layout, interpretationNetworkEditingWidget) : false
                     }
-                    onSaveMenu={(config) => {
+                    onSaveMenu={async (config) => {
                         if (!menuEditorZone) return
-                        if (editingWidget?.widgetKey === 'menuWidget') {
-                            updateWidgetConfigMutation.mutate({ widget: editingWidget, config: config as Record<string, unknown> })
-                        } else {
-                            addWidgetMutation.mutate({
-                                zone: menuEditorZone,
-                                widgetKey: 'menuWidget',
-                                config: config as Record<string, unknown>
-                            })
+                        try {
+                            if (editingWidget?.widgetKey === 'menuWidget') {
+                                await updateWidgetConfigMutation.mutateAsync({
+                                    widget: editingWidget,
+                                    config: config as Record<string, unknown>
+                                })
+                            } else {
+                                await addWidgetMutation.mutateAsync({
+                                    zone: menuEditorZone,
+                                    widgetKey: 'menuWidget',
+                                    config: config as Record<string, unknown>
+                                })
+                            }
+                            setMenuEditorZone(null)
+                            setEditingWidget(null)
+                        } catch {
+                            // The mutation reports a localized error and keeps the editor open.
                         }
-                        setMenuEditorZone(null)
-                        setEditingWidget(null)
                     }}
                     onCancelMenu={() => {
                         setMenuEditorZone(null)
                         setEditingWidget(null)
                     }}
-                    onSaveColumns={(config) => {
+                    onSaveColumns={async (config) => {
                         if (!columnsEditorZone) return
-                        if (editingWidget?.widgetKey === 'columnsContainer') {
-                            updateWidgetConfigMutation.mutate({ widget: editingWidget, config: config as Record<string, unknown> })
-                        } else {
-                            addWidgetMutation.mutate({
-                                zone: columnsEditorZone,
-                                widgetKey: 'columnsContainer',
-                                config: config as Record<string, unknown>
-                            })
+                        try {
+                            if (editingWidget?.widgetKey === 'columnsContainer') {
+                                await updateWidgetConfigMutation.mutateAsync({
+                                    widget: editingWidget,
+                                    config: config as Record<string, unknown>
+                                })
+                            } else {
+                                await addWidgetMutation.mutateAsync({
+                                    zone: columnsEditorZone,
+                                    widgetKey: 'columnsContainer',
+                                    config: config as Record<string, unknown>
+                                })
+                            }
+                            setColumnsEditorZone(null)
+                            setEditingWidget(null)
+                        } catch {
+                            // The mutation reports a localized error and keeps the editor open.
                         }
-                        setColumnsEditorZone(null)
-                        setEditingWidget(null)
                     }}
                     onCancelColumns={() => {
                         setColumnsEditorZone(null)
@@ -996,6 +1250,9 @@ const ApplicationLayouts = () => {
             <Box onClick={(event) => event.stopPropagation()}>
                 <IconButton
                     size='small'
+                    aria-label={t('layouts.actionsFor', 'Actions for {{name}}', {
+                        name: resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout'))
+                    })}
                     sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
                     onClick={(event) => openMenu(event, layout)}
                 >
@@ -1004,7 +1261,13 @@ const ApplicationLayouts = () => {
             </Box>
         ),
         rowAction: (
-            <IconButton size='small' onClick={(event) => openMenu(event, layout)}>
+            <IconButton
+                size='small'
+                aria-label={t('layouts.actionsFor', 'Actions for {{name}}', {
+                    name: resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout'))
+                })}
+                onClick={(event) => openMenu(event, layout)}
+            >
                 <MoreVertRoundedIcon fontSize='small' />
             </IconButton>
         )
@@ -1039,14 +1302,18 @@ const ApplicationLayouts = () => {
                 onViewModeChange={(mode) => setView(mode)}
                 cardViewTitle={tc('cardView', 'Card view')}
                 listViewTitle={tc('listView', 'List view')}
-                loading={false}
+                loading={layoutsQuery.isFetching}
                 items={layoutListItems}
                 error={layoutsQuery.isError}
                 errorTitle={t('layouts.loadError', 'Failed to load layouts.')}
                 retryLabel={tc('actions.retry', 'Retry')}
+                onRetry={() => void layoutsQuery.refetch()}
                 emptyTitle={t('layouts.empty', 'No layouts found')}
                 metaColumnLabel={t('layouts.scope', 'Scope')}
                 statusColumnLabel={t('layouts.status', 'Status')}
+                nameColumnLabel={t('layouts.name', 'Name')}
+                descriptionColumnLabel={t('layouts.descriptionColumn', 'Description')}
+                emptyCellLabel={t('layouts.emptyCell', '—')}
                 listContentTestId='application-layouts-list-content'
             />
 
@@ -1061,7 +1328,7 @@ const ApplicationLayouts = () => {
                 onCopy={(layout) => copyMutation.mutate(layout)}
                 onMakeDefault={(layout) => updateMutation.mutate({ layout, data: { isDefault: true } })}
                 onToggleActive={(layout) => updateMutation.mutate({ layout, data: { isActive: !layout.isActive } })}
-                onDelete={(layout) => deleteMutation.mutate(layout)}
+                onDelete={(layout) => void requestDeleteLayout(layout)}
             />
 
             <ApplicationLayoutListDialogs

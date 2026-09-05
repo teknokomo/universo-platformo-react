@@ -66,13 +66,6 @@ export const quoteIdentifier = (identifier: string): string => {
     return `"${identifier}"`
 }
 
-export const quoteUuidLiteral = (value: string): string => {
-    if (!UUID_REGEX.test(value)) {
-        throw new Error(`Unsafe UUID literal: ${value}`)
-    }
-    return `'${value.toLowerCase()}'::uuid`
-}
-
 // ---------------------------------------------------------------------------
 // Locale helpers
 // ---------------------------------------------------------------------------
@@ -298,6 +291,15 @@ export const resolveRuntimeValue = (value: unknown, dataType: RuntimeDataType, l
 
 export const isSoftDeleteLifecycle = (contract: ApplicationLifecycleContract): boolean => contract.delete.mode === 'soft'
 
+const runtimeWorkspaceCondition = (prefix: string): string =>
+    `${prefix}workspace_id = NULLIF(current_setting('app.current_workspace_id', true), '')::uuid`
+
+const assertRuntimeWorkspaceId = (workspaceId: string | null | undefined): void => {
+    if (workspaceId !== undefined && workspaceId !== null && !UUID_REGEX.test(workspaceId)) {
+        throw new Error('Unsafe workspace UUID')
+    }
+}
+
 export const buildRuntimeActiveRowCondition = (
     contract: ApplicationLifecycleContract,
     platformConfig?: unknown,
@@ -308,6 +310,8 @@ export const buildRuntimeActiveRowCondition = (
     const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
     const clauses: string[] = []
 
+    assertRuntimeWorkspaceId(workspaceId)
+
     if (platformContract.delete.enabled) {
         clauses.push(`${prefix}_upl_deleted = false`)
     }
@@ -316,8 +320,8 @@ export const buildRuntimeActiveRowCondition = (
         clauses.push(`${prefix}_app_deleted = false`)
     }
 
-    if (workspaceId) {
-        clauses.push(`${prefix}workspace_id = ${quoteUuidLiteral(workspaceId)}`)
+    if (workspaceId !== undefined && workspaceId !== null) {
+        clauses.push(runtimeWorkspaceCondition(prefix))
     }
 
     return clauses.length > 0 ? clauses.join(' AND ') : 'TRUE'
@@ -337,12 +341,14 @@ export const buildRuntimeDeletedRowCondition = (
     const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
     const clauses: string[] = [`${prefix}_app_deleted = true`]
 
+    assertRuntimeWorkspaceId(workspaceId)
+
     if (platformContract.delete.enabled) {
         clauses.unshift(`${prefix}_upl_deleted = true`)
     }
 
-    if (workspaceId) {
-        clauses.push(`${prefix}workspace_id = ${quoteUuidLiteral(workspaceId)}`)
+    if (workspaceId !== undefined && workspaceId !== null) {
+        clauses.push(runtimeWorkspaceCondition(prefix))
     }
 
     return clauses.join(' AND ')

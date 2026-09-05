@@ -1,4 +1,5 @@
 import type { Knex } from 'knex'
+import { parseApplicationLayoutWidgetConfig } from '@universo-react/types'
 import type {
     MetahubTemplateSeed,
     TemplateSeedLayout,
@@ -329,20 +330,35 @@ export class TemplateSeedExecutor {
                 continue
             }
 
+            const layoutRow = await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({ id: layoutId })
+                .select('template_key', 'config')
+                .first()
+            const isMarketingLayout = layoutRow?.template_key === 'marketing-page'
             let insertedAny = false
             for (const w of widgets) {
-                const exists = await qb
-                    .withSchema(this.schemaName)
-                    .from(widgetTableName)
-                    .where({
-                        layout_id: layoutId,
-                        zone: w.zone,
-                        widget_key: w.widgetKey,
-                        sort_order: w.sortOrder,
-                        _upl_deleted: false,
-                        _mhb_deleted: false
-                    })
-                    .first()
+                let config = w.config ?? {}
+                if (isMarketingLayout) {
+                    try {
+                        config = parseApplicationLayoutWidgetConfig(w.widgetKey, config)
+                    } catch {
+                        throw new Error(`Invalid marketing widget configuration for ${w.widgetKey}`)
+                    }
+                }
+                const existsQuery = qb.withSchema(this.schemaName).from(widgetTableName).where({
+                    layout_id: layoutId,
+                    widget_key: w.widgetKey,
+                    _upl_deleted: false,
+                    _mhb_deleted: false
+                })
+                if (isMarketingLayout) {
+                    existsQuery.whereRaw("config->>'instanceKey' = ?", [config.instanceKey])
+                } else {
+                    existsQuery.where({ zone: w.zone, sort_order: w.sortOrder })
+                }
+                const exists = await existsQuery.first()
 
                 if (exists) continue
 
@@ -354,7 +370,7 @@ export class TemplateSeedExecutor {
                         zone: w.zone,
                         widget_key: w.widgetKey,
                         sort_order: w.sortOrder,
-                        config: w.config ?? {},
+                        config,
                         is_active: w.isActive !== false,
                         _upl_created_at: now,
                         _upl_created_by: null,
@@ -375,8 +391,7 @@ export class TemplateSeedExecutor {
                 continue
             }
 
-            const layoutRow = await qb.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).select('config').first()
-            if (hasNonEmptyConfigObject(layoutRow?.config)) {
+            if (isMarketingLayout || hasNonEmptyConfigObject(layoutRow?.config)) {
                 continue
             }
 

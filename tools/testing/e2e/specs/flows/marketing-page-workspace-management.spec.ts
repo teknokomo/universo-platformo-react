@@ -20,6 +20,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { withE2eDatabaseClient } from '../../support/backend/e2eDatabase.mjs'
+import { flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
 import {
     recordCreatedApplication,
     recordCreatedGlobalUser,
@@ -87,6 +88,10 @@ function workspacePath(applicationId: string, workspaceId?: string): string {
 
 function runtimePath(applicationId: string, workspaceId: string): string {
     return `/api/v1/applications/${applicationId}/runtime/marketing-page?locale=en&workspaceId=${encodeURIComponent(workspaceId)}`
+}
+
+function readEnglishLocalizedValue(value: unknown): unknown {
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as { en?: unknown }).en : undefined
 }
 
 test('@flow @permission @marketing-page verifies workspace lifecycle, seed isolation, and member denial', async ({
@@ -175,7 +180,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         const sharedRuntime = await getApiResponse(ownerApi, runtimePath(application.id, sharedWorkspace.id))
         expect(sharedRuntime.status).toBe(200)
         const sharedRuntimePayload = await sharedRuntime.json()
-        expect(sharedRuntimePayload.marketingPage?.records).toEqual(
+        expect(flattenMarketingPageRecords(sharedRuntimePayload)).toEqual(
             expect.arrayContaining([expect.objectContaining({ kind: 'siteSettings' })])
         )
 
@@ -228,13 +233,17 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         const copiedRuntime = await getApiResponse(ownerApi, runtimePath(application.id, createdCopiedWorkspace.id))
         expect(copiedRuntime.status).toBe(200)
         const copiedRuntimePayload = await copiedRuntime.json()
-        expect(copiedRuntimePayload.marketingPage?.records).toEqual(
+        expect(flattenMarketingPageRecords(copiedRuntimePayload)).toEqual(
             expect.arrayContaining([expect.objectContaining({ kind: 'siteSettings' })])
         )
 
-        const readSiteSettingsId = (payload: { marketingPage?: { records?: Array<{ id?: string; kind?: string }> } }): string => {
-            const record = payload.marketingPage?.records?.find((item) => item.kind === 'siteSettings')
-            if (!record?.id) throw new Error('Site settings record was not materialized for the workspace')
+        const readSiteSettingsId = (payload: unknown): string => {
+            const record = flattenMarketingPageRecords(payload as Parameters<typeof flattenMarketingPageRecords>[0]).find(
+                (item) => item.kind === 'siteSettings'
+            )
+            if (!record || typeof record.id !== 'string' || !record.id) {
+                throw new Error('Site settings record was not materialized for the workspace')
+            }
             return record.id
         }
         expect(readSiteSettingsId(sharedRuntimePayload)).not.toBe(readSiteSettingsId(copiedRuntimePayload))
@@ -314,8 +323,9 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         expect(authoredRuntime.status).toBe(200)
         const authoredRuntimePayload = await authoredRuntime.json()
         expect(
-            authoredRuntimePayload.marketingPage?.records?.find((record: { kind?: string }) => record.kind === 'siteSettings')?.heroTitle
-                ?.en
+            readEnglishLocalizedValue(
+                flattenMarketingPageRecords(authoredRuntimePayload).find((record) => record.kind === 'siteSettings')?.heroTitle
+            )
         ).toBe(authoredHeroTitle)
 
         await ownerBrowser.page.goto(new URL(`/a/${application.id}/workspaces`, ownerBrowser.page.url()).toString())
@@ -408,8 +418,9 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         expect(authoredAfterResetRuntime.status).toBe(200)
         const authoredAfterResetPayload = await authoredAfterResetRuntime.json()
         expect(
-            authoredAfterResetPayload.marketingPage?.records?.find((record: { kind?: string }) => record.kind === 'siteSettings')?.heroTitle
-                ?.en
+            readEnglishLocalizedValue(
+                flattenMarketingPageRecords(authoredAfterResetPayload).find((record) => record.kind === 'siteSettings')?.heroTitle
+            )
         ).toBe(authoredHeroTitle)
 
         const memberResetResponse = await sendWithCsrf(

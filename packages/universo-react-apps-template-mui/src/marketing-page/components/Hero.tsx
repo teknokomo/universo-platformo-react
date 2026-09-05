@@ -9,7 +9,7 @@ import { styled } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 
 import type { MarketingActionHandler, MarketingHeroData, MarketingLeadHandler } from '../types'
-import { MarketingActionButton, MarketingActionLink, MarketingMediaView } from './MarketingPrimitives'
+import { marketingFieldId, marketingSectionId, MarketingActionButton, MarketingActionLink, MarketingMediaView } from './MarketingPrimitives'
 
 const StyledBox = styled('div')(({ theme }) => ({
     alignSelf: 'center',
@@ -41,12 +41,14 @@ const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.te
 
 export interface HeroProps {
     data: MarketingHeroData
+    instanceKey?: string
     onAction?: MarketingActionHandler
     onLeadSubmit?: MarketingLeadHandler
 }
 
-export default function Hero({ data, onAction, onLeadSubmit }: HeroProps) {
+export default function Hero({ data, instanceKey, onAction, onLeadSubmit }: HeroProps) {
     const { t } = useTranslation('apps')
+    const heroId = marketingSectionId('hero', instanceKey)
     const [email, setEmail] = React.useState('')
     const [state, setState] = React.useState<SubmissionState>('idle')
     const [invalidEmail, setInvalidEmail] = React.useState(false)
@@ -86,7 +88,7 @@ export default function Hero({ data, onAction, onLeadSubmit }: HeroProps) {
             sx={{ pt: 2, width: { xs: '100%', sm: '350px' } }}
         >
             <TextField
-                id='email-hero'
+                id={marketingFieldId('email', instanceKey ?? 'hero')}
                 name='email'
                 label={submitLead.lead.label}
                 type='email'
@@ -140,7 +142,7 @@ export default function Hero({ data, onAction, onLeadSubmit }: HeroProps) {
 
     return (
         <Box
-            id='hero'
+            id={heroId}
             sx={(theme) => ({
                 width: '100%',
                 backgroundRepeat: 'no-repeat',
@@ -162,7 +164,7 @@ export default function Hero({ data, onAction, onLeadSubmit }: HeroProps) {
                 <Stack spacing={2} useFlexGap sx={{ alignItems: 'center', width: { xs: '100%', sm: '70%' } }}>
                     <Typography
                         component='h1'
-                        id='hero-title'
+                        id={`${heroId}-title`}
                         variant='h1'
                         sx={{
                             display: 'flex',

@@ -1,10 +1,10 @@
 {
     "version": 1,
-    "generatedAt": "2026-09-01",
+    "generatedAt": "2026-09-04",
     "generator": "tools/testing/e2e/specs/flows/marketing-page-runtime.spec.ts",
     "generatorSha256": "e3a72802fc935cfbfdaa9a688f7db9459908719fc246bb7a4162cd5a73cf8427",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "5d9e73e3189fd4837bba8af9416c68c3bf01d5580ca1ea3c8b45b36689cf7706",
+    "sourceTemplateSha256": "d5555ddcc8631b53f8d8aa51f8b7370b59642feeff36af6b14c487e5a4a7048b",
     "route": "/a/:applicationId",
     "locale": "en",
     "theme": "light",

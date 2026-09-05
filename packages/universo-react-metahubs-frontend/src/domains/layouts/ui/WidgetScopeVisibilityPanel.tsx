@@ -69,8 +69,15 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
     }
 
     const mutation = useMutation({
-        mutationFn: ({ scopeEntityId, isVisible }: { scopeEntityId: string; isVisible: boolean }) =>
-            layoutsApi.updateLayoutWidgetScopeVisibility(metahubId, layoutId, widgetId, scopeEntityId, isVisible),
+        mutationFn: ({
+            scopeEntityId,
+            isVisible,
+            expectedVersion
+        }: {
+            scopeEntityId: string
+            isVisible: boolean
+            expectedVersion: number
+        }) => layoutsApi.updateLayoutWidgetScopeVisibility(metahubId, layoutId, widgetId, scopeEntityId, isVisible, expectedVersion),
         onSuccess: async () => {
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey }),
@@ -209,7 +216,13 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
                                         )
                                     }
                                 }}
-                                onChange={(_, checked) => mutation.mutate({ scopeEntityId: item.scopeEntityId, isVisible: checked })}
+                                onChange={(_, checked) =>
+                                    mutation.mutate({
+                                        scopeEntityId: item.scopeEntityId,
+                                        isVisible: checked,
+                                        expectedVersion: item.version
+                                    })
+                                }
                                 data-testid={`layout-widget-scope-visibility-switch-${item.scopeEntityId}`}
                             />
                         </Stack>

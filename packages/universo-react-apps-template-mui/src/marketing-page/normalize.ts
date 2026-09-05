@@ -1,25 +1,36 @@
-import type {
-    MarketingAction as SharedMarketingAction,
-    MarketingMedia as SharedMarketingMedia,
-    MarketingPageRecord,
-    MarketingPageRuntimeViewModel
+import {
+    marketingPageRuntimeViewModelSchema,
+    type MarketingAction as SharedMarketingAction,
+    type MarketingCollectionVariant,
+    type MarketingMedia as SharedMarketingMedia,
+    type MarketingPageRecord,
+    type MarketingRuntimeWidget,
+    type MarketingSiteSettingsRecord
 } from '@universo-react/types'
 import { resolveMarketingLocalizedText, toMarketingActionHref, toMarketingActionLinkAttributes } from '@universo-react/utils'
+import i18n from '@universo-react/i18n'
+
 import type {
     MarketingAction,
+    MarketingCollectionWidget,
+    MarketingCollectionWidgetContent,
     MarketingFeature,
     MarketingFooterData,
+    MarketingFooterWidget,
     MarketingHeroData,
     MarketingIconKey,
     MarketingLinkGroup,
     MarketingLogo,
     MarketingMedia,
+    MarketingNavigationItem,
+    MarketingNavigationWidget,
     MarketingPageData,
+    MarketingPageWidget,
     MarketingPricingTier,
+    MarketingPricingWidget,
     MarketingSectionCopy,
     MarketingTestimonial
 } from './types'
-import i18n from '@universo-react/i18n'
 import '../i18n'
 
 const iconMap: Record<string, MarketingIconKey> = {
@@ -93,7 +104,7 @@ const translatedFallback = (locale: string, key: MarketingFallbackKey): string =
     return typeof value === 'string' && value !== resourceKey ? value : ''
 }
 
-const text = (value: unknown, locale: string, fallbackKey?: MarketingFallbackKey) =>
+const text = (value: unknown, locale: string, fallbackKey?: MarketingFallbackKey): string =>
     resolveMarketingLocalizedText(value, locale, ['en', 'ru']) ?? (fallbackKey ? translatedFallback(locale, fallbackKey) : '')
 
 const media = (value: SharedMarketingMedia | undefined, locale: string): MarketingMedia | undefined => {
@@ -118,7 +129,8 @@ const action = (value: SharedMarketingAction | undefined, label: string, semanti
     if (!value) return undefined
     const href = toMarketingActionHref(value)
     const attrs = toMarketingActionLinkAttributes(value)
-    const actionKind = value.kind === 'email' ? 'mailto' : value.kind === 'tel' ? 'tel' : value.kind === 'anchor' ? 'internal' : value.kind
+    const actionKind: MarketingAction['actionKind'] =
+        value.kind === 'email' ? 'mailto' : value.kind === 'tel' ? 'tel' : value.kind === 'anchor' ? 'internal' : value.kind
     return {
         semanticKey,
         label,
@@ -128,96 +140,153 @@ const action = (value: SharedMarketingAction | undefined, label: string, semanti
     }
 }
 
-const recordByKind = <T extends MarketingPageRecord['kind']>(records: MarketingPageRecord[], kind: T) =>
-    records.filter((record): record is Extract<MarketingPageRecord, { kind: T }> => record.kind === kind)
+const internalAction = (semanticKey: string, label: string, href: string): MarketingAction => ({
+    semanticKey,
+    label,
+    actionKind: 'internal',
+    href,
+    target: '_self'
+})
 
-const byOrder = <T extends { order: number; visible: boolean }>(items: T[]) =>
-    items.filter((item) => item.visible).sort((left, right) => left.order - right.order)
+type RecordOfKind<T extends MarketingPageRecord['kind']> = Extract<MarketingPageRecord, { kind: T }>
+
+const recordsOfKind = <T extends MarketingPageRecord['kind']>(items: readonly MarketingPageRecord[], kind: T): RecordOfKind<T>[] =>
+    items.filter((item): item is RecordOfKind<T> => item.kind === kind)
+
+const visibleInContent = <T extends { visible?: boolean; order?: number }>(items: T[]): T[] =>
+    items
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.visible !== false)
+        .sort(
+            ({ item: left, index: leftIndex }, { item: right, index: rightIndex }) =>
+                (left.order ?? leftIndex) - (right.order ?? rightIndex) || leftIndex - rightIndex
+        )
+        .map(({ item }) => item)
+
+const widgetItems = (widget: MarketingRuntimeWidget): MarketingPageRecord[] => widget.data.records
+
+const firstSettings = (
+    items: readonly MarketingPageRecord[],
+    fallback?: MarketingSiteSettingsRecord
+): MarketingSiteSettingsRecord | undefined => recordsOfKind(items, 'siteSettings')[0] ?? fallback
 
 const sectionCopy = (
-    source: MarketingPageRuntimeViewModel['marketingPage']['sectionCopies'],
-    key: keyof MarketingPageData['sections'],
+    items: readonly MarketingPageRecord[],
+    variant: MarketingCollectionVariant | 'pricing',
     locale: string,
-    fallbackKey: MarketingFallbackKey
+    fallbackKey: MarketingFallbackKey,
+    options: { showTitle?: boolean; showDescription?: boolean } = {}
 ): MarketingSectionCopy => {
-    const sourceKey = key === 'logoCollection' ? 'logos' : key
-    const copy = source[sourceKey]
+    const copy = recordsOfKind(items, 'sectionCopy').find(
+        (item) => item.sectionKey === variant || (variant === 'logos' && item.sectionKey === 'logoCollection')
+    )
     return {
         title: text(copy?.title, locale, fallbackKey),
-        description: copy?.description ? text(copy.description, locale) : undefined
+        description: copy?.description ? text(copy.description, locale) : undefined,
+        showTitle: options.showTitle !== false,
+        showDescription: options.showDescription !== false
     }
 }
 
-export function normalizeMarketingPageRuntime(viewModel: MarketingPageRuntimeViewModel, locale: string): MarketingPageData {
-    const page = viewModel.marketingPage
-    const settings = recordByKind(page.records, 'siteSettings')[0]
-    if (!settings) throw new Error('Marketing page site settings are missing')
-
-    const navigation = byOrder(
-        recordByKind(page.records, 'navigationLink').map((record) => {
-            const actionKind: MarketingAction['actionKind'] =
-                record.action.kind === 'email'
-                    ? 'mailto'
-                    : record.action.kind === 'tel'
-                    ? 'tel'
-                    : record.action.kind === 'anchor'
-                    ? 'internal'
-                    : record.action.kind
-            return {
+const normalizeNavigation = (
+    items: readonly MarketingPageRecord[],
+    settings: MarketingSiteSettingsRecord | undefined,
+    locale: string,
+    showAuthActions = true
+): MarketingNavigationWidget['content'] => {
+    const navigation = visibleInContent(
+        recordsOfKind(items, 'navigationLink').map(
+            (record): MarketingNavigationItem => ({
                 semanticKey: record.semanticKey,
                 label: text(record.label, locale, 'navigationLabel'),
-                actionKind,
+                actionKind:
+                    record.action.kind === 'email'
+                        ? 'mailto'
+                        : record.action.kind === 'tel'
+                        ? 'tel'
+                        : record.action.kind === 'anchor'
+                        ? 'internal'
+                        : record.action.kind,
                 href: toMarketingActionHref(record.action),
-                target: toMarketingActionLinkAttributes(record.action).target === '_blank' ? ('_blank' as const) : ('_self' as const),
+                target: toMarketingActionLinkAttributes(record.action).target === '_blank' ? '_blank' : '_self',
                 order: record.order,
                 visible: record.isVisible
-            }
-        })
+            })
+        )
     )
 
-    const logos: MarketingLogo[] = byOrder(
-        recordByKind(page.records, 'logo').map((record) => {
+    return {
+        brand: {
+            name: text(settings?.brandName, locale, 'brandName'),
+            logo: media(settings?.brandLogo, locale)
+        },
+        navigation,
+        ...(showAuthActions
+            ? {
+                  auth: {
+                      signIn: internalAction('sign-in', translatedFallback(locale, 'authSignIn'), '/sign-in'),
+                      signUp: internalAction('sign-up', translatedFallback(locale, 'authSignUp'), '/sign-up')
+                  }
+              }
+            : {})
+    }
+}
+
+const normalizeHero = (settings: MarketingSiteSettingsRecord | undefined, locale: string, showLeadForm = true): MarketingHeroData => {
+    const light = media(settings?.heroLightPreview, locale)
+    const dark = media(settings?.heroDarkPreview, locale)
+    const primaryAction = settings?.heroPrimaryAction
+    const secondaryAction = settings?.heroSecondaryAction
+    return {
+        title: text(settings?.heroTitle, locale, 'heroTitle'),
+        accent: settings?.heroAccent ? text(settings.heroAccent, locale, 'heroAccent') : undefined,
+        description: text(settings?.heroSubtitle, locale),
+        media: mergeMedia(light, dark),
+        lead:
+            showLeadForm && settings?.heroEmailLabel && settings.heroEmailPlaceholder
+                ? {
+                      label: text(settings.heroEmailLabel, locale, 'emailLabel'),
+                      placeholder: text(settings.heroEmailPlaceholder, locale, 'emailPlaceholder'),
+                      submitLabel: text(primaryAction?.label, locale, 'heroSubmit'),
+                      action: action(primaryAction?.action, text(primaryAction?.label, locale, 'heroSubmit'), 'hero-primary'),
+                      termsText: settings.heroTermsText ? text(settings.heroTermsText, locale) : undefined,
+                      termsAction: action(secondaryAction?.action, text(secondaryAction?.label, locale, 'heroTerms'), 'hero-secondary')
+                  }
+                : undefined
+    }
+}
+
+const normalizeLogos = (items: readonly MarketingPageRecord[], locale: string): MarketingLogo[] =>
+    visibleInContent(
+        recordsOfKind(items, 'logo').map((record) => {
             const light = media(record.media, locale)
             const dark = media(record.darkMedia, locale)
             return {
                 semanticKey: record.semanticKey,
                 name: text(record.name, locale, 'logoName'),
-                media: light
-                    ? { ...light, darkResource: dark?.resource, darkSrc: dark?.src, darkAlt: dark?.alt }
-                    : dark ?? { src: '', alt: '' },
+                media: mergeMedia(light, dark) ?? { src: '', alt: '' },
                 order: record.order,
                 visible: record.isVisible
             }
         })
     )
 
-    const features: MarketingFeature[] = byOrder(
-        recordByKind(page.records, 'feature').map((record) => ({
+const normalizeFeatures = (items: readonly MarketingPageRecord[], locale: string): MarketingFeature[] =>
+    visibleInContent(
+        recordsOfKind(items, 'feature').map((record) => ({
             semanticKey: record.semanticKey,
             title: text(record.title, locale, 'featureTitle'),
             description: text(record.description, locale),
             icon: iconMap[record.iconKey ?? ''] ?? 'viewQuilt',
-            media: (() => {
-                const light = media(record.lightMedia, locale)
-                const dark = media(record.darkMedia, locale)
-                if (!light && !dark) return undefined
-                return {
-                    src: light?.src ?? dark?.src ?? '',
-                    alt: light?.alt ?? dark?.alt ?? '',
-                    resource: light?.resource ?? dark?.resource,
-                    darkResource: dark?.resource,
-                    darkSrc: dark?.src,
-                    darkAlt: dark?.alt,
-                    decorative: light?.decorative ?? dark?.decorative
-                }
-            })(),
+            media: mergeMedia(media(record.lightMedia, locale), media(record.darkMedia, locale)),
             order: record.order,
             visible: record.isVisible
         }))
     )
 
-    const testimonials: MarketingTestimonial[] = byOrder(
-        recordByKind(page.records, 'testimonial').map((record) => ({
+const normalizeTestimonials = (items: readonly MarketingPageRecord[], locale: string): MarketingTestimonial[] =>
+    visibleInContent(
+        recordsOfKind(items, 'testimonial').map((record) => ({
             semanticKey: record.semanticKey,
             quote: text(record.quote, locale),
             name: text(record.author, locale, 'testimonialAuthor'),
@@ -229,8 +298,9 @@ export function normalizeMarketingPageRuntime(viewModel: MarketingPageRuntimeVie
         }))
     )
 
-    const highlights = byOrder(
-        recordByKind(page.records, 'highlight').map((record) => ({
+const normalizeHighlights = (items: readonly MarketingPageRecord[], locale: string) =>
+    visibleInContent(
+        recordsOfKind(items, 'highlight').map((record) => ({
             semanticKey: record.semanticKey,
             title: text(record.title, locale, 'highlightTitle'),
             description: text(record.description, locale),
@@ -240,16 +310,17 @@ export function normalizeMarketingPageRuntime(viewModel: MarketingPageRuntimeVie
         }))
     )
 
-    const pricingBenefitsByKey = new Map(
-        recordByKind(page.records, 'pricingBenefit')
+const normalizePricing = (items: readonly MarketingPageRecord[], locale: string): MarketingPricingTier[] => {
+    const benefits = new Map(
+        recordsOfKind(items, 'pricingBenefit')
             .filter((record) => record.isVisible)
-            .map((record) => [record.semanticKey, text(record.label, locale, 'pricingBenefit')])
+            .map((record) => [record.semanticKey, text(record.label, locale, 'pricingBenefit')] as const)
     )
 
-    const pricing: MarketingPricingTier[] = byOrder(
-        recordByKind(page.records, 'pricingTier').map((record) => {
+    return visibleInContent(
+        recordsOfKind(items, 'pricingTier').map((record) => {
             const linkedBenefits = record.benefitKeys
-                .map((benefitKey) => pricingBenefitsByKey.get(benefitKey))
+                .map((benefitKey) => benefits.get(benefitKey))
                 .filter((benefit): benefit is string => Boolean(benefit))
             return {
                 semanticKey: record.semanticKey,
@@ -261,7 +332,6 @@ export function normalizeMarketingPageRuntime(viewModel: MarketingPageRuntimeVie
                         ? linkedBenefits
                         : record.benefits.map((benefit) => text(benefit, locale)).filter((benefit): benefit is string => Boolean(benefit)),
                 description: record.description ? text(record.description, locale) : undefined,
-                badge: record.description ? text(record.description, locale) : undefined,
                 featured: record.featured,
                 action: record.action ? action(record.action.action, text(record.action.label, locale), record.semanticKey) : undefined,
                 order: record.order,
@@ -269,9 +339,11 @@ export function normalizeMarketingPageRuntime(viewModel: MarketingPageRuntimeVie
             }
         })
     )
+}
 
-    const faq = byOrder(
-        recordByKind(page.records, 'faq').map((record) => ({
+const normalizeFaq = (items: readonly MarketingPageRecord[], locale: string) =>
+    visibleInContent(
+        recordsOfKind(items, 'faq').map((record) => ({
             semanticKey: record.semanticKey,
             question: text(record.question, locale, 'faqQuestion'),
             answer: text(record.answer, locale),
@@ -280,29 +352,39 @@ export function normalizeMarketingPageRuntime(viewModel: MarketingPageRuntimeVie
         }))
     )
 
-    const footerLinkRecords = recordByKind(page.records, 'footerLink').filter((record) => record.isVisible)
-    const footerGroups = Array.from(
-        footerLinkRecords
+const normalizeFooter = (
+    items: readonly MarketingPageRecord[],
+    settings: MarketingSiteSettingsRecord | undefined,
+    locale: string,
+    showNewsletter = true
+): MarketingFooterData => {
+    const footerLinkItems = recordsOfKind(items, 'footerLink').filter((record) => record.isVisible)
+    const groups = Array.from(
+        footerLinkItems
             .filter((record) => record.groupKey !== 'social')
-            .reduce((groups, record) => {
-                const group = groups.get(record.groupKey) ?? {
+            .reduce((result, record) => {
+                const group = result.get(record.groupKey) ?? {
                     semanticKey: record.groupKey,
                     title: text(record.groupTitle, locale, 'footerGroupTitle'),
-                    links: [] as MarketingAction[]
+                    links: [] as MarketingAction[],
+                    order: record.order,
+                    visible: true
                 }
                 const link = action(record.action, text(record.label, locale, 'footerLink'), record.semanticKey)
                 if (link) group.links.push(link)
-                groups.set(record.groupKey, group)
-                return groups
+                result.set(record.groupKey, group)
+                return result
             }, new Map<string, MarketingLinkGroup>())
             .values()
-    )
-    const legalLinks = footerLinkRecords
+    ).sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+
+    const legalLinks = footerLinkItems
         .filter((record) => record.groupKey === 'legal' && (record.semanticKey === 'legal-privacy' || record.semanticKey === 'legal-terms'))
         .sort((left, right) => left.order - right.order)
         .map((record) => action(record.action, text(record.secondaryLabel ?? record.label, locale, 'footerLink'), record.semanticKey))
         .filter((link): link is MarketingAction => Boolean(link))
-    const socialLinks = footerLinkRecords
+
+    const socialLinks = footerLinkItems
         .filter((record) => record.groupKey === 'social')
         .map((record) => {
             const link = action(record.action, text(record.label, locale, 'socialLink'), record.semanticKey)
@@ -310,125 +392,151 @@ export function normalizeMarketingPageRuntime(viewModel: MarketingPageRuntimeVie
         })
         .filter((link): link is NonNullable<typeof link> => Boolean(link))
 
-    const hero: MarketingHeroData = {
-        title: text(settings.heroTitle, locale, 'heroTitle'),
-        accent: settings.heroAccent ? text(settings.heroAccent, locale, 'heroAccent') : undefined,
-        description: text(settings.heroSubtitle, locale),
-        media: (() => {
-            const light = media(settings.heroLightPreview, locale)
-            const dark = media(settings.heroDarkPreview, locale)
-            if (!light && !dark) return undefined
-            return {
-                src: light?.src ?? dark?.src ?? '',
-                alt: light?.alt ?? dark?.alt ?? '',
-                resource: light?.resource ?? dark?.resource,
-                darkResource: dark?.resource,
-                darkSrc: dark?.src,
-                darkAlt: dark?.alt,
-                decorative: light?.decorative ?? dark?.decorative
-            }
-        })(),
-        lead:
-            settings.heroEmailLabel && settings.heroEmailPlaceholder
+    const newsletter = settings?.newsletter
+    return {
+        brandName: text(settings?.brandName, locale, 'brandName'),
+        logo: media(settings?.brandLogo, locale),
+        description: settings?.footerDescription ? text(settings.footerDescription, locale) : undefined,
+        newsletter:
+            showNewsletter && newsletter
                 ? {
-                      label: settings.heroEmailLabel,
-                      placeholder: settings.heroEmailPlaceholder,
-                      submitLabel: text(settings.heroPrimaryAction?.label, locale, 'heroSubmit'),
-                      action: settings.heroPrimaryAction
-                          ? action(
-                                settings.heroPrimaryAction.action,
-                                text(settings.heroPrimaryAction.label, locale, 'heroSubmit'),
-                                'hero-primary'
-                            )
-                          : undefined,
-                      termsText: settings.heroTermsText ? text(settings.heroTermsText, locale) : undefined,
-                      termsAction: settings.heroSecondaryAction
-                          ? action(
-                                settings.heroSecondaryAction.action,
-                                text(settings.heroSecondaryAction.label, locale, 'heroTerms'),
-                                'hero-secondary'
-                            )
+                      title: text(newsletter.title, locale, 'newsletterTitle'),
+                      description: newsletter.description ? text(newsletter.description, locale) : '',
+                      label: text(newsletter.emailLabel, locale, 'emailLabel'),
+                      placeholder: text(newsletter.emailPlaceholder, locale, 'emailPlaceholder'),
+                      submitLabel: text(newsletter.submitLabel, locale, 'newsletterSubmit'),
+                      successMessage: text(newsletter.successMessage, locale, 'newsletterSuccess'),
+                      errorMessage: text(newsletter.errorMessage, locale, 'newsletterError'),
+                      action: newsletter.action
+                          ? action(newsletter.action, text(newsletter.submitLabel, locale, 'newsletterSubmit'), 'newsletter')
                           : undefined
                   }
-                : undefined
-    }
-
-    const footer: MarketingFooterData = {
-        brandName: text(settings.brandName, locale, 'brandName'),
-        logo: media(settings.brandLogo, locale),
-        description: settings.footerDescription ? text(settings.footerDescription, locale) : undefined,
-        newsletter: settings.newsletter
-            ? {
-                  title: text(settings.newsletter.title, locale, 'newsletterTitle'),
-                  description: settings.newsletter.description ? text(settings.newsletter.description, locale) : '',
-                  label: text(settings.newsletter.emailLabel, locale, 'emailLabel'),
-                  placeholder: text(settings.newsletter.emailPlaceholder, locale, 'emailPlaceholder'),
-                  submitLabel: text(settings.newsletter.submitLabel, locale, 'newsletterSubmit'),
-                  successMessage: text(settings.newsletter.successMessage, locale, 'newsletterSuccess'),
-                  errorMessage: text(settings.newsletter.errorMessage, locale, 'newsletterError'),
-                  action: settings.newsletter.action
-                      ? action(settings.newsletter.action, text(settings.newsletter.submitLabel, locale, 'newsletterSubmit'), 'newsletter')
-                      : undefined
-              }
-            : undefined,
-        groups: footerGroups,
+                : undefined,
+        groups,
         legalLinks,
         socialLinks,
-        copyrightText: text(settings.copyright, locale, 'copyrightText'),
-        copyrightAction: settings.copyrightAction
+        copyrightText: text(settings?.copyright, locale, 'copyrightText'),
+        copyrightAction: settings?.copyrightAction
             ? action(settings.copyrightAction.action, text(settings.copyrightAction.label, locale, 'copyrightLabel'), 'copyright')
             : undefined
     }
+}
+
+const frame = (widget: MarketingRuntimeWidget) => ({
+    instanceKey: widget.instanceKey,
+    zone: widget.zone,
+    sortOrder: widget.sortOrder,
+    isActive: widget.isActive
+})
+
+const normalizeCollection = (
+    widget: Extract<MarketingRuntimeWidget, { widgetKey: 'marketing.collection' }>,
+    locale: string
+): MarketingCollectionWidget => {
+    const items = widgetItems(widget)
+    const variant = widget.config.variant
+    let content: MarketingCollectionWidgetContent
+    switch (variant) {
+        case 'logos':
+            content = {
+                variant,
+                section: sectionCopy(items, variant, locale, 'logoCollectionTitle', widget.config),
+                items: normalizeLogos(items, locale)
+            }
+            break
+        case 'features':
+            content = {
+                variant,
+                section: sectionCopy(items, variant, locale, 'featuresTitle', widget.config),
+                items: normalizeFeatures(items, locale)
+            }
+            break
+        case 'testimonials':
+            content = {
+                variant,
+                section: sectionCopy(items, variant, locale, 'testimonialsTitle', widget.config),
+                items: normalizeTestimonials(items, locale)
+            }
+            break
+        case 'highlights':
+            content = {
+                variant,
+                section: sectionCopy(items, variant, locale, 'highlightsTitle', widget.config),
+                items: normalizeHighlights(items, locale)
+            }
+            break
+        case 'faq':
+            content = {
+                variant,
+                section: sectionCopy(items, variant, locale, 'faqSectionTitle', widget.config),
+                items: normalizeFaq(items, locale)
+            }
+            break
+    }
+    return { ...frame(widget), widgetKey: 'marketing.collection', content }
+}
+
+const normalizeWidget = (
+    widget: MarketingRuntimeWidget,
+    locale: string,
+    globalSettings: MarketingSiteSettingsRecord | undefined
+): MarketingPageWidget => {
+    const items = widgetItems(widget)
+    switch (widget.widgetKey) {
+        case 'marketing.navigation':
+            return {
+                ...frame(widget),
+                widgetKey: widget.widgetKey,
+                content: normalizeNavigation(items, firstSettings(items, globalSettings), locale, widget.config.showAuthActions)
+            }
+        case 'marketing.hero':
+            return {
+                ...frame(widget),
+                widgetKey: widget.widgetKey,
+                content: normalizeHero(firstSettings(items, globalSettings), locale, widget.config.showLeadForm)
+            }
+        case 'marketing.collection':
+            return normalizeCollection(widget, locale)
+        case 'marketing.pricing':
+            return {
+                ...frame(widget),
+                widgetKey: widget.widgetKey,
+                content: {
+                    section: sectionCopy(items, 'pricing', locale, 'pricingSectionTitle'),
+                    tiers: normalizePricing(items, locale)
+                }
+            } satisfies MarketingPricingWidget
+        case 'marketing.footer':
+            return {
+                ...frame(widget),
+                widgetKey: widget.widgetKey,
+                content: normalizeFooter(items, firstSettings(items, globalSettings), locale, widget.config.showNewsletter)
+            } satisfies MarketingFooterWidget
+    }
+}
+
+/**
+ * Validate the complete server envelope before reducing it to the local
+ * render model. Every schema-valid widget is retained, including inactive and
+ * empty-content instances, so composition remains server-owned and fail-closed
+ * validation is not confused with an empty collection state.
+ */
+export function normalizeMarketingPageRuntime(viewModel: unknown, locale: string): MarketingPageData {
+    const parsed = marketingPageRuntimeViewModelSchema.parse(viewModel)
+    const page = parsed.marketingPage
+    const requestedLocale = normalizeLanguage(locale)
+    const allItems = page.widgets.flatMap((widget) => widgetItems(widget))
+    const inheritedSettings = firstSettings(allItems)
+    const globalSettings =
+        page.config.brandLogo && inheritedSettings ? { ...inheritedSettings, brandLogo: page.config.brandLogo } : inheritedSettings
 
     return {
         templateKey: 'marketing-page',
-        config: {
-            themeMode: page.config.themeMode,
-            sectionVisibility: page.config.sectionVisibility as NonNullable<MarketingPageData['config']>['sectionVisibility'],
-            sectionOrder: page.config.sectionOrder,
-            primaryColor: page.config.primaryColor,
-            accentColor: page.config.accentColor,
-            allowEmailActions: page.config.allowEmailActions,
-            allowTelephoneActions: page.config.allowTelephoneActions,
-            externalLinkTarget: page.config.externalLinkTarget
-        },
-        // An application-level appearance override wins; otherwise keep the
-        // brand media authored in the singleton site-settings record. This
-        // prevents a valid site-settings logo from disappearing in the
-        // published header when the layout config has no override.
-        brand: { name: footer.brandName, logo: media(page.config.brandLogo, locale) ?? footer.logo },
-        navigation,
-        auth: {
-            signIn: {
-                semanticKey: 'sign-in',
-                label: translatedFallback(locale, 'authSignIn'),
-                actionKind: 'internal',
-                href: '/sign-in',
-                target: '_self'
-            },
-            signUp: {
-                semanticKey: 'sign-up',
-                label: translatedFallback(locale, 'authSignUp'),
-                actionKind: 'internal',
-                href: '/sign-up',
-                target: '_self'
-            }
-        },
-        hero,
-        sections: {
-            logoCollection: sectionCopy(page.sectionCopies, 'logoCollection', locale, 'logoCollectionTitle'),
-            features: sectionCopy(page.sectionCopies, 'features', locale, 'featuresTitle'),
-            testimonials: sectionCopy(page.sectionCopies, 'testimonials', locale, 'testimonialsTitle'),
-            highlights: sectionCopy(page.sectionCopies, 'highlights', locale, 'highlightsTitle'),
-            pricing: sectionCopy(page.sectionCopies, 'pricing', locale, 'pricingSectionTitle'),
-            faq: sectionCopy(page.sectionCopies, 'faq', locale, 'faqSectionTitle')
-        },
-        logos,
-        features,
-        testimonials,
-        highlights,
-        pricing,
-        faq,
-        footer
+        locale: page.locale,
+        config: page.config,
+        widgets: page.widgets.map((widget) => normalizeWidget(widget, requestedLocale, globalSettings)),
+        runtime: page.runtime,
+        provenance: page.provenance,
+        richContent: page.richContent
     }
 }

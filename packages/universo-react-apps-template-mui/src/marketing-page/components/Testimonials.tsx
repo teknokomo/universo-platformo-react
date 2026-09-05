@@ -8,18 +8,26 @@ import Grid from '@mui/material/Grid'
 import Typography from '@mui/material/Typography'
 
 import type { MarketingSectionCopy, MarketingTestimonial } from '../types'
-import { MarketingEmptyState, MarketingMediaView, MarketingSectionHeader, sortVisibleMarketingItems } from './MarketingPrimitives'
+import {
+    marketingSectionId,
+    MarketingEmptyState,
+    MarketingMediaView,
+    MarketingSectionHeader,
+    sortVisibleMarketingItems
+} from './MarketingPrimitives'
 
 export interface TestimonialsProps {
     section: MarketingSectionCopy
     items: MarketingTestimonial[]
+    instanceKey?: string
 }
 
-export default function Testimonials({ section, items }: TestimonialsProps) {
+export default function Testimonials({ section, items, instanceKey }: TestimonialsProps) {
     const visibleItems = sortVisibleMarketingItems(items)
+    const sectionId = marketingSectionId('testimonials', instanceKey)
     return (
         <Container
-            id='testimonials'
+            id={sectionId}
             sx={{
                 pt: { xs: 4, sm: 12 },
                 pb: { xs: 8, sm: 16 },
@@ -30,7 +38,7 @@ export default function Testimonials({ section, items }: TestimonialsProps) {
                 gap: { xs: 3, sm: 6 }
             }}
         >
-            <MarketingSectionHeader section={section} id='testimonials' />
+            <MarketingSectionHeader section={section} id={sectionId} />
             {visibleItems.length === 0 ? (
                 <MarketingEmptyState section={section.title} />
             ) : (

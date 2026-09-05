@@ -58,6 +58,9 @@ export type LayoutAuthoringListProps = {
     emptyDescription?: string
     metaColumnLabel: string
     statusColumnLabel: string
+    nameColumnLabel?: string
+    descriptionColumnLabel?: string
+    emptyCellLabel?: string
     listContentTestId: string
     footerContent?: ReactNode
 }
@@ -88,30 +91,33 @@ export function LayoutAuthoringList({
     emptyDescription,
     metaColumnLabel,
     statusColumnLabel,
+    nameColumnLabel = 'Name',
+    descriptionColumnLabel = 'Description',
+    emptyCellLabel = '—',
     listContentTestId,
     footerContent
 }: LayoutAuthoringListProps) {
     const columns = [
         {
             id: 'name',
-            label: 'Name',
+            label: nameColumnLabel,
             width: '25%',
             align: 'left' as const,
             render: (row: LayoutAuthoringListItem) => row.titleContent ?? row.title
         },
         {
             id: 'description',
-            label: 'Description',
+            label: descriptionColumnLabel,
             width: '30%',
             align: 'left' as const,
-            render: (row: LayoutAuthoringListItem) => row.descriptionContent ?? row.description ?? '—'
+            render: (row: LayoutAuthoringListItem) => row.descriptionContent ?? row.description ?? emptyCellLabel
         },
         {
             id: 'meta',
             label: metaColumnLabel,
             width: '15%',
             align: 'left' as const,
-            render: (row: LayoutAuthoringListItem) => row.metaContent ?? row.meta ?? '—'
+            render: (row: LayoutAuthoringListItem) => row.metaContent ?? row.meta ?? emptyCellLabel
         },
         {
             id: 'status',

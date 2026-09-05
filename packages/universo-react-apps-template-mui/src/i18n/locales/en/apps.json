@@ -428,6 +428,9 @@
         "copyLink": "Copy link"
     },
     "runtime": {
+        "retry": "Retry",
+        "loading": "Loading application",
+        "loadError": "The application could not be loaded.",
         "table": {
             "name": "Name",
             "description": "Description",

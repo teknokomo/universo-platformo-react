@@ -604,6 +604,20 @@ const playCanvasAssetExpectedCurrentChecksumQueryParameter = {
 
 const packageOperationOverrides = {
     ...interpretationNetworkOperationOverrides,
+    'POST /applications/{applicationId}/layouts/{layoutId}/copy': {
+        summary: 'Copy an application layout from a versioned source snapshot',
+        description:
+            'Owner/admin-only copy. The source layout and all widget placements are read under one optimistic snapshot; stale expectedVersion values are rejected with 409.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutCopyRequest')
+        },
+        responses: {
+            201: createdResponse('GenericObject'),
+            409: { $ref: '#/components/responses/Conflict' }
+        },
+        removeResponses: ['200']
+    },
     'GET /metahub/{metahubId}/packages': {
         responses: {
             200: successResponse('MetahubPackageAttachmentListResponse')
@@ -883,6 +897,15 @@ const buildSpec = () => {
                         }
                     },
                     required: ['updates']
+                },
+                ApplicationLayoutCopyRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['expectedVersion'],
+                    description: 'Optimistic source layout version required before copying its complete widget composition.'
                 },
                 ApplicationLayoutWidgetBatchResponse: {
                     type: 'object',

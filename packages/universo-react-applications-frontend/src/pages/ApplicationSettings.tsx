@@ -498,7 +498,7 @@ const ApplicationSettings = () => {
                         splitPane: normalizedSettings.splitPane,
                         templatePanel: normalizedSettings.templatePanel
                     },
-                    ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
+                    expectedVersion: widget.version
                 }))
             })
 
@@ -589,7 +589,7 @@ const ApplicationSettings = () => {
                 updates: widgets.map((widget) => ({
                     layoutId: widget.layout.id,
                     widgetId: widget.id,
-                    ...(typeof widget.version === 'number' ? { expectedVersion: widget.version } : {})
+                    expectedVersion: widget.version
                 }))
             })
         },

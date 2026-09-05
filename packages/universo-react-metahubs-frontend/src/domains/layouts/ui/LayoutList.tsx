@@ -423,11 +423,14 @@ export const LayoutListContent = ({
         if (!metahubId || !dialogs.edit.item || !canManageLayouts) return
         const currentLayout = dialogs.edit.item
         setDialogError(null)
-        const payload = toPayload(values, {
-            expectedVersion: currentLayout.version,
-            includeConfig: false,
-            existingLayout: currentLayout
-        })
+        const payload = {
+            ...toPayload(values, {
+                expectedVersion: currentLayout.version,
+                includeConfig: false,
+                existingLayout: currentLayout
+            }),
+            expectedVersion: currentLayout.version
+        }
 
         close('edit')
         updateLayoutMutation.mutate(
@@ -504,7 +507,8 @@ export const LayoutListContent = ({
             deleteLayoutMutation.mutate({
                 metahubId,
                 layoutId: dialogs.delete.item.id,
-                scopeEntityId: dialogs.delete.item.scopeEntityId ?? scopeEntityId
+                scopeEntityId: dialogs.delete.item.scopeEntityId ?? scopeEntityId,
+                expectedVersion: dialogs.delete.item.version
             })
             close('delete')
         } catch (e: unknown) {
@@ -642,8 +646,9 @@ export const LayoutListContent = ({
     const layoutListItems = useMemo(
         () =>
             layouts.map((layout) => {
-                const layoutName = getVLCString(layout.name, i18n.language) || '—'
-                const layoutDescription = getVLCString(layout.description, i18n.language) || '—'
+                const emptyCellLabel = t('layouts.fields.empty', '—')
+                const layoutName = getVLCString(layout.name, i18n.language) || emptyCellLabel
+                const layoutDescription = getVLCString(layout.description, i18n.language) || emptyCellLabel
 
                 return {
                     id: layout.id,
@@ -711,6 +716,7 @@ export const LayoutListContent = ({
                         <Box onClick={(e) => e.stopPropagation()}>
                             <IconButton
                                 size='small'
+                                aria-label={t('layouts.actions.actionsFor', 'Actions for {{name}}', { name: layoutName })}
                                 sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
                                 onClick={(e) => openMenu(e, layout)}
                             >
@@ -719,7 +725,11 @@ export const LayoutListContent = ({
                         </Box>
                     ),
                     rowAction: (
-                        <IconButton size='small' onClick={(e) => openMenu(e, layout)}>
+                        <IconButton
+                            size='small'
+                            aria-label={t('layouts.actions.actionsFor', 'Actions for {{name}}', { name: layoutName })}
+                            onClick={(e) => openMenu(e, layout)}
+                        >
                             <MoreVertRoundedIcon fontSize='small' />
                         </IconButton>
                     )
@@ -754,6 +764,9 @@ export const LayoutListContent = ({
                     }
                     metaColumnLabel={t('layouts.fields.template', 'Template')}
                     statusColumnLabel={t('layouts.fields.status', 'Status')}
+                    nameColumnLabel={t('table.name', 'Name')}
+                    descriptionColumnLabel={t('layouts.fields.description', 'Description')}
+                    emptyCellLabel={t('layouts.fields.empty', '—')}
                     listContentTestId='metahub-layouts-list-content'
                 />
             ) : (
@@ -789,6 +802,9 @@ export const LayoutListContent = ({
                     }
                     metaColumnLabel={t('layouts.fields.template', 'Template')}
                     statusColumnLabel={t('layouts.fields.status', 'Status')}
+                    nameColumnLabel={t('table.name', 'Name')}
+                    descriptionColumnLabel={t('layouts.fields.description', 'Description')}
+                    emptyCellLabel={t('layouts.fields.empty', '—')}
                     listContentTestId='metahub-layouts-list-content'
                     footerContent={
                         !isLoading && layouts.length > 0 ? (

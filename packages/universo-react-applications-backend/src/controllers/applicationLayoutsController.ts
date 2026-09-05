@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import {
+    applicationLayoutCopyMutationSchema,
     applicationLayoutConfigResetMutationSchema,
     applicationLayoutWidgetConfigBatchMutationSchema,
     applicationLayoutWidgetResetBatchMutationSchema
@@ -55,9 +56,9 @@ const parseOffset = (value: unknown): number => {
     return Number.isInteger(parsed) ? Math.max(parsed, 0) : 0
 }
 
-const parseExpectedVersion = (value: unknown): number | undefined => {
+const parseExpectedVersion = (value: unknown): number => {
     if (value === undefined) {
-        return undefined
+        throw new Error('APPLICATION_LAYOUT_EXPECTED_VERSION_INVALID')
     }
     if (typeof value !== 'string' || !/^[1-9]\d*$/u.test(value)) {
         throw new Error('APPLICATION_LAYOUT_EXPECTED_VERSION_INVALID')
@@ -83,11 +84,31 @@ const handleKnownError = (res: Response, error: unknown): boolean => {
         res.status(409).json({ error: message })
         return true
     }
+    if (
+        message === 'APPLICATION_LAYOUT_DEFAULT_CONFLICT' ||
+        message === 'APPLICATION_LAYOUT_SCOPE_CONFLICT' ||
+        message === 'APPLICATION_LAYOUT_WIDGET_SOURCE_CONFLICT'
+    ) {
+        res.status(409).json({ error: message })
+        return true
+    }
     if (message === 'APPLICATION_LAYOUT_WIDGET_INVALID') {
         res.status(400).json({ error: message })
         return true
     }
+    if (message === 'APPLICATION_LAYOUT_SCOPE_INVALID') {
+        res.status(400).json({ error: message })
+        return true
+    }
+    if (message === 'APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE' || message === 'APPLICATION_LAYOUT_WIDGET_INSTANCE_IMMUTABLE') {
+        res.status(409).json({ error: message })
+        return true
+    }
     if (message === 'APPLICATION_LAYOUT_EXPECTED_VERSION_INVALID') {
+        res.status(400).json({ error: message })
+        return true
+    }
+    if (message === 'APPLICATION_LAYOUT_COPY_INVALID') {
         res.status(400).json({ error: message })
         return true
     }
@@ -269,12 +290,21 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async copy(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
-            const item = await copyApplicationLayout(ctx.executor, ctx.schemaName, req.params.layoutId, ctx.userId)
-            if (!item) {
-                res.status(404).json({ error: 'Layout not found' })
+            const parsedBody = applicationLayoutCopyMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_COPY_INVALID' })
                 return
             }
-            res.status(201).json({ item })
+            try {
+                const item = await copyApplicationLayout(ctx.executor, ctx.schemaName, req.params.layoutId, parsedBody.data, ctx.userId)
+                if (!item) {
+                    res.status(404).json({ error: 'Layout not found' })
+                    return
+                }
+                res.status(201).json({ item })
+            } catch (error) {
+                if (!handleKnownError(res, error)) throw error
+            }
         },
 
         async listWidgets(req: Request, res: Response) {
@@ -309,6 +339,7 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
                 const item = await updateApplicationLayoutWidgetConfig(
                     ctx.executor,
                     ctx.schemaName,
+                    req.params.layoutId,
                     req.params.widgetId,
                     req.body,
                     ctx.userId
@@ -373,19 +404,42 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async toggleWidget(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
-            const item = await toggleApplicationLayoutWidget(ctx.executor, ctx.schemaName, req.params.widgetId, req.body, ctx.userId)
-            if (!item) {
-                res.status(404).json({ error: 'Widget not found or stale version' })
-                return
+            try {
+                const item = await toggleApplicationLayoutWidget(
+                    ctx.executor,
+                    ctx.schemaName,
+                    req.params.layoutId,
+                    req.params.widgetId,
+                    req.body,
+                    ctx.userId
+                )
+                if (!item) {
+                    res.status(404).json({ error: 'Widget not found' })
+                    return
+                }
+                res.json({ item })
+            } catch (error) {
+                if (!handleKnownError(res, error)) throw error
             }
-            res.json({ item })
         },
 
         async removeWidget(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
-            const deleted = await deleteApplicationLayoutWidget(ctx.executor, ctx.schemaName, req.params.widgetId, ctx.userId)
-            res.status(deleted ? 204 : 404).send()
+            try {
+                const expectedVersion = parseExpectedVersion(req.query.expectedVersion)
+                const deleted = await deleteApplicationLayoutWidget(
+                    ctx.executor,
+                    ctx.schemaName,
+                    req.params.layoutId,
+                    req.params.widgetId,
+                    ctx.userId,
+                    expectedVersion
+                )
+                res.status(deleted ? 204 : 404).send()
+            } catch (error) {
+                if (!handleKnownError(res, error)) throw error
+            }
         }
     }
 }

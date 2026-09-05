@@ -6,6 +6,7 @@ const mockNormalizeLocale = jest.fn((locale?: string) => locale ?? 'en')
 const mockResolveUserId = jest.fn(() => 'user-1')
 const mockApplicationLayoutTablesExist = jest.fn()
 const mockGetApplicationRuntimeSchemaName = jest.fn()
+const mockCopyApplicationLayout = jest.fn()
 const mockListApplicationLayouts = jest.fn()
 const mockListApplicationLayoutScopes = jest.fn()
 const mockListApplicationLayoutWidgets = jest.fn()
@@ -13,9 +14,14 @@ const mockListApplicationLayoutWidgetObject = jest.fn()
 const mockGetApplicationLayoutDetail = jest.fn()
 const mockCreateApplicationLayout = jest.fn()
 const mockDeleteApplicationLayout = jest.fn()
+const mockDeleteApplicationLayoutWidget = jest.fn()
 const mockResetApplicationLayoutConfig = jest.fn()
 const mockUpdateApplicationLayoutWidgetConfigsBatch = jest.fn()
 const mockResetApplicationLayoutWidgetConfigsBatch = jest.fn()
+const mockToggleApplicationLayoutWidget = jest.fn()
+const mockUpdateApplicationLayout = jest.fn()
+const mockUpdateApplicationLayoutWidgetConfig = jest.fn()
+const mockUpsertApplicationLayoutWidget = jest.fn()
 
 jest.mock('../../routes/guards', () => ({
     __esModule: true,
@@ -36,10 +42,10 @@ jest.mock('../../shared/runtimeHelpers', () => ({
 jest.mock('../../persistence/applicationLayoutsStore', () => ({
     __esModule: true,
     applicationLayoutTablesExist: (...args: unknown[]) => mockApplicationLayoutTablesExist(...args),
-    copyApplicationLayout: jest.fn(),
+    copyApplicationLayout: (...args: unknown[]) => mockCopyApplicationLayout(...args),
     createApplicationLayout: (...args: unknown[]) => mockCreateApplicationLayout(...args),
     deleteApplicationLayout: (...args: unknown[]) => mockDeleteApplicationLayout(...args),
-    deleteApplicationLayoutWidget: jest.fn(),
+    deleteApplicationLayoutWidget: (...args: unknown[]) => mockDeleteApplicationLayoutWidget(...args),
     getApplicationLayoutDetail: (...args: unknown[]) => mockGetApplicationLayoutDetail(...args),
     getApplicationRuntimeSchemaName: (...args: unknown[]) => mockGetApplicationRuntimeSchemaName(...args),
     listApplicationLayoutScopes: (...args: unknown[]) => mockListApplicationLayoutScopes(...args),
@@ -49,11 +55,11 @@ jest.mock('../../persistence/applicationLayoutsStore', () => ({
     moveApplicationLayoutWidget: jest.fn(),
     resetApplicationLayoutConfig: (...args: unknown[]) => mockResetApplicationLayoutConfig(...args),
     resetApplicationLayoutWidgetConfigsBatch: (...args: unknown[]) => mockResetApplicationLayoutWidgetConfigsBatch(...args),
-    toggleApplicationLayoutWidget: jest.fn(),
-    updateApplicationLayout: jest.fn(),
-    updateApplicationLayoutWidgetConfig: jest.fn(),
+    toggleApplicationLayoutWidget: (...args: unknown[]) => mockToggleApplicationLayoutWidget(...args),
+    updateApplicationLayout: (...args: unknown[]) => mockUpdateApplicationLayout(...args),
+    updateApplicationLayoutWidgetConfig: (...args: unknown[]) => mockUpdateApplicationLayoutWidgetConfig(...args),
     updateApplicationLayoutWidgetConfigsBatch: (...args: unknown[]) => mockUpdateApplicationLayoutWidgetConfigsBatch(...args),
-    upsertApplicationLayoutWidget: jest.fn()
+    upsertApplicationLayoutWidget: (...args: unknown[]) => mockUpsertApplicationLayoutWidget(...args)
 }))
 
 import { createApplicationLayoutsController } from '../../controllers/applicationLayoutsController'
@@ -144,6 +150,43 @@ describe('applicationLayoutsController', () => {
 
         expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
         expect(res.status).toHaveBeenCalledWith(201)
+    })
+
+    it('maps a concurrent default unique conflict to the stable HTTP 409 shape', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const error = 'APPLICATION_LAYOUT_DEFAULT_CONFLICT'
+        mockCreateApplicationLayout.mockRejectedValue(new Error(error))
+
+        await controller.create(
+            {
+                params: { applicationId: 'app-1' },
+                body: { name: { en: 'Main' }, templateKey: 'dashboard' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error })
+    })
+
+    it('maps a stale layout update to HTTP 409 and preserves the route layout id', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = { expectedVersion: 3, name: { en: 'Updated' } }
+        mockUpdateApplicationLayout.mockRejectedValue(new Error('APPLICATION_LAYOUT_VERSION_CONFLICT'))
+
+        await controller.update(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-route' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockUpdateApplicationLayout).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-route', body, 'user-1')
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'APPLICATION_LAYOUT_VERSION_CONFLICT' })
     })
 
     it('falls back to admin-only read access when no explicit layout-read policy exists', async () => {
@@ -243,6 +286,165 @@ describe('applicationLayoutsController', () => {
         )
 
         expect(mockDeleteApplicationLayout).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-1', 'user-1', 7)
+        expect(res.status).toHaveBeenCalledWith(204)
+    })
+
+    it('requires and forwards the source version for layout copies', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = { expectedVersion: 4 }
+        const item = { id: 'copied-layout', version: 1 }
+        mockCopyApplicationLayout.mockResolvedValue(item)
+
+        await controller.copy(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(mockCopyApplicationLayout).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-1', body, 'user-1')
+        expect(res.status).toHaveBeenCalledWith(201)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ item })
+    })
+
+    it('rejects an unversioned or extra-field layout copy before the store boundary', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+
+        await controller.copy(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                body: { unexpected: true }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockCopyApplicationLayout).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'APPLICATION_LAYOUT_COPY_INVALID' })
+    })
+
+    it('maps a stale layout copy to HTTP 409', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        mockCopyApplicationLayout.mockRejectedValue(new Error('APPLICATION_LAYOUT_VERSION_CONFLICT'))
+
+        await controller.copy(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                body: { expectedVersion: 7 }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'APPLICATION_LAYOUT_VERSION_CONFLICT' })
+    })
+
+    it('maps a duplicate marketing instance key to HTTP 409 and preserves both route ids', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.hero',
+            expectedVersion: 3,
+            config: {
+                instanceKey: 'hero',
+                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
+                showLeadForm: false
+            }
+        }
+        mockUpsertApplicationLayoutWidget.mockRejectedValue(new Error('APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE'))
+
+        await controller.upsertWidget(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-route' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockUpsertApplicationLayoutWidget).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-route', body, 'user-1')
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE'
+        })
+    })
+
+    it('passes the route layout id to widget config updates', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = { expectedVersion: 3, config: { instanceKey: 'hero', source: { entityCodename: 'MarketingPageSiteSettings' } } }
+        mockUpdateApplicationLayoutWidgetConfig.mockResolvedValue({ id: 'widget-1' })
+
+        await controller.updateWidgetConfig(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-route', widgetId: 'widget-route' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            'layout-route',
+            'widget-route',
+            body,
+            'user-1'
+        )
+        expect(res.json).toHaveBeenCalledWith({ item: { id: 'widget-1' } })
+    })
+
+    it('passes the route layout id to widget active-state updates', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const body = { isActive: false, expectedVersion: 4 }
+        mockToggleApplicationLayoutWidget.mockResolvedValue({ id: 'widget-1', isActive: false })
+
+        await controller.toggleWidget(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-route', widgetId: 'widget-route' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockToggleApplicationLayoutWidget).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            'layout-route',
+            'widget-route',
+            body,
+            'user-1'
+        )
+        expect(res.json).toHaveBeenCalledWith({ item: { id: 'widget-1', isActive: false } })
+    })
+
+    it('passes the route layout id and expectedVersion to widget deletion', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        mockDeleteApplicationLayoutWidget.mockResolvedValue(true)
+
+        await controller.removeWidget(
+            {
+                params: { applicationId: 'app-1', layoutId: 'layout-route', widgetId: 'widget-route' },
+                query: { expectedVersion: '5' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockDeleteApplicationLayoutWidget).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            'layout-route',
+            'widget-route',
+            'user-1',
+            5
+        )
         expect(res.status).toHaveBeenCalledWith(204)
     })
 

@@ -14555,4 +14555,24 @@ describe('Applications Routes', () => {
             expect(routeLayer?.route?.stack[0]?.handle).toBe(mockRateLimiter)
         }
     })
+
+    it('keeps the collection-level widget reset route ahead of the dynamic layout reset route', () => {
+        const { dataSource } = buildDataSource()
+        const router = createApplicationsRoutes(ensureAuth, () => dataSource, mockRateLimiter, mockRateLimiter)
+        const stack = (
+            router as unknown as {
+                stack: Array<{ route?: { path: string; methods: Record<string, boolean> } }>
+            }
+        ).stack
+        const collectionResetIndex = stack.findIndex(
+            (layer) => layer.route?.path === '/:applicationId/layouts/zone-widgets/config/reset' && layer.route.methods.post
+        )
+        const dynamicResetIndex = stack.findIndex(
+            (layer) => layer.route?.path === '/:applicationId/layouts/:layoutId/config/reset' && layer.route.methods.post
+        )
+
+        expect(collectionResetIndex).toBeGreaterThanOrEqual(0)
+        expect(dynamicResetIndex).toBeGreaterThanOrEqual(0)
+        expect(collectionResetIndex).toBeLessThan(dynamicResetIndex)
+    })
 })

@@ -1,16 +1,32 @@
 import { useState, type MouseEvent, type ReactNode } from 'react'
-import { Box, Button, IconButton, Menu, MenuItem, Paper, Stack, Tooltip, Typography } from '@mui/material'
+import { Box, Button, ButtonBase, IconButton, Menu, MenuItem, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import OpenWithRoundedIcon from '@mui/icons-material/OpenWithRounded'
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
-import { DndContext, PointerSensor, closestCenter, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import {
+    DndContext,
+    KeyboardSensor,
+    PointerSensor,
+    closestCenter,
+    useDroppable,
+    useSensor,
+    useSensors,
+    type Announcements,
+    type DragEndEvent,
+    type UniqueIdentifier
+} from '@dnd-kit/core'
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { DashboardLayoutWidgetKey, DashboardLayoutZone } from '@universo-react/types'
+import type { ApplicationLayoutWidgetKey, ApplicationLayoutZone } from '@universo-react/types'
+
+export type LayoutAuthoringWidgetKey = ApplicationLayoutWidgetKey
+export type LayoutAuthoringZoneKey = ApplicationLayoutZone
 
 export type LayoutAuthoringWidgetRow = {
     id: string
@@ -20,10 +36,15 @@ export type LayoutAuthoringWidgetRow = {
     inheritedLabel?: string
     editTooltip?: string
     editAriaLabel?: string
+    duplicateTooltip?: string
+    duplicateAriaLabel?: string
+    resetTooltip?: string
+    resetAriaLabel?: string
     removeTooltip?: string
     removeAriaLabel?: string
     toggleActiveTooltip?: string
     toggleActiveAriaLabel?: string
+    dragHandleLabel?: string
     moveActions?: Array<{
         key: string
         label: string
@@ -32,17 +53,19 @@ export type LayoutAuthoringWidgetRow = {
     }>
     onClick?: () => void
     onEdit?: () => void
+    onDuplicate?: () => void
+    onReset?: () => void
     onRemove?: () => void
     onToggleActive?: (active: boolean) => void
 }
 
 export type LayoutAuthoringAvailableWidgetItem = {
-    key: DashboardLayoutWidgetKey
+    key: LayoutAuthoringWidgetKey
     label: string
 }
 
 export type LayoutAuthoringZone = {
-    zone: DashboardLayoutZone
+    zone: LayoutAuthoringZoneKey
     title: string
     items: LayoutAuthoringWidgetRow[]
     availableWidgets: LayoutAuthoringAvailableWidgetItem[]
@@ -54,16 +77,17 @@ export type LayoutAuthoringDetailsProps = {
     emptyZoneLabel: string
     addWidgetLabel: string
     availableWidgetsLabel: string
+    dragHandleLabel: string
     moveWidgetLabel?: string
     zones: LayoutAuthoringZone[]
     onDragEnd: (event: DragEndEvent) => void | Promise<void>
-    onAddWidgetRequest: (zone: DashboardLayoutZone, widgetKey: DashboardLayoutWidgetKey) => void
+    onAddWidgetRequest: (zone: LayoutAuthoringZoneKey, widgetKey: LayoutAuthoringWidgetKey) => void
     beforeZonesContent?: ReactNode
 }
 
 type AddWidgetMenuState = {
     anchorEl: HTMLElement | null
-    zone: DashboardLayoutZone | null
+    zone: LayoutAuthoringZoneKey | null
 }
 
 function SortableLayoutWidgetChip({
@@ -74,13 +98,20 @@ function SortableLayoutWidgetChip({
     onRemove,
     onClick,
     onEdit,
+    onDuplicate,
+    onReset,
     onToggleActive,
     editTooltip,
     editAriaLabel,
+    duplicateTooltip,
+    duplicateAriaLabel,
+    resetTooltip,
+    resetAriaLabel,
     removeTooltip,
     removeAriaLabel,
     toggleActiveTooltip,
     toggleActiveAriaLabel,
+    dragHandleLabel,
     inheritedLabel,
     moveActions,
     moveWidgetLabel
@@ -116,23 +147,44 @@ function SortableLayoutWidgetChip({
                 size='small'
                 data-testid={`layout-widget-drag-${id}`}
                 disabled={!draggable}
+                aria-label={dragHandleLabel}
                 sx={{ cursor: draggable ? 'grab' : 'default' }}
                 {...attributes}
                 {...listeners}
             >
                 <DragIndicatorRoundedIcon fontSize='small' />
             </IconButton>
-            <Typography
-                variant='body2'
-                sx={{
-                    flexGrow: 1,
-                    ...(!isActive && { opacity: 0.45 }),
-                    ...(onClick ? { cursor: 'pointer', '&:hover': { textDecoration: 'underline' } } : {})
-                }}
-                onClick={onClick}
-            >
-                {label}
-            </Typography>
+            {onClick ? (
+                <ButtonBase
+                    type='button'
+                    onClick={onClick}
+                    sx={{
+                        flexGrow: 1,
+                        minWidth: 0,
+                        justifyContent: 'flex-start',
+                        textAlign: 'left',
+                        borderRadius: 1,
+                        '&:hover .layout-widget-label': { textDecoration: 'underline' },
+                        ...(!isActive && { opacity: 0.45 })
+                    }}
+                >
+                    <Typography component='span' className='layout-widget-label' variant='body2' sx={{ overflowWrap: 'anywhere' }}>
+                        {label}
+                    </Typography>
+                </ButtonBase>
+            ) : (
+                <Typography
+                    component='span'
+                    variant='body2'
+                    sx={{
+                        flexGrow: 1,
+                        overflowWrap: 'anywhere',
+                        ...(!isActive && { opacity: 0.45 })
+                    }}
+                >
+                    {label}
+                </Typography>
+            )}
             {inheritedLabel ? (
                 <Box
                     component='span'
@@ -157,6 +209,7 @@ function SortableLayoutWidgetChip({
                         <IconButton
                             size='small'
                             data-testid={`layout-widget-move-menu-${id}`}
+                            aria-label={moveWidgetLabel}
                             onClick={(event) => setMoveMenuAnchorEl(event.currentTarget)}
                         >
                             <OpenWithRoundedIcon fontSize='small' />
@@ -190,6 +243,30 @@ function SortableLayoutWidgetChip({
                     </IconButton>
                 </Tooltip>
             ) : null}
+            {onDuplicate ? (
+                <Tooltip title={duplicateTooltip || ''} arrow>
+                    <IconButton
+                        size='small'
+                        data-testid={`layout-widget-duplicate-${id}`}
+                        aria-label={duplicateAriaLabel || duplicateTooltip}
+                        onClick={onDuplicate}
+                    >
+                        <ContentCopyRoundedIcon fontSize='small' />
+                    </IconButton>
+                </Tooltip>
+            ) : null}
+            {onReset ? (
+                <Tooltip title={resetTooltip || ''} arrow>
+                    <IconButton
+                        size='small'
+                        data-testid={`layout-widget-reset-${id}`}
+                        aria-label={resetAriaLabel || resetTooltip}
+                        onClick={onReset}
+                    >
+                        <RestartAltRoundedIcon fontSize='small' />
+                    </IconButton>
+                </Tooltip>
+            ) : null}
             {onToggleActive ? (
                 <Tooltip title={toggleActiveTooltip || ''} arrow>
                     <IconButton
@@ -219,7 +296,7 @@ function SortableLayoutWidgetChip({
     )
 }
 
-function LayoutZoneColumn({ zone, title, children }: { zone: DashboardLayoutZone; title: string; children: ReactNode }) {
+function LayoutZoneColumn({ zone, title, children }: { zone: LayoutAuthoringZoneKey; title: string; children: ReactNode }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `zone:${zone}`
     })
@@ -250,17 +327,62 @@ export function LayoutAuthoringDetails({
     emptyZoneLabel,
     addWidgetLabel,
     availableWidgetsLabel,
+    dragHandleLabel,
     moveWidgetLabel,
     zones,
     onDragEnd,
     onAddWidgetRequest,
     beforeZonesContent
 }: LayoutAuthoringDetailsProps) {
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    )
     const [addWidgetMenu, setAddWidgetMenu] = useState<AddWidgetMenuState>({ anchorEl: null, zone: null })
     const activeZone = zones.find((zone) => zone.zone === addWidgetMenu.zone) ?? null
+    const labelTotals = new Map<string, number>()
+    zones.forEach((zone) => {
+        zone.items.forEach((item) => {
+            const label = item.label.trim() || dragHint
+            labelTotals.set(label, (labelTotals.get(label) ?? 0) + 1)
+        })
+    })
+    const labelIndexes = new Map<string, number>()
+    const accessibleLabels = new Map<string, string>()
+    zones.forEach((zone) => {
+        zone.items.forEach((item) => {
+            const label = item.label.trim() || dragHint
+            const index = (labelIndexes.get(label) ?? 0) + 1
+            labelIndexes.set(label, index)
+            accessibleLabels.set(String(item.id), labelTotals.get(label)! > 1 ? `${label} (${index})` : label)
+        })
+    })
 
-    const openAddWidgetMenu = (event: MouseEvent<HTMLElement>, zone: DashboardLayoutZone) => {
+    const getWidgetLabel = (id: UniqueIdentifier) => accessibleLabels.get(String(id)) ?? dragHint
+    const getDropTargetLabel = (id: UniqueIdentifier | null) => {
+        if (id === null) return dragHint
+        const normalizedId = String(id)
+        if (normalizedId.startsWith('zone:')) {
+            return zones.find((zone) => `zone:${zone.zone}` === normalizedId)?.title ?? dragHint
+        }
+        return getWidgetLabel(id)
+    }
+    const getDragHandleLabel = (id: UniqueIdentifier) => {
+        const label = getWidgetLabel(id)
+        return dragHandleLabel.trim() ? `${dragHandleLabel}: ${label}` : label
+    }
+    const getAnnouncement = (id: UniqueIdentifier, targetId?: UniqueIdentifier | null) => {
+        const target = targetId === undefined ? null : getDropTargetLabel(targetId)
+        return target ? `${getDragHandleLabel(id)}. ${target}. ${dragHint}` : `${getDragHandleLabel(id)}. ${dragHint}`
+    }
+    const announcements: Announcements = {
+        onDragStart: ({ active }) => getAnnouncement(active.id),
+        onDragOver: ({ active, over }) => getAnnouncement(active.id, over?.id),
+        onDragEnd: ({ active, over }) => getAnnouncement(active.id, over?.id),
+        onDragCancel: ({ active }) => getAnnouncement(active.id)
+    }
+
+    const openAddWidgetMenu = (event: MouseEvent<HTMLElement>, zone: LayoutAuthoringZoneKey) => {
         setAddWidgetMenu({ anchorEl: event.currentTarget, zone })
     }
 
@@ -279,7 +401,7 @@ export function LayoutAuthoringDetails({
                 {dragHint}
             </Typography>
 
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={{ announcements }}>
                 <Stack spacing={1.5}>
                     {zones.map((zone) => (
                         <LayoutZoneColumn key={zone.zone} zone={zone.zone} title={zone.title}>
@@ -308,7 +430,12 @@ export function LayoutAuthoringDetails({
                                 <SortableContext items={zone.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
                                     <Stack spacing={1}>
                                         {zone.items.map((item) => (
-                                            <SortableLayoutWidgetChip key={item.id} {...item} moveWidgetLabel={moveWidgetLabel} />
+                                            <SortableLayoutWidgetChip
+                                                key={item.id}
+                                                {...item}
+                                                dragHandleLabel={getDragHandleLabel(item.id)}
+                                                moveWidgetLabel={moveWidgetLabel}
+                                            />
                                         ))}
                                         {zone.items.length === 0 ? (
                                             <Typography

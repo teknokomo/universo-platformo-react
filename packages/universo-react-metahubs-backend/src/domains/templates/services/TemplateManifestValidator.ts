@@ -9,6 +9,14 @@ import {
     ENTITY_BEHAVIOR_CONFIG_KEYS,
     entityBehaviorConfigSchema,
     validateEntityBehaviorReferences,
+    marketingCollectionWidgetConfigSchema,
+    marketingFooterWidgetConfigSchema,
+    marketingHeroWidgetConfigSchema,
+    marketingLayoutZoneSchema,
+    marketingNavigationWidgetConfigSchema,
+    marketingPricingWidgetConfigSchema,
+    MARKETING_WIDGET_REGISTRY,
+    marketingWidgetKeySchema,
     type EntityBehaviorConfig,
     type MetahubTemplateSeed
 } from '@universo-react/types'
@@ -58,8 +66,8 @@ const seedScopedLayoutSchema = seedLayoutSchema.extend({
 })
 
 const seedZoneWidgetSchema = z.object({
-    zone: z.enum(DASHBOARD_LAYOUT_ZONES),
-    widgetKey: z.enum(widgetKeys),
+    zone: z.string().trim().min(1).max(20),
+    widgetKey: z.string().trim().min(1).max(100),
     sortOrder: z.number().int(),
     config: z.record(z.unknown()).optional(),
     isActive: z.boolean().optional()
@@ -486,6 +494,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
 
     const layoutCodenameSet = new Set<string>()
     const layoutTemplateKeySet = new Set<string>()
+    const layoutTemplateByCodename = new Map<string, string>()
 
     for (let i = 0; i < manifest.seed.layouts.length; i++) {
         const layout = manifest.seed.layouts[i]
@@ -506,6 +515,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
             })
         }
         layoutTemplateKeySet.add(layout.templateKey)
+        layoutTemplateByCodename.set(layout.codename, layout.templateKey)
     }
 
     const scopedLayouts = manifest.seed.scopedLayouts ?? []
@@ -519,6 +529,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
             })
         }
         layoutCodenameSet.add(layout.codename)
+        layoutTemplateByCodename.set(layout.codename, layout.templateKey)
 
         if (!layoutCodenameSet.has(layout.baseLayoutCodename)) {
             ctx.addIssue({
@@ -536,6 +547,74 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 path: ['seed', 'layoutZoneWidgets', layoutCodename],
                 message: `layoutZoneWidgets references unknown layout codename: ${layoutCodename}`
             })
+        }
+
+        const templateKey = layoutTemplateByCodename.get(layoutCodename)
+        const widgets = manifest.seed.layoutZoneWidgets[layoutCodename] ?? []
+        const instanceKeys = new Set<string>()
+        for (const [widgetIndex, widget] of widgets.entries()) {
+            if (templateKey === 'marketing-page') {
+                if (!marketingLayoutZoneSchema.safeParse(widget.zone).success) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'zone'],
+                        message: 'Marketing widgets must use a registered marketing placement.'
+                    })
+                }
+                if (!marketingWidgetKeySchema.safeParse(widget.widgetKey).success) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'widgetKey'],
+                        message: 'Marketing widgets must use a registered widget key.'
+                    })
+                    continue
+                }
+
+                const registryEntry = MARKETING_WIDGET_REGISTRY[widget.widgetKey as keyof typeof MARKETING_WIDGET_REGISTRY]
+                if (!registryEntry.allowedZones.includes(widget.zone as (typeof registryEntry.allowedZones)[number])) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'zone'],
+                        message: 'Marketing widget is not allowed in this placement.'
+                    })
+                }
+
+                const configSchemas = {
+                    'marketing.navigation': marketingNavigationWidgetConfigSchema,
+                    'marketing.hero': marketingHeroWidgetConfigSchema,
+                    'marketing.collection': marketingCollectionWidgetConfigSchema,
+                    'marketing.pricing': marketingPricingWidgetConfigSchema,
+                    'marketing.footer': marketingFooterWidgetConfigSchema
+                } as const
+                const parsedConfig = configSchemas[widget.widgetKey as keyof typeof configSchemas].safeParse(widget.config ?? {})
+                if (!parsedConfig.success) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config'],
+                        message: 'Marketing widget configuration is invalid.'
+                    })
+                    continue
+                }
+                const instanceKey = String(parsedConfig.data.instanceKey)
+                if (instanceKeys.has(instanceKey)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config', 'instanceKey'],
+                        message: 'Marketing widget instance keys must be unique within a layout.'
+                    })
+                }
+                instanceKeys.add(instanceKey)
+            } else {
+                const zoneValid = DASHBOARD_LAYOUT_ZONES.includes(widget.zone as (typeof DASHBOARD_LAYOUT_ZONES)[number])
+                const keyValid = widgetKeys.includes(widget.widgetKey as DashboardLayoutWidgetKey)
+                if (!zoneValid || !keyValid) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex],
+                        message: 'Non-marketing templates may use only registered dashboard widgets and zones.'
+                    })
+                }
+            }
         }
     }
 

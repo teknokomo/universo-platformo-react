@@ -6,6 +6,7 @@ type TemplateManifest = {
     minStructureVersion?: unknown
     seed?: {
         layouts?: Array<Record<string, unknown>>
+        layoutZoneWidgets?: Record<string, Array<Record<string, unknown>>>
         entities?: Array<Record<string, unknown>>
         elements?: Record<string, Array<Record<string, unknown>>>
     }
@@ -40,6 +41,94 @@ const EXPECTED_ELEMENT_COUNTS: Record<string, number> = {
     MarketingPageFooterLink: 14
 }
 
+const EXPECTED_WIDGET_COMPOSITION = [
+    {
+        zone: 'marketing-header',
+        widgetKey: 'marketing.navigation',
+        sortOrder: 0,
+        instanceKey: 'navigation',
+        source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.hero',
+        sortOrder: 0,
+        instanceKey: 'hero',
+        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', recordKey: 'site-settings' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'hero' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.collection',
+        sortOrder: 1,
+        instanceKey: 'logos',
+        variant: 'logos',
+        source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'logos' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.collection',
+        sortOrder: 2,
+        instanceKey: 'features',
+        variant: 'features',
+        source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'features' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.collection',
+        sortOrder: 3,
+        instanceKey: 'testimonials',
+        variant: 'testimonials',
+        source: { entityCodename: 'MarketingPageTestimonial', entityKind: 'object' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'testimonials' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.collection',
+        sortOrder: 4,
+        instanceKey: 'highlights',
+        variant: 'highlights',
+        source: { entityCodename: 'MarketingPageHighlight', entityKind: 'object' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'highlights' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.pricing',
+        sortOrder: 5,
+        instanceKey: 'pricing',
+        source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'pricing' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.collection',
+        sortOrder: 6,
+        instanceKey: 'faq',
+        variant: 'faq',
+        source: { entityCodename: 'MarketingPageFaq', entityKind: 'object' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'faq' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-footer',
+        widgetKey: 'marketing.footer',
+        sortOrder: 0,
+        instanceKey: 'footer',
+        source: { entityCodename: 'MarketingPageFooterLink', entityKind: 'object' },
+        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'footer' },
+        isActive: true
+    }
+] as const
+
 const readString = (value: unknown, field: string): string => {
     assert.equal(typeof value, 'string', `${field} must be a string`)
     return value
@@ -48,6 +137,11 @@ const readString = (value: unknown, field: string): string => {
 const readData = (element: Record<string, unknown>): Record<string, unknown> => {
     assert.ok(element.data && typeof element.data === 'object' && !Array.isArray(element.data), 'seed element data must be an object')
     return element.data as Record<string, unknown>
+}
+
+const readRecord = (value: unknown, field: string): Record<string, unknown> => {
+    assert.ok(value && typeof value === 'object' && !Array.isArray(value), `${field} must be an object`)
+    return value as Record<string, unknown>
 }
 
 const readResourceSourceUrl = (value: unknown): string => {
@@ -101,6 +195,30 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
     assert.ok(layout, 'marketing-main layout is required')
     assert.equal(layout.templateKey, 'marketing-page')
 
+    const layoutZoneWidgets = seed.layoutZoneWidgets
+    assert.ok(layoutZoneWidgets, 'marketing-page layout widget seed is required')
+    assert.deepEqual(Object.keys(layoutZoneWidgets), ['marketing-main'], 'marketing-page layout widget zones changed')
+    assert.deepEqual(
+        (layoutZoneWidgets['marketing-main'] ?? []).map((assignment) => {
+            const config = readRecord(assignment.config, 'marketing widget config')
+            const source = readRecord(config.source, 'marketing widget source')
+            const copySource = config.copySource === undefined ? undefined : readRecord(config.copySource, 'marketing widget copy source')
+
+            return {
+                zone: readString(assignment.zone, 'marketing widget zone'),
+                widgetKey: readString(assignment.widgetKey, 'marketing widget key'),
+                sortOrder: assignment.sortOrder,
+                instanceKey: readString(config.instanceKey, 'marketing widget instanceKey'),
+                ...(config.variant === undefined ? {} : { variant: readString(config.variant, 'marketing collection variant') }),
+                source,
+                ...(copySource === undefined ? {} : { copySource }),
+                isActive: assignment.isActive
+            }
+        }),
+        EXPECTED_WIDGET_COMPOSITION,
+        'marketing widget composition changed'
+    )
+
     const siteSettings = seed.elements?.MarketingPageSiteSettings?.[0]
     assert.ok(siteSettings, 'site settings seed is required')
     const siteSettingsData = readData(siteSettings)
@@ -132,7 +250,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             const data = readData(element)
             return {
                 key: data.SectionKey,
-                sortOrder: data.SortOrder,
                 title: readLocalized(data.Title),
                 description: readLocalized(data.Description)
             }
@@ -140,7 +257,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
         [
             {
                 key: 'hero',
-                sortOrder: 1,
                 title: { en: 'Our latest products', ru: 'Наши новые продукты' },
                 description: {
                     en: 'Primary hero content is managed by the marketing hero object.',
@@ -149,7 +265,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             },
             {
                 key: 'logos',
-                sortOrder: 2,
                 title: { en: 'Trusted by the best companies', ru: 'Нам доверяют лучшие компании' },
                 description: {
                     en: 'Customer logos from the marketing page content.',
@@ -158,7 +273,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             },
             {
                 key: 'features',
-                sortOrder: 3,
                 title: { en: 'Product features', ru: 'Возможности продукта' },
                 description: {
                     en: 'Provide a brief overview of the key features of the product. For example, you could list the number of features, their types or benefits, and add-ons.',
@@ -167,7 +281,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             },
             {
                 key: 'testimonials',
-                sortOrder: 4,
                 title: { en: 'Testimonials', ru: 'Отзывы' },
                 description: {
                     en: 'See what our customers love about our products. Discover how we excel in efficiency, durability, and satisfaction. Join us for quality, innovation, and reliable support.',
@@ -176,7 +289,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             },
             {
                 key: 'highlights',
-                sortOrder: 5,
                 title: { en: 'Highlights', ru: 'Преимущества' },
                 description: {
                     en: 'Explore why our product stands out: adaptability, durability, user-friendly design, and innovation. Enjoy reliable customer support and precision in every detail.',
@@ -185,7 +297,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             },
             {
                 key: 'pricing',
-                sortOrder: 6,
                 title: { en: 'Pricing', ru: 'Тарифы' },
                 description: {
                     en: "Quickly build an effective pricing table for your potential customers with this layout. It's built with default Material UI components with little customization.",
@@ -194,7 +305,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             },
             {
                 key: 'faq',
-                sortOrder: 7,
                 title: { en: 'Frequently asked questions', ru: 'Часто задаваемые вопросы' },
                 description: {
                     en: 'Answers to the most common questions about the product.',
@@ -203,7 +313,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             },
             {
                 key: 'footer',
-                sortOrder: 8,
                 title: { en: 'Footer', ru: 'Подвал' },
                 description: { en: 'Footer branding and newsletter content.', ru: 'Брендинг подвала и содержимое рассылки.' }
             }

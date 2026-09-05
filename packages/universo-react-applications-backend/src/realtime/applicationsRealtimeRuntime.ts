@@ -481,7 +481,7 @@ const loadRoomOptionsFromApplicationSchema = async (
           AND ($2::text IS NULL OR w.id::text = $2)
           AND ($3::text IS NULL OR w.config->>'moduleCodename' = $3)
         ORDER BY l.is_default DESC, l.sort_order ASC, w.sort_order ASC, w.id ASC
-        LIMIT 1
+        LIMIT 2
         `,
         [
             'playcanvasCanvas',
@@ -492,6 +492,9 @@ const loadRoomOptionsFromApplicationSchema = async (
 
     if (!rows[0]) {
         throw Object.assign(new Error('Realtime scene configuration is not available'), { statusCode: 404 })
+    }
+    if (!params.widgetId && rows.length > 1) {
+        throw Object.assign(new Error('Realtime scene widget identity is required'), { statusCode: 409 })
     }
 
     const parsed = playcanvasCanvasWidgetConfigSchema.safeParse(rows[0].config)

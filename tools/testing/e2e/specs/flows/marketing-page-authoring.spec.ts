@@ -5,17 +5,27 @@ import {
     createLoggedInApiContext,
     disposeApiContext,
     getApplication,
+    getApplicationLayout,
     getMarketingPageRuntime,
     getPublication,
+    listLayoutZoneWidgets,
+    listLayouts,
+    listApplicationLayouts,
     listConnectors,
     listPublicationApplications
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
-import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectSemanticFieldControls } from '../../support/browser/runtimeUx'
+import {
+    expectNoPageHorizontalOverflow,
+    expectNoTechnicalLeakage,
+    expectRuntimeUxViewportMatrix,
+    expectSemanticFieldControls
+} from '../../support/browser/runtimeUx'
 import { entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 import { parseJsonResponse, readLocalizedText } from './entity-runtime-helpers'
+import { flattenMarketingPageRecords, type RuntimePayload } from '../../support/marketingPageRuntimeMaterialization'
 
 type ApiSession = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -44,22 +54,15 @@ type ConnectorsResponse = {
     items?: Connector[]
 }
 
-type RuntimeRecord = {
-    kind?: unknown
-    heroTitle?: unknown
-    provenance?: {
-        layer?: unknown
-        isSeeded?: unknown
-        isAuthored?: unknown
-    }
+type LayoutWidget = {
+    id?: unknown
+    widgetKey?: unknown
+    zone?: unknown
+    config?: unknown
 }
 
-type MarketingRuntimeResponse = {
-    templateKey?: unknown
-    marketingPage?: {
-        templateKey?: unknown
-        records?: RuntimeRecord[]
-    }
+type LayoutWidgetsResponse = {
+    items?: LayoutWidget[]
 }
 
 const unwrapEntity = <T extends EntityResponse>(payload: T): { id?: string } => payload.data ?? payload
@@ -201,6 +204,32 @@ const waitForPublicationVersion = async (api: ApiSession, metahubId: string, pub
         .toMatchObject({ activeVersionId: expect.any(String) })
 }
 
+const readLayoutWidgetConfig = (widget: LayoutWidget): Record<string, unknown> => {
+    if (!widget.config || typeof widget.config !== 'object' || Array.isArray(widget.config)) return {}
+    return widget.config as Record<string, unknown>
+}
+
+const findMarketingWidget = async (
+    api: ApiSession,
+    metahubId: string,
+    instanceKey: string
+): Promise<{ layoutId: string; widgetId: string }> => {
+    const layouts = (await listLayouts(api, metahubId, { limit: 100, offset: 0 })) as {
+        items?: Array<{ id?: unknown; templateKey?: unknown }>
+    }
+    const marketingLayout = layouts.items?.find((layout) => layout.templateKey === 'marketing-page')
+    if (typeof marketingLayout?.id !== 'string') {
+        throw new Error('The browser-created marketing-page metahub did not expose its marketing layout')
+    }
+
+    const widgets = (await listLayoutZoneWidgets(api, metahubId, marketingLayout.id)) as LayoutWidgetsResponse
+    const widget = widgets.items?.find((item) => readLayoutWidgetConfig(item).instanceKey === instanceKey)
+    if (typeof widget?.id !== 'string') {
+        throw new Error(`The marketing layout did not expose the ${instanceKey} widget`)
+    }
+    return { layoutId: marketingLayout.id, widgetId: widget.id }
+}
+
 test('@flow @combined @marketing-page browser authoring publishes edited content into the runtime', async ({
     page,
     runManifest
@@ -248,6 +277,26 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
             throw new Error('The browser-created marketing-page metahub did not return an id')
         }
         await recordCreatedMetahub({ id: metahub.id, name: metahubName, codename: metahubCodename })
+
+        // Change the persisted widget composition through the real metahub
+        // authoring surface before publication. The later runtime assertion
+        // proves that publication carries this semantic choice forward.
+        const { layoutId: marketingLayoutId, widgetId: faqWidgetId } = await findMarketingWidget(api, metahub.id, 'faq')
+        await page.goto(`/metahub/${metahub.id}/resources/layouts/${marketingLayoutId}`)
+        const marketingLayoutDetails = page.getByTestId('metahub-layout-details-content')
+        await expect(marketingLayoutDetails).toBeVisible()
+        const faqSurface = page.getByTestId(`layout-widget-${faqWidgetId}`)
+        await expect(faqSurface).toBeVisible()
+        const deactivateFaqButton = faqSurface.getByRole('button', { name: 'Deactivate', exact: true })
+        await expect(deactivateFaqButton).toBeVisible()
+        const deactivateFaqResponse = waitForSettledMutationResponse(
+            page,
+            (response) => responseIsMutation(response, 'PATCH', /\/zone-widget\/[^/]+\/toggle-active$/),
+            { label: 'Deactivating the FAQ widget before publication', timeout: 90_000 }
+        )
+        await deactivateFaqButton.click()
+        expect((await deactivateFaqResponse).ok()).toBe(true)
+        await expect(faqSurface.getByRole('button', { name: 'Activate', exact: true })).toBeVisible()
 
         // Open the singleton site-settings object and edit its localized hero
         // title through the generic object/record authoring surface.  Hero and
@@ -390,22 +439,163 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
             )
             .toBe('synced')
 
-        const runtimePayload = (await getMarketingPageRuntime(api, application.id, 'en')) as MarketingRuntimeResponse
+        // Verify the application authoring surface in Russian after materialization.
+        // The widget labels and source identity must remain user-facing and usable
+        // after the metahub layout has crossed the publication boundary.
+        const applicationLayouts = (await listApplicationLayouts(api, application.id, { limit: 100, offset: 0 })) as {
+            items?: Array<{ id?: unknown; templateKey?: unknown }>
+        }
+        const applicationMarketingLayout = applicationLayouts.items?.find((item) => item.templateKey === 'marketing-page')
+        if (typeof applicationMarketingLayout?.id !== 'string') {
+            throw new Error('The marketing application did not expose a materialized marketing layout')
+        }
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.goto(`/a/${application.id}/admin/layouts/${applicationMarketingLayout.id}`)
+        const applicationLayoutDetails = page.getByTestId('application-layout-details-content')
+        await expect(applicationLayoutDetails).toBeVisible()
+        for (const [zone, label] of [
+            ['marketing-header', 'Шапка маркетинговой страницы'],
+            ['marketing-main', 'Содержимое маркетинговой страницы'],
+            ['marketing-footer', 'Подвал маркетинговой страницы']
+        ] as const) {
+            await expect(page.getByTestId(`layout-zone-${zone}`)).toContainText(label)
+        }
+
+        const marketingWidgets = (await getApplicationLayout(api, application.id, applicationMarketingLayout.id)) as {
+            widgets?: LayoutWidget[]
+        }
+        const widgetLabels: Record<string, string> = {
+            navigation: 'Навигация',
+            hero: 'Главный экран',
+            logos: 'Коллекция: Логотипы',
+            features: 'Коллекция: Возможности',
+            testimonials: 'Коллекция: Отзывы',
+            highlights: 'Коллекция: Преимущества',
+            pricing: 'Тарифы',
+            faq: 'Коллекция: FAQ',
+            footer: 'Футер'
+        }
+        for (const [instanceKey, label] of Object.entries(widgetLabels)) {
+            const widget = marketingWidgets.widgets?.find(
+                (item) => readLayoutWidgetConfig(item).instanceKey === instanceKey && typeof item.id === 'string'
+            )
+            if (!widget?.id) throw new Error(`The application marketing layout did not expose the ${instanceKey} widget`)
+            const surface = page.getByTestId(`layout-widget-${widget.id}`)
+            await expect(surface.getByRole('button', { name: label, exact: true })).toBeVisible()
+        }
+
+        const logoWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'logos')
+        if (!logoWidget?.id) throw new Error('The application marketing layout did not expose the logos widget')
+        await page
+            .getByTestId(`layout-widget-${logoWidget.id}`)
+            .getByRole('button', { name: /Редактировать|Edit/ })
+            .click()
+        const applicationWidgetDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+        await expect(applicationWidgetDialog).toBeVisible()
+        await expect(applicationWidgetDialog.getByRole('alert')).toHaveCount(0)
+        await expectNoTechnicalLeakage(applicationWidgetDialog, {
+            label: 'Russian application marketing widget configuration dialog',
+            checkUuidSubstrings: true
+        })
+        const applicationSourceSelect = applicationWidgetDialog.getByRole('combobox', { name: 'Источник контента', exact: true })
+        await expect(applicationSourceSelect).toBeEnabled()
+        await applicationSourceSelect.click()
+        await expect(page.getByRole('option', { name: 'Логотипы клиентов', exact: true })).toBeVisible()
+        await page.getByRole('option', { name: 'Логотипы клиентов', exact: true }).click()
+        await applicationWidgetDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
+        await expect(applicationWidgetDialog).toHaveCount(0)
+
+        const heroWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'hero')
+        if (!heroWidget?.id) throw new Error('The application marketing layout did not expose the hero widget')
+        const applicationHeroSurface = page.getByTestId(`layout-widget-${heroWidget.id}`)
+        await expect(applicationHeroSurface.getByRole('button', { name: 'Дублировать виджет: Главный экран', exact: true })).toBeVisible()
+        const duplicateApplicationHeroResponsePromise = page.waitForResponse(
+            (response) =>
+                response.url().includes(`/api/v1/applications/${application.id}/layouts/${applicationMarketingLayout.id}/zone-widget`) &&
+                response.request().method() === 'PUT',
+            { timeout: 90_000 }
+        )
+        await applicationHeroSurface.getByRole('button', { name: 'Дублировать виджет: Главный экран', exact: true }).click()
+        expect((await duplicateApplicationHeroResponsePromise).ok()).toBe(true)
+        await expect
+            .poll(async () => {
+                const current = (await getApplicationLayout(api, application.id!, applicationMarketingLayout.id!)) as {
+                    widgets?: LayoutWidget[]
+                }
+                return current.widgets?.filter((item) => item.widgetKey === 'marketing.hero' && typeof item.id === 'string').length ?? 0
+            })
+            .toBeGreaterThan(1)
+        await expectNoTechnicalLeakage(applicationLayoutDetails, {
+            label: 'Russian application marketing layout after duplicating a hero widget',
+            checkUuidSubstrings: true
+        })
+        await expectNoTechnicalLeakage(applicationLayoutDetails, {
+            label: 'Russian application marketing layout authoring surface',
+            checkUuidSubstrings: true
+        })
+        await expectNoPageHorizontalOverflow(page, 'Russian application marketing layout authoring')
+        await expectRuntimeUxViewportMatrix(page, 'Russian application marketing layout authoring viewport matrix')
+        await page.screenshot({
+            path: testInfo.outputPath('marketing-page-application-layout-ru.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
+
+        await applyBrowserPreferences(page, { language: 'en' })
+
+        const runtimePayload = (await getMarketingPageRuntime(api, application.id, 'en')) as RuntimePayload & {
+            marketingPage?: RuntimePayload['marketingPage'] & { templateKey?: unknown }
+        }
         expect(runtimePayload.templateKey).toBe('marketing-page')
         expect(runtimePayload.marketingPage?.templateKey).toBe('marketing-page')
-        const settings = runtimePayload.marketingPage?.records?.find((record) => record.kind === 'siteSettings')
+        const settings = flattenMarketingPageRecords(runtimePayload).find((record) => record.kind === 'siteSettings')
         expect(settings?.heroTitle).toMatchObject({ en: updatedHeroTitle })
         expect(settings?.provenance).toMatchObject({ layer: 'application', isSeeded: false, isAuthored: true })
+        const publishedFaqWidget = runtimePayload.marketingPage?.widgets?.find((widget) => widget.instanceKey === 'faq')
+        expect(publishedFaqWidget?.isActive).toBe(false)
 
         // Reload the published app and assert the semantic value rendered by
         // the MUI marketing template, not an implementation detail or ID.
         await page.goto(`/a/${application.id}`)
         await expect(page.locator('#marketing-page-main')).toBeVisible({ timeout: 120_000 })
-        await expect(page.getByRole('heading', { name: new RegExp(`${escapeRegExp(updatedHeroTitle)}\\s+products`) })).toBeVisible()
+        const publishedHeroHeadings = page.getByRole('heading', { name: new RegExp(`${escapeRegExp(updatedHeroTitle)}\\s+products`) })
+        await expect(publishedHeroHeadings).toHaveCount(2)
+        await expect(publishedHeroHeadings.first()).toBeVisible()
+        await expect(page.locator('#marketing-widget-faq')).toHaveCount(0)
         await page.reload()
-        await expect(page.getByRole('heading', { name: new RegExp(`${escapeRegExp(updatedHeroTitle)}\\s+products`) })).toBeVisible({
+        await expect(publishedHeroHeadings).toHaveCount(2, {
             timeout: 120_000
         })
+        await expect(publishedHeroHeadings.first()).toBeVisible({
+            timeout: 120_000
+        })
+
+        // Exercise the published runtime's localized error boundary and retry
+        // control with a real browser reload. The route fails long enough to
+        // exhaust React Query's automatic attempts, then recovers on Retry.
+        let marketingRuntimeFailures = 0
+        await page.route(`**/api/v1/applications/${application.id}/runtime/marketing-page**`, async (route) => {
+            marketingRuntimeFailures += 1
+            await route.fulfill({
+                status: 503,
+                contentType: 'application/json',
+                body: JSON.stringify({ error: 'E2E transient marketing runtime failure' })
+            })
+        })
+        await page.reload()
+        await expect(page.getByRole('alert')).toContainText('Failed to load runtime data', { timeout: 120_000 })
+        expect(marketingRuntimeFailures).toBeGreaterThan(0)
+        await page.unroute(`**/api/v1/applications/${application.id}/runtime/marketing-page**`)
+        await page.getByRole('button', { name: 'Retry', exact: true }).click()
+        await expect(publishedHeroHeadings).toHaveCount(2, {
+            timeout: 120_000
+        })
+        await expect(publishedHeroHeadings.first()).toBeVisible({
+            timeout: 120_000
+        })
+        await expect(page.locator('#marketing-widget-faq')).toHaveCount(0)
+        await page.unroute(`**/api/v1/applications/${application.id}/runtime/marketing-page**`)
 
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'Published marketing-page authoring flow',

@@ -37,10 +37,10 @@ describe('LayoutRuntimeSettingsPanel marketing appearance', () => {
         )
 
         const primaryColor = screen.getByLabelText('Primary color')
-        fireEvent.change(primaryColor, { target: { value: '#' } })
+        fireEvent.change(primaryColor, { target: { value: '#123456' } })
         expect(onViewSettingChange).not.toHaveBeenCalled()
 
         fireEvent.blur(primaryColor)
-        expect(onViewSettingChange).toHaveBeenCalledWith('primaryColor', '#')
+        expect(onViewSettingChange).toHaveBeenCalledWith('primaryColor', '#123456')
     })
 })

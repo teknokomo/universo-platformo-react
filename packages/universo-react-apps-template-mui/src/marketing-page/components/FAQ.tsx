@@ -10,11 +10,12 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { parseMarketingActionHref, toMarketingActionLinkAttributes } from '@universo-react/utils'
 
 import type { MarketingFaqItem, MarketingSectionCopy } from '../types'
-import { MarketingEmptyState, MarketingSectionHeader, sortVisibleMarketingItems } from './MarketingPrimitives'
+import { marketingSectionId, MarketingEmptyState, MarketingSectionHeader, sortVisibleMarketingItems } from './MarketingPrimitives'
 
 export interface FAQProps {
     section: MarketingSectionCopy
     items: MarketingFaqItem[]
+    instanceKey?: string
 }
 
 function renderAnswer(answer: string) {
@@ -33,12 +34,13 @@ function renderAnswer(answer: string) {
     })
 }
 
-export default function FAQ({ section, items }: FAQProps) {
+export default function FAQ({ section, items, instanceKey }: FAQProps) {
     const [expanded, setExpanded] = React.useState<string[]>([])
     const visibleItems = sortVisibleMarketingItems(items)
+    const sectionId = marketingSectionId('faq', instanceKey)
     return (
         <Container
-            id='faq'
+            id={sectionId}
             sx={{
                 pt: { xs: 4, sm: 12 },
                 pb: { xs: 8, sm: 16 },
@@ -49,13 +51,13 @@ export default function FAQ({ section, items }: FAQProps) {
                 gap: { xs: 3, sm: 6 }
             }}
         >
-            <MarketingSectionHeader section={section} id='faq' />
+            <MarketingSectionHeader section={section} id={sectionId} />
             {visibleItems.length === 0 ? (
                 <MarketingEmptyState section={section.title} />
             ) : (
                 <Box sx={{ width: '100%' }}>
                     {visibleItems.map((item) => {
-                        const panelId = `faq-${item.semanticKey}`
+                        const panelId = `${sectionId}-${item.semanticKey.replace(/[^A-Za-z0-9_-]/g, '-')}`
                         return (
                             <Accordion
                                 key={item.semanticKey}

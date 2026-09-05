@@ -1,4 +1,4 @@
-import type { MetahubCreateLayoutPayload, MetahubLayoutLocalizedPayload } from '../../../types'
+import type { MetahubCreateLayoutPayload, MetahubLayoutUpdatePayload } from '../../../types'
 import type { LayoutCopyInput, LayoutScopeParams } from '../api'
 
 export interface CreateLayoutParams {
@@ -9,12 +9,13 @@ export interface CreateLayoutParams {
 export interface UpdateLayoutParams extends LayoutScopeParams {
     metahubId: string
     layoutId: string
-    data: Partial<MetahubLayoutLocalizedPayload>
+    data: MetahubLayoutUpdatePayload
 }
 
 export interface DeleteLayoutParams extends LayoutScopeParams {
     metahubId: string
     layoutId: string
+    expectedVersion: number
 }
 
 export interface CopyLayoutParams extends LayoutScopeParams {

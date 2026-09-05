@@ -84,6 +84,7 @@ export type { CollapsibleSectionProps } from './layout'
 export { LayoutStateChips } from './layouts'
 export { LayoutAuthoringList } from './layouts'
 export { LayoutAuthoringDetails } from './layouts'
+export { MarketingWidgetConfigDialog } from './layouts'
 export { MenuWidgetSideMenuSettings } from './layouts'
 export { applySideMenuPatch, EDITABLE_SIDE_MENU_MODES, normalizeSideMenuConfig, SIDE_MENU_MODE_LABEL_FALLBACKS } from './layouts'
 export type {
@@ -95,5 +96,7 @@ export type {
     LayoutAuthoringDetailsProps,
     LayoutAuthoringZone,
     LayoutAuthoringWidgetRow,
+    MarketingWidgetConfigDialogProps,
+    MarketingWidgetSourceOption,
     MenuWidgetSideMenuSettingsProps
 } from './layouts'

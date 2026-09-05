@@ -23,6 +23,7 @@ import {
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { buildLayoutWidgetSelector } from '../../support/selectors/contracts'
 
 type ApplicationLayoutListResponse = {
@@ -217,6 +218,26 @@ test('@flow @combined application layout management exposes sourced layouts and 
 
         const widgetCard = page.getByTestId(buildLayoutWidgetSelector(centerWidget.id))
         await expect(widgetCard).toBeVisible()
+
+        const duplicateApplicationWidgetResponsePromise = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'PUT' &&
+                new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widget`,
+            { label: 'Duplicating a dashboard widget in the application layout' }
+        )
+        await widgetCard.getByTestId(`layout-widget-duplicate-${centerWidget.id}`).click()
+        expect((await duplicateApplicationWidgetResponsePromise).ok()).toBe(true)
+        await expect
+            .poll(async () => {
+                const current = (await getApplicationLayout(api, applicationId, layoutId)) as ApplicationLayoutDetailResponse
+                return (
+                    current.widgets?.filter((widget) => widget.widgetKey === centerWidget.widgetKey && widget.id !== centerWidget.id)
+                        .length ?? 0
+                )
+            })
+            .toBeGreaterThan(0)
+
         await widgetCard.getByTestId(`layout-widget-move-menu-${centerWidget.id}`).click()
         await page.getByTestId(`layout-widget-move-${centerWidget.id}-top`).click()
         await waitForWidgetZone(api, applicationId, layoutId, centerWidget.id, 'top')
@@ -239,6 +260,35 @@ test('@flow @combined application layout management exposes sourced layouts and 
         for (const zoneName of ['Top', 'Left', 'Center', 'Right', 'Bottom']) {
             await expect(page.getByRole('heading', { name: zoneName })).toBeVisible()
         }
+        const metahubWidgetPayload = (await listLayoutZoneWidgets(api, metahub.id, metahubLayoutId)) as {
+            items?: Array<{ id?: string; widgetKey?: string; zone?: string }>
+        }
+        const metahubWidget = metahubWidgetPayload.items?.find((widget) => widget.zone === 'center' && typeof widget.id === 'string')
+        if (!metahubWidget?.id || !metahubWidget.widgetKey) {
+            throw new Error(`Metahub layout ${metahubLayoutId} did not expose a center widget for duplicate coverage`)
+        }
+        const metahubWidgetCard = page.getByTestId(buildLayoutWidgetSelector(metahubWidget.id))
+        await expect(metahubWidgetCard).toBeVisible()
+        const duplicateMetahubWidgetResponsePromise = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'PUT' &&
+                new URL(response.url()).pathname === `/api/v1/metahub/${metahub.id}/layout/${metahubLayoutId}/zone-widget`,
+            { label: 'Duplicating a dashboard widget in the metahub layout' }
+        )
+        await metahubWidgetCard.getByTestId(`layout-widget-duplicate-${metahubWidget.id}`).click()
+        expect((await duplicateMetahubWidgetResponsePromise).ok()).toBe(true)
+        await expect
+            .poll(async () => {
+                const current = (await listLayoutZoneWidgets(api, metahub.id, metahubLayoutId)) as {
+                    items?: Array<{ id?: string; widgetKey?: string; zone?: string }>
+                }
+                return (
+                    current.items?.filter((widget) => widget.widgetKey === metahubWidget.widgetKey && widget.id !== metahubWidget.id)
+                        .length ?? 0
+                )
+            })
+            .toBeGreaterThan(0)
         const metahubDetailRect = await page.getByTestId('metahub-layout-details-content').boundingBox()
         const metahubTopZoneRect = await page.getByTestId('layout-zone-top').boundingBox()
         await captureProofScreenshot(page, testInfo, 'metahub-layouts-detail.png')
@@ -285,8 +335,8 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
             isActive: true,
             isDefault: false
         })
-        if (!secondarySourceLayout?.id) {
-            throw new Error('Creating secondary source layout did not return an id')
+        if (!secondarySourceLayout?.id || typeof secondarySourceLayout.version !== 'number') {
+            throw new Error('Creating secondary source layout did not return an id and optimistic-lock version')
         }
 
         const publication = await createPublication(api, metahub.id, {
@@ -341,7 +391,7 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
             throw new Error(`Application ${applicationId} did not import the expected metahub layouts`)
         }
 
-        const copiedBaseLayoutResponse = await copyApplicationLayout(api, applicationId, baseImportedLayout.id)
+        const copiedBaseLayoutResponse = await copyApplicationLayout(api, applicationId, baseImportedLayout.id, baseImportedLayout.version)
         const copiedBaseLayout = copiedBaseLayoutResponse?.item ?? copiedBaseLayoutResponse
         if (!copiedBaseLayout?.id || typeof copiedBaseLayout.version !== 'number') {
             throw new Error('Copying the base imported layout did not return a versioned application-owned layout')
@@ -359,7 +409,8 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
 
         await updateLayout(api, metahub.id, secondarySourceLayout.id, {
             name: { en: 'Secondary source layout updated upstream' },
-            namePrimaryLocale: 'en'
+            namePrimaryLocale: 'en',
+            expectedVersion: secondarySourceLayout.version
         })
         const newSourceLayout = await createLayout(api, metahub.id, {
             name: { en: 'Brand new source layout' },

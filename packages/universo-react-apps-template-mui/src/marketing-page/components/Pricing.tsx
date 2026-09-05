@@ -11,7 +11,13 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 
 import type { MarketingActionHandler, MarketingPricingTier, MarketingSectionCopy } from '../types'
-import { MarketingActionButton, MarketingEmptyState, MarketingSectionHeader, sortVisibleMarketingItems } from './MarketingPrimitives'
+import {
+    marketingSectionId,
+    MarketingActionButton,
+    MarketingEmptyState,
+    MarketingSectionHeader,
+    sortVisibleMarketingItems
+} from './MarketingPrimitives'
 
 const NUMERIC_PRICE_RE = /^\d+(?:\.\d+)?$/
 
@@ -20,14 +26,16 @@ const formatPrice = (price: string): string => (NUMERIC_PRICE_RE.test(price.trim
 export interface PricingProps {
     section: MarketingSectionCopy
     tiers: MarketingPricingTier[]
+    instanceKey?: string
     onAction?: MarketingActionHandler
 }
 
-export default function Pricing({ section, tiers, onAction }: PricingProps) {
+export default function Pricing({ section, tiers, instanceKey, onAction }: PricingProps) {
     const visibleTiers = sortVisibleMarketingItems(tiers)
+    const sectionId = marketingSectionId('pricing', instanceKey)
     return (
         <Container
-            id='pricing'
+            id={sectionId}
             sx={{
                 pt: { xs: 4, sm: 12 },
                 pb: { xs: 8, sm: 16 },
@@ -38,7 +46,7 @@ export default function Pricing({ section, tiers, onAction }: PricingProps) {
                 gap: { xs: 3, sm: 6 }
             }}
         >
-            <MarketingSectionHeader section={section} id='pricing' />
+            <MarketingSectionHeader section={section} id={sectionId} />
             {visibleTiers.length === 0 ? (
                 <MarketingEmptyState section={section.title} />
             ) : (

@@ -9,6 +9,7 @@ const { listLayoutWidgetScopeVisibility, updateLayoutWidgetScopeVisibility } = v
 }))
 
 vi.mock('react-i18next', () => ({
+    initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
         t: (key: string, defaultValue?: string, options?: Record<string, unknown>) => {
             if (key === 'layouts.widgetScopeVisibility.entityMeta') {
@@ -75,6 +76,7 @@ describe('WidgetScopeVisibilityPanel', () => {
                 },
                 layoutId: null,
                 layoutName: null,
+                version: 1,
                 isVisible: true,
                 isOverridden: false
             }
@@ -93,7 +95,7 @@ describe('WidgetScopeVisibilityPanel', () => {
         await user.click(screen.getByTestId('layout-widget-scope-visibility-switch-section-1').querySelector('input') as HTMLElement)
 
         await waitFor(() => {
-            expect(updateLayoutWidgetScopeVisibility).toHaveBeenCalledWith('metahub-1', 'layout-1', 'widget-1', 'section-1', false)
+            expect(updateLayoutWidgetScopeVisibility).toHaveBeenCalledWith('metahub-1', 'layout-1', 'widget-1', 'section-1', false, 1)
         })
     })
 })
