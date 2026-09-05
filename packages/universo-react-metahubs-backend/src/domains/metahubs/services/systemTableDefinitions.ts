@@ -381,12 +381,6 @@ const mhbWidgets: SystemTableDef = {
             name: 'idx_mhb_widgets_active_layout_zone_sort',
             columns: ['layout_id', 'zone', 'sort_order'],
             where: 'is_active = true'
-        },
-        {
-            name: 'idx_mhb_widgets_unique_active',
-            columns: ['layout_id', 'zone', 'widget_key', 'sort_order'],
-            unique: true,
-            where: '_upl_deleted = false AND _mhb_deleted = false'
         }
     ]
 }

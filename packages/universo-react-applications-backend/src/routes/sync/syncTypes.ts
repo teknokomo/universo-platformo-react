@@ -239,6 +239,7 @@ export type SnapshotLayoutWidgetOverrideRow = {
 export type SnapshotWidgetRow = {
     id?: unknown
     layoutId?: unknown
+    sourceBaseWidgetId?: unknown
     zone?: unknown
     widgetKey?: unknown
     sortOrder?: unknown
@@ -291,6 +292,7 @@ export type PersistedAppLayoutRowDb = {
 export type PersistedAppWidgetRowDb = {
     id: unknown
     layout_id: unknown
+    template_key?: unknown
     source_base_widget_id?: unknown
     zone: unknown
     widget_key: unknown

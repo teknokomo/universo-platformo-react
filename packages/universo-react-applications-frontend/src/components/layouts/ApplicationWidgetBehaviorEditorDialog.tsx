@@ -912,6 +912,7 @@ const collectResourceValidationWarnings = (
 
     const source = readResourceSource(config)
     if (!source) {
+        if (config.source === undefined || config.source === null) return []
         return [
             {
                 labelKey: 'layouts.resourcePreview.validation.missingSource',

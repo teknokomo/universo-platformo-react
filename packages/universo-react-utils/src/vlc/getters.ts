@@ -1,4 +1,4 @@
-import type { CodenameVLC, VersionedLocalizedContent } from '@universo-react/types'
+import type { VersionedLocalizedContent } from '@universo-react/types'
 
 /**
  * Simple localized input format for forms
@@ -128,8 +128,10 @@ export function getVLCPrimaryString(
 }
 
 /** Canonical extractor for persisted codename JSONB payloads. */
-export function getCodenamePrimary(codename: CodenameVLC | string | undefined | null): string {
-    return getVLCPrimaryString(codename)
+export function getCodenamePrimary(codename: unknown): string {
+    return getVLCPrimaryString(
+        codename as VersionedLocalizedContent<string> | VersatileLocalizedContent | SimpleLocalizedInput | string | undefined | null
+    )
 }
 
 /**

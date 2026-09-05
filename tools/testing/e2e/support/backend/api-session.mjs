@@ -52,7 +52,9 @@ export async function createApiContext() {
 
     return {
         baseURL: env.baseURL,
-        cookies: new Map()
+        cookies: new Map(),
+        abortController: new AbortController(),
+        disposed: false
     }
 }
 
@@ -96,6 +98,10 @@ const buildCookieHeader = (api) => {
 const resolveApiUrl = (api, input) => new URL(input, api.baseURL).toString()
 
 const fetchFromApi = async (api, input, init = {}) => {
+    if (api?.disposed) {
+        throw new Error('E2E API context has already been disposed')
+    }
+
     const headers = new Headers(init.headers ?? {})
     if (!headers.has('Accept')) {
         headers.set('Accept', 'application/json')
@@ -108,7 +114,8 @@ const fetchFromApi = async (api, input, init = {}) => {
 
     const response = await fetch(resolveApiUrl(api, input), {
         ...init,
-        headers
+        headers,
+        signal: init.signal ?? api.abortController?.signal
     })
 
     persistResponseCookies(api, response)
@@ -122,7 +129,21 @@ export async function createLoggedInApiContext(credentials) {
 }
 
 export async function disposeApiContext(api) {
-    void api
+    if (!api || api.disposed) return
+
+    api.disposed = true
+    api.abortController?.abort()
+    api.cookies?.clear()
+}
+
+/**
+ * Expose the session-aware request primitive for negative API/RBAC tests.
+ * Callers deliberately choose whether to add CSRF headers through
+ * `sendWithCsrf`; this keeps no-CSRF cases observable instead of hiding them
+ * behind a convenience wrapper.
+ */
+export async function requestApi(api, input, init = {}) {
+    return fetchFromApi(api, input, init)
 }
 
 export async function fetchCsrfToken(api) {
@@ -1399,12 +1420,15 @@ export async function moveLayoutZoneWidget(api, metahubId, layoutId, payload) {
     return response.json()
 }
 
-export async function toggleLayoutZoneWidgetActive(api, metahubId, layoutId, widgetId, isActive) {
+export async function toggleLayoutZoneWidgetActive(api, metahubId, layoutId, widgetId, isActive, expectedVersion) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new Error(`Expected a positive widget version when toggling ${widgetId}`)
+    }
     const response = await sendWithCsrf(
         api,
         'PATCH',
         `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/toggle-active`,
-        { isActive }
+        { isActive, expectedVersion }
     )
     if (!response.ok) {
         throw await buildError(response, `Toggling widget ${widgetId} in layout ${layoutId} for metahub ${metahubId}`)
@@ -1460,8 +1484,11 @@ export async function updateApplicationLayout(api, applicationId, layoutId, payl
     return response.json()
 }
 
-export async function copyApplicationLayout(api, applicationId, layoutId) {
-    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/layouts/${layoutId}/copy`, {})
+export async function copyApplicationLayout(api, applicationId, layoutId, expectedVersion) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new Error(`Copying layout ${layoutId} requires a positive expectedVersion`)
+    }
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/layouts/${layoutId}/copy`, { expectedVersion })
     if (!response.ok) {
         throw await buildError(response, `Copying layout ${layoutId} for application ${applicationId}`)
     }
@@ -1492,6 +1519,59 @@ export async function listApplicationLayoutWidgetObject(api, applicationId, layo
     })
     if (!response.ok) {
         throw await buildError(response, `Listing application layout widget object for layout ${layoutId}`)
+    }
+
+    return response.json()
+}
+
+export async function listApplicationLayoutWidgets(api, applicationId, layoutId) {
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Listing application layout widgets for layout ${layoutId}`)
+    }
+
+    return response.json()
+}
+
+export async function updateApplicationLayoutWidgetConfig(api, applicationId, layoutId, widgetId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}/config`,
+        payload
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Updating application layout widget ${widgetId}`)
+    }
+
+    return response.json()
+}
+
+export async function toggleApplicationLayoutWidgetActive(api, applicationId, layoutId, widgetId, isActive, expectedVersion) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new Error(`Expected a positive widget version when toggling ${widgetId}`)
+    }
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}/toggle-active`,
+        { isActive, expectedVersion }
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Toggling application layout widget ${widgetId}`)
+    }
+
+    return response.json()
+}
+
+export async function resetApplicationLayoutWidgetConfigs(api, applicationId, updates) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/layouts/zone-widgets/config/reset`, {
+        updates
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Resetting application layout widget configs for ${applicationId}`)
     }
 
     return response.json()

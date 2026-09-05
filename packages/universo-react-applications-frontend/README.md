@@ -38,6 +38,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Source Awareness**: Layout cards show whether a layout came from a metahub publication or from the application.
 -   **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
 -   **Runtime Widget Overrides**: Application-level settings update materialized widget configuration for the deployed instance without changing the source metahub template.
+-   **Unlimited Widget Instances**: The layout editor keeps every compatible widget available after it has been placed, and administrators can add or duplicate the same dashboard or marketing widget type repeatedly. Each placement has its own server-owned identity.
 
 ### 🎨 User Interface
 
@@ -196,7 +197,7 @@ GET    /api/v1/applications/:id/layouts                # List layouts
 POST   /api/v1/applications/:id/layouts                # Create application-owned layout
 PATCH  /api/v1/applications/:id/layouts/:layoutId      # Update layout metadata/default/active state
 DELETE /api/v1/applications/:id/layouts/:layoutId      # Exclude metahub layout or soft-delete application layout
-POST   /api/v1/applications/:id/layouts/:layoutId/copy # Copy layout into an application-owned layout
+POST   /api/v1/applications/:id/layouts/:layoutId/copy # Copy layout with { expectedVersion } into an application-owned layout
 ```
 
 ## Roles & Permissions

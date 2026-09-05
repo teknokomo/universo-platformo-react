@@ -10,6 +10,8 @@ import { useTranslation } from 'react-i18next'
 
 import type { MarketingActionHandler, MarketingFooterData, MarketingLeadHandler } from '../types'
 import {
+    marketingFieldId,
+    marketingSectionId,
     MarketingActionButton,
     MarketingActionLink,
     MarketingIcon,
@@ -21,12 +23,14 @@ import Sitemark from './SitemarkIcon'
 
 export interface FooterProps {
     data: MarketingFooterData
+    instanceKey?: string
     onAction?: MarketingActionHandler
     onLeadSubmit?: MarketingLeadHandler
 }
 
-export default function Footer({ data, onAction, onLeadSubmit }: FooterProps) {
+export default function Footer({ data, instanceKey, onAction, onLeadSubmit }: FooterProps) {
     const { t } = useTranslation('apps')
+    const footerId = marketingSectionId('footer', instanceKey)
     const [email, setEmail] = React.useState('')
     const [state, setState] = React.useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
     const [invalidEmail, setInvalidEmail] = React.useState(false)
@@ -56,7 +60,7 @@ export default function Footer({ data, onAction, onLeadSubmit }: FooterProps) {
 
     return (
         <Container
-            id='footer'
+            id={footerId}
             component='footer'
             sx={{
                 display: 'flex',
@@ -116,7 +120,7 @@ export default function Footer({ data, onAction, onLeadSubmit }: FooterProps) {
                                 <TextField
                                     size='small'
                                     type='email'
-                                    id='marketing-footer-email'
+                                    id={marketingFieldId('footer-email', instanceKey ?? 'footer')}
                                     name='email'
                                     label={newsletter.label}
                                     placeholder={newsletter.placeholder}

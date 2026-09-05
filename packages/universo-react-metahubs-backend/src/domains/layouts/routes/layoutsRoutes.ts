@@ -28,6 +28,11 @@ export function createLayoutsRoutes(
     router.put('/metahub/:metahubId/layout/:layoutId/zone-widget', writeLimiter, asyncHandler(ctrl.assignZoneWidget))
     router.patch('/metahub/:metahubId/layout/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(ctrl.moveZoneWidget))
     router.delete('/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId', writeLimiter, asyncHandler(ctrl.removeZoneWidget))
+    router.post(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/reset',
+        writeLimiter,
+        asyncHandler(ctrl.resetZoneWidgetOverride)
+    )
     router.patch(
         '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/config',
         writeLimiter,

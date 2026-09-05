@@ -9,23 +9,34 @@ export interface ApplicationLayoutHashInput {
         }
     widgets?: Array<
         Partial<Pick<ApplicationLayoutWidget, 'id' | 'layoutId' | 'version'>> &
-            Pick<ApplicationLayoutWidget, 'zone' | 'widgetKey' | 'sortOrder' | 'config' | 'isActive'>
+            Pick<ApplicationLayoutWidget, 'zone' | 'widgetKey' | 'sortOrder' | 'config' | 'isActive'> &
+            Partial<Pick<ApplicationLayoutWidget, 'sourceConfig' | 'sourceWidgetId' | 'sourceBaseWidgetId'>>
     >
 }
 
 export function normalizeApplicationLayoutForHash(input: ApplicationLayoutHashInput): Record<string, unknown> {
     const widgets = (input.widgets ?? [])
-        .map((widget) => ({
-            zone: widget.zone,
-            widgetKey: widget.widgetKey,
-            sortOrder: widget.sortOrder,
-            config: widget.config ?? {},
-            isActive: widget.isActive !== false
-        }))
+        .map((widget) => {
+            const instanceKey =
+                typeof widget.config?.instanceKey === 'string' && widget.config.instanceKey.length > 0 ? widget.config.instanceKey : null
+            // Physical row IDs, lineage IDs, and optimistic versions are deliberately
+            // accepted by the input type for store reuse, but are not part of the
+            // semantic hash. They change during materialization without changing
+            // the effective layout contract.
+            return {
+                zone: widget.zone,
+                widgetKey: widget.widgetKey,
+                sortOrder: widget.sortOrder,
+                instanceKey,
+                config: widget.config ?? {},
+                isActive: widget.isActive !== false
+            }
+        })
         .sort((left, right) => {
             if (left.zone !== right.zone) return left.zone.localeCompare(right.zone)
             if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-            return left.widgetKey.localeCompare(right.widgetKey)
+            if (left.widgetKey !== right.widgetKey) return left.widgetKey.localeCompare(right.widgetKey)
+            return (left.instanceKey ?? '').localeCompare(right.instanceKey ?? '')
         })
 
     return {

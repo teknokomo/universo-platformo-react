@@ -3,25 +3,31 @@ import { expect, test } from '../../fixtures/test'
 import { createLoggedInBrowserContext } from '../../support/browser/auth'
 import {
     createAdminUser,
-    createApplication,
     createLoggedInApiContext,
     createMetahub,
     createPublication,
     disposeApiContext,
+    copyApplicationLayout,
+    deleteApplicationLayout,
     getApplicationLayout,
     getAssignableRoles,
     getMarketingPageRuntime,
     getRuntimeAppData,
     getRuntimeRow,
+    resetApplicationLayoutWidgetConfigs,
+    requestApi,
     listApplicationLayouts,
     listApplicationWorkspaces,
     listPublicationApplications,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
+    toggleApplicationLayoutWidgetActive,
+    updateApplicationLayoutWidgetConfig,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
+import { flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
 import {
     recordCreatedApplication,
     recordCreatedGlobalUser,
@@ -98,6 +104,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
     let adminApi: ApiSession | null = null
     let editorApi: ApiSession | null = null
     let memberApi: ApiSession | null = null
+    let staleOwnerApi: ApiSession | null = null
     let adminBrowser: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
     let memberBrowser: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
     let anonymousContext: Awaited<ReturnType<typeof browser.newContext>> | null = null
@@ -138,13 +145,47 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             }
         })
 
-        const unrelatedApplication = await createApplication(ownerApi, {
-            name: { en: `E2E ${runManifest.runId} unrelated marketing permission canary` },
+        const crossApplicationMetahubCodename = `${runManifest.runId}-cross-application-marketing-permissions`
+        const crossApplicationMetahub = await createMetahub(ownerApi, {
+            name: { en: `E2E ${runManifest.runId} cross-application marketing permissions` },
             namePrimaryLocale: 'en',
-            isPublic: false
+            codename: createLocalizedContent('en', crossApplicationMetahubCodename),
+            templateCodename: 'marketing-page'
         })
-        if (!unrelatedApplication?.id) throw new Error('Unrelated application creation did not return an id')
+        if (!crossApplicationMetahub?.id) throw new Error('Cross-application permission metahub creation did not return an id')
+        await recordCreatedMetahub({
+            id: crossApplicationMetahub.id,
+            name: crossApplicationMetahubCodename,
+            codename: crossApplicationMetahubCodename
+        })
+
+        const crossApplicationPublication = await createPublication(ownerApi, crossApplicationMetahub.id, {
+            name: { en: `E2E ${runManifest.runId} cross-application marketing permission canary` },
+            namePrimaryLocale: 'en',
+            autoCreateApplication: true,
+            applicationName: { en: `E2E ${runManifest.runId} cross-application marketing permission canary` },
+            applicationNamePrimaryLocale: 'en',
+            runtimePolicy: {
+                workspaceMode: 'required',
+                requiredWorkspaceModeAcknowledged: true
+            }
+        })
+        if (!crossApplicationPublication?.id) throw new Error('Cross-application publication creation did not return an id')
+        await recordCreatedPublication({
+            id: crossApplicationPublication.id,
+            metahubId: crossApplicationMetahub.id,
+            schemaName: crossApplicationPublication.schemaName
+        })
+        await syncPublication(ownerApi, crossApplicationMetahub.id, crossApplicationPublication.id)
+        await waitForPublicationReady(ownerApi, crossApplicationMetahub.id, crossApplicationPublication.id)
+        const unrelatedApplication = await waitForLinkedApplication(ownerApi, crossApplicationMetahub.id, crossApplicationPublication.id)
         await recordCreatedApplication({ id: unrelatedApplication.id, slug: unrelatedApplication.slug })
+        await syncApplicationSchema(ownerApi, unrelatedApplication.id, {
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
 
         const roleIds = resolveRoleIds(await getAssignableRoles(bootstrapApi), roleCodenames)
         const users = {
@@ -221,9 +262,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         if (!ownerPersonalWorkspace?.id) throw new Error('Permission fixture owner personal workspace was not materialized')
 
         const memberRuntimeView = await getMarketingPageRuntime(memberApi, application.id, 'en')
-        const memberSiteSettingsRecord = memberRuntimeView.marketingPage?.records?.find(
-            (record: { kind?: string; id?: string }) => record.kind === 'siteSettings'
-        )
+        const memberSiteSettingsRecord = flattenMarketingPageRecords(memberRuntimeView).find((record) => record.kind === 'siteSettings')
         if (!memberSiteSettingsRecord?.id) throw new Error('Permission fixture member site-settings row was not materialized')
         const memberRuntimeData = await getRuntimeAppData(memberApi, application.id, {
             objectCollectionCodename: 'MarketingPageSiteSettings',
@@ -273,9 +312,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         expect(memberRowAfter).toEqual(memberRowBefore)
 
         const editorRuntimeView = await getMarketingPageRuntime(editorApi, application.id, 'en')
-        const editorSiteSettingsRecord = editorRuntimeView.marketingPage?.records?.find(
-            (record: { kind?: string; id?: string }) => record.kind === 'siteSettings'
-        )
+        const editorSiteSettingsRecord = flattenMarketingPageRecords(editorRuntimeView).find((record) => record.kind === 'siteSettings')
         if (!editorSiteSettingsRecord?.id) throw new Error('Permission fixture editor site-settings row was not materialized')
         const editorRuntimeData = await getRuntimeAppData(editorApi, application.id, {
             objectCollectionCodename: 'MarketingPageSiteSettings',
@@ -362,6 +399,131 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const updatedLayout = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
         expect(updatedLayout.item.config).toMatchObject({ themeMode: 'dark' })
 
+        const marketingDetail = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        const faqWidget = marketingDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.collection')
+        if (!faqWidget?.id || typeof faqWidget.version !== 'number' || !faqWidget.config) {
+            throw new Error('Marketing permission fixture did not expose a versioned collection widget')
+        }
+
+        // Direct widget endpoint matrix: CSRF, role boundary, and cross-app identity.
+        const noCsrfMutation = await requestApi(
+            adminApi,
+            `/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/zone-widget/${faqWidget.id}/toggle-active`,
+            {
+                method: 'PATCH',
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive: faqWidget.isActive, expectedVersion: faqWidget.version })
+            }
+        )
+        // The platform error middleware deliberately uses 419 for an invalid or
+        // missing CSRF proof, before the route-level RBAC check is reached.
+        expect(noCsrfMutation.status).toBe(419)
+
+        for (const deniedApi of [editorApi, memberApi]) {
+            const deniedWidgetMutation = await sendWithCsrf(
+                deniedApi,
+                'PATCH',
+                `/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/zone-widget/${faqWidget.id}/toggle-active`,
+                { isActive: faqWidget.isActive, expectedVersion: faqWidget.version }
+            )
+            expect(deniedWidgetMutation.status).toBe(403)
+        }
+
+        const crossApplicationLayouts = await listApplicationLayouts(ownerApi, unrelatedApplication.id, { limit: 100, offset: 0 })
+        const crossApplicationLayout = crossApplicationLayouts.items.find(
+            (layout: { templateKey?: string }) => layout.templateKey === 'marketing-page'
+        )
+        if (!crossApplicationLayout?.id) throw new Error('Cross-application fixture did not expose a marketing layout')
+        const crossApplicationWidgetMutation = await sendWithCsrf(
+            ownerApi,
+            'PATCH',
+            `/api/v1/applications/${unrelatedApplication.id}/layouts/${crossApplicationLayout.id}/zone-widget/${faqWidget.id}/toggle-active`,
+            { isActive: faqWidget.isActive, expectedVersion: faqWidget.version }
+        )
+        expect(crossApplicationWidgetMutation.status).toBe(404)
+
+        const crossApplicationState = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        expect(crossApplicationState.widgets?.find((widget: { id?: string }) => widget.id === faqWidget.id)).toMatchObject({
+            id: faqWidget.id,
+            version: faqWidget.version,
+            isActive: faqWidget.isActive
+        })
+
+        // Two authenticated sessions must reject the stale optimistic-lock write.
+        staleOwnerApi = await createLoggedInApiContext(ownerCredentials)
+        const staleVersion = faqWidget.version
+        const nextActive = !faqWidget.isActive
+        const firstSessionMutation = await toggleApplicationLayoutWidgetActive(
+            ownerApi,
+            application.id,
+            marketingLayout.id,
+            faqWidget.id,
+            nextActive,
+            staleVersion
+        )
+        expect(firstSessionMutation.item).toMatchObject({ id: faqWidget.id, isActive: nextActive })
+        const staleSessionMutation = await sendWithCsrf(
+            staleOwnerApi,
+            'PATCH',
+            `/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/zone-widget/${faqWidget.id}/toggle-active`,
+            { isActive: faqWidget.isActive, expectedVersion: staleVersion }
+        )
+        expect(staleSessionMutation.status).toBe(409)
+        const restoredWidget = await toggleApplicationLayoutWidgetActive(
+            ownerApi,
+            application.id,
+            marketingLayout.id,
+            faqWidget.id,
+            faqWidget.isActive,
+            firstSessionMutation.item.version
+        )
+        expect(restoredWidget.item).toMatchObject({ id: faqWidget.id, isActive: faqWidget.isActive })
+
+        // Empty reset is a deliberate no-op rejection; it must not alter the widget.
+        const noOpReset = await sendWithCsrf(ownerApi, 'POST', `/api/v1/applications/${application.id}/layouts/zone-widgets/config/reset`, {
+            updates: []
+        })
+        expect(noOpReset.status).toBe(400)
+        const unchangedAfterNoOp = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        expect(unchangedAfterNoOp.widgets?.find((widget: { id?: string }) => widget.id === faqWidget.id)).toMatchObject({
+            id: faqWidget.id,
+            isActive: faqWidget.isActive
+        })
+
+        // Copy/delete/reset must preserve target identity and never reuse a source instance id.
+        const sourceForCopy = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        const copiedLayoutResponse = await copyApplicationLayout(ownerApi, application.id, marketingLayout.id, sourceForCopy.item.version)
+        const copiedLayoutId = copiedLayoutResponse.item?.id
+        if (!copiedLayoutId || copiedLayoutId === marketingLayout.id) throw new Error('Marketing layout copy reused the source layout id')
+        const copiedDetail = await getApplicationLayout(ownerApi, application.id, copiedLayoutId)
+        const copiedFaq = copiedDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.collection')
+        expect(copiedFaq?.id).toBeTruthy()
+        expect(copiedFaq?.id).not.toBe(faqWidget.id)
+        expect(copiedFaq?.config?.instanceKey).not.toBe(faqWidget.config.instanceKey)
+
+        const resetSourceWidget = sourceForCopy.widgets?.find((widget: { id?: string }) => widget.id === faqWidget.id)
+        if (!resetSourceWidget?.id || typeof resetSourceWidget.version !== 'number') {
+            throw new Error('Marketing source widget disappeared before reset identity check')
+        }
+        const customized = await updateApplicationLayoutWidgetConfig(ownerApi, application.id, marketingLayout.id, resetSourceWidget.id, {
+            config: { ...resetSourceWidget.config, maxItems: Number(resetSourceWidget.config.maxItems ?? 100) + 1 },
+            expectedVersion: resetSourceWidget.version
+        })
+        expect(customized.item.id).toBe(resetSourceWidget.id)
+        const resetResult = await resetApplicationLayoutWidgetConfigs(ownerApi, application.id, [
+            { layoutId: marketingLayout.id, widgetId: resetSourceWidget.id, expectedVersion: customized.item.version }
+        ])
+        expect(resetResult.items?.[0]).toMatchObject({ id: resetSourceWidget.id, layoutId: marketingLayout.id, isCustomized: false })
+        expect(resetResult.items?.[0].config).toEqual(resetResult.items?.[0].sourceConfig)
+
+        await deleteApplicationLayout(ownerApi, application.id, copiedLayoutId, copiedDetail.item.version)
+        const deletedCopyResponse = await requestApi(ownerApi, `/api/v1/applications/${application.id}/layouts/${copiedLayoutId}`, {
+            method: 'GET'
+        })
+        expect(deletedCopyResponse.status).toBe(404)
+        const sourceStillPresent = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        expect(sourceStillPresent.item.id).toBe(marketingLayout.id)
+
         const crossApplicationRuntime = await getApiResponse(
             memberApi,
             `/api/v1/applications/${unrelatedApplication.id}/runtime/marketing-page`
@@ -392,6 +554,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         if (adminApi) await disposeApiContext(adminApi)
         if (editorApi) await disposeApiContext(editorApi)
         if (memberApi) await disposeApiContext(memberApi)
+        if (staleOwnerApi) await disposeApiContext(staleOwnerApi)
         await disposeApiContext(ownerApi)
         await disposeBootstrapApiContext(bootstrapApi)
     }

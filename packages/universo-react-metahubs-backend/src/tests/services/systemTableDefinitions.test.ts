@@ -74,6 +74,17 @@ describe('systemTableDefinitions', () => {
             expect(new Set(allIndexNames).size).toBe(allIndexNames.length)
         })
 
+        it('allows repeated widget keys and keeps only non-unique layout ordering indexes', () => {
+            const widgetsTable = SYSTEM_TABLES.find((table) => table.name === '_mhb_widgets')
+            const indexes = widgetsTable?.indexes ?? []
+
+            expect(indexes.some((index) => index.unique === true)).toBe(false)
+            expect(indexes).toContainEqual({
+                name: 'idx_mhb_widgets_layout_zone_sort',
+                columns: ['layout_id', 'zone', 'sort_order']
+            })
+        })
+
         it('foreign keys reference existing tables', () => {
             const tableNames = new Set(SYSTEM_TABLES.map((t) => t.name))
             for (const table of SYSTEM_TABLES) {

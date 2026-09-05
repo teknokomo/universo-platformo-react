@@ -13,8 +13,51 @@ import {
     normalizeInterpretationNetworkMatrixViewSettings,
     parseApplicationLayoutWidgetConfig
 } from '../common/applicationLayouts'
+import { LAYOUT_WIDGET_DEFINITIONS, LAYOUT_ZONE_DEFINITIONS } from '../common/layoutWidgetDefinitions'
 
 describe('application layout widget config contracts', () => {
+    it('keeps one complete widget metadata registry for metahub and application authoring', () => {
+        const marketingWidgets = LAYOUT_WIDGET_DEFINITIONS.filter((widget) => widget.templateKey === 'marketing-page')
+
+        expect(marketingWidgets.map((widget) => widget.key)).toEqual([
+            'marketing.navigation',
+            'marketing.hero',
+            'marketing.collection',
+            'marketing.pricing',
+            'marketing.footer'
+        ])
+        expect(LAYOUT_WIDGET_DEFINITIONS.every((widget) => widget.labelKey && widget.defaultLabel)).toBe(true)
+        expect(marketingWidgets.every((widget) => widget.labelKey === `layouts.widgets.${widget.key}`)).toBe(true)
+    })
+
+    it('keeps canonical localized metadata for every layout zone', () => {
+        expect(LAYOUT_ZONE_DEFINITIONS).toEqual([
+            { key: 'left', templateKey: 'dashboard', labelKey: 'layouts.zones.left', defaultLabel: 'Left' },
+            { key: 'top', templateKey: 'dashboard', labelKey: 'layouts.zones.top', defaultLabel: 'Top' },
+            { key: 'right', templateKey: 'dashboard', labelKey: 'layouts.zones.right', defaultLabel: 'Right' },
+            { key: 'bottom', templateKey: 'dashboard', labelKey: 'layouts.zones.bottom', defaultLabel: 'Bottom' },
+            { key: 'center', templateKey: 'dashboard', labelKey: 'layouts.zones.center', defaultLabel: 'Center' },
+            {
+                key: 'marketing-header',
+                templateKey: 'marketing-page',
+                labelKey: 'layouts.zones.marketingHeader',
+                defaultLabel: 'Marketing header'
+            },
+            {
+                key: 'marketing-main',
+                templateKey: 'marketing-page',
+                labelKey: 'layouts.zones.marketingMain',
+                defaultLabel: 'Marketing content'
+            },
+            {
+                key: 'marketing-footer',
+                templateKey: 'marketing-page',
+                labelKey: 'layouts.zones.marketingFooter',
+                defaultLabel: 'Marketing footer'
+            }
+        ])
+    })
+
     it('validates the application-level marketing appearance reset payload', () => {
         expect(applicationLayoutConfigResetMutationSchema.parse({ expectedVersion: 3 })).toEqual({ expectedVersion: 3 })
         expect(applicationLayoutConfigResetMutationSchema.safeParse({}).success).toBe(false)
@@ -30,7 +73,8 @@ describe('application layout widget config contracts', () => {
             widgetKey: 'interpretationNetworkWorkspace',
             sortOrder: 1,
             config: { structureMode: 'multiple' },
-            isActive: true
+            isActive: true,
+            version: 1
         }
 
         expect(applicationLayoutWidgetSchema.parse(baseWidget)).toMatchObject({
@@ -91,7 +135,8 @@ describe('application layout widget config contracts', () => {
                 {
                     layoutId: 'layout-global',
                     widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
-                    config: { matrixMode: 'hierarchicalCells' }
+                    config: { matrixMode: 'hierarchicalCells' },
+                    expectedVersion: 1
                 }
             ]
         })
@@ -109,12 +154,14 @@ describe('application layout widget config contracts', () => {
                 {
                     layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
                     widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
-                    config: { matrixMode: 'hierarchicalCells' }
+                    config: { matrixMode: 'hierarchicalCells' },
+                    expectedVersion: 1
                 },
                 {
                     layoutId: '018f8a78-7b8f-7c1d-a111-2222333345a1',
                     widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
-                    config: { matrixMode: 'independentRows' }
+                    config: { matrixMode: 'independentRows' },
+                    expectedVersion: 1
                 }
             ]
         })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Grid from '@mui/material/Grid'
 import Box from '@mui/material/Box'
@@ -924,33 +924,32 @@ export default function MainGrid({
     const hasPageBlocks = (details?.pageBlocks?.length ?? 0) > 0
     const visibleCenterWidgets = centerWidgets?.filter((widget) => isWidgetVisibleForCurrentSection(widget, details)) ?? []
 
-    // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
-    const columnsContainerWidgets = showColumnsContainer ? visibleCenterWidgets.filter((w) => w.widgetKey === 'columnsContainer') : []
-    const overviewCardsWidget = visibleCenterWidgets.find((widget) => widget.widgetKey === 'overviewCards')
-    const parsedOverviewCards = overviewCardsWidgetConfigSchema.safeParse(overviewCardsWidget?.config ?? {})
-    const sessionsChartWidget = visibleCenterWidgets.find((widget) => widget.widgetKey === 'sessionsChart')
-    const parsedSessionsChart = recordsSeriesChartWidgetConfigSchema.safeParse(sessionsChartWidget?.config ?? {})
-    const sessionsChartConfig = parsedSessionsChart.success ? parsedSessionsChart.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
-    const pageViewsChartWidget = visibleCenterWidgets.find((widget) => widget.widgetKey === 'pageViewsChart')
-    const parsedPageViewsChart = recordsSeriesChartWidgetConfigSchema.safeParse(pageViewsChartWidget?.config ?? {})
-    const pageViewsChartConfig = parsedPageViewsChart.success ? parsedPageViewsChart.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
-    const detailsTableWidgets = showDetailsTable ? visibleCenterWidgets.filter((w) => w.widgetKey === 'detailsTable') : []
+    // Keep every active widget row. The same widget key is an instance type, not a singleton.
+    const columnsContainerWidgets = visibleCenterWidgets.filter((w) => w.widgetKey === 'columnsContainer')
+    const overviewTitleWidgets = visibleCenterWidgets.filter((widget) => widget.widgetKey === 'overviewTitle')
+    const overviewCardsWidgets = visibleCenterWidgets.filter((widget) => widget.widgetKey === 'overviewCards')
+    const sessionsChartWidgets = visibleCenterWidgets.filter((widget) => widget.widgetKey === 'sessionsChart')
+    const pageViewsChartWidgets = visibleCenterWidgets.filter((widget) => widget.widgetKey === 'pageViewsChart')
+    const detailsTitleWidgets = visibleCenterWidgets.filter((widget) => widget.widgetKey === 'detailsTitle')
+    const detailsTableWidgets = visibleCenterWidgets.filter((w) => w.widgetKey === 'detailsTable')
+    const overviewTitleItems: Array<ZoneWidgetItem | null> =
+        overviewTitleWidgets.length > 0 ? overviewTitleWidgets : showOverviewTitle ? [null] : []
+    const overviewCardsItems: Array<ZoneWidgetItem | null> =
+        overviewCardsWidgets.length > 0 ? overviewCardsWidgets : showOverviewCards ? [null] : []
+    const sessionsChartItems: Array<ZoneWidgetItem | null> =
+        sessionsChartWidgets.length > 0 ? sessionsChartWidgets : showSessionsChart ? [null] : []
+    const pageViewsChartItems: Array<ZoneWidgetItem | null> =
+        pageViewsChartWidgets.length > 0 ? pageViewsChartWidgets : showPageViewsChart ? [null] : []
+    const detailsTitleItems: Array<ZoneWidgetItem | null> =
+        detailsTitleWidgets.length > 0 ? detailsTitleWidgets : showDetailsTitle ? [null] : []
+    const detailsTableItems: Array<ZoneWidgetItem | null> =
+        detailsTableWidgets.length > 0 ? detailsTableWidgets : showDetailsTable ? [null] : []
     const detailsTableOwnsCreateActions = detailsTableWidgets.some((widget) => {
         const parsed = detailsTableWidgetConfigSchema.safeParse(widget.config ?? {})
         return parsed.success && (parsed.data.createTargets?.length ?? 0) > 0
     })
     const metadataHeaderActions = detailsTableOwnsCreateActions ? null : details?.actions
-    const showMetadataDetailsHeader = showDetailsTitle || Boolean(metadataHeaderActions)
-    const overviewCards =
-        parsedOverviewCards.success && parsedOverviewCards.data.cards?.length
-            ? parsedOverviewCards.data.cards
-            : DEFAULT_STAT_CARDS.map((card) => ({
-                  title: card.title,
-                  value: card.value,
-                  interval: card.interval,
-                  trend: card.trend,
-                  data: card.data
-              }))
+    const showMetadataDetailsHeader = detailsTitleItems.length > 0 || Boolean(metadataHeaderActions)
     const standaloneCenterWidgets =
         visibleCenterWidgets.filter(
             (widget) =>
@@ -967,9 +966,10 @@ export default function MainGrid({
     const showCenterContent =
         hasCustomDetailsContent ||
         hasPageBlocks ||
-        showDetailsTitle ||
         showColumnsContainer ||
-        showDetailsTable ||
+        columnsContainerWidgets.length > 0 ||
+        detailsTitleItems.length > 0 ||
+        detailsTableItems.length > 0 ||
         standaloneCenterWidgets.length > 0
 
     return (
@@ -983,38 +983,70 @@ export default function MainGrid({
             }}
         >
             {/* Overview section — boolean-driven */}
-            {(showOverviewTitle || showOverviewCards || showSessionsChart || showPageViewsChart) && (
+            {(overviewTitleItems.length > 0 ||
+                overviewCardsItems.length > 0 ||
+                sessionsChartItems.length > 0 ||
+                pageViewsChartItems.length > 0) && (
                 <>
-                    {showOverviewTitle && (
-                        <Typography component='h2' variant='h6' sx={{ mb: 2 }}>
-                            Overview
+                    {overviewTitleItems.map((widget, index) => (
+                        <Typography key={widget?.id ?? `overview-title-fallback-${index}`} component='h2' variant='h6' sx={{ mb: 2 }}>
+                            {readLocalizedConfigText(widget?.config?.title, details?.locale) ?? 'Overview'}
                         </Typography>
-                    )}
+                    ))}
                     <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
-                        {showOverviewCards && (
-                            <>
-                                {overviewCards.map((card, index) => (
-                                    <Grid key={index} size={{ xs: 12, sm: 6, lg: 3 }}>
-                                        <RuntimeStatCard config={card} fallback={DEFAULT_STAT_CARDS[index] ?? DEFAULT_STAT_CARDS[0]} />
-                                    </Grid>
-                                ))}
-                                {parsedOverviewCards.success && parsedOverviewCards.data.cards?.length ? null : (
-                                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                                        <HighlightedCard />
-                                    </Grid>
-                                )}
-                            </>
-                        )}
-                        {showSessionsChart && (
-                            <Grid size={{ xs: 12, md: 6 }}>
-                                <RuntimeRecordsSeriesChart config={sessionsChartConfig} variant='sessions' />
-                            </Grid>
-                        )}
-                        {showPageViewsChart && (
-                            <Grid size={{ xs: 12, md: 6 }}>
-                                <RuntimeRecordsSeriesChart config={pageViewsChartConfig} variant='pageViews' />
-                            </Grid>
-                        )}
+                        {overviewCardsItems.map((widget, widgetIndex) => {
+                            const parsed = overviewCardsWidgetConfigSchema.safeParse(widget?.config ?? {})
+                            const cards =
+                                parsed.success && parsed.data.cards?.length
+                                    ? parsed.data.cards
+                                    : DEFAULT_STAT_CARDS.map((card) => ({
+                                          title: card.title,
+                                          value: card.value,
+                                          interval: card.interval,
+                                          trend: card.trend,
+                                          data: card.data
+                                      }))
+                            const hasConfiguredCards = parsed.success && Boolean(parsed.data.cards?.length)
+
+                            return (
+                                <Fragment key={widget?.id ?? `overview-cards-fallback-${widgetIndex}`}>
+                                    {cards.map((card, cardIndex) => (
+                                        <Grid
+                                            key={`${widget?.id ?? `fallback-${widgetIndex}`}-${cardIndex}`}
+                                            size={{ xs: 12, sm: 6, lg: 3 }}
+                                        >
+                                            <RuntimeStatCard
+                                                config={card}
+                                                fallback={DEFAULT_STAT_CARDS[cardIndex] ?? DEFAULT_STAT_CARDS[0]}
+                                            />
+                                        </Grid>
+                                    ))}
+                                    {!hasConfiguredCards ? (
+                                        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                                            <HighlightedCard />
+                                        </Grid>
+                                    ) : null}
+                                </Fragment>
+                            )
+                        })}
+                        {sessionsChartItems.map((widget, index) => {
+                            const parsed = recordsSeriesChartWidgetConfigSchema.safeParse(widget?.config ?? {})
+                            const config = parsed.success ? parsed.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
+                            return (
+                                <Grid key={widget?.id ?? `sessions-chart-fallback-${index}`} size={{ xs: 12, md: 6 }}>
+                                    <RuntimeRecordsSeriesChart config={config} variant='sessions' />
+                                </Grid>
+                            )
+                        })}
+                        {pageViewsChartItems.map((widget, index) => {
+                            const parsed = recordsSeriesChartWidgetConfigSchema.safeParse(widget?.config ?? {})
+                            const config = parsed.success ? parsed.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
+                            return (
+                                <Grid key={widget?.id ?? `page-views-chart-fallback-${index}`} size={{ xs: 12, md: 6 }}>
+                                    <RuntimeRecordsSeriesChart config={config} variant='pageViews' />
+                                </Grid>
+                            )
+                        })}
                     </Grid>
                 </>
             )}
@@ -1081,16 +1113,30 @@ export default function MainGrid({
                                                 }
                                             }}
                                         >
-                                            <ViewHeaderMUI title={showDetailsTitle ? details?.title ?? 'Details' : undefined}>
-                                                {metadataHeaderActions}
-                                            </ViewHeaderMUI>
+                                            {detailsTitleItems.map((widget, index) => (
+                                                <ViewHeaderMUI
+                                                    key={widget?.id ?? `details-title-fallback-${index}`}
+                                                    title={details?.title ?? 'Details'}
+                                                >
+                                                    {index === 0 ? metadataHeaderActions : null}
+                                                </ViewHeaderMUI>
+                                            ))}
+                                            {detailsTitleItems.length === 0 && metadataHeaderActions ? (
+                                                <ViewHeaderMUI>{metadataHeaderActions}</ViewHeaderMUI>
+                                            ) : null}
                                         </Box>
                                     ) : null}
-                                    {detailsTableWidgets.map((widget) => (
-                                        <Box key={widget.id} data-testid={`center-zone-widget-${widget.widgetKey}`} sx={{ minWidth: 0 }}>
-                                            {renderWidget(widget)}
-                                        </Box>
-                                    ))}
+                                    {detailsTableWidgets.length > 0
+                                        ? detailsTableWidgets.map((widget) => (
+                                              <Box
+                                                  key={widget.id}
+                                                  data-testid={`center-zone-widget-${widget.widgetKey}`}
+                                                  sx={{ minWidth: 0 }}
+                                              >
+                                                  {renderWidget(widget)}
+                                              </Box>
+                                          ))
+                                        : null}
                                 </Box>
                             ) : showDetailsTable ? (
                                 <EnhancedDetailsSection layoutConfig={layoutConfig} showTitle={showDetailsTitle} />

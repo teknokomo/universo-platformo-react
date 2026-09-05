@@ -5,7 +5,7 @@ import type {
     ApplicationLayoutConfigResetMutation,
     ApplicationLayoutCreate,
     ApplicationLayoutDetailResponse,
-    ApplicationLayoutMutation,
+    ApplicationLayoutUpdate,
     ApplicationLayoutScope,
     ApplicationLayoutWidget,
     ApplicationLayoutWidgetConfigBatchMutation,
@@ -14,6 +14,7 @@ import type {
     ApplicationLayoutWidgetMutation,
     ApplicationLayoutWidgetResetBatchMutation,
     ApplicationLayoutWidgetToggleMutation,
+    LayoutWidgetDefinition,
     RuntimeDatasourceFilter,
     RuntimeDatasourceSort
 } from '@universo-react/types'
@@ -51,6 +52,8 @@ export interface ApplicationCreateInput {
 }
 
 export interface ApplicationCopyInput extends Partial<ApplicationInput>, Partial<ApplicationCopyOptions> {}
+
+export type ApplicationLayoutWidgetDefinition = LayoutWidgetDefinition
 
 const normalizeRuntimeWorkspaceId = (workspaceId?: string | null): string | undefined => {
     const normalized = workspaceId?.trim()
@@ -459,7 +462,7 @@ export const createApplicationLayout = async (applicationId: string, data: Appli
 export const updateApplicationLayout = async (
     applicationId: string,
     layoutId: string,
-    data: ApplicationLayoutMutation
+    data: ApplicationLayoutUpdate
 ): Promise<ApplicationLayout> => {
     const response = await apiClient.patch<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}`, data)
     return response.data.item
@@ -477,14 +480,20 @@ export const resetApplicationLayoutConfig = async (
     return response.data.item
 }
 
-export const deleteApplicationLayout = async (applicationId: string, layoutId: string, expectedVersion?: number): Promise<void> => {
+export const deleteApplicationLayout = async (applicationId: string, layoutId: string, expectedVersion: number): Promise<void> => {
     await apiClient.delete(`/applications/${applicationId}/layouts/${layoutId}`, {
-        params: expectedVersion ? { expectedVersion } : undefined
+        params: { expectedVersion }
     })
 }
 
-export const copyApplicationLayout = async (applicationId: string, layoutId: string): Promise<ApplicationLayout> => {
-    const response = await apiClient.post<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}/copy`)
+export const copyApplicationLayout = async (
+    applicationId: string,
+    layoutId: string,
+    expectedVersion: number
+): Promise<ApplicationLayout> => {
+    const response = await apiClient.post<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}/copy`, {
+        expectedVersion
+    })
     return response.data.item
 }
 
@@ -498,8 +507,8 @@ export const listApplicationLayoutWidgets = async (applicationId: string, layout
 export const listApplicationLayoutWidgetObject = async (
     applicationId: string,
     layoutId: string
-): Promise<Array<{ key: string; allowedZones: readonly string[]; multiInstance: boolean }>> => {
-    const response = await apiClient.get<{ items: Array<{ key: string; allowedZones: readonly string[]; multiInstance: boolean }> }>(
+): Promise<ApplicationLayoutWidgetDefinition[]> => {
+    const response = await apiClient.get<{ items: ApplicationLayoutWidgetDefinition[] }>(
         `/applications/${applicationId}/layouts/${layoutId}/zone-widgets/object`
     )
     return response.data.items ?? []
@@ -577,8 +586,15 @@ export const toggleApplicationLayoutWidget = async (
     return response.data.item
 }
 
-export const deleteApplicationLayoutWidget = async (applicationId: string, layoutId: string, widgetId: string): Promise<void> => {
-    await apiClient.delete(`/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}`)
+export const deleteApplicationLayoutWidget = async (
+    applicationId: string,
+    layoutId: string,
+    widgetId: string,
+    expectedVersion: number
+): Promise<void> => {
+    await apiClient.delete(`/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}`, {
+        params: { expectedVersion }
+    })
 }
 
 // ============ APPLICATION MEMBERS ============

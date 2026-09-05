@@ -4,22 +4,38 @@ import Grid from '@mui/material/Grid'
 import Typography from '@mui/material/Typography'
 
 import type { MarketingActionHandler, MarketingLogo, MarketingSectionCopy } from '../types'
-import { MarketingActionLink, MarketingEmptyState, MarketingMediaView, sortVisibleMarketingItems } from './MarketingPrimitives'
+import {
+    marketingSectionId,
+    MarketingActionLink,
+    MarketingEmptyState,
+    MarketingMediaView,
+    sortVisibleMarketingItems
+} from './MarketingPrimitives'
 
 export interface LogoCollectionProps {
     section: MarketingSectionCopy
     items: MarketingLogo[]
+    instanceKey?: string
     onAction?: MarketingActionHandler
 }
 
-export default function LogoCollection({ section, items, onAction }: LogoCollectionProps) {
+export default function LogoCollection({ section, items, instanceKey, onAction }: LogoCollectionProps) {
     const visibleItems = sortVisibleMarketingItems(items)
+    const sectionId = marketingSectionId('logoCollection', instanceKey)
     return (
-        <Box id='logoCollection' sx={{ py: 4 }}>
+        <Box id={sectionId} sx={{ py: 4 }}>
             <Container>
-                <Typography component='h2' id='logoCollection-title' variant='subtitle2' align='center' sx={{ color: 'text.secondary' }}>
-                    {section.title}
-                </Typography>
+                {section.showTitle !== false && section.title ? (
+                    <Typography
+                        component='h2'
+                        id={`${sectionId}-title`}
+                        variant='subtitle2'
+                        align='center'
+                        sx={{ color: 'text.secondary' }}
+                    >
+                        {section.title}
+                    </Typography>
+                ) : null}
                 {visibleItems.length === 0 ? (
                     <MarketingEmptyState section={section.title} />
                 ) : (

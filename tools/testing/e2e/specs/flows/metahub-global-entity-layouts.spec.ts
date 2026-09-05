@@ -14,6 +14,7 @@ import {
     createPublicationVersion,
     disposeApiContext,
     getApplicationRuntime,
+    getLayout,
     listLayoutZoneWidgets,
     listLayouts,
     moveLayoutZoneWidget,
@@ -219,6 +220,10 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         })
 
         const globalLayoutId = await waitForLayoutId(api, metahub.id)
+        const globalLayout = await getLayout(api, metahub.id, globalLayoutId)
+        if (typeof globalLayout?.version !== 'number') {
+            throw new Error('Global layout did not return an optimistic-lock version')
+        }
 
         await updateLayout(api, metahub.id, globalLayoutId, {
             config: {
@@ -229,7 +234,8 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
                     editSurface: 'dialog',
                     copySurface: 'dialog'
                 }
-            }
+            },
+            expectedVersion: globalLayout.version
         })
 
         const fallbackObject = await createObjectCollection(api, metahub.id, {
@@ -271,7 +277,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
             isDefault: true
         })
 
-        if (!customLayout?.id) {
+        if (!customLayout?.id || typeof customLayout.version !== 'number') {
             throw new Error('Custom entity-scoped layout creation did not return an id')
         }
 
@@ -285,31 +291,50 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
                     editSurface: 'page',
                     copySurface: 'page'
                 }
-            }
+            },
+            expectedVersion: customLayout.version
         })
+        const updatedCustomLayout = await getLayout(api, metahub.id, customLayout.id)
+        if (typeof updatedCustomLayout?.version !== 'number') {
+            throw new Error('Custom entity-scoped layout did not return an optimistic-lock version')
+        }
 
         let customLayoutWidgets = await listLayoutZoneWidgets(api, metahub.id, customLayout.id)
         const detailsTitleWidget = customLayoutWidgets.items?.find((item: { widgetKey?: string }) => item.widgetKey === 'detailsTitle')
         const detailsTableWidget = customLayoutWidgets.items?.find((item: { widgetKey?: string }) => item.widgetKey === 'detailsTable')
 
-        if (!detailsTitleWidget?.id || !detailsTableWidget?.id) {
+        if (
+            !detailsTitleWidget?.id ||
+            typeof detailsTitleWidget.version !== 'number' ||
+            !detailsTableWidget?.id ||
+            typeof detailsTableWidget.version !== 'number'
+        ) {
             throw new Error('Custom entity-scoped layout did not expose inherited details widgets for override coverage')
         }
 
-        await toggleLayoutZoneWidgetActive(api, metahub.id, customLayout.id, detailsTitleWidget.id, false)
+        await toggleLayoutZoneWidgetActive(api, metahub.id, customLayout.id, detailsTitleWidget.id, false, detailsTitleWidget.version)
         await moveLayoutZoneWidget(api, metahub.id, customLayout.id, {
             widgetId: detailsTableWidget.id,
-            targetIndex: 0
+            targetIndex: 0,
+            expectedVersion: detailsTableWidget.version
         })
+        const layoutAfterWidgetMutations = await getLayout(api, metahub.id, customLayout.id)
+        if (typeof layoutAfterWidgetMutations?.version !== 'number') {
+            throw new Error('Custom entity-scoped layout did not return a fresh version after widget mutations')
+        }
         await assignLayoutZoneWidget(api, metahub.id, customLayout.id, {
             zone: 'right',
-            widgetKey: 'divider'
+            widgetKey: 'divider',
+            expectedVersion: layoutAfterWidgetMutations.version
         })
 
         await page.goto(`/metahub/${metahub.id}/resources`)
         await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible()
         await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
-        await expect(page.getByRole('tab', { name: 'Layouts' })).toHaveAttribute('aria-selected', 'true')
+        const layoutsTab = page.getByRole('tab', { name: 'Layouts' })
+        await expect(layoutsTab).toBeVisible()
+        await layoutsTab.click()
+        await expect(layoutsTab).toHaveAttribute('aria-selected', 'true')
 
         await page.goto(`/metahub/${metahub.id}/entities/object/instance/${customObject.id}/layout/${customLayout.id}`)
         await expect(page.getByRole('heading', { name: 'Entity runtime behavior' })).toBeVisible()
@@ -445,7 +470,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         const copyRequest = page.waitForResponse(
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`) &&
+                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows/${createdRow.id}/copy`) &&
                 response.ok()
         )
         await submitRuntimeSurface(page, 'Copy element', 'Copy')

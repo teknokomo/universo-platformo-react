@@ -260,15 +260,27 @@ export async function fetchMarketingPageRuntime(options: {
     applicationId: string
     locale: string
     workspaceId?: string | null
+    target?: MarketingRuntimeTarget | null
 }): Promise<MarketingPageRuntimeResponse> {
     const url = new URL(buildAppApiUrl(options.apiBaseUrl, options.applicationId, '/marketing-page'))
     url.searchParams.set('locale', options.locale)
     if (options.workspaceId?.trim()) url.searchParams.set('workspaceId', options.workspaceId.trim())
+    if (options.target?.entityTypeId?.trim()) url.searchParams.set('entityTypeId', options.target.entityTypeId.trim())
+    if (options.target?.entityTypeCodename?.trim()) {
+        url.searchParams.set('entityTypeCodename', options.target.entityTypeCodename.trim())
+    }
+    if (options.target?.recordKey?.trim()) url.searchParams.set('recordKey', options.target.recordKey.trim())
     const res = await fetch(url.toString(), { credentials: 'include' })
     if (!res.ok) throw new Error(await extractErrorMessage(res, 'Marketing page runtime API request failed'))
     const parsed = marketingPageRuntimeViewModelSchema.safeParse(await res.json())
     if (!parsed.success) throw new Error('Marketing page runtime response validation failed')
     return parsed.data
+}
+
+export type MarketingRuntimeTarget = {
+    entityTypeId?: string | null
+    entityTypeCodename?: string | null
+    recordKey?: string | null
 }
 
 export async function fetchAppData(options: {

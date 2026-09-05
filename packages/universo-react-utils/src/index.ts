@@ -37,6 +37,18 @@ export const net = {
 export { createTimeSyncEstimator, updateSeqState, reconcileAck, ensurePortAvailable }
 export { resolveRateLimitKey } from './rate-limiting'
 
+export {
+    validateMarketingSnapshotLayouts,
+    validateSnapshotLayoutIdentities,
+    SnapshotLayoutValidationError,
+    MarketingSnapshotValidationError,
+    type MarketingSnapshotLike,
+    type MarketingSnapshotEntityLike,
+    type MarketingSnapshotLayoutLike,
+    type MarketingSnapshotWidgetLike,
+    type MarketingSnapshotOverrideLike
+} from './validation/marketingSnapshot'
+
 // Direct exports for commonly used classes
 export { UPDLProcessor } from './updl/UPDLProcessor'
 

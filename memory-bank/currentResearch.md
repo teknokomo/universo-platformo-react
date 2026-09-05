@@ -1,5 +1,22 @@
 # Current Research
 
+## 2026-09-04: Widgetized marketing-page runtime research
+
+-   Research artifact created: `memory-bank/research/marketing-page-widgetized-runtime-research-2026-09-04.md`.
+-   Direct source review confirms that marketing is entity-data-driven but still rendered through a fixed section map; current layout, authoring, seed, snapshot, and sync paths remain dashboard-shaped or explicitly skip marketing widgets.
+-   Before PLAN, the neutral widget envelope, stable instance identity, no-schema-bump storage strategy, scope precedence, entity/public route selection, server-owned data binding, and template-aware lifecycle must be decided.
+-   QA review on 2026-09-04 corrected source inventory/test paths, added explicit layer ownership and Zod 3 boundary guidance, narrowed unsupported claims, and recorded runtime/DDL/snapshot/sync/legacy-surface evidence; implementation planning remains gated by the documented contract decisions.
+-   No product code, database schema, or template version was changed in RESEARCH mode.
+
+## 2026-09-04: Widgetized marketing-page implementation closeout
+
+-   The clean-break implementation now routes marketing composition through the typed widget registry and entity-backed runtime read model in the isolated `apps-template-mui` package. The existing layout authoring surface supports browser-proven add, configure, activate/deactivate, delete, and keyboard reorder; no separate standalone workbench or compatibility reader was introduced.
+-   The final focused evidence is green: types 180/180, utils 350/350, applications backend 100/100, metahubs backend 86/86, applications frontend 85/85 across layout/runtime/settings slices, metahubs frontend 16/16, apps-template marketing tests 10/10, and template-mui dialog/accessibility tests 2/2. Affected package lint/build checks and Prettier/diff checks passed; the utils package retains only pre-existing warning-level lint output.
+-   `pnpm run test:e2e:marketing-page:verify:local-supabase` reached terminal exit 0 after the 36/36 E2E build. The contract check, six Chromium lifecycle flows, EN/RU light/dark responsive visual matrix (5/5), screenshot inspection/provenance, GitBook assets/links, and 113 EN/RU documentation pairs passed; cleanup stopped the disposable local Supabase instance.
+-   The semantic hash intentionally excludes physical IDs, lineage IDs, baseline source configuration, timestamps, and mutable versions; effective layout/widget configuration and source binding inside the normalized config remain covered. No schema, snapshot, or metahub-template version was bumped, and no legacy compatibility layer was retained.
+-   OntoIndex `gn_verify_diff` passed with its dirty-worktree graph-scan limitation. The local Thermos/autoreview helper could not initialize because the environment-owned `/home/vladimir/.codex/state_5.sqlite` is read-only; no independent clean-review verdict is claimed. Broad package invocations remain resource-sensitive outside the focused acceptance slices and are not represented as green by inference.
+-   A complementary `apps-template-mui` run excluding only the known long-running `InterpretationNetworkWorkspaceWidget.test.tsx` passed 45 files and 557 tests; the complete `widgetRenderer.test.tsx` also passed 67/67. The excluded workspace-widget file remains an environment/resource-sensitive boundary and is not presented as green by inference.
+
 ## 2026-08-31: MUI 9 marketing-page implementation verification continuation
 
 -   The implementation now contains a clean-break MUI 9 dependency policy (Core/System/Icons/Utils `9.2.0`, MUI X `9.8.0`, React `18.3.1`, Emotion 11 peers) and a data-driven `marketing-page` metahub/application path. Product schema, snapshot format, and metahub-template versions remain unchanged.

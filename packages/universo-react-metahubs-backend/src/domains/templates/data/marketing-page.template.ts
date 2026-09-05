@@ -3,6 +3,7 @@ import type {
     TemplateSeedComponent,
     TemplateSeedElement,
     TemplateSeedEntity,
+    TemplateSeedZoneWidget,
     VersionedLocalizedContent
 } from '@universo-react/types'
 import { enrichConfigWithVlcTimestamps, vlc } from './basic.template'
@@ -47,9 +48,7 @@ const plainComponent = (codename: string, nameEn: string, nameRu: string, maxLen
 const sectionComponents: TemplateSeedComponent[] = [
     plainComponent('SectionKey', 'Section key', 'Ключ секции', 64),
     localizedComponent('Title', 'Title', 'Заголовок', 255),
-    localizedComponent('Description', 'Description', 'Описание', 2000),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
-    marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
+    localizedComponent('Description', 'Description', 'Описание', 2000)
 ]
 
 const sectionElements: TemplateSeedElement[] = [
@@ -62,9 +61,7 @@ const sectionElements: TemplateSeedElement[] = [
             Description: vlc(
                 'Primary hero content is managed by the marketing hero object.',
                 'Основное содержимое первого экрана управляется объектом первого экрана.'
-            ),
-            SortOrder: 1,
-            IsVisible: true
+            )
         }
     },
     {
@@ -73,9 +70,7 @@ const sectionElements: TemplateSeedElement[] = [
         data: {
             SectionKey: 'logos',
             Title: vlc('Trusted by the best companies', 'Нам доверяют лучшие компании'),
-            Description: vlc('Customer logos from the marketing page content.', 'Логотипы клиентов из содержимого маркетинговой страницы.'),
-            SortOrder: 2,
-            IsVisible: true
+            Description: vlc('Customer logos from the marketing page content.', 'Логотипы клиентов из содержимого маркетинговой страницы.')
         }
     },
     {
@@ -87,9 +82,7 @@ const sectionElements: TemplateSeedElement[] = [
             Description: vlc(
                 'Provide a brief overview of the key features of the product. For example, you could list the number of features, their types or benefits, and add-ons.',
                 'Кратко расскажите о ключевых возможностях продукта: их количестве, типах, преимуществах и дополнительных опциях.'
-            ),
-            SortOrder: 3,
-            IsVisible: true
+            )
         }
     },
     {
@@ -101,9 +94,7 @@ const sectionElements: TemplateSeedElement[] = [
             Description: vlc(
                 'See what our customers love about our products. Discover how we excel in efficiency, durability, and satisfaction. Join us for quality, innovation, and reliable support.',
                 'Узнайте, что клиентам нравится в наших продуктах. Мы уделяем внимание эффективности, надёжности и качеству поддержки.'
-            ),
-            SortOrder: 4,
-            IsVisible: true
+            )
         }
     },
     {
@@ -115,9 +106,7 @@ const sectionElements: TemplateSeedElement[] = [
             Description: vlc(
                 'Explore why our product stands out: adaptability, durability, user-friendly design, and innovation. Enjoy reliable customer support and precision in every detail.',
                 'Узнайте, чем продукт выделяется: адаптивностью, надёжностью, удобством, инновациями и вниманием к деталям.'
-            ),
-            SortOrder: 5,
-            IsVisible: true
+            )
         }
     },
     {
@@ -129,9 +118,7 @@ const sectionElements: TemplateSeedElement[] = [
             Description: vlc(
                 "Quickly build an effective pricing table for your potential customers with this layout. It's built with default Material UI components with little customization.",
                 'Создайте понятную таблицу тарифов для потенциальных клиентов на базе стандартных компонентов Material UI.'
-            ),
-            SortOrder: 6,
-            IsVisible: true
+            )
         }
     },
     {
@@ -140,9 +127,7 @@ const sectionElements: TemplateSeedElement[] = [
         data: {
             SectionKey: 'faq',
             Title: vlc('Frequently asked questions', 'Часто задаваемые вопросы'),
-            Description: vlc('Answers to the most common questions about the product.', 'Ответы на самые частые вопросы о продукте.'),
-            SortOrder: 7,
-            IsVisible: true
+            Description: vlc('Answers to the most common questions about the product.', 'Ответы на самые частые вопросы о продукте.')
         }
     },
     {
@@ -151,9 +136,7 @@ const sectionElements: TemplateSeedElement[] = [
         data: {
             SectionKey: 'footer',
             Title: vlc('Footer', 'Подвал'),
-            Description: vlc('Footer branding and newsletter content.', 'Брендинг подвала и содержимое рассылки.'),
-            SortOrder: 8,
-            IsVisible: true
+            Description: vlc('Footer branding and newsletter content.', 'Брендинг подвала и содержимое рассылки.')
         }
     }
 ]
@@ -795,6 +778,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPage',
         kind: 'hub',
+        localizeCodenameFromName: false,
         name: vlc('Marketing page', 'Маркетинговая страница'),
         description: vlc('Root hub for the marketing page content.', 'Корневой раздел содержимого маркетинговой страницы.'),
         config: enrichConfigWithVlcTimestamps({ sortOrder: 0 })
@@ -802,6 +786,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageSiteSettings',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Marketing site settings', 'Настройки маркетинговой страницы'),
         description: vlc(
             'Singleton branding, hero, newsletter, and legal settings for the published marketing page.',
@@ -814,10 +799,11 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageSection',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Marketing sections', 'Секции маркетинговой страницы'),
         description: vlc(
-            'Localized headings and visibility for each published section.',
-            'Локализованные заголовки и видимость опубликованных секций.'
+            'Localized copy for the headings and descriptions consumed by marketing widgets.',
+            'Локализованный текст заголовков и описаний, который используют маркетинговые виджеты.'
         ),
         hubs: ['MarketingPage'],
         config: { recordBehavior: 'reference', marketingRole: 'section' },
@@ -826,6 +812,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageLogo',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Customer logos', 'Логотипы клиентов'),
         description: vlc('Theme-aware customer logo metadata.', 'Метаданные логотипов клиентов для обеих тем.'),
         hubs: ['MarketingPage'],
@@ -835,6 +822,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageFeature',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Product features', 'Возможности продукта'),
         description: vlc(
             'Feature cards with an allow-listed icon and preview image.',
@@ -847,6 +835,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageTestimonial',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Testimonials', 'Отзывы'),
         description: vlc(
             'Localized customer testimonials and safe logo metadata.',
@@ -859,6 +848,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageHighlight',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Highlights', 'Преимущества'),
         description: vlc('Dark-section highlight cards.', 'Карточки преимуществ в тёмной секции.'),
         hubs: ['MarketingPage'],
@@ -868,6 +858,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPagePricing',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Pricing tiers', 'Тарифы'),
         description: vlc('Pricing tiers and action targets.', 'Тарифы и цели действий.'),
         hubs: ['MarketingPage'],
@@ -877,6 +868,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPagePricingBenefit',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Pricing benefits', 'Преимущества тарифов'),
         description: vlc('Ordered benefits linked to a pricing tier.', 'Упорядоченные преимущества, связанные с тарифом.'),
         hubs: ['MarketingPage'],
@@ -886,6 +878,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageFaq',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Frequently asked questions', 'Часто задаваемые вопросы'),
         description: vlc('Localized FAQ items.', 'Локализованные вопросы и ответы.'),
         hubs: ['MarketingPage'],
@@ -895,6 +888,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageNavigation',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Marketing navigation', 'Навигация маркетинговой страницы'),
         description: vlc('Ordered safe navigation targets.', 'Упорядоченные безопасные цели навигации.'),
         hubs: ['MarketingPage'],
@@ -904,6 +898,7 @@ const entities: TemplateSeedEntity[] = [
     {
         codename: 'MarketingPageFooterLink',
         kind: 'object',
+        localizeCodenameFromName: false,
         name: vlc('Footer links', 'Ссылки в подвале'),
         description: vlc('Grouped footer navigation links.', 'Сгруппированные ссылки подвала.'),
         hubs: ['MarketingPage'],
@@ -927,6 +922,149 @@ const settings = [
     { key: 'application.templateKey', value: { _value: 'marketing-page' } }
 ]
 
+/**
+ * The marketing page is composed exclusively from persisted widget instances.
+ * Section rows are bound to the widget that consumes their localized copy;
+ * they do not control top-level order or visibility.
+ */
+const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
+    'marketing-main': [
+        {
+            zone: 'marketing-header',
+            widgetKey: 'marketing.navigation',
+            sortOrder: 0,
+            config: {
+                instanceKey: 'navigation',
+                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
+                maxItems: 24,
+                showAuthActions: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.hero',
+            sortOrder: 0,
+            config: {
+                instanceKey: 'hero',
+                source: {
+                    entityCodename: 'MarketingPageSiteSettings',
+                    entityKind: 'object',
+                    recordKey: 'site-settings'
+                },
+                copySource: {
+                    entityCodename: 'MarketingPageSection',
+                    entityKind: 'object',
+                    recordKey: 'hero'
+                },
+                showLeadForm: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            sortOrder: 1,
+            config: {
+                instanceKey: 'logos',
+                variant: 'logos',
+                source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'logos' },
+                maxItems: 100,
+                showTitle: true,
+                showDescription: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            sortOrder: 2,
+            config: {
+                instanceKey: 'features',
+                variant: 'features',
+                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'features' },
+                maxItems: 100,
+                showTitle: true,
+                showDescription: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            sortOrder: 3,
+            config: {
+                instanceKey: 'testimonials',
+                variant: 'testimonials',
+                source: { entityCodename: 'MarketingPageTestimonial', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'testimonials' },
+                maxItems: 100,
+                showTitle: true,
+                showDescription: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            sortOrder: 4,
+            config: {
+                instanceKey: 'highlights',
+                variant: 'highlights',
+                source: { entityCodename: 'MarketingPageHighlight', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'highlights' },
+                maxItems: 100,
+                showTitle: true,
+                showDescription: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.pricing',
+            sortOrder: 5,
+            config: {
+                instanceKey: 'pricing',
+                source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'pricing' },
+                maxItems: 24,
+                showBenefits: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            sortOrder: 6,
+            config: {
+                instanceKey: 'faq',
+                variant: 'faq',
+                source: { entityCodename: 'MarketingPageFaq', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'faq' },
+                maxItems: 100,
+                showTitle: true,
+                showDescription: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-footer',
+            widgetKey: 'marketing.footer',
+            sortOrder: 0,
+            config: {
+                instanceKey: 'footer',
+                source: { entityCodename: 'MarketingPageFooterLink', entityKind: 'object' },
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'footer' },
+                maxItems: 100,
+                showNewsletter: true
+            },
+            isActive: true
+        }
+    ]
+}
+
 export const marketingPageTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
     codename: 'marketing-page',
@@ -934,12 +1072,12 @@ export const marketingPageTemplate: MetahubTemplateManifest = {
     minStructureVersion: '0.1.0',
     name: vlc('Marketing page', 'Маркетинговая страница'),
     description: vlc(
-        'Data-driven marketing page template based on the MUI 9 marketing-page template.',
-        'Шаблон маркетинговой страницы на данных сущностей на основе шаблона marketing-page для MUI 9.'
+        'A ready-made marketing page for presenting a product, its benefits, plans, testimonials, and FAQs.',
+        'Готовая маркетинговая страница для презентации продукта, преимуществ, тарифов, отзывов и ответов на частые вопросы.'
     ),
     meta: {
         author: 'universo-platformo',
-        tags: ['marketing', 'landing-page', 'mui', 'data-driven'],
+        tags: ['marketing', 'landing-page'],
         icon: 'Language'
     },
     presets: [
@@ -964,9 +1102,7 @@ export const marketingPageTemplate: MetahubTemplateManifest = {
                 })
             }
         ],
-        layoutZoneWidgets: {
-            'marketing-main': []
-        },
+        layoutZoneWidgets: marketingLayoutZoneWidgets,
         settings,
         entities,
         elements: {

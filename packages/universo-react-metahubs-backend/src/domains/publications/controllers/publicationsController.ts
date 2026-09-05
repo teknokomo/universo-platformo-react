@@ -8,6 +8,7 @@ import {
     buildSnapshotEnvelope,
     computeSnapshotHash,
     getCodenamePrimary,
+    validateSnapshotLayoutIdentities,
     validateSnapshotEnvelope
 } from '@universo-react/utils'
 import { applyRlsContext } from '@universo-react/auth-backend'
@@ -23,6 +24,7 @@ import {
     findTemplateVersionById,
     listPublicationsByMetahub,
     listPublicationVersions,
+    getMaxPublicationVersionNumber,
     createPublication,
     updatePublication,
     createPublicationVersion,
@@ -36,6 +38,10 @@ import {
 } from '../../../persistence'
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
 import { validateInterpretationNetworkSnapshotMetadata } from '../services/interpretationNetworkSnapshotValidation'
+import {
+    validateMarketingSnapshotLayouts,
+    validateSnapshotLayoutIdentities as validatePublicationSnapshotLayoutIdentities
+} from '../services/marketingSnapshotValidation'
 import { getDDLServices, generateSchemaName, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
 import type { MetahubSnapshotTransportEnvelope } from '@universo-react/types'
@@ -68,6 +74,22 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('Publications')
 const PUBLIC_GUEST_RUNTIME_SETTING_KEY = 'application.publicRuntime.guest'
+const PUBLICATION_SCHEMA_SYNC_ERROR_MESSAGE = 'Schema sync failed'
+const getPublicationSchemaSyncLockKey = (publicationId: string): string => uuidToLockKey(`publication-schema-sync:${publicationId}`)
+
+const safelyReleasePublicationLock = async (
+    lockKey: number | string,
+    context: { metahubId?: string; publicationId?: string }
+): Promise<void> => {
+    try {
+        await releasePoolAdvisoryLock(lockKey)
+    } catch (error) {
+        log.error('Failed to release publication operation lock', {
+            ...context,
+            errorType: error instanceof Error ? error.name : typeof error
+        })
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,6 +100,28 @@ const resolveTemplateVersionLabel = async (exec: SqlQueryable, templateVersionId
     const templateVersion = await findTemplateVersionById(exec, templateVersionId)
     return templateVersion?.versionLabel ?? null
 }
+
+const toPublicationVersionResponse = (version: {
+    id: string
+    publicationId: string
+    versionNumber: number
+    name: unknown
+    description: unknown
+    isActive: boolean
+    branchId: string | null
+    _uplCreatedAt: Date
+    _uplCreatedBy: string | null
+}) => ({
+    id: version.id,
+    publicationId: version.publicationId,
+    versionNumber: version.versionNumber,
+    name: version.name,
+    description: version.description,
+    isActive: version.isActive,
+    createdAt: version._uplCreatedAt,
+    createdBy: version._uplCreatedBy,
+    branchId: version.branchId
+})
 
 const persistPlayCanvasPublicationManifestsInTransaction = async (
     tx: DbExecutor,
@@ -547,6 +591,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
+        validatePublicationSnapshotLayoutIdentities(snapshot)
+        validateMarketingSnapshotLayouts(snapshot)
         await serializer.refreshPlayCanvasRuntimeManifests(
             metahubId,
             snapshot,
@@ -557,6 +603,32 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const snapshotHash = serializer.calculateHash(snapshot)
 
         const result = await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
+            const lockedMetahubRows = await tx.query<{ id: string }>(
+                `SELECT id
+                 FROM metahubs.obj_metahubs
+                 WHERE id = $1
+                   AND COALESCE(_upl_deleted, false) = false
+                   AND COALESCE(_app_deleted, false) = false
+                 FOR UPDATE`,
+                [metahubId]
+            )
+            if (lockedMetahubRows.length === 0) {
+                throw new MetahubNotFoundError('Metahub', metahubId)
+            }
+
+            const existingPublicationRows = await tx.query<{ id: string }>(
+                `SELECT id
+                 FROM metahubs.doc_publications
+                 WHERE metahub_id = $1
+                   AND COALESCE(_upl_deleted, false) = false
+                   AND COALESCE(_app_deleted, false) = false
+                 LIMIT 1`,
+                [metahubId]
+            )
+            if (existingPublicationRows.length > 0) {
+                throw new MetahubValidationError('Single publication limit reached', { metahubId, limit: 1 })
+            }
+
             const publication = await createPublication(tx, {
                 metahubId,
                 name: buildLocalizedContent(sanitizeLocalizedInput(name || {}), namePrimaryLocale || 'en')!,
@@ -856,7 +928,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             const statusCode = message === 'Metahub not found' || message === 'Publication not found' ? 404 : 500
             return res.status(statusCode).json({ error: message })
         } finally {
-            await releasePoolAdvisoryLock(lockKey)
+            await safelyReleasePublicationLock(lockKey, { metahubId, publicationId })
         }
 
         return res.json({
@@ -1017,6 +1089,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
             return res.status(400).json({ error: 'Invalid publication snapshot' })
         }
+        validatePublicationSnapshotLayoutIdentities(snapshot)
+        validateMarketingSnapshotLayouts(snapshot)
 
         const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, componentsService })
         const { objectDefs } = buildRuntimeObjectDefs(serializer, snapshot)
@@ -1068,47 +1142,83 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Publication not found in this Metahub' })
         }
 
-        if (!publication.activeVersionId) {
-            return res.status(400).json({
-                error: 'No active version found',
-                message: 'Publication must have an active version to sync.'
-            })
-        }
-
-        const activeVersion = await findPublicationVersionById(exec, publication.activeVersionId)
-        if (!activeVersion) {
-            return res.status(404).json({ error: 'Active version data not found' })
-        }
-
-        const snapshot = activeVersion.snapshotJson as unknown as MetahubSnapshot
-        if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
-            return res.status(400).json({ error: 'Invalid publication snapshot' })
-        }
-
-        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, componentsService })
-        const { objectDefs } = buildRuntimeObjectDefs(serializer, snapshot)
-
-        const { generator, migrator, migrationManager } = getDDLServices()
-
-        const schemaExists = await generator.schemaExists(publication.schemaName || '')
-
-        await updatePublication(exec, publicationId, { schemaStatus: 'pending' })
-
+        const syncLockKey = getPublicationSchemaSyncLockKey(publicationId)
+        let syncLockAcquired = false
         try {
+            syncLockAcquired = await acquirePoolAdvisoryLock(syncLockKey)
+            if (!syncLockAcquired) {
+                return res.status(409).json({
+                    status: 'busy',
+                    code: 'SCHEMA_SYNC_IN_PROGRESS',
+                    message: 'Publication schema synchronization is already in progress.'
+                })
+            }
+
+            // Re-read the publication only after the lock is held. A concurrent
+            // version activation must not make this sync operate on a stale
+            // active-version pointer.
+            const lockedPublication = await findPublicationById(exec, publicationId)
+            if (!lockedPublication || lockedPublication.metahubId !== metahubId) {
+                return res.status(404).json({ error: 'Publication not found in this Metahub' })
+            }
+            if (!lockedPublication.activeVersionId) {
+                return res.status(400).json({
+                    error: 'No active version found',
+                    message: 'Publication must have an active version to sync.'
+                })
+            }
+            if (!lockedPublication.schemaName) {
+                return res.status(400).json({ error: 'Publication schema is not configured' })
+            }
+
+            const activeVersion = await findPublicationVersionById(exec, lockedPublication.activeVersionId)
+            if (!activeVersion) {
+                return res.status(404).json({ error: 'Active version data not found' })
+            }
+
+            const snapshot = activeVersion.snapshotJson as unknown as MetahubSnapshot
+            if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
+                return res.status(400).json({ error: 'Invalid publication snapshot' })
+            }
+            validatePublicationSnapshotLayoutIdentities(snapshot)
+            validateMarketingSnapshotLayouts(snapshot)
+
+            const serializer = createSnapshotSerializer({
+                exec,
+                schemaService,
+                objectsService,
+                componentsService
+            })
+            const { objectDefs } = buildRuntimeObjectDefs(serializer, snapshot)
+
+            const { generator, migrator, migrationManager } = getDDLServices()
+            const schemaExists = await generator.schemaExists(lockedPublication.schemaName)
+
+            await updatePublication(exec, publicationId, { schemaStatus: 'pending' })
+
             if (!schemaExists) {
-                const result = await generator.generateFullSchema(publication.schemaName!, objectDefs, {
+                const result = await generator.generateFullSchema(lockedPublication.schemaName, objectDefs, {
                     recordMigration: true,
                     migrationDescription: 'initial_schema',
                     migrationManager
                 })
 
                 if (!result.success) {
+                    log.error('Publication schema creation failed', {
+                        metahubId,
+                        publicationId,
+                        errorCount: result.errors.length
+                    })
                     await updatePublication(exec, publicationId, {
                         schemaStatus: 'error',
-                        schemaError: result.errors.join('; ')
+                        schemaError: PUBLICATION_SCHEMA_SYNC_ERROR_MESSAGE
                     })
 
-                    return res.status(500).json({ status: 'error', errors: result.errors })
+                    return res.status(500).json({
+                        status: 'error',
+                        code: 'SCHEMA_SYNC_FAILED',
+                        message: PUBLICATION_SCHEMA_SYNC_ERROR_MESSAGE
+                    })
                 }
 
                 const newSchemaSnapshot = generator.generateSnapshot(objectDefs)
@@ -1128,11 +1238,11 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 })
             }
 
-            const oldSnapshot = publication.schemaSnapshot as SchemaSnapshot | null
+            const oldSnapshot = lockedPublication.schemaSnapshot as SchemaSnapshot | null
             const schemaDiff = migrator.calculateDiff(oldSnapshot, objectDefs)
 
             if (!schemaDiff.hasChanges) {
-                await generator.syncSystemMetadata(publication.schemaName!, objectDefs, {
+                await generator.syncSystemMetadata(lockedPublication.schemaName, objectDefs, {
                     removeMissing: true
                 })
                 const syncedSnapshot = generator.generateSnapshot(objectDefs)
@@ -1154,17 +1264,32 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 })
             }
 
-            const migrationResult = await migrator.applyAllChanges(publication.schemaName!, schemaDiff, objectDefs, confirmDestructive, {
-                recordMigration: true,
-                migrationDescription: 'schema_sync'
-            })
+            const migrationResult = await migrator.applyAllChanges(
+                lockedPublication.schemaName,
+                schemaDiff,
+                objectDefs,
+                confirmDestructive,
+                {
+                    recordMigration: true,
+                    migrationDescription: 'schema_sync'
+                }
+            )
 
             if (!migrationResult.success) {
+                log.error('Publication schema migration failed', {
+                    metahubId,
+                    publicationId,
+                    errorCount: migrationResult.errors.length
+                })
                 await updatePublication(exec, publicationId, {
                     schemaStatus: 'error',
-                    schemaError: migrationResult.errors.join('; ')
+                    schemaError: PUBLICATION_SCHEMA_SYNC_ERROR_MESSAGE
                 })
-                return res.status(500).json({ status: 'error', errors: migrationResult.errors })
+                return res.status(500).json({
+                    status: 'error',
+                    code: 'SCHEMA_SYNC_FAILED',
+                    message: PUBLICATION_SCHEMA_SYNC_ERROR_MESSAGE
+                })
             }
 
             const migratedSnapshot = generator.generateSnapshot(objectDefs)
@@ -1180,12 +1305,40 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 changesApplied: migrationResult.changesApplied
             })
         } catch (error) {
-            const schemaError = error instanceof Error ? error.message : 'Unknown error'
-            await updatePublication(exec, publicationId, {
-                schemaStatus: 'error',
-                schemaError
+            log.error('Publication schema synchronization failed', {
+                metahubId,
+                publicationId,
+                errorType: error instanceof Error ? error.name : typeof error
             })
-            return res.status(500).json({ status: 'error', message: schemaError })
+            try {
+                await updatePublication(exec, publicationId, {
+                    schemaStatus: 'error',
+                    schemaError: PUBLICATION_SCHEMA_SYNC_ERROR_MESSAGE
+                })
+            } catch (stateError) {
+                log.error('Failed to persist publication schema synchronization error state', {
+                    metahubId,
+                    publicationId,
+                    errorType: stateError instanceof Error ? stateError.name : typeof stateError
+                })
+            }
+            return res.status(500).json({
+                status: 'error',
+                code: 'SCHEMA_SYNC_FAILED',
+                message: PUBLICATION_SCHEMA_SYNC_ERROR_MESSAGE
+            })
+        } finally {
+            if (syncLockAcquired) {
+                try {
+                    await releasePoolAdvisoryLock(syncLockKey)
+                } catch (error) {
+                    log.error('Failed to release publication schema synchronization lock', {
+                        metahubId,
+                        publicationId,
+                        errorType: error instanceof Error ? error.name : typeof error
+                    })
+                }
+            }
         }
     }
 
@@ -1204,16 +1357,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         const versions = await listPublicationVersions(exec, publicationId)
 
-        const mappedVersions = versions.map((v) => ({
-            id: v.id,
-            versionNumber: v.versionNumber,
-            name: v.name,
-            description: v.description,
-            isActive: v.isActive,
-            createdAt: v._uplCreatedAt,
-            createdBy: v._uplCreatedBy,
-            branchId: v.branchId
-        }))
+        const mappedVersions = versions.map(toPublicationVersionResponse)
 
         return res.json({ items: mappedVersions })
     }
@@ -1307,6 +1451,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId: metahubId ?? publication.metahubId, userId })
+        validatePublicationSnapshotLayoutIdentities(snapshot)
+        validateMarketingSnapshotLayouts(snapshot)
         await serializer.refreshPlayCanvasRuntimeManifests(
             metahubId ?? publication.metahubId,
             snapshot,
@@ -1316,40 +1462,77 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         alignPlayCanvasRuntimeManifestBindings(snapshot)
         const snapshotHash = serializer.calculateHash(snapshot)
 
-        const lastVersion = existingVersions[0] ?? null
-        const nextVersionNumber = (lastVersion?.versionNumber || 0) + 1
-        const isDuplicate = lastVersion?.snapshotHash === snapshotHash
-
-        const result = await exec.transaction(async (tx) => {
-            await deactivatePublicationVersions(tx, publicationId)
-
-            const version = await createPublicationVersion(tx, {
-                publicationId,
-                versionNumber: nextVersionNumber,
-                name: buildLocalizedContent(sanitizeLocalizedInput(name), namePrimaryLocale || 'en')!,
-                description:
-                    description && Object.keys(description).length > 0
-                        ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')
-                        : null,
-                snapshotJson: snapshot as unknown as Record<string, unknown>,
-                snapshotHash,
-                branchId: effectiveBranchId,
-                isActive: true,
-                userId
+        const runtimeLockKey = getPublicationSchemaSyncLockKey(publicationId)
+        const runtimeLockAcquired = await acquirePoolAdvisoryLock(runtimeLockKey)
+        if (!runtimeLockAcquired) {
+            return res.status(409).json({
+                error: 'Publication operation is already in progress',
+                code: 'PUBLICATION_OPERATION_IN_PROGRESS'
             })
-            await persistPlayCanvasPublicationManifestsInTransaction(tx, branch.schemaName, snapshot, userId)
+        }
 
-            await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
+        try {
+            const result = await exec.transaction(async (tx) => {
+                const lockedPublicationRows = await tx.query<{ id: string }>(
+                    `SELECT id
+                 FROM metahubs.doc_publications
+                 WHERE id = $1
+                   AND metahub_id = $2
+                   AND COALESCE(_upl_deleted, false) = false
+                   AND COALESCE(_app_deleted, false) = false
+                 FOR UPDATE`,
+                    [publicationId, metahubId]
+                )
+                if (lockedPublicationRows.length === 0) {
+                    throw new MetahubNotFoundError('Publication', publicationId)
+                }
 
-            return version
-        })
+                const maxVersionNumber = await getMaxPublicationVersionNumber(tx, publicationId)
+                const nextVersionNumber = Math.max(maxVersionNumber, existingVersions[0]?.versionNumber ?? 0) + 1
+                const latestVersionRows = await tx.query<{ snapshot_hash: string | null }>(
+                    `SELECT snapshot_hash
+                 FROM metahubs.doc_publication_versions
+                 WHERE publication_id = $1
+                   AND COALESCE(_upl_deleted, false) = false
+                   AND COALESCE(_app_deleted, false) = false
+                 ORDER BY version_number DESC
+                 LIMIT 1`,
+                    [publicationId]
+                )
+                const isDuplicate = latestVersionRows[0]?.snapshot_hash === snapshotHash
 
-        await notifyLinkedApplicationsUpdateAvailable(exec, publicationId, result.id)
+                await deactivatePublicationVersions(tx, publicationId)
 
-        return res.status(201).json({
-            ...result,
-            isDuplicate
-        })
+                const version = await createPublicationVersion(tx, {
+                    publicationId,
+                    versionNumber: nextVersionNumber,
+                    name: buildLocalizedContent(sanitizeLocalizedInput(name), namePrimaryLocale || 'en')!,
+                    description:
+                        description && Object.keys(description).length > 0
+                            ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')
+                            : null,
+                    snapshotJson: snapshot as unknown as Record<string, unknown>,
+                    snapshotHash,
+                    branchId: effectiveBranchId,
+                    isActive: true,
+                    userId
+                })
+                await persistPlayCanvasPublicationManifestsInTransaction(tx, branch.schemaName, snapshot, userId)
+
+                await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
+
+                return { version, isDuplicate }
+            })
+
+            await notifyLinkedApplicationsUpdateAvailable(exec, publicationId, result.version.id)
+
+            return res.status(201).json({
+                ...toPublicationVersionResponse(result.version),
+                isDuplicate: result.isDuplicate
+            })
+        } finally {
+            await safelyReleasePublicationLock(runtimeLockKey, { metahubId, publicationId })
+        }
     }
 
     // ─── ACTIVATE VERSION ───────────────────────────────────────────────────────
@@ -1373,17 +1556,55 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Version not found' })
         }
 
-        await exec.transaction(async (tx) => {
-            await deactivatePublicationVersions(tx, publicationId)
-            await activatePublicationVersion(tx, versionId)
-            await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
-        })
+        const runtimeLockKey = getPublicationSchemaSyncLockKey(publicationId)
+        const runtimeLockAcquired = await acquirePoolAdvisoryLock(runtimeLockKey)
+        if (!runtimeLockAcquired) {
+            return res.status(409).json({
+                error: 'Publication operation is already in progress',
+                code: 'PUBLICATION_OPERATION_IN_PROGRESS'
+            })
+        }
 
-        await notifyLinkedApplicationsUpdateAvailable(exec, publicationId, version.id)
+        try {
+            const activatedVersion = await exec.transaction(async (tx) => {
+                const lockedPublicationRows = await tx.query<{ id: string }>(
+                    `SELECT id
+                 FROM metahubs.doc_publications
+                 WHERE id = $1
+                   AND metahub_id = $2
+                   AND COALESCE(_upl_deleted, false) = false
+                   AND COALESCE(_app_deleted, false) = false
+                 FOR UPDATE`,
+                    [publicationId, metahubId]
+                )
+                if (lockedPublicationRows.length === 0) {
+                    throw new MetahubNotFoundError('Publication', publicationId)
+                }
 
-        const activatedVersion = await findPublicationVersionById(exec, versionId)
+                const versionToActivate = await findPublicationVersionById(tx, versionId)
+                if (!versionToActivate || versionToActivate.publicationId !== publicationId) {
+                    throw new MetahubNotFoundError('Publication version', versionId)
+                }
 
-        return res.json({ success: true, version: activatedVersion })
+                // Re-read and validate under the same row lock used for the active
+                // pointer. An invalid snapshot must leave the previous active
+                // version untouched.
+                validateSnapshotLayoutIdentities(versionToActivate.snapshotJson)
+                validateMarketingSnapshotLayouts(versionToActivate.snapshotJson as unknown as MetahubSnapshot)
+
+                await deactivatePublicationVersions(tx, publicationId)
+                await activatePublicationVersion(tx, versionId)
+                await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [versionId, publicationId])
+
+                return versionToActivate
+            })
+
+            await notifyLinkedApplicationsUpdateAvailable(exec, publicationId, versionId)
+
+            return res.json({ success: true, version: toPublicationVersionResponse(activatedVersion) })
+        } finally {
+            await safelyReleasePublicationLock(runtimeLockKey, { metahubId, publicationId })
+        }
     }
 
     // ─── UPDATE VERSION ─────────────────────────────────────────────────────────
@@ -1448,7 +1669,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         }
 
         const updatedVersion = await findPublicationVersionById(exec, versionId)
-        return res.json(updatedVersion)
+        return res.json(updatedVersion ? toPublicationVersionResponse(updatedVersion) : null)
     }
 
     // ─── DELETE VERSION ─────────────────────────────────────────────────────────
@@ -1514,6 +1735,16 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             throw error
         }
 
+        try {
+            validatePublicationSnapshotLayoutIdentities(importedSnapshot as unknown as MetahubSnapshot)
+            validateMarketingSnapshotLayouts(importedSnapshot as unknown as MetahubSnapshot)
+        } catch (error) {
+            if (error instanceof MetahubValidationError) {
+                return res.status(400).json({ error: 'Invalid marketing layout snapshot', code: 'INVALID_MARKETING_LAYOUT_SNAPSHOT' })
+            }
+            throw error
+        }
+
         // 2. Verify publication exists and belongs to this metahub
         const publication = await findPublicationById(exec, publicationId)
         if (!publication || publication.metahubId !== metahubId) {
@@ -1521,42 +1752,70 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         }
 
         // 3. Create version from imported snapshot
-        const versions = await listPublicationVersions(exec, publicationId)
-        const nextVersionNumber = Math.max(0, ...versions.map((v) => v.versionNumber)) + 1
-
         const { buildLocalizedContent: buildLC } = localizedContent
-        const versionName = buildLC({ en: `Imported v${nextVersionNumber}` }, 'en')
+        const existingVersions = await listPublicationVersions(exec, publicationId)
 
-        const result = await exec.transaction(async (tx) => {
-            await deactivatePublicationVersions(tx, publicationId)
+        const runtimeLockKey = getPublicationSchemaSyncLockKey(publicationId)
+        const runtimeLockAcquired = await acquirePoolAdvisoryLock(runtimeLockKey)
+        if (!runtimeLockAcquired) {
+            return res.status(409).json({
+                error: 'Publication operation is already in progress',
+                code: 'PUBLICATION_OPERATION_IN_PROGRESS'
+            })
+        }
 
-            const version = await createPublicationVersion(tx, {
-                publicationId,
-                versionNumber: nextVersionNumber,
-                name: versionName!,
-                description: null,
-                snapshotJson: importedSnapshot as Record<string, unknown>,
-                snapshotHash: storedSnapshotHash,
-                branchId: null,
-                isActive: true,
-                userId
+        try {
+            const result = await exec.transaction(async (tx) => {
+                const lockedPublicationRows = await tx.query<{ id: string }>(
+                    `SELECT id
+                 FROM metahubs.doc_publications
+                 WHERE id = $1
+                   AND metahub_id = $2
+                   AND COALESCE(_upl_deleted, false) = false
+                   AND COALESCE(_app_deleted, false) = false
+                 FOR UPDATE`,
+                    [publicationId, metahubId]
+                )
+                if (lockedPublicationRows.length === 0) {
+                    throw new MetahubNotFoundError('Publication', publicationId)
+                }
+
+                const maxVersionNumber = await getMaxPublicationVersionNumber(tx, publicationId)
+                const nextVersionNumber = Math.max(maxVersionNumber, ...existingVersions.map((version) => version.versionNumber), 0) + 1
+                const versionName = buildLC({ en: `Imported v${nextVersionNumber}` }, 'en')
+
+                await deactivatePublicationVersions(tx, publicationId)
+
+                const version = await createPublicationVersion(tx, {
+                    publicationId,
+                    versionNumber: nextVersionNumber,
+                    name: versionName!,
+                    description: null,
+                    snapshotJson: importedSnapshot as Record<string, unknown>,
+                    snapshotHash: storedSnapshotHash,
+                    branchId: null,
+                    isActive: true,
+                    userId
+                })
+
+                await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
+
+                return { version }
             })
 
-            await tx.query('UPDATE metahubs.doc_publications SET active_version_id = $1 WHERE id = $2', [version.id, publicationId])
+            await notifyLinkedApplicationsUpdateAvailable(exec, publicationId, result.version.id)
 
-            return version
-        })
-
-        await notifyLinkedApplicationsUpdateAvailable(exec, publicationId, result.id)
-
-        return res.status(201).json({
-            ...result,
-            importedFrom: {
-                sourceMetahubId: envelope.metahub.id,
-                sourceSnapshotHash,
-                exportedAt: envelope.exportedAt
-            }
-        })
+            return res.status(201).json({
+                version: toPublicationVersionResponse(result.version),
+                importedFrom: {
+                    sourceMetahubId: envelope.metahub.id,
+                    sourceSnapshotHash,
+                    exportedAt: envelope.exportedAt
+                }
+            })
+        } finally {
+            await safelyReleasePublicationLock(runtimeLockKey, { metahubId, publicationId })
+        }
     }
 
     // ─── EXPORT VERSION ─────────────────────────────────────────────────────────

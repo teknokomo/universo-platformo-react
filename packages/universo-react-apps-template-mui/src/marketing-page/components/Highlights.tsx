@@ -6,19 +6,27 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 
 import type { MarketingHighlight, MarketingSectionCopy } from '../types'
-import { MarketingEmptyState, MarketingIcon, MarketingSectionHeader, sortVisibleMarketingItems } from './MarketingPrimitives'
+import {
+    marketingSectionId,
+    MarketingEmptyState,
+    MarketingIcon,
+    MarketingSectionHeader,
+    sortVisibleMarketingItems
+} from './MarketingPrimitives'
 
 export interface HighlightsProps {
     section: MarketingSectionCopy
     items: MarketingHighlight[]
+    instanceKey?: string
 }
 
-export default function Highlights({ section, items }: HighlightsProps) {
+export default function Highlights({ section, items, instanceKey }: HighlightsProps) {
     const visibleItems = sortVisibleMarketingItems(items)
+    const sectionId = marketingSectionId('highlights', instanceKey)
     return (
-        <Box id='highlights' sx={{ pt: { xs: 4, sm: 12 }, pb: { xs: 8, sm: 16 }, color: 'white', bgcolor: 'grey.900' }}>
+        <Box id={sectionId} sx={{ pt: { xs: 4, sm: 12 }, pb: { xs: 8, sm: 16 }, color: 'white', bgcolor: 'grey.900' }}>
             <Container sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: { xs: 3, sm: 6 } }}>
-                <MarketingSectionHeader section={section} id='highlights' inverse />
+                <MarketingSectionHeader section={section} id={sectionId} inverse />
                 {visibleItems.length === 0 ? (
                     <MarketingEmptyState section={section.title} />
                 ) : (

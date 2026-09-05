@@ -327,6 +327,24 @@ describe('applications realtime runtime module-backed room options', () => {
         ).rejects.toMatchObject({ statusCode: 404 })
     })
 
+    it('requires an explicit widget identity when multiple PlayCanvas instances match the request', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query
+            .mockResolvedValueOnce([{ id: applicationId, schemaName: 'app_018f8a787b8f7c1da1112222333346aa' }])
+            .mockResolvedValueOnce([
+                { widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ab', config: {} },
+                { widgetId: '018f8a78-7b8f-7c1d-a111-2222333346ac', config: {} }
+            ])
+
+        await expect(
+            __applicationsRealtimeRuntimeTestUtils.loadRoomOptionsFromApplicationSchema(executor as never, {
+                applicationId,
+                accessMode: 'member',
+                moduleCodename: 'mmoomm-flight-widget'
+            })
+        ).rejects.toMatchObject({ statusCode: 409 })
+    })
+
     it('uses the published server module result and stable module identity in room options', async () => {
         const { executor } = createMockDbExecutor()
         executor.query

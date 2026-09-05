@@ -706,4 +706,14 @@ describe('ApplicationWidgetBehaviorEditorDialog', () => {
         expect(screen.getByTestId('application-widget-resource-validation-warning')).toBeInTheDocument()
         expect(screen.getByText('Invalid resource source will be removed when saved.')).toBeInTheDocument()
     })
+
+    it('allows an optional resource preview source to remain empty', () => {
+        const onSave = vi.fn()
+        render(<ApplicationWidgetBehaviorEditorDialog open widgetKey='resourcePreview' config={{}} onSave={onSave} onCancel={vi.fn()} />)
+
+        expect(screen.queryByTestId('application-widget-resource-validation-warning')).not.toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith({})
+    })
 })

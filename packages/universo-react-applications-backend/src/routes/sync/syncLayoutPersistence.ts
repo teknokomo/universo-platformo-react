@@ -8,8 +8,14 @@
 import stableStringify from 'json-stable-stringify'
 import { createKnexExecutor } from '@universo-react/database'
 import type { DDLServices } from '@universo-react/schema-ddl'
-import type { ApplicationLayoutChange, ApplicationLayoutSyncResolution } from '@universo-react/types'
-import { generateUuidV7 } from '@universo-react/utils'
+import {
+    DASHBOARD_LAYOUT_ZONES,
+    MARKETING_LAYOUT_ZONES,
+    type ApplicationLayoutChange,
+    type ApplicationLayoutSyncResolution,
+    type ApplicationTemplateKey
+} from '@universo-react/types'
+import { generateUuidV7, validateMarketingSnapshotLayouts, validateSnapshotLayoutIdentities } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncTransaction, getApplicationSyncDdlServices, getApplicationSyncKnex } from '../../ddl'
 import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
@@ -23,16 +29,19 @@ import {
 import {
     buildMergedDashboardLayoutConfig,
     isRecord,
-    normalizeSnapshotLayouts,
-    normalizeSnapshotLayoutZoneWidgets,
+    materializeSnapshotLayoutsAndWidgets,
     quoteSchemaName,
     parseApplicationTemplateKey
 } from './syncHelpers'
 
 // --- Layout persistence ---
 
-const normalizeLayoutZone = (value: unknown): PersistedAppLayoutZoneWidget['zone'] => {
-    return value === 'left' || value === 'right' || value === 'top' || value === 'bottom' || value === 'center' ? value : 'center'
+const normalizeLayoutZone = (value: unknown, templateKey: ApplicationTemplateKey): PersistedAppLayoutZoneWidget['zone'] => {
+    const zones = templateKey === 'dashboard' ? DASHBOARD_LAYOUT_ZONES : MARKETING_LAYOUT_ZONES
+    if (typeof value === 'string' && (zones as readonly string[]).includes(value)) {
+        return value as PersistedAppLayoutZoneWidget['zone']
+    }
+    throw new Error(`[SchemaSync] Invalid ${templateKey} persisted widget zone`)
 }
 
 const isLocallyModifiedLayout = (row: { source_kind?: unknown; source_content_hash?: unknown; local_content_hash?: unknown }): boolean =>
@@ -44,6 +53,11 @@ const isLocallyModifiedLayout = (row: { source_kind?: unknown; source_content_ha
 const resolveLayoutScope = (scopeEntityId: string | null | undefined): string => scopeEntityId ?? 'global'
 
 const toLocalizedTitle = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
+const APPLICATION_LAYOUT_MUTATION_LOCK_SUFFIX = ':application-layout-mutations'
+
+const lockApplicationLayoutMutations = async (trx: ApplicationSyncTransaction, schemaName: string): Promise<void> => {
+    await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [`${schemaName}${APPLICATION_LAYOUT_MUTATION_LOCK_SUFFIX}`])
+}
 
 export async function buildApplicationLayoutChanges(options: {
     schemaName: string
@@ -52,13 +66,17 @@ export async function buildApplicationLayoutChanges(options: {
     const { schemaName, snapshot } = options
     const knex = getApplicationSyncKnex()
 
+    validateMarketingSnapshotLayouts(snapshot)
+    validateSnapshotLayoutIdentities(snapshot)
+
     const hasLayouts = await knex.schema.withSchema(schemaName).hasTable('_app_layouts')
     if (!hasLayouts) {
         return []
     }
 
-    const nextLayouts = normalizeSnapshotLayouts(snapshot)
-    const nextWidgets = normalizeSnapshotLayoutZoneWidgets(snapshot)
+    const materialized = materializeSnapshotLayoutsAndWidgets(snapshot)
+    const nextLayouts = materialized.layouts
+    const nextWidgets = materialized.widgets
     const widgetsByLayoutId = new Map<string, typeof nextWidgets>()
     for (const widget of nextWidgets) {
         const bucket = widgetsByLayoutId.get(widget.layoutId) ?? []
@@ -224,20 +242,25 @@ export async function persistPublishedLayouts(options: {
     const knex = getApplicationSyncKnex()
     const executor = trx ?? knex
 
+    validateMarketingSnapshotLayouts(snapshot)
+    validateSnapshotLayoutIdentities(snapshot)
+
     try {
         const { generator } = getApplicationSyncDdlServices()
         await generator.ensureSystemTables(schemaName, trx)
-    } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('[SchemaSync] Failed to ensure _app_layouts for layouts (ignored)', e)
+    } catch (error) {
+        const syncError = new Error('[SchemaSync] Failed to ensure application layout tables')
+        Object.defineProperty(syncError, 'cause', { value: error })
+        throw syncError
     }
 
     const hasLayouts = await executor.schema.withSchema(schemaName).hasTable('_app_layouts')
     if (!hasLayouts) return
 
     const now = new Date()
-    const nextLayouts = normalizeSnapshotLayouts(snapshot)
-    const nextWidgets = normalizeSnapshotLayoutZoneWidgets(snapshot)
+    const materialized = materializeSnapshotLayoutsAndWidgets(snapshot)
+    const nextLayouts = materialized.layouts
+    const nextWidgets = materialized.widgets
     const widgetsByLayoutId = new Map<string, typeof nextWidgets>()
     for (const widget of nextWidgets) {
         const bucket = widgetsByLayoutId.get(widget.layoutId) ?? []
@@ -246,6 +269,7 @@ export async function persistPublishedLayouts(options: {
     }
 
     const applyPersist = async (activeTrx: ApplicationSyncTransaction) => {
+        await lockApplicationLayoutMutations(activeTrx, schemaName)
         const existingRows = await activeTrx
             .withSchema(schemaName)
             .from('_app_layouts')
@@ -261,7 +285,7 @@ export async function persistPublishedLayouts(options: {
                 const defaultRows = await activeTrx
                     .withSchema(schemaName)
                     .from('_app_layouts')
-                    .where({ _upl_deleted: false, _app_deleted: false, is_default: true })
+                    .where({ _upl_deleted: false, _app_deleted: false, is_active: true, is_default: true })
                     .whereRaw('scope_entity_id IS NOT DISTINCT FROM ?', [row.scopeEntityId])
                     .whereNot({ id: row.id })
                     .select(['id', 'source_kind', 'source_content_hash', 'local_content_hash'])
@@ -279,10 +303,15 @@ export async function persistPublishedLayouts(options: {
                     await activeTrx
                         .withSchema(schemaName)
                         .from('_app_layouts')
-                        .where({ _upl_deleted: false, _app_deleted: false, is_default: true })
+                        .where({ _upl_deleted: false, _app_deleted: false, is_active: true, is_default: true })
                         .whereRaw('scope_entity_id IS NOT DISTINCT FROM ?', [row.scopeEntityId])
                         .whereNot({ id: row.id })
-                        .update({ is_default: false, _upl_updated_at: now, _upl_updated_by: userId ?? null })
+                        .update({
+                            is_default: false,
+                            _upl_updated_at: now,
+                            _upl_updated_by: userId ?? null,
+                            _upl_version: activeTrx.raw('_upl_version + 1')
+                        })
                 }
             }
             const payload = {
@@ -593,13 +622,17 @@ export async function persistPublishedWidgets(options: {
     const { schemaName, snapshot, userId, trx } = options
     const knex = getApplicationSyncKnex()
     const executor = trx ?? knex
+
+    validateMarketingSnapshotLayouts(snapshot)
+    validateSnapshotLayoutIdentities(snapshot)
     const hasTable = await executor.schema.withSchema(schemaName).hasTable('_app_widgets')
     if (!hasTable) return
 
     const now = new Date()
-    const nextRows = normalizeSnapshotLayoutZoneWidgets(snapshot)
+    const nextRows = materializeSnapshotLayoutsAndWidgets(snapshot).widgets
 
     const applyPersist = async (activeTrx: ApplicationSyncTransaction) => {
+        await lockApplicationLayoutMutations(activeTrx, schemaName)
         const inheritedLayouts = await activeTrx
             .withSchema(schemaName)
             .from('_app_layouts')
@@ -612,15 +645,31 @@ export async function persistPublishedWidgets(options: {
             .withSchema(schemaName)
             .from('_app_widgets')
             .where({ _upl_deleted: false, _app_deleted: false })
-            .select(['id', 'layout_id', 'source_base_widget_id', 'widget_key', 'config', 'is_active'])
+            .select(['id', 'layout_id', 'source_widget_id', 'source_base_widget_id', 'widget_key', 'config', 'is_active'])
         const existingIds = new Set(existingRows.map((row) => String(row.id)))
         const existingById = new Map(existingRows.map((row) => [String(row.id), row]))
-        const existingInheritedIdsByKey = new Map(
-            existingRows
-                .filter((row) => typeof row.layout_id === 'string' && typeof row.source_base_widget_id === 'string')
-                .map((row) => [`${String(row.layout_id)}:${String(row.source_base_widget_id)}`, String(row.id)])
-        )
+        const existingInheritedIdsByKey = new Map<string, string>()
+        const existingSourceWidgetIdsByKey = new Map<string, string>()
+        for (const row of existingRows) {
+            if (typeof row.layout_id !== 'string') continue
+            if (typeof row.source_base_widget_id === 'string') {
+                const inheritedKey = `${row.layout_id}:${row.source_base_widget_id}`
+                if (existingInheritedIdsByKey.has(inheritedKey)) {
+                    throw new Error('[SchemaSync] Existing application widgets contain duplicate source lineage')
+                }
+                existingInheritedIdsByKey.set(inheritedKey, String(row.id))
+            }
+            if (typeof row.source_base_widget_id !== 'string' && typeof row.source_widget_id === 'string') {
+                const sourceWidgetKey = `${row.layout_id}:${row.source_widget_id}`
+                if (existingSourceWidgetIdsByKey.has(sourceWidgetKey)) {
+                    throw new Error('[SchemaSync] Existing application widgets contain duplicate source widget lineage')
+                }
+                existingSourceWidgetIdsByKey.set(sourceWidgetKey, String(row.id))
+            }
+        }
         const nextPersistedIds: string[] = []
+        const nextPersistedIdSet = new Set<string>()
+        const nextInheritedKeys = new Set<string>()
         const pendingRows: Array<{
             persistedRowId: string
             payload: {
@@ -638,8 +687,31 @@ export async function persistPublishedWidgets(options: {
 
         for (const row of syncableRows) {
             const inheritedKey = row.sourceBaseWidgetId ? `${row.layoutId}:${row.sourceBaseWidgetId}` : null
-            const existingInheritedId = inheritedKey ? existingInheritedIdsByKey.get(inheritedKey) ?? null : null
-            const persistedRowId = existingInheritedId ?? (row.sourceBaseWidgetId ? generateUuidV7() : row.id)
+            if (inheritedKey && nextInheritedKeys.has(inheritedKey)) {
+                throw new Error('[SchemaSync] Snapshot contains duplicate application widget lineage')
+            }
+            if (inheritedKey) nextInheritedKeys.add(inheritedKey)
+            const sourceWidgetKey = `${row.layoutId}:${row.sourceBaseWidgetId ?? row.id}`
+            const existingSourceId = row.sourceBaseWidgetId
+                ? existingInheritedIdsByKey.get(sourceWidgetKey) ?? null
+                : existingSourceWidgetIdsByKey.get(sourceWidgetKey) ?? null
+            const persistedRowId = existingSourceId ?? (row.sourceBaseWidgetId ? generateUuidV7() : row.id)
+            const existing = existingById.get(persistedRowId)
+            if (existing) {
+                const hasExpectedSourceIdentity =
+                    String(existing.layout_id) === row.layoutId &&
+                    (row.sourceBaseWidgetId
+                        ? String(existing.source_base_widget_id) === row.sourceBaseWidgetId
+                        : (existing.source_base_widget_id === null || existing.source_base_widget_id === undefined) &&
+                          String(existing.source_widget_id) === row.id)
+                if (!hasExpectedSourceIdentity) {
+                    throw new Error('[SchemaSync] Snapshot widget identity collides with an unrelated application widget')
+                }
+            }
+            if (nextPersistedIdSet.has(persistedRowId)) {
+                throw new Error('[SchemaSync] Snapshot resolves multiple widgets to the same application identity')
+            }
+            nextPersistedIdSet.add(persistedRowId)
             nextPersistedIds.push(persistedRowId)
 
             const payload = {
@@ -780,7 +852,7 @@ export async function getPersistedDashboardLayoutConfig(options: { schemaName: s
     const preferredDefault = await knex
         .withSchema(schemaName)
         .from('_app_layouts')
-        .where({ scope_entity_id: null, is_default: true, _upl_deleted: false, _app_deleted: false })
+        .where({ scope_entity_id: null, template_key: 'dashboard', is_default: true, _upl_deleted: false, _app_deleted: false })
         .select(['config'])
         .first()
 
@@ -789,7 +861,7 @@ export async function getPersistedDashboardLayoutConfig(options: { schemaName: s
         : await knex
               .withSchema(schemaName)
               .from('_app_layouts')
-              .where({ scope_entity_id: null, is_active: true, _upl_deleted: false, _app_deleted: false })
+              .where({ scope_entity_id: null, template_key: 'dashboard', is_active: true, _upl_deleted: false, _app_deleted: false })
               .orderBy([
                   { column: 'sort_order', order: 'asc' },
                   { column: '_upl_created_at', order: 'asc' }
@@ -859,7 +931,8 @@ export async function getPersistedPublishedWidgets(options: { schemaName: string
             w.sort_order,
             w.config,
             w.is_active,
-            w._upl_created_at
+            w._upl_created_at,
+            l.template_key
         FROM ${schemaIdent}._app_widgets AS w
         INNER JOIN ${schemaIdent}._app_layouts AS l ON w.layout_id = l.id
         WHERE w._upl_deleted = false
@@ -878,7 +951,7 @@ export async function getPersistedPublishedWidgets(options: { schemaName: string
     return normalizedRows.map((row) => ({
         id: String(row.id),
         layoutId: String(row.layout_id),
-        zone: normalizeLayoutZone(row.zone),
+        zone: normalizeLayoutZone(row.zone, parseApplicationTemplateKey(row.template_key, `persisted widget ${String(row.id)}`)),
         widgetKey: String(row.widget_key),
         sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
         config: isRecord(row.config) ? row.config : {},
@@ -894,6 +967,12 @@ export async function hasDashboardLayoutConfigChanges(options: {
 }): Promise<boolean> {
     const { schemaName, snapshot } = options
 
+    const normalizedSnapshot = materializeSnapshotLayoutsAndWidgets(snapshot)
+    const defaultLayout = normalizedSnapshot.layouts.find((layout) => layout.scopeEntityId === null && layout.isDefault)
+    if (defaultLayout?.templateKey !== 'dashboard') {
+        return false
+    }
+
     const current = await getPersistedDashboardLayoutConfig({ schemaName })
     const next = buildMergedDashboardLayoutConfig(snapshot)
 
@@ -908,7 +987,7 @@ export async function hasPublishedLayoutsChanges(options: {
     const { schemaName, snapshot } = options
 
     const current = await getPersistedPublishedLayouts({ schemaName })
-    const normalizedLayouts = normalizeSnapshotLayouts(snapshot)
+    const normalizedLayouts = materializeSnapshotLayoutsAndWidgets(snapshot).layouts
     const next = {
         layouts: normalizedLayouts,
         defaultLayoutId: normalizedLayouts.find((layout) => layout.isDefault)?.id ?? null
@@ -923,7 +1002,7 @@ export async function hasPublishedWidgetsChanges(options: {
 }): Promise<boolean> {
     const { schemaName, snapshot } = options
     const current = await getPersistedPublishedWidgets({ schemaName })
-    const next = normalizeSnapshotLayoutZoneWidgets(snapshot)
+    const next = materializeSnapshotLayoutsAndWidgets(snapshot).widgets
     return stableStringify(current) !== stableStringify(next)
 }
 

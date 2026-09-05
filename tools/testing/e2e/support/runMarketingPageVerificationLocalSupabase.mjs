@@ -65,10 +65,13 @@ try {
             'node',
             'tools/testing/e2e/run-playwright-suite.mjs',
             'tools/testing/e2e/specs/flows/marketing-page-runtime.spec.ts',
+            'tools/testing/e2e/specs/flows/metahub-global-entity-layouts.spec.ts',
             'tools/testing/e2e/specs/flows/marketing-page-permissions.spec.ts',
             'tools/testing/e2e/specs/flows/marketing-page-workspace-management.spec.ts',
             'tools/testing/e2e/specs/flows/marketing-page-authoring.spec.ts',
+            'tools/testing/e2e/specs/flows/marketing-page-widget-lifecycle.spec.ts',
             'tools/testing/e2e/specs/flows/marketing-page-snapshot-roundtrip.spec.ts',
+            'tools/testing/e2e/specs/flows/marketing-page-standalone-runtime.spec.ts',
             '--project',
             'chromium'
         ],

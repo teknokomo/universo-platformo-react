@@ -103,6 +103,18 @@ export {
 } from './validation/marketingPage'
 
 export {
+    validateMarketingSnapshotLayouts,
+    validateSnapshotLayoutIdentities,
+    SnapshotLayoutValidationError,
+    MarketingSnapshotValidationError,
+    type MarketingSnapshotLike,
+    type MarketingSnapshotEntityLike,
+    type MarketingSnapshotLayoutLike,
+    type MarketingSnapshotWidgetLike,
+    type MarketingSnapshotOverrideLike
+} from './validation/marketingSnapshot'
+
+export {
     validateNumber,
     validateNumberOrThrow,
     getMaxValueForPrecision,

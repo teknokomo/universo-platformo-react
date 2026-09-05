@@ -88,6 +88,9 @@ function createMockKnex(
             ) {
                 return { rows: [] }
             }
+            if (sql.includes('source_path') && sql.includes('_mhb_modules')) {
+                return { rows: [] }
+            }
             return { raw: sql }
         }),
         returning: jest.fn().mockImplementation(function (this: any) {
@@ -165,6 +168,19 @@ describe('SnapshotRestoreService', () => {
         } as unknown as MetahubSnapshot)
 
     const deletedTablesWithLayouts = ['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts']
+    const validLayoutIds = {
+        manifest: '019e8afa-0000-7000-8000-000000000010',
+        dashboard: '019e8afa-0000-7000-8000-000000000011',
+        dashboardWidget: '019e8afa-0000-7000-8000-000000000012',
+        references: '019e8afa-0000-7000-8000-000000000013',
+        referencesWidget: '019e8afa-0000-7000-8000-000000000014',
+        global: '019e8afa-0000-7000-8000-000000000015',
+        scoped: '019e8afa-0000-7000-8000-000000000016',
+        globalWidget: '019e8afa-0000-7000-8000-000000000017',
+        ownedWidget: '019e8afa-0000-7000-8000-000000000018',
+        override: '019e8afa-0000-7000-8000-000000000019',
+        scopedEntity: '019e8afa-0000-7000-8000-00000000001a'
+    } as const
     const getCodenameText = (row: Record<string, unknown>): string => {
         const codename = row.codename
         if (typeof codename === 'string') return codename
@@ -442,7 +458,7 @@ describe('SnapshotRestoreService', () => {
                 playcanvasProjects,
                 layouts: [
                     {
-                        id: 'layout-1',
+                        id: validLayoutIds.manifest,
                         templateKey: 'dashboard',
                         name: { en: 'Default' },
                         description: null,
@@ -454,8 +470,8 @@ describe('SnapshotRestoreService', () => {
                 ],
                 layoutZoneWidgets: [
                     {
-                        id: 'widget-1',
-                        layoutId: 'layout-1',
+                        id: validLayoutIds.dashboardWidget,
+                        layoutId: validLayoutIds.manifest,
                         zone: 'center',
                         widgetKey: 'playcanvasCanvas',
                         sortOrder: 0,
@@ -1049,7 +1065,7 @@ describe('SnapshotRestoreService', () => {
         const snapshot = makeMinimalSnapshot({
             layouts: [
                 {
-                    id: 'old-layout-id',
+                    id: validLayoutIds.dashboard,
                     templateKey: 'dashboard',
                     name: { en: 'Default' },
                     description: null,
@@ -1061,7 +1077,8 @@ describe('SnapshotRestoreService', () => {
             ],
             layoutZoneWidgets: [
                 {
-                    layoutId: 'old-layout-id',
+                    id: validLayoutIds.dashboardWidget,
+                    layoutId: validLayoutIds.dashboard,
                     zone: 'main',
                     widgetKey: 'details-table',
                     sortOrder: 0,
@@ -1129,7 +1146,7 @@ describe('SnapshotRestoreService', () => {
             },
             layouts: [
                 {
-                    id: 'old-layout-id',
+                    id: validLayoutIds.references,
                     templateKey: 'dashboard',
                     name: { en: 'Default' },
                     description: null,
@@ -1148,8 +1165,8 @@ describe('SnapshotRestoreService', () => {
             ],
             layoutZoneWidgets: [
                 {
-                    id: 'old-menu-widget-id',
-                    layoutId: 'old-layout-id',
+                    id: validLayoutIds.referencesWidget,
+                    layoutId: validLayoutIds.references,
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 0,
@@ -1582,6 +1599,63 @@ describe('SnapshotRestoreService', () => {
         expect(deletedTables).toEqual(deletedTablesWithLayouts)
         expect(insertedRows['_mhb_layouts']).toBeUndefined()
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
+    })
+
+    it('rejects malformed marketing layout data before destructive restore writes', async () => {
+        const layoutId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104'
+        const widgetId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d105'
+        const siteSettingsId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d201'
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                [siteSettingsId]: {
+                    kind: 'object',
+                    codename: 'MarketingPageSiteSettings',
+                    presentation: { name: { en: 'Site settings' }, description: {} },
+                    fields: [],
+                    hubs: [],
+                    config: {}
+                }
+            },
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing page' },
+                    description: null,
+                    config: {},
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0
+                }
+            ],
+            defaultLayoutId: layoutId,
+            layoutConfig: {},
+            layoutZoneWidgets: [
+                {
+                    id: widgetId,
+                    layoutId,
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    sortOrder: 0,
+                    config: {
+                        instanceKey: 'hero',
+                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
+                        showLeadForm: false,
+                        unexpected: true
+                    },
+                    isActive: true
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const { knex, deletedTables, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            code: 'VALIDATION_ERROR',
+            statusCode: 400
+        })
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
     })
 
     it('does not touch PlayCanvas storage when importing a legacy snapshot without a PlayCanvas section', async () => {
@@ -2148,9 +2222,18 @@ describe('SnapshotRestoreService', () => {
 
     it('restores scoped layouts and sparse widget overrides with remapped ids', async () => {
         const snapshot = makeMinimalSnapshot({
+            entities: {
+                [validLayoutIds.scopedEntity]: {
+                    kind: 'object',
+                    codename: 'products',
+                    presentation: { name: { en: 'Products' }, description: {} },
+                    config: {},
+                    fields: []
+                }
+            },
             layouts: [
                 {
-                    id: 'old-global-layout-id',
+                    id: validLayoutIds.global,
                     templateKey: 'dashboard',
                     name: { en: 'Global default' },
                     description: null,
@@ -2162,9 +2245,9 @@ describe('SnapshotRestoreService', () => {
             ],
             scopedLayouts: [
                 {
-                    id: 'old-object-layout-id',
-                    scopeEntityId: 'old-object-id',
-                    baseLayoutId: 'old-global-layout-id',
+                    id: validLayoutIds.scoped,
+                    scopeEntityId: validLayoutIds.scopedEntity,
+                    baseLayoutId: validLayoutIds.global,
                     templateKey: 'dashboard',
                     name: { en: 'Entity override' },
                     description: null,
@@ -2176,8 +2259,8 @@ describe('SnapshotRestoreService', () => {
             ],
             layoutZoneWidgets: [
                 {
-                    id: 'old-global-widget-id',
-                    layoutId: 'old-global-layout-id',
+                    id: validLayoutIds.globalWidget,
+                    layoutId: validLayoutIds.global,
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 1,
@@ -2185,8 +2268,8 @@ describe('SnapshotRestoreService', () => {
                     isActive: true
                 },
                 {
-                    id: 'old-owned-widget-id',
-                    layoutId: 'old-object-layout-id',
+                    id: validLayoutIds.ownedWidget,
+                    layoutId: validLayoutIds.scoped,
                     zone: 'right',
                     widgetKey: 'statsOverview',
                     sortOrder: 1,
@@ -2196,9 +2279,9 @@ describe('SnapshotRestoreService', () => {
             ],
             layoutWidgetOverrides: [
                 {
-                    id: 'old-override-id',
-                    layoutId: 'old-object-layout-id',
-                    baseWidgetId: 'old-global-widget-id',
+                    id: validLayoutIds.override,
+                    layoutId: validLayoutIds.scoped,
+                    baseWidgetId: validLayoutIds.globalWidget,
                     zone: 'top',
                     sortOrder: 2,
                     config: { showTitle: false },

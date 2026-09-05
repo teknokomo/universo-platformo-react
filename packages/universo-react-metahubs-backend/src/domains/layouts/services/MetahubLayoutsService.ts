@@ -5,19 +5,27 @@ import { qSchemaTable } from '@universo-react/database'
 import {
     DASHBOARD_LAYOUT_WIDGETS,
     DASHBOARD_LAYOUT_ZONES,
+    LAYOUT_WIDGET_DEFINITIONS,
+    MARKETING_LAYOUT_ZONES,
+    MARKETING_WIDGET_REGISTRY,
+    applicationLayoutWidgetKeySchema,
+    applicationLayoutZoneSchema,
     isEnabledCapabilityConfig,
-    type DashboardLayoutWidgetKey,
-    type DashboardLayoutZone,
+    parseApplicationLayoutWidgetConfig,
+    type ApplicationLayoutWidgetKey,
+    type ApplicationLayoutZone,
+    type MarketingWidgetKey,
     resolveSharedBehavior,
     applicationTemplateKeySchema,
     marketingPageConfigSchema,
     type ApplicationTemplateKey,
+    type LayoutWidgetDefinition,
     type SharedBehavior,
     type VersionedLocalizedContent
 } from '@universo-react/types'
-import { escapeLikeWildcards } from '@universo-react/utils'
+import { escapeLikeWildcards, generateUuidV7, OptimisticLockError } from '@universo-react/utils'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
-import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import { updateWithVersionCheck } from '../../../utils/optimisticLock'
 import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
 import { MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
 
@@ -39,15 +47,18 @@ export interface MetahubLayoutRow {
     updatedAt: string
 }
 
-export interface DashboardLayoutZoneWidgetRow {
+export interface LayoutZoneWidgetRow {
     id: string
     layoutId: string
-    zone: DashboardLayoutZone
-    widgetKey: DashboardLayoutWidgetKey
+    zone: ApplicationLayoutZone
+    widgetKey: ApplicationLayoutWidgetKey
+    instanceKey?: string
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean
     isInherited?: boolean
+    isOverridden?: boolean
+    version: number
     createdAt: string
     updatedAt: string
 }
@@ -59,6 +70,7 @@ export interface LayoutWidgetScopeVisibilityRow {
     name: unknown
     layoutId: string | null
     layoutName: unknown
+    version: number
     isVisible: boolean
     isOverridden: boolean
 }
@@ -92,6 +104,7 @@ type LayoutScopeRow = {
     base_layout_id?: string | null
     template_key?: unknown
     config?: unknown
+    version?: number
 }
 
 type LayoutWidgetOverrideDbRow = {
@@ -105,6 +118,7 @@ type LayoutWidgetOverrideDbRow = {
     is_deleted_override?: unknown
     _upl_created_at?: unknown
     _upl_updated_at?: unknown
+    _upl_version?: unknown
 }
 
 type ScopeEntityComponentRow = {
@@ -122,18 +136,20 @@ type LayoutCapableScopeEntityRow = ScopeEntityComponentRow & {
 type ResolvedLayoutWidgetState = {
     id: string
     layoutId: string
-    widgetKey: DashboardLayoutWidgetKey
-    zone: DashboardLayoutZone
+    widgetKey: ApplicationLayoutWidgetKey
+    zone: ApplicationLayoutZone
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean
     createdAt: string
     updatedAt: string
     isInherited: boolean
+    isOverridden: boolean
     baseWidgetId: string | null
-    baseZone: DashboardLayoutZone | null
+    baseZone: ApplicationLayoutZone | null
     baseSortOrder: number | null
     baseIsActive: boolean | null
+    version: number
 }
 
 export const LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY = '__skipDefaultZoneWidgetSeed'
@@ -164,16 +180,19 @@ const stripDashboardWidgetVisibilityConfig = (config: unknown): Record<string, u
 }
 
 const layoutTemplateKeySchema = applicationTemplateKeySchema
-const layoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
-const layoutWidgetKeySchema = z.enum(
-    DASHBOARD_LAYOUT_WIDGETS.map((w) => w.key) as [DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]
-)
+const layoutZoneSchema = applicationLayoutZoneSchema
+const layoutWidgetKeySchema = applicationLayoutWidgetKeySchema
 
-const allowedZonesMap = new Map<DashboardLayoutWidgetKey, readonly DashboardLayoutZone[]>(
-    DASHBOARD_LAYOUT_WIDGETS.map((w) => [w.key, w.allowedZones])
-)
+const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<LayoutTemplateKey, readonly ApplicationLayoutZone[]>> = {
+    dashboard: DASHBOARD_LAYOUT_ZONES,
+    'marketing-page': MARKETING_LAYOUT_ZONES
+}
 
-const multiInstanceSet = new Set<DashboardLayoutWidgetKey>(DASHBOARD_LAYOUT_WIDGETS.filter((w) => w.multiInstance).map((w) => w.key))
+const getWidgetDefinition = (widgetKey: ApplicationLayoutWidgetKey): LayoutWidgetDefinition | undefined =>
+    LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === widgetKey)
+
+const isMarketingWidgetKey = (widgetKey: ApplicationLayoutWidgetKey | string): widgetKey is MarketingWidgetKey =>
+    Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, widgetKey)
 
 export const createLayoutSchema = z
     .object({
@@ -206,7 +225,7 @@ export const updateLayoutSchema = z
         isDefault: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
         config: z.record(z.unknown()).optional(),
-        expectedVersion: z.number().int().positive().optional()
+        expectedVersion: z.number().int().positive()
     })
     .strict()
 
@@ -215,7 +234,8 @@ export const assignLayoutZoneWidgetSchema = z
         zone: layoutZoneSchema,
         widgetKey: layoutWidgetKeySchema,
         sortOrder: z.number().int().positive().optional(),
-        config: z.record(z.unknown()).optional()
+        config: z.record(z.unknown()).optional(),
+        expectedVersion: z.number().int().positive()
     })
     .strict()
 
@@ -223,19 +243,22 @@ export const moveLayoutZoneWidgetSchema = z
     .object({
         widgetId: z.string().uuid(),
         targetZone: layoutZoneSchema.optional(),
-        targetIndex: z.number().int().min(0).optional()
+        targetIndex: z.number().int().min(0).optional(),
+        expectedVersion: z.number().int().positive()
     })
     .strict()
 
 export const updateLayoutZoneWidgetConfigSchema = z
     .object({
-        config: z.record(z.unknown())
+        config: z.record(z.unknown()),
+        expectedVersion: z.number().int().positive()
     })
     .strict()
 
 export const toggleLayoutZoneWidgetActiveSchema = z
     .object({
-        isActive: z.boolean()
+        isActive: z.boolean(),
+        expectedVersion: z.number().int().positive()
     })
     .strict()
 
@@ -317,25 +340,116 @@ export class MetahubLayoutsService {
         }
     }
 
-    private mapZoneWidgetRow(row: DbRow): DashboardLayoutZoneWidgetRow {
+    private parseWidgetConfig(
+        templateKey: LayoutTemplateKey,
+        widgetKey: ApplicationLayoutWidgetKey,
+        config: unknown,
+        options: { generateInstanceKey?: boolean; expectedInstanceKey?: string } = {}
+    ): Record<string, unknown> {
+        const rawConfig = isRecord(config) ? config : {}
+        if (templateKey === 'dashboard') {
+            return rawConfig
+        }
+
+        const candidate =
+            options.generateInstanceKey && rawConfig.instanceKey === undefined ? { ...rawConfig, instanceKey: generateUuidV7() } : rawConfig
+        try {
+            const parsed = parseApplicationLayoutWidgetConfig(widgetKey, candidate)
+            if (!isMarketingWidgetKey(widgetKey)) {
+                throw new Error('Marketing layouts require marketing widget keys')
+            }
+            const instanceKey = parsed.instanceKey
+            if (typeof instanceKey !== 'string' || instanceKey.length === 0) {
+                throw new Error('Marketing widget instance key is required')
+            }
+            if (options.expectedInstanceKey !== undefined && instanceKey !== options.expectedInstanceKey) {
+                throw new Error('Marketing widget instance key is immutable')
+            }
+            return parsed
+        } catch (error) {
+            throw new MetahubValidationError('Marketing widget configuration is invalid', {
+                widgetKey,
+                reason: error instanceof Error ? error.message : 'Invalid configuration'
+            })
+        }
+    }
+
+    private getWidgetInstanceKey(config: Record<string, unknown>): string | undefined {
+        return typeof config.instanceKey === 'string' && config.instanceKey.length > 0 ? config.instanceKey : undefined
+    }
+
+    private assertUniqueMarketingInstanceKeys(widgets: ResolvedLayoutWidgetState[]): void {
+        const instanceKeys = new Set<string>()
+        for (const widget of widgets) {
+            const instanceKey = this.getWidgetInstanceKey(widget.config)
+            if (!instanceKey) {
+                throw new MetahubValidationError('Marketing widget configuration is invalid', { widgetKey: widget.widgetKey })
+            }
+            if (instanceKeys.has(instanceKey)) {
+                throw new MetahubConflictError('Marketing widget instance key must be unique within a layout', {
+                    instanceKey
+                })
+            }
+            instanceKeys.add(instanceKey)
+        }
+    }
+
+    private assertExpectedWidgetVersion(row: DbRow | ResolvedLayoutWidgetState, expectedVersion?: number): void {
+        if (expectedVersion === undefined) return
+        const rowRecord = row as Record<string, unknown>
+        const currentVersion =
+            typeof rowRecord.version === 'number'
+                ? rowRecord.version
+                : typeof rowRecord._upl_version === 'number'
+                ? rowRecord._upl_version
+                : 1
+        if (currentVersion !== expectedVersion) {
+            throw this.createConflictError('Layout widget was modified by another request')
+        }
+    }
+
+    private assertExpectedLayoutVersion(row: LayoutScopeRow | DbRow, expectedVersion: number): void {
+        const rowRecord = row as Record<string, unknown>
+        const currentVersion =
+            typeof rowRecord.version === 'number'
+                ? rowRecord.version
+                : typeof rowRecord._upl_version === 'number'
+                ? rowRecord._upl_version
+                : 1
+        if (currentVersion !== expectedVersion) {
+            throw this.createConflictError('Layout was modified by another request')
+        }
+    }
+
+    private mapZoneWidgetRow(row: DbRow, templateKey: LayoutTemplateKey): LayoutZoneWidgetRow {
+        const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
+        const zone = applicationLayoutZoneSchema.parse(row.zone)
+        const config = this.parseWidgetConfig(templateKey, widgetKey, row.config)
         return {
             id: String(row.id),
             layoutId: String(row.layout_id),
-            zone: String(row.zone) as DashboardLayoutZone,
-            widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
+            zone,
+            widgetKey,
+            instanceKey: this.getWidgetInstanceKey(config),
             sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
-            config: (row.config as Record<string, unknown>) ?? {},
+            config,
             isActive: row.is_active !== false,
+            version: typeof row._upl_version === 'number' ? row._upl_version : 1,
             createdAt: String(row._upl_created_at),
             updatedAt: String(row._upl_updated_at)
         }
     }
 
-    private assertWidgetAllowedInZone(widgetKey: DashboardLayoutWidgetKey, zone: DashboardLayoutZone): void {
-        const allowedZones = allowedZonesMap.get(widgetKey)
-        if (!allowedZones || !allowedZones.includes(zone)) {
+    private assertWidgetAllowedInZone(
+        templateKey: LayoutTemplateKey,
+        widgetKey: ApplicationLayoutWidgetKey,
+        zone: ApplicationLayoutZone
+    ): LayoutWidgetDefinition {
+        const definition = getWidgetDefinition(widgetKey)
+        if (!definition || definition.templateKey !== templateKey || !definition.allowedZones.includes(zone)) {
             throw new MetahubValidationError(`Widget "${widgetKey}" is not allowed in zone "${zone}"`)
         }
+        return definition
     }
 
     private buildLayoutScopeWhereSql(scopeEntityId: string | null | undefined, nextParamIndex: number): { sql: string; params: unknown[] } {
@@ -346,25 +460,54 @@ export class MetahubLayoutsService {
         return { sql: 'scope_entity_id IS NULL', params: [] }
     }
 
+    private buildScopedLayoutIdentityLockKey(schemaName: string, baseLayoutId: string, scopeEntityId: string): string {
+        return `mhb-layout-scope:${schemaName}:${baseLayoutId}:${scopeEntityId}`
+    }
+
+    /**
+     * Serialize resolution of one logical scoped layout until the surrounding
+     * transaction commits or rolls back.
+     */
+    private async acquireScopedLayoutIdentityLock(
+        db: SqlQueryable,
+        schemaName: string,
+        baseLayoutId: string,
+        scopeEntityId: string
+    ): Promise<void> {
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+            this.buildScopedLayoutIdentityLockKey(schemaName, baseLayoutId, scopeEntityId)
+        ])
+    }
+
     private async getLayoutScopeRow(db: SqlQueryable, schemaName: string, layoutId: string): Promise<LayoutScopeRow | null> {
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         return queryOne<LayoutScopeRow>(
             db,
-            `SELECT id, scope_entity_id, base_layout_id, template_key, config
+            `SELECT id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version
              FROM ${lt}
              WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
             [layoutId]
         )
     }
 
-    private assertDashboardLayoutTemplate(layout: LayoutScopeRow | DbRow | null | undefined): void {
+    private assertLayoutSupportsWidgets(layout: LayoutScopeRow | DbRow | null | undefined): LayoutTemplateKey {
         const parsed = applicationTemplateKeySchema.safeParse(layout?.template_key)
         if (!parsed.success) {
             throw new MetahubValidationError('Layout template is invalid')
         }
-        if (parsed.data !== 'dashboard') {
-            throw new MetahubValidationError('Zone widgets are supported only by dashboard layouts')
-        }
+        return parsed.data
+    }
+
+    private async lockLayoutScopeRow(db: SqlQueryable, schemaName: string, layoutId: string): Promise<LayoutScopeRow | null> {
+        const lt = qSchemaTable(schemaName, '_mhb_layouts')
+        return queryOne<LayoutScopeRow>(
+            db,
+            `SELECT id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version
+             FROM ${lt}
+             WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+             FOR UPDATE`,
+            [layoutId]
+        )
     }
 
     private async assertScopeEntitySupportsLayout(db: SqlQueryable, schemaName: string, scopeEntityId: string): Promise<void> {
@@ -411,7 +554,7 @@ export class MetahubLayoutsService {
         if (requestedBaseLayoutId) {
             const baseLayout = await queryOne<LayoutScopeRow>(
                 db,
-                `SELECT id, scope_entity_id, base_layout_id, template_key, config FROM ${lt}
+                `SELECT id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version FROM ${lt}
                  WHERE id = $1
                    AND scope_entity_id IS NULL
                    AND _upl_deleted = false
@@ -428,7 +571,7 @@ export class MetahubLayoutsService {
 
         const fallbackBaseLayout = await queryOne<LayoutScopeRow>(
             db,
-            `SELECT id, scope_entity_id, base_layout_id, template_key, config FROM ${lt}
+            `SELECT id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version FROM ${lt}
              WHERE scope_entity_id IS NULL
                AND is_active = true
                AND _upl_deleted = false
@@ -457,24 +600,30 @@ export class MetahubLayoutsService {
         db: SqlQueryable,
         schemaName: string,
         overrideId: string,
-        userId?: string | null
+        userId?: string | null,
+        expectedVersion?: number
     ): Promise<void> {
         const ot = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
         const now = new Date()
 
-        await db.query(
+        const removedRows = await db.query<{ id: string }>(
             `UPDATE ${ot} SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
                 _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
-             WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false`,
-            [now, userId ?? null, overrideId]
+             WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false
+               AND ($4::int IS NULL OR COALESCE(_upl_version, 1) = $4)
+             RETURNING id`,
+            [now, userId ?? null, overrideId, expectedVersion ?? null]
         )
+        if (!removedRows[0]) {
+            throw this.createConflictError('Layout widget override was modified by another request')
+        }
     }
 
     private async normalizeZoneSortOrders(
         db: SqlQueryable,
         schemaName: string,
         layoutId: string,
-        zone: DashboardLayoutZone,
+        zone: ApplicationLayoutZone,
         userId?: string | null
     ): Promise<void> {
         const qt = qSchemaTable(schemaName, '_mhb_widgets')
@@ -486,15 +635,98 @@ export class MetahubLayoutsService {
             [layoutId, zone]
         )
 
+        const needsNormalization = rows.some((row, index) => row.sort_order !== index + 1)
+        if (!needsNormalization) return
+
+        // The active widget index includes sort_order. Move the whole zone out
+        // of the destination range first; updating rows one-by-one from 0, 1,
+        // ... would otherwise transiently collide with the unique index.
+        const temporaryOffset = rows.length + 1
+        await db.query(
+            `UPDATE ${qt}
+                SET sort_order = sort_order + $1,
+                    _upl_updated_at = $2,
+                    _upl_updated_by = $3,
+                    _upl_version = _upl_version + 1
+              WHERE layout_id = $4
+                AND zone = $5
+                AND _upl_deleted = false
+                AND _mhb_deleted = false`,
+            [temporaryOffset, new Date(), userId ?? null, layoutId, zone]
+        )
+
         const now = new Date()
         for (let i = 0; i < rows.length; i += 1) {
             const nextOrder = i + 1
-            if (rows[i].sort_order === nextOrder) continue
             await db.query(
                 `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
                  WHERE id = $4`,
                 [nextOrder, now, userId ?? null, rows[i].id]
             )
+        }
+    }
+
+    private async persistGlobalLayoutWidgetOrder(
+        db: SqlQueryable,
+        schemaName: string,
+        layoutId: string,
+        orderedWidgets: Array<{ id: string; zone: ApplicationLayoutZone; sortOrder: number }>,
+        affectedZones: readonly ApplicationLayoutZone[],
+        userId?: string | null
+    ): Promise<void> {
+        if (orderedWidgets.length === 0 || affectedZones.length === 0) return
+
+        const wt = qSchemaTable(schemaName, '_mhb_widgets')
+        const uniqueZones = [...new Set(affectedZones)]
+        const temporaryOffset = orderedWidgets.length + 1
+        const now = new Date()
+
+        // Move every affected row outside the destination range first. Updating
+        // the moved row alone can leave a same-order tie; the subsequent
+        // normalizer would then use creation time and silently restore the old
+        // order. The two-phase write makes the requested sequence authoritative.
+        await db.query(
+            `UPDATE ${wt}
+                SET sort_order = sort_order + $1,
+                    _upl_updated_at = $2,
+                    _upl_updated_by = $3,
+                    _upl_version = COALESCE(_upl_version, 1) + 1
+              WHERE layout_id = $4
+                AND zone = ANY($5::text[])
+                AND _upl_deleted = false
+                AND _mhb_deleted = false`,
+            [temporaryOffset, now, userId ?? null, layoutId, uniqueZones]
+        )
+
+        const updatedRows = await db.query<{ id: string }>(
+            `WITH incoming AS (
+                SELECT *
+                FROM unnest($2::uuid[], $3::text[], $4::int[]) AS input_values(id, zone, sort_order)
+             )
+             UPDATE ${wt} AS widget
+                SET zone = incoming.zone,
+                    sort_order = incoming.sort_order,
+                    _upl_updated_at = $5,
+                    _upl_updated_by = $6,
+                    _upl_version = COALESCE(widget._upl_version, 1) + 1
+               FROM incoming
+              WHERE widget.id = incoming.id
+                AND widget.layout_id = $1
+                AND widget._upl_deleted = false
+                AND widget._mhb_deleted = false
+             RETURNING widget.id`,
+            [
+                layoutId,
+                orderedWidgets.map((widget) => widget.id),
+                orderedWidgets.map((widget) => widget.zone),
+                orderedWidgets.map((widget) => widget.sortOrder),
+                now,
+                userId ?? null
+            ]
+        )
+
+        if (updatedRows.length !== orderedWidgets.length) {
+            throw this.createConflictError('Layout widget order was modified by another request')
         }
     }
 
@@ -510,6 +742,7 @@ export class MetahubLayoutsService {
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const ot = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
+        const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
         if (!this.isScopedEntityLayout(layoutScope)) {
             const rows = await queryMany<DbRow>(
@@ -519,22 +752,31 @@ export class MetahubLayoutsService {
                 [layoutScope.id]
             )
 
-            return rows.map((row) => ({
-                id: String(row.id),
-                layoutId: String(row.layout_id),
-                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
-                zone: String(row.zone) as DashboardLayoutZone,
-                sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
-                config: (row.config as Record<string, unknown>) ?? {},
-                isActive: row.is_active !== false,
-                createdAt: String(row._upl_created_at),
-                updatedAt: String(row._upl_updated_at),
-                isInherited: false,
-                baseWidgetId: null,
-                baseZone: null,
-                baseSortOrder: null,
-                baseIsActive: null
-            }))
+            const resolvedRows = rows.map((row) => {
+                const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
+                const zone = applicationLayoutZoneSchema.parse(row.zone)
+                this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
+                return {
+                    id: String(row.id),
+                    layoutId: String(row.layout_id),
+                    widgetKey,
+                    zone,
+                    sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
+                    config: this.parseWidgetConfig(templateKey, widgetKey, row.config),
+                    isActive: row.is_active !== false,
+                    createdAt: String(row._upl_created_at),
+                    updatedAt: String(row._upl_updated_at),
+                    isInherited: false,
+                    baseWidgetId: null,
+                    baseZone: null,
+                    baseSortOrder: null,
+                    baseIsActive: null,
+                    isOverridden: false,
+                    version: typeof row._upl_version === 'number' ? row._upl_version : 1
+                } satisfies ResolvedLayoutWidgetState
+            })
+            if (templateKey === 'marketing-page') this.assertUniqueMarketingInstanceKeys(resolvedRows)
+            return resolvedRows
         }
 
         const baseLayoutId = String(layoutScope.base_layout_id)
@@ -563,47 +805,65 @@ export class MetahubLayoutsService {
         for (const row of baseRows) {
             const baseWidgetId = String(row.id)
             const override = overrideMap.get(baseWidgetId)
-            const baseConfig = (row.config as Record<string, unknown>) ?? {}
+            const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
+            const baseZone = applicationLayoutZoneSchema.parse(row.zone)
+            const baseConfig = this.parseWidgetConfig(templateKey, widgetKey, row.config)
+            const baseInstanceKey = this.getWidgetInstanceKey(baseConfig)
+            const resolvedConfig =
+                templateKey === 'marketing-page' && isRecord(override?.config)
+                    ? this.parseWidgetConfig(templateKey, widgetKey, override.config, { expectedInstanceKey: baseInstanceKey })
+                    : baseConfig
             const sharedBehavior = resolveWidgetSharedBehavior(baseConfig)
             if (override?.is_deleted_override === true && sharedBehavior.canExclude) {
                 continue
             }
 
+            const resolvedZone =
+                sharedBehavior.positionLocked || !override?.zone ? baseZone : applicationLayoutZoneSchema.parse(override.zone)
+            this.assertWidgetAllowedInZone(templateKey, widgetKey, resolvedZone)
+
             resolved.push({
                 id: baseWidgetId,
                 layoutId: layoutScope.id,
-                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
-                zone:
-                    sharedBehavior.positionLocked || !override?.zone
-                        ? (String(row.zone) as DashboardLayoutZone)
-                        : (String(override.zone) as DashboardLayoutZone),
+                widgetKey,
+                zone: resolvedZone,
                 sortOrder:
                     !sharedBehavior.positionLocked && typeof override?.sort_order === 'number'
                         ? override.sort_order
                         : typeof row.sort_order === 'number'
                         ? row.sort_order
                         : 1,
-                config: baseConfig,
+                config: resolvedConfig,
                 isActive:
                     sharedBehavior.canDeactivate && typeof override?.is_active === 'boolean' ? override.is_active : row.is_active !== false,
                 createdAt: String(row._upl_created_at),
                 updatedAt: String(override?._upl_updated_at ?? row._upl_updated_at),
                 isInherited: true,
                 baseWidgetId,
-                baseZone: String(row.zone) as DashboardLayoutZone,
+                baseZone,
                 baseSortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
-                baseIsActive: row.is_active !== false
+                baseIsActive: row.is_active !== false,
+                isOverridden: Boolean(override),
+                version:
+                    typeof override?._upl_version === 'number'
+                        ? override._upl_version
+                        : typeof row._upl_version === 'number'
+                        ? row._upl_version
+                        : 1
             })
         }
 
         for (const row of ownedRows) {
+            const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
+            const zone = applicationLayoutZoneSchema.parse(row.zone)
+            this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
             resolved.push({
                 id: String(row.id),
                 layoutId: String(row.layout_id),
-                widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
-                zone: String(row.zone) as DashboardLayoutZone,
+                widgetKey,
+                zone,
                 sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
-                config: (row.config as Record<string, unknown>) ?? {},
+                config: this.parseWidgetConfig(templateKey, widgetKey, row.config),
                 isActive: row.is_active !== false,
                 createdAt: String(row._upl_created_at),
                 updatedAt: String(row._upl_updated_at),
@@ -611,9 +871,13 @@ export class MetahubLayoutsService {
                 baseWidgetId: null,
                 baseZone: null,
                 baseSortOrder: null,
-                baseIsActive: null
+                baseIsActive: null,
+                isOverridden: false,
+                version: typeof row._upl_version === 'number' ? row._upl_version : 1
             })
         }
+
+        if (templateKey === 'marketing-page') this.assertUniqueMarketingInstanceKeys(resolved)
 
         return resolved.sort((a, b) => {
             if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
@@ -628,18 +892,41 @@ export class MetahubLayoutsService {
         args: {
             layoutId: string
             baseWidgetId: string
+            templateKey: LayoutTemplateKey
+            widgetKey: ApplicationLayoutWidgetKey
+            baseConfig?: Record<string, unknown>
             patch: {
-                zone?: DashboardLayoutZone | null
+                zone?: ApplicationLayoutZone | null
                 sortOrder?: number | null
+                config?: Record<string, unknown> | null
                 isActive?: boolean | null
                 isDeletedOverride?: boolean
             }
             userId?: string | null
+            expectedVersion?: number
         }
     ): Promise<void> {
-        const { layoutId, baseWidgetId, patch, userId } = args
+        const { layoutId, baseWidgetId, templateKey, widgetKey, baseConfig, patch, userId, expectedVersion } = args
         const ot = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
+        const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const now = new Date()
+
+        const baseWidget =
+            expectedVersion === undefined
+                ? null
+                : await queryOne<DbRow>(
+                      db,
+                      `SELECT id, _upl_version
+                         FROM ${wt}
+                        WHERE id = $1
+                          AND _upl_deleted = false
+                          AND _mhb_deleted = false
+                        FOR UPDATE`,
+                      [baseWidgetId]
+                  )
+        if (expectedVersion !== undefined && !baseWidget) {
+            throw this.createNotFoundError('Base layout widget not found')
+        }
 
         const existing = await queryOne<LayoutWidgetOverrideDbRow>(
             db,
@@ -648,24 +935,33 @@ export class MetahubLayoutsService {
             [layoutId, baseWidgetId]
         )
 
-        const existingZone = typeof existing?.zone === 'string' ? (String(existing.zone) as DashboardLayoutZone) : null
+        const existingZone = typeof existing?.zone === 'string' ? applicationLayoutZoneSchema.parse(existing.zone) : null
         const existingSortOrder = typeof existing?.sort_order === 'number' ? existing.sort_order : null
+        const existingConfig = isRecord(existing?.config) ? existing.config : null
         const existingIsActive = typeof existing?.is_active === 'boolean' ? existing.is_active : null
         const nextZone = patch.zone !== undefined ? patch.zone : existingZone
         const nextSortOrder = patch.sortOrder !== undefined ? patch.sortOrder : existingSortOrder
-        const nextConfig = null
+        let nextConfig = patch.config !== undefined ? patch.config : existingConfig
+        if (templateKey === 'marketing-page' && nextConfig !== null) {
+            const expectedInstanceKey = baseConfig ? this.getWidgetInstanceKey(baseConfig) : undefined
+            if (!expectedInstanceKey) {
+                throw new MetahubValidationError('Marketing base widget configuration is invalid')
+            }
+            nextConfig = this.parseWidgetConfig(templateKey, widgetKey, nextConfig, { expectedInstanceKey })
+        }
         const nextIsActive = patch.isActive !== undefined ? patch.isActive : existingIsActive
         const nextIsDeletedOverride = patch.isDeletedOverride === true
 
         if (!nextIsDeletedOverride && nextZone === null && nextSortOrder === null && nextConfig === null && nextIsActive === null) {
             if (existing?.id) {
-                await this.softDeleteLayoutWidgetOverride(db, schemaName, existing.id, userId)
+                await this.softDeleteLayoutWidgetOverride(db, schemaName, existing.id, userId, expectedVersion)
             }
             return
         }
 
         if (existing) {
-            await db.query(
+            this.assertExpectedWidgetVersion(existing, expectedVersion)
+            const updatedRows = await db.query<{ id: string }>(
                 `UPDATE ${ot}
                  SET zone = $1,
                      sort_order = $2,
@@ -675,13 +971,32 @@ export class MetahubLayoutsService {
                      _upl_updated_at = $6,
                      _upl_updated_by = $7,
                      _upl_version = _upl_version + 1
-                 WHERE id = $8`,
-                [nextZone, nextSortOrder, nextConfig, nextIsActive, nextIsDeletedOverride, now, userId ?? null, existing.id]
+                 WHERE id = $8 AND _upl_deleted = false AND _mhb_deleted = false
+                   AND ($9::int IS NULL OR COALESCE(_upl_version, 1) = $9)
+                 RETURNING id`,
+                [
+                    nextZone,
+                    nextSortOrder,
+                    nextConfig === null ? null : JSON.stringify(nextConfig),
+                    nextIsActive,
+                    nextIsDeletedOverride,
+                    now,
+                    userId ?? null,
+                    existing.id,
+                    expectedVersion ?? null
+                ]
             )
+            if (!updatedRows[0]) {
+                throw this.createConflictError('Layout widget override was modified by another request')
+            }
             return
         }
 
-        await db.query(
+        if (baseWidget) {
+            this.assertExpectedWidgetVersion(baseWidget, expectedVersion)
+        }
+
+        await db.query<{ id: string }>(
             `INSERT INTO ${ot} (
                 layout_id, base_widget_id, zone, sort_order, config, is_active, is_deleted_override,
                 _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
@@ -692,8 +1007,19 @@ export class MetahubLayoutsService {
                 $8, $9, $8, $9,
                 1, false, false, false,
                 true, false, false
-             )`,
-            [layoutId, baseWidgetId, nextZone, nextSortOrder, nextConfig, nextIsActive, nextIsDeletedOverride, now, userId ?? null]
+             )
+             RETURNING id`,
+            [
+                layoutId,
+                baseWidgetId,
+                nextZone,
+                nextSortOrder,
+                nextConfig === null ? null : JSON.stringify(nextConfig),
+                nextIsActive,
+                nextIsDeletedOverride,
+                now,
+                userId ?? null
+            ]
         )
     }
 
@@ -706,11 +1032,31 @@ export class MetahubLayoutsService {
     ): Promise<void> {
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const now = new Date()
+        const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
-        for (const zone of DASHBOARD_LAYOUT_ZONES) {
+        for (const zone of LAYOUT_ZONES_BY_TEMPLATE[templateKey]) {
             const zoneItems = widgets
                 .filter((item) => item.zone === zone)
                 .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
+
+            const ownedZoneItems = zoneItems.filter((item) => !item.isInherited)
+            if (ownedZoneItems.length > 0) {
+                // Owned rows are protected by the same active unique index as
+                // global widgets. Shift them before assigning compact orders
+                // so a reorder/delete cannot fail on a transient collision.
+                await db.query(
+                    `UPDATE ${wt}
+                        SET sort_order = sort_order + $1,
+                            _upl_updated_at = $2,
+                            _upl_updated_by = $3,
+                            _upl_version = _upl_version + 1
+                      WHERE layout_id = $4
+                        AND zone = $5
+                        AND _upl_deleted = false
+                        AND _mhb_deleted = false`,
+                    [zoneItems.length + 1, new Date(), userId ?? null, layoutScope.id, zone]
+                )
+            }
 
             for (let index = 0; index < zoneItems.length; index += 1) {
                 const item = zoneItems[index]
@@ -720,6 +1066,9 @@ export class MetahubLayoutsService {
                     await this.upsertLayoutWidgetOverride(db, schemaName, {
                         layoutId: layoutScope.id,
                         baseWidgetId: item.baseWidgetId,
+                        templateKey,
+                        widgetKey: item.widgetKey,
+                        baseConfig: item.config,
                         patch: {
                             zone:
                                 !sharedBehavior.positionLocked && item.baseZone !== null && item.zone !== item.baseZone ? item.zone : null,
@@ -747,16 +1096,19 @@ export class MetahubLayoutsService {
         }
     }
 
-    private mapResolvedLayoutWidgetState(row: ResolvedLayoutWidgetState): DashboardLayoutZoneWidgetRow {
+    private mapResolvedLayoutWidgetState(row: ResolvedLayoutWidgetState): LayoutZoneWidgetRow {
         return {
             id: row.id,
             layoutId: row.layoutId,
             zone: row.zone,
             widgetKey: row.widgetKey,
+            instanceKey: this.getWidgetInstanceKey(row.config),
             sortOrder: row.sortOrder,
             config: row.config,
             isActive: row.isActive,
             isInherited: row.isInherited,
+            isOverridden: row.isOverridden,
+            version: row.version,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt
         }
@@ -776,14 +1128,12 @@ export class MetahubLayoutsService {
         }
 
         const templateKey = applicationTemplateKeySchema.parse(layoutRow.template_key)
-        if (templateKey !== 'dashboard') {
-            return
-        }
 
         const currentConfig = layoutRow?.config && typeof layoutRow.config === 'object' ? layoutRow.config : {}
-        let nextConfig = stripDashboardWidgetVisibilityConfig(currentConfig)
+        const currentVersion = typeof layoutRow.version === 'number' ? layoutRow.version : 1
+        let nextConfig = templateKey === 'dashboard' ? stripDashboardWidgetVisibilityConfig(currentConfig) : currentConfig
 
-        if (!this.isScopedEntityLayout(layoutRow)) {
+        if (templateKey === 'dashboard' && !this.isScopedEntityLayout(layoutRow)) {
             const widgetRows = await queryMany<ZoneWidgetConfigRow>(
                 db,
                 `SELECT widget_key, zone, is_active FROM ${wt}
@@ -794,19 +1144,23 @@ export class MetahubLayoutsService {
             nextConfig = {
                 ...nextConfig,
                 ...buildDashboardLayoutConfig(
-                    activeWidgets.map((row) => ({
-                        widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
-                        zone: String(row.zone) as DashboardLayoutZone
-                    }))
+                    activeWidgets.flatMap((row) => {
+                        const widgetKey = DASHBOARD_LAYOUT_WIDGETS.find((widget) => widget.key === String(row.widget_key))?.key
+                        const zone = DASHBOARD_LAYOUT_ZONES.find((candidate) => candidate === String(row.zone))
+                        return widgetKey && zone ? [{ widgetKey, zone }] : []
+                    })
                 )
             }
         }
 
-        await db.query(
+        const updatedRows = await db.query<{ id: string }>(
             `UPDATE ${lt} SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
-             WHERE id = $4 AND _upl_deleted = false AND _mhb_deleted = false`,
-            [JSON.stringify(nextConfig), new Date(), userId ?? null, layoutId]
+             WHERE id = $4 AND _upl_deleted = false AND _mhb_deleted = false
+               AND COALESCE(_upl_version, 1) = $5
+             RETURNING id`,
+            [JSON.stringify(nextConfig), new Date(), userId ?? null, layoutId, currentVersion]
         )
+        if (!updatedRows[0]) throw this.createConflictError('Layout was modified by another request')
     }
 
     private async ensureDefaultZoneWidgets(db: SqlQueryable, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
@@ -944,11 +1298,13 @@ export class MetahubLayoutsService {
             layout_id: string
             widget_id: string
             widget_is_active: boolean
+            widget_version?: number
         }>(
             this.exec,
             `SELECT l.id AS layout_id,
                     w.id AS widget_id,
-                    w.is_active AS widget_is_active
+                    w.is_active AS widget_is_active,
+                    COALESCE(w._upl_version, 1)::int AS widget_version
                FROM ${lt} l
                JOIN ${wt} w
                  ON w.layout_id = l.id
@@ -1029,9 +1385,11 @@ export class MetahubLayoutsService {
                       layout_id: string
                       is_active?: boolean | null
                       is_deleted_override?: boolean
+                      version?: number
                   }>(
                       this.exec,
-                      `SELECT layout_id, is_active, is_deleted_override
+                      `SELECT layout_id, is_active, is_deleted_override,
+                                      COALESCE(_upl_version, 1)::int AS version
                          FROM ${overridesTable}
                         WHERE base_widget_id = $1
                           AND layout_id = ANY($2::uuid[])
@@ -1059,6 +1417,12 @@ export class MetahubLayoutsService {
                 name: presentation.name ?? null,
                 layoutId: scopedLayout?.id ?? null,
                 layoutName: scopedLayout?.name ?? null,
+                version:
+                    typeof override?.version === 'number'
+                        ? override.version
+                        : typeof base.widget_version === 'number'
+                        ? base.widget_version
+                        : 1,
                 isVisible,
                 isOverridden: Boolean(override)
             }
@@ -1076,13 +1440,15 @@ export class MetahubLayoutsService {
         }
     ): Promise<LayoutScopeRow> {
         const { baseLayout, baseLayoutId, scopeEntityId, userId } = params
-        this.assertDashboardLayoutTemplate(baseLayout)
+        this.assertLayoutSupportsWidgets(baseLayout)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const ot = qSchemaTable(schemaName, '_mhb_objects')
 
+        await this.acquireScopedLayoutIdentityLock(tx, schemaName, baseLayoutId, scopeEntityId)
+
         const scopedLayout = await queryOne<LayoutScopeRow>(
             tx,
-            `SELECT id, scope_entity_id, base_layout_id, template_key, config
+            `SELECT id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version
                FROM ${lt}
               WHERE scope_entity_id = $1
                 AND base_layout_id = $2
@@ -1125,7 +1491,7 @@ export class MetahubLayoutsService {
                 $6, $7, $6, $7,
                 1, false, false, false,
                 true, false, false)
-             RETURNING id, scope_entity_id, base_layout_id, template_key, config`,
+             RETURNING id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version`,
             [scopeEntityId, baseLayoutId, baseTemplateKey, JSON.stringify(scopedName), JSON.stringify(baseConfig), now, userId ?? null]
         )
 
@@ -1144,7 +1510,8 @@ export class MetahubLayoutsService {
         widgetId: string,
         scopeEntityId: string,
         isVisible: boolean,
-        userId?: string | null
+        userId: string | null | undefined,
+        expectedVersion: number
     ): Promise<LayoutWidgetScopeVisibilityRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
@@ -1155,7 +1522,7 @@ export class MetahubLayoutsService {
 
             const baseLayout = await queryOne<LayoutScopeRow>(
                 tx,
-                `SELECT id, scope_entity_id, base_layout_id, template_key, config
+                `SELECT id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version
                    FROM ${lt}
                   WHERE id = $1
                     AND scope_entity_id IS NULL
@@ -1167,7 +1534,7 @@ export class MetahubLayoutsService {
             if (!baseLayout) {
                 throw this.createNotFoundError('Global layout not found')
             }
-            this.assertDashboardLayoutTemplate(baseLayout)
+            const templateKey = this.assertLayoutSupportsWidgets(baseLayout)
 
             const baseWidget = await queryOne<DbRow>(
                 tx,
@@ -1184,8 +1551,13 @@ export class MetahubLayoutsService {
                 throw this.createNotFoundError('Global layout widget not found')
             }
 
+            const widgetKey = applicationLayoutWidgetKeySchema.parse(baseWidget.widget_key)
+            const zone = applicationLayoutZoneSchema.parse(baseWidget.zone)
+            this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
+            const baseConfig = this.parseWidgetConfig(templateKey, widgetKey, baseWidget.config)
+
             const baseIsActive = baseWidget.is_active !== false
-            const sharedBehavior = resolveWidgetSharedBehavior(baseWidget.config)
+            const sharedBehavior = resolveWidgetSharedBehavior(baseConfig)
             if (isVisible !== baseIsActive && !sharedBehavior.canDeactivate) {
                 throw new MetahubValidationError('Inherited widget activation is locked by the base layout and cannot be changed.', {
                     widgetId,
@@ -1204,11 +1576,15 @@ export class MetahubLayoutsService {
             await this.upsertLayoutWidgetOverride(tx, schemaName, {
                 layoutId: scopedLayout.id,
                 baseWidgetId: widgetId,
+                templateKey,
+                widgetKey,
+                baseConfig,
                 patch: {
                     isActive: this.resolveScopedWidgetActiveOverride(isVisible, baseIsActive),
                     isDeletedOverride: false
                 },
-                userId
+                userId,
+                expectedVersion
             })
 
             await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, scopedLayout.id, userId ?? null)
@@ -1238,7 +1614,7 @@ export class MetahubLayoutsService {
 
             if (isDefault) {
                 const scopeClause = this.buildLayoutScopeWhereSql(scopeEntityId, 3)
-                await tx.query(
+                await tx.query<{ id: string }>(
                     `UPDATE ${lt} SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
                      WHERE _upl_deleted = false AND _mhb_deleted = false AND ${scopeClause.sql}`,
                     [now, userId ?? null, ...scopeClause.params]
@@ -1367,7 +1743,7 @@ export class MetahubLayoutsService {
 
             if (nextIsDefault) {
                 const scopeClause = this.buildLayoutScopeWhereSql(scopeEntityId, 4)
-                await tx.query(
+                await tx.query<{ id: string }>(
                     `UPDATE ${lt} SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
                      WHERE ${ACTIVE} AND id != $3 AND ${scopeClause.sql}`,
                     [now, userId ?? null, layoutId, ...scopeClause.params]
@@ -1389,24 +1765,22 @@ export class MetahubLayoutsService {
             if (input.isActive !== undefined) updateData.is_active = nextIsActive
             if (input.isDefault !== undefined) updateData.is_default = nextIsDefault
 
-            const updated = input.expectedVersion
-                ? await updateWithVersionCheck({
-                      executor: tx,
-                      schemaName,
-                      tableName: '_mhb_layouts',
-                      entityId: layoutId,
-                      entityType: 'layout',
-                      expectedVersion: input.expectedVersion,
-                      updateData,
-                      wrapInTransaction: false
-                  })
-                : await incrementVersion(tx, schemaName, '_mhb_layouts', layoutId, updateData)
+            const updated = await updateWithVersionCheck({
+                executor: tx,
+                schemaName,
+                tableName: '_mhb_layouts',
+                entityId: layoutId,
+                entityType: 'layout',
+                expectedVersion: input.expectedVersion,
+                updateData,
+                wrapInTransaction: false
+            })
 
             return this.mapRow(updated)
         })
     }
 
-    async deleteLayout(metahubId: string, layoutId: string, userId?: string | null): Promise<void> {
+    async deleteLayout(metahubId: string, layoutId: string, expectedVersion: number, userId?: string | null): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
@@ -1466,16 +1840,39 @@ export class MetahubLayoutsService {
             )
 
             // Soft-delete the layout itself
-            await tx.query(
+            const actualVersion = Number(existing._upl_version ?? 1)
+            if (actualVersion !== expectedVersion) {
+                throw new OptimisticLockError({
+                    entityId: layoutId,
+                    entityType: 'layout',
+                    expectedVersion,
+                    actualVersion,
+                    updatedAt: new Date(existing._upl_updated_at as string),
+                    updatedBy: (existing._upl_updated_by as string | null) ?? null
+                })
+            }
+
+            const deletedRows = await tx.query<{ id: string }>(
                 `UPDATE ${lt} SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
                     _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
-                 WHERE id = $3`,
-                [now, userId ?? null, layoutId]
+                 WHERE id = $3 AND ${ACTIVE} AND COALESCE(_upl_version, 1) = $4
+                 RETURNING id`,
+                [now, userId ?? null, layoutId, expectedVersion]
             )
+            if (deletedRows.length !== 1) {
+                throw new OptimisticLockError({
+                    entityId: layoutId,
+                    entityType: 'layout',
+                    expectedVersion,
+                    actualVersion,
+                    updatedAt: new Date(existing._upl_updated_at as string),
+                    updatedBy: (existing._upl_updated_by as string | null) ?? null
+                })
+            }
         })
     }
 
-    async listLayoutZoneWidgets(metahubId: string, layoutId: string, userId?: string | null): Promise<DashboardLayoutZoneWidgetRow[]> {
+    async listLayoutZoneWidgets(metahubId: string, layoutId: string, userId?: string | null): Promise<LayoutZoneWidgetRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
@@ -1485,7 +1882,7 @@ export class MetahubLayoutsService {
         if (!layout) {
             throw new MetahubNotFoundError('Layout', layoutId)
         }
-        this.assertDashboardLayoutTemplate(layout)
+        const templateKey = this.assertLayoutSupportsWidgets(layout)
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
@@ -1502,7 +1899,21 @@ export class MetahubLayoutsService {
                  ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
                 [layoutId]
             )
-            return rows.map((row) => this.mapZoneWidgetRow(row))
+            const mapped = rows.map((row) => this.mapZoneWidgetRow(row, templateKey))
+            if (templateKey === 'marketing-page') {
+                this.assertUniqueMarketingInstanceKeys(
+                    mapped.map((row) => ({
+                        ...row,
+                        isInherited: false,
+                        isOverridden: false,
+                        baseWidgetId: null,
+                        baseZone: null,
+                        baseSortOrder: null,
+                        baseIsActive: null
+                    }))
+                )
+            }
+            return mapped
         })
     }
 
@@ -1511,101 +1922,57 @@ export class MetahubLayoutsService {
         layoutId: string,
         input: z.infer<typeof assignLayoutZoneWidgetSchema>,
         userId?: string | null
-    ): Promise<DashboardLayoutZoneWidgetRow> {
+    ): Promise<LayoutZoneWidgetRow> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
-        this.assertWidgetAllowedInZone(input.widgetKey, input.zone)
 
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            const lockedLayoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
+            if (!lockedLayoutScope) {
+                throw new MetahubNotFoundError('Layout', layoutId)
+            }
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
             const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
-            this.assertDashboardLayoutTemplate(layoutScope)
+            const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
+            this.assertWidgetAllowedInZone(templateKey, input.widgetKey, input.zone)
+            const widgetConfig = this.parseWidgetConfig(templateKey, input.widgetKey, input.config ?? {}, {
+                generateInstanceKey: templateKey === 'marketing-page'
+            })
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
                 const nextSortOrder = input.sortOrder ?? resolvedWidgets.filter((row) => row.zone === input.zone).length + 1
-                const isMulti = multiInstanceSet.has(input.widgetKey)
 
-                if (!isMulti) {
-                    const ownedWidget = resolvedWidgets.find((row) => !row.isInherited && row.widgetKey === input.widgetKey)
-                    if (ownedWidget) {
-                        await tx.query(
-                            `UPDATE ${wt} SET zone = $1, sort_order = $2, config = $3,
-                                _upl_updated_at = $4, _upl_updated_by = $5, _upl_version = _upl_version + 1
-                             WHERE id = $6`,
-                            [
-                                input.zone,
-                                nextSortOrder,
-                                JSON.stringify(input.config ?? ownedWidget.config),
-                                new Date(),
-                                userId ?? null,
-                                ownedWidget.id
-                            ]
-                        )
-                    } else {
-                        const inheritedWidget = resolvedWidgets.find((row) => row.isInherited && row.widgetKey === input.widgetKey)
-                        if (inheritedWidget?.baseWidgetId) {
-                            throw new MetahubValidationError(
-                                'Inherited widgets cannot be reassigned. Move or toggle the existing widget instead.',
-                                {
-                                    widgetId: inheritedWidget.id,
-                                    widgetKey: inheritedWidget.widgetKey,
-                                    layoutId
-                                }
-                            )
-                        } else {
-                            await queryOneOrThrow<DbRow>(
-                                tx,
-                                `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
-                                    _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
-                                    _upl_version, _upl_archived, _upl_deleted, _upl_locked,
-                                    _mhb_published, _mhb_archived, _mhb_deleted)
-                                 VALUES ($1, $2, $3, $4, $5, true, $6, $7, $6, $7, 1, false, false, false, true, false, false)
-                                 RETURNING *`,
-                                [
-                                    layoutId,
-                                    input.zone,
-                                    input.widgetKey,
-                                    nextSortOrder,
-                                    JSON.stringify(input.config ?? {}),
-                                    new Date(),
-                                    userId ?? null
-                                ]
-                            )
-                        }
+                if (templateKey === 'marketing-page') {
+                    const instanceKey = this.getWidgetInstanceKey(widgetConfig)
+                    if (resolvedWidgets.some((row) => this.getWidgetInstanceKey(row.config) === instanceKey)) {
+                        throw this.createConflictError('Marketing widget instance key must be unique within a layout')
                     }
-                } else {
-                    await queryOneOrThrow<DbRow>(
-                        tx,
-                        `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
-                            _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
-                            _upl_version, _upl_archived, _upl_deleted, _upl_locked,
-                            _mhb_published, _mhb_archived, _mhb_deleted)
-                         VALUES ($1, $2, $3, $4, $5, true, $6, $7, $6, $7, 1, false, false, false, true, false, false)
-                         RETURNING *`,
-                        [
-                            layoutId,
-                            input.zone,
-                            input.widgetKey,
-                            nextSortOrder,
-                            JSON.stringify(input.config ?? {}),
-                            new Date(),
-                            userId ?? null
-                        ]
-                    )
                 }
+
+                this.assertExpectedLayoutVersion(layoutScope, input.expectedVersion)
+                const inserted = await queryOneOrThrow<DbRow>(
+                    tx,
+                    `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
+                        _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
+                        _upl_version, _upl_archived, _upl_deleted, _upl_locked,
+                        _mhb_published, _mhb_archived, _mhb_deleted)
+                     VALUES ($1, $2, $3, $4, $5, true, $6, $7, $6, $7, 1, false, false, false, true, false, false)
+                     RETURNING *`,
+                    [layoutId, input.zone, input.widgetKey, nextSortOrder, JSON.stringify(widgetConfig), new Date(), userId ?? null]
+                )
 
                 const normalizedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
                 await this.normalizeResolvedScopedLayoutSortOrders(tx, schemaName, layoutScope, normalizedWidgets, userId ?? null)
                 await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
 
                 const refreshedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
-                const createdWidget = refreshedWidgets.find((row) => row.widgetKey === input.widgetKey && row.zone === input.zone)
+                const createdWidget = refreshedWidgets.find((row) => row.id === String(inserted.id))
                 if (!createdWidget) {
                     throw this.createNotFoundError('Zone widget not found after assignment')
                 }
@@ -1619,36 +1986,21 @@ export class MetahubLayoutsService {
             ])
             const nextSortOrder = input.sortOrder ?? zoneRows.length + 1
 
-            const isMulti = multiInstanceSet.has(input.widgetKey)
+            this.assertExpectedLayoutVersion(layoutScope, input.expectedVersion)
 
-            if (!isMulti) {
-                // Single-instance widget: update existing or insert new
-                const existing = await queryOne<DbRow>(tx, `SELECT * FROM ${wt} WHERE layout_id = $1 AND widget_key = $2 AND ${ACTIVE}`, [
-                    layoutId,
-                    input.widgetKey
-                ])
-
-                if (existing) {
-                    const configValue = input.config ?? existing.config ?? {}
-                    await tx.query(
-                        `UPDATE ${wt} SET zone = $1, sort_order = $2, config = $3,
-                            _upl_updated_at = $4, _upl_updated_by = $5, _upl_version = _upl_version + 1
-                         WHERE id = $6`,
-                        [input.zone, nextSortOrder, JSON.stringify(configValue), now, userId ?? null, existing.id]
-                    )
-                    if (existing.zone !== input.zone) {
-                        await this.normalizeZoneSortOrders(tx, schemaName, layoutId, existing.zone as DashboardLayoutZone, userId ?? null)
-                    }
-
-                    await this.normalizeZoneSortOrders(tx, schemaName, layoutId, input.zone, userId ?? null)
-                    await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
-
-                    const updated = await queryOneOrThrow<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1`, [existing.id])
-                    return this.mapZoneWidgetRow(updated)
-                }
+            if (templateKey === 'marketing-page') {
+                const instanceKey = this.getWidgetInstanceKey(widgetConfig)
+                const duplicate = await queryOne<{ id: string }>(
+                    tx,
+                    `SELECT id FROM ${wt}
+                     WHERE layout_id = $1 AND config->>'instanceKey' = $2
+                       AND _upl_deleted = false AND _mhb_deleted = false
+                     LIMIT 1`,
+                    [layoutId, instanceKey]
+                )
+                if (duplicate) throw this.createConflictError('Marketing widget instance key must be unique within a layout')
             }
 
-            // Multi-instance widget always inserts; single-instance falls through here when no existing row
             const inserted = await queryOneOrThrow<DbRow>(
                 tx,
                 `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
@@ -1657,13 +2009,13 @@ export class MetahubLayoutsService {
                     _mhb_published, _mhb_archived, _mhb_deleted)
                  VALUES ($1, $2, $3, $4, $5, true, $6, $7, $6, $7, 1, false, false, false, true, false, false)
                  RETURNING *`,
-                [layoutId, input.zone, input.widgetKey, nextSortOrder, JSON.stringify(input.config ?? {}), now, userId ?? null]
+                [layoutId, input.zone, input.widgetKey, nextSortOrder, JSON.stringify(widgetConfig), now, userId ?? null]
             )
 
             await this.normalizeZoneSortOrders(tx, schemaName, layoutId, input.zone, userId ?? null)
             await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
 
-            return this.mapZoneWidgetRow(inserted)
+            return this.mapZoneWidgetRow(inserted, templateKey)
         })
     }
 
@@ -1672,24 +2024,29 @@ export class MetahubLayoutsService {
         layoutId: string,
         input: z.infer<typeof moveLayoutZoneWidgetSchema>,
         userId?: string | null
-    ): Promise<DashboardLayoutZoneWidgetRow[]> {
+    ): Promise<LayoutZoneWidgetRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
 
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            const lockedLayoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
+            if (!lockedLayoutScope) {
+                throw new MetahubNotFoundError('Layout', layoutId)
+            }
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
             const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
-            this.assertDashboardLayoutTemplate(layoutScope)
+            const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
                 const current = resolvedWidgets.find((row) => row.id === input.widgetId)
                 if (!current) throw new MetahubNotFoundError('Layout widget', input.widgetId)
+                this.assertExpectedWidgetVersion(current, input.expectedVersion)
                 if (current.isInherited && resolveWidgetSharedBehavior(current.config).positionLocked) {
                     throw new MetahubValidationError('Inherited widget position is locked by the base layout and cannot be moved.', {
                         widgetId: current.id,
@@ -1700,7 +2057,7 @@ export class MetahubLayoutsService {
 
                 const sourceZone = current.zone
                 const targetZone = input.targetZone ?? sourceZone
-                this.assertWidgetAllowedInZone(current.widgetKey, targetZone)
+                this.assertWidgetAllowedInZone(templateKey, current.widgetKey, targetZone)
 
                 const remaining = resolvedWidgets.filter((row) => row.id !== input.widgetId)
                 const targetZoneItems = remaining.filter((row) => row.zone === targetZone)
@@ -1713,7 +2070,7 @@ export class MetahubLayoutsService {
                 const moved = { ...current, zone: targetZone }
                 remaining.splice(insertIndex, 0, moved)
 
-                for (const zone of DASHBOARD_LAYOUT_ZONES) {
+                for (const zone of LAYOUT_ZONES_BY_TEMPLATE[templateKey]) {
                     let sortOrder = 1
                     for (const row of remaining) {
                         if (row.zone !== zone) continue
@@ -1729,40 +2086,57 @@ export class MetahubLayoutsService {
                 )
             }
 
-            const current = await queryOne<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1 AND layout_id = $2 AND ${ACTIVE}`, [
-                input.widgetId,
-                layoutId
-            ])
-            if (!current) throw new MetahubNotFoundError('Layout widget', input.widgetId)
-
-            const widgetKey = String(current.widget_key) as DashboardLayoutWidgetKey
-            const sourceZone = String(current.zone) as DashboardLayoutZone
-            const targetZone = input.targetZone ?? sourceZone
-            this.assertWidgetAllowedInZone(widgetKey, targetZone)
-
-            const targetRows = await queryMany<{ id: string; sort_order: number }>(
+            const currentRows = await queryMany<DbRow>(
                 tx,
-                `SELECT id, sort_order FROM ${wt}
-                 WHERE layout_id = $1 AND zone = $2 AND ${ACTIVE} AND id != $3
-                 ORDER BY sort_order ASC, _upl_created_at ASC`,
-                [layoutId, targetZone, input.widgetId]
+                `SELECT * FROM ${wt} WHERE layout_id = $1 AND ${ACTIVE}
+                 ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
+                 FOR UPDATE`,
+                [layoutId]
             )
+            const widgets = currentRows.map((row) => {
+                const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
+                const zone = applicationLayoutZoneSchema.parse(row.zone)
+                this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
+                return {
+                    id: String(row.id),
+                    zone,
+                    widgetKey,
+                    config: this.parseWidgetConfig(templateKey, widgetKey, row.config),
+                    sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1
+                }
+            })
+            const current = widgets.find((widget) => widget.id === input.widgetId)
+            if (!current) throw new MetahubNotFoundError('Layout widget', input.widgetId)
+            this.assertExpectedWidgetVersion(currentRows.find((row) => String(row.id) === input.widgetId) ?? {}, input.expectedVersion)
 
+            const sourceZone = current.zone
+            const targetZone = input.targetZone ?? sourceZone
+            this.assertWidgetAllowedInZone(templateKey, current.widgetKey, targetZone)
+
+            const remaining = widgets.filter((widget) => widget.id !== input.widgetId)
+            const widgetsByZone = new Map<ApplicationLayoutZone, typeof remaining>()
+            for (const widget of remaining) {
+                const zoneWidgets = widgetsByZone.get(widget.zone) ?? []
+                zoneWidgets.push(widget)
+                widgetsByZone.set(widget.zone, zoneWidgets)
+            }
+            const targetRows = widgetsByZone.get(targetZone) ?? []
             const clampedIndex =
                 typeof input.targetIndex === 'number' ? Math.max(0, Math.min(input.targetIndex, targetRows.length)) : targetRows.length
-            const targetSortOrder = clampedIndex + 1
+            targetRows.splice(clampedIndex, 0, { ...current, zone: targetZone })
+            widgetsByZone.set(targetZone, targetRows)
 
-            await tx.query(
-                `UPDATE ${wt} SET zone = $1, sort_order = $2,
-                    _upl_updated_at = $3, _upl_updated_by = $4, _upl_version = _upl_version + 1
-                 WHERE id = $5`,
-                [targetZone, targetSortOrder, new Date(), userId ?? null, current.id]
+            const orderedWidgets = [...widgetsByZone.entries()].flatMap(([zone, zoneWidgets]) =>
+                zoneWidgets.map((widget, index) => ({ id: widget.id, zone, sortOrder: index + 1 }))
             )
-
-            await this.normalizeZoneSortOrders(tx, schemaName, layoutId, sourceZone, userId ?? null)
-            if (targetZone !== sourceZone) {
-                await this.normalizeZoneSortOrders(tx, schemaName, layoutId, targetZone, userId ?? null)
-            }
+            await this.persistGlobalLayoutWidgetOrder(
+                tx,
+                schemaName,
+                layoutId,
+                orderedWidgets,
+                sourceZone === targetZone ? [sourceZone] : [sourceZone, targetZone],
+                userId ?? null
+            )
 
             await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
 
@@ -1772,28 +2146,35 @@ export class MetahubLayoutsService {
                  ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
                 [layoutId]
             )
-            return rows.map((row) => this.mapZoneWidgetRow(row))
+            return rows.map((row) => this.mapZoneWidgetRow(row, templateKey))
         })
     }
 
-    async removeLayoutZoneWidget(metahubId: string, layoutId: string, widgetId: string, userId?: string | null): Promise<void> {
+    async removeLayoutZoneWidget(
+        metahubId: string,
+        layoutId: string,
+        widgetId: string,
+        userId: string | null | undefined,
+        expectedVersion: number
+    ): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         await this.exec.transaction(async (tx: SqlQueryable) => {
-            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
-                return
+                throw this.createNotFoundError('Layout not found')
             }
-            this.assertDashboardLayoutTemplate(layoutScope)
+            const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
                 const current = resolvedWidgets.find((row) => row.id === widgetId)
                 if (!current) {
-                    return
+                    throw this.createNotFoundError('Zone widget not found')
                 }
+                this.assertExpectedWidgetVersion(current, expectedVersion)
 
                 if (current.isInherited) {
                     const sharedBehavior = resolveWidgetSharedBehavior(current.config)
@@ -1811,13 +2192,17 @@ export class MetahubLayoutsService {
                     await this.upsertLayoutWidgetOverride(tx, schemaName, {
                         layoutId: layoutId,
                         baseWidgetId: current.baseWidgetId,
+                        templateKey,
+                        widgetKey: current.widgetKey,
+                        baseConfig: current.config,
                         patch: {
                             zone: null,
                             sortOrder: null,
                             isActive: null,
                             isDeletedOverride: true
                         },
-                        userId
+                        userId,
+                        expectedVersion
                     })
 
                     const refreshedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1826,12 +2211,15 @@ export class MetahubLayoutsService {
                     return
                 }
 
-                await tx.query(
+                const removedRows = await tx.query<{ id: string }>(
                     `UPDATE ${wt} SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
                         _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
-                     WHERE id = $3`,
-                    [new Date(), userId ?? null, current.id]
+                     WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false
+                       AND ($4::int IS NULL OR COALESCE(_upl_version, 1) = $4)
+                     RETURNING id`,
+                    [new Date(), userId ?? null, current.id, expectedVersion ?? null]
                 )
+                if (!removedRows[0]) throw this.createConflictError('Layout widget was modified by another request')
 
                 const refreshedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
                 await this.normalizeResolvedScopedLayoutSortOrders(tx, schemaName, layoutScope, refreshedWidgets, userId ?? null)
@@ -1843,17 +2231,64 @@ export class MetahubLayoutsService {
                 widgetId,
                 layoutId
             ])
-            if (!current) return
+            if (!current) throw this.createNotFoundError('Zone widget not found')
+            this.assertExpectedWidgetVersion(current, expectedVersion)
+
+            const widgetKey = applicationLayoutWidgetKeySchema.parse(current.widget_key)
+            const zone = applicationLayoutZoneSchema.parse(current.zone)
+            this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
+            this.parseWidgetConfig(templateKey, widgetKey, current.config)
 
             const now = new Date()
-            await tx.query(
+            const removedRows = await tx.query<{ id: string }>(
                 `UPDATE ${wt} SET _mhb_deleted = true, _mhb_deleted_at = $1, _mhb_deleted_by = $2,
                     _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
-                 WHERE id = $3`,
-                [now, userId ?? null, current.id]
+                 WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false
+                   AND ($4::int IS NULL OR COALESCE(_upl_version, 1) = $4)
+                 RETURNING id`,
+                [now, userId ?? null, current.id, expectedVersion ?? null]
             )
+            if (!removedRows[0]) throw this.createConflictError('Layout widget was modified by another request')
 
-            await this.normalizeZoneSortOrders(tx, schemaName, layoutId, current.zone as DashboardLayoutZone, userId ?? null)
+            await this.normalizeZoneSortOrders(tx, schemaName, layoutId, zone, userId ?? null)
+            await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+        })
+    }
+
+    async resetLayoutZoneWidgetOverride(
+        metahubId: string,
+        layoutId: string,
+        widgetId: string,
+        userId: string | null | undefined,
+        expectedVersion: number
+    ): Promise<void> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+        const wt = qSchemaTable(schemaName, '_mhb_widgets')
+        const ot = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
+        const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
+
+        await this.exec.transaction(async (tx: SqlQueryable) => {
+            const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
+            if (!layoutScope) throw this.createNotFoundError('Layout not found')
+            if (!this.isScopedEntityLayout(layoutScope)) {
+                throw new MetahubValidationError('Only entity-scoped layouts can reset widget overrides.')
+            }
+
+            const baseWidget = await queryOne<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1 AND ${ACTIVE}`, [widgetId])
+            const override = await queryOne<LayoutWidgetOverrideDbRow>(
+                tx,
+                `SELECT * FROM ${ot} WHERE layout_id = $1 AND base_widget_id = $2 AND ${ACTIVE}`,
+                [layoutId, widgetId]
+            )
+            if (!baseWidget && !override) throw this.createNotFoundError('Layout widget override not found')
+
+            this.assertExpectedWidgetVersion(override ?? baseWidget ?? {}, expectedVersion)
+            if (override) {
+                await this.softDeleteLayoutWidgetOverride(tx, schemaName, override.id, userId, expectedVersion)
+            }
+
+            const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+            await this.normalizeResolvedScopedLayoutSortOrders(tx, schemaName, layoutScope, resolvedWidgets, userId ?? null)
             await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
         })
     }
@@ -1867,18 +2302,19 @@ export class MetahubLayoutsService {
         layoutId: string,
         widgetId: string,
         config: Record<string, unknown>,
-        userId?: string | null
-    ): Promise<DashboardLayoutZoneWidgetRow> {
+        userId: string | null | undefined,
+        expectedVersion: number
+    ): Promise<LayoutZoneWidgetRow> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
-            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
                 throw this.createNotFoundError('Layout not found')
             }
-            this.assertDashboardLayoutTemplate(layoutScope)
+            const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1886,21 +2322,59 @@ export class MetahubLayoutsService {
                 if (!currentResolved) {
                     throw this.createNotFoundError('Zone widget not found')
                 }
+                this.assertExpectedWidgetVersion(currentResolved, expectedVersion)
 
                 if (currentResolved.isInherited) {
-                    throw new MetahubValidationError('Inherited widgets inherit config from the base layout and cannot be edited.', {
-                        widgetId: currentResolved.id,
+                    if (templateKey === 'dashboard') {
+                        throw new MetahubValidationError('Inherited widgets inherit config from the base layout and cannot be edited.', {
+                            widgetId: currentResolved.id,
+                            widgetKey: currentResolved.widgetKey,
+                            layoutId
+                        })
+                    }
+
+                    const instanceKey = this.getWidgetInstanceKey(currentResolved.config)
+                    const validatedConfig = this.parseWidgetConfig(
+                        templateKey,
+                        currentResolved.widgetKey,
+                        config.instanceKey === undefined ? { ...config, instanceKey } : config,
+                        { expectedInstanceKey: instanceKey }
+                    )
+                    if (!currentResolved.baseWidgetId) {
+                        throw new MetahubValidationError('Inherited marketing widget has no base identity')
+                    }
+                    await this.upsertLayoutWidgetOverride(tx, schemaName, {
+                        layoutId,
+                        baseWidgetId: currentResolved.baseWidgetId,
+                        templateKey,
                         widgetKey: currentResolved.widgetKey,
-                        layoutId
+                        baseConfig: currentResolved.config,
+                        patch: { config: validatedConfig, isDeletedOverride: false },
+                        userId,
+                        expectedVersion
                     })
+                    const refreshed = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                    const updated = refreshed.find((row) => row.id === widgetId)
+                    if (!updated) throw this.createNotFoundError('Zone widget not found')
+                    return this.mapResolvedLayoutWidgetState(updated)
                 }
 
-                const now = new Date()
-                await tx.query(
-                    `UPDATE ${wt} SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
-                     WHERE id = $4`,
-                    [JSON.stringify(config), now, userId ?? null, currentResolved.id]
+                const instanceKey = this.getWidgetInstanceKey(currentResolved.config)
+                const validatedConfig = this.parseWidgetConfig(
+                    templateKey,
+                    currentResolved.widgetKey,
+                    templateKey === 'marketing-page' && config.instanceKey === undefined ? { ...config, instanceKey } : config,
+                    { expectedInstanceKey: instanceKey }
                 )
+                const now = new Date()
+                const updatedRows = await tx.query<DbRow>(
+                    `UPDATE ${wt} SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
+                     WHERE id = $4 AND _upl_deleted = false AND _mhb_deleted = false
+                       AND COALESCE(_upl_version, 1) = $5
+                     RETURNING *`,
+                    [JSON.stringify(validatedConfig), now, userId ?? null, currentResolved.id, expectedVersion]
+                )
+                if (!updatedRows[0]) throw this.createConflictError('Layout widget was modified by another request')
 
                 await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
                 const refreshed = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1918,17 +2392,31 @@ export class MetahubLayoutsService {
             if (!current) {
                 throw this.createNotFoundError('Zone widget not found')
             }
+            this.assertExpectedWidgetVersion(current, expectedVersion)
 
-            const now = new Date()
-            await tx.query(
-                `UPDATE ${wt} SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
-                 WHERE id = $4`,
-                [JSON.stringify(config), now, userId ?? null, current.id]
+            const widgetKey = applicationLayoutWidgetKeySchema.parse(current.widget_key)
+            const zone = applicationLayoutZoneSchema.parse(current.zone)
+            this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
+            const currentConfig = this.parseWidgetConfig(templateKey, widgetKey, current.config)
+            const instanceKey = this.getWidgetInstanceKey(currentConfig)
+            const validatedConfig = this.parseWidgetConfig(
+                templateKey,
+                widgetKey,
+                templateKey === 'marketing-page' && config.instanceKey === undefined ? { ...config, instanceKey } : config,
+                { expectedInstanceKey: instanceKey }
             )
 
-            const updated = await queryOneOrThrow<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1`, [current.id])
+            const now = new Date()
+            const updatedRows = await tx.query<DbRow>(
+                `UPDATE ${wt} SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
+                 WHERE id = $4 AND _upl_deleted = false AND _mhb_deleted = false
+                   AND COALESCE(_upl_version, 1) = $5
+                 RETURNING *`,
+                [JSON.stringify(validatedConfig), now, userId ?? null, current.id, expectedVersion]
+            )
+            if (!updatedRows[0]) throw this.createConflictError('Layout widget was modified by another request')
 
-            return this.mapZoneWidgetRow(updated)
+            return this.mapZoneWidgetRow(updatedRows[0], templateKey)
         })
     }
 
@@ -1941,18 +2429,19 @@ export class MetahubLayoutsService {
         layoutId: string,
         widgetId: string,
         isActive: boolean,
-        userId?: string | null
-    ): Promise<DashboardLayoutZoneWidgetRow> {
+        userId: string | null | undefined,
+        expectedVersion: number
+    ): Promise<LayoutZoneWidgetRow> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
-            const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
                 throw this.createNotFoundError('Layout not found')
             }
-            this.assertDashboardLayoutTemplate(layoutScope)
+            const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -1960,14 +2449,18 @@ export class MetahubLayoutsService {
                 if (!currentResolved) {
                     throw this.createNotFoundError('Zone widget not found')
                 }
+                this.assertExpectedWidgetVersion(currentResolved, expectedVersion)
 
                 if (!currentResolved.isInherited) {
                     const now = new Date()
-                    await tx.query(
+                    const updatedRows = await tx.query<DbRow>(
                         `UPDATE ${wt} SET is_active = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
-                         WHERE id = $4`,
-                        [isActive, now, userId ?? null, currentResolved.id]
+                         WHERE id = $4 AND _upl_deleted = false AND _mhb_deleted = false
+                           AND COALESCE(_upl_version, 1) = $5
+                         RETURNING *`,
+                        [isActive, now, userId ?? null, currentResolved.id, expectedVersion]
                     )
+                    if (!updatedRows[0]) throw this.createConflictError('Layout widget was modified by another request')
                 } else if (currentResolved.baseWidgetId) {
                     const sharedBehavior = resolveWidgetSharedBehavior(currentResolved.config)
                     if (!sharedBehavior.canDeactivate && isActive !== currentResolved.baseIsActive) {
@@ -1984,11 +2477,15 @@ export class MetahubLayoutsService {
                     await this.upsertLayoutWidgetOverride(tx, schemaName, {
                         layoutId: layoutId,
                         baseWidgetId: currentResolved.baseWidgetId,
+                        templateKey,
+                        widgetKey: currentResolved.widgetKey,
+                        baseConfig: currentResolved.config,
                         patch: {
                             isActive: this.resolveScopedWidgetActiveOverride(isActive, currentResolved.baseIsActive),
                             isDeletedOverride: false
                         },
-                        userId
+                        userId,
+                        expectedVersion
                     })
                 }
 
@@ -2008,18 +2505,26 @@ export class MetahubLayoutsService {
             if (!current) {
                 throw this.createNotFoundError('Zone widget not found')
             }
+            this.assertExpectedWidgetVersion(current, expectedVersion)
+
+            const widgetKey = applicationLayoutWidgetKeySchema.parse(current.widget_key)
+            const zone = applicationLayoutZoneSchema.parse(current.zone)
+            this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
+            this.parseWidgetConfig(templateKey, widgetKey, current.config)
 
             const now = new Date()
-            await tx.query(
+            const updatedRows = await tx.query<DbRow>(
                 `UPDATE ${wt} SET is_active = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
-                 WHERE id = $4`,
-                [isActive, now, userId ?? null, current.id]
+                 WHERE id = $4 AND _upl_deleted = false AND _mhb_deleted = false
+                   AND COALESCE(_upl_version, 1) = $5
+                 RETURNING *`,
+                [isActive, now, userId ?? null, current.id, expectedVersion]
             )
+            if (!updatedRows[0]) throw this.createConflictError('Layout widget was modified by another request')
 
             await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
 
-            const updated = await queryOneOrThrow<DbRow>(tx, `SELECT * FROM ${wt} WHERE id = $1`, [current.id])
-            return this.mapZoneWidgetRow(updated)
+            return this.mapZoneWidgetRow(updatedRows[0], templateKey)
         })
     }
 }

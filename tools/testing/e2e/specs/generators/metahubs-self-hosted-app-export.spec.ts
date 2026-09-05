@@ -178,7 +178,17 @@ async function createSettingsScopedLayoutOverride(api: ApiContext, metahubId: st
     )
 
     if (detailsTitleWidget?.id) {
-        const toggleResponse = await toggleLayoutZoneWidgetActive(api, metahubId, settingsLayoutId, detailsTitleWidget.id, false)
+        if (typeof detailsTitleWidget.version !== 'number') {
+            throw new Error('Settings layout widget did not return an optimistic-lock version')
+        }
+        const toggleResponse = await toggleLayoutZoneWidgetActive(
+            api,
+            metahubId,
+            settingsLayoutId,
+            detailsTitleWidget.id,
+            false,
+            detailsTitleWidget.version
+        )
         expect(toggleResponse?.item?.isActive).toBe(false)
     }
 

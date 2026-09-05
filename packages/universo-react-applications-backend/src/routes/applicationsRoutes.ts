@@ -57,6 +57,9 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/layout-scopes', readLimiter, asyncHandler(layouts.listScopes))
     router.get('/:applicationId/layouts', readLimiter, asyncHandler(layouts.list))
     router.post('/:applicationId/layouts', writeLimiter, asyncHandler(layouts.create))
+    // Keep the collection-level reset route before the :layoutId route below;
+    // otherwise Express treats "zone-widgets" as a layout id.
+    router.post('/:applicationId/layouts/zone-widgets/config/reset', writeLimiter, asyncHandler(layouts.resetWidgetConfigsBatch))
     router.get('/:applicationId/layouts/:layoutId', readLimiter, asyncHandler(layouts.detail))
     router.patch('/:applicationId/layouts/:layoutId', writeLimiter, asyncHandler(layouts.update))
     router.post('/:applicationId/layouts/:layoutId/config/reset', writeLimiter, asyncHandler(layouts.resetConfig))
@@ -66,7 +69,6 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/layouts/:layoutId/zone-widgets/object', readLimiter, asyncHandler(layouts.listWidgetObject))
     router.put('/:applicationId/layouts/:layoutId/zone-widget', writeLimiter, asyncHandler(layouts.upsertWidget))
     router.patch('/:applicationId/layouts/zone-widgets/config/batch', writeLimiter, asyncHandler(layouts.updateWidgetConfigsBatch))
-    router.post('/:applicationId/layouts/zone-widgets/config/reset', writeLimiter, asyncHandler(layouts.resetWidgetConfigsBatch))
     router.patch('/:applicationId/layouts/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(layouts.moveWidget))
     router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/config', writeLimiter, asyncHandler(layouts.updateWidgetConfig))
     router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/toggle-active', writeLimiter, asyncHandler(layouts.toggleWidget))

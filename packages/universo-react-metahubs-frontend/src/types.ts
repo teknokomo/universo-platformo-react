@@ -16,9 +16,10 @@ import type {
     FixedValueDataType,
     EntityKind,
     SharedBehavior,
-    DashboardLayoutZone,
-    DashboardLayoutWidgetKey,
+    ApplicationLayoutZone,
+    ApplicationLayoutWidgetKey,
     ApplicationTemplateKey,
+    LayoutWidgetDefinition,
     BranchCopyOptions,
     ComponentSystemMetadata
 } from '@universo-react/types'
@@ -198,7 +199,7 @@ export interface MetahubLayout {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    version?: number
+    version: number
 }
 
 export interface MetahubLayoutDisplay {
@@ -211,7 +212,7 @@ export interface MetahubLayoutDisplay {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    version?: number
+    version: number
 }
 
 export interface MetahubLayoutLocalizedPayload {
@@ -227,6 +228,10 @@ export interface MetahubLayoutLocalizedPayload {
     expectedVersion?: number
 }
 
+export type MetahubLayoutUpdatePayload = Partial<Omit<MetahubLayoutLocalizedPayload, 'expectedVersion'>> & {
+    expectedVersion: number
+}
+
 export interface MetahubCreateLayoutPayload extends MetahubLayoutLocalizedPayload {
     scopeEntityId?: string
     baseLayoutId?: string
@@ -235,24 +240,23 @@ export interface MetahubCreateLayoutPayload extends MetahubLayoutLocalizedPayloa
 export interface MetahubLayoutZoneWidget {
     id: string
     layoutId: string
-    zone: DashboardLayoutZone
-    widgetKey: DashboardLayoutWidgetKey
+    zone: ApplicationLayoutZone
+    widgetKey: ApplicationLayoutWidgetKey
+    instanceKey?: string
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean
     isInherited?: boolean
-    createdAt?: string
-    updatedAt?: string
+    isOverridden?: boolean
+    version: number
+    createdAt: string
+    updatedAt: string
 }
 
 /** @deprecated Use MetahubLayoutZoneWidget instead. */
 export type MetahubLayoutZoneModule = MetahubLayoutZoneWidget
 
-export interface DashboardLayoutWidgetItem {
-    key: DashboardLayoutWidgetKey
-    allowedZones: DashboardLayoutZone[]
-    multiInstance: boolean
-}
+export type DashboardLayoutWidgetItem = LayoutWidgetDefinition
 
 /** @deprecated Use DashboardLayoutWidgetItem instead. */
 export type DashboardLayoutModuleItem = DashboardLayoutWidgetItem

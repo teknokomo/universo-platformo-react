@@ -14,11 +14,20 @@ const mockFindTemplateVersionById = jest.fn()
 const mockCreatePublication = jest.fn()
 const mockCreatePublicationVersion = jest.fn()
 const mockListPublicationVersions = jest.fn()
+const mockGetMaxPublicationVersionNumber = jest.fn()
 const mockDeactivatePublicationVersions = jest.fn()
+const mockUpdatePublication = jest.fn()
 const mockNotifyLinkedAppsUpdateAvailable = jest.fn()
 const mockSoftDelete = jest.fn()
 const mockCreateLinkedApplication = jest.fn()
 const mockGenerateFullSchema = jest.fn()
+const mockSchemaExists = jest.fn()
+const mockSyncSystemMetadata = jest.fn()
+const mockCalculateSchemaDiff = jest.fn()
+const mockApplyAllSchemaChanges = jest.fn()
+const mockGenerateSchemaSnapshot = jest.fn()
+const mockAcquirePublicationLock = jest.fn()
+const mockReleasePublicationLock = jest.fn()
 const mockRunPublishedApplicationRuntimeSync = jest.fn()
 const mockPersistApplicationSchemaSyncState = jest.fn()
 const mockSerializeMetahub = jest.fn()
@@ -54,8 +63,9 @@ jest.mock('../../persistence', () => ({
     findTemplateVersionById: (...args: unknown[]) => mockFindTemplateVersionById(...args),
     listPublicationsByMetahub: jest.fn(async () => []),
     listPublicationVersions: (...args: unknown[]) => mockListPublicationVersions(...args),
+    getMaxPublicationVersionNumber: (...args: unknown[]) => mockGetMaxPublicationVersionNumber(...args),
     createPublication: (...args: unknown[]) => mockCreatePublication(...args),
-    updatePublication: jest.fn(),
+    updatePublication: (...args: unknown[]) => mockUpdatePublication(...args),
     createPublicationVersion: (...args: unknown[]) => mockCreatePublicationVersion(...args),
     deactivatePublicationVersions: (...args: unknown[]) => mockDeactivatePublicationVersions(...args),
     activatePublicationVersion: jest.fn(),
@@ -86,16 +96,22 @@ jest.mock('../../domains/ddl', () => ({
     __esModule: true,
     getDDLServices: () => ({
         generator: {
+            schemaExists: (...args: unknown[]) => mockSchemaExists(...args),
             generateFullSchema: (...args: unknown[]) => mockGenerateFullSchema(...args),
-            generateSnapshot: jest.fn(() => ({ entities: [] }))
+            syncSystemMetadata: (...args: unknown[]) => mockSyncSystemMetadata(...args),
+            generateSnapshot: (...args: unknown[]) => mockGenerateSchemaSnapshot(...args)
+        },
+        migrator: {
+            calculateDiff: (...args: unknown[]) => mockCalculateSchemaDiff(...args),
+            applyAllChanges: (...args: unknown[]) => mockApplyAllSchemaChanges(...args)
         },
         migrationManager: {}
     }),
     generateSchemaName: jest.fn((id: string) => `mhb_${id}`),
     isValidSchemaName: jest.fn(() => true),
     uuidToLockKey: jest.fn((value: string) => value),
-    acquirePoolAdvisoryLock: jest.fn(async () => true),
-    releasePoolAdvisoryLock: jest.fn(async () => undefined)
+    acquirePoolAdvisoryLock: (...args: unknown[]) => mockAcquirePublicationLock(...args),
+    releasePoolAdvisoryLock: (...args: unknown[]) => mockReleasePublicationLock(...args)
 }))
 
 jest.mock('@universo-react/applications-backend', () => ({
@@ -191,7 +207,15 @@ const createResponseErrorHandler = (err: Error, _req: Request, res: Response, _n
 
 const createMockTransaction = (): MockTx => {
     const tx: MockTx = {
-        query: jest.fn(async () => []),
+        query: jest.fn(async (sql: string) => {
+            if (sql.includes('FOR UPDATE') && sql.includes('obj_metahubs')) {
+                return [{ id: 'metahub-1' }]
+            }
+            if (sql.includes('FOR UPDATE') && sql.includes('doc_publications')) {
+                return [{ id: 'publication-1' }]
+            }
+            return []
+        }),
         transaction: jest.fn(async (callback: (nested: MockTx) => Promise<unknown>) => callback(createMockTransaction())),
         isReleased: jest.fn(() => false)
     }
@@ -270,19 +294,28 @@ describe('Publications Routes', () => {
         })
         mockFindBranchByIdAndMetahub.mockResolvedValue({ id: 'branch-1', schemaName: TEST_BRANCH_SCHEMA_NAME, structureVersion: 1 })
         mockFindTemplateVersionById.mockResolvedValue(null)
-        mockSerializeMetahub.mockResolvedValue({ entities: [], layouts: [], layoutZoneWidgets: [] })
+        mockSerializeMetahub.mockResolvedValue({ entities: {}, layouts: [], layoutZoneWidgets: [] })
         mockCalculateHash.mockReturnValue('snapshot-hash')
         mockDeserializeSnapshot.mockReturnValue([])
         mockRefreshPlayCanvasRuntimeManifests.mockClear()
-        mockEnsureSchema.mockRejectedValue(new Error('skip layouts in test'))
+        mockEnsureSchema.mockResolvedValue(TEST_BRANCH_SCHEMA_NAME)
         mockResolvePublicStructureVersion.mockResolvedValue('0.1.0')
         mockEnrichDefinitionsWithSetConstants.mockImplementation((definitions: unknown) => definitions)
         mockGenerateFullSchema.mockRejectedValue(new Error('ddl exploded'))
+        mockSchemaExists.mockResolvedValue(false)
+        mockSyncSystemMetadata.mockResolvedValue(undefined)
+        mockCalculateSchemaDiff.mockReturnValue({ hasChanges: false, summary: {}, additive: [], destructive: [] })
+        mockApplyAllSchemaChanges.mockResolvedValue({ success: true, changesApplied: 0, errors: [] })
+        mockGenerateSchemaSnapshot.mockReturnValue({ entities: [] })
+        mockAcquirePublicationLock.mockResolvedValue(true)
+        mockReleasePublicationLock.mockResolvedValue(undefined)
+        mockUpdatePublication.mockResolvedValue(undefined)
         mockRunPublishedApplicationRuntimeSync.mockResolvedValue({ seedWarnings: [] })
         mockPersistApplicationSchemaSyncState.mockResolvedValue(undefined)
         mockApplyRlsContext.mockResolvedValue(undefined)
         mockSoftDelete.mockResolvedValue(true)
         mockListPublicationVersions.mockResolvedValue([])
+        mockGetMaxPublicationVersionNumber.mockResolvedValue(0)
         mockDeactivatePublicationVersions.mockResolvedValue(undefined)
         mockNotifyLinkedAppsUpdateAvailable.mockResolvedValue(undefined)
     })
@@ -301,6 +334,10 @@ describe('Publications Routes', () => {
 
                 if (sql.includes('UPDATE metahubs.doc_publications')) {
                     return [{ id: params?.[0] as string }]
+                }
+
+                if (sql.includes('FOR UPDATE') && sql.includes('obj_metahubs')) {
+                    return [{ id: 'metahub-1' }]
                 }
 
                 return []
@@ -541,6 +578,60 @@ describe('Publications Routes', () => {
         expect(mockSoftDelete).toHaveBeenCalledWith(tx, 'metahubs', 'doc_publications', 'publication-1', 'user-1')
     })
 
+    describe('POST /metahub/:metahubId/publication/:publicationId/sync', () => {
+        const seedSyncPublication = () => {
+            mockFindPublicationById.mockResolvedValue({
+                id: 'publication-1',
+                metahubId: 'metahub-1',
+                schemaName: 'mhb_publication-1',
+                schemaSnapshot: null,
+                activeVersionId: 'version-1'
+            })
+            mockFindPublicationVersionById.mockResolvedValue({
+                id: 'version-1',
+                publicationId: 'publication-1',
+                branchId: 'branch-1',
+                snapshotJson: { entities: {} }
+            })
+        }
+
+        it('does not start a second schema synchronization while the publication lock is held', async () => {
+            seedSyncPublication()
+            mockAcquirePublicationLock.mockResolvedValue(false)
+
+            const app = buildApp()
+            const response = await request(app).post('/metahub/metahub-1/publication/publication-1/sync').send({}).expect(409)
+
+            expect(response.body).toMatchObject({
+                status: 'busy',
+                code: 'SCHEMA_SYNC_IN_PROGRESS'
+            })
+            expect(mockSchemaExists).not.toHaveBeenCalled()
+            expect(mockReleasePublicationLock).not.toHaveBeenCalled()
+        })
+
+        it('returns a safe error contract and does not persist raw DDL details', async () => {
+            seedSyncPublication()
+            mockGenerateFullSchema.mockRejectedValue(new Error('password=secret SELECT * FROM private_table'))
+
+            const app = buildApp()
+            const response = await request(app).post('/metahub/metahub-1/publication/publication-1/sync').send({}).expect(500)
+
+            expect(response.body).toEqual({
+                status: 'error',
+                code: 'SCHEMA_SYNC_FAILED',
+                message: 'Schema sync failed'
+            })
+            expect(JSON.stringify(response.body)).not.toContain('secret')
+            expect(mockUpdatePublication).toHaveBeenCalledWith(expect.anything(), 'publication-1', expect.anything())
+            expect(mockUpdatePublication).toHaveBeenCalledWith(expect.anything(), 'publication-1', {
+                schemaStatus: 'error',
+                schemaError: 'Schema sync failed'
+            })
+            expect(mockReleasePublicationLock).toHaveBeenCalledWith('publication-schema-sync:publication-1')
+        })
+    })
+
     describe('GET /metahub/:metahubId/publication/:publicationId/versions/:versionId/export', () => {
         it('returns 200 with snapshot envelope for valid version', async () => {
             mockFindPublicationById.mockResolvedValue({
@@ -700,8 +791,10 @@ describe('Publications Routes', () => {
             )
             expect(mockNotifyLinkedAppsUpdateAvailable).toHaveBeenCalledWith(mockExec, 'publication-1', 'version-3')
             expect(response.body).toMatchObject({
-                id: 'version-3',
-                versionNumber: 3,
+                version: {
+                    id: 'version-3',
+                    versionNumber: 3
+                },
                 importedFrom: {
                     sourceMetahubId: '00000000-0000-0000-0000-000000000001'
                 }
