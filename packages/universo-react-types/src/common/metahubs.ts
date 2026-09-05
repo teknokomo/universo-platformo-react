@@ -835,28 +835,28 @@ export type DashboardLayoutZone = (typeof DASHBOARD_LAYOUT_ZONES)[number]
 
 export const DASHBOARD_LAYOUT_WIDGETS = [
     // Left zone widgets (decomposed from former monolithic sideMenu)
-    { key: 'brandSelector', allowedZones: ['left'] as const, multiInstance: false },
-    { key: 'workspaceSwitcher', allowedZones: ['left'] as const, multiInstance: false },
+    { key: 'brandSelector', allowedZones: ['left'] as const, multiInstance: true },
+    { key: 'workspaceSwitcher', allowedZones: ['left'] as const, multiInstance: true },
     { key: 'divider', allowedZones: ['left', 'top', 'bottom', 'right'] as const, multiInstance: true },
     { key: 'menuWidget', allowedZones: ['left'] as const, multiInstance: true },
     { key: 'spacer', allowedZones: ['left', 'right'] as const, multiInstance: true },
-    { key: 'infoCard', allowedZones: ['left', 'right'] as const, multiInstance: false },
-    { key: 'userProfile', allowedZones: ['left'] as const, multiInstance: false },
+    { key: 'infoCard', allowedZones: ['left', 'right'] as const, multiInstance: true },
+    { key: 'userProfile', allowedZones: ['left'] as const, multiInstance: true },
     // Top zone widgets
-    { key: 'appNavbar', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'header', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'breadcrumbs', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'search', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'datePicker', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'optionsMenu', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'languageSwitcher', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'appNavbar', allowedZones: ['top'] as const, multiInstance: true },
+    { key: 'header', allowedZones: ['top'] as const, multiInstance: true },
+    { key: 'breadcrumbs', allowedZones: ['top'] as const, multiInstance: true },
+    { key: 'search', allowedZones: ['top'] as const, multiInstance: true },
+    { key: 'datePicker', allowedZones: ['top'] as const, multiInstance: true },
+    { key: 'optionsMenu', allowedZones: ['top'] as const, multiInstance: true },
+    { key: 'languageSwitcher', allowedZones: ['top'] as const, multiInstance: true },
     // Center zone widgets
-    { key: 'overviewTitle', allowedZones: ['center'] as const, multiInstance: false },
-    { key: 'overviewCards', allowedZones: ['center'] as const, multiInstance: false },
-    { key: 'sessionsChart', allowedZones: ['center'] as const, multiInstance: false },
-    { key: 'pageViewsChart', allowedZones: ['center'] as const, multiInstance: false },
-    { key: 'detailsTitle', allowedZones: ['center'] as const, multiInstance: false },
-    { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'overviewTitle', allowedZones: ['center'] as const, multiInstance: true },
+    { key: 'overviewCards', allowedZones: ['center'] as const, multiInstance: true },
+    { key: 'sessionsChart', allowedZones: ['center'] as const, multiInstance: true },
+    { key: 'pageViewsChart', allowedZones: ['center'] as const, multiInstance: true },
+    { key: 'detailsTitle', allowedZones: ['center'] as const, multiInstance: true },
+    { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'relationBuilder', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'detailsTabs', allowedZones: ['center'] as const, multiInstance: true },
@@ -866,11 +866,11 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'resourcePreview', allowedZones: ['center', 'right'] as const, multiInstance: true },
     { key: 'learnerPlayer', allowedZones: ['center'] as const, multiInstance: true },
     // Right zone widgets
-    { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
-    { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: false },
-    { key: 'usersByCountryChart', allowedZones: ['center', 'right'] as const, multiInstance: false },
+    { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: true },
+    { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: true },
+    { key: 'usersByCountryChart', allowedZones: ['center', 'right'] as const, multiInstance: true },
     // Bottom zone widgets
-    { key: 'footer', allowedZones: ['bottom'] as const, multiInstance: false }
+    { key: 'footer', allowedZones: ['bottom'] as const, multiInstance: true }
 ] as const
 
 export type DashboardLayoutWidgetKey = (typeof DASHBOARD_LAYOUT_WIDGETS)[number]['key']
@@ -1170,10 +1170,13 @@ export interface TemplateSeedScopedLayout extends TemplateSeedLayout {
     scopeEntityKind?: EntityKind
 }
 
-/** Seed zone widget assignment. */
+/**
+ * Seed widget assignment. Placement and key are interpreted by the selected
+ * application template; dashboard-specific validation belongs to its adapter.
+ */
 export interface TemplateSeedZoneWidget {
-    zone: DashboardLayoutZone
-    widgetKey: DashboardLayoutWidgetKey
+    zone: string
+    widgetKey: string
     sortOrder: number
     config?: Record<string, unknown>
     /** When omitted, defaults to true at seed time. */

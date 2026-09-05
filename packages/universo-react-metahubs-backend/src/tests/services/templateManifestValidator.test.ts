@@ -64,10 +64,17 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateTemplateManifest(invalidFormat)).toThrow()
     })
 
-    it('accepts the data-driven marketing page template without a version bump', () => {
+    it('accepts the user-facing marketing page template without a version bump', () => {
         expect(() => validateTemplateManifest(cloneTemplate(marketingPageTemplate))).not.toThrow()
         expect(marketingPageTemplate.version).toBe('0.1.0')
         expect(marketingPageTemplate.minStructureVersion).toBe('0.1.0')
+        expect(readVlcContent(marketingPageTemplate.description, 'en')).toBe(
+            'A ready-made marketing page for presenting a product, its benefits, plans, testimonials, and FAQs.'
+        )
+        expect(readVlcContent(marketingPageTemplate.description, 'ru')).toBe(
+            'Готовая маркетинговая страница для презентации продукта, преимуществ, тарифов, отзывов и ответов на частые вопросы.'
+        )
+        expect(marketingPageTemplate.meta?.tags).toEqual(['marketing', 'landing-page'])
         expect(marketingPageTemplate.seed.layouts[0]?.templateKey).toBe('marketing-page')
         expect(marketingPageTemplate.seed.elements?.MarketingPageSection?.map((element) => element.data.SectionKey)).toEqual([
             'hero',
@@ -95,6 +102,11 @@ describe('TemplateManifestValidator', () => {
             targetEntityCodename: 'MarketingPagePricing',
             targetEntityKind: 'object'
         })
+        expect(
+            marketingPageTemplate.seed.entities
+                ?.filter((entity) => entity.codename.startsWith('MarketingPage'))
+                .every((entity) => entity.localizeCodenameFromName === false)
+        ).toBe(true)
     })
 
     it('accepts the built-in 1C-Compatible template without changing the default starter template presets', () => {

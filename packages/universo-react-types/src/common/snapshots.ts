@@ -35,7 +35,9 @@ export const MetahubSnapshotTransportEnvelopeSchema = z.object({
             systemFields: z.record(z.unknown()).optional(),
             modules: z.array(z.unknown()).optional(),
             layouts: z.array(z.unknown()).optional(),
+            scopedLayouts: z.array(z.unknown()).optional(),
             layoutZoneWidgets: z.array(z.unknown()).optional(),
+            layoutWidgetOverrides: z.array(z.unknown()).optional(),
             defaultLayoutId: z.string().uuid().nullable().optional(),
             layoutConfig: z.record(z.unknown()).optional(),
             settings: z.array(z.unknown()).optional()

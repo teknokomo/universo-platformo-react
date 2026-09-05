@@ -11,6 +11,7 @@ import {
     MarketingEmptyState,
     MarketingIcon,
     MarketingMediaView,
+    marketingSectionId,
     MarketingSectionHeader,
     sortVisibleMarketingItems
 } from './MarketingPrimitives'
@@ -18,25 +19,27 @@ import {
 export interface FeaturesProps {
     section: MarketingSectionCopy
     items: MarketingFeature[]
+    instanceKey?: string
 }
 
-export default function Features({ section, items }: FeaturesProps) {
+export default function Features({ section, items, instanceKey }: FeaturesProps) {
+    const sectionId = marketingSectionId('features', instanceKey)
     const visibleItems = sortVisibleMarketingItems(items)
     const [selectedItemIndex, setSelectedItemIndex] = React.useState(0)
     const selectedFeature = visibleItems[selectedItemIndex]
 
     if (visibleItems.length === 0) {
         return (
-            <Container id='features' sx={{ py: { xs: 8, sm: 16 } }}>
-                <MarketingSectionHeader section={section} id='features' />
+            <Container id={sectionId} sx={{ py: { xs: 8, sm: 16 } }}>
+                <MarketingSectionHeader section={section} id={sectionId} />
                 <MarketingEmptyState section={section.title} />
             </Container>
         )
     }
 
     return (
-        <Container id='features' sx={{ py: { xs: 8, sm: 16 } }}>
-            <MarketingSectionHeader section={section} id='features' />
+        <Container id={sectionId} sx={{ py: { xs: 8, sm: 16 } }}>
+            <MarketingSectionHeader section={section} id={sectionId} />
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row-reverse' }, gap: 2, mt: { xs: 3, sm: 6 } }}>
                 <Box
                     sx={{

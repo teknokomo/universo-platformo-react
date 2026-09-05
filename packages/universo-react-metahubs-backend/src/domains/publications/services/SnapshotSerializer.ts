@@ -489,7 +489,7 @@ export class SnapshotSerializer {
     }
 
     public static materializeSharedEntitiesForRuntime(snapshot: MetahubSnapshot): MetahubSnapshot {
-        const sharedComponents = snapshot.sharedComponents ?? snapshot.sharedComponents ?? []
+        const sharedComponents = snapshot.sharedComponents ?? []
         const sharedFixedValues = snapshot.sharedFixedValues ?? []
         const sharedOptionValues = snapshot.sharedOptionValues ?? []
         const sharedOverrides = snapshot.sharedEntityOverrides ?? []

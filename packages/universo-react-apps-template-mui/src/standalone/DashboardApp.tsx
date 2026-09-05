@@ -23,6 +23,7 @@ import type {
 import AppMainLayout from '../layouts/AppMainLayout'
 import { createStandaloneAdapter } from '../api/adapters'
 import { fetchRuntimeTemplate, updateLearningContentProgress } from '../api/api'
+import type { MarketingRuntimeTarget } from '../api/api'
 import type { AppDataResponse } from '../api/api'
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
 import { CrudDialogs } from '../components/CrudDialogs'
@@ -103,6 +104,24 @@ const readStandaloneWorkspaceId = (): string | null => {
 
     const params = new URLSearchParams(routeSource.slice(searchStart + 1).split('#', 1)[0])
     return params.get('workspaceId')
+}
+
+const readStandaloneMarketingTarget = (): MarketingRuntimeTarget | null => {
+    if (typeof window === 'undefined') return null
+
+    const routeSource = window.location.hash.startsWith('#/')
+        ? window.location.hash.slice(1)
+        : `${window.location.pathname}${window.location.search}`
+    const searchStart = routeSource.indexOf('?')
+    if (searchStart === -1) return null
+
+    const params = new URLSearchParams(routeSource.slice(searchStart + 1).split('#', 1)[0])
+    const target = {
+        entityTypeId: params.get('entityTypeId')?.trim() || null,
+        entityTypeCodename: params.get('entityTypeCodename')?.trim() || null,
+        recordKey: params.get('recordKey')?.trim() || null
+    }
+    return Object.values(target).some(Boolean) ? target : null
 }
 
 const hasMatrixCellRouteParam = (routeSource: string): boolean => {
@@ -863,6 +882,7 @@ function RuntimeBoundary({ children, error, loading }: { children?: ReactNode; e
 export default function DashboardApp(props: DashboardAppProps) {
     const { t } = useTranslation('apps')
     const workspaceId = readStandaloneWorkspaceId()
+    const marketingTarget = readStandaloneMarketingTarget()
     const templateQuery = useQuery({
         queryKey: ['standalone-runtime-template', props.applicationId],
         queryFn: () => fetchRuntimeTemplate({ apiBaseUrl: props.apiBaseUrl, applicationId: props.applicationId }),
@@ -878,8 +898,10 @@ export default function DashboardApp(props: DashboardAppProps) {
             <MarketingRuntimeContent
                 {...props}
                 workspaceId={workspaceId}
+                target={marketingTarget}
                 loadingLabel={t('runtime.loading', 'Loading application')}
                 errorLabel={t('runtime.loadError', 'The application could not be loaded.')}
+                retryLabel={t('runtime.retry', 'Retry')}
                 onAction={(action) => {
                     if (action.actionKind !== 'internal' || typeof window === 'undefined') return
                     if (action.href.startsWith('#')) {

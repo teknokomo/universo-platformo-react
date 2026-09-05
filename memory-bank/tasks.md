@@ -1,4 +1,77 @@
+# Unlimited Layout Widget Instances — Implementation (2026-09-05)
+
+> This checklist is authoritative for the current IMPLEMENT continuation. It removes artificial singleton limits so every registered widget can be added as a new instance any number of times in metahub and application layouts, without a schema or template-version bump.
+
+-   [x] Re-baseline the current dirty worktree and inspect/impact every availability, duplicate, persistence, and materialization boundary before editing.
+-   [x] Remove singleton filtering and conflict/upsert behavior from metahub and application authoring while preserving validation, authorization, optimistic concurrency, and UUID v7 identity.
+-   [x] Align the shared widget registry and generic layout authoring primitives with the unlimited-instance contract for dashboard and marketing layouts.
+-   [x] Verify SQL/storage and publication/application materialization preserve distinct rows and identifiers for repeated widget instances.
+-   [x] Add or update focused frontend, backend, service, and persistence regression tests for repeated creation, copy, delete, and reload behavior.
+-   [x] Extend the real Playwright lifecycle with repeated widget creation in metahub and application layouts, including dashboard and marketing coverage where the existing harness supports it.
+-   [x] Update relevant EN/RU documentation, run Prettier, lint/build, focused tests, local-minimal-Supabase browser verification, OntoIndex diff checks, and the Thermos/autoreview gate where the environment permits. The autoreview helper was attempted but blocked by the read-only environment-owned state database.
+-   [x] Update progress and mark every task complete with evidence or an explicit environment limitation.
+
+# Marketing Page Widgetized Runtime — QA Findings Remediation (2026-09-05)
+
+> This checklist is authoritative for the current IMPLEMENT pass. It fixes the confirmed Russian authoring, widget-label, template-description, metadata-registry, and browser-oracle defects without legacy compatibility, database/schema migrations, or a metahub-template version bump.
+
+-   [x] Re-baseline the current dirty worktree and run OntoIndex search/inspect/impact for the source-seed, application-registry, layout-label, and affected test symbols before editing.
+-   [x] Make built-in marketing source identities locale-stable at the seed and authoring boundaries; keep localized names for display and add direct RU/EN contract tests for every seeded source variant.
+-   [x] Make application widget metadata canonical and complete: return localized label keys/default labels for marketing and dashboard definitions, avoid optional silent `Widget` fallbacks, and add an API contract test.
+-   [x] Add missing EN/RU marketing-zone translations and a required-key parity/semantic localization test; replace the technical marketing template-picker description with concise user-facing copy.
+-   [x] Correct component tests to model the production API contract and add coverage for RU source selection, unavailable-source prevention, widget labels, zone labels, and template description.
+-   [x] Extend the repository Playwright lifecycle on minimal local Supabase with a real RU metahub/application authoring path, source-selector assertions, localized labels, screenshots, keyboard/overflow/technical-leakage checks, and reload persistence.
+-   [x] Run focused Jest/Vitest suites, package lint/build, Prettier, `git diff --check`, static/contract/isolation guards, local-Supabase Playwright verification with inspected screenshots, and the Thermos/autoreview gate where the environment permits.
+-   [x] Update `memory-bank/progress.md`, the implementation plan evidence, and relevant EN/RU package/GitBook documentation only with verified results; confirm every task in this checklist is checked or has an explicit environment limitation.
+
+# Marketing Page Widgetized Runtime Post-QA Remediation (2026-09-05)
+
+> This checklist is authoritative for the current IMPLEMENT continuation. It closes the latest QA findings without preserving legacy compatibility and without changing database/schema/template versions. Existing completed checklists below are historical evidence and remain unchanged.
+
+-   [x] Re-baseline the dirty worktree, run OntoIndex impact checks for edited symbols, and document the current implementation boundaries before editing.
+-   [x] Serialize application and metahub scoped-layout/default mutations, map unique conflicts to typed 409 responses, and add store/service concurrency regression tests without adding schema migrations.
+-   [x] Make singleton upsert semantics explicit and fail closed on malformed persisted layout/widget placement, source bindings, incomplete composition, and ambiguous `recordKey` behavior.
+-   [x] Keep the public runtime envelope minimal where possible, preserve required React identity internally, and verify no user-facing source/provenance IDs are rendered.
+-   [x] Complete direct API/RBAC/CSRF/cross-application tests for metahub and application widget mutations, including no-change-after-denial assertions.
+-   [x] Improve authoring UX with picker-based or clearly bounded record selection, server-owned authored identity, complete EN/RU keys, unique drag announcements, and standard confirmation focus behavior.
+-   [x] Make runtime query retries status-aware and add direct `MarketingRuntimeContent`/renderer/error/loading/cache-key tests.
+-   [x] Decompose the largest newly-expanded marketing/runtime boundaries into focused store/resolver/mapper/UI modules while preserving canonical MUI primitives and package isolation.
+-   [x] Extend Playwright coverage for precedence, stale two-session conflicts, reset/copy/delete, malformed snapshot rejection, authoring responsive/a11y/error states, standalone runtime, and exact response contracts; harden manifest/API-context cleanup. The standalone spec is intentionally opt-in because this repository's hosted wrapper owns the application shell and no separate deployed shell is configured locally.
+-   [x] Run Prettier, `git diff --check`, affected lint/build, focused Jest/Vitest suites, minimal local-Supabase Playwright flows with inspected screenshots, docs/contract gates, and OntoIndex diff verification; update progress and leave no unchecked task without an evidence-based reason. Autoreview was attempted but could not initialize its read-only Codex state database.
+
+# Marketing Page Widgetized Runtime QA Remediation (2026-09-05)
+
+> This checklist is authoritative for the current IMPLEMENT pass. It addresses every actionable QA finding from the widgetized marketing-page review while preserving the clean-break policy, UUID v7 identity, SQL-first executor boundary, and unchanged database/schema/template versions.
+
+-   [x] Establish the implementation baseline, preserve unrelated worktree changes, and record the current source/graph limitations.
+-   [x] Replace interpolated runtime workspace literals with parameterized SQL fragments and keep identifier quoting restricted to validated identifiers.
+-   [x] Enforce optimistic version checks at every layout/widget/override mutation boundary, including batch, move, toggle, delete, reset, and visibility paths; add fail-closed `RETURNING` coverage.
+-   [x] Make publication sync and layout authoring use one concurrency contract and add a deterministic race/regression test for stale sync writes.
+-   [x] Harden copy, seed cleanup, snapshot, dispatcher, UUID/query boundary, runtime identity, and error/logging contracts without a schema or template-version bump.
+-   [x] Make all repeatable marketing renderers instance-aware and complete the typed registry/renderer contract without introducing legacy or feature-package dependencies.
+-   [x] Complete widget authoring operations required by the plan, including duplicate/reset semantics, localized labels, accessible widget identity, dialog focus behavior, and localized constraints.
+-   [x] Extend the real Playwright lifecycle with repeated variants, widget duplicate/reset/conflict, composition publish-to-runtime, scope precedence contract coverage, empty/error states, focus/axe, semantic locators, and responsive evidence.
+-   [x] Review touched module boundaries: the new renderer, snapshot validator, and widget-config dialog are isolated; existing large services retain their established public boundaries and received focused regression coverage.
+-   [x] Update implementation plan, progress, package/GitBook documentation, and provenance so all completed phases and remaining environment limitations are truthful and traceable.
+-   [x] Run Prettier, `git diff --check`, affected lint/build, Jest/Vitest suites, minimal local-Supabase Playwright wrapper with inspected screenshots, docs/contract gates, and OntoIndex diff check. Autoreview was attempted but the selected Codex engine was unavailable; no false clean verdict is claimed.
+
 # MUI 9 Platform Upgrade and Data-Driven Marketing Page Template (2026-08-30)
+
+## Marketing page QA remediation implementation (2026-09-04)
+
+> This checklist is authoritative for the current IMPLEMENT pass. It closes the verified QA findings for the widgetized marketing-page runtime without preserving legacy compatibility and without changing the database schema or metahub-template version.
+
+-   [x] Align the strict widget contract, test fixtures, and optional mutation arguments; affected applications/metahubs frontend regression slices are green.
+-   [x] Create one fail-closed marketing layout validation boundary and apply it before publication, sync, and destructive snapshot restore; define explicit empty-composition semantics.
+-   [x] Harden sync/restore identity and duplicate handling: validate UUID v7 IDs, reject silently filtered rows and duplicate overrides, and preserve atomic rollback semantics.
+-   [x] Complete target-aware runtime transport and routing for entity-type/record layouts, including scope precedence and authorization tests.
+-   [x] Add browser-proven widget lifecycle authoring for the existing metahub/entity/application layout surface using existing MUI primitives and localized user-facing locators.
+-   [x] Close authoring UX and accessibility gaps: keyboard drag/reorder, accessible icon labels, confirmation dialogs, pending/error/retry states, and technical-label fallbacks.
+-   [x] Complete optimistic-concurrency and copy/delete/duplicate integration coverage without adding a schema version or database migration.
+-   [x] Synchronize OpenAPI/README/GitBook contracts and record the final verification evidence.
+-   [x] Run formatting, scoped lint/build, focused and relevant full tests, the minimal-local-Supabase Playwright wrapper, screenshot inspection, and OntoIndex diff verification; record the unavailable Thermos/autoreview gate without a false PASS.
+
+> Implementation rule: do not mark a task complete while any directly relevant test, browser flow, or fail-closed invariant remains red or unproven.
 
 ## QA remediation implementation (2026-08-31)
 
@@ -98,7 +171,7 @@
 -   Workspace copy preserves the stable seed key but transfers ownership to authored content; parent/child soft-delete and reorder paths clear seed ownership. Focused applications-backend suites pass `119/119`; apps-template workspace/API suites pass `30/30` plus marketing renderer/normalization `13/13`; applications-frontend runtime/layout suites pass `52/52`.
 -   Static MUI/catalog/isolation/no-LMS/marketing-contract checks, scoped package builds/lints, Prettier, `git diff --check`, and all documentation gates pass. Real EN/light desktop, RU/light tablet, and EN/dark mobile screenshots were inspected with `view_image` and show no page-level overflow or visible technical leakage.
 -   Follow-up package verification after the MUI 9 test-contract cleanup passed: `applications-frontend` 31 files/242 tests, `metahubs-frontend` 85 files/396 tests, `apps-template-mui` typecheck, the isolated MUI multiline-textarea regression, and the marketing/backend targeted suites. The test now asserts the MUI 9 semantic textarea contract instead of removed internal CSS class names.
--   The broad `apps-template-mui` Vitest command was interrupted after a resource-sensitive Interpretation Network tail (including known loopback `EPERM` attempts and React act warnings) without a terminal summary; this is not conflated with the green focused suites or browser acceptance wrapper. Production Storage/imgproxy media remains outside the minimal-Supabase proof. OntoIndex reports a stale/degraded index, and Thermos/autoreview could not complete in the read-only Codex state environment.
+-   The broad `apps-template-mui` Vitest command was interrupted after a resource-sensitive Interpretation Network tail (including known loopback `EPERM` attempts and React act warnings) without a terminal summary. A complementary run excluding only `InterpretationNetworkWorkspaceWidget.test.tsx` passed 45 files/557 tests, and the complete `widgetRenderer.test.tsx` passed 67/67; these results are not conflated with the still-unresolved heavy file. Production Storage/imgproxy media remains outside the minimal-Supabase proof. OntoIndex reports a stale/degraded index, and Thermos/autoreview could not complete in the read-only Codex state environment.
 
 ## Implementation notes
 
@@ -261,3 +334,23 @@
 -   2026-08-29 production-shell closure: strict static routing now returns the SPA document only for document navigations and returns an empty 404 for missing hashed assets. The remaining white page was traced with Chromium to the generated development Supabase profile omitting `CORS_ORIGINS`; browser asset requests therefore failed with `500 Not allowed by CORS` while headerless curl requests appeared healthy. Local profile generation now emits only `http://127.0.0.1:<port>` and `http://localhost:<port>`, and the doctor fails closed if either is missing or a wildcard is present. The regenerated profile passed doctor, real HTML/JS/CSS response checks, stale-asset 404, and a rendered Playwright Chromium shell.
 -   2026-08-29 post-QA remediation: copied source owners are demoted to admins while the copier remains the sole owner; runtime script startup waits for realtime setup and published script artifacts; all PlayCanvas upserts honor the same optional optimistic-version contract; snapshot scene, asset, source-file, and generated-artifact references validate provider, root, project namespace, and traversal even when files are missing; ShareDB handshakes use bounded buffering; browser RBAC covers asset create/read/rename/delete/file access, cross-project IDOR, and unauthorized realtime mutation; compatibility errors no longer echo PlayCanvas identifiers. Focused suites, minimal-Supabase Playwright flows, fixture contract/drift, builds, lint, Prettier, and diff checks passed. Thermos autoreview remained unavailable because the Codex state database is read-only.
 -   2026-08-29 strict QA debt closure: split PlayCanvas project services/stores, compatibility routes, and realtime runtime modules while preserving public contracts; centralized runtime-manifest canonicalization/checksum logic; reduced `PlayCanvasCanvasWidget.tsx` to 888 lines; added topology guards and public-contract JSDoc; and expanded the browser asset flow to exercise Folder/CSS/CubeMap/HTML/JSON/Material/Script/Shader/Text creation. Fresh E2E build plus minimal Supabase target flow passed 2/2. Full workspace build passed 36/36; editor-backend Vitest 113/113; focused metahubs-backend Jest 188; modules-engine 35; apps-template 73; metahubs-frontend 30; Editor artifact 16; applications manifest 4; static checks, package lint, Prettier, fixture/docs/drift, and `gn_verify_diff` all passed. The local autoreview helper could not start because `/home/vladimir/.codex/state_5.sqlite` is read-only; no product findings were emitted.
+
+# Marketing-page widgetized runtime implementation (2026-09-04)
+
+> This checklist is the active execution list for the approved widgetized marketing-page plan. It is a clean-break implementation for the disposable test database: no legacy marketing renderer, schema version bump, or metahub-template version bump.
+
+-   [x] Phase 0: establish implementation baseline, package contracts, OntoIndex freshness, and UI/test acceptance gates.
+-   [x] Phase 1: define neutral template-aware widget contracts, strict Zod schemas, registry, UUID-v7/semantic-key helpers, and contract tests.
+-   [x] Phase 2: align marketing template manifest/seed data and fresh-schema storage/index constraints without version changes.
+-   [x] Phase 3: implement template-aware metahub/application layout persistence, authoring operations, concurrency, lineage, hashes, and snapshot round trips.
+-   [x] Phase 4: implement publication/materialization and application settings ownership/precedence for marketing layouts and content.
+-   [x] Phase 5: implement the typed marketing runtime read model, safe source binding, locale fallback, RLS/RBAC, and fail-closed errors.
+-   [x] Phase 6: replace the fixed marketing renderer with the isolated widget registry/composition runtime and safe generic primitives.
+-   [x] Phase 7: implement/align metahub and application layout authoring UI, dialogs, source pickers, i18n, accessibility, and responsive contracts for the existing authoring/runtime surfaces.
+-   [x] Phase 8: migrate and expand Jest/Vitest unit/integration coverage for contracts, stores, services, routes, sync, publication, and renderer.
+-   [x] Phase 9: add and run Playwright lifecycle/RBAC/visual/accessibility tests on minimal local Supabase; inspect screenshots and provenance.
+-   [x] Phase 10: update package READMEs, root docs/GitBook pages, test/runbook documentation, and drift/link checks.
+-   [x] Phase 11: run package lint/build/format and focused/full regression gates; fix all actionable failures.
+-   [x] Phase 12: perform OntoIndex diff/impact verification, Subagent reviews, Thermos/autoreview, and final closeout evidence, with unavailable review tooling explicitly reported.
+
+Evidence (2026-09-04): the marketing verification wrapper passed the 36/36 E2E build, contract check, six Chromium lifecycle flows, and the EN/RU light/dark responsive visual matrix (5/5). Focused Jest/Vitest suites, affected package builds/lints, screenshot inspection, provenance, GitBook assets/links/i18n, and `git diff --check` passed. The browser suite covers the implemented product surfaces; it does not claim a separate widget CRUD workbench that was not introduced. OntoIndex `gn_verify_diff` passed with its dirty-worktree graph-scan warning. The local Thermos/autoreview helper exited before review because `/home/vladimir/.codex/state_5.sqlite` was read-only; no false PASS is claimed. Full evidence is recorded in the implementation plan's final verification update.

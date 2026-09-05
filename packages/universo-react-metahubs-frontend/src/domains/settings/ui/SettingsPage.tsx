@@ -157,8 +157,18 @@ const SettingsPage = () => {
     })
 
     const updateWidgetConfigMutation = useMutation({
-        mutationFn: async ({ layoutId, widgetId, config }: { layoutId: string; widgetId: string; config: Record<string, unknown> }) => {
-            const response = await updateLayoutZoneWidgetConfig(metahubId!, layoutId, widgetId, config)
+        mutationFn: async ({
+            layoutId,
+            widgetId,
+            config,
+            expectedVersion
+        }: {
+            layoutId: string
+            widgetId: string
+            config: Record<string, unknown>
+            expectedVersion: number
+        }) => {
+            const response = await updateLayoutZoneWidgetConfig(metahubId!, layoutId, widgetId, config, expectedVersion)
             return response.data.item
         },
         onSuccess: async (_data, variables) => {
@@ -660,7 +670,8 @@ const SettingsPage = () => {
                             updateWidgetConfigMutation.mutate({
                                 layoutId: editingLayoutWidget.layout.id,
                                 widgetId: editingLayoutWidget.widget.id,
-                                config: config as Record<string, unknown>
+                                config: config as Record<string, unknown>,
+                                expectedVersion: editingLayoutWidget.widget.version
                             })
                         }}
                         onCancel={() => setEditingLayoutWidget(null)}

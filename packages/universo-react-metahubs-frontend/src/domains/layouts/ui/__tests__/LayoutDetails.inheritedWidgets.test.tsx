@@ -12,6 +12,7 @@ const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetObjects } = vi.hois
 const mockUseMetahubDetails = vi.fn()
 
 vi.mock('react-i18next', () => ({
+    initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
         t: (key: string, defaultValue?: string) => defaultValue ?? key,
         i18n: { language: 'en' }
@@ -27,7 +28,7 @@ vi.mock('@universo-react/template-mui', () => ({
             {children}
         </div>
     ),
-    LayoutAuthoringDetails: ({ beforeZonesContent, zones }: any) => (
+    LayoutAuthoringDetails: ({ beforeZonesContent, zones, onAddWidgetRequest }: any) => (
         <div>
             {beforeZonesContent}
             {zones.map((zone: any) => (
@@ -35,6 +36,16 @@ vi.mock('@universo-react/template-mui', () => ({
                     <button type='button' disabled={Boolean(zone.addDisabled)}>
                         Add widget
                     </button>
+                    {(zone.availableWidgets ?? []).map((widget: any) => (
+                        <button
+                            key={`${zone.zone}-${widget.key}`}
+                            type='button'
+                            data-testid={`available-widget-${zone.zone}-${widget.key}`}
+                            onClick={() => onAddWidgetRequest?.(zone.zone, widget.key)}
+                        >
+                            add-{widget.key}
+                        </button>
+                    ))}
                     {zone.items.map((item: any) => (
                         <div key={item.id} data-testid={`layout-widget-${item.id}`}>
                             <button type='button' data-testid={`layout-widget-drag-${item.id}`} disabled={item.draggable === false}>
@@ -69,6 +80,7 @@ vi.mock('@universo-react/template-mui', () => ({
         </div>
     ),
     notifyError: vi.fn(),
+    useConfirm: () => ({ confirm: vi.fn(async () => true) }),
     normalizeSideMenuConfig: (value: any) => ({
         availableModes:
             Array.isArray(value?.availableModes) && value.availableModes.length > 0 ? value.availableModes : ['wide', 'compact', 'overlay'],
@@ -185,8 +197,8 @@ describe('LayoutDetails inherited widget contract', () => {
         ])
 
         getLayoutZoneWidgetObjects.mockResolvedValue([
-            { key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: false },
-            { key: 'header', allowedZones: ['top'], multiInstance: false },
+            { key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: true },
+            { key: 'header', allowedZones: ['top'], multiInstance: true },
             { key: 'columnsContainer', allowedZones: ['left', 'center', 'right'], multiInstance: true }
         ])
     })
@@ -230,6 +242,8 @@ describe('LayoutDetails inherited widget contract', () => {
 
         expect(screen.getByTestId('layout-widget-edit-widget-owned')).toBeInTheDocument()
         expect(screen.getByTestId('layout-widget-remove-widget-owned')).toBeInTheDocument()
+        expect(screen.getByTestId('available-widget-left-menuWidget')).toBeInTheDocument()
+        expect(screen.getByTestId('available-widget-top-header')).toBeInTheDocument()
     })
 
     it('disables layout mutations in read-only mode when the user lacks manage permission', async () => {

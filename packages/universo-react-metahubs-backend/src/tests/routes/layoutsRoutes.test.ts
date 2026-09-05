@@ -370,13 +370,60 @@ describe('Layouts Routes', () => {
         })
     })
 
+    describe('GET /metahub/:metahubId/layout/:layoutId/zone-widgets/object', () => {
+        it('returns the canonical widget and zone metadata for the layout editor', async () => {
+            const app = buildApp()
+
+            const response = await request(app).get('/metahub/metahub-1/layout/layout-1/zone-widgets/object').expect(200)
+
+            expect(response.body.items).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        key: 'marketing.hero',
+                        templateKey: 'marketing-page',
+                        labelKey: 'layouts.widgets.marketing.hero',
+                        defaultLabel: 'Hero'
+                    }),
+                    expect.objectContaining({
+                        key: 'marketing.collection',
+                        templateKey: 'marketing-page',
+                        labelKey: 'layouts.widgets.marketing.collection',
+                        defaultLabel: 'Collection'
+                    })
+                ])
+            )
+
+            const marketingTemplate = response.body.templates.find((template: { key?: string }) => template.key === 'marketing-page')
+            expect(marketingTemplate).toEqual(
+                expect.objectContaining({
+                    key: 'marketing-page',
+                    zones: expect.arrayContaining([
+                        expect.objectContaining({
+                            key: 'marketing-header',
+                            labelKey: 'layouts.zones.marketingHeader'
+                        }),
+                        expect.objectContaining({
+                            key: 'marketing-main',
+                            labelKey: 'layouts.zones.marketingMain'
+                        }),
+                        expect.objectContaining({
+                            key: 'marketing-footer',
+                            labelKey: 'layouts.zones.marketingFooter'
+                        })
+                    ])
+                })
+            )
+            expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(expect.anything(), 'test-user-id', 'metahub-1', undefined, undefined)
+        })
+    })
+
     describe('DELETE /metahub/:metahubId/layout/:layoutId', () => {
         it('deletes layout successfully', async () => {
             const app = buildApp()
 
-            await request(app).delete('/metahub/metahub-1/layout/layout-1').expect(204)
+            await request(app).delete('/metahub/metahub-1/layout/layout-1').query({ expectedVersion: 1 }).expect(204)
 
-            expect(mockDeleteLayout).toHaveBeenCalledWith('metahub-1', 'layout-1', 'test-user-id')
+            expect(mockDeleteLayout).toHaveBeenCalledWith('metahub-1', 'layout-1', 1, 'test-user-id')
         })
 
         it('returns 409 when service reports deletion conflict', async () => {
@@ -387,7 +434,7 @@ describe('Layouts Routes', () => {
             )
 
             const app = buildApp()
-            const response = await request(app).delete('/metahub/metahub-1/layout/layout-1').expect(409)
+            const response = await request(app).delete('/metahub/metahub-1/layout/layout-1').query({ expectedVersion: 1 }).expect(409)
 
             expect(response.body.error).toBe('At least one active layout is required')
         })

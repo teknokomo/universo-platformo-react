@@ -1012,6 +1012,12 @@ const ApplicationRuntime = () => {
     const navigate = useNavigate()
     const [runtimeSearchParams] = useSearchParams()
     const requestedWorkspaceId = runtimeSearchParams.get('workspaceId')
+    const requestedMarketingTarget = {
+        entityTypeId: runtimeSearchParams.get('entityTypeId')?.trim() || null,
+        entityTypeCodename: runtimeSearchParams.get('entityTypeCodename')?.trim() || null,
+        recordKey: runtimeSearchParams.get('recordKey')?.trim() || null
+    }
+    const hasMarketingTarget = Object.values(requestedMarketingTarget).some(Boolean)
     const { t, i18n } = useTranslation('applications')
     const templateQuery = useQuery({
         queryKey: ['hosted-runtime-template', applicationId],
@@ -1041,8 +1047,10 @@ const ApplicationRuntime = () => {
                 locale={i18n.language}
                 apiBaseUrl='/api/v1'
                 workspaceId={requestedWorkspaceId}
+                target={hasMarketingTarget ? requestedMarketingTarget : null}
                 loadingLabel={t('app.runtime.loading', 'Loading application')}
                 errorLabel={t('app.errors.loadFailed', 'Failed to load runtime data')}
+                retryLabel={t('app.common.retry', 'Retry')}
                 onAction={(action) => {
                     if (action.actionKind === 'internal') navigate(action.href)
                 }}

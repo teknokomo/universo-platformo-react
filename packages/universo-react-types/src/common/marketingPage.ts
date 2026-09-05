@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
 import type { VersionedLocalizedContent } from './admin'
+export { APPLICATION_TEMPLATE_REGISTRY } from './applicationTemplates'
+export type { ApplicationTemplateRegistryEntry } from './applicationTemplates'
 import { pageBlockContentSchema } from './pageBlocks'
 import { resourceSourceSchema, safeExternalUrlSchema } from './resourceSources'
 
@@ -29,6 +31,160 @@ export const metahubTemplateCodenameSchema = z.enum(METAHUB_TEMPLATE_CODENAMES)
 
 export const MARKETING_PAGE_TEMPLATE_KEY = 'marketing-page' as const
 export const MARKETING_PAGE_SEED_POLICY = 'initial-only' as const
+
+/** Persisted placements owned by the marketing template adapter. */
+export const MARKETING_LAYOUT_ZONES = ['marketing-header', 'marketing-main', 'marketing-footer'] as const
+export type MarketingLayoutZone = (typeof MARKETING_LAYOUT_ZONES)[number]
+export const marketingLayoutZoneSchema = z.enum(MARKETING_LAYOUT_ZONES)
+
+/** Template-aware widget keys. Dashboard keys are deliberately not included. */
+export const MARKETING_WIDGET_KEYS = [
+    'marketing.navigation',
+    'marketing.hero',
+    'marketing.collection',
+    'marketing.pricing',
+    'marketing.footer'
+] as const
+export type MarketingWidgetKey = (typeof MARKETING_WIDGET_KEYS)[number]
+export const marketingWidgetKeySchema = z.enum(MARKETING_WIDGET_KEYS)
+
+export const MARKETING_COLLECTION_VARIANTS = ['logos', 'features', 'testimonials', 'highlights', 'faq'] as const
+export type MarketingCollectionVariant = (typeof MARKETING_COLLECTION_VARIANTS)[number]
+export const marketingCollectionVariantSchema = z.enum(MARKETING_COLLECTION_VARIANTS)
+
+export interface MarketingWidgetRegistryEntry {
+    readonly key: MarketingWidgetKey
+    /** Every registered marketing widget can be placed as a separate instance. */
+    readonly repeatable: boolean
+    readonly allowedZones: readonly MarketingLayoutZone[]
+}
+
+export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, MarketingWidgetRegistryEntry>> = {
+    'marketing.navigation': {
+        key: 'marketing.navigation',
+        repeatable: true,
+        allowedZones: ['marketing-header']
+    },
+    'marketing.hero': {
+        key: 'marketing.hero',
+        repeatable: true,
+        allowedZones: ['marketing-main']
+    },
+    'marketing.collection': {
+        key: 'marketing.collection',
+        repeatable: true,
+        allowedZones: ['marketing-main']
+    },
+    'marketing.pricing': {
+        key: 'marketing.pricing',
+        repeatable: true,
+        allowedZones: ['marketing-main']
+    },
+    'marketing.footer': {
+        key: 'marketing.footer',
+        repeatable: true,
+        allowedZones: ['marketing-footer']
+    }
+}
+
+/**
+ * Entity codenames supported by the built-in marketing adapter. The adapter is
+ * intentionally bounded: selecting an entity type never grants access to an
+ * arbitrary runtime table or an arbitrary record shape.
+ */
+export const MARKETING_SOURCE_CODENAMES = [
+    'MarketingPageSection',
+    'MarketingPageSiteSettings',
+    'MarketingPageLogo',
+    'MarketingPageFeature',
+    'MarketingPageTestimonial',
+    'MarketingPageHighlight',
+    'MarketingPagePricing',
+    'MarketingPagePricingBenefit',
+    'MarketingPageFaq',
+    'MarketingPageNavigation',
+    'MarketingPageFooterLink'
+] as const
+export type MarketingSourceCodename = (typeof MARKETING_SOURCE_CODENAMES)[number]
+export const marketingSourceCodenameSchema = z.enum(MARKETING_SOURCE_CODENAMES)
+export const MARKETING_COPY_SOURCE_CODENAME = 'MarketingPageSection' as const
+
+export const MARKETING_WIDGET_SOURCE_CODENAMES: Readonly<Record<MarketingWidgetKey, readonly MarketingSourceCodename[]>> = {
+    'marketing.navigation': ['MarketingPageNavigation'],
+    'marketing.hero': ['MarketingPageSiteSettings'],
+    'marketing.collection': [
+        'MarketingPageLogo',
+        'MarketingPageFeature',
+        'MarketingPageTestimonial',
+        'MarketingPageHighlight',
+        'MarketingPageFaq'
+    ],
+    'marketing.pricing': ['MarketingPagePricing'],
+    'marketing.footer': ['MarketingPageFooterLink']
+}
+
+export const marketingWidgetSourceCodenames = (
+    widgetKey: MarketingWidgetKey,
+    variant?: MarketingCollectionVariant
+): readonly MarketingSourceCodename[] => {
+    if (widgetKey !== 'marketing.collection' || variant === undefined) return MARKETING_WIDGET_SOURCE_CODENAMES[widgetKey]
+    const variantSources: Record<MarketingCollectionVariant, readonly MarketingSourceCodename[]> = {
+        logos: ['MarketingPageLogo'],
+        features: ['MarketingPageFeature'],
+        testimonials: ['MarketingPageTestimonial'],
+        highlights: ['MarketingPageHighlight'],
+        faq: ['MarketingPageFaq']
+    }
+    return variantSources[variant]
+}
+
+/**
+ * Logical fields supported by the built-in adapter. A field map can only
+ * redirect one known presentation field to another known field; it can never
+ * introduce a physical table or column identifier into runtime configuration.
+ */
+export const MARKETING_SOURCE_FIELD_KEYS: Readonly<Record<MarketingSourceCodename, readonly string[]>> = {
+    MarketingPageSection: ['sectionKey', 'title', 'description'],
+    MarketingPageSiteSettings: [
+        'brandName',
+        'brandLogo',
+        'heroTitle',
+        'heroSubtitle',
+        'heroAccent',
+        'heroEmailLabel',
+        'heroEmailPlaceholder',
+        'heroTermsText',
+        'heroPrimaryAction',
+        'heroSecondaryAction',
+        'heroLightPreview',
+        'heroDarkPreview',
+        'footerDescription',
+        'copyright',
+        'copyrightLabel',
+        'copyrightAction',
+        'newsletter'
+    ],
+    MarketingPageLogo: ['name', 'media', 'darkMedia', 'order', 'isVisible'],
+    MarketingPageFeature: ['title', 'description', 'iconKey', 'lightMedia', 'darkMedia', 'order', 'isVisible'],
+    MarketingPageTestimonial: ['quote', 'author', 'company', 'avatar', 'logo', 'darkLogo', 'order', 'isVisible'],
+    MarketingPageHighlight: ['title', 'description', 'iconKey', 'media', 'order', 'isVisible'],
+    MarketingPagePricing: [
+        'title',
+        'description',
+        'price',
+        'period',
+        'action',
+        'benefitKeys',
+        'benefits',
+        'featured',
+        'order',
+        'isVisible'
+    ],
+    MarketingPagePricingBenefit: ['label', 'order', 'isVisible'],
+    MarketingPageFaq: ['question', 'answer', 'order', 'isVisible'],
+    MarketingPageNavigation: ['label', 'action', 'order', 'isVisible'],
+    MarketingPageFooterLink: ['groupKey', 'groupTitle', 'label', 'secondaryLabel', 'action', 'iconKey', 'order', 'isVisible']
+}
 /**
  * Runtime rows are bounded per known marketing collection (1000 rows each)
  * and the singleton site-settings record. Keep the aggregate schema bound in
@@ -84,6 +240,47 @@ export const marketingPersistedIdSchema = z
     .uuid()
     .refine((value) => value[14]?.toLowerCase() === '7', 'Persisted marketing identifiers must be UUID v7.')
 export type MarketingPersistedId = z.infer<typeof marketingPersistedIdSchema>
+
+/** Instance identity is semantic for seed rows and UUID v7 for authored rows. */
+export const marketingWidgetInstanceKeySchema = z.union([marketingSemanticKeySchema, marketingPersistedIdSchema])
+export type MarketingWidgetInstanceKey = z.infer<typeof marketingWidgetInstanceKeySchema>
+
+/** Server-resolved entity metadata reference; physical tables and SQL never cross this boundary. */
+export const marketingWidgetSourceSchema = z
+    .object({
+        entityCodename: marketingSourceCodenameSchema,
+        entityKind: z.enum(['hub', 'object', 'page', 'set', 'enumeration']).default('object'),
+        recordKey: marketingSemanticKeySchema.optional(),
+        fieldMap: z
+            .record(
+                z
+                    .string()
+                    .trim()
+                    .min(1)
+                    .max(128)
+                    .regex(/^[A-Za-z][A-Za-z0-9._-]*$/, 'Field aliases must use stable identifiers.'),
+                z
+                    .string()
+                    .trim()
+                    .min(1)
+                    .max(128)
+                    .regex(/^[A-Za-z][A-Za-z0-9._-]*$/, 'Field references must use stable identifiers.')
+            )
+            .superRefine((value, context) => {
+                if (Object.keys(value).length > 64) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.too_big,
+                        type: 'object',
+                        maximum: 64,
+                        inclusive: true,
+                        message: 'Field maps may contain at most 64 entries.'
+                    })
+                }
+            })
+            .default({})
+    })
+    .strict()
+export type MarketingWidgetSource = z.infer<typeof marketingWidgetSourceSchema>
 
 export const MARKETING_DATA_LAYERS = ['metahub', 'publication', 'application', 'workspace'] as const
 export type MarketingDataLayer = (typeof MARKETING_DATA_LAYERS)[number]
@@ -394,6 +591,21 @@ export const marketingFooterLinkRecordSchema = marketingRecordBaseSchema
     .strict()
 export type MarketingFooterLinkRecord = z.infer<typeof marketingFooterLinkRecordSchema>
 
+/**
+ * Section copy is content owned by the standard Object entity, but it is
+ * attached to the widget that consumes it. It never controls widget order or
+ * visibility; those semantics belong to the persisted widget instance.
+ */
+export const marketingSectionCopyRecordSchema = marketingRecordBaseSchema
+    .extend({
+        kind: z.literal('sectionCopy'),
+        sectionKey: marketingSemanticKeySchema,
+        title: marketingLocalizedTextSchema,
+        description: marketingLocalizedTextSchema.optional()
+    })
+    .strict()
+export type MarketingSectionCopyRecord = z.infer<typeof marketingSectionCopyRecordSchema>
+
 export const marketingPageRecordSchema = z
     .discriminatedUnion('kind', [
         marketingSiteSettingsRecordSchema,
@@ -405,7 +617,8 @@ export const marketingPageRecordSchema = z
         marketingPricingBenefitRecordSchema,
         marketingPricingTierRecordSchema,
         marketingFaqRecordSchema,
-        marketingFooterLinkRecordSchema
+        marketingFooterLinkRecordSchema,
+        marketingSectionCopyRecordSchema
     ])
     .superRefine((value, context) => {
         if (value.kind === 'pricingTier' && new Set(value.benefitKeys).size !== value.benefitKeys.length) {
@@ -417,29 +630,6 @@ export const marketingPageRecordSchema = z
         }
     })
 export type MarketingPageRecord = z.infer<typeof marketingPageRecordSchema>
-
-export const MARKETING_SECTION_KEYS = ['hero', 'logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq', 'footer'] as const
-export type MarketingSectionKey = (typeof MARKETING_SECTION_KEYS)[number]
-export const marketingSectionKeySchema = z.enum(MARKETING_SECTION_KEYS)
-
-export const marketingSectionCopySchema = z
-    .object({
-        title: marketingLocalizedTextSchema,
-        description: marketingLocalizedTextSchema.optional()
-    })
-    .strict()
-export type MarketingSectionCopy = z.infer<typeof marketingSectionCopySchema>
-
-const marketingSectionVisibilitySchema = z
-    .record(z.string(), z.boolean())
-    .default({})
-    .superRefine((value, context) => {
-        for (const key of Object.keys(value)) {
-            if (!marketingSectionKeySchema.safeParse(key).success) {
-                context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'Unknown marketing section key.' })
-            }
-        }
-    })
 
 const marketingThemeModeSchema = z.enum(['system', 'light', 'dark']).default('system')
 
@@ -476,11 +666,6 @@ export const marketingThemeColorSchema = z
 export const marketingPageConfigSchema = z
     .object({
         themeMode: marketingThemeModeSchema,
-        sectionOrder: z
-            .array(marketingSectionKeySchema)
-            .max(MARKETING_SECTION_KEYS.length)
-            .default([...MARKETING_SECTION_KEYS]),
-        sectionVisibility: marketingSectionVisibilitySchema,
         primaryColor: marketingThemeColorSchema.optional(),
         accentColor: marketingThemeColorSchema.optional(),
         brandLogo: marketingMediaSchema.optional(),
@@ -489,66 +674,300 @@ export const marketingPageConfigSchema = z
         externalLinkTarget: marketingLinkTargetSchema.default('new-tab')
     })
     .strict()
-    .superRefine((value, context) => {
-        if (new Set(value.sectionOrder).size !== value.sectionOrder.length) {
+export type MarketingPageConfig = z.infer<typeof marketingPageConfigSchema>
+
+const marketingWidgetConfigBaseSchema = z.object({
+    instanceKey: marketingWidgetInstanceKeySchema,
+    source: marketingWidgetSourceSchema,
+    copySource: marketingWidgetSourceSchema.optional()
+})
+
+const refineMarketingWidgetSources = (
+    value: {
+        source: MarketingWidgetSource
+        copySource?: MarketingWidgetSource
+    },
+    context: z.RefinementCtx,
+    widgetKey: MarketingWidgetKey,
+    variant?: MarketingCollectionVariant
+): void => {
+    if (value.source.entityKind !== 'object') {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['source', 'entityKind'],
+            message: 'Marketing widget sources must reference Object entities.'
+        })
+    }
+    if (!marketingWidgetSourceCodenames(widgetKey, variant).includes(value.source.entityCodename)) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['source', 'entityCodename'],
+            message: 'Marketing widget source does not match the widget variant.'
+        })
+    }
+    const allowedFieldKeys = MARKETING_SOURCE_FIELD_KEYS[value.source.entityCodename]
+    for (const [alias, field] of Object.entries(value.source.fieldMap)) {
+        if (!allowedFieldKeys.includes(alias) || !allowedFieldKeys.includes(field)) {
             context.addIssue({
                 code: z.ZodIssueCode.custom,
-                path: ['sectionOrder'],
-                message: 'Marketing section order must not contain duplicates.'
+                path: ['source', 'fieldMap', alias],
+                message: 'Marketing field mappings must use fields supported by the selected built-in source.'
+            })
+        }
+    }
+    if (value.copySource !== undefined) {
+        if (
+            value.copySource.entityKind !== 'object' ||
+            value.copySource.entityCodename !== MARKETING_COPY_SOURCE_CODENAME ||
+            value.copySource.recordKey === undefined
+        ) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['copySource'],
+                message: 'Marketing widget copy sources must reference a keyed MarketingPageSection Object.'
+            })
+        }
+        const copyFieldKeys = MARKETING_SOURCE_FIELD_KEYS[MARKETING_COPY_SOURCE_CODENAME]
+        for (const [alias, field] of Object.entries(value.copySource.fieldMap)) {
+            if (!copyFieldKeys.includes(alias) || !copyFieldKeys.includes(field)) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['copySource', 'fieldMap', alias],
+                    message: 'Marketing copy mappings must use supported section fields.'
+                })
+            }
+        }
+    }
+}
+
+export const marketingNavigationWidgetConfigSchema = marketingWidgetConfigBaseSchema
+    .extend({
+        maxItems: z.number().int().min(1).max(100).default(24),
+        showAuthActions: z.boolean().default(true)
+    })
+    .strict()
+    .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.navigation'))
+
+export const marketingHeroWidgetConfigSchema = marketingWidgetConfigBaseSchema
+    .extend({
+        showLeadForm: z.boolean().default(true)
+    })
+    .strict()
+    .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.hero'))
+
+export const marketingCollectionWidgetConfigSchema = marketingWidgetConfigBaseSchema
+    .extend({
+        variant: marketingCollectionVariantSchema,
+        maxItems: z.number().int().min(1).max(1000).default(100),
+        showTitle: z.boolean().default(true),
+        showDescription: z.boolean().default(true)
+    })
+    .strict()
+    .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.collection', value.variant))
+
+export const marketingPricingWidgetConfigSchema = marketingWidgetConfigBaseSchema
+    .extend({
+        maxItems: z.number().int().min(1).max(100).default(24),
+        showBenefits: z.boolean().default(true)
+    })
+    .strict()
+    .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.pricing'))
+
+export const marketingFooterWidgetConfigSchema = marketingWidgetConfigBaseSchema
+    .extend({
+        maxItems: z.number().int().min(1).max(100).default(100),
+        showNewsletter: z.boolean().default(true)
+    })
+    .strict()
+    .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.footer'))
+
+export const marketingWidgetDataSchema = z
+    .object({ records: z.array(marketingPageRecordSchema).max(MARKETING_MAX_RUNTIME_RECORDS) })
+    .strict()
+
+export const marketingRuntimeIdentitySchema = z
+    .object({
+        layoutId: marketingPersistedIdSchema,
+        layoutVersion: z.number().int().positive(),
+        layoutHash: z
+            .string()
+            .trim()
+            .regex(/^[a-f0-9]{64}$/i),
+        sourceLayoutId: marketingPersistedIdSchema.nullable().optional(),
+        sourceContentHash: z
+            .string()
+            .trim()
+            .regex(/^[a-f0-9]{64}$/i)
+            .nullable()
+            .optional()
+    })
+    .strict()
+export type MarketingRuntimeIdentity = z.infer<typeof marketingRuntimeIdentitySchema>
+
+const marketingRuntimeWidgetBaseSchema = z.object({
+    instanceKey: marketingWidgetInstanceKeySchema,
+    zone: marketingLayoutZoneSchema,
+    sortOrder: z.number().int().min(0).max(100_000),
+    isActive: z.boolean(),
+    data: marketingWidgetDataSchema
+})
+
+export const marketingNavigationWidgetSchema = marketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.navigation'),
+        config: marketingNavigationWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-header') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Navigation widgets must use the header zone.' })
+        }
+        if (value.data.records.some((record) => !['siteSettings', 'navigationLink'].includes(record.kind))) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: 'Navigation data contains an unsupported record kind.'
             })
         }
     })
-export type MarketingPageConfig = z.infer<typeof marketingPageConfigSchema>
 
-export const marketingPageDataSchema = z
+export const marketingHeroWidgetSchema = marketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.hero'),
+        config: marketingHeroWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Hero widgets must use the main zone.' })
+        }
+        if (value.data.records.some((record) => !['siteSettings', 'sectionCopy'].includes(record.kind))) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Hero data must contain site settings only.' })
+        }
+    })
+
+export const marketingCollectionWidgetSchema = marketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.collection'),
+        config: marketingCollectionWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Collection widgets must use the main zone.' })
+        }
+        const allowedKinds: Record<MarketingCollectionVariant, readonly MarketingPageRecord['kind'][]> = {
+            logos: ['logo'],
+            features: ['feature'],
+            testimonials: ['testimonial'],
+            highlights: ['highlight'],
+            faq: ['faq']
+        }
+        const kinds = allowedKinds[value.config.variant]
+        if (value.data.records.some((record) => record.kind !== 'sectionCopy' && !kinds.includes(record.kind))) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: `Collection data does not match the ${value.config.variant} variant.`
+            })
+        }
+    })
+
+export const marketingPricingWidgetSchema = marketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.pricing'),
+        config: marketingPricingWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Pricing widgets must use the main zone.' })
+        }
+        if (value.data.records.some((record) => !['pricingTier', 'pricingBenefit', 'sectionCopy'].includes(record.kind))) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Pricing data contains an unsupported record kind.' })
+        }
+    })
+
+export const marketingFooterWidgetSchema = marketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.footer'),
+        config: marketingFooterWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-footer') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Footer widgets must use the footer zone.' })
+        }
+        if (value.data.records.some((record) => !['siteSettings', 'footerLink', 'sectionCopy'].includes(record.kind))) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Footer data contains an unsupported record kind.' })
+        }
+    })
+
+// Branch-level refinements are intentional: Zod 3 cannot build a discriminated
+// union from ZodEffects, so this union remains strict and fail-closed through
+// each branch's literal widget key and refinement.
+export type MarketingRuntimeWidget =
+    | z.infer<typeof marketingNavigationWidgetSchema>
+    | z.infer<typeof marketingHeroWidgetSchema>
+    | z.infer<typeof marketingCollectionWidgetSchema>
+    | z.infer<typeof marketingPricingWidgetSchema>
+    | z.infer<typeof marketingFooterWidgetSchema>
+
+export const marketingRuntimeWidgetSchema: z.ZodType<MarketingRuntimeWidget> = z.union([
+    marketingNavigationWidgetSchema,
+    marketingHeroWidgetSchema,
+    marketingCollectionWidgetSchema,
+    marketingPricingWidgetSchema,
+    marketingFooterWidgetSchema
+])
+
+export type MarketingPageData = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    locale: MarketingLocaleCode
+    config: MarketingPageConfig
+    widgets: MarketingRuntimeWidget[]
+    runtime: MarketingRuntimeIdentity
+    provenance?: MarketingProvenance
+    richContent?: z.infer<typeof pageBlockContentSchema>
+}
+
+export const marketingPageDataSchema: z.ZodType<MarketingPageData> = z
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         locale: marketingLocaleCodeSchema,
         config: marketingPageConfigSchema,
-        records: z.array(marketingPageRecordSchema).max(MARKETING_MAX_RUNTIME_RECORDS),
-        sectionCopies: z.record(marketingSectionKeySchema, marketingSectionCopySchema).default({}),
+        widgets: z.array(marketingRuntimeWidgetSchema).min(1).max(64),
+        runtime: marketingRuntimeIdentitySchema,
         provenance: marketingProvenanceSchema.optional(),
         richContent: pageBlockContentSchema.optional()
     })
     .strict()
     .superRefine((value, context) => {
-        // Semantic identities are scoped to a record kind. A marketing page
-        // may legitimately have a `support` highlight and a `support` FAQ;
-        // each collection still needs unique keys for deterministic rendering
-        // and relation lookups.
-        const semanticKeys = new Set<string>()
-        const ids = new Set<string>()
-
-        value.records.forEach((record, index) => {
-            const scopedSemanticKey = `${record.kind}:${record.semanticKey}`
-            if (semanticKeys.has(scopedSemanticKey)) {
+        const instanceKeys = new Set<string>()
+        for (const [index, widget] of value.widgets.entries()) {
+            const key = String(widget.instanceKey)
+            if (instanceKeys.has(key)) {
                 context.addIssue({
                     code: z.ZodIssueCode.custom,
-                    path: ['records', index, 'semanticKey'],
-                    message: 'Marketing semantic keys must be unique within each record kind.'
+                    path: ['widgets', index, 'instanceKey'],
+                    message: 'Marketing widget instance keys must be unique within a layout.'
                 })
             }
-            semanticKeys.add(scopedSemanticKey)
+            instanceKeys.add(key)
+        }
 
-            if (ids.has(record.id)) {
-                context.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['records', index, 'id'],
-                    message: 'Marketing record identifiers must be unique in a runtime payload.'
-                })
-            }
-            ids.add(record.id)
-        })
+        const activeKeys = new Set(value.widgets.filter((widget) => widget.isActive).map((widget) => widget.widgetKey))
+        if (activeKeys.size === 0) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['widgets'], message: 'Marketing layout must contain an active widget.' })
+        }
     })
-export type MarketingPageData = z.infer<typeof marketingPageDataSchema>
 
-export const marketingPageRuntimeViewModelSchema = z
+export type MarketingPageRuntimeViewModel = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    marketingPage: MarketingPageData
+}
+
+export const marketingPageRuntimeViewModelSchema: z.ZodType<MarketingPageRuntimeViewModel> = z
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         marketingPage: marketingPageDataSchema
     })
     .strict()
-export type MarketingPageRuntimeViewModel = z.infer<typeof marketingPageRuntimeViewModelSchema>
 
 /**
  * Build the complete runtime envelope without importing the dashboard package.
@@ -568,34 +987,5 @@ export const createRuntimeViewModelSchema = <TDashboardPayload extends z.ZodType
 export type RuntimeViewModel<TDashboardPayload = unknown> =
     | { templateKey: 'dashboard'; dashboard: TDashboardPayload }
     | MarketingPageRuntimeViewModel
-
-export interface ApplicationTemplateRegistryEntry {
-    readonly key: ApplicationTemplateKey
-    readonly displayNameKey: string
-    readonly descriptionKey: string
-    readonly supportsDashboardWidgets: boolean
-    readonly seedPolicyKey: string
-}
-
-/**
- * Neutral metadata only. Concrete dashboard payload validation remains owned by
- * the runtime package and is injected through createRuntimeViewModelSchema.
- */
-export const APPLICATION_TEMPLATE_REGISTRY: Readonly<Record<ApplicationTemplateKey, ApplicationTemplateRegistryEntry>> = {
-    dashboard: {
-        key: 'dashboard',
-        displayNameKey: 'templates.dashboard.name',
-        descriptionKey: 'templates.dashboard.description',
-        supportsDashboardWidgets: true,
-        seedPolicyKey: 'dashboard'
-    },
-    'marketing-page': {
-        key: MARKETING_PAGE_TEMPLATE_KEY,
-        displayNameKey: 'templates.marketingPage.name',
-        descriptionKey: 'templates.marketingPage.description',
-        supportsDashboardWidgets: false,
-        seedPolicyKey: MARKETING_PAGE_SEED_POLICY
-    }
-}
 
 export type MarketingCanonicalLocalizedText = VersionedLocalizedContent<string>

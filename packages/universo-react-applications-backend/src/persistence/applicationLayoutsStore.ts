@@ -1,10 +1,13 @@
 import { qSchemaTable } from '@universo-react/database'
 import {
-    DASHBOARD_LAYOUT_WIDGETS,
+    LAYOUT_WIDGET_DEFINITIONS,
+    MARKETING_LAYOUT_ZONES,
+    MARKETING_WIDGET_REGISTRY,
     applicationTemplateKeySchema,
+    applicationLayoutCopyMutationSchema,
     applicationLayoutConfigResetMutationSchema,
     applicationLayoutCreateSchema,
-    applicationLayoutMutationSchema,
+    applicationLayoutUpdateSchema,
     parseApplicationLayoutConfig,
     applicationLayoutWidgetConfigBatchMutationSchema,
     applicationLayoutWidgetConfigMutationSchema,
@@ -14,20 +17,22 @@ import {
     applicationLayoutWidgetToggleMutationSchema,
     parseApplicationLayoutWidgetConfig,
     type ApplicationLayout,
+    type ApplicationLayoutCopyMutation,
     type ApplicationLayoutConfigResetMutation,
     type ApplicationLayoutCreate,
     type ApplicationLayoutDetailResponse,
-    type ApplicationLayoutMutation,
     type ApplicationLayoutScope,
+    type ApplicationLayoutUpdate,
     type ApplicationLayoutWidget,
     type ApplicationLayoutWidgetConfigBatchMutation,
     type ApplicationLayoutWidgetConfigMutation,
     type ApplicationLayoutWidgetMoveMutation,
     type ApplicationLayoutWidgetMutation,
     type ApplicationLayoutWidgetResetBatchMutation,
-    type ApplicationLayoutWidgetToggleMutation
+    type ApplicationLayoutWidgetToggleMutation,
+    type LayoutWidgetDefinition
 } from '@universo-react/types'
-import type { DbExecutor } from '@universo-react/utils'
+import { generateUuidV7, type DbExecutor } from '@universo-react/utils'
 import { activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils/database'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
 import {
@@ -36,7 +41,7 @@ import {
 } from '../shared/interpretationNetworkStructureModeGuard'
 
 const GLOBAL_SCOPE_ID = 'global'
-const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = ['left', 'top', 'right', 'bottom', 'center']
+const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = ['left', 'top', 'right', 'bottom', 'center', ...MARKETING_LAYOUT_ZONES]
 
 interface LayoutRow {
     id: string
@@ -68,6 +73,8 @@ interface WidgetRow {
     sort_order: number
     config: Record<string, unknown>
     source_config: Record<string, unknown> | null
+    source_widget_id?: string | null
+    source_base_widget_id?: string | null
     is_customized: boolean
     is_active: boolean
     version: number
@@ -91,9 +98,20 @@ const parseLayoutConfigForRead = (templateKey: ApplicationLayout['templateKey'],
     }
 }
 
-function assertApplicationLayoutWidgetConfig(widgetKey: string, config: unknown): Record<string, unknown> {
+function assertApplicationLayoutWidgetConfig(
+    widgetKey: string,
+    config: unknown,
+    options: { generateInstanceKey?: boolean } = {}
+): Record<string, unknown> {
     try {
-        return parseApplicationLayoutWidgetConfig(widgetKey, config)
+        const candidate =
+            options.generateInstanceKey &&
+            Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, widgetKey) &&
+            isRecord(config) &&
+            config.instanceKey === undefined
+                ? { ...config, instanceKey: generateUuidV7() }
+                : config
+        return parseApplicationLayoutWidgetConfig(widgetKey, candidate)
     } catch {
         throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
     }
@@ -131,9 +149,12 @@ const mapWidget = (row: WidgetRow): ApplicationLayoutWidget => ({
     layoutId: row.layout_id,
     zone: row.zone as ApplicationLayoutWidget['zone'],
     widgetKey: row.widget_key as ApplicationLayoutWidget['widgetKey'],
+    instanceKey: isRecord(row.config) && typeof row.config.instanceKey === 'string' ? row.config.instanceKey : undefined,
     sortOrder: row.sort_order,
     config: isRecord(row.config) ? row.config : {},
     sourceConfig: isRecord(row.source_config) ? row.source_config : null,
+    sourceWidgetId: row.source_widget_id ?? null,
+    sourceBaseWidgetId: row.source_base_widget_id ?? null,
     isCustomized: row.is_customized === true,
     isActive: row.is_active,
     version: row.version
@@ -172,6 +193,8 @@ const widgetSelect = (widgetsTable: string): string => `
       sort_order,
       config,
       source_config,
+      source_widget_id,
+      source_base_widget_id,
       (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,
       is_active,
       COALESCE(_upl_version, 1)::int AS version
@@ -179,22 +202,67 @@ const widgetSelect = (widgetsTable: string): string => `
 `
 
 /**
- * Dashboard widgets are not valid children of a marketing layout. Keep this
- * invariant in every write query so a direct API caller cannot bypass the UI
- * template guard by posting a well-formed dashboard widget to another layout.
+ * Layout widgets are valid only on active application layouts. The selected
+ * template adapter performs the key/zone compatibility check before writes;
+ * keeping this predicate broad lets both dashboard and marketing adapters use
+ * the same SQL-first mutation paths.
  */
 type DashboardLayoutIdExpression = 'layout_id' | 'w.layout_id' | '$1'
 
-const dashboardLayoutPredicate = (layoutsTable: string, layoutIdExpression: DashboardLayoutIdExpression): string =>
+const applicationLayoutWidgetPredicate = (layoutsTable: string, layoutIdExpression: DashboardLayoutIdExpression): string =>
     `EXISTS (
         SELECT 1
         FROM ${layoutsTable} AS layout_guard
         WHERE layout_guard.id = ${layoutIdExpression}
-          AND layout_guard.template_key = 'dashboard'
+          AND layout_guard.template_key IN ('dashboard', 'marketing-page')
           AND layout_guard.is_active = true
           AND layout_guard._upl_deleted = false
           AND layout_guard._app_deleted = false
     )`
+
+const getApplicationWidgetDefinition = (widgetKey: string): LayoutWidgetDefinition | undefined =>
+    LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === widgetKey)
+
+const isMarketingWidgetKey = (widgetKey: string): boolean => Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, widgetKey)
+
+const assertWidgetPlacementForTemplate = (
+    templateKey: ApplicationLayout['templateKey'],
+    widgetKey: string,
+    zone: string
+): LayoutWidgetDefinition => {
+    const definition = getApplicationWidgetDefinition(widgetKey)
+    if (
+        !definition ||
+        definition.templateKey !== templateKey ||
+        !definition.allowedZones.includes(zone as ApplicationLayoutWidget['zone'])
+    ) {
+        throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+    }
+    return definition
+}
+
+const prepareCopiedWidgetConfigs = (
+    templateKey: ApplicationLayout['templateKey'],
+    widgets: ApplicationLayoutWidget[]
+): Map<string, Record<string, unknown>> => {
+    const instanceKeys = new Set<string>()
+    const copiedConfigs = new Map<string, Record<string, unknown>>()
+
+    for (const widget of widgets) {
+        assertWidgetPlacementForTemplate(templateKey, widget.widgetKey, widget.zone)
+
+        const sourceConfig = isMarketingWidgetKey(widget.widgetKey) ? { ...widget.config, instanceKey: generateUuidV7() } : widget.config
+        const config = assertApplicationLayoutWidgetConfig(widget.widgetKey, sourceConfig)
+        if (isMarketingWidgetKey(widget.widgetKey)) {
+            const instanceKey = String(config.instanceKey)
+            if (instanceKeys.has(instanceKey)) throw new Error('APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE')
+            instanceKeys.add(instanceKey)
+        }
+        copiedConfigs.set(widget.id, config)
+    }
+
+    return copiedConfigs
+}
 
 async function assignNextDefaultLayout(
     executor: DbExecutor,
@@ -233,16 +301,18 @@ async function assignNextDefaultLayout(
         return
     }
 
-    await executor.query(
+    await executor.query<{ id: string }>(
         `
         UPDATE ${layoutsTable}
         SET is_default = CASE WHEN id = $2 THEN true ELSE false END,
             _upl_updated_at = NOW(),
-            _upl_updated_by = $3
+            _upl_updated_by = $3,
+            _upl_version = COALESCE(_upl_version, 1) + 1
         WHERE scope_entity_id IS NOT DISTINCT FROM $1
           AND is_active = true
           AND _upl_deleted = false
           AND _app_deleted = false
+          AND is_default IS DISTINCT FROM (id = $2)
         `,
         [scopeEntityId, nextDefaultId, userId]
     )
@@ -326,6 +396,26 @@ export async function listApplicationLayoutScopes(
     ]
 }
 
+async function assertApplicationLayoutScope(executor: DbExecutor, schemaName: string, scopeEntityId: string): Promise<void> {
+    const objectsTable = qSchemaTable(schemaName, '_app_objects')
+    const rows = await executor.query<{ id: string }>(
+        `
+        SELECT id
+        FROM ${objectsTable}
+        WHERE id = $1
+          AND _upl_deleted = false
+          AND _app_deleted = false
+          AND (
+            config->'capabilities'->'layoutConfig'->>'enabled' = 'true'
+            OR config->'layoutConfig'->>'enabled' = 'true'
+          )
+        LIMIT 1
+        `,
+        [scopeEntityId]
+    )
+    if (!rows[0]) throw new Error('APPLICATION_LAYOUT_SCOPE_INVALID')
+}
+
 export async function listApplicationLayouts(
     executor: DbExecutor,
     schemaName: string,
@@ -362,22 +452,100 @@ export async function listApplicationLayouts(
 export async function getApplicationLayoutDetail(
     executor: DbExecutor,
     schemaName: string,
-    layoutId: string
+    layoutId: string,
+    options: { forUpdate?: boolean } = {}
 ): Promise<ApplicationLayoutDetailResponse | null> {
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
+    const rowLock = options.forUpdate === true ? ' FOR UPDATE' : ''
     const rows = await executor.query<LayoutRow>(
-        `${layoutSelect(layoutsTable)} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1`,
+        `${layoutSelect(layoutsTable)} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1${rowLock}`,
         [layoutId]
     )
     if (!rows[0]) return null
     const widgets = await executor.query<WidgetRow>(
         `${widgetSelect(widgetsTable)}
          WHERE layout_id = $1 AND _upl_deleted = false AND _app_deleted = false
-         ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
+         ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC${rowLock}`,
         [layoutId]
     )
     return { item: mapLayout(rows[0]), widgets: widgets.map(mapWidget) }
+}
+
+const applicationLayoutScopeLockKey = (schemaName: string, scopeEntityId: string | null): string =>
+    `${schemaName}:layout-scope:${scopeEntityId ?? GLOBAL_SCOPE_ID}`
+
+const applicationLayoutLockKey = (schemaName: string, layoutId: string): string => `${schemaName}:layout:${layoutId}`
+
+const applicationLayoutWidgetsLockKey = (schemaName: string, layoutId: string): string => `${schemaName}:layout:${layoutId}:widgets`
+
+const applicationLayoutMutationError = (constraint: unknown): string | null => {
+    if (typeof constraint !== 'string') return null
+    if (constraint === 'idx_app_layouts_default_active') return 'APPLICATION_LAYOUT_DEFAULT_CONFLICT'
+    if (constraint === 'idx_app_widgets_layout_source_base_active') return 'APPLICATION_LAYOUT_WIDGET_SOURCE_CONFLICT'
+    return null
+}
+
+const normalizeApplicationLayoutMutationError = (error: unknown): unknown => {
+    if (!isRecord(error) || error.code !== '23505') return error
+    const code = applicationLayoutMutationError(error.constraint)
+    return code ? new Error(code) : error
+}
+
+const runApplicationLayoutTransaction = async <T>(executor: DbExecutor, callback: (transaction: DbExecutor) => Promise<T>): Promise<T> => {
+    try {
+        return await executor.transaction(callback)
+    } catch (error) {
+        throw normalizeApplicationLayoutMutationError(error)
+    }
+}
+
+/**
+ * Locks an application layout mutation in the single scope -> layout -> widgets order.
+ * The first scope lookup is deliberately not trusted as the mutation snapshot: the
+ * layout row is read again with FOR UPDATE after the advisory locks are acquired.
+ */
+const lockApplicationLayoutMutation = async (
+    executor: DbExecutor,
+    schemaName: string,
+    layoutId: string
+): Promise<ApplicationLayoutDetailResponse | null> => {
+    const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
+    const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
+    const scopeRows = await executor.query<{ scope_entity_id: string | null }>(
+        `
+        SELECT scope_entity_id
+        FROM ${layoutsTable}
+        WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
+        LIMIT 1
+        `,
+        [layoutId]
+    )
+    if (!scopeRows[0]) return null
+
+    const initialScopeEntityId = scopeRows[0].scope_entity_id ?? null
+    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutScopeLockKey(schemaName, initialScopeEntityId)])
+    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutLockKey(schemaName, layoutId)])
+
+    const layoutRows = await executor.query<LayoutRow>(
+        `${layoutSelect(layoutsTable)} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1 FOR UPDATE`,
+        [layoutId]
+    )
+    if (!layoutRows[0]) return null
+
+    const lockedScopeEntityId = layoutRows[0].scope_entity_id ?? null
+    if (lockedScopeEntityId !== initialScopeEntityId) {
+        throw new Error('APPLICATION_LAYOUT_SCOPE_CONFLICT')
+    }
+
+    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutWidgetsLockKey(schemaName, layoutId)])
+    const widgets = await executor.query<WidgetRow>(
+        `${widgetSelect(widgetsTable)}
+         WHERE layout_id = $1 AND _upl_deleted = false AND _app_deleted = false
+         ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC FOR UPDATE`,
+        [layoutId]
+    )
+    return { item: mapLayout(layoutRows[0]), widgets: widgets.map(mapWidget) }
 }
 
 export async function createApplicationLayout(
@@ -391,8 +559,9 @@ export async function createApplicationLayout(
     const config = parseApplicationLayoutConfig(templateKey, data.config ?? {})
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const scopeId = data.scopeEntityId ?? null
-    return executor.transaction(async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${scopeId ?? GLOBAL_SCOPE_ID}`])
+    return runApplicationLayoutTransaction(executor, async (tx) => {
+        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutScopeLockKey(schemaName, scopeId)])
+        if (scopeId) await assertApplicationLayoutScope(tx, schemaName, scopeId)
         const activeRows = await tx.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
             [scopeId]
@@ -401,7 +570,16 @@ export async function createApplicationLayout(
         const isActive = isDefault ? true : data.isActive ?? true
         if (isDefault) {
             await tx.query(
-                `UPDATE ${layoutsTable} SET is_default = false, _upl_updated_at = NOW(), _upl_updated_by = $2 WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
+                `UPDATE ${layoutsTable}
+                 SET is_default = false,
+                     _upl_updated_at = NOW(),
+                     _upl_updated_by = $2,
+                     _upl_version = COALESCE(_upl_version, 1) + 1
+                 WHERE scope_entity_id IS NOT DISTINCT FROM $1
+                   AND is_active = true
+                   AND _upl_deleted = false
+                   AND _app_deleted = false
+                   AND is_default = true`,
                 [scopeId, userId]
             )
         }
@@ -439,17 +617,16 @@ export async function updateApplicationLayout(
     executor: DbExecutor,
     schemaName: string,
     layoutId: string,
-    input: ApplicationLayoutMutation,
+    input: ApplicationLayoutUpdate,
     userId: string | null
 ): Promise<ApplicationLayout | null> {
-    const data = applicationLayoutMutationSchema.parse(input)
+    const data = applicationLayoutUpdateSchema.parse(input)
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
-    return executor.transaction(async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}`])
-        const current = await getApplicationLayoutDetail(tx, schemaName, layoutId)
+    return runApplicationLayoutTransaction(executor, async (tx) => {
+        const current = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
         if (!current) return null
         const config = data.config === undefined ? undefined : parseApplicationLayoutConfig(current.item.templateKey, data.config)
-        if (data.expectedVersion && current.item.version !== data.expectedVersion) {
+        if (data.expectedVersion !== undefined && current.item.version !== data.expectedVersion) {
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         }
         const next = {
@@ -460,7 +637,17 @@ export async function updateApplicationLayout(
         }
         if (data.isDefault === true) {
             await tx.query(
-                `UPDATE ${layoutsTable} SET is_default = false, _upl_updated_at = NOW(), _upl_updated_by = $2 WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND is_active = true AND id <> $3 AND _upl_deleted = false AND _app_deleted = false`,
+                `UPDATE ${layoutsTable}
+                 SET is_default = false,
+                     _upl_updated_at = NOW(),
+                     _upl_updated_by = $2,
+                     _upl_version = COALESCE(_upl_version, 1) + 1
+                 WHERE scope_entity_id IS NOT DISTINCT FROM $1
+                   AND is_active = true
+                   AND id <> $3
+                   AND _upl_deleted = false
+                   AND _app_deleted = false
+                   AND is_default = true`,
                 [current.item.scopeEntityId, userId, layoutId]
             )
         }
@@ -489,7 +676,10 @@ export async function updateApplicationLayout(
                 _upl_updated_at = NOW(),
                 _upl_updated_by = $10,
                 _upl_version = COALESCE(_upl_version, 1) + 1
-            WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
+            WHERE id = $1
+              AND COALESCE(_upl_version, 1) = $11
+              AND _upl_deleted = false
+              AND _app_deleted = false
             RETURNING *, COALESCE(_upl_version, 1)::int AS version, source_deleted_at::text
             `,
             [
@@ -502,10 +692,14 @@ export async function updateApplicationLayout(
                 data.sortOrder ?? null,
                 localHash,
                 syncState,
-                userId
+                userId,
+                data.expectedVersion
             ]
         )
-        if (rows[0] && current.item.isDefault && rows[0].is_default !== true) {
+        if (!rows[0]) {
+            throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        }
+        if (current.item.isDefault && rows[0].is_default !== true) {
             await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, null, userId)
             return getApplicationLayoutDetail(tx, schemaName, layoutId).then((detail) => detail?.item ?? mapLayout(rows[0]))
         }
@@ -531,9 +725,8 @@ export async function resetApplicationLayoutConfig(
     const data = applicationLayoutConfigResetMutationSchema.parse(input)
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
 
-    return executor.transaction(async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}`])
-        const current = await getApplicationLayoutDetail(tx, schemaName, layoutId)
+    return runApplicationLayoutTransaction(executor, async (tx) => {
+        const current = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
         if (!current) return null
         if (current.item.templateKey !== 'marketing-page') {
             throw new Error('APPLICATION_LAYOUT_MARKETING_RESET_NOT_SUPPORTED')
@@ -574,14 +767,13 @@ export async function deleteApplicationLayout(
     schemaName: string,
     layoutId: string,
     userId: string | null,
-    expectedVersion?: number
+    expectedVersion: number
 ): Promise<boolean> {
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
-    return executor.transaction(async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}`])
-        const current = await getApplicationLayoutDetail(tx, schemaName, layoutId)
+    return runApplicationLayoutTransaction(executor, async (tx) => {
+        const current = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
         if (!current) return false
-        if (expectedVersion !== undefined && current.item.version !== expectedVersion) {
+        if (current.item.version !== expectedVersion) {
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         }
         const activeRows = await tx.query<{ count: string }>(
@@ -590,7 +782,7 @@ export async function deleteApplicationLayout(
         )
         if (current.item.isActive && Number(activeRows[0]?.count ?? 0) === 0) throw new Error('APPLICATION_LAYOUT_LAST_ACTIVE')
         if (current.item.sourceKind === 'metahub') {
-            await tx.query(
+            const rows = await tx.query<{ id: string }>(
                 `
                 UPDATE ${layoutsTable}
                 SET is_active = false,
@@ -602,21 +794,30 @@ export async function deleteApplicationLayout(
                     _upl_updated_at = NOW(),
                     _upl_updated_by = $2,
                     _upl_version = COALESCE(_upl_version, 1) + 1
-                WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
+                WHERE id = $1
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
+                  AND COALESCE(_upl_version, 1) = $3
+                RETURNING id
                 `,
-                [layoutId, userId]
+                [layoutId, userId, expectedVersion]
             )
+            if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
             if (current.item.isDefault) {
                 await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, layoutId, userId)
             }
             return true
         }
-        await tx.query(
-            `UPDATE ${layoutsTable} SET ${softDeleteSetClause(
-                '$2'
-            )}, _upl_version = COALESCE(_upl_version, 1) + 1 WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
-            [layoutId, userId]
+        const rows = await tx.query<{ id: string }>(
+            `UPDATE ${layoutsTable} SET ${softDeleteSetClause('$2')}, _upl_version = COALESCE(_upl_version, 1) + 1
+              WHERE id = $1
+                AND _upl_deleted = false
+                AND _app_deleted = false
+                AND COALESCE(_upl_version, 1) = $3
+              RETURNING id`,
+            [layoutId, userId, expectedVersion]
         )
+        if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         if (current.item.isDefault) {
             await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, layoutId, userId)
         }
@@ -628,15 +829,29 @@ export async function copyApplicationLayout(
     executor: DbExecutor,
     schemaName: string,
     layoutId: string,
+    input: ApplicationLayoutCopyMutation,
     userId: string | null
 ): Promise<ApplicationLayout | null> {
+    const data = applicationLayoutCopyMutationSchema.parse(input)
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
-    return executor.transaction(async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}`])
-        const current = await getApplicationLayoutDetail(tx, schemaName, layoutId)
+    return runApplicationLayoutTransaction(executor, async (tx) => {
+        const current = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
         if (!current) return null
-        const localHash = hashApplicationLayoutContent({ layout: { ...current.item, isDefault: false }, widgets: current.widgets })
+        if (current.item.version !== data.expectedVersion) {
+            throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        }
+        const copiedConfigByWidgetId = prepareCopiedWidgetConfigs(current.item.templateKey, current.widgets)
+        const localHash = hashApplicationLayoutContent({
+            layout: { ...current.item, isDefault: false },
+            widgets: current.widgets.map((widget) => ({
+                ...widget,
+                config: copiedConfigByWidgetId.get(widget.id) ?? widget.config,
+                sourceConfig: null,
+                sourceWidgetId: null,
+                sourceBaseWidgetId: null
+            }))
+        })
         const rows = await tx.query<LayoutRow>(
             `
             INSERT INTO ${layoutsTable} (
@@ -646,20 +861,24 @@ export async function copyApplicationLayout(
             SELECT scope_entity_id, template_key, name, description, config, true, false, sort_order + 1, $2,
                    'application', $3, 'clean', $2, $2
             FROM ${layoutsTable}
-            WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
+            WHERE id = $1
+              AND COALESCE(_upl_version, 1) = $4
+              AND _upl_deleted = false
+              AND _app_deleted = false
             RETURNING *, COALESCE(_upl_version, 1)::int AS version, source_deleted_at::text
             `,
-            [layoutId, userId, localHash]
+            [layoutId, userId, localHash, data.expectedVersion]
         )
         const copied = rows[0]
         if (!copied) return null
         for (const widget of current.widgets) {
+            const config = copiedConfigByWidgetId.get(widget.id) ?? widget.config
             await tx.query(
                 `
                 INSERT INTO ${widgetsTable} (layout_id, zone, widget_key, sort_order, config, is_active, _upl_created_by, _upl_updated_by)
                 VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $7)
                 `,
-                [copied.id, widget.zone, widget.widgetKey, widget.sortOrder, JSON.stringify(widget.config), widget.isActive, userId]
+                [copied.id, widget.zone, widget.widgetKey, widget.sortOrder, JSON.stringify(config), widget.isActive, userId]
             )
         }
         return mapLayout(copied)
@@ -692,7 +911,7 @@ async function refreshLayoutLocalContentHash(
     if (!current) return
     const localHash = hashApplicationLayoutContent({ layout: current.item, widgets: current.widgets })
     const syncState = current.item.sourceKind === 'metahub' && localHash !== current.item.sourceContentHash ? 'local_modified' : 'clean'
-    await executor.query(
+    const rows = await executor.query<{ id: string }>(
         `
         UPDATE ${layoutsTable}
         SET local_content_hash = $2,
@@ -700,18 +919,26 @@ async function refreshLayoutLocalContentHash(
             _upl_updated_at = NOW(),
             _upl_updated_by = $4,
             _upl_version = COALESCE(_upl_version, 1) + 1
-        WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
+        WHERE id = $1
+          AND _upl_deleted = false
+          AND _app_deleted = false
+          AND COALESCE(_upl_version, 1) = $5
+        RETURNING id
         `,
-        [layoutId, localHash, syncState, userId]
+        [layoutId, localHash, syncState, userId, current.item.version]
     )
+    if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
 }
 
-export const listApplicationLayoutWidgetObject = (): Array<{
-    key: string
-    allowedZones: readonly string[]
-    multiInstance: boolean
-}> =>
-    DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({ key: widget.key, allowedZones: widget.allowedZones, multiInstance: widget.multiInstance }))
+export const listApplicationLayoutWidgetObject = (): LayoutWidgetDefinition[] =>
+    LAYOUT_WIDGET_DEFINITIONS.map((widget) => ({
+        key: widget.key,
+        allowedZones: widget.allowedZones,
+        multiInstance: widget.multiInstance,
+        templateKey: widget.templateKey,
+        labelKey: widget.labelKey,
+        defaultLabel: widget.defaultLabel
+    }))
 
 export async function upsertApplicationLayoutWidget(
     executor: DbExecutor,
@@ -723,22 +950,20 @@ export async function upsertApplicationLayoutWidget(
     const data = applicationLayoutWidgetMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
-    const definition = DASHBOARD_LAYOUT_WIDGETS.find((widget) => widget.key === data.widgetKey)
-    if (!definition || !(definition.allowedZones as readonly string[]).includes(data.zone))
-        throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
-    const config = assertApplicationLayoutWidgetConfig(data.widgetKey, data.config ?? {})
-    return executor.transaction(async (tx) => {
+    const config = assertApplicationLayoutWidgetConfig(data.widgetKey, data.config ?? {}, { generateInstanceKey: true })
+    return runApplicationLayoutTransaction(executor, async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}:widgets`])
-        if (!definition.multiInstance) {
-            const existing = await tx.query<WidgetRow>(
-                `${widgetSelect(widgetsTable)}
-                 WHERE layout_id = $1 AND zone = $2 AND widget_key = $3 AND _upl_deleted = false AND _app_deleted = false
-                   AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
-                 LIMIT 1`,
-                [layoutId, data.zone, data.widgetKey]
-            )
-            if (existing[0]) return mapWidget(existing[0])
+        const current = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+        if (!current || !current.item.isActive) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+        const templateKey = applicationTemplateKeySchema.safeParse(current.item.templateKey)
+        if (!templateKey.success) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+        if (current.item.version !== data.expectedVersion) {
+            throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        }
+        assertWidgetPlacementForTemplate(templateKey.data, data.widgetKey, data.zone)
+        if (isMarketingWidgetKey(data.widgetKey)) {
+            const duplicate = current.widgets.find((widget) => String(widget.instanceKey) === String(config.instanceKey))
+            if (duplicate) throw new Error('APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE')
         }
         await assertInterpretationNetworkSingleSystemTransitionAllowed(
             tx,
@@ -755,10 +980,10 @@ export async function upsertApplicationLayoutWidget(
             `
             INSERT INTO ${widgetsTable} (layout_id, zone, widget_key, sort_order, config, is_active, _upl_created_by, _upl_updated_by)
             SELECT $1, $2, $3, COALESCE($4, 1), $5::jsonb, true, $6, $6
-            WHERE ${dashboardLayoutPredicate(layoutsTable, '$1')}
+            WHERE ${applicationLayoutWidgetPredicate(layoutsTable, '$1')}
             RETURNING *, COALESCE(_upl_version, 1)::int AS version
             `,
-            [layoutId, data.zone, data.widgetKey, data.sortOrder, JSON.stringify(config), userId]
+            [layoutId, data.zone, data.widgetKey, data.sortOrder ?? null, JSON.stringify(config), userId]
         )
         if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
         await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
@@ -769,6 +994,7 @@ export async function upsertApplicationLayoutWidget(
 export async function updateApplicationLayoutWidgetConfig(
     executor: DbExecutor,
     schemaName: string,
+    layoutId: string,
     widgetId: string,
     input: ApplicationLayoutWidgetConfigMutation,
     userId: string | null
@@ -778,25 +1004,27 @@ export async function updateApplicationLayoutWidgetConfig(
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     return executor.transaction(async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:widget:${widgetId}`])
-        const current = await tx.query<WidgetRow>(
-            `${widgetSelect(widgetsTable)} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
-              AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')} LIMIT 1`,
-            [widgetId]
-        )
-        if (!current[0]) return null
-        const config = assertApplicationLayoutWidgetConfig(String(current[0].widget_key), data.config)
+        const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+        const current = currentLayout?.widgets.find((widget) => widget.id === widgetId)
+        if (!currentLayout || !currentLayout.item.isActive || !current) return null
+        const config = assertApplicationLayoutWidgetConfig(current.widgetKey, data.config)
+        if (isMarketingWidgetKey(current.widgetKey)) {
+            const currentInstanceKey = current.instanceKey
+            if (String(config.instanceKey) !== String(currentInstanceKey)) {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_INSTANCE_IMMUTABLE')
+            }
+        }
         await assertInterpretationNetworkSingleSystemTransitionAllowed(
             tx,
             schemaName,
             [
                 {
                     current: {
-                        widgetKey: current[0].widget_key,
-                        config: current[0].config,
-                        isActive: current[0].is_active
+                        widgetKey: current.widgetKey,
+                        config: current.config,
+                        isActive: current.isActive
                     },
-                    next: { widgetKey: current[0].widget_key, config, isActive: current[0].is_active }
+                    next: { widgetKey: current.widgetKey, config, isActive: current.isActive }
                 }
             ],
             { lockAlreadyHeld: true }
@@ -806,15 +1034,16 @@ export async function updateApplicationLayoutWidgetConfig(
             UPDATE ${widgetsTable}
             SET config = $2::jsonb, _upl_updated_at = NOW(), _upl_updated_by = $3, _upl_version = COALESCE(_upl_version, 1) + 1
             WHERE id = $1
-              AND ($4::int IS NULL OR COALESCE(_upl_version, 1) = $4)
+              AND layout_id = $4
+              AND COALESCE(_upl_version, 1) = $5
               AND _upl_deleted = false
               AND _app_deleted = false
-              AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
+              AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
             RETURNING *, COALESCE(_upl_version, 1)::int AS version
             `,
-            [widgetId, JSON.stringify(config), userId, data.expectedVersion ?? null]
+            [widgetId, JSON.stringify(config), userId, layoutId, data.expectedVersion]
         )
-        if (!rows[0]) return null
+        if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
         return mapWidget(rows[0])
     })
@@ -833,10 +1062,12 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
 
     return executor.transaction(async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
-        for (const update of updates) {
-            await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-                `${schemaName}:layout-widget:${update.layoutId}:${update.widgetId}`
-            ])
+        const layoutIds = [...new Set(updates.map((update) => update.layoutId))].sort((left, right) => left.localeCompare(right))
+        for (const layoutId of layoutIds) {
+            const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+            if (!currentLayout || !currentLayout.item.isActive) {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            }
         }
 
         const currentRows = await tx.query<WidgetRow>(
@@ -847,7 +1078,7 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
              )
                AND _upl_deleted = false
                AND _app_deleted = false
-               AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
+               AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
              ORDER BY id
              FOR UPDATE`,
             [updates.map((update) => update.layoutId), updates.map((update) => update.widgetId)]
@@ -857,10 +1088,17 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
 
         for (const update of updates) {
             const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)
-            if (!current || (update.expectedVersion !== undefined && current.version !== update.expectedVersion)) {
+            if (!current || current.version !== update.expectedVersion) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             }
-            validatedConfigs.set(update.widgetId, assertApplicationLayoutWidgetConfig(current.widget_key, update.config))
+            const validatedConfig = assertApplicationLayoutWidgetConfig(current.widget_key, update.config)
+            if (isMarketingWidgetKey(current.widget_key)) {
+                const currentInstanceKey = isRecord(current.config) ? current.config.instanceKey : undefined
+                if (String(validatedConfig.instanceKey) !== String(currentInstanceKey)) {
+                    throw new Error('APPLICATION_LAYOUT_WIDGET_INSTANCE_IMMUTABLE')
+                }
+            }
+            validatedConfigs.set(update.widgetId, validatedConfig)
         }
 
         await assertInterpretationNetworkSingleSystemTransitionAllowed(
@@ -892,10 +1130,11 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
                   AND layout_id = $4
                   AND _upl_deleted = false
                   AND _app_deleted = false
-                  AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
+                  AND COALESCE(_upl_version, 1) = $5
+                  AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
                 RETURNING *, COALESCE(_upl_version, 1)::int AS version
                 `,
-                [update.widgetId, JSON.stringify(validatedConfigs.get(update.widgetId)), userId, update.layoutId]
+                [update.widgetId, JSON.stringify(validatedConfigs.get(update.widgetId)), userId, update.layoutId, update.expectedVersion]
             )
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             saved.push(mapWidget(rows[0]))
@@ -922,10 +1161,12 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
 
     return executor.transaction(async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
-        for (const update of updates) {
-            await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-                `${schemaName}:layout-widget:${update.layoutId}:${update.widgetId}`
-            ])
+        const layoutIds = [...new Set(updates.map((update) => update.layoutId))].sort((left, right) => left.localeCompare(right))
+        for (const layoutId of layoutIds) {
+            const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+            if (!currentLayout || !currentLayout.item.isActive) {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            }
         }
 
         const currentRows = await tx.query<WidgetRow>(
@@ -937,7 +1178,7 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
                AND source_config IS NOT NULL
                AND _upl_deleted = false
                AND _app_deleted = false
-               AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
+               AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
              ORDER BY id
              FOR UPDATE`,
             [updates.map((update) => update.layoutId), updates.map((update) => update.widgetId)]
@@ -946,7 +1187,7 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
 
         for (const update of updates) {
             const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)
-            if (!current || (update.expectedVersion !== undefined && current.version !== update.expectedVersion)) {
+            if (!current || current.version !== update.expectedVersion) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             }
             assertApplicationLayoutWidgetConfig(current.widget_key, current.source_config)
@@ -980,12 +1221,13 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
                   AND source_config IS NOT NULL
                   AND _upl_deleted = false
                   AND _app_deleted = false
-                  AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
+                  AND COALESCE(_upl_version, 1) = $4
+                  AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
                 RETURNING *,
                           false AS is_customized,
                           COALESCE(_upl_version, 1)::int AS version
                 `,
-                [update.widgetId, update.layoutId, userId]
+                [update.widgetId, update.layoutId, userId, update.expectedVersion]
             )
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             saved.push(mapWidget(rows[0]))
@@ -1011,21 +1253,19 @@ export async function moveApplicationLayoutWidget(
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
 
     return executor.transaction(async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}:widgets`])
+        await lockInterpretationNetworkStructureMode(tx, schemaName)
+        const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+        if (!currentLayout || !currentLayout.item.isActive) return null
+        const templateKey = applicationTemplateKeySchema.safeParse(currentLayout.item.templateKey)
+        if (!templateKey.success) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
 
-        const rows = await tx.query<WidgetRow>(
-            `${widgetSelect(widgetsTable)}
-             WHERE layout_id = $1 AND _upl_deleted = false AND _app_deleted = false
-               AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
-             ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
-            [layoutId]
-        )
-        const widgets = rows.map(mapWidget)
+        const widgets = currentLayout.widgets
         const moved = widgets.find((widget) => widget.id === data.widgetId)
         if (!moved) return null
-        if (data.expectedVersion !== undefined && moved.version !== data.expectedVersion) {
+        if (moved.version !== data.expectedVersion) {
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         }
+        assertWidgetPlacementForTemplate(templateKey.data, moved.widgetKey, data.targetZone)
 
         const buckets = new Map<ApplicationLayoutWidget['zone'], ApplicationLayoutWidget[]>()
         for (const zone of ORDERED_LAYOUT_ZONES) buckets.set(zone, [])
@@ -1079,7 +1319,7 @@ export async function moveApplicationLayoutWidget(
                   AND w.layout_id = $1
                   AND w._upl_deleted = false
                   AND w._app_deleted = false
-                  AND ${dashboardLayoutPredicate(layoutsTable, 'w.layout_id')}
+                  AND ${applicationLayoutWidgetPredicate(layoutsTable, 'w.layout_id')}
                 RETURNING w.*, COALESCE(w._upl_version, 1)::int AS version
                 `,
                 [
@@ -1091,6 +1331,10 @@ export async function moveApplicationLayoutWidget(
                 ]
             )
             const updatedById = new Map(updatedRows.map((row) => [row.id, mapWidget(row)]))
+
+            if (updatedRows.length !== pendingUpdates.length) {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            }
 
             for (const update of pendingUpdates) {
                 if (update.id !== moved.id) {
@@ -1109,6 +1353,7 @@ export async function moveApplicationLayoutWidget(
 export async function toggleApplicationLayoutWidget(
     executor: DbExecutor,
     schemaName: string,
+    layoutId: string,
     widgetId: string,
     input: ApplicationLayoutWidgetToggleMutation,
     userId: string | null
@@ -1118,24 +1363,20 @@ export async function toggleApplicationLayoutWidget(
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     return executor.transaction(async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:widget:${widgetId}`])
-        const current = await tx.query<WidgetRow>(
-            `${widgetSelect(widgetsTable)} WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
-              AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')} LIMIT 1 FOR UPDATE`,
-            [widgetId]
-        )
-        if (!current[0]) return null
+        const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+        const current = currentLayout?.widgets.find((widget) => widget.id === widgetId)
+        if (!currentLayout || !currentLayout.item.isActive || !current) return null
         await assertInterpretationNetworkSingleSystemTransitionAllowed(
             tx,
             schemaName,
             [
                 {
                     current: {
-                        widgetKey: current[0].widget_key,
-                        config: current[0].config,
-                        isActive: current[0].is_active
+                        widgetKey: current.widgetKey,
+                        config: current.config,
+                        isActive: current.isActive
                     },
-                    next: { widgetKey: current[0].widget_key, config: current[0].config, isActive: data.isActive }
+                    next: { widgetKey: current.widgetKey, config: current.config, isActive: data.isActive }
                 }
             ],
             { lockAlreadyHeld: true }
@@ -1145,15 +1386,16 @@ export async function toggleApplicationLayoutWidget(
             UPDATE ${widgetsTable}
             SET is_active = $2, _upl_updated_at = NOW(), _upl_updated_by = $3, _upl_version = COALESCE(_upl_version, 1) + 1
             WHERE id = $1
-              AND ($4::int IS NULL OR COALESCE(_upl_version, 1) = $4)
+              AND layout_id = $4
+              AND COALESCE(_upl_version, 1) = $5
               AND _upl_deleted = false
               AND _app_deleted = false
-              AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')}
+              AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
             RETURNING *, COALESCE(_upl_version, 1)::int AS version
             `,
-            [widgetId, data.isActive, userId, data.expectedVersion ?? null]
+            [widgetId, data.isActive, userId, layoutId, data.expectedVersion]
         )
-        if (!rows[0]) return null
+        if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
         return mapWidget(rows[0])
     })
@@ -1162,21 +1404,31 @@ export async function toggleApplicationLayoutWidget(
 export async function deleteApplicationLayoutWidget(
     executor: DbExecutor,
     schemaName: string,
+    layoutId: string,
     widgetId: string,
-    userId: string | null
+    userId: string | null,
+    expectedVersion: number
 ): Promise<boolean> {
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     return executor.transaction(async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:widget:${widgetId}`])
+        await lockInterpretationNetworkStructureMode(tx, schemaName)
+        const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+        if (!currentLayout || !currentLayout.item.isActive || !currentLayout.widgets.some((widget) => widget.id === widgetId)) {
+            throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        }
         const rows = await tx.query<{ id: string; layout_id: string }>(
             `UPDATE ${widgetsTable} SET ${softDeleteSetClause(
                 '$2'
-            )}, _upl_version = COALESCE(_upl_version, 1) + 1 WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
-              AND ${dashboardLayoutPredicate(layoutsTable, 'layout_id')} RETURNING id, layout_id`,
-            [widgetId, userId]
+            )}, _upl_version = COALESCE(_upl_version, 1) + 1 WHERE id = $1 AND layout_id = $3
+              AND _upl_deleted = false AND _app_deleted = false
+              AND COALESCE(_upl_version, 1) = $4
+              AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')} RETURNING id, layout_id`,
+            [widgetId, userId, layoutId, expectedVersion]
         )
-        if (!rows[0]) return false
+        if (!rows[0]) {
+            throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        }
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
         return true
     })

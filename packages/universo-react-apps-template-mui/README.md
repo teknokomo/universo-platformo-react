@@ -29,7 +29,8 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **MUI 9 reference composition**: App bar, hero, logos, features, testimonials, highlights, pricing, FAQ, and footer are rendered from a typed `MarketingPageData` view model.
 -   **Entity-owned content**: The published application runtime receives localized records from the `marketing-page` metahub template; no section owns a hardcoded demo array.
 -   **Safe actions and media**: Internal, anchor, external, email, and telephone actions are validated before rendering; unsafe URLs and missing media fail closed with localized feedback.
--   **Application appearance**: Theme mode, bounded colors, and section visibility are configured in the typed application layout without enabling dashboard widgets.
+-   **Application appearance**: Theme mode, bounded colors, brand media, and action policy are configured in the typed application layout; persisted marketing widget instances own zone, order, active state, source, and presentation flags.
+-   **Instance-oriented layouts**: Runtime layout data preserves every active placement, including multiple rows with the same widget key. Placement identity is separate from widget type, so repeated dashboard and marketing instances render independently.
 -   **One theme boundary**: Hosted and standalone shells own providers; `MarketingPage` is presentational and provider-free.
 
 ### 📊 ColumnsContainer Widget

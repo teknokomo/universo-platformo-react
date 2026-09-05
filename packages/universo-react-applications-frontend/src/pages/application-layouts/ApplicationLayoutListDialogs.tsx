@@ -48,8 +48,16 @@ export function ApplicationLayoutListDialogs(props: ApplicationLayoutListDialogs
     const { t, tc } = props
     return (
         <>
-            <Dialog open={props.createOpen} onClose={() => props.setCreateOpen(false)} fullWidth maxWidth='sm'>
-                <DialogTitle>{t('layouts.create', 'Create layout')}</DialogTitle>
+            <Dialog
+                open={props.createOpen}
+                onClose={() => {
+                    if (!props.isCreating) props.setCreateOpen(false)
+                }}
+                aria-labelledby='application-layout-create-dialog-title'
+                fullWidth
+                maxWidth='sm'
+            >
+                <DialogTitle id='application-layout-create-dialog-title'>{t('layouts.create', 'Create layout')}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <TextField
@@ -86,15 +94,25 @@ export function ApplicationLayoutListDialogs(props: ApplicationLayoutListDialogs
                     </Stack>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => props.setCreateOpen(false)}>{tc('actions.cancel', 'Cancel')}</Button>
+                    <Button onClick={() => props.setCreateOpen(false)} disabled={props.isCreating}>
+                        {tc('actions.cancel', 'Cancel')}
+                    </Button>
                     <Button onClick={props.onCreate} variant='contained' disabled={props.isCreating}>
                         {t('layouts.create', 'Create layout')}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={Boolean(props.editingLayout)} onClose={() => props.setEditingLayout(null)} fullWidth maxWidth='sm'>
-                <DialogTitle>{tc('actions.edit', 'Edit')}</DialogTitle>
+            <Dialog
+                open={Boolean(props.editingLayout)}
+                onClose={() => {
+                    if (!props.isSaving) props.setEditingLayout(null)
+                }}
+                aria-labelledby='application-layout-edit-dialog-title'
+                fullWidth
+                maxWidth='sm'
+            >
+                <DialogTitle id='application-layout-edit-dialog-title'>{tc('actions.edit', 'Edit')}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <TextField
@@ -128,7 +146,9 @@ export function ApplicationLayoutListDialogs(props: ApplicationLayoutListDialogs
                     </Stack>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => props.setEditingLayout(null)}>{tc('actions.cancel', 'Cancel')}</Button>
+                    <Button onClick={() => props.setEditingLayout(null)} disabled={props.isSaving}>
+                        {tc('actions.cancel', 'Cancel')}
+                    </Button>
                     <Button onClick={props.onSave} variant='contained' disabled={props.isSaving}>
                         {tc('actions.save', 'Save')}
                     </Button>

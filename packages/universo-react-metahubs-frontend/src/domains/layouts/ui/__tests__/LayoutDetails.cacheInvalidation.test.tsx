@@ -16,6 +16,7 @@ const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetObjects, updateLayo
 const mockUseMetahubDetails = vi.fn()
 
 vi.mock('react-i18next', () => ({
+    initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
         t: (key: string, defaultValue?: string) => defaultValue ?? key,
         i18n: { language: 'en' }
@@ -57,6 +58,7 @@ vi.mock('@universo-react/template-mui', () => ({
         </div>
     ),
     notifyError: vi.fn(),
+    useConfirm: () => ({ confirm: vi.fn(async () => true) }),
     normalizeSideMenuConfig: (value: any) => ({
         availableModes:
             Array.isArray(value?.availableModes) && value.availableModes.length > 0 ? value.availableModes : ['wide', 'compact', 'overlay'],
@@ -140,7 +142,7 @@ const seedGlobalLayoutResponse = () => {
         }
     ])
 
-    getLayoutZoneWidgetObjects.mockResolvedValue([{ key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: false }])
+    getLayoutZoneWidgetObjects.mockResolvedValue([{ key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: true }])
 }
 
 describe('LayoutDetails cache invalidation for global layouts', () => {
@@ -185,7 +187,7 @@ describe('LayoutDetails cache invalidation for global layouts', () => {
         fireEvent.click(screen.getByTestId('layout-widget-toggle-widget-global'))
 
         await waitFor(() => {
-            expect(toggleLayoutZoneWidgetActive).toHaveBeenCalledWith('metahub-1', 'layout-global', 'widget-global', false)
+            expect(toggleLayoutZoneWidgetActive).toHaveBeenCalledWith('metahub-1', 'layout-global', 'widget-global', false, undefined)
         })
 
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.layoutsRoot('metahub-1') })

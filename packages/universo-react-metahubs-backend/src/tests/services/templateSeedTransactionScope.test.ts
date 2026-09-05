@@ -12,6 +12,7 @@ import { TemplateSeedMigrator } from '../../domains/templates/services/TemplateS
 import { createTemplateSeedElements } from '../../domains/templates/services/templateSeedElements'
 import { resolveWidgetTableName } from '../../domains/templates/services/widgetTableResolver'
 import { basicTemplate } from '../../domains/templates/data/basic.template'
+import { marketingPageTemplate } from '../../domains/templates/data/marketing-page.template'
 
 const readCodenameText = (value: unknown): string => {
     if (!value || typeof value !== 'object') {
@@ -65,9 +66,11 @@ describe('Template seed services transaction scope', () => {
             withSchema: jest.fn(() => ({
                 from: jest.fn(() => ({
                     where: jest.fn(() => ({
-                        first: jest.fn(async () => ({ id: 'layout-existing-id' }))
+                        first: jest.fn(async () => ({ id: 'layout-existing-id' })),
+                        select: jest.fn(() => ({
+                            first: jest.fn(async () => ({ id: 'layout-existing-id' }))
+                        }))
                     })),
-                    select: jest.fn(async () => []),
                     update: jest.fn(async () => 0)
                 })),
                 into: jest.fn(() => ({
@@ -137,6 +140,24 @@ describe('Template seed services transaction scope', () => {
 
         expect(codename?.locales?.en?.content).toBe('LearnerHome')
         expect(codename?.locales?.ru).toBeUndefined()
+    })
+
+    it('keeps every built-in marketing source codename stable while preserving localized display names', () => {
+        const codenameConfig = resolveTemplateSeedCodenameConfig(marketingPageTemplate.seed.settings)
+        const sourceEntities = marketingPageTemplate.seed.entities?.filter((entity) => entity.codename.startsWith('MarketingPage')) ?? []
+
+        expect(sourceEntities).not.toHaveLength(0)
+        for (const entity of sourceEntities) {
+            expect(entity.localizeCodenameFromName).toBe(false)
+            const codename = buildTemplateSeedEntityCodenameValue(
+                entity.codename,
+                entity.localizeCodenameFromName === false ? undefined : entity.name,
+                codenameConfig
+            )
+            expect(codename?.locales?.en?.content).toBe(entity.codename)
+            expect(codename?.locales?.ru).toBeUndefined()
+            expect(entity.name.locales.ru?.content).toBeTruthy()
+        }
     })
 
     it('remaps seeded hub references after all entities are inserted', async () => {

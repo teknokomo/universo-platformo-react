@@ -5,11 +5,7 @@ import {
     Chip,
     FormControl,
     FormControlLabel,
-    IconButton,
     InputLabel,
-    List,
-    ListItem,
-    ListItemText,
     MenuItem,
     Paper,
     Select,
@@ -18,12 +14,10 @@ import {
     TextField,
     Typography
 } from '@mui/material'
-import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
-import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import { useEffect, useState } from 'react'
 import type { TFunction } from 'i18next'
-import { MARKETING_SECTION_KEYS, marketingPageConfigSchema, type ApplicationLayout, type MarketingSectionKey } from '@universo-react/types'
+import { marketingPageConfigSchema, type ApplicationLayout } from '@universo-react/types'
 
 interface ApplicationMarketingAppearancePanelProps {
     t: TFunction<'applications'>
@@ -35,25 +29,7 @@ interface ApplicationMarketingAppearancePanelProps {
     onReset: () => void
 }
 
-const normalizeSectionOrder = (order: readonly MarketingSectionKey[]): MarketingSectionKey[] => {
-    const seen = new Set<MarketingSectionKey>()
-    const contentOrder = order.filter((key) => {
-        if (key === 'footer' || seen.has(key)) return false
-        seen.add(key)
-        return true
-    })
-
-    for (const key of MARKETING_SECTION_KEYS) {
-        if (key !== 'footer' && !seen.has(key)) {
-            seen.add(key)
-            contentOrder.push(key)
-        }
-    }
-
-    return [...contentOrder, 'footer']
-}
-
-/** Typed application-level appearance controls for the marketing template. */
+/** Application-owned appearance controls for the widgetized marketing template. */
 export function ApplicationMarketingAppearancePanel({
     t,
     layout,
@@ -67,7 +43,6 @@ export function ApplicationMarketingAppearancePanel({
     const config = parsed.success ? parsed.data : marketingPageConfigSchema.parse({})
     const controlsEnabled = parsed.success && canManage && !isSaving && !isResetting
     const resetEnabled = canManage && !isSaving && !isResetting
-    const sectionOrder = normalizeSectionOrder(config.sectionOrder)
     const [colorDrafts, setColorDrafts] = useState({
         primaryColor: config.primaryColor ?? '',
         accentColor: config.accentColor ?? ''
@@ -98,26 +73,6 @@ export function ApplicationMarketingAppearancePanel({
         setColorErrors((current) => ({ ...current, [key]: false }))
         onChange(key, value || undefined)
     }
-    const labels: Record<(typeof MARKETING_SECTION_KEYS)[number], string> = {
-        hero: t('layouts.marketing.sections.hero', 'Hero'),
-        logos: t('layouts.marketing.sections.logos', 'Logo collection'),
-        features: t('layouts.marketing.sections.features', 'Features'),
-        testimonials: t('layouts.marketing.sections.testimonials', 'Testimonials'),
-        highlights: t('layouts.marketing.sections.highlights', 'Highlights'),
-        pricing: t('layouts.marketing.sections.pricing', 'Pricing'),
-        faq: t('layouts.marketing.sections.faq', 'FAQ'),
-        footer: t('layouts.marketing.sections.footer', 'Footer')
-    }
-
-    const moveSection = (key: MarketingSectionKey, direction: -1 | 1) => {
-        if (!controlsEnabled || key === 'footer') return
-        const currentIndex = sectionOrder.indexOf(key)
-        const nextIndex = currentIndex + direction
-        if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sectionOrder.length - 1) return
-        const nextOrder = [...sectionOrder]
-        ;[nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]]
-        onChange('sectionOrder', nextOrder)
-    }
 
     const sourceLabel =
         layout.sourceKind === 'metahub' ? t('layouts.source.metahub', 'Metahub') : t('layouts.source.application', 'Application')
@@ -133,16 +88,10 @@ export function ApplicationMarketingAppearancePanel({
                     data-testid='application-marketing-appearance-source'
                 />
             </Stack>
-            <Typography
-                variant='body2'
-                sx={{
-                    color: 'text.secondary',
-                    mb: 2
-                }}
-            >
+            <Typography variant='body2' sx={{ color: 'text.secondary', mb: 2 }}>
                 {t(
                     'layouts.marketing.appearanceDescription',
-                    'Configure the published marketing page without editing its content records.'
+                    'Configure the published marketing page appearance and actions. Widget composition is managed below.'
                 )}
             </Typography>
             {!parsed.success ? (
@@ -200,104 +149,14 @@ export function ApplicationMarketingAppearancePanel({
                     <Typography variant='subtitle2' sx={{ mb: 0.5 }}>
                         {t('layouts.marketing.brandAsset', 'Brand asset')}
                     </Typography>
-                    <Typography
-                        variant='body2'
-                        sx={{
-                            color: 'text.secondary'
-                        }}
-                    >
+                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                         {config.brandLogo
                             ? t('layouts.marketing.brandAssetConfigured', 'Application logo and alternative text are configured.')
                             : t(
                                   'layouts.marketing.brandAssetInherited',
-                                  'The logo and alternative text are inherited from the Site settings Object. Edit that record through standard content authoring.'
+                                  'The logo and alternative text are inherited from the Site settings Object.'
                               )}
                     </Typography>
-                </Box>
-                <Box>
-                    <Typography variant='subtitle2' sx={{ mb: 0.5 }}>
-                        {t('layouts.marketing.sectionVisibility', 'Visible sections')}
-                    </Typography>
-                    <Stack spacing={0.25}>
-                        {MARKETING_SECTION_KEYS.map((key) => (
-                            <FormControlLabel
-                                key={key}
-                                control={
-                                    <Switch
-                                        checked={config.sectionVisibility[key] !== false}
-                                        disabled={!controlsEnabled}
-                                        onChange={(_, checked) =>
-                                            onChange('sectionVisibility', {
-                                                ...config.sectionVisibility,
-                                                [key]: checked
-                                            })
-                                        }
-                                    />
-                                }
-                                label={labels[key]}
-                            />
-                        ))}
-                    </Stack>
-                </Box>
-                <Box>
-                    <Typography variant='subtitle2' sx={{ mb: 0.5 }}>
-                        {t('layouts.marketing.sectionOrder', 'Section order')}
-                    </Typography>
-                    <Typography
-                        variant='body2'
-                        sx={{
-                            color: 'text.secondary',
-                            mb: 0.5
-                        }}
-                    >
-                        {t(
-                            'layouts.marketing.sectionOrderDescription',
-                            'Choose the order in which content sections appear. The footer stays last.'
-                        )}
-                    </Typography>
-                    <List dense disablePadding>
-                        {sectionOrder.map((key, index) => {
-                            const isFooter = key === 'footer'
-                            return (
-                                <ListItem
-                                    key={key}
-                                    disableGutters
-                                    secondaryAction={
-                                        <Stack direction='row' spacing={0.25}>
-                                            <IconButton
-                                                size='small'
-                                                disabled={!controlsEnabled || isFooter || index === 0}
-                                                aria-label={t('layouts.marketing.moveSectionUp', 'Move {{section}} up', {
-                                                    section: labels[key]
-                                                })}
-                                                onClick={() => moveSection(key, -1)}
-                                                data-testid={`application-marketing-section-up-${key}`}
-                                            >
-                                                <ArrowUpwardRoundedIcon fontSize='small' />
-                                            </IconButton>
-                                            <IconButton
-                                                size='small'
-                                                disabled={!controlsEnabled || isFooter || index >= sectionOrder.length - 2}
-                                                aria-label={t('layouts.marketing.moveSectionDown', 'Move {{section}} down', {
-                                                    section: labels[key]
-                                                })}
-                                                onClick={() => moveSection(key, 1)}
-                                                data-testid={`application-marketing-section-down-${key}`}
-                                            >
-                                                <ArrowDownwardRoundedIcon fontSize='small' />
-                                            </IconButton>
-                                        </Stack>
-                                    }
-                                    data-testid={`application-marketing-section-order-${key}`}
-                                >
-                                    <ListItemText
-                                        primary={labels[key]}
-                                        secondary={isFooter ? t('layouts.marketing.footerFixed', 'Fixed at the end') : undefined}
-                                    />
-                                </ListItem>
-                            )
-                        })}
-                    </List>
                 </Box>
                 <Box>
                     <Typography variant='subtitle2' sx={{ mb: 0.5 }}>
@@ -348,15 +207,10 @@ export function ApplicationMarketingAppearancePanel({
                 spacing={1}
                 sx={{ mt: 2, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}
             >
-                <Typography
-                    variant='body2'
-                    sx={{
-                        color: 'text.secondary'
-                    }}
-                >
+                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                     {t(
                         'layouts.marketing.resetHint',
-                        'Restore the theme, colors, section order, visibility, and action policy to the marketing template defaults.'
+                        'Restore appearance and action policy defaults. Content records and widget composition will not change.'
                     )}
                 </Typography>
                 <Button
@@ -375,3 +229,5 @@ export function ApplicationMarketingAppearancePanel({
         </Paper>
     )
 }
+
+export default ApplicationMarketingAppearancePanel

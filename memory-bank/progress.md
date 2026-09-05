@@ -59,6 +59,37 @@
 
 ---
 
+## 2026-09-05 - Marketing page widgetized runtime authoring QA closure
+
+-   Fixed the remaining fresh-metahub authoring defects: built-in marketing source codenames are locale-stable while display names remain localized, and the template-picker description is concise user-facing copy without MUI or implementation terminology.
+-   Added one canonical layout widget and zone registry in `@universo-react/types`; metahub and application layout editors now resolve the same EN/RU labels and zone metadata, and the REST metadata response is covered by a direct route contract test.
+-   Added EN/RU semantic translation parity tests and corrected the production application fixture to use canonical `layouts.widgets.marketing.*` keys. The RU source picker now shows published entity names such as `Логотипы клиентов` and no unavailable-source warning.
+-   The complete `pnpm run test:e2e:marketing-page:verify:local-supabase` wrapper exited 0 after the provenance refresh: 36/36 workspace build, marketing baseline contract, Chromium lifecycle/RBAC/workspace/snapshot/authoring flows with one intentional standalone skip, visual matrix 5/5, and GitBook provenance/i18n/assets/link checks. Authoring, source-dialog, application-layout, and published-runtime screenshots were inspected from the real browser artifacts.
+-   Focused route tests pass 9/9; affected package lint/build and static guards pass; Prettier and `git diff --check` pass. No schema, migration, or marketing-template version was changed (`0.1.0` remains current), and no legacy compatibility layer was introduced.
+-   OntoIndex `gn_verify_diff` returned `PASS` for the complete dirty-worktree allowlist with no unexpected files, symbols, impacts, or missing tests. The required autoreview helper was attempted but could not initialize the environment-owned `/home/vladimir/.codex/state_5.sqlite` because it is read-only; no clean automated review verdict is claimed.
+
+---
+
+## 2026-09-05 - Marketing page widgetized runtime final remediation
+
+-   Completed the post-QA implementation continuation. Application and metahub layout/widget mutations now share a deterministic scope-to-layout-to-widget lock order, stale writes fail closed, and the copy/delete/reset paths preserve fresh UUID v7 identities without a schema or metahub-template version bump.
+-   Fixed the collection-level widget reset route precedence regression so `/layouts/zone-widgets/config/reset` is not captured by the dynamic `:layoutId` route. Added a route-order regression test and reran the focused route suite.
+-   Verified focused backend suites: applications-backend 5 suites / 99 tests, metahubs-backend 4 suites / 75 tests, and the route-order regression 1 test. Verified focused frontend/runtime suites: marketing runtime 3 files / 13 tests, template-mui 2 suites / 6 tests, types 22 files / 180 tests, and utils 36 files / 350 tests.
+-   The final minimal-Supabase wrapper exited 0: the Chromium matrix reports 8 passed plus one intentional standalone skip, the visual matrix reports 5 passed, the workspace build reports 36/36, and the marketing screenshot provenance, GitBook EN/RU, screenshot-asset, and local-link checks pass. Current authoring/runtime/lifecycle screenshots were inspected for responsive layout, technical leakage, and overflow.
+-   The marketing template baseline contract, apps-template isolation guard, and runtime no-LMS-fork guard pass after the final route and documentation regeneration checks.
+-   Prettier passes for changed source/docs files, generated OpenAPI output was regenerated from the route source, `git diff --check` passes, and `gn_verify_diff` passes against the complete dirty-worktree allowlist with no unexpected files, symbols, impacts, or missing tests. The autoreview helper was attempted but could not initialize because the selected Codex state database is read-only; no clean autoreview verdict is claimed.
+
+---
+
+## 2026-09-05 - Marketing page widgetized runtime implementation closeout
+
+-   Closed the implementation checklist for the widgetized marketing-page runtime. The final pass preserves the clean-break policy, keeps `packages/universo-react-apps-template-mui` isolated, uses entity-backed widget data, and does not change the database schema or metahub-template version.
+-   Added a direct runtime regression for entity-type-scoped marketing layout precedence. The controller selects the scoped active default, loads its widget rows, and returns the scoped layout version/hash metadata; the changed applications-backend suite passes 7 suites / 125 tests.
+-   Changed metahubs-backend route/service coverage passes 6 suites / 95 tests after rerunning the Supertest route suite with the required local listener permission. Expected fixture warnings remain bounded and do not contain credentials or request data.
+-   Focused frontend/runtime verification passes: apps-template marketing 10/10, applications-frontend 65/65, metahubs-frontend 16/16, template-mui 5/5, types 180/180, and utils 350/350. Affected package lint/build checks and OpenAPI/marketing/static contracts pass.
+-   The latest `pnpm test:e2e:marketing-page:verify:local-supabase` run exited 0 with minimal Supabase, a 36/36 workspace build, contract check, Chromium lifecycle/RBAC/workspace/snapshot/authoring flows, visual matrix 5/5, and documentation provenance/i18n/assets/link checks. Chromium and matrix `.last-run.json` files report `passed`; authoring and runtime screenshots were inspected with `view_image`.
+-   Prettier and `git diff --check` pass. OntoIndex `gn_verify_diff` passes against the complete dirty-worktree allowlist with no unexpected files, symbols, impacts, or missing tests. The external autoreview helper was attempted outside the sandbox but the selected Codex engine was at capacity before returning a structured report; no clean autoreview verdict is claimed.
+
 ## 2026-09-01 - MUI 9 Marketing Page QA Remediation
 
 -   Removed the unreferenced static marketing demo from the shared `template-mui` package and retained only the shared start-page shell primitives; the published renderer remains data-driven in `apps-template-mui`.
@@ -1093,3 +1124,36 @@ registration relocated INTO the try scope right before `connectRealtime`
 removes the listener it never registers. Widget suite 43/43, package tsc
 clean, full root build EXIT=0 (1m24s). Lesson recorded: after widget edits,
 always run the package tsc build, not just vitest.
+
+## Unlimited layout widget instances — 2026-09-05
+
+The latest implementation removes artificial per-key singleton limits from
+dashboard and marketing layout authoring in both metahubs and applications.
+The shared registry marks every registered layout widget as repeatable; both
+authoring surfaces keep all valid widget types available; persistence always
+inserts a new row; copy generates a fresh UUID v7 marketing `instanceKey`; and
+delete/toggle/move/configuration remain scoped to the selected row with the
+existing authorization and optimistic-version checks. Source-lineage
+uniqueness for inherited materialization and marketing instance-key uniqueness
+remain enforced.
+
+Template seeding no longer removes sibling rows by widget key. The dashboard
+runtime now renders every active repeated row instead of selecting the first
+row for repeated title/card/chart/table widgets. Realtime scene selection fails
+closed when an id-less request would be ambiguous.
+
+Focused persistence, service, seed, registry, runtime, frontend, and renderer
+tests passed. The full
+`pnpm run test:e2e:marketing-page:verify:local-supabase` wrapper exited 0 with
+the minimal Supabase lifecycle, 36/36 workspace build, contract gate,
+Chromium lifecycle suite (one intentional standalone skip), visual matrix 5/5,
+and documentation/provenance/link/asset checks. A generated Russian desktop
+runtime screenshot was inspected after the run. `gn_verify_diff` returned
+`PASS` for the complete current dirty-worktree allowlist, and `git diff --check`
+plus the final Prettier checks passed. The autoreview/Thermos helper was
+attempted but could not initialize its read-only environment-owned state
+database, so no automated clean-review verdict is claimed.
+
+No database schema, migration, UUID policy, or metahub-template version was
+changed; no legacy compatibility reader or duplicate authoring workbench was
+introduced.

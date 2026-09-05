@@ -98,6 +98,26 @@ describe('loadPublishedPublicationRuntimeSource', () => {
         expect(mockDeserializeSnapshot).not.toHaveBeenCalled()
     })
 
+    it('rejects malformed layout identities before runtime materialization', async () => {
+        mockFindPublicationById.mockResolvedValue({
+            id: 'publication-1',
+            activeVersionId: 'version-1'
+        })
+        mockFindPublicationVersionById.mockResolvedValue({
+            id: 'version-1',
+            snapshotJson: {
+                version: 2,
+                entities: {},
+                layouts: [{ id: 'not-a-uuid-v7' }]
+            },
+            snapshotHash: 'stored-hash'
+        })
+
+        await expect(loadPublishedPublicationRuntimeSource(executor as never, 'publication-1')).rejects.toThrow('UUID v7')
+        expect(mockMaterializeSharedEntitiesForRuntime).not.toHaveBeenCalled()
+        expect(mockDeserializeSnapshot).not.toHaveBeenCalled()
+    })
+
     it('materializes shared entities before runtime deserialization and enrichment', async () => {
         const publicationSnapshot = {
             version: 2,

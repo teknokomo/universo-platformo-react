@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { applicationTemplateKeySchema } from '@universo-react/types'
-import { createLocalizedContent, getCodenamePrimary, isUuidV7 } from '@universo-react/utils'
+import { createLocalizedContent, getCodenamePrimary, isUuidV7, validateSnapshotLayoutIdentities } from '@universo-react/utils'
 import {
     assertSupportedModuleSdkApiVersion,
     findDisallowedModuleCapabilities,
@@ -40,6 +40,7 @@ import { MetahubValidationError } from '../../shared/domainErrors'
 import { toJsonbValue } from '../../shared/jsonb'
 import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/SharedContainerService'
 import { resolveWidgetTableName } from '../../templates/services/widgetTableResolver'
+import { qSchemaTable } from '@universo-react/database'
 import { createLogger } from '../../../utils/logger'
 import { withAdvisoryLock, type DbExecutor } from '@universo-react/utils/database'
 import { replaceMetahubPackagesFromSnapshot } from '../../../persistence'
@@ -68,6 +69,7 @@ import {
 } from '../../ddl/snapshotRestoreAdapter'
 import { buildPlayCanvasMetahubLifecycleLockKey } from '../../playcanvas-projects/services/playCanvasLifecycleLocks'
 import type { MetahubSchemaService } from './MetahubSchemaService'
+import { validateMarketingSnapshotLayouts } from '../../publications/services/marketingSnapshotValidation'
 
 const log = createLogger('SnapshotRestoreService')
 
@@ -100,6 +102,50 @@ const isGeneralModuleScope = (attachedToKind: string, attachedToId: string | nul
     attachedToKind === 'general' && attachedToId === null
 
 const isNullableModuleScope = (attachedToKind: string): boolean => attachedToKind === 'metahub' || attachedToKind === 'general'
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const validateSnapshotActionIdentities = (snapshot: MetahubSnapshot): void => {
+    if (!isRecord(snapshot) || !isRecord(snapshot.entities)) {
+        throw new MetahubValidationError('Metahub snapshot entities must be an object')
+    }
+
+    const actionIds = new Set<string>()
+    const eventBindingIds = new Set<string>()
+    for (const [entityId, rawEntity] of Object.entries(snapshot.entities)) {
+        if (!isRecord(rawEntity)) {
+            throw new MetahubValidationError('Metahub snapshot entity entry is invalid', { entityId })
+        }
+
+        const actions = rawEntity.actions
+        if (actions !== undefined && !Array.isArray(actions)) {
+            throw new MetahubValidationError('Metahub snapshot entity actions must be an array', { entityId })
+        }
+        for (const action of actions ?? []) {
+            if (!isRecord(action) || typeof action.id !== 'string' || action.id.length === 0) {
+                throw new MetahubValidationError('Metahub snapshot action identity is invalid', { entityId })
+            }
+            if (actionIds.has(action.id)) {
+                throw new MetahubValidationError('Metahub snapshot contains duplicate action ids', { actionId: action.id })
+            }
+            actionIds.add(action.id)
+        }
+
+        const eventBindings = rawEntity.eventBindings
+        if (eventBindings !== undefined && !Array.isArray(eventBindings)) {
+            throw new MetahubValidationError('Metahub snapshot event bindings must be an array', { entityId })
+        }
+        for (const binding of eventBindings ?? []) {
+            if (!isRecord(binding) || typeof binding.id !== 'string' || binding.id.length === 0) {
+                throw new MetahubValidationError('Metahub snapshot event binding identity is invalid', { entityId })
+            }
+            if (eventBindingIds.has(binding.id)) {
+                throw new MetahubValidationError('Metahub snapshot contains duplicate event binding ids', { bindingId: binding.id })
+            }
+            eventBindingIds.add(binding.id)
+        }
+    }
+}
 
 const createRestoredModuleChecksum = (sourceCode: string, manifest: ModuleManifest): string =>
     createHash('sha256').update(sourceCode).update(JSON.stringify(manifest)).digest('hex')
@@ -194,6 +240,11 @@ export class SnapshotRestoreService {
     }
 
     async restoreFromSnapshot(metahubId: string, snapshot: MetahubSnapshot, userId: string): Promise<void> {
+        // Validate template-specific layout data before any destructive table
+        // replacement. Dashboard snapshots keep their existing restore rules.
+        validateSnapshotLayoutIdentities(snapshot)
+        validateSnapshotActionIdentities(snapshot)
+        validateMarketingSnapshotLayouts(snapshot)
         const restoredModuleSourceBackups: RestoredModuleSourceBackup[] = []
         const restoredPlayCanvasFileBackups: RestoredPlayCanvasProjectFileBackup[] = []
         const staleModuleSourceCandidates = new Map<string, StaleModuleSourceCandidate>()
@@ -342,7 +393,7 @@ export class SnapshotRestoreService {
         if (staleModuleSourceCandidates.size > 0 || stalePlayCanvasFileCandidates.size > 0 || restoredPlayCanvasFileBackups.length > 0) {
             await withAdvisoryLock(this.database.executor, lifecycleLockKey, async (cleanupExecutor) => {
                 if (staleModuleSourceCandidates.size > 0) {
-                    await this.deleteStaleModuleSourceFiles(metahubId, staleModuleSourceCandidates)
+                    await this.deleteStaleModuleSourceFiles(metahubId, staleModuleSourceCandidates, cleanupExecutor)
                 }
                 if (stalePlayCanvasFileCandidates.size > 0 || restoredPlayCanvasFileBackups.length > 0) {
                     await this.deleteStalePlayCanvasProjectFiles(
@@ -358,8 +409,14 @@ export class SnapshotRestoreService {
 
     private async deleteStaleModuleSourceFiles(
         metahubId: string,
-        sourceCandidates: Map<string, StaleModuleSourceCandidate>
+        sourceCandidates: Map<string, StaleModuleSourceCandidate>,
+        cleanupExecutor: DbExecutor
     ): Promise<void> {
+        const currentReferences = await this.listCurrentModuleSourcePaths(cleanupExecutor)
+        for (const sourcePath of currentReferences) {
+            sourceCandidates.delete(sourcePath)
+        }
+
         for (const candidate of sourceCandidates.values()) {
             try {
                 if (!(await this.isCurrentSourceChecksum(metahubId, candidate.sourcePath, candidate.sourceChecksum))) {
@@ -383,6 +440,19 @@ export class SnapshotRestoreService {
                 })
             }
         }
+    }
+
+    private async listCurrentModuleSourcePaths(exec: DbExecutor): Promise<Set<string>> {
+        const rows = await exec.query<{ source_path?: string | null }>(
+            `SELECT source_path
+             FROM ${qSchemaTable(this.schemaName, '_mhb_modules')}
+             WHERE storage_mode = $1
+               AND source_path IS NOT NULL
+               AND COALESCE(_upl_deleted, false) = false
+               AND COALESCE(_mhb_deleted, false) = false`,
+            ['file']
+        )
+        return new Set(rows.flatMap((row) => (typeof row.source_path === 'string' && row.source_path.length > 0 ? [row.source_path] : [])))
     }
 
     private async isCurrentRestoredModuleSource(metahubId: string, backup: RestoredModuleSourceBackup): Promise<boolean> {
@@ -748,7 +818,7 @@ export class SnapshotRestoreService {
         const sharedEntityIdMaps = this.createSharedEntityIdMaps()
         const now = new Date()
 
-        const sharedComponents = snapshot.sharedComponents ?? snapshot.sharedComponents ?? []
+        const sharedComponents = snapshot.sharedComponents ?? []
         const sharedFixedValues = snapshot.sharedFixedValues ?? []
         const sharedOptionValues = snapshot.sharedOptionValues ?? []
 
@@ -1855,6 +1925,7 @@ export class SnapshotRestoreService {
         const layouts = snapshot.layouts ?? []
         const scopedLayouts = snapshot.scopedLayouts ?? []
         const overrides = snapshot.layoutWidgetOverrides ?? []
+        const hasMarketingLayout = [...layouts, ...scopedLayouts].some((layout) => layout.templateKey === 'marketing-page')
         const widgetTableName = await resolveWidgetTableName(qb, this.schemaName)
 
         // Fresh branch initialization seeds a default dashboard layout. Snapshot import
@@ -1906,6 +1977,11 @@ export class SnapshotRestoreService {
             const newBaseLayoutId = layoutIdMap.get(layout.baseLayoutId)
 
             if (!newScopeEntityId || !newBaseLayoutId) {
+                if (hasMarketingLayout) {
+                    throw new MetahubValidationError('Marketing scoped layout references an unresolved restored entity or base layout', {
+                        layoutId: layout.id
+                    })
+                }
                 log.warn(`Scoped layout ${layout.id} has unresolved references, skipping restore`)
                 continue
             }
@@ -1947,6 +2023,11 @@ export class SnapshotRestoreService {
         for (const widget of widgets) {
             const newLayoutId = layoutIdMap.get(widget.layoutId)
             if (!newLayoutId) {
+                if (hasMarketingLayout) {
+                    throw new MetahubValidationError('Marketing widget references an unresolved restored layout', {
+                        widgetId: widget.id
+                    })
+                }
                 log.warn(`Layout ${widget.layoutId} not found in layoutIdMap, skipping widget`)
                 continue
             }
@@ -1985,6 +2066,11 @@ export class SnapshotRestoreService {
             const newBaseWidgetId = widgetIdMap.get(override.baseWidgetId)
 
             if (!newScopedLayoutId || !newBaseWidgetId) {
+                if (hasMarketingLayout) {
+                    throw new MetahubValidationError('Marketing widget override references an unresolved restored layout or widget', {
+                        overrideId: override.id
+                    })
+                }
                 log.warn(`Layout widget override ${override.id} has unresolved references, skipping restore`)
                 continue
             }

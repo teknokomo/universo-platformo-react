@@ -38,6 +38,34 @@ export const MARKETING_SECTION_ANCHORS = {
     footer: 'footer'
 } as const
 
+const MARKETING_CANONICAL_INSTANCE_KEYS: Readonly<Record<keyof typeof MARKETING_SECTION_ANCHORS, string>> = {
+    hero: 'hero',
+    logoCollection: 'logos',
+    features: 'features',
+    testimonials: 'testimonials',
+    highlights: 'highlights',
+    pricing: 'pricing',
+    faq: 'faq',
+    footer: 'footer'
+}
+
+const marketingIdPart = (value: string): string => value.replace(/[^A-Za-z0-9_-]/g, '-').replace(/^-+|-+$/g, '') || 'widget'
+
+/**
+ * Keeps the original MUI anchors for the built-in instances while making
+ * repeated widget instances addressable and collision-free.
+ */
+export const marketingSectionId = (anchor: keyof typeof MARKETING_SECTION_ANCHORS, instanceKey?: string): string => {
+    const normalizedInstanceKey = instanceKey?.trim()
+    if (!normalizedInstanceKey || MARKETING_CANONICAL_INSTANCE_KEYS[anchor] === normalizedInstanceKey) {
+        return MARKETING_SECTION_ANCHORS[anchor]
+    }
+    return `${MARKETING_SECTION_ANCHORS[anchor]}-${marketingIdPart(normalizedInstanceKey)}`
+}
+
+export const marketingFieldId = (field: string, instanceKey?: string): string =>
+    `marketing-${marketingIdPart(instanceKey ?? 'widget')}-${marketingIdPart(field)}`
+
 const MARKETING_SECTION_ANCHOR_VALUES: ReadonlySet<string> = new Set(Object.values(MARKETING_SECTION_ANCHORS))
 const UNSAFE_MARKETING_CONTROL_RE = new RegExp(String.raw`[\u0000-\u001f\u007f\s]`)
 
@@ -147,16 +175,18 @@ export function MarketingSectionHeader({
                 textAlign: { sm: 'left', md: 'center' }
             }}
         >
-            <Typography
-                component='h2'
-                id={`${id}-title`}
-                variant='h4'
-                gutterBottom
-                sx={{ color: inverse ? 'common.white' : 'text.primary' }}
-            >
-                {section.title}
-            </Typography>
-            {section.description ? (
+            {section.showTitle !== false && section.title ? (
+                <Typography
+                    component='h2'
+                    id={`${id}-title`}
+                    variant='h4'
+                    gutterBottom
+                    sx={{ color: inverse ? 'common.white' : 'text.primary' }}
+                >
+                    {section.title}
+                </Typography>
+            ) : null}
+            {section.showDescription !== false && section.description ? (
                 <Typography variant='body1' sx={{ color: inverse ? 'grey.200' : 'text.secondary' }}>
                     {section.description}
                 </Typography>

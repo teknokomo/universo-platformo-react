@@ -29,6 +29,7 @@ const {
 const mockUseMetahubDetails = vi.fn()
 
 vi.mock('react-i18next', () => ({
+    initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
         t: (_key: string, fallback?: string, options?: Record<string, unknown>) =>
             Object.entries(options ?? {}).reduce(
@@ -97,6 +98,7 @@ vi.mock('@universo-react/template-mui', () => ({
         ) : null
     },
     notifyError: vi.fn(),
+    useConfirm: () => ({ confirm: vi.fn(async () => true) }),
     normalizeSideMenuConfig: (value: any) => ({
         availableModes:
             Array.isArray(value?.availableModes) && value.availableModes.length > 0 ? value.availableModes : ['wide', 'compact', 'overlay'],
@@ -208,12 +210,13 @@ describe('LayoutDetails interpretation network widget editor', () => {
                     conceptCodename: 'concepts',
                     splitPane: { enabled: true }
                 },
+                version: 1,
                 isActive: true,
                 isInherited: false
             }
         ])
         getLayoutZoneWidgetObjects.mockResolvedValue([
-            { key: 'interpretationNetworkWorkspace', allowedZones: ['center'], multiInstance: false }
+            { key: 'interpretationNetworkWorkspace', allowedZones: ['center'], multiInstance: true }
         ])
         updateLayoutZoneWidgetConfig.mockResolvedValue({
             data: {
@@ -272,23 +275,29 @@ describe('LayoutDetails interpretation network widget editor', () => {
         await user.click(screen.getByRole('option', { name: 'Vertical' }))
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        expect(updateLayoutZoneWidgetConfig).toHaveBeenCalledWith('metahub-1', 'layout-1', 'widget-network', {
-            structureMode: 'multiple',
-            matrixMode: 'hierarchicalCells',
-            allowedMatrixViews: ['table', 'horizontalRows'],
-            defaultMatrixView: 'table',
-            tableProjection: 'hierarchicalPath',
-            breadcrumbDepth: { mode: 'last', count: 4 },
-            toolbarLayout: 'vertical',
-            showHierarchicalTableHeaders: true,
-            showHierarchicalTableHeaderCard: true,
-            showMatrixTreeTotalCells: true,
-            colorBreadcrumbsByCell: true,
-            allowNewAxesInCellDialog: false,
-            conceptCodename: 'concepts',
-            templatePanel: { showInStructureList: true, showInMatrix: true },
-            splitPane: { enabled: true }
-        })
+        expect(updateLayoutZoneWidgetConfig).toHaveBeenCalledWith(
+            'metahub-1',
+            'layout-1',
+            'widget-network',
+            {
+                structureMode: 'multiple',
+                matrixMode: 'hierarchicalCells',
+                allowedMatrixViews: ['table', 'horizontalRows'],
+                defaultMatrixView: 'table',
+                tableProjection: 'hierarchicalPath',
+                breadcrumbDepth: { mode: 'last', count: 4 },
+                toolbarLayout: 'vertical',
+                showHierarchicalTableHeaders: true,
+                showHierarchicalTableHeaderCard: true,
+                showMatrixTreeTotalCells: true,
+                colorBreadcrumbsByCell: true,
+                allowNewAxesInCellDialog: false,
+                conceptCodename: 'concepts',
+                templatePanel: { showInStructureList: true, showInMatrix: true },
+                splitPane: { enabled: true }
+            },
+            1
+        )
     })
 
     it('keeps the editor open when persisting display settings fails', async () => {

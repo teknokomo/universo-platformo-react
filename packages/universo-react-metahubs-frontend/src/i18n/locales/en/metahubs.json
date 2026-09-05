@@ -337,7 +337,9 @@
             "uiTemplate": "User interface template",
             "isActive": "Active",
             "isDefault": "Default",
-            "status": "Status"
+            "status": "Status",
+            "description": "Description",
+            "empty": "—"
         },
         "status": {
             "active": "Active",
@@ -354,6 +356,11 @@
             "activate": "Activate",
             "deactivate": "Deactivate",
             "toggleActive": "Toggle active",
+            "duplicate": "Duplicate",
+            "duplicateWidgetNamed": "Duplicate widget: {{label}}",
+            "resetOverride": "Reset override",
+            "resetOverrideWidgetNamed": "Reset override: {{label}}",
+            "actionsFor": "Actions for {{name}}",
             "backToList": "Back to layouts"
         },
         "tabs": {
@@ -382,9 +389,18 @@
             "title": "Layout",
             "description": "Configure dashboard zones and widgets.",
             "dragHint": "Drag widgets between zones to change runtime composition.",
+            "dragHandleLabel": "Reorder widget",
             "addWidget": "Add widget",
             "widgetObjectTitle": "Available widgets",
             "inheritedBadge": "Inherited",
+            "removeWidgetTitle": "Remove widget?",
+            "removeWidgetDescription": "The widget will be removed from this layout. This does not delete its content records.",
+            "removeWidgetConfirm": "Remove",
+            "removingWidget": "Removing...",
+            "removeWidgetError": "The widget could not be removed. Try again.",
+            "resetWidgetTitle": "Reset widget override?",
+            "resetWidgetDescription": "This restores the widget settings and placement inherited from the global layout.",
+            "resetWidgetConfirm": "Reset override",
             "objectBehaviorTitleGlobal": "Default entity runtime behavior",
             "objectBehaviorTitleObject": "Entity runtime behavior",
             "objectBehaviorDescriptionGlobal": "These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.",
@@ -415,7 +431,6 @@
         "marketing": {
             "appearanceTitle": "Marketing page appearance",
             "appearanceDescription": "Configure the published marketing page without editing its content records.",
-            "contentHint": "Marketing content is edited through the standard Object records in this metahub; dashboard widgets are not used by this template.",
             "themeMode": "Theme mode",
             "theme": {
                 "system": "System",
@@ -425,16 +440,41 @@
             "primaryColor": "Primary color",
             "accentColor": "Accent color",
             "colorHelper": "Use a hex color such as #1976d2.",
-            "sectionVisibility": "Visible sections",
-            "sections": {
-                "hero": "Hero",
-                "logos": "Logo collection",
-                "features": "Features",
-                "testimonials": "Testimonials",
-                "highlights": "Highlights",
-                "pricing": "Pricing",
-                "faq": "FAQ",
-                "footer": "Footer"
+            "actionPolicy": "Action policy",
+            "allowEmailActions": "Allow email actions",
+            "allowTelephoneActions": "Allow telephone actions",
+            "externalLinkTarget": "External link target",
+            "linkTarget": { "sameTab": "Same tab", "newTab": "New tab" },
+            "widget": {
+                "sourceHelper": "Choose a standard entity source. The runtime resolves records through published metadata and never accepts a table name.",
+                "source": "Content source",
+                "unknownSource": "Marketing content source",
+                "sourceCodenameHelper": "Enter the stable entity codename, for example MarketingPageFeature.",
+                "recordKey": "Record key (optional)",
+                "recordKeyHelper": "Limit a singleton source to a semantic record key when needed.",
+                "recordSelection": "Record selection",
+                "recordSelectionManaged": "The published source manages the selected record.",
+                "recordSelectionDefault": "The published source determines which records are shown.",
+                "variant": "Collection type",
+                "variants": {
+                    "logos": "Logo collection",
+                    "features": "Features",
+                    "testimonials": "Testimonials",
+                    "highlights": "Highlights",
+                    "faq": "FAQ"
+                },
+                "maxItems": "Maximum items",
+                "showTitle": "Show title",
+                "showDescription": "Show description",
+                "showAuthActions": "Show authentication actions",
+                "showLeadForm": "Show lead form",
+                "showBenefits": "Show plan benefits",
+                "showNewsletter": "Show newsletter block",
+                "instanceKeyHelper": "Widget identity is assigned by the server when this widget is created and preserved when settings are edited.",
+                "invalidConfig": "Review the widget source and settings before saving.",
+                "noCompatibleSources": "No compatible Object entity source is available for this widget. Create or publish the matching entity type first.",
+                "saveError": "The widget settings could not be saved. Try again.",
+                "sourceUnavailable": "The previously selected content source is no longer available. Choose a published Object entity source."
             }
         },
         "menuEditor": {
@@ -509,7 +549,10 @@
             "top": "Top zone",
             "center": "Center zone",
             "right": "Right zone",
-            "bottom": "Bottom zone"
+            "bottom": "Bottom zone",
+            "marketingHeader": "Marketing header",
+            "marketingMain": "Marketing content",
+            "marketingFooter": "Marketing footer"
         },
         "widgets": {
             "brandSelector": "Brand selector",
@@ -544,7 +587,14 @@
             "resourcePreview": "Resource preview",
             "learnerPlayer": "Learner player",
             "languageSwitcher": "Language switcher",
-            "footer": "Footer"
+            "footer": "Footer",
+            "marketing": {
+                "navigation": "Navigation",
+                "hero": "Hero",
+                "collection": "Collection",
+                "pricing": "Pricing",
+                "footer": "Footer"
+            }
         },
         "sharedBehavior": {
             "title": "Shared behavior",

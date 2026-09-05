@@ -1,4 +1,6 @@
 import {
+    buildRuntimeActiveRowCondition,
+    buildRuntimeDeletedRowCondition,
     coerceRuntimeValue,
     normalizeConfiguredRuntimeJsonValue,
     normalizeRuntimeTableChildInsertValue,
@@ -7,6 +9,27 @@ import {
 } from '../../shared/runtimeHelpers'
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import { normalizeChildFieldValue } from '../../routes/sync/syncHelpers'
+import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
+
+describe('runtime workspace SQL predicates', () => {
+    const workspaceId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+    const lifecycleContract = resolveApplicationLifecycleContractFromConfig({})
+
+    it('uses the request-scoped workspace setting instead of interpolating a UUID literal', () => {
+        const activeCondition = buildRuntimeActiveRowCondition(lifecycleContract, {}, 'record', workspaceId)
+        const deletedCondition = buildRuntimeDeletedRowCondition(lifecycleContract, {}, 'record', workspaceId)
+
+        expect(activeCondition).toContain("record.workspace_id = NULLIF(current_setting('app.current_workspace_id', true), '')::uuid")
+        expect(deletedCondition).toContain("record.workspace_id = NULLIF(current_setting('app.current_workspace_id', true), '')::uuid")
+        expect(activeCondition).not.toContain(workspaceId)
+        expect(deletedCondition).not.toContain(workspaceId)
+    })
+
+    it('rejects malformed workspace identifiers before creating a query fragment', () => {
+        expect(() => buildRuntimeActiveRowCondition(lifecycleContract, {}, undefined, 'not-a-uuid')).toThrow('Unsafe workspace UUID')
+        expect(() => buildRuntimeDeletedRowCondition(lifecycleContract, {}, undefined, 'not-a-uuid')).toThrow('Unsafe workspace UUID')
+    })
+})
 
 describe('closed runtime field formats', () => {
     const hexColorRules = { format: 'hexColor' } as const

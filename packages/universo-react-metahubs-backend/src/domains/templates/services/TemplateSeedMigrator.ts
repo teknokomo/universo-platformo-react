@@ -7,6 +7,7 @@ import type {
     DashboardLayoutWidgetKey,
     DashboardLayoutZone
 } from '@universo-react/types'
+import { parseApplicationLayoutWidgetConfig } from '@universo-react/types'
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
@@ -225,26 +226,34 @@ export class TemplateSeedMigrator {
                 continue
             }
 
+            const layoutRow = await trx
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({ id: layoutId })
+                .select('template_key', 'config')
+                .first()
+            const isMarketingLayout = layoutRow?.template_key === 'marketing-page'
             let insertedAny = false
             for (const w of widgets) {
+                const config = isMarketingLayout ? parseApplicationLayoutWidgetConfig(w.widgetKey, w.config ?? {}) : w.config ?? {}
                 if (dryRun && layoutId.startsWith('dry-run:')) {
                     insertedAny = true
                     result.zoneWidgetsAdded++
                     continue
                 }
 
-                const exists = await trx
-                    .withSchema(this.schemaName)
-                    .from(widgetTableName)
-                    .where({
-                        layout_id: layoutId,
-                        zone: w.zone,
-                        widget_key: w.widgetKey,
-                        sort_order: w.sortOrder,
-                        _upl_deleted: false,
-                        _mhb_deleted: false
-                    })
-                    .first()
+                const existsQuery = trx.withSchema(this.schemaName).from(widgetTableName).where({
+                    layout_id: layoutId,
+                    widget_key: w.widgetKey,
+                    _upl_deleted: false,
+                    _mhb_deleted: false
+                })
+                if (isMarketingLayout) {
+                    existsQuery.whereRaw("config->>'instanceKey' = ?", [config.instanceKey])
+                } else {
+                    existsQuery.where({ zone: w.zone, sort_order: w.sortOrder })
+                }
+                const exists = await existsQuery.first()
 
                 if (exists) {
                     result.skipped.push(`zoneWidget:${layoutCodename}:${w.widgetKey} (already exists)`)
@@ -252,26 +261,6 @@ export class TemplateSeedMigrator {
                 }
 
                 if (!dryRun) {
-                    // Inherit is_active from an existing peer with same zone+widget_key
-                    // but different sortOrder (handles reordering across template versions).
-                    // When no peer exists, respect the seed manifest's isActive value
-                    // (e.g. new widgets added with isActive: false should stay inactive).
-                    const peer = await trx
-                        .withSchema(this.schemaName)
-                        .from(widgetTableName)
-                        .where({
-                            layout_id: layoutId,
-                            zone: w.zone,
-                            widget_key: w.widgetKey,
-                            _upl_deleted: false,
-                            _mhb_deleted: false
-                        })
-                        .select('is_active')
-                        .orderBy('_upl_updated_at', 'desc')
-                        .first()
-                    const seedIsActive = w.isActive !== false
-                    const isActive: boolean = peer != null ? Boolean(peer.is_active) : seedIsActive
-
                     await trx
                         .withSchema(this.schemaName)
                         .into(widgetTableName)
@@ -280,8 +269,8 @@ export class TemplateSeedMigrator {
                             zone: w.zone,
                             widget_key: w.widgetKey,
                             sort_order: w.sortOrder,
-                            config: w.config ?? {},
-                            is_active: isActive,
+                            config,
+                            is_active: w.isActive !== false,
                             _upl_created_at: now,
                             _upl_created_by: null,
                             _upl_updated_at: now,
@@ -299,31 +288,6 @@ export class TemplateSeedMigrator {
                 result.zoneWidgetsAdded++
             }
 
-            // Clean up orphan duplicates: system-created widgets with same zone+widget_key
-            // but non-target sortOrder (left over from template reordering).
-            if (!dryRun) {
-                for (const w of widgets) {
-                    await trx
-                        .withSchema(this.schemaName)
-                        .from(widgetTableName)
-                        .where({
-                            layout_id: layoutId,
-                            zone: w.zone,
-                            widget_key: w.widgetKey,
-                            _upl_deleted: false,
-                            _mhb_deleted: false
-                        })
-                        .whereNot('sort_order', w.sortOrder)
-                        .whereNull('_upl_created_by')
-                        .whereNull('_upl_updated_by')
-                        .update({
-                            _mhb_deleted: true,
-                            _upl_version: trx.raw('_upl_version + 1'),
-                            _upl_updated_at: now
-                        })
-                }
-            }
-
             if (!insertedAny) {
                 continue
             }
@@ -332,8 +296,7 @@ export class TemplateSeedMigrator {
                 continue
             }
 
-            const layoutRow = await trx.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).select('config').first()
-            if (hasNonEmptyConfigObject(layoutRow?.config)) {
+            if (isMarketingLayout || hasNonEmptyConfigObject(layoutRow?.config)) {
                 result.skipped.push(`layoutConfig:${layoutCodename} (preserved existing config)`)
                 continue
             }

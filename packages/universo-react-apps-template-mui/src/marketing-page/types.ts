@@ -1,5 +1,14 @@
 import type { ReactNode } from 'react'
-import type { MarketingSectionKey, ResourceSource } from '@universo-react/types'
+import type {
+    MarketingLayoutZone,
+    MarketingLocaleCode,
+    MarketingPageConfig,
+    MarketingPageRuntimeViewModel,
+    MarketingProvenance,
+    MarketingRuntimeIdentity,
+    MarketingWidgetInstanceKey,
+    ResourceSource
+} from '@universo-react/types'
 
 export type MarketingActionKind = 'internal' | 'external' | 'mailto' | 'tel'
 
@@ -41,6 +50,8 @@ export type MarketingIconKey =
 export interface MarketingSectionCopy {
     title: string
     description?: string
+    showTitle?: boolean
+    showDescription?: boolean
 }
 
 export interface MarketingNavigationItem extends MarketingAction {
@@ -153,46 +164,80 @@ export interface MarketingFooterData {
     copyrightAction?: MarketingAction
 }
 
-export interface MarketingPageSections {
-    logoCollection: MarketingSectionCopy
-    features: MarketingSectionCopy
-    testimonials: MarketingSectionCopy
-    highlights: MarketingSectionCopy
-    pricing: MarketingSectionCopy
-    faq: MarketingSectionCopy
+export interface MarketingWidgetFrame {
+    instanceKey: MarketingWidgetInstanceKey
+    zone: MarketingLayoutZone
+    sortOrder: number
+    isActive: boolean
 }
 
+export interface MarketingNavigationWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.navigation'
+    content: {
+        brand: {
+            name: string
+            logo?: MarketingMedia
+            homeAction?: MarketingAction
+        }
+        navigation: MarketingNavigationItem[]
+        auth?: {
+            signIn?: MarketingAction
+            signUp?: MarketingAction
+        }
+    }
+}
+
+export interface MarketingHeroWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.hero'
+    content: MarketingHeroData
+}
+
+export type MarketingCollectionWidgetContent =
+    | { variant: 'logos'; section: MarketingSectionCopy; items: MarketingLogo[] }
+    | { variant: 'features'; section: MarketingSectionCopy; items: MarketingFeature[] }
+    | { variant: 'testimonials'; section: MarketingSectionCopy; items: MarketingTestimonial[] }
+    | { variant: 'highlights'; section: MarketingSectionCopy; items: MarketingHighlight[] }
+    | { variant: 'faq'; section: MarketingSectionCopy; items: MarketingFaqItem[] }
+
+export interface MarketingCollectionWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.collection'
+    content: MarketingCollectionWidgetContent
+}
+
+export interface MarketingPricingWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.pricing'
+    content: {
+        section: MarketingSectionCopy
+        tiers: MarketingPricingTier[]
+    }
+}
+
+export interface MarketingFooterWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.footer'
+    content: MarketingFooterData
+}
+
+export type MarketingPageWidget =
+    | MarketingNavigationWidget
+    | MarketingHeroWidget
+    | MarketingCollectionWidget
+    | MarketingPricingWidget
+    | MarketingFooterWidget
+
+/**
+ * Normalized view model consumed by the isolated marketing renderer. The
+ * server envelope is intentionally reduced to widget content here: layout
+ * composition remains in `widgets`, while records stay inside the validated
+ * transport payload and never become page-level state.
+ */
 export interface MarketingPageData {
     templateKey: 'marketing-page'
-    config?: {
-        themeMode?: 'system' | 'light' | 'dark'
-        sectionVisibility?: Partial<Record<MarketingSectionKey, boolean>>
-        sectionOrder?: MarketingSectionKey[]
-        primaryColor?: string
-        accentColor?: string
-        allowEmailActions?: boolean
-        allowTelephoneActions?: boolean
-        externalLinkTarget?: 'same-tab' | 'new-tab'
-    }
-    brand: {
-        name: string
-        logo?: MarketingMedia
-        homeAction?: MarketingAction
-    }
-    navigation: MarketingNavigationItem[]
-    auth?: {
-        signIn?: MarketingAction
-        signUp?: MarketingAction
-    }
-    hero: MarketingHeroData
-    sections: MarketingPageSections
-    logos: MarketingLogo[]
-    features: MarketingFeature[]
-    testimonials: MarketingTestimonial[]
-    highlights: MarketingHighlight[]
-    pricing: MarketingPricingTier[]
-    faq: MarketingFaqItem[]
-    footer: MarketingFooterData
+    locale: MarketingLocaleCode
+    config: MarketingPageConfig
+    widgets: MarketingPageWidget[]
+    runtime: MarketingRuntimeIdentity
+    provenance?: MarketingProvenance
+    richContent?: MarketingPageRuntimeViewModel['marketingPage']['richContent']
 }
 
 export type MarketingFormSource = 'hero' | 'footer'

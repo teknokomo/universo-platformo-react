@@ -15,7 +15,14 @@ import { reportDefinitionSchema } from './lmsPlatform'
 import { workflowActionSchema } from './workflowActions'
 import {
     applicationTemplateKeySchema,
+    marketingCollectionWidgetConfigSchema,
+    marketingFooterWidgetConfigSchema,
+    marketingHeroWidgetConfigSchema,
+    marketingLayoutZoneSchema,
+    marketingNavigationWidgetConfigSchema,
     marketingPageConfigSchema,
+    marketingPricingWidgetConfigSchema,
+    marketingWidgetKeySchema,
     type ApplicationTemplateKey,
     type MarketingPageConfig
 } from './marketingPage'
@@ -47,8 +54,12 @@ export const applicationLayoutSyncResolutionSchema = z.enum(APPLICATION_LAYOUT_S
 export const applicationLayoutScopeKindSchema = z.enum(APPLICATION_LAYOUT_SCOPE_KINDS)
 
 export const applicationLayoutLocalizedContentSchema = z.record(z.string(), z.unknown()).default({})
-export const applicationLayoutWidgetKeySchema = z.enum(DASHBOARD_LAYOUT_WIDGETS.map((widget) => widget.key) as [string, ...string[]])
-export const applicationLayoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
+const dashboardLayoutWidgetKeySchema = z.enum(DASHBOARD_LAYOUT_WIDGETS.map((widget) => widget.key) as [string, ...string[]])
+const dashboardLayoutZoneSchema = z.enum(DASHBOARD_LAYOUT_ZONES)
+export const applicationLayoutWidgetKeySchema = z.union([dashboardLayoutWidgetKeySchema, marketingWidgetKeySchema])
+export const applicationLayoutZoneSchema = z.union([dashboardLayoutZoneSchema, marketingLayoutZoneSchema])
+export type ApplicationLayoutWidgetKey = z.infer<typeof applicationLayoutWidgetKeySchema>
+export type ApplicationLayoutZone = z.infer<typeof applicationLayoutZoneSchema>
 
 /**
  * Layout configuration is template-owned. Keep the transport schema open so a
@@ -63,8 +74,6 @@ const isApplicationLayoutRecord = (value: unknown): value is Record<string, unkn
 
 const MARKETING_ONLY_LAYOUT_CONFIG_KEYS = new Set([
     'themeMode',
-    'sectionOrder',
-    'sectionVisibility',
     'primaryColor',
     'accentColor',
     'brandLogo',
@@ -680,7 +689,12 @@ const widgetConfigSchemaByKey = {
     detailsTabs: detailsTabsWidgetConfigSchema,
     resourcePreview: resourcePreviewWidgetConfigSchema,
     learnerPlayer: learnerPlayerWidgetConfigSchema,
-    interpretationNetworkWorkspace: interpretationNetworkWorkspaceWidgetConfigSchema
+    interpretationNetworkWorkspace: interpretationNetworkWorkspaceWidgetConfigSchema,
+    'marketing.navigation': marketingNavigationWidgetConfigSchema,
+    'marketing.hero': marketingHeroWidgetConfigSchema,
+    'marketing.collection': marketingCollectionWidgetConfigSchema,
+    'marketing.pricing': marketingPricingWidgetConfigSchema,
+    'marketing.footer': marketingFooterWidgetConfigSchema
 } as const
 
 export const applicationLayoutWidgetConfigSchema = genericWidgetConfigSchema
@@ -707,12 +721,15 @@ export const applicationLayoutWidgetSchema = z.object({
     layoutId: z.string(),
     zone: applicationLayoutZoneSchema,
     widgetKey: applicationLayoutWidgetKeySchema,
+    instanceKey: z.string().trim().min(1).optional(),
     sortOrder: z.number().int(),
     config: z.record(z.unknown()).default({}),
     sourceConfig: z.record(z.unknown()).nullable().default(null),
+    sourceWidgetId: z.string().uuid().nullable().optional(),
+    sourceBaseWidgetId: z.string().uuid().nullable().optional(),
     isCustomized: z.boolean().default(false),
     isActive: z.boolean(),
-    version: z.number().int().positive().optional()
+    version: z.number().int().positive()
 })
 export type ApplicationLayoutWidget = z.infer<typeof applicationLayoutWidgetSchema>
 
@@ -768,6 +785,14 @@ export const applicationLayoutMutationSchema = z
     .strict()
 export type ApplicationLayoutMutation = z.infer<typeof applicationLayoutMutationSchema>
 
+const applicationLayoutExpectedVersionSchema = z.number().int().positive()
+
+/** Layout scope is immutable after creation; updates can only change owned fields. */
+export const applicationLayoutUpdateSchema = applicationLayoutMutationSchema
+    .omit({ scopeEntityId: true })
+    .extend({ expectedVersion: applicationLayoutExpectedVersionSchema })
+export type ApplicationLayoutUpdate = z.infer<typeof applicationLayoutUpdateSchema>
+
 /**
  * Reset an application-owned marketing appearance override to the template
  * defaults. The optimistic version is required so stale writes fail closed
@@ -780,6 +805,17 @@ export const applicationLayoutConfigResetMutationSchema = z
     .strict()
 export type ApplicationLayoutConfigResetMutation = z.infer<typeof applicationLayoutConfigResetMutationSchema>
 
+/**
+ * Copying a layout reads both the source row and its widgets as one optimistic
+ * snapshot. The source version is therefore required for every caller.
+ */
+export const applicationLayoutCopyMutationSchema = z
+    .object({
+        expectedVersion: z.number().int().positive()
+    })
+    .strict()
+export type ApplicationLayoutCopyMutation = z.infer<typeof applicationLayoutCopyMutationSchema>
+
 export const applicationLayoutCreateSchema = applicationLayoutMutationSchema.extend({
     templateKey: applicationTemplateKeySchema.default('dashboard'),
     name: applicationLayoutLocalizedContentSchema
@@ -791,13 +827,13 @@ export const applicationLayoutWidgetMutationSchema = z.object({
     widgetKey: applicationLayoutWidgetKeySchema,
     sortOrder: z.number().int().optional(),
     config: z.record(z.unknown()).optional(),
-    expectedVersion: z.number().int().positive().optional()
+    expectedVersion: applicationLayoutExpectedVersionSchema
 })
 export type ApplicationLayoutWidgetMutation = z.infer<typeof applicationLayoutWidgetMutationSchema>
 
 export const applicationLayoutWidgetConfigMutationSchema = z.object({
     config: z.record(z.unknown()).default({}),
-    expectedVersion: z.number().int().positive().optional()
+    expectedVersion: applicationLayoutExpectedVersionSchema
 })
 export type ApplicationLayoutWidgetConfigMutation = z.infer<typeof applicationLayoutWidgetConfigMutationSchema>
 
@@ -835,7 +871,7 @@ export const applicationLayoutWidgetResetBatchMutationSchema = z
                     .object({
                         layoutId: z.string().uuid(),
                         widgetId: z.string().uuid(),
-                        expectedVersion: z.number().int().positive().optional()
+                        expectedVersion: applicationLayoutExpectedVersionSchema
                     })
                     .strict()
             )
@@ -862,13 +898,13 @@ export const applicationLayoutWidgetMoveMutationSchema = z.object({
     widgetId: z.string(),
     targetZone: applicationLayoutZoneSchema,
     targetIndex: z.number().int().nonnegative(),
-    expectedVersion: z.number().int().positive().optional()
+    expectedVersion: applicationLayoutExpectedVersionSchema
 })
 export type ApplicationLayoutWidgetMoveMutation = z.infer<typeof applicationLayoutWidgetMoveMutationSchema>
 
 export const applicationLayoutWidgetToggleMutationSchema = z.object({
     isActive: z.boolean(),
-    expectedVersion: z.number().int().positive().optional()
+    expectedVersion: applicationLayoutExpectedVersionSchema
 })
 export type ApplicationLayoutWidgetToggleMutation = z.infer<typeof applicationLayoutWidgetToggleMutationSchema>
 

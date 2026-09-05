@@ -164,8 +164,8 @@ export function useDeleteLayout() {
 
     return useMutation({
         mutationKey: ['layouts', 'delete'],
-        mutationFn: async ({ metahubId, layoutId }: DeleteLayoutParams) => {
-            await layoutsApi.deleteLayout(metahubId, layoutId)
+        mutationFn: async ({ metahubId, layoutId, expectedVersion }: DeleteLayoutParams) => {
+            await layoutsApi.deleteLayout(metahubId, layoutId, expectedVersion)
         },
         onMutate: async ({ metahubId, layoutId, scopeEntityId }) => {
             return applyOptimisticDelete({

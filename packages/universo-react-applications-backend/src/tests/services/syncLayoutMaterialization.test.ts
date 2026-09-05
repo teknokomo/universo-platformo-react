@@ -5,6 +5,7 @@ import {
     normalizeSnapshotLayouts,
     remapSnapshotLayoutScopeEntityIds,
     remapSnapshotMenuWidgetTargets,
+    materializeSnapshotLayoutsAndWidgets,
     withWorkspaceRuntimeLayoutWidgets
 } from '../../routes/sync/syncHelpers'
 import { buildRuntimeSnapshotForApplicationSync } from '../../routes/sync/syncEngine'
@@ -20,7 +21,7 @@ describe('sync layout materialization helpers', () => {
                     templateKey: 'marketing-page',
                     name: { en: 'Marketing' },
                     description: null,
-                    config: { themeMode: 'light', sectionOrder: ['hero', 'footer'] },
+                    config: { themeMode: 'light' },
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -36,6 +37,54 @@ describe('sync layout materialization helpers', () => {
         expect(normalizeSnapshotLayoutZoneWidgets(runtimeSnapshot)).toEqual([])
     })
 
+    it('persists validated marketing layout and widget defaults during materialization', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'marketing-layout',
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing' },
+                    description: null,
+                    config: { themeMode: 'light' },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'marketing-hero',
+                    layoutId: 'marketing-layout',
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    sortOrder: 0,
+                    config: {
+                        instanceKey: 'hero',
+                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+                    },
+                    isActive: true
+                }
+            ],
+            defaultLayoutId: 'marketing-layout'
+        }
+
+        const layouts = normalizeSnapshotLayouts(snapshot)
+        const widgets = normalizeSnapshotLayoutZoneWidgets(snapshot)
+
+        expect(layouts[0]?.config).toMatchObject({
+            themeMode: 'light',
+            allowEmailActions: true,
+            allowTelephoneActions: true,
+            externalLinkTarget: 'new-tab'
+        })
+        expect(widgets[0]?.config).toMatchObject({
+            instanceKey: 'hero',
+            showLeadForm: true,
+            source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', fieldMap: {} }
+        })
+    })
+
     it('rejects dashboard widgets attached to a marketing layout instead of silently rendering them', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {},
@@ -45,7 +94,7 @@ describe('sync layout materialization helpers', () => {
                     templateKey: 'marketing-page',
                     name: { en: 'Marketing' },
                     description: null,
-                    config: {},
+                    config: { themeMode: 'light' },
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -55,7 +104,7 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'invalid-widget',
                     layoutId: 'marketing-layout',
-                    zone: 'center',
+                    zone: 'marketing-main',
                     widgetKey: 'detailsTable',
                     sortOrder: 1,
                     config: {},
@@ -64,7 +113,7 @@ describe('sync layout materialization helpers', () => {
             ]
         }
 
-        expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/cannot contain dashboard widgets/)
+        expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/not allowed/)
     })
 
     it('builds the same runtime snapshot for sync apply and preview comparisons', () => {
@@ -639,7 +688,7 @@ describe('sync layout materialization helpers', () => {
             ],
             layoutZoneWidgets: [
                 {
-                    id: 'base-menu-widget',
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
                     layoutId: 'global-layout-1',
                     zone: 'left',
                     widgetKey: 'menuWidget',
@@ -666,7 +715,7 @@ describe('sync layout materialization helpers', () => {
             layoutWidgetOverrides: [
                 {
                     layoutId: 'structure-layout',
-                    baseWidgetId: 'base-menu-widget',
+                    baseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a1',
                     config: {
                         showTitle: false,
                         autoShowAllSections: false,
@@ -708,7 +757,7 @@ describe('sync layout materialization helpers', () => {
         const untouchedOverride = remapped.layoutWidgetOverrides?.[1] as { config?: Record<string, unknown> }
         const widgets = normalizeSnapshotLayoutZoneWidgets(remapped)
         const inheritedScopedMenu = widgets.find(
-            (item) => item.layoutId === 'structure-layout' && item.sourceBaseWidgetId === 'base-menu-widget'
+            (item) => item.layoutId === 'structure-layout' && item.sourceBaseWidgetId === '018f8a78-7b8f-7c1d-a111-2222333344a1'
         )
 
         expect(menuOverride.config).toMatchObject({
@@ -754,7 +803,7 @@ describe('sync layout materialization helpers', () => {
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 0,
-                    config: {},
+                    config: { items: [] },
                     isActive: true
                 }
             ],
@@ -784,6 +833,58 @@ describe('sync layout materialization helpers', () => {
         expect(menu).toEqual(expect.objectContaining({ sortOrder: 0 }))
     })
 
+    it('keeps inherited materialized widget identities stable across repeated projections', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'scoped-layout-1',
+                    scopeEntityId: 'scope-entity-1',
+                    baseLayoutId: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Scoped' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    layoutId: 'global-layout-1',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 0,
+                    config: { datasource: { kind: 'records.list', sectionCodename: 'Object' } },
+                    isActive: true
+                }
+            ],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        const first = materializeSnapshotLayoutsAndWidgets(snapshot).widgets.find(
+            (widget) => widget.sourceBaseWidgetId === '018f8a78-7b8f-7c1d-a111-2222333344a2'
+        )
+        const second = materializeSnapshotLayoutsAndWidgets(snapshot).widgets.find(
+            (widget) => widget.sourceBaseWidgetId === '018f8a78-7b8f-7c1d-a111-2222333344a2'
+        )
+
+        expect(first?.id).toBe(second?.id)
+    })
+
     it('materializes scoped layouts from global layouts, sparse overrides, and entity-owned widgets', () => {
         const snapshot: PublishedApplicationSnapshot = {
             layouts: [
@@ -800,19 +901,19 @@ describe('sync layout materialization helpers', () => {
             ],
             layoutZoneWidgets: [
                 {
-                    id: 'global-widget-1',
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a3',
                     layoutId: 'global-layout-1',
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 1,
-                    config: { showTitle: true },
+                    config: { showTitle: true, items: [] },
                     isActive: true
                 },
                 {
                     id: 'entity-owned-widget-1',
                     layoutId: 'object-layout-1',
                     zone: 'right',
-                    widgetKey: 'statsOverview',
+                    widgetKey: 'productTree',
                     sortOrder: 1,
                     config: { compact: true },
                     isActive: true
@@ -835,11 +936,11 @@ describe('sync layout materialization helpers', () => {
             layoutWidgetOverrides: [
                 {
                     layoutId: 'object-layout-1',
-                    baseWidgetId: 'global-widget-1',
-                    zone: 'top',
+                    baseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3',
+                    zone: 'left',
                     sortOrder: 2,
-                    config: { showTitle: false },
-                    isActive: true,
+                    config: { showTitle: false, items: [] },
+                    isActive: false,
                     isDeletedOverride: false
                 }
             ],
@@ -874,13 +975,14 @@ describe('sync layout materialization helpers', () => {
         expect(inheritedCatalogWidget).toBeTruthy()
         expect(inheritedCatalogWidget).toMatchObject({
             layoutId: 'object-layout-1',
-            zone: 'top',
+            zone: 'left',
             sortOrder: 2,
-            config: { showTitle: false },
-            sourceBaseWidgetId: 'global-widget-1'
+            config: { showTitle: false, items: [] },
+            sourceBaseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3',
+            isActive: false
         })
-        expect(inheritedCatalogWidget?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
-        expect(inheritedCatalogWidget?.id).not.toBe('global-widget-1')
+        expect(inheritedCatalogWidget?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+        expect(inheritedCatalogWidget?.id).not.toBe('018f8a78-7b8f-7c1d-a111-2222333344a3')
 
         expect(widgets).toEqual(
             expect.arrayContaining([
@@ -888,7 +990,7 @@ describe('sync layout materialization helpers', () => {
                     id: 'entity-owned-widget-1',
                     layoutId: 'object-layout-1',
                     zone: 'right',
-                    widgetKey: 'statsOverview',
+                    widgetKey: 'productTree',
                     config: { compact: true }
                 })
             ])
@@ -911,7 +1013,7 @@ describe('sync layout materialization helpers', () => {
             ],
             layoutZoneWidgets: [
                 {
-                    id: 'global-details-table',
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a5',
                     layoutId: 'global-layout-1',
                     zone: 'center',
                     widgetKey: 'detailsTable',
@@ -1012,12 +1114,12 @@ describe('sync layout materialization helpers', () => {
             ],
             layoutZoneWidgets: [
                 {
-                    id: 'global-widget-1',
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344a4',
                     layoutId: 'global-layout-1',
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 1,
-                    config: { showTitle: true },
+                    config: { showTitle: true, items: [] },
                     isActive: true
                 }
             ],
@@ -1038,7 +1140,7 @@ describe('sync layout materialization helpers', () => {
             layoutWidgetOverrides: [
                 {
                     layoutId: 'object-layout-1',
-                    baseWidgetId: 'global-widget-1',
+                    baseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a4',
                     isDeletedOverride: true
                 }
             ],
@@ -1050,7 +1152,7 @@ describe('sync layout materialization helpers', () => {
         expect(widgets.some((item) => item.layoutId === 'object-layout-1' && item.widgetKey === 'menuWidget')).toBe(false)
     })
 
-    it('preserves inactive widgets and normalizes invalid zones to center', () => {
+    it('rejects inactive widgets with invalid zones instead of silently reinterpreting them', () => {
         const snapshot: PublishedApplicationSnapshot = {
             layouts: [
                 {
@@ -1080,14 +1182,6 @@ describe('sync layout materialization helpers', () => {
             defaultLayoutId: 'global-layout-1'
         }
 
-        const widgets = normalizeSnapshotLayoutZoneWidgets(snapshot)
-
-        expect(widgets).toEqual([
-            expect.objectContaining({
-                id: 'disabled-widget-1',
-                zone: 'center',
-                isActive: false
-            })
-        ])
+        expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/Invalid dashboard layout widget zone/)
     })
 })

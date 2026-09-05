@@ -623,6 +623,58 @@ describe('MainGrid enhanced runtime details', () => {
         expect(card).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073987')
     })
 
+    it('renders every repeated dashboard widget instance instead of keeping only the first row', () => {
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider value={details}>
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showOverviewCards: true, showSessionsChart: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'overview-cards-1',
+                                widgetKey: 'overviewCards',
+                                sortOrder: 1,
+                                config: { cards: [{ title: 'First cards', value: '1', interval: 'Current', trend: 'neutral' }] }
+                            },
+                            {
+                                id: 'overview-cards-2',
+                                widgetKey: 'overviewCards',
+                                sortOrder: 2,
+                                config: { cards: [{ title: 'Second cards', value: '2', interval: 'Current', trend: 'neutral' }] }
+                            },
+                            { id: 'sessions-1', widgetKey: 'sessionsChart', sortOrder: 3, config: { title: 'First sessions' } },
+                            { id: 'sessions-2', widgetKey: 'sessionsChart', sortOrder: 4, config: { title: 'Second sessions' } }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        expect(screen.getAllByTestId('stat-card')).toHaveLength(2)
+        expect(screen.getByText('First cards:1')).toBeInTheDocument()
+        expect(screen.getByText('Second cards:2')).toBeInTheDocument()
+        expect(screen.getAllByTestId('sessions-chart')).toHaveLength(2)
+    })
+
+    it('renders repeated details titles and tables from their individual widget rows', () => {
+        render(
+            <DashboardDetailsProvider value={details}>
+                <MainGrid
+                    layoutConfig={{ ...baseLayoutConfig, showDetailsTitle: false, showDetailsTable: false }}
+                    centerWidgets={[
+                        { id: 'details-title-1', widgetKey: 'detailsTitle', sortOrder: 1, config: {} },
+                        { id: 'details-title-2', widgetKey: 'detailsTitle', sortOrder: 2, config: {} },
+                        { id: 'details-table-1', widgetKey: 'detailsTable', sortOrder: 3, config: {} },
+                        { id: 'details-table-2', widgetKey: 'detailsTable', sortOrder: 4, config: {} }
+                    ]}
+                />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getAllByText('Details')).toHaveLength(2)
+        expect(screen.getAllByTestId('rendered-widget-detailsTable')).toHaveLength(2)
+    })
+
     it('resolves overview card report aggregation metrics through the runtime reports API', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input)

@@ -18,6 +18,9 @@ import {
 
 const applicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
 const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789ab'
+const marketingLayoutId = '0190a9b5-3cde-7abc-8def-0123456789ae'
+const scopedMarketingLayoutId = '0190a9b5-3cde-7abc-8def-0123456789ac'
+const scopedEntityTypeId = '0190a9b5-3cde-7abc-8def-0123456789ad'
 const siteSettingsObjectId = '0190a9b5-3cde-7abc-8def-0123456789a1'
 const siteSettingsRecordId = '0190a9b5-3cde-7abc-8def-0123456789a2'
 
@@ -49,6 +52,131 @@ const siteSettingsRow = {
     CopyrightHref: 'https://mui.com/',
     NewsletterEnabled: false
 }
+
+const marketingObjectRows = () => [
+    siteSettingsObject,
+    { id: '0190a9b5-3cde-7abc-8def-0123456789b0', codename: 'MarketingPageSection', table_name: 'marketing_section', config: {} },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789b3', codename: 'MarketingPageLogo', table_name: 'marketing_logo', config: {} },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789b4', codename: 'MarketingPageFeature', table_name: 'marketing_feature', config: {} },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789b5', codename: 'MarketingPageTestimonial', table_name: 'marketing_testimonial', config: {} },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789b6', codename: 'MarketingPageHighlight', table_name: 'marketing_highlight', config: {} },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789b7', codename: 'MarketingPagePricing', table_name: 'marketing_pricing', config: {} },
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789b8',
+        codename: 'MarketingPagePricingBenefit',
+        table_name: 'marketing_pricing_benefit',
+        config: {}
+    },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789b9', codename: 'MarketingPageFaq', table_name: 'marketing_faq', config: {} },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789ba', codename: 'MarketingPageNavigation', table_name: 'marketing_navigation', config: {} },
+    { id: '0190a9b5-3cde-7abc-8def-0123456789bb', codename: 'MarketingPageFooterLink', table_name: 'marketing_footer_link', config: {} }
+]
+
+const marketingSectionRows = () => [
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789b1',
+        codename: 'features',
+        SectionKey: 'features',
+        Title: { en: 'Features' },
+        Description: { en: 'Features description' }
+    },
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789bd',
+        codename: 'pricing',
+        SectionKey: 'pricing',
+        Title: { en: 'Pricing' },
+        Description: { en: 'Pricing description' }
+    },
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789bc',
+        codename: 'footer',
+        SectionKey: 'footer',
+        Title: { en: 'Footer' },
+        Description: { en: 'Footer description' }
+    }
+]
+
+const defaultMarketingWidgetRows = () => [
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789c1',
+        layout_id: marketingLayoutId,
+        zone: 'marketing-header',
+        widget_key: 'marketing.navigation',
+        sort_order: 0,
+        config: {
+            instanceKey: 'navigation',
+            source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
+            maxItems: 24,
+            showAuthActions: true
+        },
+        is_active: true,
+        version: 1
+    },
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789c2',
+        layout_id: marketingLayoutId,
+        zone: 'marketing-main',
+        widget_key: 'marketing.hero',
+        sort_order: 0,
+        config: {
+            instanceKey: 'hero',
+            source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
+            showLeadForm: true
+        },
+        is_active: true,
+        version: 1
+    },
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789c3',
+        layout_id: marketingLayoutId,
+        zone: 'marketing-main',
+        widget_key: 'marketing.collection',
+        sort_order: 1,
+        config: {
+            instanceKey: 'features',
+            variant: 'features',
+            source: { entityCodename: 'MarketingPageFeature', entityKind: 'object', fieldMap: { title: 'description' } },
+            copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'features' },
+            maxItems: 100,
+            showTitle: true,
+            showDescription: true
+        },
+        is_active: true,
+        version: 1
+    },
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789c4',
+        layout_id: marketingLayoutId,
+        zone: 'marketing-main',
+        widget_key: 'marketing.pricing',
+        sort_order: 2,
+        config: {
+            instanceKey: 'pricing',
+            source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
+            copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'pricing' },
+            maxItems: 24,
+            showBenefits: true
+        },
+        is_active: true,
+        version: 1
+    },
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789c5',
+        layout_id: marketingLayoutId,
+        zone: 'marketing-footer',
+        widget_key: 'marketing.footer',
+        sort_order: 0,
+        config: {
+            instanceKey: 'footer',
+            source: { entityCodename: 'MarketingPageFooterLink', entityKind: 'object' },
+            copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'footer' },
+            maxItems: 100,
+            showNewsletter: true
+        },
+        is_active: true,
+        version: 1
+    }
+]
 
 const createResponse = () => {
     const json = jest.fn()
@@ -100,10 +228,50 @@ describe('runtime marketing page controller', () => {
         expect(() => toConfig({ themeMode: 'sepia' })).toThrow('configuration is invalid')
     })
 
+    it('rejects repeated runtime query parameters instead of silently dropping values', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage({ params: { applicationId }, query: { locale: ['en', 'ru'] } } as unknown as Request, res)
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_RUNTIME_QUERY_INVALID',
+            error: 'Marketing runtime query parameters are invalid.'
+        })
+        expect(manager.query).not.toHaveBeenCalled()
+    })
+
+    it('rejects repeated entity target parameters before querying application metadata', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage(
+            {
+                params: { applicationId },
+                query: { locale: 'en', entityTypeId: [siteSettingsObjectId, siteSettingsObjectId] }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_RUNTIME_QUERY_INVALID',
+            error: 'Marketing runtime query parameters are invalid.'
+        })
+        expect(manager.query).not.toHaveBeenCalled()
+    })
+
     it('fails closed when the selected application layout is not marketing-page', async () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
-        manager.query.mockResolvedValueOnce([{ template_key: 'dashboard', config: {} }])
+        manager.query.mockResolvedValueOnce([
+            { id: marketingLayoutId, scope_entity_id: null, template_key: 'dashboard', config: {}, is_active: true, is_default: true }
+        ])
         const controller = createRuntimeMarketingPageController(() => manager as never)
         const res = createResponse()
 
@@ -116,21 +284,165 @@ describe('runtime marketing page controller', () => {
         expect(manager.query).toHaveBeenCalledTimes(1)
     })
 
+    it('rejects a marketing layout without any active widget composition', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        manager.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows().map((row) => ({ ...row, is_active: false }))
+            throw new Error(`Unexpected runtime query: ${sql}`)
+        })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_LAYOUT_INCOMPLETE',
+            error: 'Marketing page has no active widget composition.'
+        })
+        expect(manager.query.mock.calls.some(([sql]) => String(sql).includes('_app_objects'))).toBe(false)
+    })
+
+    it('rejects a widget whose source does not match its collection variant', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        manager.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) {
+                return defaultMarketingWidgetRows().map((row, index) =>
+                    index === 2
+                        ? {
+                              ...row,
+                              config: {
+                                  ...row.config,
+                                  source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' }
+                              }
+                          }
+                        : row
+                )
+            }
+            throw new Error(`Unexpected runtime query: ${sql}`)
+        })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_LAYOUT_INVALID',
+            error: 'Marketing widget configuration is invalid.'
+        })
+        expect(manager.query.mock.calls.some(([sql]) => String(sql).includes('_app_objects'))).toBe(false)
+    })
+
+    it('returns a typed source-unavailable error instead of silently omitting an active widget source', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        manager.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
+            if (sql.includes('_app_objects')) return [siteSettingsObject]
+            if (sql.includes('_app_components')) return []
+            if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
+            throw new Error(`Unexpected runtime query: ${sql}`)
+        })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_SOURCE_UNAVAILABLE',
+            error: 'Marketing widget data source is unavailable.'
+        })
+    })
+
+    it('rejects duplicate widget instance identity before reading object metadata', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        manager.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets'))
+                return defaultMarketingWidgetRows().map((row, index) =>
+                    index === 3 ? { ...row, config: { ...row.config, instanceKey: 'features' } } : row
+                )
+            throw new Error(`Unexpected runtime query: ${sql}`)
+        })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_LAYOUT_INVALID',
+            error: 'Marketing widget instance keys must be unique within a layout.'
+        })
+        expect(manager.query.mock.calls.some(([sql]) => String(sql).includes('_app_objects'))).toBe(false)
+    })
+
     it('assembles a validated marketing payload from bounded metadata-backed rows', async () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_app_layouts')) return [{ template_key: 'marketing-page', config: {} }]
-            if (sql.includes('_app_objects')) {
+            if (sql.includes('_app_layouts'))
                 return [
-                    siteSettingsObject,
                     {
-                        id: '0190a9b5-3cde-7abc-8def-0123456789b0',
-                        codename: 'MarketingPageSection',
-                        table_name: 'marketing_section',
-                        config: {}
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
                     }
                 ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
+            if (sql.includes('_app_objects')) {
+                return marketingObjectRows()
             }
             if (sql.includes('_app_components')) return []
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
@@ -153,9 +465,25 @@ describe('runtime marketing page controller', () => {
                         Description: { en: 'Hero description' },
                         SortOrder: 2,
                         IsVisible: false
+                    },
+                    ...marketingSectionRows().filter((row) => row.SectionKey === 'pricing' || row.SectionKey === 'footer')
+                ]
+            }
+            if (sql.includes('marketing_feature')) {
+                return [
+                    {
+                        id: '0190a9b5-3cde-7abc-8def-0123456789b4',
+                        codename: 'dashboard',
+                        FeatureKey: 'dashboard',
+                        IconKey: 'ViewQuiltRounded',
+                        Title: { en: 'Dashboard' },
+                        Description: { en: 'Dashboard description' },
+                        SortOrder: 1,
+                        IsVisible: true
                     }
                 ]
             }
+            if (sql.includes('LIMIT 1000')) return []
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
         const controller = createRuntimeMarketingPageController(() => manager as never)
@@ -168,17 +496,24 @@ describe('runtime marketing page controller', () => {
                 templateKey: 'marketing-page',
                 marketingPage: expect.objectContaining({
                     templateKey: 'marketing-page',
-                    records: expect.arrayContaining([expect.objectContaining({ kind: 'siteSettings' })])
+                    widgets: expect.arrayContaining([
+                        expect.objectContaining({ widgetKey: 'marketing.hero' }),
+                        expect.objectContaining({ widgetKey: 'marketing.collection' })
+                    ])
                 })
             })
         )
         const responsePayload = res.json.mock.calls[0]?.[0] as {
-            marketingPage?: { records?: Array<{ kind?: string; provenance?: Record<string, unknown> }> }
+            marketingPage?: {
+                widgets?: Array<{ widgetKey?: string; data?: { records?: Array<{ kind?: string; provenance?: Record<string, unknown> }> } }>
+            }
         }
-        expect(responsePayload.marketingPage?.records?.find((record) => record.kind === 'siteSettings')?.provenance).toEqual(
+        const heroRecords =
+            responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.hero')?.data?.records ?? []
+        expect(heroRecords.find((record) => record.kind === 'siteSettings')?.provenance).toEqual(
             expect.objectContaining({ isSeeded: true, isAuthored: false, seedKey: 'site-settings' })
         )
-        expect(responsePayload.marketingPage?.records).toEqual(
+        expect(heroRecords).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
                     kind: 'siteSettings',
@@ -190,13 +525,74 @@ describe('runtime marketing page controller', () => {
                 })
             ])
         )
-        expect(manager.query.mock.calls.filter(([sql]) => String(sql).includes('LIMIT 1000')).length).toBe(2)
+        expect(manager.query.mock.calls.filter(([sql]) => String(sql).includes('LIMIT 1000')).length).toBe(marketingObjectRows().length)
+        const featureWidget = responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.collection')
+        expect(featureWidget?.data?.records).toEqual(
+            expect.arrayContaining([expect.objectContaining({ kind: 'sectionCopy', sectionKey: 'features' })])
+        )
+        expect(featureWidget?.data?.records).toEqual(
+            expect.arrayContaining([expect.objectContaining({ kind: 'feature', title: { en: 'Dashboard description' } })])
+        )
+    })
 
-        const payload = res.json.mock.calls[0]?.[0] as {
-            marketingPage?: { config?: { sectionOrder?: string[]; sectionVisibility?: Record<string, boolean> } }
-        }
-        expect(payload.marketingPage?.config?.sectionOrder?.slice(0, 2)).toEqual(['features', 'hero'])
-        expect(payload.marketingPage?.config?.sectionVisibility?.hero).toBe(false)
+    it('prefers an active scoped marketing layout for the requested entity type', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        const scopedWidgets = defaultMarketingWidgetRows().map((row) => ({ ...row, layout_id: scopedMarketingLayoutId }))
+        manager.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('o.kind =')) return [{ id: scopedEntityTypeId, kind: 'object' }]
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true,
+                        version: 3
+                    },
+                    {
+                        id: scopedMarketingLayoutId,
+                        scope_entity_id: scopedEntityTypeId,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true,
+                        version: 7
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return scopedWidgets
+            if (sql.includes('_app_objects')) return marketingObjectRows()
+            if (sql.includes('_app_components')) return []
+            if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
+            if (sql.includes('marketing_section')) return marketingSectionRows()
+            if (sql.includes('LIMIT 1000')) return []
+            throw new Error(`Unexpected runtime query: ${sql}`)
+        })
+
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage(
+            { params: { applicationId }, query: { locale: 'en', entityTypeId: scopedEntityTypeId } } as unknown as Request,
+            res
+        )
+
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                marketingPage: expect.objectContaining({
+                    runtime: expect.objectContaining({
+                        layoutId: scopedMarketingLayoutId,
+                        layoutVersion: 7
+                    })
+                })
+            })
+        )
+        expect(manager.query.mock.calls).toContainEqual([
+            expect.stringContaining('FROM "app_schema"._app_widgets'),
+            [scopedMarketingLayoutId]
+        ])
     })
 
     it('binds workspace rows and reports workspace provenance when a runtime workspace is selected', async () => {
@@ -209,12 +605,25 @@ describe('runtime marketing page controller', () => {
             manager
         })
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_app_layouts')) return [{ template_key: 'marketing-page', config: {} }]
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
             if (sql.includes('_app_objects')) {
-                return [siteSettingsObject]
+                return marketingObjectRows()
             }
             if (sql.includes('_app_components')) return []
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
+            if (sql.includes('marketing_section')) return marketingSectionRows()
+            if (sql.includes('LIMIT 1000')) return []
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
 
@@ -224,9 +633,9 @@ describe('runtime marketing page controller', () => {
         await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
 
         const payload = res.json.mock.calls[0]?.[0] as {
-            marketingPage?: { records?: Array<Record<string, unknown>> }
+            marketingPage?: { widgets?: Array<{ data?: { records?: Array<Record<string, unknown>> } }> }
         }
-        const records = payload.marketingPage?.records ?? []
+        const records = payload.marketingPage?.widgets?.flatMap((widget) => widget.data?.records ?? []) ?? []
         expect(records.find((record) => record.kind === 'siteSettings')).toEqual(
             expect.objectContaining({ scope: 'workspace', provenance: expect.objectContaining({ layer: 'workspace' }) })
         )
@@ -242,21 +651,26 @@ describe('runtime marketing page controller', () => {
         const pricingId = '0190a9b5-3cde-7abc-8def-0123456789af'
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_app_layouts')) return [{ template_key: 'marketing-page', config: {} }]
-            if (sql.includes('_app_objects')) {
+            if (sql.includes('_app_layouts'))
                 return [
-                    siteSettingsObject,
-                    { id: pricingId, codename: 'MarketingPagePricing', table_name: 'marketing_pricing', config: {} },
                     {
-                        id: '0190a9b5-3cde-7abc-8def-0123456789b0',
-                        codename: 'MarketingPagePricingBenefit',
-                        table_name: 'marketing_pricing_benefit',
-                        config: {}
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
                     }
                 ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
+            if (sql.includes('_app_objects')) {
+                return marketingObjectRows().map((object) =>
+                    object.codename === 'MarketingPagePricing' ? { ...object, id: pricingId } : object
+                )
             }
             if (sql.includes('_app_components')) return []
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
+            if (sql.includes('marketing_section')) return marketingSectionRows()
             if (sql.includes('marketing_pricing_benefit')) {
                 return [
                     {
@@ -286,6 +700,7 @@ describe('runtime marketing page controller', () => {
                     }
                 ]
             }
+            if (sql.includes('LIMIT 1000')) return []
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
         const controller = createRuntimeMarketingPageController(() => manager as never)
@@ -294,9 +709,9 @@ describe('runtime marketing page controller', () => {
         await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
 
         const payload = res.json.mock.calls[0]?.[0] as {
-            marketingPage?: { records?: Array<Record<string, unknown>> }
+            marketingPage?: { widgets?: Array<{ data?: { records?: Array<Record<string, unknown>> } }> }
         }
-        const records = payload.marketingPage?.records ?? []
+        const records = payload.marketingPage?.widgets?.flatMap((widget) => widget.data?.records ?? []) ?? []
         expect(records).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ kind: 'pricingBenefit', semanticKey: 'professional-benefit-1' }),
@@ -312,7 +727,18 @@ describe('runtime marketing page controller', () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_app_layouts')) return [{ template_key: 'marketing-page', config: {} }]
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
             if (sql.includes('_app_objects')) {
                 return [siteSettingsObject]
             }
@@ -336,7 +762,18 @@ describe('runtime marketing page controller', () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_app_layouts')) return [{ template_key: 'marketing-page', config: {} }]
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
             if (sql.includes('_app_objects')) {
                 return [
                     siteSettingsObject,
@@ -369,7 +806,18 @@ describe('runtime marketing page controller', () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_app_layouts')) return [{ template_key: 'marketing-page', config: {} }]
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
             if (sql.includes('_app_objects')) return [siteSettingsObject]
             if (sql.includes('_app_components')) return []
             if (sql.includes('marketing_site_settings')) return [{ ...siteSettingsRow, HeroTitle: undefined }]
@@ -387,11 +835,22 @@ describe('runtime marketing page controller', () => {
         })
     })
 
-    it('rejects duplicate section metadata instead of silently overwriting the first row', async () => {
+    it('rejects duplicate section copy instead of silently overwriting the first row', async () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_app_layouts')) return [{ template_key: 'marketing-page', config: {} }]
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
             if (sql.includes('_app_objects')) {
                 return [
                     siteSettingsObject,
@@ -435,7 +894,7 @@ describe('runtime marketing page controller', () => {
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
             code: 'MARKETING_SECTION_DUPLICATE',
-            error: 'Marketing page contains duplicate section metadata.'
+            error: 'Marketing page contains duplicate section copy.'
         })
     })
 })

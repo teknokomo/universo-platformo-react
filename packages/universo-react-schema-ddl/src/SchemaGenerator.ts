@@ -2,7 +2,6 @@ import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo-react/migrations-core'
 import {
     ComponentDefinitionDataType,
-    DASHBOARD_LAYOUT_WIDGETS,
     isObjectRecordBehaviorEnabled,
     isLedgerSchemaCapableEntity,
     normalizeObjectRecordBehaviorFromConfig,
@@ -26,10 +25,6 @@ import { hasPhysicalRuntimeTable, isStandardEnumerationKind, isStandardSetKind }
 
 const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
 const ENTITY_KIND_DB_LENGTH = 64
-const SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS = DASHBOARD_LAYOUT_WIDGETS.filter((widget) => widget.multiInstance === false).map(
-    (widget) => widget.key
-)
-const quoteSqlStringLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 const createCodenameVLC = (primaryLocale: string, codename: string): VersionedLocalizedContent<string> => {
@@ -1204,19 +1199,6 @@ export class SchemaGenerator {
                 CREATE INDEX IF NOT EXISTS idx_app_widgets_layout_active
                 ON "${schemaName}"._app_widgets (layout_id, is_active)
             `)
-            if (SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.length > 0) {
-                const singleInstanceWidgetKeysSql = `ARRAY[${SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.map(quoteSqlStringLiteral).join(
-                    ', '
-                )}]::text[]`
-                await knex.raw(`
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_app_widgets_single_instance_active
-                    ON "${schemaName}"._app_widgets (layout_id, zone, widget_key)
-                    WHERE is_active = true
-                      AND _upl_deleted = false
-                      AND _app_deleted = false
-                      AND widget_key = ANY (${singleInstanceWidgetKeysSql})
-                `)
-            }
             await knex.raw(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_widgets_layout_source_base_active
                 ON "${schemaName}"._app_widgets (layout_id, source_base_widget_id)
