@@ -331,8 +331,10 @@ const createProjectInstanceAndBindThroughBrowser = async (page: Page, api: ApiSe
     )
     await createDialogBinding.getByRole('button', { name: 'Create' }).click()
     await parseJsonResponse(await createBindResponse, `Creating & binding PlayCanvas project ${projectName}`)
+    await expect(createDialogBinding).toHaveCount(0, { timeout: 30_000 })
+    await expect(editDialog.getByText('No PlayCanvas project bound yet')).toHaveCount(0, { timeout: 30_000 })
+    await expect(editDialog.getByText(projectName, { exact: true })).toBeVisible({ timeout: 30_000 })
     const projectId = (await requirePlayCanvasProjectByName(api, metahubId, projectName)).id
-    await expect(editDialog.getByText('No PlayCanvas project bound yet')).toHaveCount(0)
     // Close the edit dialog so subsequent steps start from the instances list.
     await editDialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(editDialog).toHaveCount(0)
@@ -378,7 +380,7 @@ const createStandardEntityThroughBrowser = async (
         // application readiness budget used by the rest of this generator.
         timeout: APP_RUNTIME_TIMEOUT
     })
-    await expect(page.getByRole('heading', { name: labels.heading })).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByRole('heading', { name: labels.heading })).toBeVisible({ timeout: APP_RUNTIME_TIMEOUT })
     await page.getByTestId(toolbarSelectors.primaryAction).click()
     const dialog = page.getByRole('dialog', { name: labels.dialog })
     await expect(dialog).toBeVisible()
@@ -1026,6 +1028,9 @@ const removeDefaultLayoutWidgetsThroughBrowser = async (page: Page, api: ApiCont
     ) ?? []) {
         const widgetId = String(widget.id)
         await page.getByTestId(`layout-widget-remove-${widgetId}`).click()
+        const confirmationDialog = page.getByRole('dialog', { name: 'Remove widget?' })
+        await expect(confirmationDialog).toBeVisible()
+        await confirmationDialog.getByRole('button', { name: 'Remove', exact: true }).click()
         await expect(page.getByTestId(`layout-widget-${widgetId}`)).toHaveCount(0)
     }
 }
