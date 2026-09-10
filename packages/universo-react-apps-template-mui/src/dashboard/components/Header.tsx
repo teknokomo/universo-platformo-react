@@ -15,6 +15,7 @@ export interface HeaderLayoutConfig {
     showDatePicker?: boolean
     showOptionsMenu?: boolean
     showLanguageSwitcher?: boolean
+    showColorMode?: boolean
 }
 
 export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutConfig }) {
@@ -24,6 +25,7 @@ export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutCo
     const showDatePicker = layoutConfig?.showDatePicker ?? true
     const showOptionsMenu = layoutConfig?.showOptionsMenu ?? true
     const showLanguageSwitcher = layoutConfig?.showLanguageSwitcher ?? true
+    const showColorMode = layoutConfig?.showColorMode ?? true
 
     return (
         <Stack
@@ -48,7 +50,7 @@ export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutCo
                         <NotificationsRoundedIcon />
                     </MenuButton>
                 )}
-                <ColorModeIconDropdown aria-label={t('colorMode.label', 'Color mode')} />
+                {showColorMode && <ColorModeIconDropdown aria-label={t('colorMode.label', 'Color mode')} />}
             </Stack>
         </Stack>
     )

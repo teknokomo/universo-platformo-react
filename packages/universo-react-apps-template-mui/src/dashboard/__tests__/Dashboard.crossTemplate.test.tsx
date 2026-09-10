@@ -52,6 +52,7 @@ vi.mock('../components/Header', () => ({
             showDatePicker?: boolean
             showOptionsMenu?: boolean
             showLanguageSwitcher?: boolean
+            showColorMode?: boolean
         }
     }) => (
         <div
@@ -61,6 +62,7 @@ vi.mock('../components/Header', () => ({
             data-show-date-picker={String(layoutConfig?.showDatePicker ?? true)}
             data-show-options-menu={String(layoutConfig?.showOptionsMenu ?? true)}
             data-language-switcher={String(layoutConfig?.showLanguageSwitcher ?? true)}
+            data-show-color-mode={String(layoutConfig?.showColorMode ?? true)}
         />
     )
 }))
@@ -194,9 +196,15 @@ describe('Dashboard zone adapter', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showSideMenu: false, showAppNavbar: false, showHeader: false, showLanguageSwitcher: false }}
+                layoutConfig={{
+                    showSideMenu: true,
+                    showAppNavbar: false,
+                    showHeader: false,
+                    showLanguageSwitcher: false,
+                    sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'wide', rememberUserChoice: false }
+                }}
                 zoneWidgets={{
-                    left: [],
+                    left: [widget('menu-1', 'menuWidget')],
                     top: [widget('navbar-1', 'appNavbar'), widget('header-1', 'header'), widget('language-1', 'languageSwitcher')],
                     bottom: [],
                     center: []
@@ -204,7 +212,7 @@ describe('Dashboard zone adapter', () => {
             />
         )
 
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode-desktop', 'false')
+        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode-desktop', 'true')
         expect(screen.getByTestId('top-shell')).toHaveAttribute('data-language-switcher', 'true')
         expect(screen.getByTestId('top-shell')).toHaveAttribute('data-language-switcher-desktop', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-breadcrumbs', 'false')
@@ -212,6 +220,50 @@ describe('Dashboard zone adapter', () => {
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-date-picker', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-language-switcher', 'true')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
+    })
+
+    it('moves desktop color mode to AppNavbar when persisted Header has no options menu', () => {
+        render(
+            <Dashboard
+                details={details}
+                layoutConfig={{
+                    showSideMenu: true,
+                    showFooter: false,
+                    sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'wide', rememberUserChoice: false }
+                }}
+                zoneWidgets={{
+                    left: [widget('menu-1', 'menuWidget')],
+                    top: [widget('navbar-1', 'appNavbar', 1), widget('header-1', 'header', 2)],
+                    bottom: [],
+                    center: []
+                }}
+            />
+        )
+
+        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode-desktop', 'true')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'false')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
+    })
+
+    it('keeps the persisted options menu owned by Header on desktop and available on mobile', () => {
+        render(
+            <Dashboard
+                details={details}
+                layoutConfig={{ showSideMenu: false, showFooter: false }}
+                zoneWidgets={{
+                    left: [],
+                    top: [widget('navbar-1', 'appNavbar', 1), widget('header-1', 'header', 2), widget('options-1', 'optionsMenu', 3)],
+                    bottom: [],
+                    center: []
+                }}
+            />
+        )
+
+        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode-desktop', 'false')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'true')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'true')
+        expect(screen.getByTestId('top-zone-widget-optionsMenu')).toBeInTheDocument()
     })
 
     it('keeps a persisted language switcher available below the desktop-only Header', () => {

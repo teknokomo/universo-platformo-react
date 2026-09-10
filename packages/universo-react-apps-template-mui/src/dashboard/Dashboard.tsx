@@ -346,6 +346,14 @@ export default function Dashboard(props: DashboardProps) {
         : layout.showLanguageSwitcher !== false
     const headerOwnsLanguageSwitcher = showHeader && languageSwitcherEnabled
     const appNavbarOwnsLanguageSwitcher = showAppNavbar && languageSwitcherEnabled
+    const headerOwnsOptionsMenu =
+        showHeader && (hasPersistedTopComposition ? hasActiveTopWidget('optionsMenu') : layout.showOptionsMenu !== false)
+    const dockedSideMenuModes = availableSideMenuModes.filter((mode): mode is 'wide' | 'compact' => mode === 'wide' || mode === 'compact')
+    const canToggleDockedSideMenuMode = sideMenuEnabled && dockedSideMenuModes.length > 1
+    const canOpenOverlaySideMenu = sideMenuEnabled && availableSideMenuModes.includes('overlay')
+    const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
+    const appNavbarVisibleOnDesktop = showAppNavbar && (sideMenuMode === 'overlay' || canToggleDockedSideMenuMode)
+    const headerOwnsColorMode = showHeader && (headerOwnsOptionsMenu || !appNavbarVisibleOnDesktop)
     const visibleTopWidgets = activeTopWidgets
         .filter((widget) => !SHELL_TOP_WIDGET_KEYS.has(widget.widgetKey))
         .filter((widget) => widget.widgetKey !== 'languageSwitcher' || !appNavbarOwnsLanguageSwitcher)
@@ -355,20 +363,17 @@ export default function Dashboard(props: DashboardProps) {
         .filter((widget) => widget.isActive !== false)
         .slice()
         .sort((left, right) => left.sortOrder - right.sortOrder)
-    const dockedSideMenuModes = availableSideMenuModes.filter((mode): mode is 'wide' | 'compact' => mode === 'wide' || mode === 'compact')
     const lastDockedSideMenuModeRef = useRef<DashboardSideMenuMode>(
         primarySideMenuMode === 'overlay' ? dockedSideMenuModes[0] ?? 'wide' : primarySideMenuMode
     )
-    const canToggleDockedSideMenuMode = sideMenuEnabled && dockedSideMenuModes.length > 1
-    const canOpenOverlaySideMenu = sideMenuEnabled && availableSideMenuModes.includes('overlay')
-    const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
     const headerLayoutConfig = {
         ...layout,
         showBreadcrumbs: hasPersistedTopComposition ? hasActiveTopWidget('breadcrumbs') : layout.showBreadcrumbs,
         showSearch: hasPersistedTopComposition ? hasActiveTopWidget('search') : layout.showSearch,
         showDatePicker: hasPersistedTopComposition ? hasActiveTopWidget('datePicker') : layout.showDatePicker,
-        showOptionsMenu: hasPersistedTopComposition ? hasActiveTopWidget('optionsMenu') : layout.showOptionsMenu,
-        showLanguageSwitcher: headerOwnsLanguageSwitcher
+        showOptionsMenu: headerOwnsOptionsMenu,
+        showLanguageSwitcher: headerOwnsLanguageSwitcher,
+        showColorMode: headerOwnsColorMode
     }
 
     useEffect(() => {
@@ -484,7 +489,7 @@ export default function Dashboard(props: DashboardProps) {
                         reserveDockedSideMenuWidth={sideMenuMode !== 'overlay'}
                         showLanguageSwitcher={appNavbarOwnsLanguageSwitcher}
                         showLanguageSwitcherOnDesktop={!headerOwnsLanguageSwitcher}
-                        showColorModeOnDesktop={!showHeader}
+                        showColorModeOnDesktop={!headerOwnsColorMode}
                         onToggleDockedSideMenuMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
                         onOpenSideMenu={openOverlaySideMenu}
                     />
@@ -526,7 +531,8 @@ export default function Dashboard(props: DashboardProps) {
                                     width: '100%',
                                     minWidth: 0,
                                     display:
-                                        widget.widgetKey === 'languageSwitcher' && headerOwnsLanguageSwitcher
+                                        (widget.widgetKey === 'languageSwitcher' && headerOwnsLanguageSwitcher) ||
+                                        (widget.widgetKey === 'optionsMenu' && headerOwnsOptionsMenu)
                                             ? { xs: 'flex', md: 'none' }
                                             : undefined
                                 }}
