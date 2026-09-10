@@ -379,6 +379,48 @@ export async function expectDataGridHorizontalScrollConstrained(page: Page, labe
     }
 }
 
+/**
+ * Verify that a FlowListTable keeps optional horizontal scrolling inside its
+ * named table container instead of widening the document.
+ *
+ * The caller supplies the existing FlowListTable container locator. This
+ * helper deliberately does not choose a product selector or test id.
+ */
+export async function expectTableHorizontalScrollConstrained(surface: Locator, label: string): Promise<void> {
+    await expect(surface, `${label} must contain a visible FlowListTable surface`).toBeVisible()
+
+    const metrics = await surface.evaluate((node) => {
+        const root = node as HTMLElement
+        const table = root.matches('table') ? root : root.querySelector('table')
+        const viewportWidth = document.documentElement.clientWidth
+        const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0)
+        const rootRect = root.getBoundingClientRect()
+        const rootStyle = window.getComputedStyle(root)
+
+        return {
+            hasTable: Boolean(table),
+            viewportWidth,
+            pageOverflowPx: Math.max(0, documentWidth - viewportWidth),
+            rootLeft: rootRect.left,
+            rootRight: rootRect.right,
+            rootClientWidth: root.clientWidth,
+            rootScrollWidth: root.scrollWidth,
+            rootOverflowPx: Math.max(0, root.scrollWidth - root.clientWidth),
+            overflowX: rootStyle.overflowX,
+            tableScrollWidth: table?.scrollWidth ?? 0
+        }
+    })
+
+    expect(metrics.hasTable, `${label} must contain a semantic table`).toBe(true)
+    expect(metrics.rootLeft, `${label} must start inside the viewport`).toBeGreaterThanOrEqual(-1)
+    expect(metrics.rootRight, `${label} must fit inside the viewport`).toBeLessThanOrEqual(metrics.viewportWidth + 1)
+    expect(metrics.pageOverflowPx, `${label} must not widen the page`).toBeLessThanOrEqual(1)
+
+    if (metrics.rootOverflowPx > 1 || metrics.tableScrollWidth > metrics.rootClientWidth + 1) {
+        expect(['auto', 'scroll'], `${label} may scroll only inside its named container`).toContain(metrics.overflowX)
+    }
+}
+
 export const waitForLayoutFrame = async (page: Page) =>
     page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
 

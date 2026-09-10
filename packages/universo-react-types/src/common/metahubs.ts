@@ -7,6 +7,7 @@ import type { EntityTypeUIConfig } from './entityTypeDefinition'
 import type { SharedBehavior } from './shared'
 import type { DashboardSideMenuConfig } from './dashboardLayout'
 import type { ModuleAttachmentKind, ModuleCapability, ModuleRole, ModuleSourceKind } from './modules'
+import type { ApplicationTemplateHostCapability, LayoutSemanticRegion } from './applicationTemplates'
 
 /**
  * Supported component data types.
@@ -833,6 +834,15 @@ export interface EnumerationValueDefinition {
 export const DASHBOARD_LAYOUT_ZONES = ['left', 'top', 'right', 'bottom', 'center'] as const
 export type DashboardLayoutZone = (typeof DASHBOARD_LAYOUT_ZONES)[number]
 
+/** Explicit semantic mapping for the Dashboard's persisted physical zones. */
+export const DASHBOARD_LAYOUT_ZONE_SEMANTICS = {
+    left: 'sidebar',
+    top: 'header',
+    right: 'auxiliary',
+    bottom: 'footer',
+    center: 'main'
+} as const satisfies Readonly<Record<DashboardLayoutZone, LayoutSemanticRegion>>
+
 export const DASHBOARD_LAYOUT_WIDGETS = [
     // Left zone widgets (decomposed from former monolithic sideMenu)
     { key: 'brandSelector', allowedZones: ['left'] as const, multiInstance: true },
@@ -843,13 +853,24 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'infoCard', allowedZones: ['left', 'right'] as const, multiInstance: true },
     { key: 'userProfile', allowedZones: ['left'] as const, multiInstance: true },
     // Top zone widgets
-    { key: 'appNavbar', allowedZones: ['top'] as const, multiInstance: true },
-    { key: 'header', allowedZones: ['top'] as const, multiInstance: true },
+    { key: 'appNavbar', allowedZones: ['top'] as const, multiInstance: false },
+    { key: 'header', allowedZones: ['top'] as const, multiInstance: false },
     { key: 'breadcrumbs', allowedZones: ['top'] as const, multiInstance: true },
     { key: 'search', allowedZones: ['top'] as const, multiInstance: true },
     { key: 'datePicker', allowedZones: ['top'] as const, multiInstance: true },
     { key: 'optionsMenu', allowedZones: ['top'] as const, multiInstance: true },
-    { key: 'languageSwitcher', allowedZones: ['top'] as const, multiInstance: true },
+    {
+        key: 'languageSwitcher',
+        allowedZones: ['top'] as const,
+        multiInstance: true,
+        requiredHostCapabilities: [
+            'locale.state',
+            'locale.change',
+            'keyboard.focus',
+            'accessibility.label',
+            'theme.safe'
+        ] as const satisfies readonly ApplicationTemplateHostCapability[]
+    },
     // Center zone widgets
     { key: 'overviewTitle', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'overviewCards', allowedZones: ['center'] as const, multiInstance: true },
@@ -866,7 +887,6 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'resourcePreview', allowedZones: ['center', 'right'] as const, multiInstance: true },
     { key: 'learnerPlayer', allowedZones: ['center'] as const, multiInstance: true },
     // Right zone widgets
-    { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: true },
     { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: true },
     { key: 'usersByCountryChart', allowedZones: ['center', 'right'] as const, multiInstance: true },
     // Bottom zone widgets
@@ -879,6 +899,7 @@ export type DashboardLayoutWidgetDefinition = {
     key: DashboardLayoutWidgetKey
     allowedZones: readonly DashboardLayoutZone[]
     multiInstance: boolean
+    requiredHostCapabilities?: readonly ApplicationTemplateHostCapability[]
 }
 
 /** Configuration for the menuWidget — embeds menu definition directly in widget config. */

@@ -1,4 +1,4 @@
-import { Router, type RequestHandler } from 'express'
+import { Router, type Request, type RequestHandler } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { createRateLimiters } from '@universo-react/utils/rate-limiting'
@@ -42,11 +42,18 @@ export function createApplicationsServiceRoutes(
     loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRuntimeSource,
     options: {
         /**
-         * Schema sync performs long-running DDL and manages its own explicit
-         * transaction boundaries. It must not be wrapped in the request RLS
-         * transaction used by regular CRUD/runtime routes.
+         * Schema sync performs long-running DDL in its own explicit trusted
+         * transactions. It must not use the request-scoped RLS transaction,
+         * because that transaction would retain metadata row locks while the
+         * DDL transaction persists the final sync state. The sync controller
+         * performs the owner/admin authorization check before entering DDL.
          */
         syncEnsureAuth?: RequestHandler
+        /**
+         * Resolves the request-scoped executor for sync/diff routes. There is
+         * deliberately no pool fallback: missing RLS context must fail closed.
+         */
+        getRequestDbExecutor?: (req: Request) => DbExecutor
     } = {}
 ): Router {
     const router = Router()
@@ -54,9 +61,14 @@ export function createApplicationsServiceRoutes(
     const { read, write } = getRateLimiters()
     const loadPublishedApplicationSyncContext = createLoadPublishedApplicationSyncContext(loadPublishedPublicationRuntimeSource)
     const syncEnsureAuth = options.syncEnsureAuth ?? ensureAuth
+    const getRequestScopedDbExecutor =
+        options.getRequestDbExecutor ??
+        ((_req: Request): DbExecutor => {
+            throw new Error('Request-scoped database executor is required for application sync routes')
+        })
 
     // Core applications CRUD
-    router.use('/applications', createApplicationsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/applications', createApplicationsRoutes(ensureAuth, getDbExecutor, read, write, getRequestScopedDbExecutor))
 
     // Public runtime access for guest/anonymous flows
     router.use('/', createPublicApplicationsRoutes(getDbExecutor, read, write))

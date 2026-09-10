@@ -10,6 +10,9 @@ import type {
     ResourceSource
 } from '@universo-react/types'
 
+export const MARKETING_NAVIGATION_BAR_HEIGHT_PX = 48
+export const MARKETING_NAVIGATION_STACK_GAP_PX = 16
+
 export type MarketingActionKind = 'internal' | 'external' | 'mailto' | 'tel'
 
 export interface MarketingAction {
@@ -240,6 +243,24 @@ export interface MarketingPageData {
     richContent?: MarketingPageRuntimeViewModel['marketingPage']['richContent']
 }
 
+/** Layout-owned shared capabilities stay separate from marketing content widgets. */
+export interface MarketingLayoutWidgetReference {
+    id: string
+    widgetKey: string
+    zone: string
+    sortOrder: number
+    isActive: boolean
+}
+
+export interface MarketingRenderOptions {
+    showLanguageSwitcher?: boolean
+    navigationInstanceKey?: string
+    navigationAriaLabel?: string
+    navigationPosition?: 'fixed' | 'static'
+    navigationStackIndex?: number
+    heroBackgroundOwner?: 'widget' | 'page'
+}
+
 export type MarketingFormSource = 'hero' | 'footer'
 
 export type MarketingActionHandler = (action: MarketingAction) => void
@@ -247,6 +268,7 @@ export type MarketingLeadHandler = (email: string, source: MarketingFormSource) 
 
 export interface MarketingPageProps {
     data: MarketingPageData
+    sharedLayoutWidgets?: readonly MarketingLayoutWidgetReference[]
     onAction?: MarketingActionHandler
     onLeadSubmit?: MarketingLeadHandler
 }

@@ -157,18 +157,21 @@ export function createSyncController(
                 throw error
             }
 
-            const syncSchema = z.object({
-                confirmDestructive: z.boolean().optional().default(false),
-                layoutResolutionPolicy: z
-                    .object({
-                        default: z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']).optional(),
-                        bySourceLayoutId: z
-                            .record(z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']))
-                            .optional()
-                    })
-                    .optional(),
-                schemaOptions: connectorSchemaOptionsSchema.optional()
-            })
+            const syncSchema = z
+                .object({
+                    confirmDestructive: z.boolean().optional().default(false),
+                    layoutResolutionPolicy: z
+                        .object({
+                            default: z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']).optional(),
+                            bySourceLayoutId: z
+                                .record(z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']))
+                                .optional()
+                        })
+                        .strict()
+                        .optional(),
+                    schemaOptions: connectorSchemaOptionsSchema.optional()
+                })
+                .strict()
             const parsed = syncSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
@@ -259,7 +262,8 @@ export function createSyncController(
                 if (application.schemaName) {
                     const layoutChanges = await buildApplicationLayoutChanges({
                         schemaName: application.schemaName,
-                        snapshot: runtimeSnapshot
+                        snapshot: runtimeSnapshot,
+                        executor: exec
                     })
                     const requiredLayoutChanges = layoutChanges.filter(requiresExplicitLayoutResolution)
                     const defaultResolution = parsed.data.layoutResolutionPolicy?.default
@@ -465,10 +469,12 @@ export function createSyncController(
                 throw error
             }
 
-            const applySchema = z.object({
-                confirmDestructive: z.boolean().optional().default(false),
-                bundle: applicationReleaseBundleSchema
-            })
+            const applySchema = z
+                .object({
+                    confirmDestructive: z.boolean().optional().default(false),
+                    bundle: applicationReleaseBundleSchema
+                })
+                .strict()
             const parsed = applySchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
@@ -658,11 +664,11 @@ export function createSyncController(
                 executableCatalogDefs,
                 workspaceMode.effectiveWorkspacesEnabled
             )
-            const layoutChanges = await buildApplicationLayoutChanges({ schemaName, snapshot: runtimeSnapshot })
+            const layoutChanges = await buildApplicationLayoutChanges({ schemaName, snapshot: runtimeSnapshot, executor: exec })
             if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
-                const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot: runtimeSnapshot })
-                const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot: runtimeSnapshot })
-                const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot: runtimeSnapshot })
+                const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot: runtimeSnapshot, executor: exec })
+                const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot: runtimeSnapshot, executor: exec })
+                const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot: runtimeSnapshot, executor: exec })
                 const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate || layoutChanges.length > 0
                 return res.json({
                     ...workspaceRuntimePayload,
@@ -690,9 +696,9 @@ export function createSyncController(
             const diff = migrator.calculateDiff(oldSnapshot, executableCatalogDefs)
             const hasDestructiveChanges = diff.destructive.length > 0
 
-            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot: runtimeSnapshot })
-            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot: runtimeSnapshot })
-            const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot: runtimeSnapshot })
+            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot: runtimeSnapshot, executor: exec })
+            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot: runtimeSnapshot, executor: exec })
+            const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot: runtimeSnapshot, executor: exec })
             const addedTableEntityIds = new Set<string>(
                 diff.additive
                     .filter((change: SchemaChange) => change.type === 'ADD_TABLE' && Boolean(change.entityId))

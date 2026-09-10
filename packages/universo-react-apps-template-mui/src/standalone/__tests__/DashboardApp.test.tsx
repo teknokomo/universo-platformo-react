@@ -31,7 +31,15 @@ vi.mock('../../api/adapters', () => ({
 }))
 
 vi.mock('@tanstack/react-query', () => ({
-    useQuery: () => ({ isLoading: false, isError: false, data: { templateKey: dashboardMocks.templateKey } })
+    useQuery: () => ({
+        isLoading: false,
+        isError: false,
+        data: {
+            status: 'ok',
+            layout: { templateKey: dashboardMocks.templateKey, config: {} },
+            widgets: []
+        }
+    })
 }))
 
 vi.mock('../../marketing-page/MarketingRuntimeContent', () => ({
@@ -237,7 +245,7 @@ describe('DashboardApp', () => {
         window.history.pushState({}, '', '/')
     })
 
-    it('renders the marketing runtime only at the standalone application root', () => {
+    it('renders the marketing runtime from the effective template at the standalone application root', () => {
         dashboardMocks.templateKey = 'marketing-page'
         window.history.pushState({}, '', '/a/app-1')
 
@@ -247,14 +255,74 @@ describe('DashboardApp', () => {
         expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
     })
 
-    it('keeps standalone workspace routes on the dashboard runtime for marketing applications', () => {
+    it('renders a scoped marketing layout on a standalone entity route', () => {
         dashboardMocks.templateKey = 'marketing-page'
-        window.history.pushState({}, '', '/a/app-1/workspaces')
+        window.history.pushState(
+            {},
+            '',
+            '/a/app-1/019fa968-aac3-7ce7-9717-79e7c6c6e77e?targetKind=page&entityTypeId=019fa968-aac3-7ce7-9717-79e7c6c6e77e'
+        )
 
         render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
 
-        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1:list:dashboard')
-        expect(screen.queryByTestId('marketing-runtime-content')).not.toBeInTheDocument()
+        expect(screen.getByTestId('marketing-runtime-content')).toHaveTextContent('marketing')
+        expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
+    })
+
+    it('fails closed for an invalid standalone target instead of loading the global layout', () => {
+        window.history.pushState({}, '', '/a/app-1?targetKind=unsupported')
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByRole('alert')).toHaveTextContent('The runtime target in this URL is invalid.')
+        expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
+    })
+
+    it('adds validated Page and Object target selectors to standalone section links', () => {
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
+        const pageId = '0190a9b5-3cde-7abc-8def-0123456789ad'
+        const objectId = '0190a9b5-3cde-7abc-8def-0123456789ae'
+        window.history.pushState({}, '', `/a/${applicationId}?locale=ru&workspaceId=workspace-1`)
+        dashboardMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: false,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: { id: pageId, name: 'Landing', kind: 'page', codename: 'Landing' },
+                section: { id: pageId, name: 'Landing', kind: 'page', codename: 'Landing' },
+                activeObjectCollectionId: pageId,
+                activeSectionId: pageId,
+                objectCollections: [{ id: objectId, name: 'Products', kind: 'object', codename: 'Products', tableName: 'obj_products' }],
+                sections: [{ id: pageId, name: 'Landing', kind: 'page', codename: 'Landing' }]
+            },
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [
+                    { id: 'landing', label: 'Landing', kind: 'section', sectionId: pageId, selected: false },
+                    { id: 'products', label: 'Products', kind: 'section', objectCollectionId: objectId, selected: false }
+                ]
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='ru' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
+            `Landing:false:/a/${applicationId}/${pageId}?locale=ru&workspaceId=workspace-1&targetKind=page&entityTypeId=${pageId}`
+        )
+        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
+            `Products:false:/a/${applicationId}/${objectId}?locale=ru&workspaceId=workspace-1&targetKind=object&entityTypeId=${objectId}`
+        )
     })
 
     it('keeps dialog surface by default when no page runtime surface is configured', () => {

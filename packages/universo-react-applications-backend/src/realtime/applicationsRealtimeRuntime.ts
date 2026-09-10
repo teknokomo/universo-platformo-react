@@ -1835,50 +1835,53 @@ export const attachApplicationsRealtimeRuntime = async (
         socket.destroy()
     }
 
-    const filteredServer =
-        options.shouldHandleUpgrade || options.isOriginAllowed
-            ? new Proxy(server, {
-                  get(target, prop, receiver) {
-                      if (prop === 'on' || prop === 'addListener') {
-                          return (event: string, listener: (...args: unknown[]) => void) => {
-                              if (event !== 'upgrade') {
-                                  target.on(event, listener)
-                                  return receiver
-                              }
-                              const wrapped = (...args: unknown[]) => {
-                                  const [request, socket, head] = args
-                                  const incomingRequest = request as IncomingMessage
-                                  if (options.shouldHandleUpgrade?.(incomingRequest) === false) return
-                                  if (options.isOriginAllowed?.(incomingRequest) === false) {
-                                      rejectUpgrade(socket as Socket | undefined)
-                                      return
-                                  }
-                                  listener(request, socket, head)
-                              }
-                              upgradeListeners.set(listener, wrapped)
-                              target.on('upgrade', wrapped)
-                              return receiver
-                          }
-                      }
-                      if (prop === 'off' || prop === 'removeListener') {
-                          return (event: string, listener: (...args: unknown[]) => void) => {
-                              if (event !== 'upgrade') {
-                                  target.removeListener(event, listener)
-                                  return receiver
-                              }
-                              const wrapped = upgradeListeners.get(listener)
-                              if (wrapped) {
-                                  target.removeListener('upgrade', wrapped)
-                                  upgradeListeners.delete(listener)
-                              }
-                              return receiver
-                          }
-                      }
-                      const value = Reflect.get(target, prop, receiver)
-                      return typeof value === 'function' ? value.bind(target) : value
-                  }
-              })
-            : server
+    // The runtime is mounted on a shared HTTP server. A caller that forgets to
+    // provide the production origin policy must not silently expose the
+    // WebSocket upgrade endpoint. Tests and explicit local harnesses can opt in
+    // with their own validator.
+    const isOriginAllowed = options.isOriginAllowed ?? (() => false)
+
+    const filteredServer = new Proxy(server, {
+        get(target, prop, receiver) {
+            if (prop === 'on' || prop === 'addListener') {
+                return (event: string, listener: (...args: unknown[]) => void) => {
+                    if (event !== 'upgrade') {
+                        target.on(event, listener)
+                        return receiver
+                    }
+                    const wrapped = (...args: unknown[]) => {
+                        const [request, socket, head] = args
+                        const incomingRequest = request as IncomingMessage
+                        if (options.shouldHandleUpgrade?.(incomingRequest) === false) return
+                        if (!isOriginAllowed(incomingRequest)) {
+                            rejectUpgrade(socket as Socket | undefined)
+                            return
+                        }
+                        listener(request, socket, head)
+                    }
+                    upgradeListeners.set(listener, wrapped)
+                    target.on('upgrade', wrapped)
+                    return receiver
+                }
+            }
+            if (prop === 'off' || prop === 'removeListener') {
+                return (event: string, listener: (...args: unknown[]) => void) => {
+                    if (event !== 'upgrade') {
+                        target.removeListener(event, listener)
+                        return receiver
+                    }
+                    const wrapped = upgradeListeners.get(listener)
+                    if (wrapped) {
+                        target.removeListener('upgrade', wrapped)
+                        upgradeListeners.delete(listener)
+                    }
+                    return receiver
+                }
+            }
+            const value = Reflect.get(target, prop, receiver)
+            return typeof value === 'function' ? value.bind(target) : value
+        }
+    })
 
     const gameServer = new Server({
         presence: new LocalPresence(),

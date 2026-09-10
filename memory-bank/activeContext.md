@@ -2,7 +2,163 @@
 
 > Current-focus memory only. Completed implementation detail belongs in progress.md; active and follow-up checklists belong in tasks.md.
 
-The active focus is the **completed PlayCanvas Editor assets pipeline + MMOOMM
+## Marketing-page top-bar regression fix (2026-09-10)
+
+The published marketing runtime now preserves the original MUI demo geometry
+and applies one current policy to every active Navigation instance: every
+`marketing.navigation` AppBar is fixed, receives a deterministic vertical stack
+offset, and remains visible while the document scrolls behind it. The page
+reserves the complete stack height, so repeated bars render one below another
+without overlaying or displacing the page background. The first instance still
+owns the shared language control and navigation shell state; the widget-level
+position setting remains available for the future configuration contract.
+
+The focused apps-template Vitest run passed 15/15 tests, and package lint and
+typecheck passed. The fresh local minimal-Supabase cross-template Playwright
+wrapper passed 4/4 Chromium scenarios after the full workspace build. Its new
+browser oracles verified all-repeated `fixed` positioning, non-overlapping
+stack geometry, Hero `top=0`, stable navigation coordinates after scrolling,
+repeated navigation order, responsive 390/768/1440 coverage, no horizontal
+overflow, and an empty console/page/request-failure/API-error issue set. They
+also verify that a single-navigation page keeps the gradient on Hero, while
+repeated navigation moves the gradient to the page root and disables the
+duplicate Hero background. Inspected artifacts include the initial and
+post-scroll repeated-navigation screenshots, the single-navigation scrolled
+view, tablet, and RU mobile marketing screenshots.
+
+No schema, migration, or metahub-template version changed. The worktree was
+already broadly dirty from the preceding implementation; direct source remains
+authoritative while OntoIndex is based on an earlier committed snapshot. The
+Thermos/autoreview helper was rerun with a 600-second limit but produced no
+structured report; no clean external review claim is made. Final OntoIndex
+`gn_verify_diff` passed against the complete 195-file dirty-worktree allowlist
+with no unexpected files, symbols, impacted symbols, or missing test evidence.
+
+## Unified layout post-QA implementation closeout (2026-09-09)
+
+The latest post-QA implementation is complete for the hosted application
+runtime. Repeated marketing Navigation instances now occupy independent
+vertical flow positions; Dashboard rendering treats persisted composition as
+authoritative; application-owned versus inherited lineage is explicit; and
+copy, seed, sync, delete, and reset paths preserve UUID v7 identity,
+`instanceKey`, optimistic versions, and source lineage without a schema,
+migration, or metahub-template version bump.
+
+The final local minimal-Supabase cross-template Playwright wrapper passed 4/4
+Chromium scenarios after a 36-package workspace build. Its inspected
+screenshots prove three visible non-overlapping marketing Navigation instances,
+scoped Dashboard rendering, RU mobile controls, and responsive marketing
+layout. The browser gate also collected console/pageerror/requestfailed data;
+the final issue set was empty. Full applications-backend and
+metahubs-backend Jest suites, the focused apps-template Vitest suite,
+applications-frontend/types/utils checks, package lint/typecheck/build, seed
+contract, i18n/provenance, isolation, MUI policy, runtime-fork, Prettier, and
+diff checks pass.
+
+The standalone browser wrapper remains an explicit BLOCKED environment gate
+because this checkout has no separately configured authenticated standalone
+host and entity-type IDs; no standalone acceptance claim is made. OntoIndex
+`gn_verify_diff` passes for the complete dirty-worktree allowlist, while the
+index status correctly remains dirty/degraded until a commit or clean snapshot
+is available. The Thermos autoreview helper reached its ten-minute limit
+without a structured report, and replacement review agents were unavailable
+because of the external usage limit; no automated clean-review verdict is
+claimed. Direct security checks found no newly introduced DOM injection,
+dynamic-code, shell-execution, dynamic SQL/Knex-boundary, or unsafe redirect
+sinks in the changed surfaces.
+
+The active focus is the **completed Unified Application Template Widgets and
+Entity-Scoped Layouts** implementation on branch
+`feature/playcanvas-editor-assets-and-mmoomm-scripts` (plan:
+`memory-bank/plan/unified-application-template-widgets-scoped-layouts-plan-2026-09-07.md`,
+research:
+`memory-bank/research/unified-application-template-widgets-scoped-layouts-research-2026-09-07.md`,
+brief: external MANAGER brief
+`unified-application-template-widgets-and-scoped-layouts-spec-2026-09-07.md`,
+checklist + evidence log: top of `tasks.md`). The target-aware effective-layout
+route, shared widget registry, scoped cross-template selection, responsive
+shell ownership, i18n, focused tests, and minimal-Supabase browser evidence are
+complete without a schema, snapshot, or metahub-template version bump.
+
+The implementation closeout passed the hosted cross-template flow 4/4 after a
+36-package workspace build. Fresh screenshots cover Marketing desktop, RU
+mobile, tablet, scoped Dashboard desktop, and scoped Dashboard RU mobile; the
+normal visible target links lead into the entity-scoped runtime, where the
+existing table and shared LanguageSwitcher render without UUID/internal-key
+leakage or page-level horizontal overflow. The later marketing wrapper passed
+9 Chromium lifecycle tests with one intentional standalone skip, the visual
+matrix passed 5/5, and the real layout-details screenshot contains no runtime
+error alert. Standalone browser proof is not claimed because no separate
+authenticated standalone deployment is configured; the wrapper records this as
+an explicit BLOCKED environment gate and direct standalone/component coverage
+remains in the repository. Full applications-backend, metahubs-backend, utils,
+and applications-frontend package suites pass; the apps-template Vitest package
+suite now passes serially after its stale aggregate-endpoint mocks and one
+cell-create mutation ordering defect were repaired. The latest local autoreview
+invocation ran for twenty minutes
+without a structured report and was interrupted; earlier attempts were also
+blocked by the environment-owned Codex state database. No clean external review
+verdict is claimed. OntoIndex is dirty/degraded, so direct source and executed
+tests remain authoritative.
+
+The final continuation also routes marketing applications' workspace subpaths
+through the existing shared workspace runtime instead of falling back to the
+marketing landing page. The complete marketing wrapper passed its Chromium
+lifecycle phase with 9 passes and one intentional standalone skip, its visual
+matrix passed 5/5, and the documentation/provenance gates passed. The
+applications-frontend package lint and 33-file/253-test package run passed; the
+current task checklist is fully closed except for the explicitly unavailable
+external review verdict. The apps-template package now passes its full serial
+run: 54 test files and 732 tests, with package lint and TypeScript build clean.
+
+## QA remediation closeout (2026-09-08)
+
+The follow-up QA findings are implemented without a schema, migration, or
+metahub-template version change. Hosted and standalone runtime dispatch now
+selects `marketing-page` for scoped entity routes by the resolved template key;
+the marketing controller and effective-layout resolver share the custom-object
+kind predicate; repeated marketing navigation widgets have unique drawer ids;
+the shared LanguageSwitcher has one shell owner; content requests bind to the
+host layout through an expected effective-hash handshake; and authoring scope
+validation accepts only runtime-supported Page/custom-Object entities.
+
+Application-owned layout deletion remains a fail-closed tombstone operation
+with `RETURNING` confirmation. Request-scoped authentication, application
+access checks, workspace checks, role-aware effective-layout resolution,
+parameterized schema-qualified SQL, UUID v7 validation, and transaction/version
+guards are preserved. Effective-layout resolution re-reads the application and
+selected candidate inside its transaction; a two-request marketing read with a
+changed hash returns a localized stale-layout conflict instead of publishing a
+torn result.
+
+The latest local minimal-Supabase cross-template Playwright run passed 4/4 and
+produced the scoped marketing and scoped Dashboard screenshots plus desktop,
+tablet, and RU-mobile evidence. The latest two-session optimistic-version
+concurrency gate passed 2/2 with one committed `200` and one expected `409`.
+Focused Vitest/Jest suites passed 9 backend suites / 400 tests plus the
+real-server reconnect suite 5/5; package lint/typecheck/build, documentation,
+static isolation, and diff checks are the authoritative verification gates. The
+standalone wrapper is intentionally fail-closed and records `BLOCKED` when its
+separately configured authenticated shell variables are absent; this environment
+does not claim standalone browser evidence. The stale structure-create and
+matrix-move mocks in `InterpretationNetworkWorkspaceWidget.test.tsx` now use the
+current aggregate response contracts, and the cell-create mutation resolves its
+system-field allowlist before stripping server-owned fields. The full serial
+apps-template run passes 54 files/732 tests; no product test was changed to mask
+a failure. Vitest still emits non-failing React `act(...)` warnings from
+existing FormDialog/ResourcePreview test paths; no warning is treated as a pass.
+
+The final security/data-integrity remediation also uses a true UUID v7 timestamp
+for deterministic generated widget lineage, defaults the shared realtime Origin
+validator to deny when omitted, filters inactive layouts from published and
+inherited reads, converges source-removal tombstones, and validates scoped-layout
+query parameters as UUID v7 values with mutually exclusive global scope. No
+schema, migration, or metahub-template version was changed and no legacy layer
+was retained.
+
+## Historical PlayCanvas context
+
+The previous active focus was the **completed PlayCanvas Editor assets pipeline + MMOOMM
 script assets** implementation on branch
 `feature/playcanvas-editor-assets-and-mmoomm-scripts` (plan:
 `memory-bank/plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md`,
@@ -260,3 +416,9 @@ Domain-concept names still allowed (not the renamed entity type):
 -   [techContext.md](techContext.md)
 -   [projectbrief.md](projectbrief.md) — refreshed 2026-06-18 (version, `project` preset, `playcanvas` template).
 -   [productContext.md](productContext.md) — refreshed 2026-06-18 (version, PlayCanvas binding).
+
+## Unified layout continuation: final browser regression closure — 2026-09-09
+
+-   The canonical Interpretation Network snapshot was regenerated through the documented Playwright create/configure/export flow. The generator now sends the required `expectedVersion`, and the tracked fixture carries the current global independent-layout composition contract.
+-   The fixture contract and generated-fixture drift gate both pass. The focused local minimal-Supabase Playwright flow passes 2/2 after exercising the real language switcher, reload persistence, Russian child-cell creation, UUID v7 response validation, hidden system-field protection, localized validation, no technical leakage, and no page-level overflow.
+-   The successful browser artifact `test-results/flows-interpretation-netwo-1ca82-acement-controls-are-hidden-chromium/interpretation-network-child-cell-ru.png` was visually inspected. It shows the localized two-pane Matrix/Materials surface with the created child cell and no raw identifiers or error state.

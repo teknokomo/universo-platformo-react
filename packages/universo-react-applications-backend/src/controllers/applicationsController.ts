@@ -690,23 +690,25 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         )
         if (!application) return res.status(404).json({ error: 'Application not found' })
 
-        const schema = z.object({
-            name: localizedInputSchema.optional(),
-            description: optionalLocalizedInputSchema.optional(),
-            settings: applicationSettingsUpdateSchema.optional(),
-            namePrimaryLocale: z.string().optional(),
-            descriptionPrimaryLocale: z.string().optional(),
-            slug: z
-                .string()
-                .min(1)
-                .max(100)
-                .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
-                .nullable()
-                .optional(),
-            isPublic: z.boolean().optional(),
-            workspacesEnabled: z.boolean().optional(),
-            expectedVersion: z.number().int().positive().optional()
-        })
+        const schema = z
+            .object({
+                name: localizedInputSchema.optional(),
+                description: optionalLocalizedInputSchema.optional(),
+                settings: applicationSettingsUpdateSchema.optional(),
+                namePrimaryLocale: z.string().optional(),
+                descriptionPrimaryLocale: z.string().optional(),
+                slug: z
+                    .string()
+                    .min(1)
+                    .max(100)
+                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
+                    .nullable()
+                    .optional(),
+                isPublic: z.boolean().optional(),
+                workspacesEnabled: z.boolean().optional(),
+                expectedVersion: z.number().int().positive().optional()
+            })
+            .strict()
 
         const result = schema.safeParse(req.body)
         if (!result.success) {
@@ -1071,14 +1073,18 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         const ds = getRequestDbExecutor(req, getDbExecutor())
         await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
-        const payloadSchema = z.object({
-            limits: z.array(
-                z.object({
-                    objectId: z.string().uuid(),
-                    maxRows: z.number().int().positive().nullable()
-                })
-            )
-        })
+        const payloadSchema = z
+            .object({
+                limits: z.array(
+                    z
+                        .object({
+                            objectId: z.string().uuid(),
+                            maxRows: z.number().int().positive().nullable()
+                        })
+                        .strict()
+                )
+            })
+            .strict()
 
         const parsed = payloadSchema.safeParse(req.body)
         if (!parsed.success) {
@@ -1186,12 +1192,14 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
 
         await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
-        const schema = z.object({
-            email: z.string().email(),
-            role: z.enum(['member', 'editor', 'admin']).default('member'),
-            comment: memberCommentInputSchema.nullable().optional(),
-            commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
-        })
+        const schema = z
+            .object({
+                email: z.string().email(),
+                role: z.enum(['member', 'editor', 'admin']).default('member'),
+                comment: memberCommentInputSchema.nullable().optional(),
+                commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
+            })
+            .strict()
 
         const result = schema.safeParse(req.body)
         if (!result.success) {
@@ -1294,11 +1302,13 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
 
         assertNotOwner(member, 'Cannot modify owner role')
 
-        const schema = z.object({
-            role: z.enum(['member', 'editor', 'admin']).optional(),
-            comment: memberCommentInputSchema.nullable().optional(),
-            commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
-        })
+        const schema = z
+            .object({
+                role: z.enum(['member', 'editor', 'admin']).optional(),
+                comment: memberCommentInputSchema.nullable().optional(),
+                commentPrimaryLocale: z.string().trim().min(2).max(16).optional()
+            })
+            .strict()
 
         const result = schema.safeParse(req.body)
         if (!result.success) {

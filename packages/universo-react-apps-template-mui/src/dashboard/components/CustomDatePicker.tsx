@@ -7,6 +7,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DatePicker, DatePickerFieldProps } from '@mui/x-date-pickers/DatePicker'
 import { useParsedFormat, usePickerContext, useSplitFieldProps } from '@mui/x-date-pickers'
+import { useTranslation } from 'react-i18next'
 
 interface ButtonFieldProps extends DatePickerFieldProps {}
 
@@ -41,12 +42,17 @@ function ButtonField(props: ButtonFieldProps) {
 
 export default function CustomDatePicker() {
     const [value, setValue] = React.useState<Dayjs | null>(dayjs('2023-04-17'))
+    const { i18n } = useTranslation('apps')
+    const locale = i18n.resolvedLanguage ?? i18n.language ?? 'en'
+    const formattedValue = value
+        ? new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: '2-digit' }).format(value.toDate())
+        : null
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
                 value={value}
-                label={value == null ? null : value.format('MMM DD, YYYY')}
+                label={formattedValue}
                 onChange={(newValue) => setValue(newValue)}
                 slots={{ field: ButtonField }}
                 slotProps={{

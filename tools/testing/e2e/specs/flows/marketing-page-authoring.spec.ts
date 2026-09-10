@@ -285,6 +285,14 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         await page.goto(`/metahub/${metahub.id}/resources/layouts/${marketingLayoutId}`)
         const marketingLayoutDetails = page.getByTestId('metahub-layout-details-content')
         await expect(marketingLayoutDetails).toBeVisible()
+        await expect(marketingLayoutDetails.getByRole('alert')).toHaveCount(0)
+        await expectNoPageHorizontalOverflow(page, 'Marketing metahub layout details')
+        await expectNoTechnicalLeakage(marketingLayoutDetails, {
+            label: 'Marketing metahub layout details',
+            checkUuidSubstrings: true,
+            forbiddenVisibleTextPatterns: [/widgetKey/i, /source[_ -]?base/i, /allowedZonesByTemplate/i]
+        })
+        await page.screenshot({ path: testInfo.outputPath('marketing-metahub-layout-details.png'), fullPage: true })
         const faqSurface = page.getByTestId(`layout-widget-${faqWidgetId}`)
         await expect(faqSurface).toBeVisible()
         const deactivateFaqButton = faqSurface.getByRole('button', { name: 'Deactivate', exact: true })
@@ -553,7 +561,9 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         expect(settings?.heroTitle).toMatchObject({ en: updatedHeroTitle })
         expect(settings?.provenance).toMatchObject({ layer: 'application', isSeeded: false, isAuthored: true })
         const publishedFaqWidget = runtimePayload.marketingPage?.widgets?.find((widget) => widget.instanceKey === 'faq')
-        expect(publishedFaqWidget?.isActive).toBe(false)
+        // Inactive widgets are filtered from the published runtime envelope;
+        // authoring keeps the inactive row, while runtime never exposes it.
+        expect(publishedFaqWidget).toBeUndefined()
 
         // Reload the published app and assert the semantic value rendered by
         // the MUI marketing template, not an implementation detail or ID.

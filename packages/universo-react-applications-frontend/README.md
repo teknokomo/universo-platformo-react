@@ -38,7 +38,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Source Awareness**: Layout cards show whether a layout came from a metahub publication or from the application.
 -   **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
 -   **Runtime Widget Overrides**: Application-level settings update materialized widget configuration for the deployed instance without changing the source metahub template.
--   **Unlimited Widget Instances**: The layout editor keeps every compatible widget available after it has been placed, and administrators can add or duplicate the same dashboard or marketing widget type repeatedly. Each placement has its own server-owned identity.
+-   **Widget Instance Rules**: The layout editor keeps repeatable compatible widgets available after placement, while server validation reserves single-instance shell widgets such as `appNavbar` and `header`. Each placement has its own server-owned identity.
 
 ### 🎨 User Interface
 

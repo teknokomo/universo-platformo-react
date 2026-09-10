@@ -431,6 +431,29 @@
         "retry": "Повторить",
         "loading": "Загрузка приложения",
         "loadError": "Не удалось загрузить приложение.",
+        "invalidTarget": "Целевой runtime-объект в URL имеет недопустимый формат.",
+        "layoutErrors": {
+            "LAYOUT_REQUEST_INVALID": "Выбранная цель runtime недействительна.",
+            "LAYOUT_PAYLOAD_INVALID": "Данные макета приложения недействительны.",
+            "LAYOUT_CAPABILITY_UNSUPPORTED": "Этот макет использует недоступную возможность.",
+            "UNAUTHORIZED": "Войдите в систему, чтобы открыть это приложение.",
+            "LAYOUT_TARGET_FORBIDDEN": "У вас нет доступа к выбранной цели приложения.",
+            "LAYOUT_TARGET_NOT_FOUND": "Выбранная цель приложения не найдена.",
+            "LAYOUT_DEFAULT_INVALID": "Требуется проверить конфигурацию макета приложения.",
+            "LAYOUT_PERSISTED_INVALID": "Сохранённый макет приложения недействителен.",
+            "LAYOUT_CONFLICT": "Макет приложения изменился. Обновите страницу и повторите попытку.",
+            "LAYOUT_RUNTIME_QUERY_FAILED": "Сейчас не удалось загрузить макет приложения."
+        },
+        "notifications": "Открыть уведомления",
+        "search": "Поиск…",
+        "breadcrumbs": {
+            "label": "Хлебные крошки",
+            "dashboard": "Дашборд",
+            "home": "Главная"
+        },
+        "user": "Пользователь",
+        "details": "Детали",
+        "overview": "Обзор",
         "table": {
             "name": "Название",
             "description": "Описание",
@@ -614,6 +637,7 @@
         "navigation": {
             "openMenu": "Открыть меню",
             "closeMenu": "Закрыть меню",
+            "landmark": "Навигация «{{brand}}», блок {{index}}",
             "skipToContent": "Перейти к содержимому"
         },
         "form": {

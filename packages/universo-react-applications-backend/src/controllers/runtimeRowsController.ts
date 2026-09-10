@@ -21,7 +21,9 @@ import {
     type RecordsUnionDatasource,
     type SequencePolicy,
     type SequenceStep,
-    type WorkflowAction
+    type WorkflowAction,
+    DASHBOARD_LAYOUT_ZONES,
+    type DashboardLayoutZone
 } from '@universo-react/types'
 import {
     normalizeObjectCollectionRuntimeViewConfig,
@@ -45,6 +47,8 @@ import {
 } from '../services/runtimeRecordBehavior'
 import { RuntimePostingMovementService } from '../services/runtimePostingMovements'
 import { applyWorkflowAction, type WorkflowStatusValueMap } from '../services/runtimeWorkflowActions'
+import { EffectiveLayoutError } from '../services/effectiveLayoutContract'
+import { resolveEffectiveLayoutForRequest } from '../services/effectiveLayoutResolver'
 import type { RolePermission } from '../routes/guards'
 import { SYSTEM_STRUCTURE_KEY } from '../services/interpretationNetwork/runtimeInterpretationNetworkCore'
 import { resolveInterpretationNetworkRuntimeSurface } from '../services/interpretationNetwork/runtimeInterpretationNetworkSurface'
@@ -303,6 +307,116 @@ type RuntimeObjectCollectionRow = {
     presentation?: unknown
     config?: Record<string, unknown> | null
     lifecycleContract: ReturnType<typeof resolveApplicationLifecycleContractFromConfig>
+}
+
+type RuntimeZoneWidget = {
+    id: string
+    layoutId: string
+    widgetKey: string
+    sortOrder: number
+    config: Record<string, unknown>
+}
+
+type RuntimeZoneWidgetRow = {
+    id: string
+    layout_id: string
+    widget_key: string
+    sort_order: number
+    config: Record<string, unknown> | null
+    zone: unknown
+}
+
+type RuntimeZoneWidgets = Record<DashboardLayoutZone, RuntimeZoneWidget[]>
+
+const createEmptyRuntimeZoneWidgets = (): RuntimeZoneWidgets => ({
+    left: [],
+    top: [],
+    right: [],
+    bottom: [],
+    center: []
+})
+
+const isRuntimeDashboardZone = (value: unknown): value is DashboardLayoutZone =>
+    typeof value === 'string' && (DASHBOARD_LAYOUT_ZONES as readonly string[]).includes(value)
+
+export const mapRuntimeZoneWidgets = (rows: readonly RuntimeZoneWidgetRow[]): RuntimeZoneWidgets => {
+    const zoneWidgets = createEmptyRuntimeZoneWidgets()
+
+    for (const row of rows) {
+        if (!isRuntimeDashboardZone(row.zone)) {
+            throw new UpdateFailure(409, {
+                error: 'Runtime layout contains an unsupported zone',
+                code: 'LAYOUT_PERSISTED_INVALID'
+            })
+        }
+
+        zoneWidgets[row.zone].push({
+            id: row.id,
+            layoutId: row.layout_id,
+            widgetKey: row.widget_key,
+            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+            config: row.config && typeof row.config === 'object' ? row.config : {}
+        })
+    }
+
+    return zoneWidgets
+}
+
+const resolveRuntimeEffectiveLayout = async (params: {
+    manager: DbExecutor
+    applicationId: string
+    userId: string
+    role: Parameters<typeof resolveEffectiveLayoutForRequest>[1]['role']
+    targetKind: 'page' | 'object'
+    entityTypeId: string
+    workspaceId: string | null
+    locale: string
+}): Promise<{ layoutId: string; layoutConfig: Record<string, unknown>; zoneWidgets: RuntimeZoneWidgets }> => {
+    try {
+        const result = await resolveEffectiveLayoutForRequest(
+            params.manager,
+            {
+                applicationId: params.applicationId,
+                userId: params.userId,
+                role: params.role
+            },
+            {
+                applicationId: params.applicationId,
+                targetKind: params.targetKind,
+                entityTypeId: params.entityTypeId,
+                ...(params.workspaceId !== null ? { workspaceId: params.workspaceId } : {}),
+                locale: params.locale
+            }
+        )
+        const zoneWidgets =
+            result.layout.templateKey === 'dashboard'
+                ? mapRuntimeZoneWidgets(
+                      result.widgets
+                          .filter((widget) => widget.isActive)
+                          .map((widget) => ({
+                              id: widget.id,
+                              layout_id: widget.layoutId ?? result.layout.id,
+                              widget_key: widget.widgetKey,
+                              sort_order: widget.sortOrder,
+                              config: widget.config,
+                              zone: widget.zone
+                          }))
+                  )
+                : createEmptyRuntimeZoneWidgets()
+        return {
+            layoutId: result.layout.id,
+            layoutConfig: result.layout.config ?? {},
+            zoneWidgets
+        }
+    } catch (error) {
+        if (error instanceof EffectiveLayoutError) {
+            throw new UpdateFailure(error.httpStatus, {
+                error: 'Runtime layout could not be resolved',
+                code: error.code
+            })
+        }
+        throw error
+    }
 }
 
 type RuntimeReadableComponent = RuntimeObjectCollectionAttr & {
@@ -3094,56 +3208,6 @@ const findUnsupportedRuntimeListFields = (
     return Array.from(unsupported)
 }
 
-const runtimeSystemTableExists = async (manager: DbExecutor, schemaName: string, tableName: string) => {
-    const [row] = (await manager.query(
-        `
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_schema = $1 AND table_name = $2
-      ) AS exists
-    `,
-        [schemaName, tableName]
-    )) as Array<{ exists: boolean }>
-
-    return row?.exists === true
-}
-
-const loadRuntimeSelectedLayout = async (params: {
-    manager: DbExecutor
-    schemaName: string
-    schemaIdent: string
-    scopeEntityId: string
-}) => {
-    const { manager, schemaName, schemaIdent, scopeEntityId } = params
-    const layoutsExist = await runtimeSystemTableExists(manager, schemaName, '_app_layouts')
-    if (!layoutsExist) {
-        return { layoutId: null, layoutConfig: {} as Record<string, unknown> }
-    }
-
-    const rows = (await manager.query(
-        `
-      SELECT id, config
-      FROM ${schemaIdent}._app_layouts
-      WHERE (scope_entity_id = $1 OR scope_entity_id IS NULL)
-        AND is_active = true
-        AND _upl_deleted = false
-        AND _app_deleted = false
-      ORDER BY CASE WHEN scope_entity_id = $1 THEN 0 ELSE 1 END,
-               is_default DESC,
-               is_active DESC,
-               sort_order ASC,
-               _upl_created_at ASC
-      LIMIT 1
-    `,
-        [scopeEntityId]
-    )) as Array<{ id: string; config: Record<string, unknown> | null }>
-
-    return {
-        layoutId: rows[0]?.id ?? null,
-        layoutConfig: rows[0]?.config ?? {}
-    }
-}
-
 export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
     manager: DbExecutor
     schemaName: string
@@ -3314,17 +3378,24 @@ export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
     }
 }
 
-const resolveEffectiveObjectCollectionRuntimeConfig = async (params: {
+const resolveRuntimeObjectCollectionConfig = async (params: {
     manager: DbExecutor
-    schemaName: string
-    schemaIdent: string
+    applicationId: string
+    userId: string
+    role: Parameters<typeof resolveEffectiveLayoutForRequest>[1]['role']
+    workspaceId: string | null
+    locale?: string
     objectCollectionId: string
 }) => {
-    const selectedLayout = await loadRuntimeSelectedLayout({
+    const selectedLayout = await resolveRuntimeEffectiveLayout({
         manager: params.manager,
-        schemaName: params.schemaName,
-        schemaIdent: params.schemaIdent,
-        scopeEntityId: params.objectCollectionId
+        applicationId: params.applicationId,
+        userId: params.userId,
+        role: params.role,
+        targetKind: 'object',
+        entityTypeId: params.objectCollectionId,
+        workspaceId: params.workspaceId,
+        locale: params.locale ?? 'en'
     })
 
     return {
@@ -3966,13 +4037,14 @@ const buildRuntimeUnionOrderBySql = (sort: RuntimeDatasourceSort[] | undefined, 
 
 export const executeRuntimeRecordsUnionDatasource = async (params: {
     runtimeContext: Exclude<Awaited<ReturnType<typeof resolveRuntimeSchema>>, null>
+    applicationId: string
     datasource: RecordsUnionDatasource
     limit: number
     offset: number
     locale: string
 }) => {
     const { runtimeContext, datasource, limit, offset, locale } = params
-    const { manager, schemaName, schemaIdent, currentWorkspaceId } = runtimeContext
+    const { manager, schemaIdent, currentWorkspaceId } = runtimeContext
     const runtimeObjects = await loadRuntimeObjectCollections(manager, schemaIdent)
     const queryConfig = datasource.query ?? {}
     const lifecycleState = queryConfig.lifecycleState ?? 'active'
@@ -4040,10 +4112,16 @@ export const executeRuntimeRecordsUnionDatasource = async (params: {
             locale
         })
 
-        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
+        const { runtimeConfig } = await resolveRuntimeObjectCollectionConfig({
             manager,
-            schemaName,
-            schemaIdent,
+            applicationId: params.applicationId,
+            userId: runtimeContext.userId,
+            role: runtimeContext.role,
+            workspaceId: currentWorkspaceId,
+            // Layout selection does not depend on the record projection locale.
+            // Keep the trusted resolver input on its canonical default so an
+            // arbitrary display-locale string cannot turn into a layout request.
+            locale: 'en',
             objectCollectionId: objectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
@@ -4320,11 +4398,7 @@ export const executeRuntimeRecordsUnionDatasource = async (params: {
         permissions: runtimeContext.permissions,
         workflowCapabilities: runtimeContext.workflowCapabilities,
         layoutConfig: {},
-        zoneWidgets: {
-            left: [],
-            right: [],
-            center: []
-        },
+        zoneWidgets: createEmptyRuntimeZoneWidgets(),
         menus: [],
         activeMenuId: null
     }
@@ -4450,6 +4524,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         try {
             const payload = await executeRuntimeRecordsUnionDatasource({
                 runtimeContext,
+                applicationId,
                 datasource,
                 limit,
                 offset,
@@ -4818,11 +4893,18 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const { selectedLayout, runtimeConfig: activeObjectCollectionRuntimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
+        const selectedLayout = await resolveRuntimeEffectiveLayout({
             manager,
-            schemaName,
-            schemaIdent,
-            objectCollectionId: activeObjectCollection.id
+            applicationId,
+            userId: runtimeContext.userId,
+            role: runtimeContext.role,
+            targetKind: isActivePage ? 'page' : 'object',
+            entityTypeId: activeObjectCollection.id,
+            workspaceId: currentWorkspaceId,
+            locale: requestedLocale
+        })
+        const activeObjectCollectionRuntimeConfig = resolveObjectCollectionLayoutBehaviorConfig({
+            layoutConfig: selectedLayout.layoutConfig
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
             safeComponents,
@@ -4997,48 +5079,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        // Optional layout config for runtime UI (Dashboard sections show/hide).
-        let layoutConfig: Record<string, unknown> = {}
-        try {
-            const layoutsExists = await runtimeSystemTableExists(manager, schemaName, '_app_layouts')
-
-            if (layoutsExists) {
-                layoutConfig = selectedLayout.layoutConfig
-            } else {
-                // Backward compatibility for old schemas.
-                const [{ settingsExists }] = (await manager.query(
-                    `
-            SELECT EXISTS (
-              SELECT 1
-              FROM information_schema.tables
-              WHERE table_schema = $1 AND table_name = '_app_settings'
-            ) AS "settingsExists"
-          `,
-                    [schemaName]
-                )) as Array<{ settingsExists: boolean }>
-
-                if (!settingsExists) {
-                    layoutConfig = {}
-                } else {
-                    const uiRows = (await manager.query(
-                        `
-              SELECT value
-              FROM ${schemaIdent}._app_settings
-              WHERE key = 'layout'
-                AND _upl_deleted = false
-                AND _app_deleted = false
-              LIMIT 1
-            `
-                    )) as Array<{ value: Record<string, unknown> | null }>
-                    layoutConfig = uiRows?.[0]?.value ?? {}
-                }
-            }
-        } catch (e) {
-            // eslint-disable-next-line no-console
-            console.warn('[ApplicationsRuntime] Failed to load layout config (ignored)', e)
-        }
-
-        layoutConfig = resolveObjectCollectionRuntimeDashboardLayoutConfig({ layoutConfig })
+        // The effective-layout resolver is the sole source of runtime template
+        // selection and Dashboard visibility configuration.
+        let layoutConfig = resolveObjectCollectionRuntimeDashboardLayoutConfig({ layoutConfig: selectedLayout.layoutConfig })
         layoutConfig = {
             ...layoutConfig,
             enableRowReordering: canPersistRowReordering
@@ -5060,75 +5103,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }))
         const runtimeMenuTargetById = new Map(objectCollectionsForRuntime.map((section) => [section.id, section]))
 
-        // Zone widgets for runtime UI (sidebar + center composition).
-        type ZoneWidgetItem = {
-            id: string
-            layoutId: string
-            widgetKey: string
-            sortOrder: number
-            config: Record<string, unknown>
-        }
-        let zoneWidgets: {
-            left: ZoneWidgetItem[]
-            right: ZoneWidgetItem[]
-            center: ZoneWidgetItem[]
-        } = { left: [], right: [], center: [] }
-
-        try {
-            const [{ zoneWidgetsExists }] = (await manager.query(
-                `
-          SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = $1 AND table_name = '_app_widgets'
-          ) AS "zoneWidgetsExists"
-        `,
-                [schemaName]
-            )) as Array<{ zoneWidgetsExists: boolean }>
-
-            if (zoneWidgetsExists && selectedLayout.layoutId) {
-                const widgetRows = (await manager.query(
-                    `
-              SELECT id, layout_id, widget_key, sort_order, config, zone
-              FROM ${schemaIdent}._app_widgets
-              WHERE layout_id = $1
-                AND zone IN ('left', 'right', 'center')
-                AND is_active = true
-                AND _upl_deleted = false
-                AND _app_deleted = false
-              ORDER BY sort_order ASC, _upl_created_at ASC
-            `,
-                    [selectedLayout.layoutId]
-                )) as Array<{
-                    id: string
-                    layout_id: string
-                    widget_key: string
-                    sort_order: number
-                    config: Record<string, unknown> | null
-                    zone: string
-                }>
-
-                for (const row of widgetRows) {
-                    const mapped = {
-                        id: row.id,
-                        layoutId: row.layout_id,
-                        widgetKey: row.widget_key,
-                        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-                        config: row.config && typeof row.config === 'object' ? row.config : {}
-                    }
-                    if (row.zone === 'right') {
-                        zoneWidgets.right.push(mapped)
-                    } else if (row.zone === 'center') {
-                        zoneWidgets.center.push(mapped)
-                    } else {
-                        zoneWidgets.left.push(mapped)
-                    }
-                }
-            }
-        } catch (e) {
-            // eslint-disable-next-line no-console
-            console.warn('[ApplicationsRuntime] Failed to load zone widgets (ignored)', e)
-        }
+        // Zone widgets for all five persisted Dashboard physical zones.
+        const zoneWidgets = selectedLayout.zoneWidgets
 
         // Build menus from menuWidget config stored in zone widgets.
         type RuntimeMenuItem = {
@@ -6820,10 +6796,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: dateOrderValidationError })
         }
 
-        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
+        const { runtimeConfig } = await resolveRuntimeObjectCollectionConfig({
             manager: ctx.manager,
-            schemaName: ctx.schemaName,
-            schemaIdent: ctx.schemaIdent,
+            applicationId,
+            userId: ctx.userId,
+            role: ctx.role,
+            workspaceId: ctx.currentWorkspaceId,
             objectCollectionId: objectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
@@ -7228,10 +7206,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             undefined,
             ctx.currentWorkspaceId
         )
-        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
+        const { runtimeConfig } = await resolveRuntimeObjectCollectionConfig({
             manager: ctx.manager,
-            schemaName: ctx.schemaName,
-            schemaIdent: ctx.schemaIdent,
+            applicationId,
+            userId: ctx.userId,
+            role: ctx.role,
+            workspaceId: ctx.currentWorkspaceId,
             objectCollectionId: objectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
@@ -9507,10 +9487,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: objectCollectionError })
         }
 
-        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
+        const { runtimeConfig } = await resolveRuntimeObjectCollectionConfig({
             manager: ctx.manager,
-            schemaName: ctx.schemaName,
-            schemaIdent: ctx.schemaIdent,
+            applicationId,
+            userId: ctx.userId,
+            role: ctx.role,
+            workspaceId: ctx.currentWorkspaceId,
             objectCollectionId: objectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(attrs, runtimeConfig.reorderPersistenceField)

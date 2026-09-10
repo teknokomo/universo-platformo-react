@@ -28,6 +28,15 @@ describe('applications translations', () => {
         expect(getPath(ru, 'layouts.widgetCustomization.application')).toBe('Настроено в приложении')
     })
 
+    it('keeps ownership badges localized in both supported locales', () => {
+        expect(getPath(applicationsTranslations.en.applications, 'layouts.widgetCustomization.application')).toBe(
+            'Customized in application'
+        )
+        expect(getPath(applicationsTranslations.en.applications, 'layouts.widgetCustomization.metahub')).toBe('Inherited from metahub')
+        expect(getPath(applicationsTranslations.ru.applications, 'layouts.widgetCustomization.application')).toBe('Настроено в приложении')
+        expect(getPath(applicationsTranslations.ru.applications, 'layouts.widgetCustomization.metahub')).toBe('Унаследовано из метахаба')
+    })
+
     it('localizes workspace settings navigation in the applications runtime host', () => {
         const ru = applicationsTranslations.ru.applications
 

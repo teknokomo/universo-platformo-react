@@ -57,6 +57,11 @@
             "require": "./dist/validation/codename.js",
             "types": "./dist/validation/codename.d.ts"
         },
+        "./validation/identity": {
+            "import": "./dist/validation/identity.mjs",
+            "require": "./dist/validation/identity.js",
+            "types": "./dist/validation/identity.d.ts"
+        },
         "./database": {
             "import": "./dist/database/index.mjs",
             "require": "./dist/database/index.js",
@@ -70,14 +75,33 @@
     },
     "typesVersions": {
         "*": {
-            "database": ["./dist/database/index.d.ts"],
-            "env": ["./dist/env/index.d.ts"],
-            "rate-limiting": ["./dist/rate-limiting.d.ts"],
-            "captcha": ["./dist/captcha/index.d.ts"],
-            "auth": ["./dist/auth/index.d.ts"],
-            "vlc": ["./dist/vlc/index.d.ts"],
-            "validation/codename": ["./dist/validation/codename.d.ts"],
-            "optimistic-crud": ["./dist/optimisticCrud.d.ts"]
+            "database": [
+                "./dist/database/index.d.ts"
+            ],
+            "env": [
+                "./dist/env/index.d.ts"
+            ],
+            "rate-limiting": [
+                "./dist/rate-limiting.d.ts"
+            ],
+            "captcha": [
+                "./dist/captcha/index.d.ts"
+            ],
+            "auth": [
+                "./dist/auth/index.d.ts"
+            ],
+            "vlc": [
+                "./dist/vlc/index.d.ts"
+            ],
+            "validation/codename": [
+                "./dist/validation/codename.d.ts"
+            ],
+            "validation/identity": [
+                "./dist/validation/identity.d.ts"
+            ],
+            "optimistic-crud": [
+                "./dist/optimisticCrud.d.ts"
+            ]
         }
     },
     "sideEffects": false,

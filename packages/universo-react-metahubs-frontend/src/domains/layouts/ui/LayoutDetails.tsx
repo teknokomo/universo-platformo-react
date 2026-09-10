@@ -20,6 +20,8 @@ import type {
 } from '@universo-react/types'
 import {
     DASHBOARD_LAYOUT_ZONES,
+    getLayoutWidgetAllowedZones,
+    getLayoutWidgetDefinition,
     LAYOUT_ZONE_DEFINITIONS,
     MARKETING_LAYOUT_ZONES,
     MARKETING_SOURCE_CODENAMES,
@@ -416,10 +418,14 @@ export default function LayoutDetails() {
     const getAvailableWidgetsForZone = useCallback(
         (zone: ApplicationLayoutZone): DashboardLayoutWidgetItem[] => {
             return widgetObjects.filter((widgetItem) => {
-                return (
-                    (widgetItem.templateKey === undefined || widgetItem.templateKey === layout?.templateKey) &&
-                    widgetItem.allowedZones.includes(zone)
-                )
+                const templateKey = layout?.templateKey
+                if (!templateKey) return false
+                const supportedTemplates = Array.isArray(widgetItem.supportedTemplates) ? widgetItem.supportedTemplates : []
+                const allowedZones =
+                    widgetItem.allowedZonesByTemplate && typeof widgetItem.allowedZonesByTemplate === 'object'
+                        ? widgetItem.allowedZonesByTemplate[templateKey]
+                        : undefined
+                return supportedTemplates.includes(templateKey) && Array.isArray(allowedZones) && allowedZones.includes(zone)
             })
         },
         [layout?.templateKey, widgetObjects]
@@ -659,8 +665,16 @@ export default function LayoutDetails() {
             if (!canManageLayouts) {
                 return
             }
+            if (!layout) return
+            const definition = getLayoutWidgetDefinition(widgetKey)
+            if (!definition || !definition.supportedTemplates.includes(layout.templateKey)) return
+            if (!getLayoutWidgetAllowedZones(widgetKey, layout.templateKey)?.includes(zone)) return
             if (isMarketingWidgetKey(widgetKey)) {
                 setMarketingWidgetEditor({ open: true, zone, widgetId: null, widgetKey, config: null })
+                return
+            }
+            if (definition.shared) {
+                void handleAddWidget(zone, widgetKey)
                 return
             }
             if (!DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) {
@@ -685,7 +699,7 @@ export default function LayoutDetails() {
             }
             void handleAddWidget(dashboardZone, widgetKey)
         },
-        [canManageLayouts, handleAddWidget]
+        [canManageLayouts, handleAddWidget, layout]
     )
 
     const handleDuplicateWidget = useCallback(

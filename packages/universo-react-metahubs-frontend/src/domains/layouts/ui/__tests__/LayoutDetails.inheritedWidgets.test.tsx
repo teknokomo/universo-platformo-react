@@ -197,9 +197,30 @@ describe('LayoutDetails inherited widget contract', () => {
         ])
 
         getLayoutZoneWidgetObjects.mockResolvedValue([
-            { key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: true },
-            { key: 'header', allowedZones: ['top'], multiInstance: true },
-            { key: 'columnsContainer', allowedZones: ['left', 'center', 'right'], multiInstance: true }
+            {
+                key: 'menuWidget',
+                allowedZones: ['left', 'right'],
+                allowedZonesByTemplate: { dashboard: ['left', 'right'] },
+                multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard']
+            },
+            {
+                key: 'header',
+                allowedZones: ['top'],
+                allowedZonesByTemplate: { dashboard: ['top'] },
+                multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard']
+            },
+            {
+                key: 'columnsContainer',
+                allowedZones: ['left', 'center', 'right'],
+                allowedZonesByTemplate: { dashboard: ['left', 'center', 'right'] },
+                multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard']
+            }
         ])
     })
 

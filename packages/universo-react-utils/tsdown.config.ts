@@ -13,6 +13,7 @@ export default defineConfig({
         'auth/index': './src/auth/index.ts',
         'vlc/index': './src/vlc/index.ts',
         'validation/codename': './src/validation/codename.ts',
+        'validation/identity': './src/validation/identity.ts',
         'database/index': './src/database/index.ts'
     },
     format: ['esm', 'cjs'],

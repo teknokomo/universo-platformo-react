@@ -10,12 +10,29 @@ const mockGenerateSchemaName = jest.fn((id: string) => `app_${id.replace(/-/g, '
 const mockGenerateChildTableName = jest.fn((attributeId: string) => `tab_${attributeId.replace(/-/g, '')}`)
 const mockIsValidSchemaName = jest.fn(() => true)
 
+const mockFindEffectiveLayoutApplication = jest.fn()
+const mockFindEffectiveLayoutBaseWidgets = jest.fn()
+const mockFindEffectiveLayoutEntity = jest.fn()
+const mockEffectiveLayoutTablesExist = jest.fn()
+const mockListEffectiveLayoutCandidates = jest.fn()
+const mockListEffectiveLayoutWidgets = jest.fn()
+
 jest.mock('@universo-react/schema-ddl', () => ({
     __esModule: true,
     cloneSchemaWithExecutor: (...args: unknown[]) => mockCloneSchemaWithExecutor(...args),
     generateSchemaName: (...args: unknown[]) => mockGenerateSchemaName(...(args as [string])),
     generateChildTableName: (...args: unknown[]) => mockGenerateChildTableName(...(args as [string])),
     isValidSchemaName: (...args: unknown[]) => mockIsValidSchemaName(...(args as [string]))
+}))
+
+jest.mock('../../persistence/effectiveLayoutStore', () => ({
+    __esModule: true,
+    findEffectiveLayoutApplication: (...args: unknown[]) => mockFindEffectiveLayoutApplication(...args),
+    findEffectiveLayoutBaseWidgets: (...args: unknown[]) => mockFindEffectiveLayoutBaseWidgets(...args),
+    findEffectiveLayoutEntity: (...args: unknown[]) => mockFindEffectiveLayoutEntity(...args),
+    effectiveLayoutTablesExist: (...args: unknown[]) => mockEffectiveLayoutTablesExist(...args),
+    listEffectiveLayoutCandidates: (...args: unknown[]) => mockListEffectiveLayoutCandidates(...args),
+    listEffectiveLayoutWidgets: (...args: unknown[]) => mockListEffectiveLayoutWidgets(...args)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -31,6 +48,62 @@ import { buildRuntimeRecordAccessClause, type RuntimeObjectCollectionAttr } from
 import { computePlayCanvasRuntimeManifestChecksum } from '../../controllers/runtimePlayCanvasController'
 
 describe('Applications Routes', () => {
+    const effectiveLayoutId = '0190a9b5-3cde-7abc-8def-0123456789d0'
+
+    const buildEffectiveLayoutCandidate = (overrides: Record<string, unknown> = {}) => ({
+        id: effectiveLayoutId,
+        scope_entity_id: null,
+        template_key: 'dashboard',
+        name: { en: 'Dashboard' },
+        description: null,
+        config: { compositionMode: 'independent', baseLayoutId: null },
+        is_active: true,
+        is_default: true,
+        sort_order: 0,
+        source_kind: 'application',
+        source_layout_id: null,
+        source_snapshot_hash: null,
+        source_content_hash: null,
+        local_content_hash: null,
+        sync_state: 'clean',
+        is_source_excluded: false,
+        source_deleted_at: null,
+        source_deleted_by: null,
+        version: 1,
+        ...overrides
+    })
+
+    const buildEffectiveLayoutWidget = (overrides: Record<string, unknown>) => ({
+        id: '0190a9b5-3cde-7abc-8def-0123456789d1',
+        layout_id: effectiveLayoutId,
+        zone: 'center',
+        widget_key: 'detailsTable',
+        sort_order: 0,
+        config: {},
+        source_config: null,
+        source_widget_id: null,
+        source_base_widget_id: null,
+        is_customized: false,
+        is_active: true,
+        version: 1,
+        ...overrides
+    })
+
+    const enableCanonicalRowReorderingLayout = () => {
+        mockListEffectiveLayoutCandidates.mockResolvedValue([
+            buildEffectiveLayoutCandidate({
+                config: {
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
+                    objectBehavior: {
+                        enableRowReordering: true,
+                        reorderPersistenceField: 'SortOrder'
+                    }
+                }
+            })
+        ])
+    }
+
     interface TestDataSource {
         query: jest.Mock
         transaction: jest.Mock
@@ -205,6 +278,36 @@ describe('Applications Routes', () => {
         ;(isSuperuser as jest.Mock).mockResolvedValue(false)
         ;(getGlobalRoleCodename as jest.Mock).mockResolvedValue(null)
         ;(hasSubjectPermission as jest.Mock).mockResolvedValue(false)
+        mockFindEffectiveLayoutApplication.mockImplementation(async (_executor: unknown, applicationId: string) => ({
+            id: applicationId,
+            name: {},
+            description: null,
+            settings: null,
+            slug: null,
+            isPublic: false,
+            workspacesEnabled: false,
+            schemaName: 'app_deadbeef',
+            schemaStatus: 'ready',
+            schemaSyncedAt: null,
+            schemaError: null,
+            version: 1,
+            createdAt: new Date(0),
+            updatedAt: new Date(0),
+            updatedBy: null,
+            schemaSnapshot: null,
+            appStructureVersion: null,
+            lastSyncedPublicationVersionId: null,
+            installedReleaseMetadata: null
+        }))
+        mockFindEffectiveLayoutEntity.mockImplementation(
+            async (_executor: unknown, _schemaName: string, targetKind: 'page' | 'object', selector: { value: string }) => [
+                { id: selector.value, kind: targetKind === 'page' ? 'page' : 'object', codename: 'runtime-target' }
+            ]
+        )
+        mockEffectiveLayoutTablesExist.mockResolvedValue(true)
+        mockListEffectiveLayoutCandidates.mockResolvedValue([buildEffectiveLayoutCandidate()])
+        mockListEffectiveLayoutWidgets.mockResolvedValue([])
+        mockFindEffectiveLayoutBaseWidgets.mockResolvedValue([])
     })
 
     describe('GET /applications', () => {
@@ -343,7 +446,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -353,7 +456,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -371,7 +474,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
 
@@ -379,7 +482,7 @@ describe('Applications Routes', () => {
                     return [{ total: 0 }]
                 }
 
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return []
                 }
 
@@ -392,7 +495,8 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
 
-            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`).expect(200)
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`)
+            expect(response.status).toBe(200)
 
             expect(response.body.section).toMatchObject({
                 id: runtimeLinkedCollectionId,
@@ -422,7 +526,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -431,7 +535,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -468,11 +572,15 @@ describe('Applications Routes', () => {
             const runtimeObjectId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
             const runtimeLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344a3'
             const runtimeMenuWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a4'
+            const runtimeTopWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a5'
+            const runtimeRightWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a6'
+            const runtimeBottomWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a7'
+            const runtimeCenterWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a8'
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -481,8 +589,86 @@ describe('Applications Routes', () => {
                 userId: 'test-user-id',
                 role: 'member'
             })
+            const sideMenuConfig = {
+                availableModes: ['compact', 'overlay'],
+                primaryMode: 'compact',
+                rememberUserChoice: false
+            }
+            const menuWidgetConfig = {
+                sideMenu: sideMenuConfig,
+                startPage: runtimePageId,
+                startTarget: { kind: 'section', sectionId: runtimePageId },
+                items: [
+                    {
+                        id: 'start-page',
+                        kind: 'section',
+                        title: { en: 'Start' },
+                        sectionId: runtimePageId,
+                        objectCollectionId: runtimePageId,
+                        sortOrder: 0,
+                        isActive: true
+                    },
+                    {
+                        id: 'structures',
+                        kind: 'section',
+                        title: { en: 'Structures' },
+                        sectionId: runtimeObjectId,
+                        objectCollectionId: runtimeObjectId,
+                        sortOrder: 1,
+                        isActive: true
+                    }
+                ]
+            }
+            mockListEffectiveLayoutCandidates.mockResolvedValue([
+                buildEffectiveLayoutCandidate({
+                    id: runtimeLayoutId,
+                    config: { sideMenu: sideMenuConfig, compositionMode: 'independent', baseLayoutId: null }
+                })
+            ])
+            mockListEffectiveLayoutWidgets.mockResolvedValue([
+                buildEffectiveLayoutWidget({
+                    id: runtimeMenuWidgetId,
+                    layout_id: runtimeLayoutId,
+                    widget_key: 'menuWidget',
+                    sort_order: 0,
+                    zone: 'left',
+                    config: menuWidgetConfig
+                }),
+                buildEffectiveLayoutWidget({
+                    id: runtimeTopWidgetId,
+                    layout_id: runtimeLayoutId,
+                    widget_key: 'header',
+                    sort_order: 1,
+                    zone: 'top',
+                    config: {}
+                }),
+                buildEffectiveLayoutWidget({
+                    id: runtimeRightWidgetId,
+                    layout_id: runtimeLayoutId,
+                    widget_key: 'productTree',
+                    sort_order: 2,
+                    zone: 'right',
+                    config: {}
+                }),
+                buildEffectiveLayoutWidget({
+                    id: runtimeBottomWidgetId,
+                    layout_id: runtimeLayoutId,
+                    widget_key: 'footer',
+                    sort_order: 3,
+                    zone: 'bottom',
+                    config: {}
+                }),
+                buildEffectiveLayoutWidget({
+                    id: runtimeCenterWidgetId,
+                    layout_id: runtimeLayoutId,
+                    widget_key: 'detailsTable',
+                    sort_order: 4,
+                    zone: 'center',
+                    config: {}
+                })
+            ])
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimePageId,
@@ -503,7 +689,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
 
@@ -527,11 +713,11 @@ describe('Applications Routes', () => {
                     return [{ exists: true }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                if (sql.includes('FROM "app_deadbeef"._app_layouts')) {
                     return [{ id: runtimeLayoutId, config: {} }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_widgets')) {
+                if (sql.includes('FROM "app_deadbeef"._app_widgets')) {
                     return [
                         {
                             id: runtimeMenuWidgetId,
@@ -539,40 +725,44 @@ describe('Applications Routes', () => {
                             widget_key: 'menuWidget',
                             sort_order: 0,
                             zone: 'left',
-                            config: {
-                                sideMenu: {
-                                    availableModes: ['compact', 'overlay'],
-                                    primaryMode: 'compact',
-                                    rememberUserChoice: false
-                                },
-                                startPage: runtimePageId,
-                                startTarget: { kind: 'section', sectionId: runtimePageId },
-                                items: [
-                                    {
-                                        id: 'start-page',
-                                        kind: 'section',
-                                        title: { en: 'Start' },
-                                        sectionId: runtimePageId,
-                                        objectCollectionId: runtimePageId,
-                                        sortOrder: 0,
-                                        isActive: true
-                                    },
-                                    {
-                                        id: 'structures',
-                                        kind: 'section',
-                                        title: { en: 'Structures' },
-                                        sectionId: runtimeObjectId,
-                                        objectCollectionId: runtimeObjectId,
-                                        sortOrder: 1,
-                                        isActive: true
-                                    }
-                                ]
-                            }
+                            config: menuWidgetConfig
+                        },
+                        {
+                            id: runtimeTopWidgetId,
+                            layout_id: runtimeLayoutId,
+                            widget_key: 'header',
+                            sort_order: 1,
+                            zone: 'top',
+                            config: {}
+                        },
+                        {
+                            id: runtimeRightWidgetId,
+                            layout_id: runtimeLayoutId,
+                            widget_key: 'productTree',
+                            sort_order: 2,
+                            zone: 'right',
+                            config: {}
+                        },
+                        {
+                            id: runtimeBottomWidgetId,
+                            layout_id: runtimeLayoutId,
+                            widget_key: 'footer',
+                            sort_order: 3,
+                            zone: 'bottom',
+                            config: {}
+                        },
+                        {
+                            id: runtimeCenterWidgetId,
+                            layout_id: runtimeLayoutId,
+                            widget_key: 'detailsTable',
+                            sort_order: 4,
+                            zone: 'center',
+                            config: {}
                         }
                     ]
                 }
 
-                if (sql.includes('SELECT *') && sql.includes('"app_runtime_test"."structures"')) {
+                if (sql.includes('SELECT *') && sql.includes('"app_deadbeef"."structures"')) {
                     return []
                 }
 
@@ -594,6 +784,26 @@ describe('Applications Routes', () => {
                 id: runtimeMenuWidgetId,
                 layoutId: runtimeLayoutId,
                 widgetKey: 'menuWidget'
+            })
+            expect(response.body.zoneWidgets.top[0]).toMatchObject({
+                id: runtimeTopWidgetId,
+                layoutId: runtimeLayoutId,
+                widgetKey: 'header'
+            })
+            expect(response.body.zoneWidgets.right[0]).toMatchObject({
+                id: runtimeRightWidgetId,
+                layoutId: runtimeLayoutId,
+                widgetKey: 'productTree'
+            })
+            expect(response.body.zoneWidgets.bottom[0]).toMatchObject({
+                id: runtimeBottomWidgetId,
+                layoutId: runtimeLayoutId,
+                widgetKey: 'footer'
+            })
+            expect(response.body.zoneWidgets.center[0]).toMatchObject({
+                id: runtimeCenterWidgetId,
+                layoutId: runtimeLayoutId,
+                widgetKey: 'detailsTable'
             })
             expect(response.body.menus[0]).toMatchObject({
                 startPage: runtimePageId,
@@ -622,7 +832,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -630,8 +840,39 @@ describe('Applications Routes', () => {
                 userId: 'test-user-id',
                 role: 'member'
             })
+            mockListEffectiveLayoutCandidates.mockResolvedValue([
+                buildEffectiveLayoutCandidate({
+                    id: runtimeLayoutId,
+                    config: {
+                        sideMenu: {
+                            availableModes: ['overlay'],
+                            primaryMode: 'overlay',
+                            rememberUserChoice: false
+                        },
+                        compositionMode: 'independent',
+                        baseLayoutId: null
+                    }
+                })
+            ])
+            mockListEffectiveLayoutWidgets.mockResolvedValue([
+                buildEffectiveLayoutWidget({
+                    id: runtimeMenuWidgetId,
+                    layout_id: runtimeLayoutId,
+                    widget_key: 'menuWidget',
+                    sort_order: 0,
+                    zone: 'left',
+                    config: {
+                        sideMenu: {
+                            availableModes: ['compact', 'overlay'],
+                            primaryMode: 'compact',
+                            rememberUserChoice: true
+                        },
+                        items: []
+                    }
+                })
+            ])
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimePageId,
@@ -644,7 +885,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) return []
+                if (sql.includes('FROM "app_deadbeef"._app_components')) return []
                 if (sql.includes('COUNT(*)::int AS total')) return [{ total: 0 }]
                 if (sql.includes('information_schema.tables') && sql.includes('"layoutsExists"')) {
                     return [{ layoutsExists: true, widgetsExists: true }]
@@ -654,7 +895,7 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_layouts') return [{ exists: true }]
                 if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_widgets') return [{ exists: true }]
-                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                if (sql.includes('FROM "app_deadbeef"._app_layouts')) {
                     return [
                         {
                             id: runtimeLayoutId,
@@ -668,7 +909,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_widgets')) {
+                if (sql.includes('FROM "app_deadbeef"._app_widgets')) {
                     return [
                         {
                             id: runtimeMenuWidgetId,
@@ -708,7 +949,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -718,7 +959,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -731,7 +972,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334474',
@@ -803,7 +1044,7 @@ describe('Applications Routes', () => {
                     return [{ total: 1 }]
                 }
 
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     listQueries.push({ sql, params })
                     return [{ id: 'row-1', name: 'Alice Example', score: '95', assigned_user_id: 'test-user-id' }]
                 }
@@ -865,7 +1106,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -875,7 +1116,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -888,7 +1129,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334478',
@@ -936,7 +1177,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -945,7 +1186,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -984,7 +1225,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === sharedEntriesObjectId) {
                         return [
                             {
@@ -1034,7 +1275,7 @@ describe('Applications Routes', () => {
                     listQueries.push({ sql, params })
                     return [{ total: 1 }]
                 }
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     listQueries.push({ sql, params })
                     return [{ id: 'row-1', title: 'Visible shared resource' }]
                 }
@@ -1052,7 +1293,7 @@ describe('Applications Routes', () => {
 
             const dataQuery = listQueries.find((entry) => entry.sql.includes('ORDER BY'))
             expect(dataQuery?.sql).toContain('"_upl_created_by" = $1')
-            expect(dataQuery?.sql).toContain('FROM "app_runtime_test"."content_access_entries" rel')
+            expect(dataQuery?.sql).toContain('FROM "app_deadbeef"."content_access_entries" rel')
             expect(dataQuery?.sql).toContain('rel."principal_type" = ANY(')
             expect(dataQuery?.params).toEqual(
                 expect.arrayContaining(['test-user-id', 'LearningResources', ['workspaceMember', 'user'], 100, 0])
@@ -1097,7 +1338,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -1126,7 +1367,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -1135,7 +1376,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === projectObjectId) {
                         return [
                             {
@@ -1169,7 +1410,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === projectObjectId) {
                         return [
                             {
@@ -1260,12 +1501,12 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     listQueries.push({ sql, params })
                     return [{ id: '018f8a78-7b8f-7c1d-a111-2222333344a4', title: { locales: { en: { content: 'Welcome' } } } }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"."courses"')) {
+                if (sql.includes('FROM "app_deadbeef"."courses"')) {
                     listQueries.push({ sql, params })
                     return [{ id: '018f8a78-7b8f-7c1d-a111-2222333344a5', title: { locales: { en: { content: 'Safety' } } } }]
                 }
@@ -1345,7 +1586,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -1354,7 +1595,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: accessObjectId,
@@ -1395,7 +1636,7 @@ describe('Applications Routes', () => {
                 target: 'ContentAccessEntries'
             })
             expect(dataSource.manager.query).not.toHaveBeenCalledWith(
-                expect.stringContaining('FROM "app_runtime_test"."content_access_entries"'),
+                expect.stringContaining('FROM "app_deadbeef"."content_access_entries"'),
                 expect.anything()
             )
         })
@@ -1410,7 +1651,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -1419,7 +1660,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'RecentContentViews') {
                         return [
                             {
@@ -1454,7 +1695,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === recentObjectId) {
                         return [
                             {
@@ -1545,7 +1786,7 @@ describe('Applications Routes', () => {
                 recentAt: '2026-05-21T08:30:00.000Z'
             })
             const selectQuery = listQueries.find((entry) => entry.sql.includes('SELECT row_data AS row'))
-            expect(selectQuery?.sql).toContain('FROM "app_runtime_test"."recent_content_views" rel')
+            expect(selectQuery?.sql).toContain('FROM "app_deadbeef"."recent_content_views" rel')
             expect(selectQuery?.sql).toContain("row_data ->> 'recentAt' DESC")
         })
 
@@ -1559,7 +1800,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -1568,7 +1809,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -1605,7 +1846,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) {
                         return [
                             {
@@ -1709,7 +1950,7 @@ describe('Applications Routes', () => {
             })
             expect(JSON.stringify(response.body.rows[0])).not.toContain('access-entry')
             const selectQuery = listQueries.find((entry) => entry.sql.includes('SELECT row_data AS row'))
-            expect(selectQuery?.sql).toContain('FROM "app_runtime_test"."content_access_entries" rel')
+            expect(selectQuery?.sql).toContain('FROM "app_deadbeef"."content_access_entries" rel')
             expect(selectQuery?.sql).toContain('rel."principal_type" = ANY')
             expect(selectQuery?.sql).toContain('rel."principal_id"::text')
             expect(selectQuery?.sql).toContain("row_data ->> 'sharedAt' DESC")
@@ -1720,7 +1961,7 @@ describe('Applications Routes', () => {
         it('requires shared canEdit access for edit-bound row predicates without rejecting legacy access-level casing', async () => {
             const manager = {
                 query: jest.fn(async (sql: string, params?: unknown[]) => {
-                    if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                         return [
                             {
                                 id: 'access-object-id',
@@ -1730,7 +1971,7 @@ describe('Applications Routes', () => {
                             }
                         ]
                     }
-                    if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                    if (sql.includes('FROM "app_deadbeef"._app_components')) {
                         expect(params?.[0]).toBe('access-object-id')
                         return runtimeAccessEntryComponents
                     }
@@ -1751,7 +1992,7 @@ describe('Applications Routes', () => {
 
             const editClause = await buildRuntimeRecordAccessClause({
                 manager,
-                schemaIdent: '"app_runtime_test"',
+                schemaIdent: '"app_deadbeef"',
                 currentWorkspaceId: null,
                 currentUserId: 'shared-user-id',
                 permissions: ROLE_PERMISSIONS.member,
@@ -1771,7 +2012,7 @@ describe('Applications Routes', () => {
             const readValues: unknown[] = []
             const readClause = await buildRuntimeRecordAccessClause({
                 manager,
-                schemaIdent: '"app_runtime_test"',
+                schemaIdent: '"app_deadbeef"',
                 currentWorkspaceId: null,
                 currentUserId: 'shared-user-id',
                 permissions: ROLE_PERMISSIONS.member,
@@ -1789,7 +2030,7 @@ describe('Applications Routes', () => {
         it('inherits edit-bound runtime access from a configured parent record', async () => {
             const manager = {
                 query: jest.fn(async (sql: string, params?: unknown[]) => {
-                    if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                         if (params?.[0] === 'Courses') {
                             return [
                                 {
@@ -1811,7 +2052,7 @@ describe('Applications Routes', () => {
                             ]
                         }
                     }
-                    if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                    if (sql.includes('FROM "app_deadbeef"._app_components')) {
                         if (params?.[0] === 'course-object-id') {
                             return []
                         }
@@ -1825,7 +2066,7 @@ describe('Applications Routes', () => {
             const values: unknown[] = []
             const clause = await buildRuntimeRecordAccessClause({
                 manager,
-                schemaIdent: '"app_runtime_test"',
+                schemaIdent: '"app_deadbeef"',
                 currentWorkspaceId: null,
                 currentUserId: 'shared-user-id',
                 permissions: ROLE_PERMISSIONS.member,
@@ -1855,7 +2096,7 @@ describe('Applications Routes', () => {
             })
 
             expect(clause).toContain('EXISTS')
-            expect(clause).toContain('FROM "app_runtime_test"."courses" parent_access_0')
+            expect(clause).toContain('FROM "app_deadbeef"."courses" parent_access_0')
             expect(clause).toContain('parent_access_0.id::text = target."course_id"::text')
             expect(clause).toContain('rel."target_record_id"::text = parent_access_0.id::text')
             expect(clause).toContain('LOWER(rel."access_level"::text) = \'canedit\'')
@@ -1872,7 +2113,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -1881,7 +2122,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentStars') {
                         return [
                             {
@@ -1922,7 +2163,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === starsObjectId) {
                         return [
                             {
@@ -1939,19 +2180,19 @@ describe('Applications Routes', () => {
                     return [{ id: 'title', codename: 'Title', column_name: 'title', data_type: 'STRING' }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"."learning_resources" src')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources" src')) {
                     return [{ id: runtimeRowId, owner_user_id: 'test-user-id' }]
                 }
                 if (sql.includes('pg_advisory_xact_lock')) {
                     return []
                 }
-                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_runtime_test"."content_stars" rel')) {
+                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_deadbeef"."content_stars" rel')) {
                     return []
                 }
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-2222333344b4' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_stars"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_stars"')) {
                     insertedRelationQueries.push({ sql, params })
                     return []
                 }
@@ -1988,7 +2229,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -1997,7 +2238,7 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -2047,7 +2288,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) {
                         return [
                             {
@@ -2066,19 +2307,19 @@ describe('Applications Routes', () => {
                     return [{ id: 'title', codename: 'Title', column_name: 'title', data_type: 'STRING' }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"."learning_resources" src')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources" src')) {
                     return [{ id: runtimeRowId, owner_user_id: 'test-user-id' }]
                 }
                 if (sql.includes('pg_advisory_xact_lock')) {
                     return []
                 }
-                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_runtime_test"."content_access_entries" rel')) {
+                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_deadbeef"."content_access_entries" rel')) {
                     return []
                 }
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-2222333344b9' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_access_entries"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_access_entries"')) {
                     insertedRelationQueries.push({ sql, params })
                     return []
                 }
@@ -2122,7 +2363,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -2136,7 +2377,7 @@ describe('Applications Routes', () => {
                     return [{ id: 'principal-membership' }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -2186,7 +2427,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) {
                         return [
                             {
@@ -2205,10 +2446,10 @@ describe('Applications Routes', () => {
                     return [{ id: 'title', codename: 'Title', column_name: 'title', data_type: 'STRING' }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"."learning_resources" src')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources" src')) {
                     return [{ id: runtimeRowId, owner_user_id: 'owner-user-id' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_access_entries"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_access_entries"')) {
                     insertedRelationQueries.push({ sql, params })
                     return []
                 }
@@ -2238,7 +2479,7 @@ describe('Applications Routes', () => {
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             applicationUserRepo.findOne.mockResolvedValue({
@@ -2251,7 +2492,7 @@ describe('Applications Routes', () => {
                     return params?.[0] === runtimeApplicationId && params?.[1] === principalId ? [{ id: 'principal-membership' }] : []
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -2301,7 +2542,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) {
                         return [
                             {
@@ -2320,19 +2561,19 @@ describe('Applications Routes', () => {
                     return [{ id: 'title', codename: 'Title', column_name: 'title', data_type: 'STRING' }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"."learning_resources" src')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources" src')) {
                     return [{ id: runtimeRowId, owner_user_id: 'test-user-id' }]
                 }
                 if (sql.includes('pg_advisory_xact_lock')) {
                     return []
                 }
-                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_runtime_test"."content_access_entries" rel')) {
+                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_deadbeef"."content_access_entries" rel')) {
                     return []
                 }
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-2222333344bf' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_access_entries"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_access_entries"')) {
                     insertedRelationQueries.push({ sql, params })
                     return []
                 }
@@ -5027,13 +5268,13 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-1',
@@ -5075,7 +5316,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5086,7 +5327,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'LearnerHome') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'LearnerHome') {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334498',
@@ -5097,10 +5338,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5112,13 +5353,13 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."content_progress"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."content_progress"')) {
                     return []
                 }
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-222233334499' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_progress"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_progress"')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-222233334499' }]
                 }
                 return []
@@ -5144,7 +5385,7 @@ describe('Applications Routes', () => {
                 status: 'completed'
             })
             const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
-                String(sql).includes('INSERT INTO "app_runtime_test"."content_progress"')
+                String(sql).includes('INSERT INTO "app_deadbeef"."content_progress"')
             )
             expect(insertCall?.[1]).toEqual([
                 '018f8a78-7b8f-7c1d-a111-222233334499',
@@ -5168,7 +5409,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5179,7 +5420,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'LearnerHome') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'LearnerHome') {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334498',
@@ -5190,10 +5431,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5205,10 +5446,10 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."content_progress"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."content_progress"')) {
                     return [{ id: 'progress-row-id', status: 'completed', progress_percent: 100 }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."content_progress"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."content_progress"')) {
                     return [{ id: 'progress-row-id' }]
                 }
                 return []
@@ -5234,7 +5475,7 @@ describe('Applications Routes', () => {
                 status: 'completed'
             })
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
-                String(sql).includes('UPDATE "app_runtime_test"."content_progress"')
+                String(sql).includes('UPDATE "app_deadbeef"."content_progress"')
             )
             expect(updateCall?.[1]).toEqual(['progress-row-id', 'test-user-id'])
         })
@@ -5253,7 +5494,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5264,7 +5505,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'LearningResources') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'LearningResources') {
                     return [
                         {
                             id: targetObjectId,
@@ -5275,7 +5516,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentAccessEntries') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentAccessEntries') {
                     return [
                         {
                             id: accessObjectId,
@@ -5286,11 +5527,11 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return [{ codename: 'Title', column_name: 'title', data_type: 'STRING' }]
                 }
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     targetQueries.push({ sql, params })
                     return []
                 }
@@ -5313,8 +5554,8 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Progress target row not found' })
             expect(targetQueries).toHaveLength(1)
             expect(targetQueries[0]?.sql).toContain('"_upl_created_by" = $2')
-            expect(targetQueries[0]?.sql).toContain('FROM "app_runtime_test"."content_access_entries" rel')
-            expect(targetQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."learning_resources".id::text')
+            expect(targetQueries[0]?.sql).toContain('FROM "app_deadbeef"."content_access_entries" rel')
+            expect(targetQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."learning_resources".id::text')
             expect(targetQueries[0]?.params).toEqual([
                 targetRecordId,
                 'test-user-id',
@@ -5337,7 +5578,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5348,7 +5589,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'LearningResources') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'LearningResources') {
                     return [
                         {
                             id: 'learning-resources-object-id',
@@ -5369,10 +5610,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'RecentContentViews') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'RecentContentViews') {
                     return [
                         {
                             id: 'recent-object-id',
@@ -5383,7 +5624,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'progress-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'progress-object-id') {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5395,7 +5636,7 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'recent-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'recent-object-id') {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5403,26 +5644,26 @@ describe('Applications Routes', () => {
                         { codename: 'ViewedAt', column_name: 'viewed_at' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-2222333344c8' }]
                 }
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."content_progress"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."content_progress"')) {
                     return []
                 }
-                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_runtime_test"."recent_content_views" rel')) {
+                if (sql.includes('SELECT rel.id') && sql.includes('FROM "app_deadbeef"."recent_content_views" rel')) {
                     return []
                 }
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                     return [{ id: generatedIds.shift() }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."recent_content_views"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."recent_content_views"')) {
                     insertedRecentQueries.push({ sql, params })
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_progress"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_progress"')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-2222333344ca' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."recent_content_views"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."recent_content_views"')) {
                     updatedRecentQueries.push({ sql, params })
                     return [{ id: 'recent-row-id' }]
                 }
@@ -5474,7 +5715,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5515,7 +5756,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5526,7 +5767,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'CourseItems') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'CourseItems') {
                     return [
                         {
                             id: 'course-items-object-id',
@@ -5545,10 +5786,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'progress-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'progress-object-id') {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5560,33 +5801,25 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'course-items-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'course-items-object-id') {
                     return [
                         { codename: 'CourseId', column_name: 'course_id' },
                         { codename: 'SortOrder', column_name: 'sort_order' }
                     ]
                 }
-                if (
-                    sql.includes('FROM "app_runtime_test"."course_items"') &&
-                    sql.includes('WHERE id = $1') &&
-                    !sql.includes('AS "field_0"')
-                ) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('WHERE id = $1') && !sql.includes('AS "field_0"')) {
                     return [{ id: lockedItemId }]
                 }
-                if (
-                    sql.includes('FROM "app_runtime_test"."course_items"') &&
-                    sql.includes('WHERE id = $1') &&
-                    sql.includes('AS "field_0"')
-                ) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('WHERE id = $1') && sql.includes('AS "field_0"')) {
                     return [{ id: lockedItemId, field_0: courseId, field_1: 2 }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"') && sql.includes('"course_id" IS NOT DISTINCT FROM $1')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('"course_id" IS NOT DISTINCT FROM $1')) {
                     return [
                         { id: firstItemId, field_0: courseId, field_1: 1 },
                         { id: lockedItemId, field_0: courseId, field_1: 2 }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."content_progress"') && sql.includes('ANY($3::text[])')) {
+                if (sql.includes('FROM "app_deadbeef"."content_progress"') && sql.includes('ANY($3::text[])')) {
                     return []
                 }
                 return []
@@ -5611,7 +5844,7 @@ describe('Applications Routes', () => {
             })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) =>
-                    String(sql).includes('INSERT INTO "app_runtime_test"."content_progress"')
+                    String(sql).includes('INSERT INTO "app_deadbeef"."content_progress"')
                 )
             ).toBe(false)
         })
@@ -5630,7 +5863,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5641,7 +5874,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'CourseItems') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'CourseItems') {
                     return [
                         {
                             id: 'course-items-object-id',
@@ -5664,13 +5897,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'Courses') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'Courses') {
                     return [{ id: 'courses-object-id', codename: 'Courses', kind: 'object', table_name: 'courses' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'progress-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'progress-object-id') {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5682,7 +5915,7 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'course-items-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'course-items-object-id') {
                     return [
                         { codename: 'CourseId', column_name: 'course_id' },
                         { codename: 'CompletionWeight', column_name: 'completion_weight' },
@@ -5690,48 +5923,44 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (
-                    sql.includes('FROM "app_runtime_test"."course_items"') &&
+                    sql.includes('FROM "app_deadbeef"."course_items"') &&
                     sql.includes('WHERE id = $1') &&
                     !sql.includes('AS "parent_id"')
                 ) {
                     return [{ id: secondItemId }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"') && sql.includes('"course_id" IS NOT DISTINCT FROM $1')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('"course_id" IS NOT DISTINCT FROM $1')) {
                     return [
                         { id: firstItemId, parent_id: courseId, item_weight: '1', item_required: true },
                         { id: secondItemId, parent_id: courseId, item_weight: '3', item_required: true },
                         { id: optionalItemId, parent_id: courseId, item_weight: '100', item_required: false }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"') && sql.includes('AS "parent_id"')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('AS "parent_id"')) {
                     return [{ id: secondItemId, parent_id: courseId, item_weight: '3', item_required: true }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."content_progress"') && sql.includes('ANY($3::text[])')) {
+                if (sql.includes('FROM "app_deadbeef"."content_progress"') && sql.includes('ANY($3::text[])')) {
                     return [
                         { target_record_id: firstItemId, status: 'completed', progress_percent: 100 },
                         { target_record_id: secondItemId, status: 'completed', progress_percent: 100 }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."courses"') && sql.includes('WHERE id = $1')) {
+                if (sql.includes('FROM "app_deadbeef"."courses"') && sql.includes('WHERE id = $1')) {
                     return [{ id: courseId }]
                 }
-                if (
-                    sql.includes('FROM "app_runtime_test"."content_progress"') &&
-                    sql.includes('LIMIT 1') &&
-                    params?.[0] === 'CourseItems'
-                ) {
+                if (sql.includes('FROM "app_deadbeef"."content_progress"') && sql.includes('LIMIT 1') && params?.[0] === 'CourseItems') {
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"."content_progress"') && sql.includes('LIMIT 1') && params?.[0] === 'Courses') {
+                if (sql.includes('FROM "app_deadbeef"."content_progress"') && sql.includes('LIMIT 1') && params?.[0] === 'Courses') {
                     return [{ id: 'course-progress-id' }]
                 }
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-222233334515' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_progress"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_progress"')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-222233334515' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."content_progress"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."content_progress"')) {
                     return [{ id: 'course-progress-id' }]
                 }
                 return []
@@ -5750,7 +5979,7 @@ describe('Applications Routes', () => {
 
             const parentProgressUpdate = (txExecutor.query as jest.Mock).mock.calls.find(
                 ([sql, params]) =>
-                    String(sql).includes('UPDATE "app_runtime_test"."content_progress"') &&
+                    String(sql).includes('UPDATE "app_deadbeef"."content_progress"') &&
                     Array.isArray(params) &&
                     params[0] === 'course-progress-id'
             )
@@ -5770,7 +5999,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5781,7 +6010,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'CourseItems') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'CourseItems') {
                     return [
                         {
                             id: 'course-items-object-id',
@@ -5802,13 +6031,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'Courses') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'Courses') {
                     return [{ id: 'courses-object-id', codename: 'Courses', kind: 'object', table_name: 'courses' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'progress-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'progress-object-id') {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5820,41 +6049,41 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'course-items-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'course-items-object-id') {
                     return [
                         { codename: 'CourseId', column_name: 'course_id' },
                         { codename: 'CompletionWeight', column_name: 'completion_weight' }
                     ]
                 }
                 if (
-                    sql.includes('FROM "app_runtime_test"."course_items"') &&
+                    sql.includes('FROM "app_deadbeef"."course_items"') &&
                     sql.includes('WHERE id = $1') &&
                     !sql.includes('AS "parent_id"')
                 ) {
                     return [{ id: secondItemId }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"') && sql.includes('AS "parent_id"')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('AS "parent_id"')) {
                     return [{ id: secondItemId, parent_id: courseId, item_weight: '2' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"') && sql.includes('"course_id" IS NOT DISTINCT FROM $1')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('"course_id" IS NOT DISTINCT FROM $1')) {
                     return [
                         { id: firstItemId, parent_id: courseId, item_weight: '1' },
                         { id: secondItemId, parent_id: courseId, item_weight: '2' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."content_progress"') && sql.includes('ANY($3::text[])')) {
+                if (sql.includes('FROM "app_deadbeef"."content_progress"') && sql.includes('ANY($3::text[])')) {
                     return [
                         { target_record_id: firstItemId, status: 'completed', progress_percent: 100 },
                         { target_record_id: secondItemId, status: 'completed', progress_percent: 100 }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."courses"') && sql.includes('WHERE id = $1')) {
+                if (sql.includes('FROM "app_deadbeef"."courses"') && sql.includes('WHERE id = $1')) {
                     return [{ id: courseId }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."content_progress"') && sql.includes('LIMIT 1') && params?.[0] === 'Courses') {
+                if (sql.includes('FROM "app_deadbeef"."content_progress"') && sql.includes('LIMIT 1') && params?.[0] === 'Courses') {
                     return [{ id: 'course-progress-id' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."content_progress"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."content_progress"')) {
                     return [{ id: 'course-progress-id' }]
                 }
                 return []
@@ -5880,14 +6109,14 @@ describe('Applications Routes', () => {
             expect(
                 txExecutor.query.mock.calls.some(
                     ([sql, params]) =>
-                        String(sql).includes('INSERT INTO "app_runtime_test"."content_progress"') &&
+                        String(sql).includes('INSERT INTO "app_deadbeef"."content_progress"') &&
                         Array.isArray(params) &&
                         params[1] === 'CourseItems'
                 )
             ).toBe(false)
             const parentProgressUpdate = txExecutor.query.mock.calls.find(
                 ([sql, params]) =>
-                    String(sql).includes('UPDATE "app_runtime_test"."content_progress"') &&
+                    String(sql).includes('UPDATE "app_deadbeef"."content_progress"') &&
                     Array.isArray(params) &&
                     params[0] === 'course-progress-id'
             )
@@ -5905,7 +6134,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5916,7 +6145,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'CourseItems') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'CourseItems') {
                     return [
                         {
                             id: 'course-items-object-id',
@@ -5927,10 +6156,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'progress-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'progress-object-id') {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -5942,7 +6171,7 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"') && sql.includes('WHERE id = $1')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('WHERE id = $1')) {
                     return [{ id: courseItemId }]
                 }
                 return []
@@ -5977,7 +6206,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     learningContent: {
                         progressStore: {
@@ -5988,7 +6217,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'CourseItems') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'CourseItems') {
                     return [
                         {
                             id: 'course-items-object-id',
@@ -6006,10 +6235,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && params?.[0] === 'ContentProgress') {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
                     return [{ id: 'progress-object-id', codename: 'ContentProgress', kind: 'object', table_name: 'content_progress' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'progress-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'progress-object-id') {
                     return [
                         { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
                         { codename: 'TargetRecordId', column_name: 'target_record_id' },
@@ -6021,7 +6250,7 @@ describe('Applications Routes', () => {
                         { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"') && sql.includes('WHERE id = $1')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"') && sql.includes('WHERE id = $1')) {
                     return [{ id: targetRecordId }]
                 }
                 return []
@@ -6044,7 +6273,7 @@ describe('Applications Routes', () => {
             })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) =>
-                    String(sql).includes('INSERT INTO "app_runtime_test"."content_progress"')
+                    String(sql).includes('INSERT INTO "app_deadbeef"."content_progress"')
                 )
             ).toBe(false)
         })
@@ -6059,13 +6288,13 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-1',
@@ -6080,7 +6309,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_values')) {
+                if (sql.includes('FROM "app_deadbeef"._app_values')) {
                     return []
                 }
                 return []
@@ -6111,13 +6340,13 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-1',
@@ -6132,10 +6361,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_values')) {
+                if (sql.includes('FROM "app_deadbeef"._app_values')) {
                     return [{ id: defaultEnumValueId }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     return [{ id: insertedRowId }]
                 }
                 return []
@@ -6153,7 +6382,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ id: insertedRowId, status: 'created' })
 
             const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."orders"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."orders"')
             )
             expect(insertCall).toBeDefined()
             expect(insertCall?.[1]).toContain(defaultEnumValueId)
@@ -6175,11 +6404,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6190,7 +6419,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334443',
@@ -6208,7 +6437,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, name: 'Runtime row', _upl_version: 7 }]
                 }
                 return []
@@ -6228,7 +6457,7 @@ describe('Applications Routes', () => {
                 }
             })
             const selectCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('FROM "app_runtime_test"."orders"')
+                String(call[0]).includes('FROM "app_deadbeef"."orders"')
             )
             expect(selectCall).toBeDefined()
             expect(String(selectCall?.[0])).toContain('"_upl_version"')
@@ -6246,11 +6475,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -6276,7 +6505,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return [
                         {
@@ -6288,7 +6517,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     readQueries.push({ sql, params })
                     return []
                 }
@@ -6304,8 +6533,8 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Row not found' })
             expect(readQueries).toHaveLength(1)
             expect(readQueries[0]?.sql).toContain('"_upl_created_by" = $2')
-            expect(readQueries[0]?.sql).toContain('FROM "app_runtime_test"."content_access_entries" rel')
-            expect(readQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."learning_resources".id::text')
+            expect(readQueries[0]?.sql).toContain('FROM "app_deadbeef"."content_access_entries" rel')
+            expect(readQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."learning_resources".id::text')
             expect(readQueries[0]?.params).toEqual([
                 runtimeRowId,
                 'test-user-id',
@@ -6331,7 +6560,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -6355,10 +6584,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6374,15 +6603,15 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     expect(sql).toContain('_upl_created_by = $2')
                     expect(sql).toContain("NOW() - INTERVAL '10 minutes'")
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1, _upl_created_by: 'test-user-id' }]
                 }
-                if (sql.includes('DELETE FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('DELETE FROM "app_deadbeef"."orders"')) {
                     expect(sql).toContain('_upl_created_by = $2')
                     expect(sql).toContain('COALESCE(_upl_version, 1) = 1')
                     expect(sql).toContain('COALESCE(_upl_version, 1) = $3')
@@ -6402,7 +6631,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ status: 'deleted' })
             const deleteCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('DELETE FROM "app_runtime_test"."orders"')
+                String(call[0]).includes('DELETE FROM "app_deadbeef"."orders"')
             )
             expect(deleteCall?.[1]).toEqual([runtimeRowId, 'test-user-id', 1])
         })
@@ -6417,7 +6646,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
 
             const app = buildApp(dataSource)
@@ -6443,10 +6672,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6462,13 +6691,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false }]
                 }
-                if (sql.includes('DELETE FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('DELETE FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -6482,7 +6711,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ status: 'deleted' })
             const deleteCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('DELETE FROM "app_runtime_test"."orders"')
+                String(call[0]).includes('DELETE FROM "app_deadbeef"."orders"')
             )
             expect(deleteCall).toBeDefined()
             expect(String(deleteCall?.[0])).not.toContain('_app_deleted = false')
@@ -6510,10 +6739,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6529,13 +6758,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4 }]
                 }
-                if (sql.includes('DELETE FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('DELETE FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -6548,7 +6777,7 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             const deleteCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('DELETE FROM "app_runtime_test"."orders"')
+                String(call[0]).includes('DELETE FROM "app_deadbeef"."orders"')
             )
             expect(deleteCall).toBeDefined()
             expect(String(deleteCall?.[0])).toContain('COALESCE(_upl_version, 1) = $2')
@@ -6569,7 +6798,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     rolePolicies: {
                         templates: [
@@ -6583,7 +6812,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -6612,15 +6841,15 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     sourceQueries.push({ sql, params })
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _upl_created_by: 'owner-user-id' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."learning_resources"')) {
                     mutationQueries.push({ sql, params })
                     return [{ id: runtimeRowId }]
                 }
@@ -6634,9 +6863,9 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             expect(sourceQueries[0]?.sql).toContain('"_upl_created_by" = $2')
-            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."learning_resources".id::text')
+            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."learning_resources".id::text')
             expect(mutationQueries[0]?.sql).toContain('"_upl_created_by" = $3')
-            expect(mutationQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."learning_resources".id::text')
+            expect(mutationQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."learning_resources".id::text')
             expect(mutationQueries[0]?.params).toEqual([
                 'test-user-id',
                 runtimeRowId,
@@ -6657,10 +6886,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6676,13 +6905,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -6695,7 +6924,7 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."orders"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."orders"')
             )
             expect(updateCall).toBeDefined()
             expect(String(updateCall?.[0])).toContain('_app_deleted = true')
@@ -6714,10 +6943,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6733,13 +6962,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4 }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"') || sql.includes('DELETE FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"') || sql.includes('DELETE FROM "app_deadbeef"."orders"')) {
                     throw new Error('Mutation should not run when expectedVersion is stale')
                 }
                 return []
@@ -6771,10 +7000,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6790,13 +7019,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4 }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -6809,7 +7038,7 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."orders"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."orders"')
             )
             expect(updateCall).toBeDefined()
             expect(String(updateCall?.[0])).toContain('COALESCE(_upl_version, 1) = $3')
@@ -6827,10 +7056,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6846,13 +7075,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4 }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return []
                 }
                 return []
@@ -6892,10 +7121,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -6911,13 +7140,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _app_deleted: true }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -6931,7 +7160,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ status: 'restored' })
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."orders"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."orders"')
             )
             expect(updateCall).toBeDefined()
             expect(String(updateCall?.[0])).toContain('_app_deleted = false')
@@ -6983,7 +7212,14 @@ describe('Applications Routes', () => {
                 if (sql.includes(`FROM ${runtimeSchemaIdent}."_app_workspace_roles"`)) {
                     return [{ id: params?.[0] === 'member' ? 'workspace-role-member' : 'workspace-role-owner', codename: params?.[0] }]
                 }
-                if (sql.includes(`FROM ${runtimeSchemaIdent}."_app_workspace_user_roles"`) && sql.includes('WHERE workspace_id = $1')) {
+                if (sql.includes(`LEFT JOIN ${runtimeSchemaIdent}."_app_workspace_user_roles"`) && sql.includes('wur.user_id = $1')) {
+                    return [{ workspaceId, userId: 'test-user-id', isDefaultWorkspace: true }]
+                }
+                if (
+                    sql.includes(`FROM ${runtimeSchemaIdent}."_app_workspace_user_roles"`) &&
+                    sql.includes('WHERE workspace_id = $1') &&
+                    sql.includes('user_id = $2')
+                ) {
                     return [{ workspaceId, userId: 'test-user-id', isDefaultWorkspace: true }]
                 }
                 if (sql.includes(`FROM ${runtimeSchemaIdent}."_app_workspace_user_roles"`) && sql.includes('INNER JOIN')) {
@@ -7005,7 +7241,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
                 if (sql.includes(`FROM ${runtimeSchemaIdent}._app_components`)) {
@@ -7062,7 +7298,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     rolePolicies: {
                         templates: [
@@ -7076,7 +7312,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -7105,15 +7341,15 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     sourceQueries.push({ sql, params })
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _upl_created_by: 'owner-user-id' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."learning_resources"')) {
                     mutationQueries.push({ sql, params })
                     return [{ id: runtimeRowId }]
                 }
@@ -7127,9 +7363,9 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             expect(sourceQueries[0]?.sql).toContain('"_upl_created_by" = $2')
-            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."learning_resources".id::text')
+            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."learning_resources".id::text')
             expect(mutationQueries[0]?.sql).toContain('"_upl_created_by" = $3')
-            expect(mutationQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."learning_resources".id::text')
+            expect(mutationQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."learning_resources".id::text')
             expect(mutationQueries[0]?.params).toEqual([
                 'test-user-id',
                 runtimeRowId,
@@ -7152,10 +7388,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -7183,7 +7419,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === runtimeLinkedCollectionId) {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === runtimeLinkedCollectionId) {
                     return [
                         {
                             id: 'project-id-component',
@@ -7201,16 +7437,16 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _app_deleted: true }]
                 }
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."projects"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."projects"')) {
                     return [{ id: targetProjectRowId }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -7233,7 +7469,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ status: 'restored' })
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."orders"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."orders"')
             )
             expect(String(updateCall?.[0])).toContain('"project_id" = $4')
             expect(updateCall?.[1]).toEqual(['test-user-id', runtimeRowId, 4, targetProjectRowId])
@@ -7252,7 +7488,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 settings: {
                     rolePolicies: {
                         templates: [
@@ -7266,7 +7502,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'Projects' || params?.[0] === targetProjectObjectId) {
                         return [
                             {
@@ -7319,7 +7555,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === runtimeLinkedCollectionId) {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === runtimeLinkedCollectionId) {
                     return [
                         {
                             id: 'project-id-component',
@@ -7334,13 +7570,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === accessObjectId) {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === accessObjectId) {
                     return runtimeAccessEntryComponents
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [
                         {
                             id: runtimeRowId,
@@ -7351,10 +7587,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."projects"')) {
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."projects"')) {
                     return []
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     throw new Error('Restore mutation should not run without an editable original parent')
                 }
                 return []
@@ -7386,10 +7622,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -7405,13 +7641,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _app_deleted: true }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     throw new Error('Mutation should not run when expectedVersion is stale')
                 }
                 return []
@@ -7443,10 +7679,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -7462,13 +7698,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _app_deleted: true }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return []
                 }
                 return []
@@ -7507,10 +7743,10 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test'
+                schemaName: 'app_deadbeef'
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -7534,13 +7770,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, _upl_locked: false }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -7553,7 +7789,7 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."orders"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."orders"')
             )
 
             expect(updateCall).toBeDefined()
@@ -7581,7 +7817,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -7603,7 +7839,7 @@ describe('Applications Routes', () => {
             })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some((call) =>
-                    String(call[0]).includes('FROM "app_runtime_test"._app_objects')
+                    String(call[0]).includes('FROM "app_deadbeef"._app_objects')
                 )
             ).toBe(false)
         })
@@ -7618,7 +7854,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -7645,7 +7881,7 @@ describe('Applications Routes', () => {
             })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some((call) =>
-                    String(call[0]).includes('FROM "app_runtime_test"._app_objects')
+                    String(call[0]).includes('FROM "app_deadbeef"._app_objects')
                 )
             ).toBe(false)
         })
@@ -7660,7 +7896,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -7707,7 +7943,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -7741,17 +7977,17 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -7783,7 +8019,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.transaction as jest.Mock).mockImplementation(async (callback: (tx: typeof txExecutor) => Promise<unknown>) => {
@@ -7795,7 +8031,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'Courses') {
                         return [
                             {
@@ -7831,7 +8067,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === runtimeLinkedCollectionId) {
                         return [
                             {
@@ -7857,10 +8093,10 @@ describe('Applications Routes', () => {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"."courses"')) {
+                if (sql.includes('FROM "app_deadbeef"."courses"')) {
                     return params?.[0] === targetCourseId && !inTransaction ? [{ id: targetCourseId }] : []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."course_items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."course_items"')) {
                     throw new Error('Create must not insert when parent edit access disappears inside the transaction')
                 }
                 return []
@@ -7879,10 +8115,12 @@ describe('Applications Routes', () => {
                 .expect(400)
 
             expect(response.body).toEqual({ error: 'Parent record is not editable for CourseId' })
-            expect(dataSource.transaction).toHaveBeenCalledTimes(1)
+            // The canonical layout resolver performs its conflict-safe read in
+            // a transaction before the mutation transaction starts.
+            expect(dataSource.transaction).toHaveBeenCalledTimes(2)
             expect(
                 (txExecutor.query as jest.Mock).mock.calls.some((call) =>
-                    String(call[0]).includes('INSERT INTO "app_runtime_test"."course_items"')
+                    String(call[0]).includes('INSERT INTO "app_deadbeef"."course_items"')
                 )
             ).toBe(false)
         })
@@ -7897,11 +8135,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -7917,7 +8155,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'principal-type',
@@ -7937,7 +8175,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_access_entries"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_access_entries"')) {
                     throw new Error('Access entry insert should not run without an active workspace')
                 }
                 return []
@@ -7957,7 +8195,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ error: 'Access entries require an active workspace' })
             expect(dataSource.manager.query).not.toHaveBeenCalledWith(
-                expect.stringContaining('INSERT INTO "app_runtime_test"."content_access_entries"'),
+                expect.stringContaining('INSERT INTO "app_deadbeef"."content_access_entries"'),
                 expect.any(Array)
             )
         })
@@ -7972,11 +8210,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -7992,7 +8230,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'principal-type',
@@ -8012,7 +8250,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."content_access_entries"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."content_access_entries"')) {
                     return [
                         {
                             id: runtimeRowId,
@@ -8023,7 +8261,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_access_entries"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_access_entries"')) {
                     throw new Error('Access entry copy insert should not run without an active workspace')
                 }
                 return []
@@ -8037,7 +8275,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ error: 'Access entries require an active workspace' })
             expect(dataSource.manager.query).not.toHaveBeenCalledWith(
-                expect.stringContaining('INSERT INTO "app_runtime_test"."content_access_entries"'),
+                expect.stringContaining('INSERT INTO "app_deadbeef"."content_access_entries"'),
                 expect.any(Array)
             )
         })
@@ -8052,7 +8290,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
 
@@ -8095,11 +8333,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -8109,7 +8347,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
@@ -8135,7 +8373,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."enrollments"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."enrollments"')) {
                     throw new Error('Enrollment insert should not run after date validation failure')
                 }
                 return []
@@ -8155,7 +8393,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ error: 'Invalid date order: DueDate must be on or after EnrolledAt' })
             expect(dataSource.manager.query).not.toHaveBeenCalledWith(
-                expect.stringContaining('INSERT INTO "app_runtime_test"."enrollments"'),
+                expect.stringContaining('INSERT INTO "app_deadbeef"."enrollments"'),
                 expect.any(Array)
             )
         })
@@ -8180,11 +8418,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -8194,7 +8432,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333344a3',
@@ -8220,7 +8458,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."enrollments"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."enrollments"')) {
                     throw new Error('Enrollment insert should not run after requiredWhen validation failure')
                 }
                 return []
@@ -8239,7 +8477,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ error: 'Required field missing: DueDate is required when DueDateMode matches' })
             expect(dataSource.manager.query).not.toHaveBeenCalledWith(
-                expect.stringContaining('INSERT INTO "app_runtime_test"."enrollments"'),
+                expect.stringContaining('INSERT INTO "app_deadbeef"."enrollments"'),
                 expect.any(Array)
             )
         })
@@ -8282,11 +8520,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -8296,7 +8534,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333344b1',
@@ -8344,7 +8582,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."enrollments"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."enrollments"')) {
                     return [{ id: runtimeRowId }]
                 }
                 return []
@@ -8364,7 +8602,7 @@ describe('Applications Routes', () => {
                 .expect(201)
 
             const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
-                String(sql).includes('INSERT INTO "app_runtime_test"."enrollments"')
+                String(sql).includes('INSERT INTO "app_deadbeef"."enrollments"')
             )
             expect(insertCall?.[1]).toEqual(expect.arrayContaining(['2026-03-30']))
         })
@@ -8390,11 +8628,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -8404,7 +8642,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
@@ -8430,7 +8668,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."enrollments"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."enrollments"')) {
                     return [
                         {
                             id: runtimeRowId,
@@ -8439,7 +8677,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."enrollments"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."enrollments"')) {
                     throw new Error('Enrollment update should not run after date validation failure')
                 }
                 return []
@@ -8457,7 +8695,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ error: 'Invalid date order: DueDate must be on or after EnrolledAt' })
             expect(dataSource.manager.query).not.toHaveBeenCalledWith(
-                expect.stringContaining('UPDATE "app_runtime_test"."enrollments"'),
+                expect.stringContaining('UPDATE "app_deadbeef"."enrollments"'),
                 expect.any(Array)
             )
         })
@@ -8473,11 +8711,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -8488,7 +8726,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334477',
@@ -8546,11 +8784,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'LearningResources') {
                         return [
                             {
@@ -8572,7 +8810,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-22223333447b',
@@ -8600,7 +8838,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     return []
                 }
                 return []
@@ -8634,7 +8872,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false,
                 settings: {
                     rolePolicies: {
@@ -8649,7 +8887,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -8675,11 +8913,11 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return [{ id: 'title', codename: 'Title', column_name: 'title', data_type: 'STRING' }]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."learning_resources"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."learning_resources"')) {
                     sourceQueries.push({ sql, params })
                     return []
                 }
@@ -8695,7 +8933,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Row not found' })
             expect(sourceQueries).toHaveLength(1)
             expect(sourceQueries[0]?.sql).toContain('"_upl_created_by" = $2')
-            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."learning_resources".id::text')
+            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."learning_resources".id::text')
             expect(sourceQueries[0]?.params).toEqual([
                 runtimeRowId,
                 'test-user-id',
@@ -8719,11 +8957,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'Courses') {
                         return [
                             {
@@ -8759,7 +8997,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === runtimeLinkedCollectionId) {
                         return [
                             {
@@ -8785,13 +9023,13 @@ describe('Applications Routes', () => {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."course_items"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."course_items"')) {
                     return [{ id: runtimeRowId, course_id: sourceCourseId, title: 'Original item', _upl_locked: false, _upl_version: 1 }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."courses"')) {
+                if (sql.includes('FROM "app_deadbeef"."courses"')) {
                     return params?.[0] === sourceCourseId ? [{ id: sourceCourseId }] : []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."course_items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."course_items"')) {
                     throw new Error('Copy must not insert a child row under an unauthorized parent')
                 }
                 return []
@@ -8809,7 +9047,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Parent record is not editable for CourseId' })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some((call) =>
-                    String(call[0]).includes('INSERT INTO "app_runtime_test"."course_items"')
+                    String(call[0]).includes('INSERT INTO "app_deadbeef"."course_items"')
                 )
             ).toBe(false)
         })
@@ -8824,23 +9062,23 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     if (Array.isArray(params) && params[0] === runtimeRowId) {
                         return [{ id: runtimeRowId, title: 'Source row', _upl_locked: false }]
                     }
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     return [{ id: copiedRowId }]
                 }
                 return []
@@ -8871,14 +9109,14 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === tableComponentId) {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === tableComponentId) {
                     expect(sql).toContain('data_type')
                     expect(sql).toContain('validation_rules')
                     return [
@@ -8896,7 +9134,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-title',
@@ -8916,7 +9154,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     if (Array.isArray(params) && params[0] === runtimeRowId) {
                         return [{ id: runtimeRowId, title: 'Source row', _upl_locked: false }]
                     }
@@ -8925,10 +9163,10 @@ describe('Applications Routes', () => {
                     }
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     return [{ id: copiedRowId }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."content_items"')) {
+                if (sql.includes('FROM "app_deadbeef"."content_items"')) {
                     return [
                         {
                             body: { _primary: 'en', locales: { en: { content: 'Intro', version: 1, isActive: true } } },
@@ -8937,7 +9175,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."content_items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."content_items"')) {
                     return []
                 }
                 return []
@@ -8950,7 +9188,7 @@ describe('Applications Routes', () => {
                 .expect(201)
 
             const childInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."content_items"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."content_items"')
             )
 
             expect(childInsertCall).toBeDefined()
@@ -8974,14 +9212,14 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === tableComponentId) {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === tableComponentId) {
                     return [
                         {
                             codename: 'CellFillColor',
@@ -8991,7 +9229,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: tableComponentId,
@@ -9003,15 +9241,15 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     if (params?.[0] === runtimeRowId) return [{ id: runtimeRowId, _upl_locked: false }]
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) return [{ id: copiedRowId }]
-                if (sql.includes('FROM "app_runtime_test"."interpretation_matrix"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) return [{ id: copiedRowId }]
+                if (sql.includes('FROM "app_deadbeef"."interpretation_matrix"')) {
                     return [{ cell_fill_color: 'rgb(1,2,3)', _tp_sort_order: 0 }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."interpretation_matrix"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."interpretation_matrix"')) {
                     throw new Error('Malformed persisted colours must not be inserted')
                 }
                 return []
@@ -9025,7 +9263,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Invalid field format', code: 'INVALID_FIELD_FORMAT' })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) =>
-                    String(sql).includes('INSERT INTO "app_runtime_test"."interpretation_matrix"')
+                    String(sql).includes('INSERT INTO "app_deadbeef"."interpretation_matrix"')
                 )
             ).toBe(false)
         })
@@ -9043,17 +9281,17 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     if (Array.isArray(params) && params[0] === runtimeRowId) {
                         return [{ id: runtimeRowId, title: 'Source row', _upl_locked: false }]
                     }
@@ -9062,7 +9300,7 @@ describe('Applications Routes', () => {
                     }
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     return [{ id: copiedRowId }]
                 }
                 return []
@@ -9116,14 +9354,14 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, _params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-title',
@@ -9135,7 +9373,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     if (Array.isArray(_params) && _params[0] === runtimeRowId) {
                         return [{ id: runtimeRowId, title: 'Source row', _upl_version: 5, _upl_locked: false }]
                     }
@@ -9144,7 +9382,7 @@ describe('Applications Routes', () => {
                     }
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     return [{ id: copiedRowId }]
                 }
                 return []
@@ -9165,7 +9403,7 @@ describe('Applications Routes', () => {
                 status: 'created'
             })
             const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."orders"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."orders"')
             )
             expect(insertCall?.[1]).toEqual(['Copied row', 'test-user-id'])
         })
@@ -9180,14 +9418,14 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, _params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-title',
@@ -9199,10 +9437,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, title: 'Source row', _upl_version: 5, _upl_locked: false }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     throw new Error('Copy insert should not run when expectedVersion is stale')
                 }
                 return []
@@ -9235,14 +9473,14 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-title',
@@ -9262,10 +9500,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRowId, title: 'Source row', _upl_locked: false }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     throw new Error('Copy insert should not run when TABLE override is provided')
                 }
                 return []
@@ -9295,14 +9533,14 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, _params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-title',
@@ -9322,7 +9560,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
                     if (Array.isArray(_params) && _params[0] === runtimeRowId) {
                         return [{ id: runtimeRowId, title: 'Source row', _upl_version: 3, _upl_locked: false }]
                     }
@@ -9331,10 +9569,10 @@ describe('Applications Routes', () => {
                     }
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
                     return [{ id: copiedRowId }]
                 }
-                if (sql.includes('"app_runtime_test"."lines"')) {
+                if (sql.includes('"app_deadbeef"."lines"')) {
                     throw new Error('Child table copy should follow copyChildTables=false')
                 }
                 return []
@@ -9357,7 +9595,7 @@ describe('Applications Routes', () => {
                 hasRequiredChildTables: false
             })
             const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."orders"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."orders"')
             )
             expect(insertCall?.[1]).toEqual(['Copied row', 'test-user-id'])
         })
@@ -9379,11 +9617,11 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'CourseSections') {
                         return [
                             {
@@ -9437,7 +9675,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === runtimeLinkedCollectionId) {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === runtimeLinkedCollectionId) {
                     return [
                         {
                             id: 'course-title-attr',
@@ -9449,7 +9687,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'course-sections-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'course-sections-object-id') {
                     return [
                         {
                             id: 'section-course-attr',
@@ -9477,7 +9715,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === 'course-items-object-id') {
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === 'course-items-object-id') {
                     return [
                         {
                             id: 'item-course-attr',
@@ -9529,7 +9767,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."courses"')) {
+                if (sql.includes('FROM "app_deadbeef"."courses"')) {
                     if (params?.[0] === sourceCourseId) {
                         return [{ id: sourceCourseId, title: 'Safety course', _upl_locked: false }]
                     }
@@ -9538,16 +9776,16 @@ describe('Applications Routes', () => {
                     }
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."courses"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."courses"')) {
                     return [{ id: copiedCourseId }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_sections"')) {
+                if (sql.includes('FROM "app_deadbeef"."course_sections"')) {
                     return [{ id: sourceSectionId, course_id: sourceCourseId, title: 'Introduction', sort_order: 1 }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."course_sections"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."course_sections"')) {
                     return [{ id: copiedSectionId }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."course_items"')) {
+                if (sql.includes('FROM "app_deadbeef"."course_items"')) {
                     return [
                         {
                             id: sourceItemId,
@@ -9560,7 +9798,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."course_items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."course_items"')) {
                     return [{ id: copiedItemId }]
                 }
                 return []
@@ -9579,12 +9817,12 @@ describe('Applications Routes', () => {
                 hasRequiredChildTables: false
             })
             const sectionInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."course_sections"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."course_sections"')
             )
             expect(sectionInsertCall?.[1]).toEqual([copiedCourseId, 'Introduction', 1, 'test-user-id'])
 
             const itemInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."course_items"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."course_items"')
             )
             expect(itemInsertCall?.[1]).toEqual([
                 copiedCourseId,
@@ -9597,7 +9835,7 @@ describe('Applications Routes', () => {
             ])
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some((call) =>
-                    /"app_runtime_test"\."(enrollments|content_progress|progress_ledger)"/.test(String(call[0]))
+                    /"app_deadbeef"\."(enrollments|content_progress|progress_ledger)"/.test(String(call[0]))
                 )
             ).toBe(false)
         })
@@ -9612,14 +9850,15 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
+            enableCanonicalRowReorderingLayout()
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('information_schema.tables')) {
                     return [{ exists: true }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -9628,7 +9867,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                if (sql.includes('FROM "app_deadbeef"._app_layouts')) {
                     return [
                         {
                             id: 'layout-orders',
@@ -9641,7 +9880,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-sort-order',
@@ -9668,7 +9907,7 @@ describe('Applications Routes', () => {
                         { id: reorderedRowIdB, _upl_version: 3, _upl_locked: false }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders" AS target')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders" AS target')) {
                     return [{ id: reorderedRowIdA }, { id: reorderedRowIdB }]
                 }
                 return []
@@ -9689,7 +9928,7 @@ describe('Applications Routes', () => {
 
             expect(response.body).toEqual({ status: 'reordered' })
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
-                String(sql).includes('UPDATE "app_runtime_test"."orders" AS target')
+                String(sql).includes('UPDATE "app_deadbeef"."orders" AS target')
             )
             expect(String(updateCall?.[0])).toContain('COALESCE(target._upl_locked, false) = false')
         })
@@ -9706,14 +9945,15 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
+            enableCanonicalRowReorderingLayout()
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('information_schema.tables')) {
                     return [{ exists: true }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -9722,7 +9962,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                if (sql.includes('FROM "app_deadbeef"._app_layouts')) {
                     return [
                         {
                             id: 'layout-orders',
@@ -9735,7 +9975,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-sort-order',
@@ -9763,7 +10003,7 @@ describe('Applications Routes', () => {
                         { id: reorderedRowIdB, _upl_version: 3, _upl_locked: false }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders" AS target')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders" AS target')) {
                     updateAttempted = true
                     return [{ id: reorderedRowIdA }, { id: reorderedRowIdB }]
                 }
@@ -9798,14 +10038,15 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
+            enableCanonicalRowReorderingLayout()
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('information_schema.tables')) {
                     return [{ exists: true }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -9814,7 +10055,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_layouts')) {
+                if (sql.includes('FROM "app_deadbeef"._app_layouts')) {
                     return [
                         {
                             id: 'layout-orders',
@@ -9827,7 +10068,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'attr-sort-order',
@@ -9854,7 +10095,7 @@ describe('Applications Routes', () => {
                         { id: reorderedRowIdB, _upl_version: 3 }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."orders" AS target')) {
+                if (sql.includes('UPDATE "app_deadbeef"."orders" AS target')) {
                     throw new Error('Reorder update should not run when expectedVersion is stale')
                 }
                 return []
@@ -9937,7 +10178,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled,
                 settings
             })
@@ -9949,7 +10190,7 @@ describe('Applications Routes', () => {
             nextRow?: Record<string, unknown>
         ) => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -9960,13 +10201,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     return [previousRow]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"._app_record_counters')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"._app_record_counters')) {
                     return [{ last_number: '7' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."documents"')) {
                     return [
                         nextRow ?? {
                             ...previousRow,
@@ -10327,7 +10568,7 @@ describe('Applications Routes', () => {
             })
 
             const counterCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"._app_record_counters')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"._app_record_counters')
             )
             expect(counterCall?.[1]).toEqual([
                 runtimeLinkedCollectionId,
@@ -10338,7 +10579,7 @@ describe('Applications Routes', () => {
             ])
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."documents"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."documents"')
             )
             expect(String(updateCall?.[0])).toContain('_app_record_state = $3')
             expect(String(updateCall?.[0])).toContain('_app_posting_batch_id = public.uuid_generate_v7()')
@@ -10373,7 +10614,7 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     if (params?.[0] === 'ContentAccessEntries') {
                         return [
                             {
@@ -10405,11 +10646,11 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
                     return []
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     sourceQueries.push({ sql, params })
                     return [
                         {
@@ -10422,10 +10663,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"._app_record_counters')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"._app_record_counters')) {
                     return [{ last_number: '7' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."documents"')) {
                     updateQueries.push({ sql, params })
                     return [
                         {
@@ -10447,10 +10688,10 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             expect(sourceQueries[0]?.sql).toContain('"_upl_created_by" = $2')
-            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."documents".id::text')
+            expect(sourceQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."documents".id::text')
             expect(sourceQueries[0]?.sql).toContain('LOWER(rel."access_level"::text) = \'canedit\'')
             expect(updateQueries[0]?.sql).toContain('"_upl_created_by" = $')
-            expect(updateQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_runtime_test"."documents".id::text')
+            expect(updateQueries[0]?.sql).toContain('rel."target_record_id"::text = "app_deadbeef"."documents".id::text')
             expect(updateQueries[0]?.sql).toContain('LOWER(rel."access_level"::text) = \'canedit\'')
         })
 
@@ -10476,7 +10717,7 @@ describe('Applications Routes', () => {
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (
-                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+                    sql.includes('FROM "app_deadbeef"._app_objects') &&
                     sql.includes("config->'capabilities'->'ledgerSchema'") &&
                     !sql.includes('AND NOT')
                 ) {
@@ -10497,7 +10738,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -10511,7 +10752,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return [{ column_name: '_app_reversal_of_fact_id' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -10531,13 +10772,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1, _app_record_state: 'draft' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"._app_record_counters')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"._app_record_counters')) {
                     return [{ last_number: '8' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."documents"')) {
                     return [
                         {
                             id: runtimeRowId,
@@ -10548,7 +10789,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."led_progress"')) {
                     return [{ id: '018f8a78-7b8f-7c1d-a111-222233334578' }]
                 }
                 return []
@@ -10567,7 +10808,7 @@ describe('Applications Routes', () => {
                 }
             ])
             const ledgerInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."led_progress"')
             )
             expect(ledgerInsertCall?.[1]).toEqual(['student-1', 10, 'test-user-id', 'test-user-id'])
 
@@ -10589,7 +10830,7 @@ describe('Applications Routes', () => {
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (
-                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+                    sql.includes('FROM "app_deadbeef"._app_objects') &&
                     sql.includes("config->'capabilities'->'ledgerSchema'") &&
                     !sql.includes('AND NOT')
                 ) {
@@ -10619,7 +10860,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -10633,7 +10874,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return [{ column_name: '_app_reversal_of_fact_id' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -10653,7 +10894,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     return [
                         {
                             id: runtimeRowId,
@@ -10669,13 +10910,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."led_progress"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."led_progress"')) {
                     return [{ id: sourceFactId, learner: 'student-1', progress_delta: '10' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."led_progress"')) {
                     return [{ id: reversedFactId }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."documents"')) {
                     return [
                         {
                             id: runtimeRowId,
@@ -10710,12 +10951,12 @@ describe('Applications Routes', () => {
             })
 
             const ledgerInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                String(call[0]).includes('INSERT INTO "app_deadbeef"."led_progress"')
             )
             expect(ledgerInsertCall?.[1]).toEqual(['student-1', -10, 'test-user-id', 'test-user-id', sourceFactId])
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."documents"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."documents"')
             )
             expect(String(updateCall?.[0])).toContain('_app_posting_movements = NULL')
 
@@ -10752,7 +10993,7 @@ describe('Applications Routes', () => {
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (
-                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+                    sql.includes('FROM "app_deadbeef"._app_objects') &&
                     sql.includes("config->'capabilities'->'ledgerSchema'") &&
                     !sql.includes('AND NOT')
                 ) {
@@ -10773,7 +11014,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -10787,7 +11028,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -10799,13 +11040,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1, _app_record_state: 'draft' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"._app_record_counters')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"._app_record_counters')) {
                     return [{ last_number: '9' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."documents"')) {
                     return [
                         {
                             id: runtimeRowId,
@@ -10831,7 +11072,7 @@ describe('Applications Routes', () => {
             expect(dispatchLifecycleEventSpy.mock.calls.some((call) => call[0].payload.eventName === 'afterPost')).toBe(false)
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                    String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                    String(call[0]).includes('INSERT INTO "app_deadbeef"."led_progress"')
                 )
             ).toBeUndefined()
         })
@@ -10860,7 +11101,7 @@ describe('Applications Routes', () => {
 
             expect(response.body.code).toBe(code)
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                String(call[0]).includes('UPDATE "app_runtime_test"."documents"')
+                String(call[0]).includes('UPDATE "app_deadbeef"."documents"')
             )
             expect(updateCall).toBeUndefined()
         })
@@ -10885,7 +11126,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -10895,7 +11136,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'title-attr',
@@ -10907,13 +11148,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _app_record_state: 'posted' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."documents"')) {
                     throw new Error('posted rows must not be updated')
                 }
-                if (sql.includes('DELETE FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('DELETE FROM "app_deadbeef"."documents"')) {
                     throw new Error('posted rows must not be deleted')
                 }
                 return []
@@ -10941,7 +11182,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
@@ -10990,10 +11231,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _app_record_state: 'posted' }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     throw new Error('posted parent child rows must not be updated')
                 }
                 return []
@@ -11029,7 +11270,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
         }
@@ -11083,7 +11324,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLedgerId,
@@ -11102,10 +11343,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('information_schema.columns') || sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('information_schema.columns') || sql.includes('FROM "app_deadbeef"._app_components')) {
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."led_progress"')) {
                     throw new Error('registrar-only ledger must not accept manual inserts')
                 }
                 return []
@@ -11122,7 +11363,7 @@ describe('Applications Routes', () => {
             })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                    String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                    String(call[0]).includes('INSERT INTO "app_deadbeef"."led_progress"')
                 )
             ).toBeUndefined()
         })
@@ -11132,7 +11373,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLedgerId,
@@ -11155,7 +11396,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -11175,7 +11416,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."led_progress"')) {
                     throw new Error('invalid ledger append payload must not be inserted')
                 }
                 return []
@@ -11193,7 +11434,7 @@ describe('Applications Routes', () => {
             })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                    String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                    String(call[0]).includes('INSERT INTO "app_deadbeef"."led_progress"')
                 )
             ).toBeUndefined()
         })
@@ -11203,7 +11444,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [
                         {
                             id: runtimeLedgerId,
@@ -11223,10 +11464,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_components')) {
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
                     throw new Error('append-only ledger updates must not inspect writable columns')
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."led_progress"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."led_progress"')) {
                     throw new Error('append-only ledger must not accept direct updates')
                 }
                 return []
@@ -11243,7 +11484,7 @@ describe('Applications Routes', () => {
             })
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
-                    String(call[0]).includes('UPDATE "app_runtime_test"."led_progress"')
+                    String(call[0]).includes('UPDATE "app_deadbeef"."led_progress"')
                 )
             ).toBeUndefined()
         })
@@ -12242,7 +12483,7 @@ describe('Applications Routes', () => {
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_deadbeef',
                 workspacesEnabled: false
             })
         }
@@ -12266,7 +12507,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12295,7 +12536,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('COUNT(*)::int AS total')) {
                     return [{ total: 1 }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"')) {
+                if (sql.includes('FROM "app_deadbeef"."items"')) {
                     return [{ id: runtimeChildRowId, _tp_sort_order: 0, _upl_version: 7, title: 'Visible child row' }]
                 }
                 return []
@@ -12314,14 +12555,13 @@ describe('Applications Routes', () => {
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(
                     ([sql]) =>
-                        String(sql).includes("COALESCE(codename->'locales'") && String(sql).includes('FROM "app_runtime_test"._app_objects')
+                        String(sql).includes("COALESCE(codename->'locales'") && String(sql).includes('FROM "app_deadbeef"._app_objects')
                 )
             ).toBe(true)
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.filter(
                     ([sql]) =>
-                        String(sql).includes("COALESCE(codename->'locales'") &&
-                        String(sql).includes('FROM "app_runtime_test"._app_components')
+                        String(sql).includes("COALESCE(codename->'locales'") && String(sql).includes('FROM "app_deadbeef"._app_components')
                 )
             ).toHaveLength(2)
         })
@@ -12346,13 +12586,13 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeApplicationId,
-                            schemaName: 'app_runtime_test',
+                            schemaName: 'app_deadbeef',
                             workspacesEnabled: false,
                             settings: null
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12381,14 +12621,14 @@ describe('Applications Routes', () => {
                 return txExecutor.query(sql, params)
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('LIMIT 1')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('LIMIT 1')) {
                     return [{ id: runtimeChildRowId, _tp_sort_order: 0, cell_fill_color: 'rgb(1,2,3)' }]
                 }
                 if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 1 }]
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
                     throw new Error('Malformed persisted colours must not be inserted')
                 }
                 return []
@@ -12404,7 +12644,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Invalid field format', code: 'INVALID_FIELD_FORMAT' })
             expect(executor.transaction).toHaveBeenCalledTimes(1)
             expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_runtime_test"."items"'))
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_deadbeef"."items"'))
             ).toBe(false)
         })
 
@@ -12486,12 +12726,12 @@ describe('Applications Routes', () => {
             expect(dataSource.manager.query).not.toHaveBeenCalled()
         })
 
-        it('rejects creating a tabular row into an occupied row and column coordinate', async () => {
+        it('rejects generic Matrix creation before coordinate validation', async () => {
             const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12515,7 +12755,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12536,13 +12776,13 @@ describe('Applications Routes', () => {
                         { id: 'child-title', codename: 'title', column_name: 'title', data_type: 'STRING', is_required: false }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('"row_key" AS row_key') && sql.includes('"col_key" AS col_key')) {
                     return [{ id: runtimeChildRowId, row_key: 'definition', col_key: 'meaning' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
                     throw new Error('duplicate coordinate create must not insert a child row')
                 }
                 return []
@@ -12553,20 +12793,20 @@ describe('Applications Routes', () => {
                 .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .send({ data: { RowKey: 'definition', ColKey: 'meaning', title: 'Duplicate' } })
 
-            expect(response.status).toBe(409)
-            expect(response.body).toEqual({ error: 'Duplicate tabular coordinates' })
-            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(response.status).toBe(400)
+            expect(response.body).toEqual({ error: 'Matrix cells must be created through the server-owned Matrix cell command' })
+            expect(executor.transaction).not.toHaveBeenCalled()
             expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_runtime_test"."items"'))
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_deadbeef"."items"'))
             ).toBe(false)
         })
 
-        it('rejects creating duplicate matrix coordinates after required coordinate defaults are applied', async () => {
+        it('rejects generic Matrix creation before applying coordinate defaults', async () => {
             const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12590,7 +12830,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12611,13 +12851,13 @@ describe('Applications Routes', () => {
                         { id: 'child-title', codename: 'title', column_name: 'title', data_type: 'STRING', is_required: false }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('"row_key" AS row_key') && sql.includes('"col_key" AS col_key')) {
                     return [{ id: runtimeChildRowId, row_key: '', col_key: '' }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
                     throw new Error('default duplicate coordinate create must not insert a child row')
                 }
                 return []
@@ -12628,11 +12868,11 @@ describe('Applications Routes', () => {
                 .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .send({ data: { title: 'Duplicate defaults' } })
 
-            expect(response.status).toBe(409)
-            expect(response.body).toEqual({ error: 'Duplicate tabular coordinates' })
-            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            expect(response.status).toBe(400)
+            expect(response.body).toEqual({ error: 'Matrix cells must be created through the server-owned Matrix cell command' })
+            expect(executor.transaction).not.toHaveBeenCalled()
             expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_runtime_test"."items"'))
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_deadbeef"."items"'))
             ).toBe(false)
         })
 
@@ -12642,7 +12882,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12666,7 +12906,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12687,14 +12927,14 @@ describe('Applications Routes', () => {
                         { id: 'child-title', codename: 'title', column_name: 'title', data_type: 'STRING', is_required: false }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('"row_key" AS row_key') && sql.includes('"col_key" AS col_key')) {
                     throw new Error('ordinary tabular parts must not run matrix coordinate validation')
                 }
                 if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 1 }]
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) return [{ id: createdChildRowId }]
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) return [{ id: createdChildRowId }]
                 return []
             })
 
@@ -12720,7 +12960,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12743,7 +12983,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12763,7 +13003,7 @@ describe('Applications Routes', () => {
                         { id: 'child-col-key', codename: 'ColKey', column_name: 'col_key', data_type: 'STRING', is_required: false }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('"row_key" AS row_key') && sql.includes('"col_key" AS col_key')) {
@@ -12772,11 +13012,11 @@ describe('Applications Routes', () => {
                         { id: occupiedChildRowId, row_key: 'definition', col_key: 'meaning' }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('FOR UPDATE')) {
                     expect(params).toEqual([[movingChildRowId], runtimeRecordId])
                     return [{ id: movingChildRowId, _upl_version: 1 }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     throw new Error('duplicate coordinate batch must not update child rows')
                 }
                 return []
@@ -12792,9 +13032,9 @@ describe('Applications Routes', () => {
             expect(response.status).toBe(409)
             expect(response.body).toEqual({ error: 'Duplicate tabular coordinates' })
             expect(executor.transaction).toHaveBeenCalledTimes(1)
-            expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_runtime_test"."items"'))
-            ).toBe(false)
+            expect((txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_deadbeef"."items"'))).toBe(
+                false
+            )
         })
 
         it('updates multiple child rows inside one transaction for atomic matrix swaps', async () => {
@@ -12804,7 +13044,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12841,7 +13081,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12875,17 +13115,17 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('FOR UPDATE')) {
                     expect(params).toEqual([[sourceChildRowId, secondChildRowId], runtimeRecordId])
                     return [
                         { id: sourceChildRowId, _upl_version: 1 },
                         { id: secondChildRowId, _upl_version: 1 }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     return [{ id: params?.[3] as string }]
                 }
                 return []
@@ -12906,7 +13146,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ status: 'ok', updated: [sourceChildRowId, secondChildRowId] })
             expect(executor.transaction).toHaveBeenCalledTimes(1)
             const updateCalls = (txExecutor.query as jest.Mock).mock.calls.filter(([sql]) =>
-                String(sql).includes('UPDATE "app_runtime_test"."items"')
+                String(sql).includes('UPDATE "app_deadbeef"."items"')
             )
             expect(updateCalls).toHaveLength(2)
             expect(updateCalls[0][1]).toEqual(['Second title', 'material-2', 'test-user-id', sourceChildRowId, runtimeRecordId])
@@ -12922,7 +13162,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12940,7 +13180,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -12955,10 +13195,10 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes('parent_component_id = $1')) return []
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('FOR UPDATE')) {
                     expect(params).toEqual([childRowIds, runtimeRecordId])
                     return childRowIds.map((id) => ({ id, _upl_version: 1 }))
                 }
@@ -13005,7 +13245,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13023,7 +13263,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13038,10 +13278,10 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes('parent_component_id = $1')) return []
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('FOR UPDATE')) {
                     expect(params).toEqual([childRowIds, runtimeRecordId])
                     return childRowIds.map((id) => ({ id, _upl_version: 1 }))
                 }
@@ -13081,7 +13321,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13126,7 +13366,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13168,13 +13408,13 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('"row_key" AS row_key') && sql.includes('"col_key" AS col_key')) {
                     return requestedChildRowIds.map((id, index) => ({ id, row_key: `row-${index}`, col_key: `col-${index}` }))
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('FOR UPDATE')) {
                     expect(params).toEqual([requestedChildRowIds, runtimeRecordId])
                     return requestedChildRowIds.map((id) => ({ id, _upl_version: 1 }))
                 }
@@ -13184,7 +13424,7 @@ describe('Applications Routes', () => {
                     expect(sql).toContain('_upl_updated_by = $2')
                     return axisChildRowIds.map((id) => ({ id }))
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     return [{ id: sourceChildRowId }]
                 }
                 return []
@@ -13218,7 +13458,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13251,7 +13491,7 @@ describe('Applications Routes', () => {
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/batch`)
                 .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .send({
-                    updates: [{ childRowId: sourceChildRowId, data: { _tp_sort_order: 1 }, expectedVersion: 1 }],
+                    updates: [{ childRowId: sourceChildRowId, data: { title: 'Edited source' }, expectedVersion: 1 }],
                     uniformUpdates: [
                         {
                             rows: [{ childRowId: axisChildRowId, expectedVersion: 1 }],
@@ -13273,7 +13513,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13296,7 +13536,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13305,14 +13545,14 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13335,7 +13575,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13344,22 +13584,22 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return [{ id: runtimeChildRowId, identity: rootCellId, parent_identity: null }]
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
                     throw new Error('invalid hierarchy create must not insert a child row')
                 }
                 return []
@@ -13374,7 +13614,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Hierarchy parent does not exist' })
             expect(executor.transaction).toHaveBeenCalledTimes(1)
             expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_runtime_test"."items"'))
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_deadbeef"."items"'))
             ).toBe(false)
         })
 
@@ -13385,7 +13625,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13408,7 +13648,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13417,7 +13657,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         },
                         {
                             id: 'child-title',
@@ -13432,7 +13672,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13455,7 +13695,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13464,7 +13704,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         },
                         {
                             id: 'child-title',
@@ -13476,19 +13716,19 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return []
                 }
                 if (sql.includes('COUNT(*)::int AS cnt')) return [{ cnt: 0 }]
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
                     generatedCellId = params?.[3]
                     expect(params).toEqual([runtimeRecordId, 0, 'test-user-id', generatedCellId, 'Root'])
                     return [
@@ -13536,7 +13776,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13559,7 +13799,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13568,14 +13808,14 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13598,7 +13838,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13607,22 +13847,22 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return [{ id: runtimeChildRowId, identity: existingCellId, parent_identity: null }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     throw new Error('invalid hierarchy batch must not update child rows')
                 }
                 return []
@@ -13644,9 +13884,9 @@ describe('Applications Routes', () => {
             expect(response.status).toBe(400)
             expect(response.body).toEqual({ error: 'Invalid hierarchy identity' })
             expect(executor.transaction).toHaveBeenCalledTimes(1)
-            expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_runtime_test"."items"'))
-            ).toBe(false)
+            expect((txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_deadbeef"."items"'))).toBe(
+                false
+            )
         })
 
         it('rejects batch hierarchy updates that create a cycle', async () => {
@@ -13658,7 +13898,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13681,7 +13921,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13690,14 +13930,14 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13720,7 +13960,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13729,17 +13969,17 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return [
@@ -13747,14 +13987,14 @@ describe('Applications Routes', () => {
                         { id: secondChildRowId, identity: secondCellId, parent_identity: firstCellId }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('id = ANY($1)')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('id = ANY($1)')) {
                     expect(params).toEqual([[firstChildRowId, secondChildRowId], runtimeRecordId])
                     return [
                         { id: firstChildRowId, _upl_version: 1 },
                         { id: secondChildRowId, _upl_version: 1 }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     throw new Error('invalid hierarchy batch must not update child rows')
                 }
                 return []
@@ -13773,9 +14013,9 @@ describe('Applications Routes', () => {
             expect(response.status).toBe(400)
             expect(response.body).toEqual({ error: 'Hierarchy cycle is not allowed' })
             expect(executor.transaction).toHaveBeenCalledTimes(1)
-            expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_runtime_test"."items"'))
-            ).toBe(false)
+            expect((txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('UPDATE "app_deadbeef"."items"'))).toBe(
+                false
+            )
         })
 
         it('returns not found when a hierarchical child row update targets a missing row', async () => {
@@ -13786,7 +14026,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13809,7 +14049,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13818,7 +14058,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         },
                         {
                             id: 'child-title',
@@ -13830,19 +14070,19 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return [{ id: existingChildRowId, identity: existingCellId, parent_identity: null }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) return []
-                if (sql.includes('SELECT id, _upl_version') && sql.includes('FROM "app_runtime_test"."items"')) return []
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) return []
+                if (sql.includes('SELECT id, _upl_version') && sql.includes('FROM "app_deadbeef"."items"')) return []
                 return []
             })
 
@@ -13866,7 +14106,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13889,7 +14129,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13898,17 +14138,17 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return [{ id: existingChildRowId, identity: existingCellId, parent_identity: null }]
@@ -13939,7 +14179,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -13962,7 +14202,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -13971,14 +14211,14 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14001,7 +14241,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -14010,17 +14250,17 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return [
@@ -14029,14 +14269,14 @@ describe('Applications Routes', () => {
                         { id: siblingChildRowId, identity: siblingCellId, parent_identity: parentCellId }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('id = ANY($1)')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('id = ANY($1)')) {
                     expect(params).toEqual([[movedChildRowId, siblingChildRowId], runtimeRecordId])
                     return [
                         { id: movedChildRowId, _upl_version: 1 },
                         { id: siblingChildRowId, _upl_version: 2 }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"') && !sql.includes('FROM UNNEST')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"') && !sql.includes('FROM UNNEST')) {
                     expect(params).toEqual([parentCellId, 0, 'test-user-id', movedChildRowId, runtimeRecordId, 1])
                     return [{ id: movedChildRowId }]
                 }
@@ -14066,7 +14306,7 @@ describe('Applications Routes', () => {
             expect(executor.transaction).toHaveBeenCalledTimes(1)
             const mutationCalls = (txExecutor.query as jest.Mock).mock.calls
                 .map(([sql]) => String(sql))
-                .filter((sql) => sql.includes('UPDATE "app_runtime_test"."items"'))
+                .filter((sql) => sql.includes('UPDATE "app_deadbeef"."items"'))
             expect(mutationCalls[0]).not.toContain('FROM UNNEST')
             expect(mutationCalls[1]).toContain('FROM UNNEST($1::uuid[], $2::integer[], $3::integer[])')
         })
@@ -14078,7 +14318,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14096,7 +14336,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14111,10 +14351,10 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes('parent_component_id = $1')) return []
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (sql.includes('FROM "app_runtime_test"."items"') && sql.includes('id = ANY($1)')) {
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('id = ANY($1)')) {
                     expect(params).toEqual([[staleChildRowId], runtimeRecordId])
                     childRowsReadCount += 1
                     return [{ id: staleChildRowId, _upl_version: childRowsReadCount === 1 ? 1 : 2 }]
@@ -14152,7 +14392,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14175,7 +14415,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -14184,7 +14424,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         },
                         {
                             id: 'child-title',
@@ -14196,10 +14436,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."items"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."items"')) {
                     return [
                         {
                             id: runtimeChildRowId,
@@ -14214,7 +14454,7 @@ describe('Applications Routes', () => {
                 if (
                     sql.includes('SELECT id,') &&
                     sql.includes('"cell_id" AS identity') &&
-                    sql.includes('FROM "app_runtime_test"."items"') &&
+                    sql.includes('FROM "app_deadbeef"."items"') &&
                     sql.includes('FOR UPDATE')
                 ) {
                     return [
@@ -14222,12 +14462,12 @@ describe('Applications Routes', () => {
                         { id: runtimeChildRowId, identity: sourceCellId, parent_identity: rootCellId }
                     ]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     expect(sql).toContain('"parent_cell_id" IS NOT DISTINCT FROM $3')
                     expect(params).toEqual([runtimeRecordId, 2, rootCellId])
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
                     copiedCellId = params?.[3]
                     expect(params).toEqual([runtimeRecordId, 3, 'test-user-id', copiedCellId, rootCellId, 'Child'])
                     return [{ id: copiedChildRowId }]
@@ -14252,7 +14492,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14285,11 +14525,11 @@ describe('Applications Routes', () => {
             expect(response.status).toBe(400)
             expect(response.body).toEqual({ error: 'Matrix coordinate rows cannot be copied without selecting new coordinates' })
             expect(executor.transaction).not.toHaveBeenCalled()
+            expect((txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('FROM "app_deadbeef"."items"'))).toBe(
+                false
+            )
             expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('FROM "app_runtime_test"."items"'))
-            ).toBe(false)
-            expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_runtime_test"."items"'))
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_deadbeef"."items"'))
             ).toBe(false)
         })
 
@@ -14300,7 +14540,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14323,7 +14563,7 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true }
+                            ui_config: {}
                         },
                         {
                             id: 'child-parent-cell-id',
@@ -14332,11 +14572,11 @@ describe('Applications Routes', () => {
                             data_type: 'STRING',
                             is_required: false,
                             validation_rules: {},
-                            ui_config: { serverOwned: true, hierarchyIdentityField: 'CellId' }
+                            ui_config: { hierarchyIdentityField: 'CellId' }
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('"cell_id" AS hierarchy_identity')) {
@@ -14347,7 +14587,7 @@ describe('Applications Routes', () => {
                     expect(params).toEqual([runtimeRecordId, parentCellId])
                     return [{ id: childRowId }]
                 }
-                if (sql.includes('DELETE FROM "app_runtime_test"."items"')) {
+                if (sql.includes('DELETE FROM "app_deadbeef"."items"')) {
                     throw new Error('referenced hierarchy parent must not be deleted')
                 }
                 return []
@@ -14363,7 +14603,7 @@ describe('Applications Routes', () => {
             expect(response.body).toEqual({ error: 'Hierarchy child rows must be moved or deleted first' })
             expect(executor.transaction).toHaveBeenCalledTimes(1)
             expect(
-                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('DELETE FROM "app_runtime_test"."items"'))
+                (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('DELETE FROM "app_deadbeef"."items"'))
             ).toBe(false)
         })
 
@@ -14372,7 +14612,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14387,17 +14627,14 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes('parent_component_id = $1')) return []
-                if (sql.includes('FROM "app_runtime_test"."orders"') && sql.includes('FOR UPDATE')) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (
-                    sql.includes('SELECT id, COALESCE(_upl_version, 1)::int AS version') &&
-                    sql.includes('FROM "app_runtime_test"."items"')
-                ) {
+                if (sql.includes('SELECT id, COALESCE(_upl_version, 1)::int AS version') && sql.includes('FROM "app_deadbeef"."items"')) {
                     expect(params).toEqual([runtimeChildRowId, runtimeRecordId])
                     return [{ id: runtimeChildRowId, version: 8 }]
                 }
-                if (sql.includes('DELETE FROM "app_runtime_test"."items"') || sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('DELETE FROM "app_deadbeef"."items"') || sql.includes('UPDATE "app_deadbeef"."items"')) {
                     throw new Error('stale delete must not mutate child rows')
                 }
                 return []
@@ -14415,8 +14652,7 @@ describe('Applications Routes', () => {
             expect(
                 (txExecutor.query as jest.Mock).mock.calls.some(
                     ([sql]) =>
-                        String(sql).includes('DELETE FROM "app_runtime_test"."items"') ||
-                        String(sql).includes('UPDATE "app_runtime_test"."items"')
+                        String(sql).includes('DELETE FROM "app_deadbeef"."items"') || String(sql).includes('UPDATE "app_deadbeef"."items"')
                 )
             ).toBe(false)
         })
@@ -14450,7 +14686,7 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
@@ -14484,13 +14720,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (
-                    sql.includes('FROM "app_runtime_test"."orders"') &&
-                    (sql.includes('SELECT id, _upl_locked') || sql.includes('SELECT *'))
-                ) {
+                if (sql.includes('FROM "app_deadbeef"."orders"') && (sql.includes('SELECT id, _upl_locked') || sql.includes('SELECT *'))) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."items"')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."items"')) {
                     return [
                         {
                             id: runtimeChildRowId,
@@ -14503,10 +14736,10 @@ describe('Applications Routes', () => {
                 if (sql.includes('COUNT(*)::int AS cnt')) {
                     return [{ cnt: 1 }]
                 }
-                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
                     return []
                 }
-                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
                     expect(params).toEqual([
                         runtimeRecordId,
                         1,
@@ -14554,6 +14787,28 @@ describe('Applications Routes', () => {
             expect(routeLayer?.route?.methods.post).toBe(true)
             expect(routeLayer?.route?.stack[0]?.handle).toBe(mockRateLimiter)
         }
+    })
+
+    it('runs authentication before the target-aware effective-layout route can reach a data store', async () => {
+        const { dataSource } = buildDataSource()
+        const app = express()
+        app.use(
+            '/applications',
+            createApplicationsRoutes(
+                (_req, res) => res.status(401).json({ error: 'Unauthorized' }),
+                () => dataSource,
+                mockRateLimiter,
+                mockRateLimiter
+            )
+        )
+
+        await request(app)
+            .get(`/applications/${effectiveLayoutId}/runtime/effective-layout`)
+            .query({ targetKind: 'object', entityTypeId: '0190a9b5-3cde-7abc-8def-0123456789ad' })
+            .expect(401, { error: 'Unauthorized' })
+
+        expect(dataSource.query).not.toHaveBeenCalled()
+        expect(dataSource.manager.query).not.toHaveBeenCalled()
     })
 
     it('keeps the collection-level widget reset route ahead of the dynamic layout reset route', () => {

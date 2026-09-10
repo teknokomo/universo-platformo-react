@@ -86,6 +86,64 @@ For large suites, raise `AUTH_LOGIN_RATE_LIMIT_MAX`, `API_RATE_LIMIT_READ_MAX`, 
 
 All wrapper-based E2E commands now enforce the hosted-Supabase reset contract: drop all application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations`, and Supabase auth users before the suite starts and again after the server stops. Infrastructure schemas such as `public` stay in place so startup migrations can recreate platform state on top of a valid Supabase/Postgres base. Direct `pnpm exec playwright test ...` commands bypass that contract and are therefore debug-only. Use the wrapper commands below for normal validation.
 
+## Unified template/scoped-layout verification
+
+The current worktree registers the target-aware
+`/api/v1/applications/:applicationId/runtime/effective-layout` route and a
+disposable-database browser flow for the cross-template precedence contract.
+
+The focused support layer and browser flow cover the target-aware runtime
+contract:
+
+-   `support/browser/runtimeUx.ts` exports
+    `expectTableHorizontalScrollConstrained(surface, label)` for an existing
+    `FlowListTable` container locator. It permits component-internal scrolling
+    only when the named container owns it and still rejects document overflow.
+-   `support/backend/api-session.mjs` exports
+    `buildApplicationEffectiveLayoutPath`, `getApplicationEffectiveLayout`,
+    layout-scope/layout-creation helpers, and the application widget upsert
+    helper. The helper allowlists target, workspace, locale, and theme inputs and
+    rejects `recordKey` so content hydration cannot become a layout selector.
+-   `support/backend/api-session.contract.test.mjs` checks request-path
+    serialization and the rejected ambiguous/content-only inputs without
+    starting the application or claiming browser evidence.
+-   `specs/flows/cross-template-runtime.spec.ts` creates a fresh marketing
+    application, adds the shared `languageSwitcher` to the marketing header,
+    creates an independent Dashboard layout for an entity scope, checks global
+    and entity precedence through the real API, and verifies both hosted browser
+    surfaces without exposing UUIDs.
+
+Run the real disposable-database flow with:
+
+```bash
+pnpm test:e2e:cross-template:verify:local-supabase
+```
+
+The wrapper owns minimal Supabase startup, environment/doctor checks, the
+production build, Playwright execution, artifact preservation, and teardown.
+Standalone deployment remains opt-in through the existing standalone flow
+because this repository does not configure a separate local deployed shell.
+
+Run the dedicated standalone proof when a deployed shell is available:
+
+```bash
+E2E_MARKETING_PAGE_STANDALONE_BASE_URL=https://standalone.example.test \
+E2E_MARKETING_PAGE_STANDALONE_APPLICATION_ID=<uuid> \
+pnpm test:e2e:cross-template:standalone
+```
+
+The command returns a non-zero `BLOCKED` result and writes a status artifact
+when either variable is missing. This is intentional: a skipped test is not
+evidence that the isolated standalone shell was verified. The configured shell
+must expose the normal `/api/v1` proxy and accept the E2E authentication
+setup.
+
+The authenticated `/runtime` response transports `zoneWidgets` for all five
+Dashboard physical zones: `left`, `top`, `right`, `bottom`, and `center`.
+Persisted unknown zones fail closed with `LAYOUT_PERSISTED_INVALID`; they are
+never filtered or remapped to `left`. This transport contract does not replace
+browser evidence.
+
 ## Run Modes
 
 Install browser binaries once:

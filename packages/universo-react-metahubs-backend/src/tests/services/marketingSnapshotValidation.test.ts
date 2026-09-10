@@ -65,7 +65,9 @@ const makeSnapshot = (widgets: unknown[]): MetahubSnapshot =>
                 config: {},
                 isDefault: true,
                 isActive: true,
-                sortOrder: 0
+                sortOrder: 0,
+                compositionMode: 'independent',
+                baseLayoutId: null
             }
         ],
         defaultLayoutId: ids.layout,
@@ -150,7 +152,8 @@ describe('validateMarketingSnapshotLayouts', () => {
                 config: {},
                 isDefault: false,
                 isActive: true,
-                sortOrder: 0
+                sortOrder: 0,
+                compositionMode: 'overlay'
             }
         ]
         snapshot.layoutWidgetOverrides = [

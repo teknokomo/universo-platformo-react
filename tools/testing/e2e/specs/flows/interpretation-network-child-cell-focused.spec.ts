@@ -5,11 +5,10 @@
 // create a child cell when placement fields are hidden/system-managed.
 
 import { expect, test } from '../../fixtures/test'
-import type { Page, Response } from '@playwright/test'
+import type { Page, Response, TestInfo } from '@playwright/test'
 import { createLoggedInApiContext, disposeApiContext } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
-import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
     expectLocalizedValidation,
     expectNoPageHorizontalOverflow,
@@ -128,7 +127,7 @@ const expectRuHiddenPlacementChildCellCreate = async (page: Page, applicationId:
 }
 
 test.describe('Interpretation Network imported snapshot child cell @flow @interpretation-network-focused', () => {
-    test('creates a Russian child Matrix cell when placement controls are hidden', async ({ page, runManifest }) => {
+    test('creates a Russian child Matrix cell when placement controls are hidden', async ({ page, runManifest }, testInfo: TestInfo) => {
         test.setTimeout(120_000)
         const browserIssues = watchInterpretationNetworkBrowserRegressionIssues(page)
         const api = await createLoggedInApiContext(runManifest.testUser)
@@ -145,14 +144,20 @@ test.describe('Interpretation Network imported snapshot child cell @flow @interp
             })
 
             await page.goto(`/a/${imported.applicationId}`)
-            await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
+            await expect(page.getByTestId('runtime-side-menu-docked').getByTestId('runtime-workspace-switcher')).toBeVisible({
+                timeout: 30_000
+            })
             await openStructures(page)
             await expectSingleSystemMatrix(page)
-            await applyBrowserPreferences(page, { language: 'ru' })
+            const toolbar = page.getByTestId('runtime-app-toolbar')
+            await toolbar.getByRole('button', { name: 'Language', exact: true }).click()
+            await page.getByRole('menuitem', { name: 'Russian', exact: true }).click()
+            await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
             await page.reload()
             await expectRuSingleSystemMatrix(page)
 
             await expectRuHiddenPlacementChildCellCreate(page, imported.applicationId)
+            await page.screenshot({ path: testInfo.outputPath('interpretation-network-child-cell-ru.png'), fullPage: true })
             expectNoInterpretationNetworkBrowserRegressionIssues(browserIssues, 'RU imported snapshot child-cell focused flow')
         } finally {
             await disposeApiContext(api)

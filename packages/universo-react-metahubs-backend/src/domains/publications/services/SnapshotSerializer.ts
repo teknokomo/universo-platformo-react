@@ -144,7 +144,7 @@ export interface MetahubSettingSnapshot {
     value: Record<string, unknown>
 }
 
-export interface MetahubLayoutSnapshot {
+interface MetahubLayoutSnapshotFields {
     id: string
     templateKey: string
     name: Record<string, unknown>
@@ -155,10 +155,21 @@ export interface MetahubLayoutSnapshot {
     sortOrder: number
 }
 
-export interface MetahubScopedLayoutSnapshot extends MetahubLayoutSnapshot {
+export interface MetahubLayoutSnapshot extends MetahubLayoutSnapshotFields {
+    compositionMode: 'independent'
+    baseLayoutId: null
+}
+
+export interface MetahubScopedLayoutSnapshot extends MetahubLayoutSnapshotFields {
     scopeEntityId: string
     scopeEntityKind?: string | null
-    baseLayoutId: string
+    /**
+     * A non-null base means that this is a sparse overlay of a global layout.
+     * Null is explicit and means that the scoped layout is independent and must
+     * not inherit widgets or configuration from the global layout.
+     */
+    baseLayoutId: string | null
+    compositionMode: 'overlay' | 'independent'
 }
 
 export interface MetahubSnapshotModule extends Omit<MetahubModuleDefinition, 'codename' | 'sourceCode'> {
@@ -1136,6 +1147,9 @@ export class SnapshotSerializer {
                     : null
             const explicitPhysicalTableName = entity.tableName ?? entity.physicalTableName
             const physicalTableEnabled = Boolean(physicalTableConfig || explicitPhysicalTableName)
+            const definitionConfig = ensureRecord(definition?.config)
+            const entityConfig = ensureRecord(entity.config)
+            const definitionCapabilities = ensureRecord(definition?.capabilities)
 
             return {
                 ...entity,
@@ -1147,7 +1161,9 @@ export class SnapshotSerializer {
                     (physicalTableConfig ? generateTableName(entity.id, entity.kind, physicalTableConfig.prefix) : undefined),
                 codename: getCodenameText(entity.codename),
                 config: {
-                    ...(entity.config ?? {}),
+                    ...definitionConfig,
+                    ...entityConfig,
+                    ...(Object.keys(definitionCapabilities).length > 0 ? { capabilities: definitionCapabilities } : {}),
                     systemFields: snapshot.systemFields?.[entity.id] ?? null
                 },
                 fields: entity.fields.flatMap((field) => {

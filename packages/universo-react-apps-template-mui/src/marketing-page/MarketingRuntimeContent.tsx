@@ -11,7 +11,7 @@ import type { MarketingRuntimeTarget } from '../api/api'
 import AppMainLayout, { AppMainLayoutContext } from '../layouts/AppMainLayout'
 import MarketingPage from './MarketingPage'
 import { normalizeMarketingPageRuntime } from './normalize'
-import type { MarketingActionHandler, MarketingPageData } from './types'
+import type { MarketingActionHandler, MarketingLayoutWidgetReference, MarketingPageData } from './types'
 
 export interface MarketingRuntimeContentProps {
     applicationId: string
@@ -19,10 +19,16 @@ export interface MarketingRuntimeContentProps {
     apiBaseUrl: string
     workspaceId?: string | null
     target?: MarketingRuntimeTarget | null
+    layoutIdentity?: {
+        layoutVersion: number
+        layoutHash: string
+    }
+    sharedLayoutWidgets?: readonly MarketingLayoutWidgetReference[]
     loadingLabel: string
     errorLabel: string
     retryLabel: string
     onAction?: MarketingActionHandler
+    onLayoutStale?: () => void
 }
 
 const readHttpStatus = (error: unknown): number | null => {
@@ -47,6 +53,11 @@ const readHttpStatus = (error: unknown): number | null => {
 export const shouldRetryMarketingRuntime = (failureCount: number, error: unknown): boolean => {
     const status = readHttpStatus(error)
     return failureCount < 2 && status !== null && status >= 500 && status <= 599
+}
+
+export const isMarketingRuntimeLayoutStale = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') return false
+    return (error as { code?: unknown }).code === 'MARKETING_RUNTIME_LAYOUT_STALE'
 }
 
 const RuntimeBoundary = ({
@@ -99,29 +110,56 @@ export default function MarketingRuntimeContent({
     apiBaseUrl,
     workspaceId,
     target,
+    sharedLayoutWidgets,
     loadingLabel,
     errorLabel,
     retryLabel,
-    onAction
+    layoutIdentity,
+    onAction,
+    onLayoutStale
 }: MarketingRuntimeContentProps) {
     const normalizedWorkspaceId = workspaceId?.trim() || null
     const normalizedTarget = target
         ? {
+              targetKind: target.targetKind ?? null,
               entityTypeId: target.entityTypeId?.trim() || null,
               entityTypeCodename: target.entityTypeCodename?.trim() || null,
               recordKey: target.recordKey?.trim() || null
           }
         : null
+    const normalizedLayoutIdentity = layoutIdentity
+        ? { layoutVersion: layoutIdentity.layoutVersion, layoutHash: layoutIdentity.layoutHash.trim() }
+        : null
     const hostLayout = useContext(AppMainLayoutContext)
     const runtimeQuery = useQuery({
-        queryKey: ['marketing-page-runtime', apiBaseUrl, applicationId, locale, normalizedWorkspaceId ?? 'default', normalizedTarget],
+        queryKey: [
+            'marketing-page-runtime',
+            apiBaseUrl,
+            applicationId,
+            locale,
+            normalizedWorkspaceId ?? 'default',
+            normalizedTarget,
+            normalizedLayoutIdentity
+        ],
         queryFn: () =>
             fetchMarketingPageRuntime({
                 apiBaseUrl,
                 applicationId,
                 locale,
                 workspaceId: normalizedWorkspaceId,
-                target: normalizedTarget
+                target: normalizedTarget,
+                expectedLayoutHash: normalizedLayoutIdentity?.layoutHash
+            }).then((response) => {
+                if (
+                    normalizedLayoutIdentity &&
+                    (response.marketingPage.runtime.layoutHash !== normalizedLayoutIdentity.layoutHash ||
+                        response.marketingPage.runtime.layoutVersion !== normalizedLayoutIdentity.layoutVersion)
+                ) {
+                    const error = new Error('Marketing runtime layout is stale')
+                    Object.assign(error, { status: 409, code: 'MARKETING_RUNTIME_LAYOUT_STALE' })
+                    throw error
+                }
+                return response
             }),
         enabled: Boolean(applicationId),
         retry: shouldRetryMarketingRuntime,
@@ -157,13 +195,20 @@ export default function MarketingRuntimeContent({
         return <RuntimeBoundary loading loadingLabel={loadingLabel} errorLabel={errorLabel} />
     }
     if (runtimeQuery.isError || !runtimeQuery.data) {
+        const retryStaleLayout = isMarketingRuntimeLayoutStale(runtimeQuery.error)
         return (
             <RuntimeBoundary
                 error
                 loadingLabel={loadingLabel}
                 errorLabel={errorLabel}
                 retryLabel={retryLabel}
-                onRetry={() => void runtimeQuery.refetch()}
+                onRetry={() => {
+                    if (retryStaleLayout && onLayoutStale) {
+                        onLayoutStale()
+                        return
+                    }
+                    void runtimeQuery.refetch()
+                }}
             />
         )
     }
@@ -184,6 +229,6 @@ export default function MarketingRuntimeContent({
     // submission requires an explicit same-origin endpoint with its own auth,
     // CSRF, rate-limit, and persistence contract; never treat a navigation
     // callback as an email submission handler.
-    const page = <MarketingPage data={data} onAction={onAction} />
+    const page = <MarketingPage data={data} sharedLayoutWidgets={sharedLayoutWidgets} onAction={onAction} />
     return hostLayout ? page : <AppMainLayout {...appearance}>{page}</AppMainLayout>
 }

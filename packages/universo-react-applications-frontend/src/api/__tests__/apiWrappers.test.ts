@@ -7,7 +7,66 @@ beforeEach(() => {
 
 describe('applications-frontend api wrappers', () => {
     it('propagates explicit workspace scope to runtime list and row mutations', async () => {
-        const get = vi.fn().mockResolvedValue({ data: {} })
+        const get = vi
+            .fn()
+            .mockResolvedValueOnce({ data: {} })
+            .mockResolvedValueOnce({
+                data: {
+                    status: 'ok',
+                    target: {
+                        applicationId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                        targetKind: 'page',
+                        entityTypeId: '0190a9b5-3cde-7abc-8def-0123456789ad',
+                        locale: 'ru',
+                        themeVariant: 'dark'
+                    },
+                    resolvedEntityTypeId: '0190a9b5-3cde-7abc-8def-0123456789ad',
+                    scope: 'global',
+                    layout: {
+                        id: '0190a9b5-3cde-7abc-8def-0123456789ae',
+                        scopeKind: 'global',
+                        scopeEntityId: null,
+                        templateKey: 'dashboard',
+                        sourceKind: 'application',
+                        sourceLayoutId: null,
+                        sourceSnapshotHash: null,
+                        sourceContentHash: null,
+                        localContentHash: null,
+                        syncState: 'clean',
+                        compositionMode: 'independent',
+                        baseLayoutId: null,
+                        name: {},
+                        description: null,
+                        config: {},
+                        isActive: true,
+                        isDefault: true,
+                        sortOrder: 0,
+                        version: 1
+                    },
+                    widgets: [
+                        {
+                            id: '0190a9b5-3cde-7abc-8def-0123456789af',
+                            layoutId: '0190a9b5-3cde-7abc-8def-0123456789ae',
+                            zone: 'top',
+                            semanticRegion: 'header',
+                            widgetKey: 'header',
+                            instanceKey: 'header-primary',
+                            sortOrder: 0,
+                            config: {},
+                            sourceConfig: null,
+                            sourceWidgetId: null,
+                            sourceBaseWidgetId: null,
+                            isCustomized: false,
+                            isActive: true,
+                            version: 1
+                        }
+                    ],
+                    precedence: ['application-global'],
+                    publicationIdentity: null,
+                    materializationHash: 'a'.repeat(64),
+                    effectiveHash: 'b'.repeat(64)
+                }
+            })
         const patch = vi.fn().mockResolvedValue({ data: { id: 'row-1' } })
         const post = vi.fn().mockResolvedValue({ data: { id: 'row-1' } })
         const del = vi.fn().mockResolvedValue({ data: undefined })
@@ -49,6 +108,39 @@ describe('applications-frontend api wrappers', () => {
             { data: { title: 'Updated' }, objectCollectionId: 'object-1' },
             { params: { workspaceId: 'workspace-b' } }
         )
+
+        const effectiveLayout = await api.getApplicationEffectiveLayout('app-1', {
+            targetKind: 'page',
+            entityTypeId: '  0190a9b5-3cde-7abc-8def-0123456789ad  ',
+            workspaceId: ' workspace-a ',
+            locale: ' ru ',
+            themeVariant: ' dark '
+        })
+        expect(effectiveLayout.widgets.map((widget) => widget.instanceKey)).toEqual(['header-primary'])
+        expect(effectiveLayout.widgets[0]).toMatchObject({
+            sourceConfig: null,
+            sourceWidgetId: null,
+            sourceBaseWidgetId: null,
+            isCustomized: false
+        })
+        expect(get).toHaveBeenCalledWith('/applications/app-1/runtime/effective-layout', {
+            params: {
+                targetKind: 'page',
+                entityTypeId: '0190a9b5-3cde-7abc-8def-0123456789ad',
+                entityTypeCodename: undefined,
+                workspaceId: 'workspace-a',
+                locale: 'ru',
+                themeVariant: 'dark'
+            }
+        })
+
+        await expect(api.getApplicationEffectiveLayout('app-1', { entityTypeCodename: 'Page', locale: 'en' })).rejects.toThrow(
+            'Runtime target kind is required'
+        )
+        await expect(api.getApplicationEffectiveLayout('app-1', { entityTypeId: 'entity-1', locale: 'en' })).rejects.toThrow(
+            'Runtime target kind is required'
+        )
+        expect(get).toHaveBeenCalledTimes(2)
     })
 
     it('applications api: list + CRUD wrappers call correct endpoints', async () => {
@@ -341,5 +433,40 @@ describe('applications-frontend api wrappers', () => {
 
         connectorsApi.deleteConnector('app-1', 's1')
         expect(del).toHaveBeenCalledWith('/applications/app-1/connectors/s1')
+    })
+
+    it('validates the complete shared widget metadata contract', async () => {
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                items: [
+                    {
+                        key: 'languageSwitcher',
+                        templateKey: 'dashboard',
+                        supportedTemplates: ['dashboard', 'marketing-page'],
+                        allowedZones: ['left'],
+                        allowedZonesByTemplate: {
+                            dashboard: ['left'],
+                            'marketing-page': ['marketing-header']
+                        },
+                        multiInstance: false,
+                        requiredHostCapabilities: [],
+                        shared: true,
+                        labelKey: 'layouts.widgets.languageSwitcher',
+                        defaultLabel: 'Language Switcher'
+                    }
+                ]
+            }
+        })
+        vi.doMock('../apiClient', () => ({ default: { get } }))
+
+        const api = await import('../applications')
+        await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).resolves.toEqual([
+            expect.objectContaining({ key: 'languageSwitcher', shared: true })
+        ])
+
+        get.mockResolvedValueOnce({ data: { items: [{ key: 'languageSwitcher' }] } })
+        await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).rejects.toThrow(
+            'APPLICATION_LAYOUT_WIDGET_METADATA_INVALID'
+        )
     })
 })

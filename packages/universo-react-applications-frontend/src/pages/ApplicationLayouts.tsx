@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -45,6 +45,8 @@ import type {
 } from '@universo-react/types'
 import {
     DASHBOARD_LAYOUT_ZONES,
+    getLayoutWidgetAllowedZones,
+    getLayoutWidgetDefinition,
     LAYOUT_ZONE_DEFINITIONS,
     MARKETING_LAYOUT_ZONES,
     MARKETING_SOURCE_CODENAMES,
@@ -75,7 +77,7 @@ import {
     updateApplicationLayout,
     updateApplicationLayoutWidgetConfig
 } from '../api/applications'
-import { applicationsQueryKeys } from '../api/queryKeys'
+import { applicationsQueryKeys, invalidateApplicationRuntimeQueries } from '../api/queryKeys'
 import type { InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
 import { STORAGE_KEYS } from '../constants/storage'
 import { useViewPreference } from '../hooks/useViewPreference'
@@ -135,10 +137,20 @@ const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set([
 const isApplicationCustomizedLayoutWidget = (layout: ApplicationLayout): boolean =>
     layout.sourceKind === 'application' || layout.syncState === 'local_modified'
 
-const isCustomizedWidget = (layout: ApplicationLayout, widget: ApplicationLayoutWidget): boolean =>
-    widget.sourceConfig !== undefined
-        ? widget.sourceConfig !== null && widget.isCustomized === true
-        : isApplicationCustomizedLayoutWidget(layout)
+const isApplicationOwnedWidget = (layout: ApplicationLayout, widget: ApplicationLayoutWidget): boolean => {
+    if (widget.isCustomized === true) return true
+
+    const hasExplicitLineage =
+        widget.sourceConfig !== undefined || widget.sourceWidgetId !== undefined || widget.sourceBaseWidgetId !== undefined
+    if (!hasExplicitLineage) return isApplicationCustomizedLayoutWidget(layout)
+
+    const hasSourceLineage =
+        (widget.sourceConfig !== undefined && widget.sourceConfig !== null) ||
+        widget.sourceWidgetId != null ||
+        widget.sourceBaseWidgetId != null
+
+    return !hasSourceLineage
+}
 
 const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<ApplicationTemplateKey, readonly ApplicationLayoutZone[]>> = {
     dashboard: DASHBOARD_LAYOUT_ZONES,
@@ -183,6 +195,8 @@ const ApplicationLayouts = () => {
     const [createOpen, setCreateOpen] = useState(false)
     const [name, setName] = useState('')
     const [scopeId, setScopeId] = useState<string>('global')
+    const [createTemplateKey, setCreateTemplateKey] = useState<ApplicationTemplateKey>('dashboard')
+    const [templateFilter, setTemplateFilter] = useState<'all' | ApplicationTemplateKey>('all')
     const [editingLayout, setEditingLayout] = useState<ApplicationLayout | null>(null)
     const [layoutNameEn, setLayoutNameEn] = useState('')
     const [layoutNameRu, setLayoutNameRu] = useState('')
@@ -258,7 +272,7 @@ const ApplicationLayouts = () => {
         if (!applicationId) return
         await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.layouts(applicationId) })
         await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.applicationDiff(applicationId) })
-        await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(applicationId) })
+        await invalidateApplicationRuntimeQueries.all(queryClient, applicationId)
         if (layoutId) {
             await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.layoutDetail(applicationId, layoutId) })
         }
@@ -289,6 +303,8 @@ const ApplicationLayouts = () => {
         onSuccess: async () => {
             setCreateOpen(false)
             setName('')
+            setScopeId('global')
+            setCreateTemplateKey(applicationTemplateKey)
             await invalidateLayouts()
         }
     })
@@ -560,14 +576,15 @@ const ApplicationLayouts = () => {
     })
 
     const layouts = useMemo(() => layoutsQuery.data?.items ?? [], [layoutsQuery.data?.items])
-    const applicationTemplateKey = useMemo(
-        () =>
-            layouts.find((layout) => layout.scopeEntityId == null && layout.isDefault)?.templateKey ??
-            layouts.find((layout) => layout.scopeEntityId == null)?.templateKey ??
-            layouts[0]?.templateKey ??
-            'dashboard',
-        [layouts]
-    )
+    const [applicationTemplateKey, setApplicationTemplateKey] = useState<ApplicationTemplateKey>('dashboard')
+    useEffect(() => {
+        const globalLayout =
+            layouts.find((layout) => layout.scopeEntityId == null && layout.isDefault) ??
+            layouts.find((layout) => layout.scopeEntityId == null)
+        if (globalLayout) {
+            setApplicationTemplateKey((current) => (current === globalLayout.templateKey ? current : globalLayout.templateKey))
+        }
+    }, [layouts])
     const isLoading =
         scopesQuery.isLoading || layoutsQuery.isLoading || (Boolean(layoutId) && (detailQuery.isLoading || widgetObjectQuery.isLoading))
     const isSchemaNotReady =
@@ -575,25 +592,70 @@ const ApplicationLayouts = () => {
 
     const filteredLayouts = useMemo(() => {
         const normalizedSearch = searchValue.trim().toLowerCase()
-        if (!normalizedSearch) {
-            return layouts
-        }
-
         return layouts.filter((layout) => {
+            if (templateFilter !== 'all' && layout.templateKey !== templateFilter) return false
             const title = resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout')).toLowerCase()
             const description = resolveLocalizedText(layout.description ?? {}, i18n.language, '').toLowerCase()
             const scopeName = (scopesById.get(layout.scopeId ?? 'global')?.name ?? t('layouts.globalScope', 'Global')).toLowerCase()
-            return title.includes(normalizedSearch) || description.includes(normalizedSearch) || scopeName.includes(normalizedSearch)
+            const templateName = t(
+                layout.templateKey === 'marketing-page' ? 'layouts.templates.marketingPage' : 'layouts.templates.dashboard',
+                layout.templateKey === 'marketing-page' ? 'Marketing page' : 'Dashboard'
+            ).toLowerCase()
+            return (
+                !normalizedSearch ||
+                title.includes(normalizedSearch) ||
+                description.includes(normalizedSearch) ||
+                scopeName.includes(normalizedSearch) ||
+                templateName.includes(normalizedSearch)
+            )
         })
-    }, [i18n.language, layouts, scopesById, searchValue, t])
+    }, [i18n.language, layouts, scopesById, searchValue, t, templateFilter])
+
+    const formatScopeKind = (scopeKind: string | null | undefined) => {
+        const normalizedKind = scopeKind?.trim().toLowerCase()
+        if (normalizedKind === 'page') return t('layouts.scopeKinds.page', 'Page')
+        if (normalizedKind === 'object') return t('layouts.scopeKinds.object', 'Object')
+        return t('layouts.scopeKinds.entity', 'Entity')
+    }
+
+    const formatLayoutTarget = (layout: ApplicationLayout) => {
+        const scope = scopesById.get(layout.scopeId ?? 'global')
+        if (layout.scopeKind === 'global' || layout.scopeEntityId === null || scope?.scopeKind === 'global') {
+            return t('layouts.scopeKinds.global', 'Global')
+        }
+        const targetName = scope?.name?.trim() || t('layouts.unnamedTarget', 'Selected entity')
+        return `${formatScopeKind(scope?.scopeEntityKind ?? scope?.kind ?? layout.scopeEntityKind)}: ${targetName}`
+    }
+
+    const formatTemplate = (templateKey: ApplicationTemplateKey) =>
+        t(
+            templateKey === 'marketing-page' ? 'layouts.templates.marketingPage' : 'layouts.templates.dashboard',
+            templateKey === 'marketing-page' ? 'Marketing page' : 'Dashboard'
+        )
+
+    const formatComposition = (layout: ApplicationLayout) => {
+        if (layout.scopeKind === 'global' || layout.scopeEntityId === null) return t('layouts.composition.global', 'Global default')
+        return layout.compositionMode === 'overlay'
+            ? t('layouts.composition.inherited', 'Scoped overlay')
+            : t('layouts.composition.independent', 'Independent layout')
+    }
+
+    const openCreateDialog = () => {
+        setName('')
+        setScopeId('global')
+        setCreateTemplateKey(applicationTemplateKey)
+        setCreateOpen(true)
+    }
 
     const handleCreate = () => {
         const selectedScope = scopesById.get(scopeId)
+        const normalizedName = name.trim()
+        if (!normalizedName || (scopeId !== 'global' && !selectedScope?.scopeEntityId)) return
         createMutation.mutate({
-            templateKey: applicationTemplateKey,
+            templateKey: createTemplateKey,
             name: {
-                en: name || t('layouts.untitled', 'Untitled layout'),
-                ru: name || t('layouts.untitled', 'Untitled layout')
+                en: normalizedName,
+                ru: normalizedName
             },
             scopeEntityId: selectedScope?.scopeEntityId ?? null,
             isActive: true,
@@ -613,20 +675,22 @@ const ApplicationLayouts = () => {
 
     const handleLayoutSave = async () => {
         if (!editingLayout) return
-        const fallbackName = t('layouts.untitled', 'Untitled layout')
+        const normalizedNameEn = layoutNameEn.trim()
+        const normalizedNameRu = layoutNameRu.trim()
+        if (!normalizedNameEn && !normalizedNameRu) return
         try {
             await updateMutation.mutateAsync({
                 layout: editingLayout,
                 data: {
                     name: {
-                        en: layoutNameEn || layoutNameRu || fallbackName,
-                        ru: layoutNameRu || layoutNameEn || fallbackName
+                        en: normalizedNameEn || normalizedNameRu,
+                        ru: normalizedNameRu || normalizedNameEn
                     },
                     description:
-                        layoutDescriptionEn || layoutDescriptionRu
+                        layoutDescriptionEn.trim() || layoutDescriptionRu.trim()
                             ? {
-                                  en: layoutDescriptionEn || layoutDescriptionRu,
-                                  ru: layoutDescriptionRu || layoutDescriptionEn
+                                  en: layoutDescriptionEn.trim() || layoutDescriptionRu.trim(),
+                                  ru: layoutDescriptionRu.trim() || layoutDescriptionEn.trim()
                               }
                             : null
                 }
@@ -800,7 +864,8 @@ const ApplicationLayouts = () => {
 
         const getAvailableWidgetsForZone = (zone: ApplicationLayoutZone) =>
             widgetObject.filter(
-                (item) => (item.templateKey === undefined || item.templateKey === layout.templateKey) && item.allowedZones.includes(zone)
+                (item) =>
+                    item.supportedTemplates.includes(layout.templateKey) && item.allowedZonesByTemplate[layout.templateKey]?.includes(zone)
             )
 
         const getWidgetChipLabel = (widget: ApplicationLayoutWidget): string => {
@@ -898,8 +963,19 @@ const ApplicationLayouts = () => {
         }
 
         const handleAddWidgetRequest = (zone: ApplicationLayoutZone, widgetKey: ApplicationLayoutWidgetMutation['widgetKey']) => {
+            const definition = getLayoutWidgetDefinition(widgetKey)
+            if (!definition || !definition.supportedTemplates.includes(layout.templateKey)) return
+            if (!getLayoutWidgetAllowedZones(widgetKey, layout.templateKey)?.includes(zone)) return
             if (isMarketingWidgetKey(widgetKey)) {
                 setMarketingWidgetEditor({ open: true, zone, widgetId: null, widgetKey, config: null })
+                return
+            }
+            if (definition.shared) {
+                addWidgetMutation.mutate({
+                    zone,
+                    widgetKey,
+                    config: buildInitialWidgetConfig(widgetKey)
+                })
                 return
             }
             if (!DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) return
@@ -985,6 +1061,17 @@ const ApplicationLayouts = () => {
                         </Typography>
                         <Typography variant='body2'>
                             {t('layouts.detailSyncState', 'Sync state: {{state}}', { state: t(`layouts.state.${layout.syncState}`) })}
+                        </Typography>
+                        <Typography variant='body2'>
+                            {t('layouts.detailTarget', 'Target: {{target}}', { target: formatLayoutTarget(layout) })}
+                        </Typography>
+                        <Typography variant='body2'>
+                            {t('layouts.detailTemplate', 'Template: {{template}}', { template: formatTemplate(layout.templateKey) })}
+                        </Typography>
+                        <Typography variant='body2'>
+                            {t('layouts.detailComposition', 'Composition: {{composition}}', {
+                                composition: formatComposition(layout)
+                            })}
                         </Typography>
                         {layout.sourceLayoutId ? (
                             <Typography variant='body2'>{t('layouts.detailSourceLayout', 'Linked to source layout')}</Typography>
@@ -1083,7 +1170,7 @@ const ApplicationLayouts = () => {
                                         : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
                                     inheritedLabel:
                                         isMarketingWidgetKey(widget.widgetKey) || widget.widgetKey === 'interpretationNetworkWorkspace'
-                                            ? isCustomizedWidget(layout, widget)
+                                            ? isApplicationOwnedWidget(layout, widget)
                                                 ? t('layouts.widgetCustomization.application', 'Customized in application')
                                                 : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
                                             : undefined
@@ -1135,7 +1222,7 @@ const ApplicationLayouts = () => {
                     isSavingWidget={updateWidgetConfigMutation.isPending}
                     isResettingWidget={resetWidgetConfigMutation.isPending}
                     isInterpretationNetworkCustomized={
-                        interpretationNetworkEditingWidget ? isCustomizedWidget(layout, interpretationNetworkEditingWidget) : false
+                        interpretationNetworkEditingWidget ? isApplicationOwnedWidget(layout, interpretationNetworkEditingWidget) : false
                     }
                     onSaveMenu={async (config) => {
                         if (!menuEditorZone) return
@@ -1218,7 +1305,7 @@ const ApplicationLayouts = () => {
         id: layout.id,
         title: resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout')),
         description: resolveLocalizedText(layout.description ?? {}, i18n.language, ''),
-        meta: scopesById.get(layout.scopeId ?? 'global')?.name ?? t('layouts.globalScope', 'Global'),
+        meta: `${formatLayoutTarget(layout)} · ${formatTemplate(layout.templateKey)}`,
         statusContent: (
             <LayoutStateChips
                 isActive={layout.isActive}
@@ -1281,23 +1368,41 @@ const ApplicationLayouts = () => {
                 searchPlaceholder={t('layouts.searchPlaceholder', 'Search layouts...')}
                 onSearchChange={(event) => setSearchValue(event.target.value)}
                 headerExtras={
-                    <FormControl size='small' sx={{ minWidth: 220 }}>
-                        <InputLabel>{t('layouts.scope', 'Scope')}</InputLabel>
-                        <Select
-                            value={scopeFilter}
-                            label={t('layouts.scope', 'Scope')}
-                            onChange={(event) => setScopeFilter(event.target.value)}
-                        >
-                            <MenuItem value='all'>{t('layouts.allScopes', 'All')}</MenuItem>
-                            {(scopesQuery.data ?? []).map((scope) => (
-                                <MenuItem key={scope.id} value={scope.id}>
-                                    {scope.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        <FormControl size='small' sx={{ minWidth: 220 }}>
+                            <InputLabel id='application-layout-list-target-label'>{t('layouts.target', 'Target')}</InputLabel>
+                            <Select
+                                labelId='application-layout-list-target-label'
+                                value={scopeFilter}
+                                label={t('layouts.target', 'Target')}
+                                onChange={(event) => setScopeFilter(event.target.value)}
+                            >
+                                <MenuItem value='all'>{t('layouts.allScopes', 'All')}</MenuItem>
+                                {(scopesQuery.data ?? []).map((scope) => (
+                                    <MenuItem key={scope.id} value={scope.id}>
+                                        {scope.scopeKind === 'global' || scope.scopeEntityId === null
+                                            ? t('layouts.scopeKinds.global', 'Global')
+                                            : `${formatScopeKind(scope.scopeEntityKind ?? scope.kind)}: ${scope.name}`}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl size='small' sx={{ minWidth: 180 }}>
+                            <InputLabel id='application-layout-list-template-label'>{t('layouts.template', 'Template')}</InputLabel>
+                            <Select
+                                labelId='application-layout-list-template-label'
+                                value={templateFilter}
+                                label={t('layouts.template', 'Template')}
+                                onChange={(event) => setTemplateFilter(event.target.value as 'all' | ApplicationTemplateKey)}
+                            >
+                                <MenuItem value='all'>{t('layouts.allTemplates', 'All')}</MenuItem>
+                                <MenuItem value='dashboard'>{formatTemplate('dashboard')}</MenuItem>
+                                <MenuItem value='marketing-page'>{formatTemplate('marketing-page')}</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Stack>
                 }
-                primaryAction={{ label: t('layouts.create', 'Create layout'), onClick: () => setCreateOpen(true) }}
+                primaryAction={{ label: t('layouts.create', 'Create layout'), onClick: openCreateDialog }}
                 viewMode={view as 'card' | 'list'}
                 onViewModeChange={(mode) => setView(mode)}
                 cardViewTitle={tc('cardView', 'Card view')}
@@ -1309,7 +1414,7 @@ const ApplicationLayouts = () => {
                 retryLabel={tc('actions.retry', 'Retry')}
                 onRetry={() => void layoutsQuery.refetch()}
                 emptyTitle={t('layouts.empty', 'No layouts found')}
-                metaColumnLabel={t('layouts.scope', 'Scope')}
+                metaColumnLabel={t('layouts.target', 'Target')}
                 statusColumnLabel={t('layouts.status', 'Status')}
                 nameColumnLabel={t('layouts.name', 'Name')}
                 descriptionColumnLabel={t('layouts.descriptionColumn', 'Description')}
@@ -1335,7 +1440,9 @@ const ApplicationLayouts = () => {
                 t={t}
                 tc={tc}
                 scopes={scopesQuery.data ?? []}
-                templateKey={applicationTemplateKey}
+                templateKey={createTemplateKey}
+                defaultTemplateKey={applicationTemplateKey}
+                setTemplateKey={setCreateTemplateKey}
                 createOpen={createOpen}
                 setCreateOpen={setCreateOpen}
                 name={name}

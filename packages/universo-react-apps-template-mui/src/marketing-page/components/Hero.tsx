@@ -44,9 +44,10 @@ export interface HeroProps {
     instanceKey?: string
     onAction?: MarketingActionHandler
     onLeadSubmit?: MarketingLeadHandler
+    backgroundOwner?: 'widget' | 'page'
 }
 
-export default function Hero({ data, instanceKey, onAction, onLeadSubmit }: HeroProps) {
+export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgroundOwner = 'widget' }: HeroProps) {
     const { t } = useTranslation('apps')
     const heroId = marketingSectionId('hero', instanceKey)
     const [email, setEmail] = React.useState('')
@@ -146,9 +147,15 @@ export default function Hero({ data, instanceKey, onAction, onLeadSubmit }: Hero
             sx={(theme) => ({
                 width: '100%',
                 backgroundRepeat: 'no-repeat',
-                backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(210, 100%, 90%), transparent)',
+                backgroundImage:
+                    backgroundOwner === 'widget'
+                        ? 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(210, 100%, 90%), transparent)'
+                        : 'none',
                 ...theme.applyStyles('dark', {
-                    backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(210, 100%, 16%), transparent)'
+                    backgroundImage:
+                        backgroundOwner === 'widget'
+                            ? 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(210, 100%, 16%), transparent)'
+                            : 'none'
                 })
             })}
         >

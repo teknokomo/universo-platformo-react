@@ -59,6 +59,162 @@
 
 ---
 
+## 2026-09-09 - Unified template implementation verification continuation
+
+-   Reproduced and fixed the fresh marketing-layout authoring crash caused by
+    reading `includes` from an absent `allowedZones` value. The frontend now
+    validates the template metadata shape before checking supported zones, and
+    the real marketing layout details screenshot renders without an error alert,
+    raw technical metadata, or page-level horizontal overflow.
+-   Removed the duplicate hidden mobile Drawer that was mounted together with
+    the external runtime menu. Dashboard and marketing shells now expose one
+    navigation owner and one workspace switcher while preserving keyboard focus
+    restoration and localized controls.
+-   Kept request-scoped RLS executors on regular application, layout, and runtime
+    routes. Long-running schema sync/diff/release operations deliberately use a
+    separate trusted pool transaction after an explicit owner/admin access check;
+    this prevents a request transaction from holding application metadata locks
+    while DDL waits on the same row. The previous real local-Supabase
+    `statement_timeout` scenario disappeared after this correction, and the
+    executor-selection regression is covered by tests.
+-   Verification passed: the full marketing wrapper completed with 9 Chromium
+    lifecycle tests passed and one expected standalone skip, the visual matrix
+    passed 5/5, the dedicated Supabase profile was stopped, and screenshot
+    inspection covered the marketing authoring surface, widget lifecycle, and
+    published EN runtime. Documentation provenance, EN/RU parity, assets, and
+    local-link checks passed.
+-   Full package/build evidence is recorded as follows: applications-backend
+    50 suites / 862 tests, metahubs-backend 97 suites / 1,264 tests (4 skipped
+    by existing contracts), utils 37 files / 360 tests, applications-frontend
+    33 files / 253 tests, and the workspace build 36/36. Relevant filtered
+    apps-template tests pass; its broad Vitest suite is resource-sensitive and
+    was stopped after a CPU-bound worker exceeded the practical verification
+    window. Isolated tests for each observed timeout pass.
+-   All affected package lint runs, SQL-access/static/isolation guards, OpenAPI
+    source and bundled validation, GitBook checks, Prettier/diff checks, and
+    the local-browser UX oracles passed. The standalone wrapper remains
+    explicitly `BLOCKED` when no separately deployed authenticated shell is
+    configured. Autoreview was attempted for 20 minutes but produced no
+    structured report before timeout; no clean external review verdict is
+    claimed. OntoIndex remains stale/degraded for dirty source, so direct source
+    inspection and executed tests are authoritative.
+-   No database schema, migration, UUID policy, or metahub-template version was
+    changed, and no legacy compatibility layer was introduced.
+
+## 2026-09-09 - Unified template implementation final continuation
+
+-   Fixed the remaining fresh-marketing-application regression: hosted
+    `ApplicationRuntime` now routes `/workspaces/:workspaceId/{dashboard|access|settings}`
+    through the existing `AppMainLayout` and `RuntimeWorkspacesPage` primitives
+    before rendering marketing content. The route is covered by a focused
+    `ApplicationRuntime` regression and the real workspace-management browser
+    flow now passes.
+-   Updated browser oracles to match the current contracts: inactive widgets are
+    absent from the published runtime envelope, global entity menu entries are
+    semantic links, and the separately deployed standalone suite is explicitly
+    skipped unless its authenticated shell configuration is supplied. No
+    product behavior was weakened by these test-oracle changes.
+-   The complete `pnpm run test:e2e:marketing-page:verify:local-supabase` run
+    passed: 9 Chromium lifecycle/RBAC/authoring/runtime tests passed with one
+    intentional standalone skip, the visual matrix passed 5/5, and screenshot
+    provenance, GitBook i18n/assets, and local-link checks passed. The wrapper
+    built all 36 workspace projects and stopped the dedicated Supabase profile
+    in its finalizer.
+-   The applications-frontend package lint passed, `git diff --check` passed,
+    and the package test command passed 33 files / 253 tests including the new
+    marketing workspace route regression. Earlier focused backend/frontend,
+    concurrency, cross-template, build, and screenshot inspection evidence
+    remains recorded below. The latest autoreview helper still produced no
+    structured report before its environment-limited timeout; no clean external
+    review verdict is claimed.
+-   No database schema, migration, UUID policy, or metahub-template version was
+    changed, and no legacy compatibility layer was introduced.
+
+## 2026-09-08 - Unified template runtime QA remediation
+
+-   Fixed the final correctness findings from the implementation QA pass. Hosted
+    and standalone runtime shells now dispatch `marketing-page` by the resolved
+    template key on both root and entity-scoped routes; custom object kinds use
+    the same exclusion predicate in effective-layout selection and marketing
+    content lookup; repeated marketing navigation widgets have unique drawer
+    identities; and the shared LanguageSwitcher has one deterministic shell
+    owner.
+-   Bound the two-request marketing runtime read to the effective layout hash.
+    The controller validates the optional hash and returns a fail-closed stale
+    layout conflict when content resolution observes a different effective
+    composition. The renderer validates the returned hash/version and offers a
+    host-level refetch retry. Authoring scope validation now matches the runtime
+    Page/custom-Object contract, and application-owned deletion remains a
+    `RETURNING`-confirmed tombstone.
+-   Closed the final security and data-integrity findings: deterministic
+    generated widget lineage now remains a real UUID v7 by reusing the source
+    layout timestamp; the realtime upgrade boundary defaults to a deny policy
+    when no Origin validator is supplied; inactive layouts are excluded from
+    published/inherited reads and comparisons; repeated source-removal syncs
+    converge on their tombstone; and scoped-layout queries accept only UUID v7
+    entity ids with an explicit global-scope conflict check.
+-   The fresh minimal-Supabase cross-template run passed 4/4 after the complete
+    36-package E2E build. Its status is recorded at
+    `tools/testing/e2e/.artifacts/cross-template/2026-09-08T17-27-42-864Z/status.json`.
+    Inspected evidence includes Marketing desktop, scoped Dashboard, authoring,
+    tablet, and RU-mobile screenshots; the browser oracles found no raw
+    identifiers, JSON leakage, or page-level horizontal overflow.
+-   The two-session optimistic-version concurrency gate passed 2/2 with one
+    committed `200` and one expected `409`; its latest status is recorded at
+    `tools/testing/e2e/.artifacts/cross-template-concurrency/2026-09-08T17-25-59-868Z/status.json`.
+    Focused applications-backend suites pass 9 suites / 400 tests, and the
+    real-server reconnect integration suite passes 5/5. Affected package
+    lint/typecheck/build, documentation, static isolation, Prettier, and
+    `git diff --check` are green.
+-   The standalone wrapper is fail-closed and records `BLOCKED` when no separate
+    authenticated shell variables are configured; no standalone browser PASS is
+    claimed. The latest autoreview invocation remained active for ten minutes
+    without a structured report and was interrupted; previous environment-owned
+    Codex state database failures prevent a clean automated review verdict.
+    OntoIndex `gn_verify_diff` passes against the complete dirty-worktree
+    allowlist, while the graph index remains stale/degraded and direct source
+    remains authoritative. No database schema, migration, UUID policy, or
+    metahub-template version was changed, and no legacy compatibility layer was
+    retained.
+
+---
+
+## 2026-09-08 - Unified application-template widgets and scoped-layout implementation closeout
+
+-   Completed the target-aware effective-layout implementation for Dashboard and
+    `marketing-page`. The server resolves Page/Object/global targets before
+    renderer selection, validates publication lineage and hashes, and fails
+    closed on stale or ambiguous persisted state. Application/metahub stores
+    keep SQL-first executors, UUID v7 identities, optimistic versions, and a
+    deterministic lock order without changing schema, snapshot, or metahub
+    template versions.
+-   Extended the existing shared widget/zone registry in `@universo-react/types`
+    and kept the isolated `apps-template-mui` boundary. Dashboard zones are
+    transported by typed adapters; the existing LanguageSwitcher is reused by
+    both hosts; responsive shell ownership prevents duplicate language and
+    color-mode controls.
+-   Added normal visible target navigation in the hosted runtime. The final
+    minimal-Supabase cross-template wrapper passed setup plus runtime flow 2/2
+    after the full workspace build. Browser screenshots inspected from
+    `tools/testing/e2e/.artifacts/cross-template/2026-09-08T07-00-44-990Z/`
+    cover Marketing desktop/RU mobile/tablet and scoped Dashboard desktop/RU
+    mobile, including a real table, keyboard language-menu operation,
+    no-leakage, and no page-level overflow assertions.
+-   Focused suites passed: applications-backend 4 suites / 215 tests,
+    metahubs-backend 3 suites / 71 tests, applications-frontend 49 tests,
+    apps-template-mui Dashboard 22 tests, types 36 tests, and utils 17 tests.
+    Affected package lint, static isolation/runtime guards, SQL-access lint,
+    GitBook EN/RU parity, screenshot assets, local links, Prettier, and
+    `git diff --check` also passed.
+-   The checkout has no separately authenticated standalone deployment and no
+    dedicated real-database concurrency wrapper, so those browser/environment
+    cells are explicitly bounded rather than claimed as PASS. Direct standalone
+    component and store/route concurrency coverage remain present. The local
+    Thermos/autoreview helper was blocked by the environment-owned Codex state
+    database, and a follow-up delegated review stopped at the external usage
+    limit; no clean external review verdict is claimed. OntoIndex remains
+    dirty/degraded and direct source is authoritative for the changed worktree.
+
 ## 2026-09-05 - Marketing page widgetized runtime authoring QA closure
 
 -   Fixed the remaining fresh-metahub authoring defects: built-in marketing source codenames are locale-stable while display names remain localized, and the template-picker description is concise user-facing copy without MUI or implementation terminology.
@@ -1157,3 +1313,127 @@ database, so no automated clean-review verdict is claimed.
 No database schema, migration, UUID policy, or metahub-template version was
 changed; no legacy compatibility reader or duplicate authoring workbench was
 introduced.
+
+## Unified layout continuation: apps-template regression closure — 2026-09-09
+
+-   Fixed the final post-QA regression in `useCellMutations`: the system-owned
+    field allowlist is now resolved before server-owned fields are stripped
+    from a newly created Matrix cell command. The previous order raised a
+    temporal-dead-zone error before the aggregate API request, which affected
+    deep-child and menu-cell creation flows.
+-   Updated the remaining stale `InterpretationNetworkWorkspaceWidget` test
+    mocks to use the aggregate Matrix move endpoint and its UUID-v7 response
+    contract. No legacy production endpoint or compatibility path was added.
+-   Validation passed: the full serial apps-template Vitest run completed with
+    54 test files and 732 tests; the apps-template TypeScript build and ESLint
+    completed with zero errors/warnings; Prettier and `git diff --check` passed.
+    The focused widget file completed with 68/68 tests, including hierarchy,
+    aggregate create/move, material linkage, and selection/refetch scenarios.
+-   Vitest still prints non-failing React `act(...)` warnings from existing
+    FormDialog/ResourcePreview test paths. They do not fail the suite and were
+    not suppressed or used as evidence of product correctness.
+
+-   Regenerated `tools/fixtures/metahubs-interpretation-network-app-snapshot.json`
+    through the real Playwright generator after adding the current optimistic
+    `expectedVersion` request field and global independent-layout composition
+    metadata. The fixture contract and generated-fixture drift gate both pass.
+-   The focused imported-snapshot Playwright flow now passes 2/2 on a fresh
+    minimal local Supabase profile. It switches to Russian through the visible
+    language menu, reloads the application, creates a child Matrix cell with
+    hidden system-managed placement fields, asserts the UUID v7 response and
+    server-owned field stripping, and runs the localized/no-leakage/no-overflow
+    UX checks. The final Russian screenshot was visually inspected.
+-   The first rerun exposed a strict-mode test-selector defect caused by the
+    intentionally kept hidden mobile Drawer; the test now scopes the workspace
+    switcher to the visible docked navigation. A second rerun exposed that
+    localStorage-only locale setup did not exercise the runtime URL contract;
+    the test now follows the real language-switcher click path and verifies
+    reload persistence.
+-   The dedicated local Supabase E2E profile was stopped cleanly after the
+    browser run. No schema, migration, UUID policy, or template version was
+    changed.
+-   Final OntoIndex `gn_verify_diff` passed after the complete dirty-worktree
+    file allowlist and its 713 changed-symbol set were supplied. OntoIndex
+    reported only its documented symbol/impact scan caps; no unexpected files,
+    symbols, or missing test evidence were reported.
+
+## Unified application template widgets and scoped layouts — post-QA implementation closeout (2026-09-09)
+
+-   Fixed the reported repeated-navigation overlay: the marketing adapter now
+    renders every active Navigation instance in normal vertical flow with
+    reserved height, unique landmark labels, unique Drawer ids, and preserved
+    keyboard/focus behavior. The same repeated-instance contract is covered by
+    Dashboard composition tests without reviving boolean demo fallbacks when a
+    persisted zone is present.
+-   Corrected application-owned/inherited lineage presentation and preserved
+    marketing `instanceKey` through the neutral runtime contract. Metahub and
+    application mutation boundaries validate strict Zod envelopes, supported
+    template/zone/widget combinations, singleton shell invariants, optimistic
+    versions, UUID v7 identity, and fail-closed `RETURNING` results. Copy,
+    seed, sync, reset, and delete paths use fresh physical identities and keep
+    sibling/content rows isolated.
+-   The final `pnpm test:e2e:cross-template:verify:local-supabase` run passed
+    4/4 Chromium scenarios after a 36-package workspace build. Inspected
+    artifacts include three non-overlapping marketing Navigation instances,
+    scoped Dashboard desktop and RU-mobile views, and responsive marketing
+    desktop/tablet/mobile views. The browser gate checks semantic landmarks,
+    keyboard/focus, EN/RU, 1920/768/390 viewports, document overflow,
+    technical leakage, and console/pageerror/requestfailed events; the final
+    issue set is empty.
+-   Full applications-backend Jest (50 suites), metahubs-backend Jest (97
+    suites; 1,268 passing tests and 4 skipped), the focused apps-template
+    Vitest matrix, applications-frontend/types/utils tests, package lint and
+    typecheck/build checks, the marketing template contract, docs i18n and
+    screenshot provenance, isolation/MUI/runtime-fork guards, Prettier, and
+    `git diff --check` passed. The changed-surface security scan found no new
+    DOM injection, dynamic-code, shell-execution, dynamic SQL/Knex-boundary, or
+    unsafe redirect sinks.
+-   No database migration, schema version, or metahub-template version was
+    added or incremented. The standalone browser wrapper remains explicitly
+    `BLOCKED` without a separately configured authenticated standalone host and
+    entity-type IDs; no unsupported browser acceptance claim is recorded.
+-   OntoIndex `gn_verify_diff` passed with the complete current dirty-worktree
+    allowlist and all declared verification gates. Its status still reports a
+    dirty/degraded index by design. The Thermos autoreview helper reached its
+    ten-minute limit without a structured report, and replacement review
+    agents were unavailable because of the external usage limit; no automated
+    clean-review verdict is claimed.
+
+## Marketing-page top-bar regression fix — 2026-09-10
+
+-   Restored the original MUI marketing-page shell behavior in the isolated
+    apps template. Every active `AppAppBar` for `marketing.navigation` is now
+    fixed and uses the original frame-aware top offset plus a deterministic
+    stack index; the previous mixed fixed/static behavior and compensating
+    header padding that caused a scroll-away bar were removed. A root marketing
+    background keeps the complete fixed stack visually continuous from the
+    viewport edge.
+-   Preserved the repeated-widget contract: only the first Navigation instance
+    owns the shared language control and navigation shell state, while every
+    Navigation instance receives its own fixed vertical slot. The page reserves
+    the dense toolbar height and existing Stack gap for the complete stack, so
+    all bars remain separate and the document scrolls behind them. Unique
+    navigation landmarks, Drawer ids, and keyboard/focus behavior remain intact.
+-   Added component assertions for default fixed positioning, explicit future
+    static-policy support, and stack-index rendering. The three-navigation
+    regression now requires every active AppBar to be fixed and the focused
+    Vitest run passed 3 files / 15 tests.
+-   Strengthened the real cross-template Playwright flow with browser geometry
+    checks: Hero starts at viewport `top=0`, every Navigation AppBar is fixed,
+    stack rectangles are non-overlapping, all coordinates remain stable after
+    scrolling, and the existing overflow, localization, accessibility, focus,
+    and browser-issue checks remain active at desktop/tablet/mobile sizes. The
+    fresh local minimal-Supabase wrapper passed 4/4 Chromium scenarios after a
+    cached 36-package workspace build and stopped its dedicated Supabase
+    profile cleanly.
+-   Inspected fresh initial and post-scroll repeated-navigation screenshots,
+    along with the single-navigation scrolled, tablet, and RU mobile views. No
+    top white band or navigation overlap was visible; all three repeated bars
+    remain stacked after scrolling. The browser oracle also confirms
+    single-navigation Hero-owned background and repeated-navigation page-owned
+    background without duplicate gradients. No schema, migration, or
+    metahub-template version changed. Package lint/typecheck and Prettier passed.
+    The Thermos/autoreview helper was rerun with a 600-second limit but produced
+    no structured verdict. Final OntoIndex `gn_verify_diff` passed for the
+    complete 195-file dirty-worktree allowlist with no unexpected changes or
+    missing test evidence. No clean automated Thermos verdict is claimed.

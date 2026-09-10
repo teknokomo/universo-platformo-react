@@ -465,7 +465,9 @@ describe('SnapshotRestoreService', () => {
                         config: {},
                         isActive: true,
                         isDefault: true,
-                        sortOrder: 0
+                        sortOrder: 0,
+                        compositionMode: 'independent',
+                        baseLayoutId: null
                     }
                 ],
                 layoutZoneWidgets: [
@@ -1072,7 +1074,9 @@ describe('SnapshotRestoreService', () => {
                     config: { showHeader: true },
                     isActive: true,
                     isDefault: true,
-                    sortOrder: 0
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
                 }
             ],
             layoutZoneWidgets: [
@@ -1106,6 +1110,82 @@ describe('SnapshotRestoreService', () => {
             zone: 'main',
             widget_key: 'details-table'
         })
+    })
+
+    it('rejects a cross-template scoped overlay during snapshot restore', async () => {
+        const sourceScopeEntityId = '019e8afa-0000-7000-8000-000000000020'
+        const siteSettingsEntityId = '019e8afa-0000-7000-8000-000000000021'
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                [sourceScopeEntityId]: {
+                    kind: 'object',
+                    codename: 'products',
+                    presentation: { name: { en: 'Products' }, description: {} },
+                    config: {},
+                    fields: []
+                },
+                [siteSettingsEntityId]: {
+                    kind: 'object',
+                    codename: 'MarketingPageSiteSettings',
+                    presentation: { name: { en: 'Site settings' }, description: {} },
+                    config: {},
+                    fields: []
+                }
+            },
+            layouts: [
+                {
+                    id: validLayoutIds.global,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: validLayoutIds.scoped,
+                    scopeEntityId: sourceScopeEntityId,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    compositionMode: 'overlay',
+                    baseLayoutId: validLayoutIds.global
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: validLayoutIds.globalWidget,
+                    layoutId: validLayoutIds.global,
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    sortOrder: 0,
+                    config: {
+                        instanceKey: 'hero',
+                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
+                        showLeadForm: false
+                    },
+                    isActive: true
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            message: 'Scoped layout references an unresolved restored entity or base layout',
+            details: { layoutId: validLayoutIds.scoped, baseLayoutId: validLayoutIds.global }
+        })
+        expect(insertedRows['_mhb_layouts']).toHaveLength(1)
     })
 
     it('remaps entity references inside restored layout widget configs', async () => {
@@ -1160,7 +1240,9 @@ describe('SnapshotRestoreService', () => {
                     },
                     isActive: true,
                     isDefault: true,
-                    sortOrder: 0
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
                 }
             ],
             layoutZoneWidgets: [
@@ -1625,7 +1707,9 @@ describe('SnapshotRestoreService', () => {
                     config: {},
                     isDefault: true,
                     isActive: true,
-                    sortOrder: 0
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
                 }
             ],
             defaultLayoutId: layoutId,
@@ -2240,7 +2324,9 @@ describe('SnapshotRestoreService', () => {
                     config: { showHeader: true },
                     isActive: true,
                     isDefault: true,
-                    sortOrder: 0
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
                 }
             ],
             scopedLayouts: [
@@ -2254,7 +2340,8 @@ describe('SnapshotRestoreService', () => {
                     config: { showHeader: false },
                     isActive: true,
                     isDefault: true,
-                    sortOrder: 0
+                    sortOrder: 0,
+                    compositionMode: 'overlay'
                 }
             ],
             layoutZoneWidgets: [

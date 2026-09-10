@@ -223,6 +223,7 @@ export type SnapshotScopedLayoutRow = SnapshotLayoutRow & {
     scopeEntityId?: unknown
     scopeEntityKind?: unknown
     baseLayoutId?: unknown
+    compositionMode?: unknown
 }
 
 export type SnapshotLayoutWidgetOverrideRow = {
@@ -240,6 +241,7 @@ export type SnapshotWidgetRow = {
     id?: unknown
     layoutId?: unknown
     sourceBaseWidgetId?: unknown
+    sourceLineageKey?: unknown
     zone?: unknown
     widgetKey?: unknown
     sortOrder?: unknown
@@ -269,6 +271,8 @@ export type PersistedAppLayoutZoneWidget = {
     id: string
     layoutId: string
     sourceBaseWidgetId?: string | null
+    /** Stable logical key for sync-generated runtime widgets without a source row id. */
+    sourceLineageKey?: string
     zone: ApplicationLayoutWidget['zone']
     widgetKey: string
     sortOrder: number

@@ -340,7 +340,8 @@ describe('SettingsPage', () => {
                     defaultMatrixView: 'horizontalRows',
                     splitPane: { enabled: false }
                 },
-                isActive: true
+                isActive: true,
+                version: 1
             }
         ])
 
@@ -368,7 +369,8 @@ describe('SettingsPage', () => {
                 expect.objectContaining({
                     matrixMode: 'hierarchicalCells',
                     defaultMatrixView: 'horizontalRows'
-                })
+                }),
+                1
             )
         })
 

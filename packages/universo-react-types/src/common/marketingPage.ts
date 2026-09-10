@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { VersionedLocalizedContent } from './admin'
+import type { LayoutSemanticRegion } from './applicationTemplates'
 export { APPLICATION_TEMPLATE_REGISTRY } from './applicationTemplates'
 export type { ApplicationTemplateRegistryEntry } from './applicationTemplates'
 import { pageBlockContentSchema } from './pageBlocks'
@@ -36,6 +37,13 @@ export const MARKETING_PAGE_SEED_POLICY = 'initial-only' as const
 export const MARKETING_LAYOUT_ZONES = ['marketing-header', 'marketing-main', 'marketing-footer'] as const
 export type MarketingLayoutZone = (typeof MARKETING_LAYOUT_ZONES)[number]
 export const marketingLayoutZoneSchema = z.enum(MARKETING_LAYOUT_ZONES)
+
+/** Explicit semantic mapping for the marketing adapter's physical zones. */
+export const MARKETING_LAYOUT_ZONE_SEMANTICS = {
+    'marketing-header': 'header',
+    'marketing-main': 'main',
+    'marketing-footer': 'footer'
+} as const satisfies Readonly<Record<MarketingLayoutZone, LayoutSemanticRegion>>
 
 /** Template-aware widget keys. Dashboard keys are deliberately not included. */
 export const MARKETING_WIDGET_KEYS = [
@@ -244,6 +252,25 @@ export type MarketingPersistedId = z.infer<typeof marketingPersistedIdSchema>
 /** Instance identity is semantic for seed rows and UUID v7 for authored rows. */
 export const marketingWidgetInstanceKeySchema = z.union([marketingSemanticKeySchema, marketingPersistedIdSchema])
 export type MarketingWidgetInstanceKey = z.infer<typeof marketingWidgetInstanceKeySchema>
+
+/** Neutral reference passed from application layout resolution to marketing renderers. */
+export const marketingLayoutWidgetReferenceSchema = z
+    .object({
+        id: z.string().trim().min(1),
+        widgetKey: z.string().trim().min(1),
+        zone: z.string().trim().min(1),
+        instanceKey: z
+            .string()
+            .trim()
+            .min(1)
+            .max(128)
+            .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/u)
+            .optional(),
+        sortOrder: z.number().int().nonnegative(),
+        isActive: z.boolean()
+    })
+    .strict()
+export type MarketingLayoutWidgetReference = z.infer<typeof marketingLayoutWidgetReferenceSchema>
 
 /** Server-resolved entity metadata reference; physical tables and SQL never cross this boundary. */
 export const marketingWidgetSourceSchema = z

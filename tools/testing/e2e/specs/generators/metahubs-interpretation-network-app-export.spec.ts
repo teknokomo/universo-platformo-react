@@ -61,7 +61,8 @@ const configureInterpretationNetworkProductFixture = async (api: ApiContext, met
                 ...(workspaceWidget.config && typeof workspaceWidget.config === 'object' ? workspaceWidget.config : {}),
                 structureMode: 'singleSystem',
                 templatePanel: { showInStructureList: true, showInMatrix: true }
-            }
+            },
+            expectedVersion: workspaceWidget.version
         }
     )
     expect(response.ok).toBe(true)
@@ -149,6 +150,6 @@ test.describe('Metahubs Interpretation Network App Export', () => {
 
         const fixturePath = resolveFixtureOutputPath()
         fs.mkdirSync(path.dirname(fixturePath), { recursive: true })
-        fs.writeFileSync(fixturePath, JSON.stringify(envelope, null, 2), 'utf8')
+        fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 4)}\n`, 'utf8')
     })
 })

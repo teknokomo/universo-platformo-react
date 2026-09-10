@@ -146,11 +146,20 @@ export async function syncApplicationSchemaFromSource(options: {
         const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
         if (lastAppliedHash && lastAppliedHash === source.snapshotHash && releaseSchemaSnapshotMatchesTrackedState) {
             const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(source.snapshot, source.entities, application.workspacesEnabled)
-            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
-            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
+            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({
+                schemaName: application.schemaName,
+                snapshot: runtimeSnapshot,
+                executor: exec
+            })
+            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({
+                schemaName: application.schemaName,
+                snapshot: runtimeSnapshot,
+                executor: exec
+            })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
                 schemaName: application.schemaName,
-                snapshot: runtimeSnapshot
+                snapshot: runtimeSnapshot,
+                executor: exec
             })
             const modulesNeedUpdate = await hasPublishedModulesChanges({
                 schemaName: application.schemaName,
@@ -407,11 +416,20 @@ export async function syncApplicationSchemaFromSource(options: {
 
         if (!diff.hasChanges) {
             const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(source.snapshot, source.entities, application.workspacesEnabled)
-            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
-            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
+            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({
+                schemaName: application.schemaName!,
+                snapshot: runtimeSnapshot,
+                executor: exec
+            })
+            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({
+                schemaName: application.schemaName!,
+                snapshot: runtimeSnapshot,
+                executor: exec
+            })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
                 schemaName: application.schemaName!,
-                snapshot: runtimeSnapshot
+                snapshot: runtimeSnapshot,
+                executor: exec
             })
             const modulesNeedUpdate = await hasPublishedModulesChanges({
                 schemaName: application.schemaName!,

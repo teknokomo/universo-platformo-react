@@ -255,6 +255,86 @@ describe('attachLayoutsToSnapshot', () => {
         ).rejects.toThrow()
         expect(snapshot.layouts).toBeUndefined()
     })
+
+    it('fails closed when stored dashboard layout fields have malformed types', async () => {
+        const poolExecutor = createPoolExecutor()
+        poolExecutor.query.mockImplementationOnce(async () => [
+            {
+                id: 'layout-corrupt',
+                scope_entity_id: null,
+                base_layout_id: null,
+                template_key: 'dashboard',
+                name: { en: 'Corrupt' },
+                description: null,
+                config: 'false',
+                is_active: 'false',
+                is_default: true,
+                sort_order: '1'
+            }
+        ])
+        mockGetPoolExecutor.mockReturnValue(poolExecutor)
+
+        const snapshot = {} as MetahubSnapshot
+        await expect(
+            attachLayoutsToSnapshot({
+                schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
+                snapshot,
+                metahubId: 'metahub-1',
+                userId: 'user-1'
+            })
+        ).rejects.toThrow(/layout config/)
+        expect(snapshot.layouts).toBeUndefined()
+    })
+
+    it('fails closed when a stored dashboard widget has malformed fields', async () => {
+        const poolExecutor = createPoolExecutor()
+        poolExecutor.query.mockImplementation(async (sql: string, params: unknown[]) => {
+            if (sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: 'layout-global-active',
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'dashboard',
+                        name: { en: 'Global active' },
+                        description: null,
+                        config: {},
+                        is_active: true,
+                        is_default: true,
+                        sort_order: 0
+                    }
+                ]
+            }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_widgets') return [{ exists: true }]
+            if (sql.includes('_mhb_widgets')) {
+                return [
+                    {
+                        id: 'widget-corrupt',
+                        layout_id: 'layout-global-active',
+                        zone: 'top',
+                        widget_key: 'header',
+                        sort_order: 0,
+                        config: [],
+                        is_active: 'false'
+                    }
+                ]
+            }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_layout_widget_overrides') return [{ exists: false }]
+            throw new Error(`Unexpected query: ${sql}`)
+        })
+        mockGetPoolExecutor.mockReturnValue(poolExecutor)
+
+        const snapshot = {} as MetahubSnapshot
+        await expect(
+            attachLayoutsToSnapshot({
+                schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
+                snapshot,
+                metahubId: 'metahub-1',
+                userId: 'user-1'
+            })
+        ).rejects.toThrow(/widget config/)
+        expect(snapshot.layoutZoneWidgets).toBeUndefined()
+    })
 })
 
 describe('alignPlayCanvasRuntimeManifestBindings', () => {

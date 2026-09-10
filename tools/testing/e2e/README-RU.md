@@ -86,6 +86,64 @@ Backend e2e env должен содержать:
 
 Все wrapper-based E2E команды теперь принудительно соблюдают hosted-Supabase reset contract: удаляют все application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations` и Supabase auth users перед стартом suite и ещё раз после остановки сервера. Инфраструктурные схемы вроде `public` сохраняются, чтобы стартовые migrations могли пересобрать platform state поверх валидной базы Supabase/Postgres. Прямые `pnpm exec playwright test ...` обходят этот контракт и поэтому допустимы только для debug-only сценариев. Для обычной валидации используйте wrapper-команды ниже.
 
+## Проверка унифицированных шаблонов и scoped-макетов
+
+В текущем worktree зарегистрирован target-aware маршрут
+`/api/v1/applications/:applicationId/runtime/effective-layout` и browser flow на
+выделенной базе, проверяющий precedence для cross-template сценария.
+
+Сфокусированный support-слой и browser flow покрывают runtime-контракт:
+
+-   `support/browser/runtimeUx.ts` экспортирует
+    `expectTableHorizontalScrollConstrained(surface, label)` для уже
+    существующего locator контейнера `FlowListTable`. Внутренний scroll
+    разрешается только внутри названного контейнера, а page-level overflow
+    по-прежнему считается ошибкой.
+-   `support/backend/api-session.mjs` экспортирует
+    `buildApplicationEffectiveLayoutPath`, `getApplicationEffectiveLayout`,
+    helpers для scope/create layout и upsert application widget. Helper
+    принимает только target-, workspace-, locale- и theme-поля и отвергает
+    `recordKey`, чтобы content hydration не стал layout selector.
+-   `support/backend/api-session.contract.test.mjs` проверяет сериализацию
+    request path и отрицательные случаи с неоднозначными/content-only входами
+    без запуска приложения и без заявления browser evidence.
+-   `specs/flows/cross-template-runtime.spec.ts` создаёт свежие marketing
+    metahub/application, добавляет общий `languageSwitcher` в marketing header,
+    создаёт независимый Dashboard layout для entity scope, проверяет global и
+    entity precedence через реальный API и подтверждает обе hosted-поверхности
+    браузером без показа UUID.
+
+Запуск полного disposable-database flow:
+
+```bash
+pnpm test:e2e:cross-template:verify:local-supabase
+```
+
+Wrapper сам поднимает минимальный Supabase, выполняет env/doctor checks,
+production build, Playwright, сохраняет artifacts и останавливает стек.
+Standalone deployment остаётся opt-in через существующий standalone flow,
+поскольку отдельный локальный deployed shell в этом репозитории не настроен.
+
+Запускайте выделенную проверку standalone, когда доступен развернутый shell:
+
+```bash
+E2E_MARKETING_PAGE_STANDALONE_BASE_URL=https://standalone.example.test \
+E2E_MARKETING_PAGE_STANDALONE_APPLICATION_ID=<uuid> \
+pnpm test:e2e:cross-template:standalone
+```
+
+Команда возвращает ненулевой код, пишет статус `BLOCKED` и сохраняет artifact,
+если не задана хотя бы одна переменная. Это намеренное поведение: пропущенный
+тест не является доказательством проверки изолированного standalone shell.
+Настроенный shell должен предоставлять обычный `/api/v1` proxy и принимать
+E2E-аутентификацию.
+
+Аутентифицированный ответ `/runtime` передаёт `zoneWidgets` для всех пяти
+физических Dashboard-зон: `left`, `top`, `right`, `bottom` и `center`.
+Сохранённая неизвестная zone завершается fail-closed с
+`LAYOUT_PERSISTED_INVALID`; она не фильтруется и не переназначается в `left`.
+Этот transport-контракт не заменяет browser evidence.
+
 ## Run Modes
 
 Один раз установите browser binaries:

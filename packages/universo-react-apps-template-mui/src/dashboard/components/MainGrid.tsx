@@ -905,13 +905,16 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
 export default function MainGrid({
     layoutConfig,
     centerWidgets,
+    bottomWidgets,
     fullWidth = false
 }: {
     layoutConfig?: DashboardLayoutConfig
     centerWidgets?: ZoneWidgetItem[]
+    bottomWidgets?: ZoneWidgetItem[]
     fullWidth?: boolean
 }) {
     const details = useDashboardDetails()
+    const { t } = useTranslation('apps')
     const showOverviewTitle = layoutConfig?.showOverviewTitle ?? defaultDashboardLayoutConfig.showOverviewTitle
     const showOverviewCards = layoutConfig?.showOverviewCards ?? defaultDashboardLayoutConfig.showOverviewCards
     const showSessionsChart = layoutConfig?.showSessionsChart ?? defaultDashboardLayoutConfig.showSessionsChart
@@ -932,18 +935,19 @@ export default function MainGrid({
     const pageViewsChartWidgets = visibleCenterWidgets.filter((widget) => widget.widgetKey === 'pageViewsChart')
     const detailsTitleWidgets = visibleCenterWidgets.filter((widget) => widget.widgetKey === 'detailsTitle')
     const detailsTableWidgets = visibleCenterWidgets.filter((w) => w.widgetKey === 'detailsTable')
+    const hasPersistedCenterComposition = centerWidgets !== undefined
     const overviewTitleItems: Array<ZoneWidgetItem | null> =
-        overviewTitleWidgets.length > 0 ? overviewTitleWidgets : showOverviewTitle ? [null] : []
+        overviewTitleWidgets.length > 0 ? overviewTitleWidgets : !hasPersistedCenterComposition && showOverviewTitle ? [null] : []
     const overviewCardsItems: Array<ZoneWidgetItem | null> =
-        overviewCardsWidgets.length > 0 ? overviewCardsWidgets : showOverviewCards ? [null] : []
+        overviewCardsWidgets.length > 0 ? overviewCardsWidgets : !hasPersistedCenterComposition && showOverviewCards ? [null] : []
     const sessionsChartItems: Array<ZoneWidgetItem | null> =
-        sessionsChartWidgets.length > 0 ? sessionsChartWidgets : showSessionsChart ? [null] : []
+        sessionsChartWidgets.length > 0 ? sessionsChartWidgets : !hasPersistedCenterComposition && showSessionsChart ? [null] : []
     const pageViewsChartItems: Array<ZoneWidgetItem | null> =
-        pageViewsChartWidgets.length > 0 ? pageViewsChartWidgets : showPageViewsChart ? [null] : []
+        pageViewsChartWidgets.length > 0 ? pageViewsChartWidgets : !hasPersistedCenterComposition && showPageViewsChart ? [null] : []
     const detailsTitleItems: Array<ZoneWidgetItem | null> =
-        detailsTitleWidgets.length > 0 ? detailsTitleWidgets : showDetailsTitle ? [null] : []
+        detailsTitleWidgets.length > 0 ? detailsTitleWidgets : !hasPersistedCenterComposition && showDetailsTitle ? [null] : []
     const detailsTableItems: Array<ZoneWidgetItem | null> =
-        detailsTableWidgets.length > 0 ? detailsTableWidgets : showDetailsTable ? [null] : []
+        detailsTableWidgets.length > 0 ? detailsTableWidgets : !hasPersistedCenterComposition && showDetailsTable ? [null] : []
     const detailsTableOwnsCreateActions = detailsTableWidgets.some((widget) => {
         const parsed = detailsTableWidgetConfigSchema.safeParse(widget.config ?? {})
         return parsed.success && (parsed.data.createTargets?.length ?? 0) > 0
@@ -966,7 +970,7 @@ export default function MainGrid({
     const showCenterContent =
         hasCustomDetailsContent ||
         hasPageBlocks ||
-        showColumnsContainer ||
+        (!hasPersistedCenterComposition && showColumnsContainer) ||
         columnsContainerWidgets.length > 0 ||
         detailsTitleItems.length > 0 ||
         detailsTableItems.length > 0 ||
@@ -990,7 +994,7 @@ export default function MainGrid({
                 <>
                     {overviewTitleItems.map((widget, index) => (
                         <Typography key={widget?.id ?? `overview-title-fallback-${index}`} component='h2' variant='h6' sx={{ mb: 2 }}>
-                            {readLocalizedConfigText(widget?.config?.title, details?.locale) ?? 'Overview'}
+                            {readLocalizedConfigText(widget?.config?.title, details?.locale) ?? t('runtime.overview', 'Overview')}
                         </Typography>
                     ))}
                     <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
@@ -1146,7 +1150,13 @@ export default function MainGrid({
                 </>
             )}
 
-            {showFooter && <Copyright sx={{ my: 4 }} />}
+            {bottomWidgets !== undefined
+                ? bottomWidgets.map((widget) => (
+                      <Box key={widget.id} data-testid={`bottom-zone-widget-${widget.widgetKey}`} sx={{ width: '100%', minWidth: 0 }}>
+                          {renderWidget(widget)}
+                      </Box>
+                  ))
+                : showFooter && <Copyright sx={{ my: 4 }} />}
         </Box>
     )
 }

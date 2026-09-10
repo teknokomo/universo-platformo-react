@@ -5,6 +5,9 @@ import type {
     ApplicationRolePolicySettings,
     DialogCloseBehavior,
     DialogSizePreset,
+    EffectiveLayoutResult,
+    EffectiveWidget,
+    RuntimeTarget,
     VersionedLocalizedContent
 } from '@universo-react/types'
 // Re-export centralized VLC utilities
@@ -329,6 +332,23 @@ export interface ApplicationRuntimeResponse {
     menus?: ApplicationRuntimeMenu[]
     activeMenuId?: string | null
 }
+
+export type ApplicationRuntimeTargetKind = 'page' | 'object'
+export type ApplicationRuntimeThemeVariant = 'light' | 'dark' | 'system'
+
+/** Inputs accepted by the effective-layout runtime endpoint. */
+export interface ApplicationRuntimeLayoutTarget {
+    targetKind?: ApplicationRuntimeTargetKind | null
+    entityTypeId?: string | null
+    entityTypeCodename?: string | null
+    workspaceId?: string | null
+    locale?: string | null
+    themeVariant?: ApplicationRuntimeThemeVariant | null
+}
+
+export type ApplicationEffectiveLayoutTarget = RuntimeTarget
+export type ApplicationEffectiveLayoutWidget = EffectiveWidget
+export type ApplicationEffectiveLayoutResponse = Extract<EffectiveLayoutResult, { status: 'ok' }>
 
 export interface ApplicationWorkspaceLimitItem {
     objectId: string

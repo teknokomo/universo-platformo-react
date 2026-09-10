@@ -27,6 +27,9 @@ const snackbarMocks = vi.hoisted(() => ({
 const confirmMocks = vi.hoisted(() => ({
     confirm: vi.fn()
 }))
+const localeMocks = vi.hoisted(() => ({
+    language: 'en' as 'en' | 'ru'
+}))
 
 vi.mock('notistack', () => ({
     useSnackbar: () => ({ enqueueSnackbar: snackbarMocks.enqueueSnackbar })
@@ -41,6 +44,7 @@ vi.mock('react-i18next', () => ({
                 'layouts.widgets.overviewCards': 'Overview cards',
                 'layouts.widgets.interpretationNetworkWorkspace': 'Interpretation network workspace',
                 'layouts.widgets.workspaceSwitcher': 'Workspace switcher',
+                'layouts.widgets.languageSwitcher': 'Language switcher',
                 'layouts.widgets.marketing.hero': 'Hero',
                 'layouts.widgets.marketing.collection': 'Collection',
                 'layouts.zones.marketingHeader': 'Marketing header',
@@ -68,6 +72,10 @@ vi.mock('react-i18next', () => ({
                 'layouts.marketing.resetConfirm': 'Restore defaults',
                 'layouts.marketing.resetSuccess': 'Marketing appearance restored to template defaults.'
             }
+            if (localeMocks.language === 'ru') {
+                dictionary['layouts.widgetCustomization.application'] = 'Настроено в приложении'
+                dictionary['layouts.widgetCustomization.metahub'] = 'Унаследовано из метахаба'
+            }
             const template = dictionary[key] ?? fallback ?? key
             if (!params) return template
             return Object.entries(params).reduce(
@@ -75,7 +83,7 @@ vi.mock('react-i18next', () => ({
                 template
             )
         },
-        i18n: { language: 'en' }
+        i18n: { language: localeMocks.language }
     })
 }))
 
@@ -293,6 +301,7 @@ describe('ApplicationLayouts', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         localStorage.clear()
+        localeMocks.language = 'en'
 
         apiMocks.listApplicationLayoutScopes.mockResolvedValue([
             { id: 'global', scopeKind: 'global', scopeEntityId: null, kind: null, tableName: null, codename: {}, name: 'Global' }
@@ -420,28 +429,40 @@ describe('ApplicationLayouts', () => {
             {
                 key: 'menuWidget',
                 allowedZones: ['left', 'center'],
+                allowedZonesByTemplate: { dashboard: ['left', 'center'] },
                 multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard'],
                 labelKey: 'layouts.widgets.menuWidget',
                 defaultLabel: 'Menu'
             },
             {
                 key: 'overviewCards',
                 allowedZones: ['top', 'right'],
+                allowedZonesByTemplate: { dashboard: ['top', 'right'] },
                 multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard'],
                 labelKey: 'layouts.widgets.overviewCards',
                 defaultLabel: 'Overview cards'
             },
             {
                 key: 'interpretationNetworkWorkspace',
                 allowedZones: ['center'],
+                allowedZonesByTemplate: { dashboard: ['center'] },
                 multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard'],
                 labelKey: 'layouts.widgets.interpretationNetworkWorkspace',
                 defaultLabel: 'Interpretation network workspace'
             },
             {
                 key: 'workspaceSwitcher',
                 allowedZones: ['left'],
+                allowedZonesByTemplate: { dashboard: ['left'] },
                 multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard'],
                 labelKey: 'layouts.widgets.workspaceSwitcher',
                 defaultLabel: 'Workspace switcher'
             }
@@ -499,6 +520,63 @@ describe('ApplicationLayouts', () => {
                 expectedVersion: 3
             })
         })
+    })
+
+    it.each([
+        ['en', 'Customized in application', 'Inherited from metahub'],
+        ['ru', 'Настроено в приложении', 'Унаследовано из метахаба']
+    ] as const)('labels explicit widget ownership in %s', async (language, applicationLabel, inheritedLabel) => {
+        localeMocks.language = language
+        const marketingLayout = {
+            ...createMarketingLayout(),
+            sourceKind: 'metahub',
+            sourceLayoutId: 'source-layout-1',
+            syncState: 'clean'
+        }
+        apiMocks.listApplicationLayouts.mockResolvedValue({
+            items: [marketingLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValue({
+            item: marketingLayout,
+            widgets: [
+                {
+                    id: 'widget-application-owned',
+                    layoutId: 'layout-1',
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    sortOrder: 0,
+                    config: {},
+                    sourceConfig: null,
+                    sourceWidgetId: null,
+                    sourceBaseWidgetId: null,
+                    isCustomized: false,
+                    isActive: true,
+                    version: 1
+                },
+                {
+                    id: 'widget-inherited',
+                    layoutId: 'layout-1',
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.collection',
+                    sortOrder: 1,
+                    config: {},
+                    sourceConfig: { source: 'metahub' },
+                    sourceWidgetId: 'source-widget-1',
+                    sourceBaseWidgetId: 'source-widget-1',
+                    isCustomized: false,
+                    isActive: true,
+                    version: 1
+                }
+            ]
+        })
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByText('Marketing content')).toBeInTheDocument())
+        expect(screen.getByText(applicationLabel)).toBeInTheDocument()
+        expect(screen.getByText(inheritedLabel)).toBeInTheDocument()
+        expect(screen.queryByText('source-widget-1')).not.toBeInTheDocument()
     })
 
     it('renders application layouts in list view when the preference is stored', async () => {
@@ -821,21 +899,36 @@ describe('ApplicationLayouts', () => {
             {
                 key: 'marketing.hero',
                 allowedZones: ['marketing-main'],
+                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
                 multiInstance: true,
                 templateKey: 'marketing-page',
+                supportedTemplates: ['marketing-page'],
                 labelKey: 'layouts.widgets.marketing.hero',
                 defaultLabel: 'Hero'
             },
             {
+                key: 'languageSwitcher',
+                allowedZones: ['top'],
+                allowedZonesByTemplate: { dashboard: ['top'], 'marketing-page': ['marketing-header'] },
+                multiInstance: false,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard', 'marketing-page'],
+                shared: true,
+                labelKey: 'layouts.widgets.languageSwitcher',
+                defaultLabel: 'Language switcher'
+            },
+            {
                 key: 'marketing.collection',
                 allowedZones: ['marketing-main'],
+                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
                 multiInstance: true,
                 templateKey: 'marketing-page',
+                supportedTemplates: ['marketing-page'],
                 labelKey: 'layouts.widgets.marketing.collection',
                 defaultLabel: 'Collection'
             }
         ])
-        apiMocks.upsertApplicationLayoutWidget.mockResolvedValueOnce({})
+        apiMocks.upsertApplicationLayoutWidget.mockResolvedValue({})
         apiMocks.updateApplicationLayoutWidgetConfig.mockResolvedValueOnce({})
 
         renderPage()
@@ -845,6 +938,16 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Marketing content')).toBeInTheDocument()
         expect(screen.getByText('Marketing footer')).toBeInTheDocument()
         expect(screen.getByText('Hero')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'add-Language switcher' }))
+        await waitFor(() => {
+            expect(apiMocks.upsertApplicationLayoutWidget).toHaveBeenCalledWith('app-1', 'layout-1', {
+                zone: 'marketing-header',
+                widgetKey: 'languageSwitcher',
+                expectedVersion: 7,
+                config: {}
+            })
+        })
 
         await user.click(screen.getByRole('button', { name: 'add-Collection' }))
         expect(screen.getByTestId('marketing-widget-config-dialog-mock')).toBeInTheDocument()

@@ -9,6 +9,7 @@ import AddIcon from '@mui/icons-material/Add'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { sanitizeApplicationLearningContentSettings } from '@universo-react/types'
+import type { LayoutRuntimeErrorCode } from '@universo-react/types'
 import Dashboard from '../dashboard/Dashboard'
 import type {
     DashboardCreateTarget,
@@ -22,20 +23,44 @@ import type {
 } from '../dashboard/Dashboard'
 import AppMainLayout from '../layouts/AppMainLayout'
 import { createStandaloneAdapter } from '../api/adapters'
-import { fetchRuntimeTemplate, updateLearningContentProgress } from '../api/api'
-import type { MarketingRuntimeTarget } from '../api/api'
+import {
+    buildRuntimeLayoutQueryKey,
+    fetchRuntimeEffectiveLayout,
+    getRuntimeLayoutErrorCode,
+    toDashboardZoneWidgets,
+    updateLearningContentProgress
+} from '../api/api'
+import type { RuntimeEffectiveLayoutSuccess, RuntimeLayoutTarget } from '../api/api'
 import type { AppDataResponse } from '../api/api'
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
 import { CrudDialogs } from '../components/CrudDialogs'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { RuntimeWorkspacesPage } from '../workspaces/RuntimeWorkspacesPage'
 import MarketingRuntimeContent from '../marketing-page/MarketingRuntimeContent'
+import {
+    buildRouteProjectedAppData,
+    getLoadedRuntimeSectionId,
+    isWorkspaceRootMenuItem,
+    resolveSectionRecord,
+    resolveSingleSystemMatrixSectionId,
+    toStandaloneSectionLinkMenuItem
+} from './standaloneTargets'
+import {
+    hasMatrixCellRouteParam,
+    readCurrentRoutePathname,
+    readCurrentRouteSource,
+    readStandaloneMarketingTarget,
+    readStandaloneRuntimeTarget,
+    readStandaloneWorkspaceId
+} from './standaloneRouting'
 
 export interface DashboardAppProps {
     applicationId: string
     locale: string
     apiBaseUrl: string
 }
+
+const UUID_PATH_SEGMENT_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
 const WORKSPACE_ROUTE_LAYOUT_OVERRIDES: Partial<DashboardLayoutConfig> = {
     showOverviewTitle: false,
@@ -46,14 +71,6 @@ const WORKSPACE_ROUTE_LAYOUT_OVERRIDES: Partial<DashboardLayoutConfig> = {
     showDetailsTable: false,
     showFooter: false
 }
-
-const UUID_PATH_SEGMENT_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-
-const buildStandaloneSectionHref = (applicationId: string, collectionId: string, sectionLinksEnabled: boolean): string =>
-    sectionLinksEnabled ? `/a/${applicationId}/${encodeURIComponent(collectionId)}` : `/a/${applicationId}`
-
-const isWorkspaceRootMenuItem = (item: DashboardMenuItem): boolean =>
-    item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
 
 const buildLearningContentCreateDefaultContext = (appData: AppDataResponse | undefined): Record<string, unknown> => {
     const learningContentSettings = sanitizeApplicationLearningContentSettings(
@@ -68,204 +85,11 @@ const buildLearningContentCreateDefaultContext = (appData: AppDataResponse | und
     }
 }
 
-const readCurrentRouteSource = (): string => {
-    if (typeof window === 'undefined') return ''
-    return `${window.location.pathname}${window.location.search}${window.location.hash}`
+type DashboardRuntimeContentProps = DashboardAppProps & {
+    effectiveLayout?: RuntimeEffectiveLayoutSuccess
 }
 
-const readCurrentRoutePathname = (routeSource: string): string => {
-    if (typeof window === 'undefined') return ''
-    const hashRoute = window.location.hash.startsWith('#/') ? window.location.hash.slice(1) : ''
-    const pathname = hashRoute || routeSource
-    return pathname.split(/[?#]/, 1)[0] ?? window.location.pathname
-}
-
-const isStandaloneRuntimeRootRoute = (applicationId: string): boolean => {
-    if (typeof window === 'undefined') return true
-
-    const routeSource = window.location.hash.startsWith('#/') ? window.location.hash.slice(1) : window.location.pathname
-    const routePathname = routeSource.split(/[?#]/, 1)[0] ?? ''
-    const applicationPath = `/a/${applicationId}`
-    if (routePathname !== applicationPath && !routePathname.startsWith(`${applicationPath}/`)) {
-        return false
-    }
-
-    return routePathname.slice(applicationPath.length).split('/').filter(Boolean).length === 0
-}
-
-const readStandaloneWorkspaceId = (): string | null => {
-    if (typeof window === 'undefined') return null
-
-    const routeSource = window.location.hash.startsWith('#/')
-        ? window.location.hash.slice(1)
-        : `${window.location.pathname}${window.location.search}`
-    const searchStart = routeSource.indexOf('?')
-    if (searchStart === -1) return null
-
-    const params = new URLSearchParams(routeSource.slice(searchStart + 1).split('#', 1)[0])
-    return params.get('workspaceId')
-}
-
-const readStandaloneMarketingTarget = (): MarketingRuntimeTarget | null => {
-    if (typeof window === 'undefined') return null
-
-    const routeSource = window.location.hash.startsWith('#/')
-        ? window.location.hash.slice(1)
-        : `${window.location.pathname}${window.location.search}`
-    const searchStart = routeSource.indexOf('?')
-    if (searchStart === -1) return null
-
-    const params = new URLSearchParams(routeSource.slice(searchStart + 1).split('#', 1)[0])
-    const target = {
-        entityTypeId: params.get('entityTypeId')?.trim() || null,
-        entityTypeCodename: params.get('entityTypeCodename')?.trim() || null,
-        recordKey: params.get('recordKey')?.trim() || null
-    }
-    return Object.values(target).some(Boolean) ? target : null
-}
-
-const hasMatrixCellRouteParam = (routeSource: string): boolean => {
-    const searchStart = routeSource.indexOf('?')
-    if (searchStart === -1) return false
-
-    const hashStart = routeSource.indexOf('#', searchStart)
-    const search = routeSource.slice(searchStart + 1, hashStart === -1 ? undefined : hashStart)
-    return new URLSearchParams(search).has('matrixCell')
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
-
-const readStringArrayConfig = (value: unknown): string[] => {
-    if (!Array.isArray(value)) return []
-    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
-}
-
-const normalizeRuntimeKey = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase()
-
-const resolveSectionRecord = (
-    appData: AppDataResponse | undefined,
-    sectionId: string | null | undefined
-): AppDataResponse['objectCollection'] | undefined => {
-    if (!appData || !sectionId) return undefined
-
-    const candidates = [...(appData.sections ?? []), ...(appData.objectCollections ?? [])]
-    return candidates.find((candidate) => candidate.id === sectionId)
-}
-
-const getLoadedRuntimeSectionId = (appData: AppDataResponse | undefined): string | null =>
-    appData?.section?.id ?? appData?.activeSectionId ?? appData?.objectCollection?.id ?? appData?.activeObjectCollectionId ?? null
-
-const buildRouteProjectedAppData = (
-    appData: AppDataResponse | undefined,
-    currentRuntimeSection: AppDataResponse['objectCollection'] | undefined,
-    currentRuntimeSectionId: string | null
-): AppDataResponse | undefined => {
-    if (!appData || !currentRuntimeSection || !currentRuntimeSectionId) return undefined
-    if (getLoadedRuntimeSectionId(appData) === currentRuntimeSectionId) return undefined
-
-    const hasTable = typeof currentRuntimeSection.tableName === 'string' && currentRuntimeSection.tableName.trim().length > 0
-
-    return {
-        ...appData,
-        section: currentRuntimeSection,
-        objectCollection: currentRuntimeSection,
-        activeSectionId: currentRuntimeSectionId,
-        activeObjectCollectionId: hasTable ? currentRuntimeSectionId : null,
-        columns: [],
-        rows: [],
-        pagination: {
-            ...appData.pagination,
-            total: 0,
-            offset: 0
-        }
-    }
-}
-
-const resolveSingleSystemMatrixSectionId = (appData: AppDataResponse | undefined): string | null => {
-    if (!appData) return null
-
-    const workspaceWidget = appData.zoneWidgets?.center?.find((widget) => widget.widgetKey === 'interpretationNetworkWorkspace')
-    const visibleFor = isRecord(workspaceWidget?.config?.visibleFor) ? workspaceWidget.config.visibleFor : undefined
-    if (!visibleFor) return null
-
-    const sectionIds = readStringArrayConfig(visibleFor.sectionIds)
-    const sectionCodenames = readStringArrayConfig(visibleFor.sectionCodenames).map(normalizeRuntimeKey)
-    const objectCollectionIds = readStringArrayConfig(visibleFor.objectCollectionIds)
-    const objectCollectionCodenames = readStringArrayConfig(visibleFor.objectCollectionCodenames).map(normalizeRuntimeKey)
-
-    const menuSectionTargets = new Set(
-        (appData.menus ?? [])
-            .flatMap((menu) => [...(menu.items ?? []), ...(menu.overflowItems ?? [])])
-            .filter((item) => item.isActive !== false && item.kind === 'section')
-            .flatMap((item) => [item.sectionId, item.objectCollectionId])
-            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    )
-    const preferMenuTarget = (ids: string[]): string | null => {
-        const uniqueIds = Array.from(new Set(ids))
-        return uniqueIds.find((id) => menuSectionTargets.has(id)) ?? uniqueIds[0] ?? null
-    }
-
-    const matchingSectionIds = (appData.sections ?? [])
-        .filter((section) => sectionIds.includes(section.id) || sectionCodenames.includes(normalizeRuntimeKey(section.codename)))
-        .map((section) => section.id)
-    const matchingObjectCollectionIds = (appData.objectCollections ?? [])
-        .filter(
-            (objectCollection) =>
-                objectCollectionIds.includes(objectCollection.id) ||
-                objectCollectionCodenames.includes(normalizeRuntimeKey(objectCollection.codename))
-        )
-        .map((objectCollection) => objectCollection.id)
-    const tableBackedObjectCollectionIds = (appData.objectCollections ?? [])
-        .filter(
-            (objectCollection) =>
-                matchingObjectCollectionIds.includes(objectCollection.id) &&
-                typeof objectCollection.tableName === 'string' &&
-                objectCollection.tableName.trim().length > 0
-        )
-        .map((objectCollection) => objectCollection.id)
-    const tableBackedSectionIds = (appData.sections ?? [])
-        .filter(
-            (section) =>
-                matchingSectionIds.includes(section.id) && typeof section.tableName === 'string' && section.tableName.trim().length > 0
-        )
-        .map((section) => section.id)
-
-    return preferMenuTarget([
-        ...tableBackedObjectCollectionIds,
-        ...tableBackedSectionIds,
-        ...matchingObjectCollectionIds,
-        ...matchingSectionIds
-    ])
-}
-
-const toStandaloneSectionLinkMenuItem = (
-    item: DashboardMenuItem,
-    applicationId: string,
-    sectionLinksEnabled: boolean,
-    forceLink: boolean
-): DashboardMenuItem => {
-    if (item.kind !== 'section') {
-        return { ...item, selected: false }
-    }
-
-    const targetCollectionId = item.sectionId ?? item.objectCollectionId
-    if (!targetCollectionId) {
-        return { ...item, selected: false }
-    }
-
-    if (!forceLink && !sectionLinksEnabled) {
-        return { ...item, selected: false }
-    }
-
-    return {
-        ...item,
-        kind: 'link',
-        href: buildStandaloneSectionHref(applicationId, targetCollectionId, sectionLinksEnabled),
-        selected: false
-    }
-}
-
-function DashboardRuntimeContent(props: DashboardAppProps) {
+function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntimeContentProps) {
     const { t } = useTranslation('apps')
     const [routeSource, setRouteSource] = useState(readCurrentRouteSource)
     const navigate = useCallback((href: string) => {
@@ -300,7 +124,7 @@ function DashboardRuntimeContent(props: DashboardAppProps) {
         !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
     const routeWorkspaceId =
         isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[1] ?? '') ? runtimeRouteSegments[1] : null
-    const requestedWorkspaceId = routeWorkspaceId ?? readStandaloneWorkspaceId()
+    const requestedWorkspaceId = routeWorkspaceId ?? readStandaloneWorkspaceId(routeSource)
     const workspaceRouteSection =
         isWorkspacesRoute && runtimeRouteSegments[2] === 'access'
             ? 'access'
@@ -359,12 +183,15 @@ function DashboardRuntimeContent(props: DashboardAppProps) {
     const routeMatchesLoadedSection = !routeSectionId || getLoadedRuntimeSectionId(state.appData) === routeSectionId
     const detailsAppData = routeProjectedAppData ?? (routeMatchesLoadedSection ? state.appData : undefined)
     const hasResolvedDetailsAppData = Boolean(detailsAppData)
-    const dashboardZoneWidgets = hasResolvedDetailsAppData
-        ? routeProjectedAppData?.zoneWidgets ?? runtimeAppData?.zoneWidgets ?? state.appData?.zoneWidgets
-        : undefined
+    const effectiveDashboardLayout = effectiveLayout?.layout.templateKey === 'dashboard' ? effectiveLayout : undefined
+    const effectiveZoneWidgets = effectiveDashboardLayout ? toDashboardZoneWidgets(effectiveDashboardLayout) : undefined
+    const dashboardZoneWidgets = effectiveZoneWidgets
     const detailsTitle = isWorkspacesRoute
         ? t('workspace.title', 'Workspaces')
-        : detailsAppData?.objectCollection.name ?? currentRuntimeSection?.name ?? state.appData?.objectCollection.name ?? 'Details'
+        : detailsAppData?.objectCollection.name ??
+          currentRuntimeSection?.name ??
+          state.appData?.objectCollection.name ??
+          t('runtime.details', 'Details')
     const activeObjectCollectionRuntimeConfig = detailsAppData?.objectCollection.runtimeConfig
     const currentRuntimeObjectCollectionId =
         currentRuntimeSection?.id ??
@@ -685,10 +512,11 @@ function DashboardRuntimeContent(props: DashboardAppProps) {
             workspacePageContent
         ]
     )
-    const runtimeLayoutConfig = useMemo(
-        () => (isWorkspacesRoute ? { ...state.layoutConfig, ...WORKSPACE_ROUTE_LAYOUT_OVERRIDES } : state.layoutConfig),
-        [isWorkspacesRoute, state.layoutConfig]
-    )
+    const runtimeLayoutConfig = useMemo(() => {
+        const selectedLayoutConfig = effectiveDashboardLayout?.layout.config
+        const baseLayoutConfig = selectedLayoutConfig ? (selectedLayoutConfig as Partial<DashboardLayoutConfig>) : state.layoutConfig
+        return isWorkspacesRoute ? { ...baseLayoutConfig, ...WORKSPACE_ROUTE_LAYOUT_OVERRIDES } : baseLayoutConfig
+    }, [effectiveDashboardLayout?.layout.config, isWorkspacesRoute, state.layoutConfig])
 
     if (!props.applicationId) {
         return (
@@ -745,7 +573,7 @@ function DashboardRuntimeContent(props: DashboardAppProps) {
     const sectionLinksEnabled = state.appData?.settings?.sectionLinksEnabled !== false
 
     const appendWorkspaceMenuItem = (slot?: DashboardMenuSlot): DashboardMenuSlot | undefined => {
-        if (!workspaceMenuItem) return slot
+        if (!slot && !workspaceMenuItem) return slot
         const baseItems = slot?.items ?? []
         const hasWorkspaceRootItem = baseItems.some(isWorkspaceRootMenuItem)
         const normalizedBaseItems = baseItems.map((item) => {
@@ -753,13 +581,13 @@ function DashboardRuntimeContent(props: DashboardAppProps) {
                 return {
                     ...item,
                     kind: 'link' as const,
-                    href: item.href ?? workspaceMenuItem.href,
+                    href: item.href ?? workspaceMenuItem?.href ?? null,
                     selected: isWorkspacesRoute
                 }
             }
 
             return isWorkspacesRoute || sectionLinksEnabled
-                ? toStandaloneSectionLinkMenuItem(item, props.applicationId, sectionLinksEnabled, isWorkspacesRoute)
+                ? toStandaloneSectionLinkMenuItem(item, props.applicationId, sectionLinksEnabled, isWorkspacesRoute, state.appData)
                 : item
         })
 
@@ -769,7 +597,7 @@ function DashboardRuntimeContent(props: DashboardAppProps) {
             showTitle: slot?.showTitle ?? false,
             items: [
                 ...normalizedBaseItems,
-                ...(hasWorkspaceRootItem ? [] : [workspaceMenuItem]),
+                ...(workspaceMenuItem && !hasWorkspaceRootItem ? [workspaceMenuItem] : []),
                 ...(workspaceDashboardMenuItem ? [workspaceDashboardMenuItem] : []),
                 ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : []),
                 ...(workspaceSettingsMenuItem ? [workspaceSettingsMenuItem] : [])
@@ -860,7 +688,21 @@ function DashboardRuntimeContent(props: DashboardAppProps) {
     )
 }
 
-function RuntimeBoundary({ children, error, loading }: { children?: ReactNode; error?: boolean; loading?: boolean }) {
+function RuntimeBoundary({
+    children,
+    error,
+    errorMessage,
+    loading,
+    errorCode,
+    onRetry
+}: {
+    children?: ReactNode
+    error?: boolean
+    errorMessage?: string
+    loading?: boolean
+    errorCode?: LayoutRuntimeErrorCode | null
+    onRetry?: () => void
+}) {
     const { t } = useTranslation('apps')
     if (loading) {
         return (
@@ -872,7 +714,23 @@ function RuntimeBoundary({ children, error, loading }: { children?: ReactNode; e
     if (error) {
         return (
             <Box sx={{ maxWidth: 640, mx: 'auto', p: 3 }}>
-                <Alert severity='error'>{t('runtime.loadError', 'The application could not be loaded.')}</Alert>
+                <Alert
+                    severity='error'
+                    action={
+                        onRetry ? (
+                            <Button color='inherit' size='small' onClick={onRetry}>
+                                {t('runtime.retry', 'Retry')}
+                            </Button>
+                        ) : undefined
+                    }
+                >
+                    {errorMessage ??
+                        (errorCode
+                            ? t(`runtime.layoutErrors.${errorCode}`, {
+                                  defaultValue: t('runtime.loadError', 'The application could not be loaded.')
+                              })
+                            : t('runtime.loadError', 'The application could not be loaded.'))}
+                </Alert>
             </Box>
         )
     }
@@ -881,24 +739,70 @@ function RuntimeBoundary({ children, error, loading }: { children?: ReactNode; e
 
 export default function DashboardApp(props: DashboardAppProps) {
     const { t } = useTranslation('apps')
-    const workspaceId = readStandaloneWorkspaceId()
-    const marketingTarget = readStandaloneMarketingTarget()
+    const [routeSource, setRouteSource] = useState(readCurrentRouteSource)
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined
+
+        const handleRouteChange = () => {
+            setRouteSource(readCurrentRouteSource())
+        }
+
+        window.addEventListener('popstate', handleRouteChange)
+        window.addEventListener('hashchange', handleRouteChange)
+        return () => {
+            window.removeEventListener('popstate', handleRouteChange)
+            window.removeEventListener('hashchange', handleRouteChange)
+        }
+    }, [])
+
+    const workspaceId = useMemo(() => readStandaloneWorkspaceId(routeSource), [routeSource])
+    const { runtimeTarget, runtimeTargetError } = useMemo(() => {
+        try {
+            return {
+                runtimeTarget: readStandaloneRuntimeTarget(props.locale, workspaceId, routeSource),
+                runtimeTargetError: null
+            }
+        } catch {
+            return {
+                runtimeTarget: { locale: props.locale, workspaceId } as RuntimeLayoutTarget,
+                runtimeTargetError: t('runtime.invalidTarget', 'The runtime target in this URL is invalid.')
+            }
+        }
+    }, [props.locale, routeSource, t, workspaceId])
+    const marketingTarget = useMemo(() => readStandaloneMarketingTarget(routeSource), [routeSource])
     const templateQuery = useQuery({
-        queryKey: ['standalone-runtime-template', props.applicationId],
-        queryFn: () => fetchRuntimeTemplate({ apiBaseUrl: props.apiBaseUrl, applicationId: props.applicationId }),
-        enabled: Boolean(props.applicationId),
+        queryKey: buildRuntimeLayoutQueryKey(props.applicationId, runtimeTarget),
+        queryFn: () =>
+            fetchRuntimeEffectiveLayout({ apiBaseUrl: props.apiBaseUrl, applicationId: props.applicationId, target: runtimeTarget }),
+        enabled: Boolean(props.applicationId) && !runtimeTargetError,
         staleTime: 60_000
     })
+    const runtimeLayoutErrorCode =
+        getRuntimeLayoutErrorCode(templateQuery.error) ??
+        (templateQuery.data?.status === 'failed' ? getRuntimeLayoutErrorCode(templateQuery.data) : null)
 
     if (!props.applicationId) return <DashboardRuntimeContent {...props} />
+    if (runtimeTargetError) return <RuntimeBoundary error errorMessage={runtimeTargetError} />
     if (templateQuery.isLoading) return <RuntimeBoundary loading />
-    if (templateQuery.isError || !templateQuery.data) return <RuntimeBoundary error />
-    if (templateQuery.data.templateKey === 'marketing-page' && isStandaloneRuntimeRootRoute(props.applicationId)) {
+    if (templateQuery.isError || !templateQuery.data || templateQuery.data.status === 'failed') {
+        return <RuntimeBoundary error errorCode={runtimeLayoutErrorCode} onRetry={() => void templateQuery.refetch()} />
+    }
+    if (templateQuery.data.layout.templateKey === 'marketing-page') {
         return (
             <MarketingRuntimeContent
                 {...props}
                 workspaceId={workspaceId}
                 target={marketingTarget}
+                layoutIdentity={
+                    templateQuery.data.effectiveHash
+                        ? {
+                              layoutVersion: templateQuery.data.layout.version ?? 1,
+                              layoutHash: templateQuery.data.effectiveHash
+                          }
+                        : undefined
+                }
+                sharedLayoutWidgets={templateQuery.data.widgets}
+                onLayoutStale={() => void templateQuery.refetch()}
                 loadingLabel={t('runtime.loading', 'Loading application')}
                 errorLabel={t('runtime.loadError', 'The application could not be loaded.')}
                 retryLabel={t('runtime.retry', 'Retry')}
@@ -913,5 +817,5 @@ export default function DashboardApp(props: DashboardAppProps) {
             />
         )
     }
-    return <DashboardRuntimeContent {...props} />
+    return <DashboardRuntimeContent {...props} effectiveLayout={templateQuery.data} />
 }

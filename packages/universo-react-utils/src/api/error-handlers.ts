@@ -26,9 +26,32 @@ export interface ApiError {
  */
 export function extractAxiosError(error: unknown): ApiError {
     if (axios.isAxiosError(error)) {
+        const payload = error.response?.data as
+            | {
+                  error?: unknown
+                  message?: unknown
+                  code?: unknown
+                  detail?: unknown
+              }
+            | undefined
+        const nestedError = payload?.error
+        const message =
+            typeof nestedError === 'string'
+                ? nestedError
+                : typeof payload?.message === 'string'
+                ? payload.message
+                : typeof payload?.detail === 'string'
+                ? payload.detail
+                : error.message
+        const code =
+            typeof payload?.code === 'string'
+                ? payload.code
+                : nestedError && typeof nestedError === 'object' && 'code' in nestedError && typeof nestedError.code === 'string'
+                ? nestedError.code
+                : undefined
         return {
-            message: error.response?.data?.error || error.message,
-            code: error.response?.data?.code,
+            message,
+            code,
             status: error.response?.status
         }
     }

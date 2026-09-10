@@ -1,9 +1,136 @@
-import { LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY, MetahubLayoutsService } from '../../domains/layouts/services/MetahubLayoutsService'
+import {
+    LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY,
+    MetahubLayoutsService,
+    createLayoutSchema,
+    moveLayoutZoneWidgetSchema
+} from '../../domains/layouts/services/MetahubLayoutsService'
 
 describe('MetahubLayoutsService', () => {
+    it('accepts only UUID v7 layout, scope, base, and widget identities at the layout ingress schemas', () => {
+        const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
+        const uuidV4 = '550e8400-e29b-41d4-a716-446655440000'
+        const layoutInput = {
+            scopeEntityId: uuidV7,
+            baseLayoutId: uuidV7,
+            name: { en: 'Scoped layout' }
+        }
+
+        expect(createLayoutSchema.safeParse(layoutInput).success).toBe(true)
+        expect(createLayoutSchema.safeParse({ ...layoutInput, scopeEntityId: uuidV4 }).success).toBe(false)
+        expect(createLayoutSchema.safeParse({ ...layoutInput, scopeEntityId: 'scope-1' }).success).toBe(false)
+        expect(createLayoutSchema.safeParse({ ...layoutInput, baseLayoutId: uuidV4 }).success).toBe(false)
+        expect(createLayoutSchema.safeParse({ ...layoutInput, baseLayoutId: 'base-layout-1' }).success).toBe(false)
+        expect(moveLayoutZoneWidgetSchema.safeParse({ widgetId: uuidV7, expectedVersion: 1 }).success).toBe(true)
+        expect(moveLayoutZoneWidgetSchema.safeParse({ widgetId: uuidV4, expectedVersion: 1 }).success).toBe(false)
+        expect(moveLayoutZoneWidgetSchema.safeParse({ widgetId: 'widget-1', expectedVersion: 1 }).success).toBe(false)
+    })
+
+    it('accepts shared languageSwitcher widgets on marketing layouts', async () => {
+        const layoutId = 'marketing-layout-1'
+        const layoutRow = {
+            id: layoutId,
+            scope_entity_id: null,
+            base_layout_id: null,
+            template_key: 'marketing-page',
+            config: {}
+        }
+        const widgetRow = {
+            id: 'language-switcher-1',
+            layout_id: layoutId,
+            zone: 'marketing-header',
+            widget_key: 'languageSwitcher',
+            sort_order: 1,
+            config: {},
+            is_active: true,
+            _upl_version: 1,
+            _upl_created_at: '2026-04-01T00:00:00.000Z',
+            _upl_updated_at: '2026-04-01T00:00:00.000Z'
+        }
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) return [layoutRow]
+            if (sql.includes('SELECT id, widget_key, zone, is_active') && sql.includes('_mhb_widgets')) return [widgetRow]
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets')) return [widgetRow]
+            throw new Error(`Unexpected SQL in shared marketing widget test: ${sql}`)
+        })
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+        const result = await service.listLayoutZoneWidgets('metahub-1', layoutId, 'user-1')
+
+        expect(result).toHaveLength(1)
+        expect(result[0]).toMatchObject({ widgetKey: 'languageSwitcher', zone: 'marketing-header', config: {} })
+    })
+
+    it.each(['appNavbar', 'header'])('rejects reactivating duplicate singleton %s widgets', async (widgetKey) => {
+        const layoutId = 'dashboard-layout-1'
+        const currentWidget = {
+            id: 'inactive-widget',
+            layout_id: layoutId,
+            zone: 'top',
+            widget_key: widgetKey,
+            sort_order: 2,
+            config: {},
+            is_active: false,
+            _upl_version: 1,
+            _upl_created_at: '2026-04-01T00:00:00.000Z',
+            _upl_updated_at: '2026-04-01T00:00:00.000Z'
+        }
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: layoutId,
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'dashboard',
+                        config: {}
+                    }
+                ]
+            }
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets') && sql.includes('WHERE id = $1')) {
+                return [currentWidget]
+            }
+            if (sql.includes('SELECT id, widget_key, is_active') && sql.includes('_mhb_widgets')) {
+                return [
+                    { id: 'active-widget', widget_key: widgetKey, is_active: true },
+                    { id: currentWidget.id, widget_key: widgetKey, is_active: false }
+                ]
+            }
+            throw new Error(`Unexpected SQL in singleton reactivation test: ${sql}`)
+        })
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        await expect(
+            service.toggleLayoutZoneWidgetActive('metahub-1', layoutId, currentWidget.id, true, 'user-1', 1)
+        ).rejects.toMatchObject({
+            statusCode: 409
+        })
+        expect(query.mock.calls.some(([sql]) => String(sql).trimStart().startsWith('UPDATE') && String(sql).includes('_mhb_widgets'))).toBe(
+            false
+        )
+    })
+
     it('reuses the active transaction runner for optimistic-lock layout updates', async () => {
         const tx = {
             query: jest.fn(async (sql: string, _params?: unknown[]) => {
+                if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
                 if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
                     return [
                         {
@@ -320,6 +447,10 @@ describe('MetahubLayoutsService', () => {
                 return []
             }
 
+            if (sql.includes('INSERT INTO') && sql.includes('_mhb_widgets') && sql.includes('RETURNING id')) {
+                return [{ id: widgetId }]
+            }
+
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_widgets') && sql.includes('RETURNING *')) {
                 return [
                     {
@@ -475,6 +606,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 expect(params).toEqual([scopeEntityId])
                 expect(sql).not.toContain('t.is_active')
@@ -560,7 +692,7 @@ describe('MetahubLayoutsService', () => {
             },
             rowHeight: 'auto'
         })
-        expect(query).toHaveBeenCalledTimes(3)
+        expect(query).toHaveBeenCalledTimes(4)
         expect(query.mock.calls.some(([sql]) => String(sql).includes('_mhb_widgets'))).toBe(false)
     })
 
@@ -610,6 +742,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
                 const config = JSON.parse(String(params?.[5] ?? '{}'))
                 expect(params?.[0]).toBeNull()
@@ -668,12 +801,13 @@ describe('MetahubLayoutsService', () => {
             showDetailsTable: false,
             [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
         })
-        expect(query).toHaveBeenCalledTimes(1)
+        expect(query).toHaveBeenCalledTimes(2)
         expect(query.mock.calls.some(([sql]) => String(sql).includes('_mhb_widgets'))).toBe(false)
     })
 
     it('rejects scoped layout creation when scopeEntityId points to an entity without layoutConfig support', async () => {
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 return [{ id: 'object-1', kind: 'set', capabilities: { layoutConfig: false } }]
             }
@@ -1207,6 +1341,7 @@ describe('MetahubLayoutsService', () => {
         const layoutId = 'global-layout-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
                 return [
                     {

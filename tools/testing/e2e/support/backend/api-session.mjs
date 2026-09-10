@@ -1466,6 +1466,25 @@ export async function listApplicationLayouts(api, applicationId, params = {}) {
     return response.json()
 }
 
+export async function listApplicationLayoutScopes(api, applicationId, locale = 'en') {
+    const query = new URLSearchParams({ locale: String(locale) })
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layout-scopes?${query.toString()}`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Listing layout scopes for application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function createApplicationLayout(api, applicationId, payload) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/layouts`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Creating application layout for ${applicationId}`)
+    }
+
+    return response.json()
+}
+
 export async function getApplicationLayout(api, applicationId, layoutId) {
     const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts/${layoutId}`, { method: 'GET' })
     if (!response.ok) {
@@ -1519,6 +1538,15 @@ export async function listApplicationLayoutWidgetObject(api, applicationId, layo
     })
     if (!response.ok) {
         throw await buildError(response, `Listing application layout widget object for layout ${layoutId}`)
+    }
+
+    return response.json()
+}
+
+export async function upsertApplicationLayoutWidget(api, applicationId, layoutId, payload) {
+    const response = await sendWithCsrf(api, 'PUT', `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widget`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Upserting widget in application layout ${layoutId}`)
     }
 
     return response.json()
@@ -1769,6 +1797,77 @@ export async function getApplicationRuntime(api, applicationId, params = {}) {
     }
 }
 
+const EFFECTIVE_LAYOUT_QUERY_KEYS = ['targetKind', 'entityTypeId', 'entityTypeCodename', 'workspaceId', 'locale', 'themeVariant']
+
+/**
+ * Build the target-aware effective-layout request path from the approved
+ * runtime query contract. Content-only recordKey values are intentionally not
+ * accepted here so layout selection cannot depend on content hydration.
+ */
+export function buildApplicationEffectiveLayoutPath(applicationId, params = {}) {
+    const normalizedApplicationId = String(applicationId ?? '').trim()
+    if (!normalizedApplicationId) {
+        throw new Error('Fetching an effective application layout requires an application id')
+    }
+
+    const input = params && typeof params === 'object' && !Array.isArray(params) ? params : {}
+    const unsupportedKeys = Object.keys(input).filter((key) => !EFFECTIVE_LAYOUT_QUERY_KEYS.includes(key))
+    if (unsupportedKeys.length > 0) {
+        throw new Error(`Unsupported effective-layout query parameter: ${unsupportedKeys[0]}`)
+    }
+
+    const targetKind = input.targetKind ?? null
+    if (targetKind !== null && targetKind !== 'page' && targetKind !== 'object') {
+        throw new Error('Effective-layout targetKind must be null, page, or object')
+    }
+
+    const entityTypeId = typeof input.entityTypeId === 'string' ? input.entityTypeId.trim() : ''
+    const entityTypeCodename = typeof input.entityTypeCodename === 'string' ? input.entityTypeCodename.trim() : ''
+    if (entityTypeId && entityTypeCodename) {
+        throw new Error('Effective-layout target must use entityTypeId or entityTypeCodename, not both')
+    }
+    if (targetKind === null && (entityTypeId || entityTypeCodename)) {
+        throw new Error('Global effective-layout requests cannot include an entity target')
+    }
+    if (targetKind !== null && !entityTypeId && !entityTypeCodename) {
+        throw new Error('Scoped effective-layout requests require an entity target')
+    }
+
+    const locale = typeof input.locale === 'string' ? input.locale.trim() : ''
+    if (!locale) {
+        throw new Error('Effective-layout requests require a locale')
+    }
+
+    if (input.themeVariant !== undefined && !['light', 'dark', 'system'].includes(input.themeVariant)) {
+        throw new Error('Effective-layout themeVariant must be light, dark, or system')
+    }
+
+    const query = new URLSearchParams()
+    for (const key of EFFECTIVE_LAYOUT_QUERY_KEYS) {
+        const value = input[key]
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    return `/api/v1/applications/${encodeURIComponent(normalizedApplicationId)}/runtime/effective-layout?${query.toString()}`
+}
+
+/**
+ * Fetch the target-aware effective layout. This helper is deliberately
+ * separate from content hydration.
+ */
+export async function getApplicationEffectiveLayout(api, applicationId, params = {}) {
+    const response = await fetchFromApi(api, buildApplicationEffectiveLayoutPath(applicationId, params), { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching effective layout for application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
 export async function getMarketingPageRuntime(api, applicationId, locale = 'en', workspaceId = null) {
     const query = new URLSearchParams({ locale: String(locale) })
     if (workspaceId) {
@@ -1877,6 +1976,21 @@ export async function createRuntimeRow(api, applicationId, payload) {
     const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows${suffix}`, body)
     if (!response.ok) {
         throw await buildError(response, `Creating runtime row in application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function updateRuntimeRow(api, applicationId, rowId, payload) {
+    const { workspaceId, ...body } = payload ?? {}
+    const query = new URLSearchParams()
+    if (workspaceId) {
+        query.set('workspaceId', String(workspaceId))
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/runtime/rows/${rowId}${suffix}`, body)
+    if (!response.ok) {
+        throw await buildError(response, `Updating runtime row ${rowId} in application ${applicationId}`)
     }
 
     return response.json()

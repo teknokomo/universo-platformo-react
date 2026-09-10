@@ -1,6 +1,5 @@
-import { createHash } from 'crypto'
 import type { EntityDefinition, Component } from '@universo-react/schema-ddl'
-import { getCodenamePrimary } from '@universo-react/utils'
+import { generateUuidV7, getCodenamePrimary, isUuidV7, serialization } from '@universo-react/utils'
 import { ComponentDefinitionDataType, type ObjectSystemFieldsSnapshot } from '@universo-react/types'
 import type { PublishedApplicationSnapshot, SnapshotCodenameValue, SnapshotComponent } from './applicationSyncContracts'
 
@@ -24,14 +23,60 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const isSetStandardKind = (kind: unknown): boolean => kind === 'set'
 
-const buildDeterministicScopedUuid = (seed: string): string => {
-    const hex = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')
-    hex[12] = '5'
-    hex[16] = ((parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16)
+export type SnapshotPhysicalIdentityRemap = {
+    sourceToNew: Map<string, string>
+}
 
-    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex
-        .slice(20, 32)
-        .join('')}`
+export const createSnapshotPhysicalIdentityRemap = (): SnapshotPhysicalIdentityRemap => ({
+    sourceToNew: new Map()
+})
+
+const snapshotIdentityRemapCacheLimit = 128
+const snapshotIdentityRemapsByObject = new WeakMap<object, SnapshotPhysicalIdentityRemap>()
+const snapshotIdentityRemapsByContent = new Map<string, SnapshotPhysicalIdentityRemap>()
+
+const resolveSnapshotPhysicalIdentityRemap = (snapshot: PublishedApplicationSnapshot): SnapshotPhysicalIdentityRemap => {
+    const objectRemap = snapshotIdentityRemapsByObject.get(snapshot)
+    if (objectRemap) return objectRemap
+
+    const serializedSnapshot = serialization.stableStringify(snapshot)
+    if (typeof serializedSnapshot !== 'string') return createSnapshotPhysicalIdentityRemap()
+
+    const contentRemap = snapshotIdentityRemapsByContent.get(serializedSnapshot)
+    if (contentRemap) {
+        snapshotIdentityRemapsByObject.set(snapshot, contentRemap)
+        return contentRemap
+    }
+
+    const newRemap = createSnapshotPhysicalIdentityRemap()
+    if (snapshotIdentityRemapsByContent.size >= snapshotIdentityRemapCacheLimit) {
+        const oldestKey = snapshotIdentityRemapsByContent.keys().next().value
+        if (typeof oldestKey === 'string') snapshotIdentityRemapsByContent.delete(oldestKey)
+    }
+    snapshotIdentityRemapsByContent.set(serializedSnapshot, newRemap)
+    snapshotIdentityRemapsByObject.set(snapshot, newRemap)
+    return newRemap
+}
+
+/** Allocate a fresh UUID v7 while preserving an explicit source-to-new mapping. */
+export const allocateSnapshotPhysicalIdentity = (
+    sourceKey: string,
+    remap: SnapshotPhysicalIdentityRemap,
+    sourceIds: Set<string>,
+    allocatedIds: Set<string>
+): string => {
+    const existingId = remap.sourceToNew.get(sourceKey)
+    if (existingId && isUuidV7(existingId) && !sourceIds.has(existingId)) {
+        allocatedIds.add(existingId)
+        return existingId
+    }
+
+    let newId = generateUuidV7()
+    while (sourceIds.has(newId) || allocatedIds.has(newId)) newId = generateUuidV7()
+
+    remap.sourceToNew.set(sourceKey, newId)
+    allocatedIds.add(newId)
+    return newId
 }
 
 const resolveSnapshotCodenameText = (value: SnapshotCodenameValue | null | undefined): string | null => {
@@ -45,6 +90,24 @@ const resolveSnapshotSystemFields = (snapshot: PublishedApplicationSnapshot): Re
     }
 
     return snapshot.systemFields as Record<string, ObjectSystemFieldsSnapshot>
+}
+
+const mergeEntityTypeRuntimeConfig = (
+    entity: PublishedApplicationSnapshot['entities'][string],
+    snapshot: PublishedApplicationSnapshot
+): Record<string, unknown> => {
+    const definitions: Record<string, unknown> = isRecord(snapshot.entityTypeDefinitions) ? snapshot.entityTypeDefinitions : {}
+    const definitionValue = definitions[entity.kind]
+    const definition: Record<string, unknown> = isRecord(definitionValue) ? definitionValue : {}
+    const definitionConfig = isRecord(definition?.config) ? definition.config : {}
+    const entityConfig = isRecord(entity.config) ? entity.config : {}
+    const definitionCapabilities = isRecord(definition?.capabilities) ? definition.capabilities : {}
+
+    return {
+        ...definitionConfig,
+        ...entityConfig,
+        ...(Object.keys(definitionCapabilities).length > 0 ? { capabilities: definitionCapabilities } : {})
+    }
 }
 
 const buildSetConstantLookups = (
@@ -159,10 +222,30 @@ const collectDuplicatedFieldIds = (snapshot: PublishedApplicationSnapshot): Set<
     )
 }
 
+const collectAllFieldIds = (snapshot: PublishedApplicationSnapshot): Set<string> => {
+    const fieldIds = new Set<string>()
+
+    const collect = (fields: SnapshotComponent[]): void => {
+        for (const field of fields) {
+            fieldIds.add(field.id)
+            if (Array.isArray(field.childFields)) collect(field.childFields)
+        }
+    }
+
+    for (const entity of Object.values(snapshot.entities ?? {})) {
+        if (Array.isArray(entity.fields)) collect(entity.fields)
+    }
+
+    return fieldIds
+}
+
 const rewriteDuplicatedFieldIdsForEntity = (
     entityId: string,
     fields: SnapshotComponent[],
-    duplicatedFieldIds: Set<string>
+    duplicatedFieldIds: Set<string>,
+    remap: SnapshotPhysicalIdentityRemap,
+    sourceFieldIds: Set<string>,
+    allocatedIds: Set<string>
 ): SnapshotComponent[] => {
     if (fields.length === 0 || duplicatedFieldIds.size === 0) {
         return fields
@@ -173,7 +256,10 @@ const rewriteDuplicatedFieldIdsForEntity = (
     const registerIds = (fieldList: SnapshotComponent[]): void => {
         for (const field of fieldList) {
             if (duplicatedFieldIds.has(field.id) && !remappedIds.has(field.id)) {
-                remappedIds.set(field.id, buildDeterministicScopedUuid(`application-runtime-field:${entityId}:${field.id}`))
+                remappedIds.set(
+                    field.id,
+                    allocateSnapshotPhysicalIdentity(`field:${entityId}:${field.id}`, remap, sourceFieldIds, allocatedIds)
+                )
             }
 
             if (Array.isArray(field.childFields) && field.childFields.length > 0) {
@@ -202,6 +288,30 @@ const rewriteDuplicatedFieldIdsForEntity = (
     })
 
     return fields.map((field) => rewriteField(field))
+}
+
+export const normalizeSnapshotFieldIdentities = (
+    snapshot: PublishedApplicationSnapshot,
+    remap: SnapshotPhysicalIdentityRemap = createSnapshotPhysicalIdentityRemap()
+): PublishedApplicationSnapshot => {
+    const duplicatedFieldIds = collectDuplicatedFieldIds(snapshot)
+    if (duplicatedFieldIds.size === 0) return snapshot
+
+    const sourceFieldIds = collectAllFieldIds(snapshot)
+    const allocatedIds = new Set<string>(remap.sourceToNew.values())
+    const entities = Object.fromEntries(
+        Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => [
+            entityId,
+            {
+                ...entity,
+                fields: Array.isArray(entity.fields)
+                    ? rewriteDuplicatedFieldIdsForEntity(entityId, entity.fields, duplicatedFieldIds, remap, sourceFieldIds, allocatedIds)
+                    : entity.fields
+            }
+        ])
+    ) as PublishedApplicationSnapshot['entities']
+
+    return { ...snapshot, entities }
 }
 
 const enrichFieldWithSetConstantRef = (
@@ -318,15 +428,18 @@ const assertExecutableEntityContract = (entity: EntityDefinition): void => {
     }
 }
 
-export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationSnapshot): EntityDefinition[] => {
-    const snapshotSystemFields = resolveSnapshotSystemFields(snapshot)
-    const constantLookups = buildSetConstantLookups(snapshot)
-    const duplicatedFieldIds = collectDuplicatedFieldIds(snapshot)
+export const resolveExecutablePayloadEntities = (
+    snapshot: PublishedApplicationSnapshot,
+    remap?: SnapshotPhysicalIdentityRemap
+): EntityDefinition[] => {
+    const identityRemap = remap ?? resolveSnapshotPhysicalIdentityRemap(snapshot)
+    const normalizedSnapshot = normalizeSnapshotFieldIdentities(snapshot, identityRemap)
+    const snapshotSystemFields = resolveSnapshotSystemFields(normalizedSnapshot)
+    const constantLookups = buildSetConstantLookups(normalizedSnapshot)
 
-    return Object.values(snapshot.entities ?? {})
+    return Object.values(normalizedSnapshot.entities ?? {})
         .map((entity) => {
-            const entityConfig = isRecord(entity.config) ? entity.config : {}
-            const normalizedSnapshotFields = rewriteDuplicatedFieldIdsForEntity(entity.id, entity.fields ?? [], duplicatedFieldIds)
+            const entityConfig = mergeEntityTypeRuntimeConfig(entity, normalizedSnapshot)
             const physicalTableName =
                 typeof entity.tableName === 'string' && entity.tableName.trim().length > 0
                     ? entity.tableName
@@ -343,7 +456,7 @@ export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationS
                     ...entityConfig,
                     ...(snapshotSystemFields?.[entity.id] ? { systemFields: snapshotSystemFields[entity.id] } : {})
                 },
-                fields: normalizeExecutableEntityFields(normalizedSnapshotFields, constantLookups)
+                fields: normalizeExecutableEntityFields(entity.fields ?? [], constantLookups)
             }
 
             assertExecutableEntityContract(normalizedEntity)

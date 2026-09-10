@@ -1,4 +1,22 @@
+import { z } from 'zod'
+
 import type { ApplicationTemplateKey } from './marketingPage'
+
+/** Logical placement regions shared by template adapters. */
+export const LAYOUT_SEMANTIC_REGIONS = ['header', 'main', 'footer', 'sidebar', 'auxiliary'] as const
+export type LayoutSemanticRegion = (typeof LAYOUT_SEMANTIC_REGIONS)[number]
+export const layoutSemanticRegionSchema = z.enum(LAYOUT_SEMANTIC_REGIONS)
+
+/** Host capabilities required by shared layout widgets. */
+export const APPLICATION_TEMPLATE_HOST_CAPABILITIES = [
+    'locale.state',
+    'locale.change',
+    'keyboard.focus',
+    'accessibility.label',
+    'theme.safe'
+] as const
+export type ApplicationTemplateHostCapability = (typeof APPLICATION_TEMPLATE_HOST_CAPABILITIES)[number]
+export const applicationTemplateHostCapabilitySchema = z.enum(APPLICATION_TEMPLATE_HOST_CAPABILITIES)
 
 export interface ApplicationTemplateRegistryEntry {
     readonly key: ApplicationTemplateKey
@@ -6,6 +24,10 @@ export interface ApplicationTemplateRegistryEntry {
     readonly descriptionKey: string
     readonly supportsDashboardWidgets: boolean
     readonly seedPolicyKey: string
+    /** Capabilities exposed by the shell to shared widget adapters. */
+    readonly hostCapabilities: readonly ApplicationTemplateHostCapability[]
+    /** Semantic regions that the template can render. */
+    readonly semanticRegions: readonly LayoutSemanticRegion[]
 }
 
 /**
@@ -18,13 +40,17 @@ export const APPLICATION_TEMPLATE_REGISTRY: Readonly<Record<ApplicationTemplateK
         displayNameKey: 'templates.dashboard.name',
         descriptionKey: 'templates.dashboard.description',
         supportsDashboardWidgets: true,
-        seedPolicyKey: 'dashboard'
+        seedPolicyKey: 'dashboard',
+        hostCapabilities: [...APPLICATION_TEMPLATE_HOST_CAPABILITIES],
+        semanticRegions: ['header', 'main', 'footer', 'sidebar', 'auxiliary']
     },
     'marketing-page': {
         key: 'marketing-page',
         displayNameKey: 'templates.marketingPage.name',
         descriptionKey: 'templates.marketingPage.description',
         supportsDashboardWidgets: false,
-        seedPolicyKey: 'initial-only'
+        seedPolicyKey: 'initial-only',
+        hostCapabilities: [...APPLICATION_TEMPLATE_HOST_CAPABILITIES],
+        semanticRegions: ['header', 'main', 'footer']
     }
 }

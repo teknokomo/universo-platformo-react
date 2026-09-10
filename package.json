@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "0.80.0-alpha",
+    "version": "0.81.0-alpha",
     "private": true,
     "packageManager": "pnpm@10.33.2",
     "homepage": "https://universo.pro",
@@ -38,6 +38,9 @@
         "test:e2e:interpretation-network-fixture-gate:local-supabase": "node tools/testing/e2e/support/runInterpretationNetworkFixtureGateLocalSupabase.mjs",
         "test:e2e:interpretation-network:verify:local-supabase": "node tools/testing/e2e/support/runInterpretationNetworkVerificationLocalSupabase.mjs",
         "test:e2e:marketing-page:verify:local-supabase": "node tools/testing/e2e/support/runMarketingPageVerificationLocalSupabase.mjs",
+        "test:e2e:cross-template:verify:local-supabase": "node tools/testing/e2e/support/runCrossTemplateVerificationLocalSupabase.mjs",
+        "test:e2e:cross-template:standalone": "node tools/testing/e2e/support/runCrossTemplateStandaloneVerification.mjs",
+        "test:e2e:cross-template:concurrency": "node tools/testing/e2e/support/runCrossTemplateConcurrencyGate.mjs",
         "docs:i18n:check": "node tools/docs/check-i18n-docs.mjs",
         "docs:gitbook-screenshot-assets:check": "node tools/docs/check-gitbook-screenshot-assets.mjs",
         "docs:marketing-page:screenshot:check": "node tools/docs/check-marketing-page-screenshot-provenance.mjs",

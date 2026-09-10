@@ -385,6 +385,23 @@
             "descriptionRu": "Описание (русский)",
             "template": "Шаблон",
             "scope": "Область",
+            "target": "Цель",
+            "scopeMode": "Цель макета",
+            "scopeModeHint": "Выберите цель, для которой будет использоваться этот макет.",
+            "scopeModes": {
+                "global": "Глобальный макет",
+                "entity": "Для конкретной сущности"
+            },
+            "scopeKinds": {
+                "global": "Общий",
+                "page": "Страница",
+                "object": "Объект",
+                "entity": "Сущность"
+            },
+            "targetHint": "В списке показаны только цели, доступные этому приложению.",
+            "noTargets": "Нет доступных целей-сущностей.",
+            "unnamedTarget": "Выбранная сущность",
+            "allTemplates": "Все",
             "allScopes": "Все",
             "active": "Активен",
             "inactive": "Неактивен",
@@ -411,6 +428,21 @@
             "schemaNotReady": "Создайте или синхронизируйте схему приложения перед управлением макетами.",
             "templateImmutable": "Шаблон макета нельзя изменить после создания.",
             "globalScope": "Общий",
+            "templateGlobalHint": "Глобальные макеты используют шаблон приложения по умолчанию.",
+            "templateScopedHint": "После создания шаблон этого макета изменить нельзя.",
+            "composition": {
+                "global": "Глобальный макет по умолчанию",
+                "inherited": "Область с наследованием",
+                "independent": "Независимый макет"
+            },
+            "detailTarget": "Цель: {{target}}",
+            "detailTemplate": "Шаблон: {{template}}",
+            "detailComposition": "Состав: {{composition}}",
+            "validation": {
+                "nameRequired": "Введите название макета.",
+                "targetRequired": "Выберите доступную цель.",
+                "localizedNameRequired": "Введите название на английском или русском языке."
+            },
             "templates": {
                 "dashboard": "Дашборд",
                 "marketingPage": "Маркетинговая страница"
@@ -767,7 +799,7 @@
             "objectBehaviorTitleGlobal": "Поведение общего каталожного рантайма по умолчанию",
             "objectBehaviorTitleObject": "Поведение каталожного рантайма",
             "objectBehaviorDescriptionGlobal": "Эти настройки определяют поведение создания и поиска по умолчанию для сущностей objectCollection, использующих этот общий макет, пока его не переопределит каталожный макет.",
-            "objectBehaviorDescriptionObject": "Этот каталожный макет переопределяет поведение создания и поиска, унаследованное от его общего базового макета.",
+            "objectBehaviorDescriptionObject": "Этот макет управляет созданием и поиском для выбранной сущности.",
             "showCreateButton": "Показывать кнопку создания",
             "searchMode": "Режим поиска",
             "searchModePageLocal": "Локально на странице",
@@ -852,7 +884,6 @@
                 "playcanvasCanvas": "Холст PlayCanvas",
                 "resourcePreview": "Превью ресурса",
                 "learnerPlayer": "Плеер обучения",
-                "detailsSidePanel": "Боковая панель деталей",
                 "productTree": "Дерево продуктов",
                 "usersByCountryChart": "График пользователей по странам",
                 "languageSwitcher": "Переключатель языка",
@@ -941,7 +972,20 @@
         "app": {
             "errors": {
                 "missingApplicationId": "В URL отсутствует ID приложения",
-                "loadFailed": "Не удалось загрузить данные пользовательского интерфейса"
+                "loadFailed": "Не удалось загрузить данные пользовательского интерфейса",
+                "invalidRuntimeTarget": "Целевой runtime-объект в URL имеет недопустимый формат",
+                "layout": {
+                    "LAYOUT_REQUEST_INVALID": "Выбранная цель runtime недействительна.",
+                    "LAYOUT_PAYLOAD_INVALID": "Данные макета приложения недействительны.",
+                    "LAYOUT_CAPABILITY_UNSUPPORTED": "Этот макет использует недоступную возможность.",
+                    "UNAUTHORIZED": "Войдите в систему, чтобы открыть это приложение.",
+                    "LAYOUT_TARGET_FORBIDDEN": "У вас нет доступа к выбранной цели приложения.",
+                    "LAYOUT_TARGET_NOT_FOUND": "Выбранная цель приложения не найдена.",
+                    "LAYOUT_DEFAULT_INVALID": "Требуется проверить конфигурацию макета приложения.",
+                    "LAYOUT_PERSISTED_INVALID": "Сохранённый макет приложения недействителен.",
+                    "LAYOUT_CONFLICT": "Макет приложения изменился. Обновите страницу и повторите попытку.",
+                    "LAYOUT_RUNTIME_QUERY_FAILED": "Сейчас не удалось загрузить макет приложения."
+                }
             },
             "actions": "Действия",
             "edit": "Редактировать",

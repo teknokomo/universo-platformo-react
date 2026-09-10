@@ -68,7 +68,14 @@ Use `tools/testing/e2e/support/browser/runtimeUx.ts` for reusable checks:
 -   `expectNoPageHorizontalOverflow`
 -   `expectRuntimeUxViewportMatrix`
 -   `expectElementFitsViewport`
+-   `expectTableHorizontalScrollConstrained`
 
 The shared viewport matrix is `1920x1080`, `768x1024`, and mobile `390x844`. A feature may use a narrower matrix only when its documented support boundary explicitly excludes a viewport.
 
-Tests should use user-facing locators, labels, roles, stable test IDs, and web-first assertions. CRUD success alone is not enough.
+For `FlowListTable`, pass the existing table-container locator to
+`expectTableHorizontalScrollConstrained`; the helper does not invent a
+product selector or test id. It allows internal table scrolling only when the
+named container owns the overflow and still rejects document-level overflow.
+
+Tests should use user-facing locators, labels, roles, stable test IDs, and web-first
+assertions. CRUD success alone is not enough.

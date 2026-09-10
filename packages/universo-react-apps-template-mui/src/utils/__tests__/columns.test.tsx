@@ -132,6 +132,85 @@ describe('toGridColumns', () => {
         expect(columns.map((column) => column.field)).toEqual(['Title'])
     })
 
+    it('omits technical identifiers and structured source fields from normal grids', () => {
+        const columns = toGridColumns({
+            columns: [
+                {
+                    id: 'component-title',
+                    codename: 'Title',
+                    field: 'Title',
+                    dataType: 'STRING',
+                    headerName: 'Title',
+                    isRequired: true,
+                    validationRules: {},
+                    uiConfig: {}
+                },
+                {
+                    id: 'component-id',
+                    codename: 'RecordId',
+                    field: 'RecordId',
+                    dataType: 'STRING',
+                    headerName: 'Record ID',
+                    isRequired: false,
+                    validationRules: {},
+                    uiConfig: {}
+                },
+                {
+                    id: 'component-owner',
+                    codename: 'OwnerUserId',
+                    field: 'OwnerUserId',
+                    dataType: 'STRING',
+                    headerName: 'Owner user',
+                    isRequired: false,
+                    validationRules: {},
+                    uiConfig: {}
+                },
+                {
+                    id: 'component-source',
+                    codename: 'SourceJson',
+                    field: 'SourceJson',
+                    dataType: 'JSON',
+                    headerName: 'Source',
+                    isRequired: false,
+                    validationRules: {},
+                    uiConfig: {}
+                }
+            ]
+        } as never)
+
+        expect(columns.map((column) => column.field)).toEqual(['Title'])
+    })
+
+    it('keeps reference fields only when human-readable options are available', () => {
+        const columns = toGridColumns({
+            columns: [
+                {
+                    id: 'component-project',
+                    codename: 'Project',
+                    field: 'ProjectId',
+                    dataType: 'REF',
+                    headerName: 'Project',
+                    isRequired: false,
+                    validationRules: {},
+                    uiConfig: {},
+                    refOptions: [{ id: 'project-1', label: 'Project one' }]
+                },
+                {
+                    id: 'component-owner',
+                    codename: 'OwnerUserId',
+                    field: 'OwnerUserId',
+                    dataType: 'REF',
+                    headerName: 'Owner',
+                    isRequired: false,
+                    validationRules: {},
+                    uiConfig: {}
+                }
+            ]
+        } as never)
+
+        expect(columns.map((column) => column.field)).toEqual(['ProjectId'])
+    })
+
     it('respects metadata sort and filter guards for runtime projection columns', () => {
         const [typeColumn] = toGridColumns({
             columns: [

@@ -271,7 +271,7 @@ describe('applications realtime runtime real-server reconnection lifecycle', () 
 
         const app = express()
         httpServer = http.createServer(app)
-        runtimeHandle = await attachApplicationsRealtimeRuntime(httpServer, {})
+        runtimeHandle = await attachApplicationsRealtimeRuntime(httpServer, { isOriginAllowed: () => true })
         // Production mounts the middleware at the application root; the middleware itself
         // gates on the shared `/matchmake/` prefix (see core-backend/src/index.ts).
         app.use(runtimeHandle.matchmakeMiddleware)

@@ -1,6 +1,7 @@
 import {
     MARKETING_PAGE_TEMPLATE_KEY,
     MARKETING_WIDGET_REGISTRY,
+    applicationTemplateKeySchema,
     marketingPageConfigSchema,
     marketingWidgetKeySchema,
     parseApplicationLayoutConfig,
@@ -28,6 +29,7 @@ export type MarketingSnapshotLayoutLike = {
     scopeEntityId?: string | null
     scopeEntityKind?: string | null
     baseLayoutId?: string | null
+    compositionMode?: 'overlay' | 'independent'
 }
 
 export type MarketingSnapshotWidgetLike = {
@@ -38,6 +40,7 @@ export type MarketingSnapshotWidgetLike = {
     sortOrder: number
     config: Record<string, unknown>
     isActive: boolean
+    sourceBaseWidgetId?: string | null
 }
 
 export type MarketingSnapshotOverrideLike = {
@@ -116,6 +119,41 @@ const readSnapshotArray = (value: unknown, field: string): unknown[] => {
     return value
 }
 
+const assertOptionalSnapshotRecord = (value: unknown, field: string, scope: string, nullable = false): void => {
+    if (value === undefined || (nullable && value === null)) return
+    if (!isRecord(value) || Array.isArray(value)) {
+        failSnapshotLayout(`Snapshot ${scope} ${field} must be an object`, { field, scope })
+    }
+}
+
+const assertOptionalSnapshotBoolean = (value: unknown, field: string, scope: string, nullable = false): void => {
+    if (value === undefined || (nullable && value === null)) return
+    if (typeof value !== 'boolean') {
+        failSnapshotLayout(`Snapshot ${scope} ${field} must be a boolean`, { field, scope })
+    }
+}
+
+const assertOptionalSnapshotInteger = (value: unknown, field: string, scope: string, nullable = false): void => {
+    if (value === undefined || (nullable && value === null)) return
+    if (!Number.isInteger(value)) {
+        failSnapshotLayout(`Snapshot ${scope} ${field} must be an integer`, { field, scope })
+    }
+}
+
+const assertOptionalSnapshotString = (value: unknown, field: string, scope: string, nullable = false): void => {
+    if (value === undefined || (nullable && value === null)) return
+    if (typeof value !== 'string' || value.length === 0) {
+        failSnapshotLayout(`Snapshot ${scope} ${field} must be a non-empty string`, { field, scope })
+    }
+}
+
+const assertOptionalSnapshotTemplateKey = (value: unknown, scope: string): void => {
+    if (value === undefined) return
+    if (!applicationTemplateKeySchema.safeParse(value).success) {
+        failSnapshotLayout(`Snapshot ${scope} template key is invalid`, { scope })
+    }
+}
+
 /**
  * Validate the identity/reference envelope shared by dashboard and marketing
  * snapshot flows. It intentionally does not parse template-specific config;
@@ -148,27 +186,96 @@ export const validateSnapshotLayoutIdentities = (snapshot: unknown): void => {
         if (!isRecord(entity)) failSnapshotLayout('Snapshot entity entry is invalid', { entityId })
     }
 
+    const layoutEntries = [
+        ...layouts.map((layout) => ({ layout, isScoped: false })),
+        ...scopedLayouts.map((layout) => ({ layout, isScoped: true }))
+    ]
     const layoutIds = new Set<string>()
-    for (const layout of [...layouts, ...scopedLayouts]) {
+    const layoutIdentityById = new Map<
+        string,
+        {
+            isScoped: boolean
+            baseLayoutId: string | null
+            compositionMode: 'overlay' | 'independent' | null
+        }
+    >()
+    for (const { layout } of layoutEntries) {
+        const layoutScope = `layout:${String(layout.id)}`
+        assertOptionalSnapshotTemplateKey(layout.templateKey, layoutScope)
+        assertOptionalSnapshotRecord(layout.name, 'name', layoutScope)
+        assertOptionalSnapshotRecord(layout.description, 'description', layoutScope, true)
+        assertOptionalSnapshotRecord(layout.config, 'config', layoutScope)
+        assertOptionalSnapshotBoolean(layout.isActive, 'isActive', layoutScope)
+        assertOptionalSnapshotBoolean(layout.isDefault, 'isDefault', layoutScope)
+        assertOptionalSnapshotInteger(layout.sortOrder, 'sortOrder', layoutScope)
+
         const id = assertSnapshotUuidV7(layout.id, 'layout id', 'layout')
         if (layoutIds.has(id)) failSnapshotLayout('Snapshot contains duplicate layout ids', { layoutId: id })
         layoutIds.add(id)
-        if (layout.scopeEntityId !== undefined && layout.scopeEntityId !== null) {
-            assertSnapshotUuidV7(layout.scopeEntityId, 'layout scope entity id', `layout:${id}`)
+        layoutIdentityById.set(id, {
+            isScoped: false,
+            baseLayoutId: null,
+            compositionMode: null
+        })
+    }
+    for (const { layout, isScoped } of layoutEntries) {
+        const id = layout.id
+        const layoutIdentity = layoutIdentityById.get(id as string)
+        if (!layoutIdentity) {
+            failSnapshotLayout('Snapshot layout identity is invalid', { layoutId: id })
         }
-        if (layout.baseLayoutId !== undefined && layout.baseLayoutId !== null) {
-            assertSnapshotUuidV7(layout.baseLayoutId, 'base layout id', `layout:${id}`)
-            if (!layoutIds.has(layout.baseLayoutId)) {
-                failSnapshotLayout('Snapshot layout references a missing base layout', {
+        layoutIdentity.isScoped = isScoped
+        if (isScoped) {
+            assertSnapshotUuidV7(layout.scopeEntityId, 'layout scope entity id', `layout:${id}`)
+            if (
+                snapshot.entities !== undefined &&
+                !Object.prototype.hasOwnProperty.call(snapshot.entities, layout.scopeEntityId as string)
+            ) {
+                failSnapshotLayout('Snapshot scoped layout references a missing entity', {
                     layoutId: id,
-                    baseLayoutId: layout.baseLayoutId
+                    scopeEntityId: layout.scopeEntityId
                 })
             }
+            if (layout.compositionMode === 'overlay') {
+                const baseLayoutId = assertSnapshotUuidV7(layout.baseLayoutId, 'base layout id', `layout:${id}`)
+                layoutIdentity.baseLayoutId = baseLayoutId
+                layoutIdentity.compositionMode = 'overlay'
+                if (!layoutIds.has(baseLayoutId)) {
+                    failSnapshotLayout('Snapshot layout references a missing base layout', {
+                        layoutId: id,
+                        baseLayoutId
+                    })
+                }
+            } else if (layout.compositionMode === 'independent') {
+                if (layout.baseLayoutId !== null) {
+                    failSnapshotLayout('Independent layouts must have a null base layout id', { layoutId: id })
+                }
+                layoutIdentity.compositionMode = 'independent'
+            } else {
+                failSnapshotLayout('Scoped layouts require an explicit composition mode', { layoutId: id })
+            }
+        } else {
+            if (layout.scopeEntityId !== undefined && layout.scopeEntityId !== null) {
+                failSnapshotLayout('Global layouts cannot reference a scope entity', { layoutId: id })
+            }
+            if (layout.compositionMode !== 'independent' || layout.baseLayoutId !== null) {
+                failSnapshotLayout('Global layouts require independent composition with a null base layout id', { layoutId: id })
+            }
+            layoutIdentity.compositionMode = 'independent'
         }
     }
 
     const widgetIds = new Set<string>()
+    const widgetLayoutIdById = new Map<string, string>()
     for (const widget of widgets) {
+        const widgetScope = `widget:${String(widget.id)}`
+        assertOptionalSnapshotString(widget.zone, 'zone', widgetScope)
+        assertOptionalSnapshotString(widget.widgetKey, 'widgetKey', widgetScope)
+        assertOptionalSnapshotRecord(widget.config, 'config', widgetScope)
+        assertOptionalSnapshotBoolean(widget.isActive, 'isActive', widgetScope)
+        assertOptionalSnapshotInteger(widget.sortOrder, 'sortOrder', widgetScope)
+        assertOptionalSnapshotString(widget.sourceLineageKey, 'sourceLineageKey', widgetScope)
+
         const id = assertSnapshotUuidV7(widget.id, 'widget id', 'widget')
         if (widgetIds.has(id)) failSnapshotLayout('Snapshot contains duplicate widget ids', { widgetId: id })
         widgetIds.add(id)
@@ -176,14 +283,47 @@ export const validateSnapshotLayoutIdentities = (snapshot: unknown): void => {
         if (!layoutIds.has(layoutId)) {
             failSnapshotLayout('Snapshot widget references a missing layout', { widgetId: id, layoutId })
         }
+        widgetLayoutIdById.set(id, layoutId)
         if (widget.sourceBaseWidgetId !== undefined && widget.sourceBaseWidgetId !== null) {
             assertSnapshotUuidV7(widget.sourceBaseWidgetId, 'widget source base id', `widget:${id}`)
+        }
+    }
+
+    // A source-base reference is a derived overlay lineage, not an arbitrary
+    // client-provided relation. Accept it only when the target widget belongs
+    // to a scoped overlay whose declared base layout owns that widget. This
+    // prevents a forged reference from being carried into application sync and
+    // later interpreted as inherited runtime content.
+    for (const widget of widgets) {
+        if (typeof widget.sourceBaseWidgetId !== 'string') continue
+        const targetLayoutId = widgetLayoutIdById.get(String(widget.id))
+        const baseLayoutId = widgetLayoutIdById.get(widget.sourceBaseWidgetId)
+        const targetLayout = targetLayoutId ? layoutIdentityById.get(targetLayoutId) : undefined
+        if (
+            !targetLayout?.isScoped ||
+            targetLayout.compositionMode !== 'overlay' ||
+            !baseLayoutId ||
+            targetLayout.baseLayoutId !== baseLayoutId
+        ) {
+            failSnapshotLayout('Snapshot widget source base reference is invalid', {
+                widgetId: widget.id,
+                sourceBaseWidgetId: widget.sourceBaseWidgetId,
+                layoutId: targetLayoutId ?? null,
+                baseLayoutId: baseLayoutId ?? null
+            })
         }
     }
 
     const overrideIds = new Set<string>()
     const overrideTargets = new Set<string>()
     for (const override of overrides) {
+        const overrideScope = `override:${String(override.id)}`
+        assertOptionalSnapshotString(override.zone, 'zone', overrideScope, true)
+        assertOptionalSnapshotRecord(override.config, 'config', overrideScope, true)
+        assertOptionalSnapshotBoolean(override.isActive, 'isActive', overrideScope, true)
+        assertOptionalSnapshotBoolean(override.isDeletedOverride, 'isDeletedOverride', overrideScope)
+        assertOptionalSnapshotInteger(override.sortOrder, 'sortOrder', overrideScope, true)
+
         const id = assertSnapshotUuidV7(override.id, 'widget override id', 'override')
         if (overrideIds.has(id)) failSnapshotLayout('Snapshot contains duplicate widget override ids', { overrideId: id })
         overrideIds.add(id)
@@ -192,8 +332,20 @@ export const validateSnapshotLayoutIdentities = (snapshot: unknown): void => {
         if (!layoutIds.has(layoutId)) {
             failSnapshotLayout('Snapshot widget override references a missing layout', { overrideId: id, layoutId })
         }
-        if (!widgetIds.has(baseWidgetId)) {
+        const targetLayout = layoutIdentityById.get(layoutId)
+        if (!targetLayout?.isScoped || targetLayout.compositionMode !== 'overlay') {
+            failSnapshotLayout('Snapshot widget override must target a scoped overlay layout', { overrideId: id, layoutId })
+        }
+        const baseWidgetLayoutId = widgetLayoutIdById.get(baseWidgetId)
+        if (!widgetIds.has(baseWidgetId) || !baseWidgetLayoutId) {
             failSnapshotLayout('Snapshot widget override references a missing widget', { overrideId: id, baseWidgetId })
+        }
+        if (targetLayout.baseLayoutId !== baseWidgetLayoutId) {
+            failSnapshotLayout('Snapshot widget override base widget belongs to the wrong layout', {
+                overrideId: id,
+                baseWidgetId,
+                baseLayoutId: targetLayout.baseLayoutId
+            })
         }
         const target = `${layoutId}:${baseWidgetId}`
         if (overrideTargets.has(target)) {
@@ -320,11 +472,27 @@ const assertMarketingLayoutConfig = (layout: MarketingSnapshotLayoutLike): void 
     }
 }
 
-const assertMarketingLayoutIdentity = (layout: MarketingSnapshotLayoutLike, kind: 'global' | 'scoped'): void => {
+const assertMarketingLayoutIdentity = (
+    layout: MarketingSnapshotLayoutLike,
+    kind: 'global' | 'scoped',
+    compositionMode?: 'overlay' | 'independent'
+): void => {
     assertUuidV7(layout.id, `${kind} layout id`, `layout:${layout.id}`)
-    if (kind === 'scoped') {
+    if (kind === 'global') {
+        if (layout.compositionMode !== 'independent' || layout.baseLayoutId !== null) {
+            fail('Marketing global layout requires independent composition with a null base layout id', { layoutId: layout.id })
+        }
+    } else {
         assertUuidV7(layout.scopeEntityId, 'layout scope entity id', `layout:${layout.id}`)
-        assertUuidV7(layout.baseLayoutId, 'base layout id', `layout:${layout.id}`)
+        if (compositionMode === 'overlay') {
+            assertUuidV7(layout.baseLayoutId, 'base layout id', `layout:${layout.id}`)
+        } else if (compositionMode === 'independent') {
+            if (layout.baseLayoutId !== null) {
+                fail('Independent marketing scoped layout must have a null base layout id', { layoutId: layout.id })
+            }
+        } else {
+            fail('Marketing scoped layout composition mode is invalid', { layoutId: layout.id })
+        }
     }
     assertMarketingLayoutConfig(layout)
 }
@@ -403,22 +571,26 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
     const normalizedSnapshot = { ...snapshotRecord, entities } as unknown as MarketingSnapshotLike
     const allLayouts = [...layouts, ...scopedLayouts]
     const marketingLayouts = allLayouts.filter((layout) => layout.templateKey === MARKETING_PAGE_TEMPLATE_KEY)
+    const marketingGlobalLayouts = layouts.filter((layout) => layout.templateKey === MARKETING_PAGE_TEMPLATE_KEY)
     const marketingWidgets = widgets.filter((widget) => typeof widget.widgetKey === 'string' && widget.widgetKey.startsWith('marketing.'))
 
     if (marketingLayouts.length === 0 && marketingWidgets.length === 0) return
     if (marketingLayouts.length === 0) {
         fail('Marketing snapshot widget has no marketing layout', { widgetCount: marketingWidgets.length })
     }
-    if (allLayouts.some((layout) => layout.templateKey !== MARKETING_PAGE_TEMPLATE_KEY)) {
-        fail('Marketing snapshot cannot mix dashboard and marketing layouts', {})
-    }
     if (snapshotRecord.layoutZoneWidgets === undefined) fail('Marketing snapshot layout widgets are missing', {})
 
+    const hasMixedTemplates = allLayouts.some((layout) => layout.templateKey !== MARKETING_PAGE_TEMPLATE_KEY)
     const globalLayoutIds = new Set<string>()
     const allLayoutIds = new Set<string>()
     for (const layout of layouts) {
-        const layoutRecord = layout as unknown as Record<string, unknown>
-        if ('scopeEntityId' in layoutRecord || 'baseLayoutId' in layoutRecord) {
+        if (layout.templateKey !== MARKETING_PAGE_TEMPLATE_KEY) {
+            assertSnapshotUuidV7(layout.id, 'layout id', 'layout')
+            if (allLayoutIds.has(layout.id)) fail('Marketing snapshot contains duplicate layout ids', { layoutId: layout.id })
+            allLayoutIds.add(layout.id)
+            continue
+        }
+        if (layout.scopeEntityId !== undefined && layout.scopeEntityId !== null) {
             fail('Marketing global layout contains scoped layout references', { layoutId: layout.id })
         }
         assertMarketingLayoutIdentity(layout, 'global')
@@ -428,14 +600,22 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
     }
 
     for (const layout of scopedLayouts) {
-        assertMarketingLayoutIdentity(layout, 'scoped')
+        if (layout.templateKey !== MARKETING_PAGE_TEMPLATE_KEY) {
+            assertSnapshotUuidV7(layout.id, 'layout id', 'scoped layout')
+            if (allLayoutIds.has(layout.id)) fail('Marketing snapshot contains duplicate layout ids', { layoutId: layout.id })
+            allLayoutIds.add(layout.id)
+            continue
+        }
+
+        const compositionMode = layout.compositionMode
+        assertMarketingLayoutIdentity(layout, 'scoped', compositionMode)
         if (allLayoutIds.has(layout.id)) fail('Marketing snapshot contains duplicate layout ids', { layoutId: layout.id })
-        if (!globalLayoutIds.has(layout.baseLayoutId as string)) {
+        if (compositionMode === 'overlay' && !globalLayoutIds.has(layout.baseLayoutId as string)) {
             fail('Marketing scoped layout references a missing global layout', { layoutId: layout.id, baseLayoutId: layout.baseLayoutId })
         }
         const scopeEntity = entities[layout.scopeEntityId as string]
-        if (!isRecord(scopeEntity) || scopeEntity.kind !== 'object') {
-            fail('Marketing scoped layout references a missing Object entity type', {
+        if (!isRecord(scopeEntity) || (scopeEntity.kind !== 'page' && scopeEntity.kind !== 'object')) {
+            fail('Marketing scoped layout references a missing Page or Object entity type', {
                 layoutId: layout.id,
                 scopeEntityId: layout.scopeEntityId
             })
@@ -443,18 +623,39 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
         allLayoutIds.add(layout.id)
     }
 
-    const defaultLayoutId =
+    const explicitDefaultLayoutId =
         normalizedSnapshot.defaultLayoutId === undefined || normalizedSnapshot.defaultLayoutId === null
-            ? fail('Marketing snapshot has no explicit default layout', {})
+            ? null
             : assertUuidV7(normalizedSnapshot.defaultLayoutId, 'default layout id', 'snapshot')
-    if (!globalLayoutIds.has(defaultLayoutId)) {
-        fail('Marketing snapshot default layout must reference a global layout', { defaultLayoutId })
+    const explicitDefaultLayout = explicitDefaultLayoutId ? layouts.find((layout) => layout.id === explicitDefaultLayoutId) : undefined
+    const activeScopedIndependentLayout = scopedLayouts.find(
+        (layout) =>
+            layout.templateKey === MARKETING_PAGE_TEMPLATE_KEY &&
+            layout.isActive &&
+            layout.isDefault &&
+            layout.compositionMode === 'independent'
+    )
+    const hasScopedOverlay = scopedLayouts.some(
+        (layout) => layout.templateKey === MARKETING_PAGE_TEMPLATE_KEY && layout.isActive && layout.compositionMode === 'overlay'
+    )
+    const marketingDefaultLayout =
+        explicitDefaultLayout?.templateKey === MARKETING_PAGE_TEMPLATE_KEY
+            ? explicitDefaultLayout
+            : marketingGlobalLayouts.find((layout) => layout.isActive && (layout.isDefault || hasMixedTemplates))
+
+    if (!marketingDefaultLayout && (marketingGlobalLayouts.length > 0 || hasScopedOverlay) && !activeScopedIndependentLayout) {
+        fail('Marketing snapshot has no active global marketing layout', {})
     }
-    const defaultLayout = layouts.find((layout) => layout.id === defaultLayoutId)
-    if (!defaultLayout?.isActive || !defaultLayout.isDefault) {
-        fail('Marketing snapshot default layout must be active and marked as default', { defaultLayoutId })
+    if (explicitDefaultLayoutId && explicitDefaultLayout?.templateKey !== MARKETING_PAGE_TEMPLATE_KEY && !hasMixedTemplates) {
+        fail('Marketing snapshot default layout must reference a global layout', { defaultLayoutId: explicitDefaultLayoutId })
     }
-    if (snapshotRecord.layoutConfig !== undefined) {
+    if (
+        explicitDefaultLayout?.templateKey === MARKETING_PAGE_TEMPLATE_KEY &&
+        (!explicitDefaultLayout.isActive || !explicitDefaultLayout.isDefault)
+    ) {
+        fail('Marketing snapshot default layout must be active and marked as default', { defaultLayoutId: explicitDefaultLayoutId })
+    }
+    if (snapshotRecord.layoutConfig !== undefined && explicitDefaultLayout?.templateKey === MARKETING_PAGE_TEMPLATE_KEY) {
         try {
             marketingPageConfigSchema.parse(snapshotRecord.layoutConfig)
         } catch {
@@ -467,6 +668,13 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
     )
     if (activeMarketingWidgets.length === 0) {
         fail('Marketing snapshot must contain at least one active widget', {})
+    }
+
+    const allWidgetsById = new Map<string, MarketingSnapshotWidgetLike>()
+    for (const widget of widgets) {
+        if (typeof widget.id === 'string') {
+            allWidgetsById.set(widget.id, widget)
+        }
     }
 
     const widgetsById = new Map<string, { widget: MarketingSnapshotWidgetLike; parsed: ParsedMarketingWidget; layoutId: string }>()
@@ -518,21 +726,50 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
             })
         }
         overridePairs.add(overridePair)
-        const scopedLayout = scopedLayouts.find((layout) => layout.id === override.layoutId)
-        if (!scopedLayout) {
-            fail('Marketing widget override must reference a scoped marketing layout', {
-                overrideId: override.id,
-                layoutId: override.layoutId
-            })
-        }
         const baseWidget = widgetsById.get(override.baseWidgetId)
+        const scopedLayout = scopedLayouts.find((layout) => layout.id === override.layoutId)
+        if (scopedLayout && scopedLayout.templateKey !== MARKETING_PAGE_TEMPLATE_KEY) {
+            if (scopedLayout.compositionMode !== 'overlay' || !scopedLayout.baseLayoutId) {
+                fail('Scoped dashboard widget override must target an overlay layout', {
+                    overrideId: override.id,
+                    layoutId: override.layoutId
+                })
+            }
+            const dashboardBaseWidget = allWidgetsById.get(override.baseWidgetId)
+            if (!dashboardBaseWidget) {
+                fail('Dashboard widget override references a missing base widget', {
+                    overrideId: override.id,
+                    baseWidgetId: override.baseWidgetId
+                })
+            }
+            if (dashboardBaseWidget.layoutId !== scopedLayout.baseLayoutId) {
+                fail('Dashboard widget override base widget belongs to the wrong layout', {
+                    overrideId: override.id,
+                    baseWidgetId: override.baseWidgetId,
+                    baseLayoutId: scopedLayout.baseLayoutId
+                })
+            }
+            continue
+        }
+        if (!scopedLayout || scopedLayout.templateKey !== MARKETING_PAGE_TEMPLATE_KEY) {
+            if (baseWidget) {
+                fail('Marketing widget override must reference a scoped marketing layout', {
+                    overrideId: override.id,
+                    layoutId: override.layoutId
+                })
+            }
+            continue
+        }
+        if (scopedLayout.compositionMode !== 'overlay' || !scopedLayout.baseLayoutId) {
+            fail('Independent marketing layouts cannot contain widget overrides', { overrideId: override.id, layoutId: override.layoutId })
+        }
         if (!baseWidget) {
             fail('Marketing widget override references a missing global widget', {
                 overrideId: override.id,
                 baseWidgetId: override.baseWidgetId
             })
         }
-        const baseLayout = layouts.find((layout) => layout.id === scopedLayout?.baseLayoutId)
+        const baseLayout = marketingGlobalLayouts.find((layout) => layout.id === scopedLayout.baseLayoutId)
         if (!baseLayout || baseWidget.layoutId !== baseLayout.id) {
             fail('Marketing widget override base widget belongs to the wrong layout', { overrideId: override.id })
         }

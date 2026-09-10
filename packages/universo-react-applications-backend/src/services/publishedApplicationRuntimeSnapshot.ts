@@ -8,19 +8,15 @@ import type {
     SnapshotEnumerationValueDefinition,
     SnapshotComponent
 } from './applicationSyncContracts'
-import { resolveExecutablePayloadEntities } from './publishedApplicationSnapshotEntities'
+import {
+    allocateSnapshotPhysicalIdentity,
+    createSnapshotPhysicalIdentityRemap,
+    normalizeSnapshotFieldIdentities,
+    resolveExecutablePayloadEntities,
+    type SnapshotPhysicalIdentityRemap
+} from './publishedApplicationSnapshotEntities'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
-
-const buildDeterministicScopedUuid = (seed: string): string => {
-    const hex = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')
-    hex[12] = '5'
-    hex[16] = ((parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16)
-
-    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex
-        .slice(20, 32)
-        .join('')}`
-}
 
 const resolveSnapshotCodenameText = (value: unknown): string | null => {
     if (typeof value === 'string') {
@@ -40,6 +36,36 @@ const calculatePublicationSnapshotHash = (snapshot: PublishedApplicationSnapshot
     createHash('sha256')
         .update(serialization.stableStringify(serialization.normalizePublicationSnapshotForHash(snapshot)) ?? '')
         .digest('hex')
+
+const runtimeSnapshotIdentityRemapsByObject = new WeakMap<object, SnapshotPhysicalIdentityRemap>()
+const runtimeSourceIdentityRemapCacheLimit = 128
+const runtimeSourceIdentityRemaps = new Map<string, SnapshotPhysicalIdentityRemap>()
+
+const resolveRuntimeSnapshotIdentityRemap = (snapshot: PublishedApplicationSnapshot): SnapshotPhysicalIdentityRemap => {
+    const existingRemap = runtimeSnapshotIdentityRemapsByObject.get(snapshot)
+    if (existingRemap) return existingRemap
+
+    const remap = createSnapshotPhysicalIdentityRemap()
+    runtimeSnapshotIdentityRemapsByObject.set(snapshot, remap)
+    return remap
+}
+
+const buildRuntimeSourceIdentityKey = (source: PublishedApplicationRuntimeSource): string =>
+    [source.publicationId, source.publicationVersionId].join('\u0000')
+
+const resolveRuntimeSourceIdentityRemap = (source: PublishedApplicationRuntimeSource): SnapshotPhysicalIdentityRemap => {
+    const key = buildRuntimeSourceIdentityKey(source)
+    const existingRemap = runtimeSourceIdentityRemaps.get(key)
+    if (existingRemap) return existingRemap
+
+    const remap = createSnapshotPhysicalIdentityRemap()
+    if (runtimeSourceIdentityRemaps.size >= runtimeSourceIdentityRemapCacheLimit) {
+        const oldestKey = runtimeSourceIdentityRemaps.keys().next().value
+        if (typeof oldestKey === 'string') runtimeSourceIdentityRemaps.delete(oldestKey)
+    }
+    runtimeSourceIdentityRemaps.set(key, remap)
+    return remap
+}
 
 const collectDuplicatedEnumerationValueIds = (snapshot: PublishedApplicationSnapshot): Set<string> => {
     const ownersByValueId = new Map<string, Set<string>>()
@@ -67,13 +93,24 @@ const collectDuplicatedEnumerationValueIds = (snapshot: PublishedApplicationSnap
 
 const buildEnumerationValueIdMap = (
     snapshot: PublishedApplicationSnapshot,
-    duplicatedValueIds: Set<string>
+    duplicatedValueIds: Set<string>,
+    remap: SnapshotPhysicalIdentityRemap
 ): Map<string, Map<string, string>> => {
     const scopedIdsByObject = new Map<string, Map<string, string>>()
 
     if (duplicatedValueIds.size === 0) {
         return scopedIdsByObject
     }
+
+    const sourceValueIds = new Set<string>()
+    for (const values of Object.values(snapshot.optionValues ?? {})) {
+        const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValueDefinition[]) : []
+        for (const value of typedValues) {
+            if (typeof value.id === 'string' && value.id.length > 0) sourceValueIds.add(value.id)
+        }
+    }
+
+    const allocatedIds = new Set<string>(remap.sourceToNew.values())
 
     for (const [objectId, values] of Object.entries(snapshot.optionValues ?? {})) {
         const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValueDefinition[]) : []
@@ -84,7 +121,10 @@ const buildEnumerationValueIdMap = (
                 continue
             }
 
-            scopedIds.set(value.id, buildDeterministicScopedUuid(`application-runtime-enumeration-value:${objectId}:${value.id}`))
+            scopedIds.set(
+                value.id,
+                allocateSnapshotPhysicalIdentity(`enumeration:${objectId}:${value.id}`, remap, sourceValueIds, allocatedIds)
+            )
         }
 
         if (scopedIds.size > 0) {
@@ -184,72 +224,79 @@ const rewriteElementDataForFields = (
     return changed ? nextData : data
 }
 
-export const normalizePublishedApplicationRuntimeSnapshot = (snapshot: PublishedApplicationSnapshot): PublishedApplicationSnapshot => {
+export const normalizePublishedApplicationRuntimeSnapshot = (
+    snapshot: PublishedApplicationSnapshot,
+    remap?: SnapshotPhysicalIdentityRemap
+): PublishedApplicationSnapshot => {
+    const identityRemap = remap ?? resolveRuntimeSnapshotIdentityRemap(snapshot)
     const duplicatedValueIds = collectDuplicatedEnumerationValueIds(snapshot)
-    const scopedIdsByObject = buildEnumerationValueIdMap(snapshot, duplicatedValueIds)
+    const scopedIdsByObject = buildEnumerationValueIdMap(snapshot, duplicatedValueIds, identityRemap)
 
-    if (scopedIdsByObject.size === 0) {
-        return snapshot
+    let normalizedSnapshot = snapshot
+
+    if (scopedIdsByObject.size > 0) {
+        const optionValues = Object.fromEntries(
+            Object.entries(snapshot.optionValues ?? {}).map(([objectId, values]) => {
+                const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValueDefinition[]) : []
+                const scopedIds = scopedIdsByObject.get(objectId)
+
+                if (!scopedIds || scopedIds.size === 0) {
+                    return [objectId, typedValues]
+                }
+
+                return [
+                    objectId,
+                    typedValues.map((value) => ({
+                        ...value,
+                        id: scopedIds.get(value.id) ?? value.id
+                    }))
+                ]
+            })
+        )
+
+        const elements = Object.fromEntries(
+            Object.entries(snapshot.elements ?? {}).map(([objectId, rows]) => {
+                const entity = snapshot.entities?.[objectId] as SnapshotEntityDefinition | undefined
+                if (!entity || !Array.isArray(rows) || !Array.isArray(entity.fields) || entity.fields.length === 0) {
+                    return [objectId, rows]
+                }
+
+                return [
+                    objectId,
+                    rows.map((row) => {
+                        if (!isRecord(row) || !isRecord(row.data)) {
+                            return row
+                        }
+
+                        const nextData = rewriteElementDataForFields(row.data as Record<string, unknown>, entity.fields, scopedIdsByObject)
+                        if (nextData === row.data) {
+                            return row
+                        }
+
+                        return {
+                            ...row,
+                            data: nextData
+                        }
+                    })
+                ]
+            })
+        )
+
+        normalizedSnapshot = {
+            ...snapshot,
+            optionValues,
+            elements
+        }
     }
 
-    const optionValues = Object.fromEntries(
-        Object.entries(snapshot.optionValues ?? {}).map(([objectId, values]) => {
-            const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValueDefinition[]) : []
-            const scopedIds = scopedIdsByObject.get(objectId)
-
-            if (!scopedIds || scopedIds.size === 0) {
-                return [objectId, typedValues]
-            }
-
-            return [
-                objectId,
-                typedValues.map((value) => ({
-                    ...value,
-                    id: scopedIds.get(value.id) ?? value.id
-                }))
-            ]
-        })
-    )
-
-    const elements = Object.fromEntries(
-        Object.entries(snapshot.elements ?? {}).map(([objectId, rows]) => {
-            const entity = snapshot.entities?.[objectId] as SnapshotEntityDefinition | undefined
-            if (!entity || !Array.isArray(rows) || !Array.isArray(entity.fields) || entity.fields.length === 0) {
-                return [objectId, rows]
-            }
-
-            return [
-                objectId,
-                rows.map((row) => {
-                    if (!isRecord(row) || !isRecord(row.data)) {
-                        return row
-                    }
-
-                    const nextData = rewriteElementDataForFields(row.data as Record<string, unknown>, entity.fields, scopedIdsByObject)
-                    if (nextData === row.data) {
-                        return row
-                    }
-
-                    return {
-                        ...row,
-                        data: nextData
-                    }
-                })
-            ]
-        })
-    )
-
-    return {
-        ...snapshot,
-        optionValues,
-        elements
-    }
+    return normalizeSnapshotFieldIdentities(normalizedSnapshot, identityRemap)
 }
 
 export const normalizePublishedApplicationRuntimeSource = (
     source: PublishedApplicationRuntimeSource
 ): PublishedApplicationRuntimeSource => {
-    const snapshot = normalizePublishedApplicationRuntimeSnapshot(source.snapshot)
+    const identityRemap = resolveRuntimeSourceIdentityRemap(source)
+    const snapshot = normalizePublishedApplicationRuntimeSnapshot(source.snapshot, identityRemap)
 
     if (snapshot === source.snapshot) {
         return source
@@ -259,6 +306,6 @@ export const normalizePublishedApplicationRuntimeSource = (
         ...source,
         snapshot,
         snapshotHash: calculatePublicationSnapshotHash(snapshot),
-        entities: resolveExecutablePayloadEntities(snapshot)
+        entities: resolveExecutablePayloadEntities(snapshot, identityRemap)
     }
 }

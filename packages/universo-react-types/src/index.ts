@@ -28,6 +28,14 @@ export * from './common/admin'
 export * from './common/applications'
 export * from './common/applicationLayouts'
 export * from './common/layoutWidgetDefinitions'
+export {
+    LAYOUT_SEMANTIC_REGIONS,
+    layoutSemanticRegionSchema,
+    APPLICATION_TEMPLATE_HOST_CAPABILITIES,
+    applicationTemplateHostCapabilitySchema,
+    type LayoutSemanticRegion,
+    type ApplicationTemplateHostCapability
+} from './common/applicationTemplates'
 export * from './common/runtimePolicy'
 export * from './common/runtimeDataSources'
 export * from './common/resourceSources'

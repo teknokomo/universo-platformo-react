@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 
 import AppMainLayout from '../../layouts/AppMainLayout'
 import MarketingPage, { widgetAnchorId } from '../MarketingPage'
@@ -7,6 +8,7 @@ import { MarketingMediaView } from '../components/MarketingPrimitives'
 import type { MarketingAction, MarketingPageData } from '../types'
 
 vi.mock('react-i18next', () => ({
+    initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
         t: (key: string, options?: Record<string, string>) => {
             const labels: Record<string, string> = {
@@ -24,6 +26,9 @@ vi.mock('react-i18next', () => ({
                 'marketingPage.form.invalidEmail': 'Enter a valid email address',
                 'marketingPage.form.submitted': 'Thanks for subscribing!',
                 'marketingPage.form.submitting': 'Submitting'
+            }
+            if (key === 'marketingPage.navigation.landmark') {
+                return `${options?.brand} navigation ${options?.index}`
             }
             if (key === 'marketingPage.empty') return `No items in ${options?.section ?? 'section'}`
             return labels[key] ?? key
@@ -211,6 +216,97 @@ describe('MarketingPage', () => {
 
         expect(screen.getByRole('button', { name: 'Close navigation menu' })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Features' })).toHaveAttribute('href', '#features')
+    })
+
+    it('renders three navigation instances in flow with unique landmarks, drawers, and focus restoration', async () => {
+        const user = userEvent.setup()
+        const baseNavigation = data.widgets[0]
+        if (baseNavigation.widgetKey !== 'marketing.navigation') throw new Error('Expected a navigation fixture')
+
+        const navigationKeys = ['navigation-primary', '0190a9b5-3cde-7abc-8def-012345678901', '0190a9b5-3cde-7abc-8def-012345678902']
+        const duplicatedNavigationData: MarketingPageData = {
+            ...data,
+            widgets: [
+                ...navigationKeys.map((instanceKey, index) => ({ ...baseNavigation, instanceKey, sortOrder: index })),
+                ...data.widgets.slice(1)
+            ]
+        }
+
+        render(
+            <AppMainLayout>
+                <MarketingPage
+                    data={duplicatedNavigationData}
+                    sharedLayoutWidgets={[
+                        { id: 'shared-language', widgetKey: 'languageSwitcher', zone: 'marketing-header', sortOrder: 0, isActive: true }
+                    ]}
+                />
+            </AppMainLayout>
+        )
+
+        expect(document.querySelectorAll("button[aria-label='language.tooltip']")).toHaveLength(1)
+        const landmarks = screen.getAllByTestId('marketing-navigation-instance')
+        expect(landmarks).toHaveLength(3)
+        expect(landmarks.map((landmark) => landmark.getAttribute('aria-label'))).toEqual([
+            'Acme navigation 1',
+            'Acme navigation 2',
+            'Acme navigation 3'
+        ])
+        expect(new Set(landmarks.map((landmark) => landmark.getAttribute('aria-label'))).size).toBe(3)
+        expect(landmarks.every((landmark) => landmark.closest('.MuiAppBar-root')?.classList.contains('MuiAppBar-positionFixed'))).toBe(true)
+        expect(
+            Array.from(document.querySelectorAll<HTMLElement>('[data-marketing-widget-instance]')).map(
+                (node) => node.dataset.marketingWidgetInstance
+            )
+        ).toEqual([
+            'navigation-primary',
+            navigationKeys[1],
+            navigationKeys[2],
+            'hero',
+            'features-primary',
+            'features-secondary',
+            'logos-empty',
+            'footer'
+        ])
+
+        const drawerIds = landmarks.map((landmark) =>
+            landmark.querySelector<HTMLButtonElement>('button[aria-controls]')?.getAttribute('aria-controls')
+        )
+        expect(drawerIds).toEqual(navigationKeys.map((key) => `marketing-navigation-drawer-${encodeURIComponent(key)}`))
+        expect(new Set(drawerIds).size).toBe(3)
+        expect(landmarks.every((landmark) => !landmark.getAttribute('aria-label')?.includes(navigationKeys[1]))).toBe(true)
+
+        const secondMenuButton = within(landmarks[1]).getByRole('button', { name: 'Open navigation menu', hidden: true })
+        act(() => secondMenuButton.focus())
+        await user.keyboard('{Enter}')
+        const secondDrawer = document.getElementById(drawerIds[1] ?? '')
+        expect(secondDrawer).toBeInTheDocument()
+        if (!secondDrawer) return
+
+        const closeButton = within(secondDrawer).getByRole('button', { name: 'Close navigation menu' })
+        act(() => closeButton.focus())
+        await user.keyboard('{Enter}')
+        expect(secondMenuButton).toHaveFocus()
+    })
+
+    it('renders a shared language switcher when the layout has no navigation widget', () => {
+        const withoutNavigationData: MarketingPageData = {
+            ...data,
+            widgets: data.widgets.filter((widget) => widget.widgetKey !== 'marketing.navigation')
+        }
+
+        render(
+            <AppMainLayout>
+                <MarketingPage
+                    data={withoutNavigationData}
+                    sharedLayoutWidgets={[
+                        { id: 'shared-language', widgetKey: 'languageSwitcher', zone: 'marketing-header', sortOrder: 0, isActive: true }
+                    ]}
+                />
+            </AppMainLayout>
+        )
+
+        expect(screen.getByTestId('marketing-shared-language-header')).toBeInTheDocument()
+        expect(document.querySelectorAll("button[aria-label='language.tooltip']")).toHaveLength(1)
     })
 
     it('does not expose storage-backed media identifiers in the runtime UI', () => {

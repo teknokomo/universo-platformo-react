@@ -18,11 +18,12 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 ### 🖥️ Dashboard System
 
--   **Zone-Based Layout**: 4 dashboard zones — left (sidebar), right (sidebar), center (main content), top (header/navbar)
+-   **Zone-Based Layout**: 5 dashboard zones — left (sidebar), top (header/navbar), right (sidebar), center (main content), and bottom (footer/content tail)
 -   **Data-Driven Rendering**: Widgets rendered from `ZoneWidgets` configuration, not hardcoded JSX
 -   **DashboardDetailsContext**: React Context providing table data (rows, columns, pagination) to nested widgets
--   **Layout Config**: Boolean-driven visibility flags (`showSideMenu`, `showHeader`, `showColumnsContainer`, etc.)
--   **Runtime Layout Selection**: Runtime consumes application-side materialized layouts and widgets, but renders only active layouts and active widgets
+-   **Persisted Composition**: Active widget rows and their zone/order are authoritative when the runtime receives a persisted composition; the existing boolean flags remain the direct-component fallback when no persisted zone collection is supplied.
+-   **Multiline runtime data**: Semantic long-text cells wrap safely and use auto-height rows by default; configured numeric row heights remain supported.
+-   **Runtime Layout Selection**: Hosted and standalone runtimes consume the same target-aware effective-layout response and render only active layouts and active widgets
 
 ### 📣 Data-driven Marketing Page
 
@@ -30,8 +31,9 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **Entity-owned content**: The published application runtime receives localized records from the `marketing-page` metahub template; no section owns a hardcoded demo array.
 -   **Safe actions and media**: Internal, anchor, external, email, and telephone actions are validated before rendering; unsafe URLs and missing media fail closed with localized feedback.
 -   **Application appearance**: Theme mode, bounded colors, brand media, and action policy are configured in the typed application layout; persisted marketing widget instances own zone, order, active state, source, and presentation flags.
--   **Instance-oriented layouts**: Runtime layout data preserves every active placement, including multiple rows with the same widget key. Placement identity is separate from widget type, so repeated dashboard and marketing instances render independently.
+-   **Instance-oriented layouts**: Runtime layout data preserves every active placement, including multiple rows with the same widget key. Placement identity is separate from widget type, so repeatable dashboard and marketing instances render independently; the dashboard `appNavbar` and `header` are explicit single-shell placements.
 -   **One theme boundary**: Hosted and standalone shells own providers; `MarketingPage` is presentational and provider-free.
+-   **Shared widget capability**: `languageSwitcher` is registered once, is available in Dashboard `top` and marketing `marketing-header`, and is rendered by the existing shell controls without duplicate instances.
 
 ### 📊 ColumnsContainer Widget
 
@@ -43,7 +45,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 ### 🧩 Widget Renderer
 
 -   **Shared renderer**: `renderWidget()` maps widget keys to concrete React components
--   **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`, `interpretationNetworkWorkspace`
+-   **Supported widgets**: `brandSelector`, `workspaceSwitcher`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `appNavbar`, `header`, `breadcrumbs`, `search`, `datePicker`, `optionsMenu`, `languageSwitcher`, `footer`, `productTree`, `usersByCountryChart`, `detailsTable`, `learnerPlayer`, `relationBuilder`, `detailsTabs`, `quizWidget`, `playcanvasCanvas`, `resourcePreview`, `columnsContainer`, `interpretationNetworkWorkspace`
 -   **Union datasources**: `detailsTable` can render `records.union` by resolving multiple runtime sections from metadata and querying them through the normal `fetchAppData` surface.
 -   **Relation builder**: `relationBuilder` keeps child records scoped to a selected parent row while reusing generic CRUD dialogs, record pickers, and persisted row ordering.
 -   **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
@@ -242,7 +244,7 @@ Dashboard
 │   │       │   ├── Column 1 (width: 9/12) → detailsTable
 │   │       │   └── Column 2 (width: 3/12) → productTree
 │   │       └── OR standalone detailsTable (fallback)
-│   └── Footer (optional)
+│   └── Bottom widgets (bottom zone, optional)
 └── SideMenuRight (right zone, optional)
     └── [right widgets: productTree, usersByCountryChart]
 ```
@@ -265,11 +267,43 @@ eliminating the need to pass props through multiple component layers.
 ```
 ZoneWidgets config → Dashboard → zones distribution
   ├── left[]   → SideMenu (renderWidget per item)
+  ├── top[]    → explicit top placements; Header hosts only controls without an equivalent placement
   ├── right[]  → SideMenuRight (renderWidget per item)
-  └── center[] → MainGrid
+  ├── center[] → MainGrid
        └── filter by widgetKey === 'columnsContainer'
             → renderWidget(container) → Grid with nested renderWidget calls
+  └── bottom[] → Main Content footer/content tail
 ```
+
+### Target-aware runtime contract
+
+The runtime first requests `GET /api/v1/applications/:applicationId/runtime/effective-layout`.
+The request may target the global application surface or an authorized Page/Object
+entity type. The server applies entity-scoped precedence, validates template and
+widget capabilities, and returns the selected template, zones, lineage, and
+`effectiveHash` in one response. `recordKey` belongs only to content hydration;
+it never selects a layout.
+
+Same-template scoped layouts may be sparse overlays. A scoped layout with a
+different template is an explicit independent composition: it does not inherit
+incompatible widgets or physical zones. Missing or invalid materialization is a
+localized fail-closed runtime error, not a silent global-template fallback.
+
+The standalone entry uses the same effective-layout API and requires an
+authenticated runtime adapter with target/workspace context. GuestApp and
+anonymous template selection are outside this contract.
+
+Hosted routes keep runtime context in the normal query string. Standalone
+hash routes keep the same parameters inside the hash route, for example:
+
+```text
+/a/<applicationId>?targetKind=object&entityTypeId=<entityTypeId>&workspaceId=<workspaceId>&locale=ru
+/#/a/<applicationId>?targetKind=object&entityTypeId=<entityTypeId>&workspaceId=<workspaceId>&locale=ru
+```
+
+The shared language control updates the correct query location and preserves
+target/workspace parameters. Invalid target selectors fail closed before any
+layout is rendered.
 
 ## File Structure
 
@@ -332,7 +366,7 @@ packages/universo-react-apps-template-mui/
 ```typescript
 interface DashboardProps {
     layoutConfig?: DashboardLayoutConfig // Boolean visibility flags
-    zoneWidgets?: ZoneWidgets // Widget configs per zone
+    zoneWidgets?: ZoneWidgets // Widget configs per zone: left, top, right, center, bottom
     details?: DashboardDetailsSlot // Table data for details widgets
     menu?: DashboardMenuSlot // Legacy single menu (deprecated)
     menus?: DashboardMenusMap // Menu map keyed by widget ID

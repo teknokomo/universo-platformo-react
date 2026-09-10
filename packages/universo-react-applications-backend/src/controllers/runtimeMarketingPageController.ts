@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express'
 import {
     MARKETING_WIDGET_REGISTRY,
+    getLayoutWidgetDefinition,
     MARKETING_SOURCE_CODENAMES,
     MARKETING_COPY_SOURCE_CODENAME,
-    applicationTemplateKeySchema,
     MARKETING_MAX_RUNTIME_RECORDS,
+    layoutHashSchema,
     marketingActionSchema,
     marketingPageConfigSchema,
     marketingPageDataSchema,
@@ -29,7 +30,6 @@ import {
 } from '@universo-react/types'
 import { normalizeMarketingMedia, parseMarketingActionHref } from '@universo-react/utils'
 import type { DbExecutor } from '@universo-react/utils'
-import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
 import {
     createQueryHelper,
     IDENTIFIER_REGEX,
@@ -39,9 +39,17 @@ import {
     resolveRuntimeCodenameText,
     resolveRuntimeSchema,
     runtimeLayoutCapableFilterSql,
+    runtimeObjectFilterSql,
     runtimeCodenameTextSql,
     UUID_REGEX
 } from '../shared/runtimeHelpers'
+import {
+    EffectiveLayoutError,
+    effectiveLayoutErrorBody,
+    parseRuntimeTarget,
+    type EffectiveLayoutSuccess
+} from '../services/effectiveLayoutContract'
+import { resolveEffectiveLayoutForRequest } from '../services/effectiveLayoutResolver'
 
 type RawRecord = Record<string, unknown>
 
@@ -52,19 +60,6 @@ const MARKETING_COLLECTION_ROW_LIMIT = 1000
 const MARKETING_RUNTIME_ENTITY_CODENAME_PATTERN = /^[A-Za-z][A-Za-z0-9._-]*$/u
 
 type MarketingObjectName = (typeof MARKETING_OBJECTS)[number]
-
-type RuntimeLayoutRow = {
-    id: string
-    scope_entity_id: string | null
-    template_key: unknown
-    name: unknown
-    description: unknown
-    config: unknown
-    is_default?: boolean
-    version?: number
-    source_layout_id?: string | null
-    source_content_hash?: string | null
-}
 
 type RuntimeWidgetRow = {
     id: string
@@ -190,7 +185,7 @@ const baseRecord = (
 const objectQuery = (schemaIdent: string) => `
     SELECT id, kind, codename, table_name, config
     FROM ${schemaIdent}._app_objects
-    WHERE kind = 'object'
+    WHERE ${runtimeObjectFilterSql('kind', 'config')}
       AND ${runtimeCodenameTextSql('codename')} = ANY($1::text[])
       AND _upl_deleted = false
       AND _app_deleted = false
@@ -278,7 +273,8 @@ const resolveMarketingRuntimeTarget = async (
     manager: DbExecutor,
     schemaIdent: string,
     req: Request,
-    res: Response
+    res: Response,
+    targetKind: string | undefined
 ): Promise<MarketingRuntimeTarget | null> => {
     const entityTypeId = readSingleQueryValue(req.query.entityTypeId)
     const entityTypeCodename = readSingleQueryValue(req.query.entityTypeCodename)
@@ -293,6 +289,18 @@ const resolveMarketingRuntimeTarget = async (
 
     if (requestedEntityTypeId && requestedEntityTypeCodename) {
         res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_AMBIGUOUS', error: 'Choose an entity type id or codename, not both.' })
+        return null
+    }
+    if (targetKind !== undefined && targetKind !== 'page' && targetKind !== 'object') {
+        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'The marketing target kind is invalid.' })
+        return null
+    }
+    if ((requestedEntityTypeId || requestedEntityTypeCodename) && !targetKind) {
+        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'The marketing target kind is required.' })
+        return null
+    }
+    if (!requestedEntityTypeId && !requestedEntityTypeCodename && targetKind) {
+        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'An entity selector is required for the target kind.' })
         return null
     }
     if (requestedEntityTypeId && !marketingPersistedIdSchema.safeParse(requestedEntityTypeId).success) {
@@ -315,13 +323,13 @@ const resolveMarketingRuntimeTarget = async (
     const rows = await manager.query<{ id: string; kind: string }>(
         `SELECT o.id, o.kind
          FROM ${schemaIdent}._app_objects AS o
-         WHERE o.kind = 'object'
+         WHERE ${targetKind === 'page' ? 'o.kind = $1' : `${runtimeObjectFilterSql('o.kind', 'o.config')} AND $1 = 'object'`}
            AND o._upl_deleted = false
            AND o._app_deleted = false
            AND ${runtimeLayoutCapableFilterSql('o.config')}
-           ${requestedEntityTypeId ? 'AND o.id = $1' : `AND ${runtimeCodenameTextSql('o.codename')} = $1`}
+           ${requestedEntityTypeId ? 'AND o.id = $2' : `AND ${runtimeCodenameTextSql('o.codename')} = $2`}
          LIMIT 2`,
-        [requestedEntityTypeId || requestedEntityTypeCodename]
+        [targetKind, requestedEntityTypeId || requestedEntityTypeCodename]
     )
     if (rows.length === 0) {
         res.status(404).json({ code: 'MARKETING_RUNTIME_TARGET_NOT_FOUND', error: 'The selected marketing entity type was not found.' })
@@ -337,26 +345,6 @@ const resolveMarketingRuntimeTarget = async (
 export function createRuntimeMarketingPageController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
 
-    const getTemplate = async (req: Request, res: Response) => {
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, req.params.applicationId)
-        if (!ctx) return
-        const layoutsExist = await ctx.manager.query<{ exists: boolean }>(
-            `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = '_app_layouts') AS exists`,
-            [ctx.schemaName]
-        )
-        if (!layoutsExist[0]?.exists) return res.status(409).json({ error: 'Application layout is missing' })
-        const rows = await ctx.manager.query<{ template_key: unknown; config: unknown }>(
-            `SELECT template_key, config
-             FROM ${ctx.schemaIdent}._app_layouts
-             WHERE scope_entity_id IS NULL AND is_active = true AND _upl_deleted = false AND _app_deleted = false
-             ORDER BY is_default DESC, sort_order ASC, _upl_created_at ASC
-             LIMIT 1`
-        )
-        const parsed = applicationTemplateKeySchema.safeParse(rows[0]?.template_key)
-        if (!parsed.success) return res.status(409).json({ error: 'Application template is invalid' })
-        return res.json({ templateKey: parsed.data, config: rows[0]?.config ?? {} })
-    }
-
     const getMarketingPage = async (req: Request, res: Response) => {
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, req.params.applicationId)
         if (!ctx) return
@@ -367,68 +355,77 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 .json({ code: 'MARKETING_RUNTIME_QUERY_INVALID', error: 'Marketing runtime query parameters are invalid.' })
         }
         const requestedLocale = normalizeLocale(locale.value ?? 'en')
-        const target = await resolveMarketingRuntimeTarget(ctx.manager, ctx.schemaIdent, req, res)
-        if (!target) return
-        const layoutRows = await ctx.manager.query<RuntimeLayoutRow>(
-            `SELECT id, scope_entity_id, template_key, name, description, config, is_default,
-                    COALESCE(_upl_version, 1)::int AS version, source_layout_id, source_content_hash
-             FROM ${ctx.schemaIdent}._app_layouts
-             WHERE (scope_entity_id IS NULL OR scope_entity_id IS NOT DISTINCT FROM $1)
-               AND is_active = true AND _upl_deleted = false AND _app_deleted = false
-             ORDER BY scope_entity_id NULLS FIRST, is_default DESC, sort_order ASC, _upl_created_at ASC
-             LIMIT 100`,
-            [target.entityTypeId]
-        )
-
-        const selectDefaultLayout = (rows: RuntimeLayoutRow[], scope: string | null, required: boolean): RuntimeLayoutRow | null => {
-            const scopedRows = rows.filter((layout) => layout.scope_entity_id === scope)
-            const defaults = scopedRows.filter((layout) => layout.is_default === true)
-            if (
-                defaults.length > 1 ||
-                (required && defaults.length !== 1) ||
-                (!required && scopedRows.length > 0 && defaults.length !== 1)
-            ) {
-                throw new Error('MARKETING_LAYOUT_DEFAULT_INVALID')
-            }
-            return defaults[0] ?? null
-        }
-
-        let globalLayout: RuntimeLayoutRow | null
-        let scopedLayout: RuntimeLayoutRow | null = null
-        try {
-            globalLayout = selectDefaultLayout(layoutRows, null, true)
-            if (target.entityTypeId) scopedLayout = selectDefaultLayout(layoutRows, target.entityTypeId, false)
-        } catch {
+        const targetKind = readSingleQueryValue(req.query.targetKind)
+        const workspaceId = readSingleQueryValue(req.query.workspaceId)
+        const themeVariant = readSingleQueryValue(req.query.themeVariant)
+        const expectedLayoutHash = readSingleQueryValue(req.query.expectedLayoutHash)
+        if (
+            !targetKind.valid ||
+            !workspaceId.valid ||
+            !themeVariant.valid ||
+            !expectedLayoutHash.valid ||
+            (expectedLayoutHash.value !== undefined && !layoutHashSchema.safeParse(expectedLayoutHash.value).success)
+        ) {
             return res
-                .status(409)
-                .json({ code: 'MARKETING_LAYOUT_DEFAULT_INVALID', error: 'Marketing page has no unique active default layout.' })
+                .status(400)
+                .json({ code: 'MARKETING_RUNTIME_QUERY_INVALID', error: 'Marketing runtime query parameters are invalid.' })
         }
-        if (!globalLayout) {
-            return res.status(409).json({ code: 'MARKETING_LAYOUT_DEFAULT_INVALID', error: 'Marketing page has no active default layout.' })
+        const target = await resolveMarketingRuntimeTarget(ctx.manager, ctx.schemaIdent, req, res, targetKind.value)
+        if (!target) return
+
+        let effectiveLayout: EffectiveLayoutSuccess
+        try {
+            const effectiveTarget = parseRuntimeTarget(req.params.applicationId, {
+                ...(target.entityTypeId ? { targetKind: targetKind.value, entityTypeId: target.entityTypeId } : {}),
+                ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
+                locale: requestedLocale,
+                ...(themeVariant.value ? { themeVariant: themeVariant.value } : {})
+            })
+            effectiveLayout = await resolveEffectiveLayoutForRequest(
+                ctx.manager,
+                { applicationId: req.params.applicationId, userId: ctx.userId, role: ctx.role },
+                effectiveTarget
+            )
+        } catch (error) {
+            if (error instanceof EffectiveLayoutError) {
+                return res.status(error.httpStatus).json(effectiveLayoutErrorBody(error))
+            }
+            return res.status(503).json({
+                status: 'failed',
+                error: { code: 'LAYOUT_RUNTIME_QUERY_FAILED', httpStatus: 503 }
+            })
         }
-        const selectedLayout = scopedLayout ?? globalLayout
-        const parsedLayoutId = marketingPersistedIdSchema.safeParse(selectedLayout.id)
+        if (expectedLayoutHash.value && expectedLayoutHash.value !== effectiveLayout.effectiveHash) {
+            return res.status(409).json({
+                code: 'MARKETING_RUNTIME_LAYOUT_STALE',
+                error: 'The marketing layout changed while its content was loading. Reload and try again.'
+            })
+        }
+        const parsedLayoutId = marketingPersistedIdSchema.safeParse(effectiveLayout.layout.id)
         if (!parsedLayoutId.success)
             return res.status(409).json({ code: 'MARKETING_LAYOUT_INVALID', error: 'Marketing layout identifier is invalid.' })
-        const parsedTemplateKey = applicationTemplateKeySchema.safeParse(selectedLayout.template_key)
-        if (!parsedTemplateKey.success) return res.status(409).json({ error: 'Application template is invalid' })
-        const templateKey = parsedTemplateKey.data
+        const templateKey = effectiveLayout.layout.templateKey
         if (templateKey !== 'marketing-page') return res.status(409).json({ error: 'Application does not use marketing-page template' })
         let runtimeConfig: MarketingPageConfig
         try {
-            runtimeConfig = toConfig(selectedLayout.config)
+            runtimeConfig = toConfig(effectiveLayout.layout.config)
         } catch {
             return res.status(409).json({ code: 'MARKETING_CONFIG_INVALID', error: 'Marketing page configuration is invalid.' })
         }
-        const widgetRows = await ctx.manager.query<RuntimeWidgetRow>(
-            `SELECT id, layout_id, zone, widget_key, sort_order, config, is_active,
-                    source_widget_id, source_base_widget_id,
-                    COALESCE(_upl_version, 1)::int AS version
-             FROM ${ctx.schemaIdent}._app_widgets
-             WHERE layout_id = $1 AND _upl_deleted = false AND _app_deleted = false
-             ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC, id ASC`,
-            [selectedLayout.id]
-        )
+        const widgetRows: RuntimeWidgetRow[] = effectiveLayout.widgets
+            .filter((widget) => !getLayoutWidgetDefinition(widget.widgetKey)?.shared)
+            .map((widget) => ({
+                id: widget.id,
+                layout_id: effectiveLayout.layout.id,
+                zone: widget.zone,
+                widget_key: widget.widgetKey,
+                sort_order: widget.sortOrder,
+                config: widget.config,
+                is_active: widget.isActive,
+                source_widget_id: widget.sourceWidgetId,
+                source_base_widget_id: widget.sourceBaseWidgetId,
+                version: widget.version
+            }))
         if (!widgetRows.some((widget) => widget.is_active)) {
             return res.status(409).json({ code: 'MARKETING_LAYOUT_INCOMPLETE', error: 'Marketing page has no active widget composition.' })
         }
@@ -858,29 +855,16 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             runtimeWidgets.push(parsedWidget.data)
         }
 
-        const layoutHash = hashApplicationLayoutContent({
-            layout: {
-                templateKey: 'marketing-page',
-                name: asRecord(selectedLayout.name),
-                description: asRecord(selectedLayout.description),
-                config: runtimeConfig,
-                scopeEntityId: selectedLayout.scope_entity_id,
-                isActive: true,
-                isDefault: selectedLayout.is_default === true,
-                sortOrder: 0
-            },
-            widgets: runtimeWidgets
-        })
         const parsedPage = marketingPageDataSchema.safeParse({
             templateKey: 'marketing-page',
             locale: requestedLocale,
             config: runtimeConfig,
             runtime: {
                 layoutId: parsedLayoutId.data,
-                layoutVersion: Math.max(1, Math.trunc(asNumber(selectedLayout.version, 1))),
-                layoutHash,
-                sourceLayoutId: selectedLayout.source_layout_id ?? null,
-                sourceContentHash: selectedLayout.source_content_hash ?? null
+                layoutVersion: effectiveLayout.layout.version,
+                layoutHash: effectiveLayout.effectiveHash,
+                sourceLayoutId: effectiveLayout.layout.sourceLayoutId,
+                sourceContentHash: effectiveLayout.layout.sourceContentHash
             },
             widgets: runtimeWidgets
         })
@@ -890,5 +874,5 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
         return res.json({ templateKey: 'marketing-page', marketingPage: parsedPage.data })
     }
 
-    return { getTemplate, getMarketingPage }
+    return { getMarketingPage }
 }

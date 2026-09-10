@@ -72,6 +72,7 @@ export default function CustomizedDataGrid({
     hideFooter = false
 }: CustomizedDataGridProps) {
     const firstDataField = columns.find((column) => typeof column.field === 'string' && !String(column.field).startsWith('__'))?.field
+    const resolvedRowHeight = rowHeight ?? 'auto'
 
     return (
         <Box sx={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden', width: '100%' }}>
@@ -105,7 +106,7 @@ export default function CustomizedDataGrid({
                 hideFooter={hideFooter}
                 disableColumnResize
                 density={rowHeight ? undefined : 'compact'}
-                getRowHeight={rowHeight === 'auto' ? () => 'auto' : typeof rowHeight === 'number' ? () => rowHeight : undefined}
+                getRowHeight={resolvedRowHeight === 'auto' ? () => 'auto' : () => resolvedRowHeight}
                 localeText={localeText}
                 sx={{
                     maxWidth: '100%',
@@ -120,7 +121,7 @@ export default function CustomizedDataGrid({
                     '& .MuiDataGrid-cell': {
                         position: 'relative'
                     },
-                    ...(rowHeight === 'auto'
+                    ...(resolvedRowHeight === 'auto'
                         ? {
                               '& .MuiDataGrid-cell': {
                                   position: 'relative',

@@ -8,6 +8,7 @@ import {
     LAYOUT_WIDGET_DEFINITIONS,
     MARKETING_LAYOUT_ZONES,
     MARKETING_WIDGET_REGISTRY,
+    getLayoutWidgetAllowedZones,
     applicationLayoutWidgetKeySchema,
     applicationLayoutZoneSchema,
     isEnabledCapabilityConfig,
@@ -23,11 +24,12 @@ import {
     type SharedBehavior,
     type VersionedLocalizedContent
 } from '@universo-react/types'
-import { escapeLikeWildcards, generateUuidV7, OptimisticLockError } from '@universo-react/utils'
+import { escapeLikeWildcards, generateUuidV7, OptimisticLockError, uuidV7Schema } from '@universo-react/utils'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { updateWithVersionCheck } from '../../../utils/optimisticLock'
 import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
 import { MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
+import { findDuplicateActiveSingleInstanceWidgetKey } from '../widgetInvariants'
 
 export type LayoutTemplateKey = ApplicationTemplateKey
 
@@ -196,8 +198,8 @@ const isMarketingWidgetKey = (widgetKey: ApplicationLayoutWidgetKey | string): w
 
 export const createLayoutSchema = z
     .object({
-        scopeEntityId: z.string().uuid().optional(),
-        baseLayoutId: z.string().uuid().optional(),
+        scopeEntityId: uuidV7Schema.optional(),
+        baseLayoutId: uuidV7Schema.optional(),
         // Omitted keys inherit the base layout for scoped layouts and default to
         // dashboard only for a new global layout. Keeping this optional prevents
         // an omitted value from silently changing a marketing layout into a
@@ -241,7 +243,7 @@ export const assignLayoutZoneWidgetSchema = z
 
 export const moveLayoutZoneWidgetSchema = z
     .object({
-        widgetId: z.string().uuid(),
+        widgetId: uuidV7Schema,
         targetZone: layoutZoneSchema.optional(),
         targetIndex: z.number().int().min(0).optional(),
         expectedVersion: z.number().int().positive()
@@ -354,12 +356,13 @@ export class MetahubLayoutsService {
         const candidate =
             options.generateInstanceKey && rawConfig.instanceKey === undefined ? { ...rawConfig, instanceKey: generateUuidV7() } : rawConfig
         try {
-            const parsed = parseApplicationLayoutWidgetConfig(widgetKey, candidate)
-            if (!isMarketingWidgetKey(widgetKey)) {
-                throw new Error('Marketing layouts require marketing widget keys')
+            const definition = getWidgetDefinition(widgetKey)
+            if (!definition?.supportedTemplates.includes(templateKey)) {
+                throw new Error('Widget is not supported by the selected layout template')
             }
-            const instanceKey = parsed.instanceKey
-            if (typeof instanceKey !== 'string' || instanceKey.length === 0) {
+            const parsed = parseApplicationLayoutWidgetConfig(widgetKey, candidate)
+            const instanceKey = typeof parsed.instanceKey === 'string' && parsed.instanceKey.length > 0 ? parsed.instanceKey : undefined
+            if (isMarketingWidgetKey(widgetKey) && !instanceKey) {
                 throw new Error('Marketing widget instance key is required')
             }
             if (options.expectedInstanceKey !== undefined && instanceKey !== options.expectedInstanceKey) {
@@ -381,6 +384,7 @@ export class MetahubLayoutsService {
     private assertUniqueMarketingInstanceKeys(widgets: ResolvedLayoutWidgetState[]): void {
         const instanceKeys = new Set<string>()
         for (const widget of widgets) {
+            if (!isMarketingWidgetKey(widget.widgetKey)) continue
             const instanceKey = this.getWidgetInstanceKey(widget.config)
             if (!instanceKey) {
                 throw new MetahubValidationError('Marketing widget configuration is invalid', { widgetKey: widget.widgetKey })
@@ -391,6 +395,19 @@ export class MetahubLayoutsService {
                 })
             }
             instanceKeys.add(instanceKey)
+        }
+    }
+
+    private assertNoDuplicateActiveSingleInstanceWidgets(
+        rows: readonly {
+            widgetKey?: unknown
+            widget_key?: unknown
+            isActive?: unknown
+            is_active?: unknown
+        }[]
+    ): void {
+        if (findDuplicateActiveSingleInstanceWidgetKey(rows) !== null) {
+            throw new MetahubConflictError('Active single-instance layout widgets must be unique within a layout')
         }
     }
 
@@ -446,7 +463,8 @@ export class MetahubLayoutsService {
         zone: ApplicationLayoutZone
     ): LayoutWidgetDefinition {
         const definition = getWidgetDefinition(widgetKey)
-        if (!definition || definition.templateKey !== templateKey || !definition.allowedZones.includes(zone)) {
+        const allowedZones = getLayoutWidgetAllowedZones(widgetKey, templateKey)
+        if (!definition || !allowedZones?.includes(zone)) {
             throw new MetahubValidationError(`Widget "${widgetKey}" is not allowed in zone "${zone}"`)
         }
         return definition
@@ -462,6 +480,14 @@ export class MetahubLayoutsService {
 
     private buildScopedLayoutIdentityLockKey(schemaName: string, baseLayoutId: string, scopeEntityId: string): string {
         return `mhb-layout-scope:${schemaName}:${baseLayoutId}:${scopeEntityId}`
+    }
+
+    private buildLayoutGraphLockKey(schemaName: string): string {
+        return `mhb-layout-graph:${schemaName}`
+    }
+
+    private async acquireLayoutGraphLock(db: SqlQueryable, schemaName: string): Promise<void> {
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [this.buildLayoutGraphLockKey(schemaName)])
     }
 
     /**
@@ -543,7 +569,8 @@ export class MetahubLayoutsService {
         db: SqlQueryable,
         schemaName: string,
         scopeEntityId: string | null | undefined,
-        requestedBaseLayoutId: string | undefined
+        requestedBaseLayoutId: string | undefined,
+        allowIndependentWhenNoGlobalBase = false
     ): Promise<LayoutScopeRow | null> {
         if (!scopeEntityId) {
             return null
@@ -557,6 +584,7 @@ export class MetahubLayoutsService {
                 `SELECT id, scope_entity_id, base_layout_id, template_key, config, COALESCE(_upl_version, 1)::int AS version FROM ${lt}
                  WHERE id = $1
                    AND scope_entity_id IS NULL
+                   AND is_active = true
                    AND _upl_deleted = false
                    AND _mhb_deleted = false`,
                 [requestedBaseLayoutId]
@@ -580,6 +608,10 @@ export class MetahubLayoutsService {
              LIMIT 1`,
             []
         )
+
+        if (!fallbackBaseLayout && allowIndependentWhenNoGlobalBase) {
+            return null
+        }
 
         if (!fallbackBaseLayout) {
             throw this.createConflictError('Scoped layouts require an existing global base layout')
@@ -775,6 +807,7 @@ export class MetahubLayoutsService {
                     version: typeof row._upl_version === 'number' ? row._upl_version : 1
                 } satisfies ResolvedLayoutWidgetState
             })
+            this.assertNoDuplicateActiveSingleInstanceWidgets(resolvedRows)
             if (templateKey === 'marketing-page') this.assertUniqueMarketingInstanceKeys(resolvedRows)
             return resolvedRows
         }
@@ -877,6 +910,7 @@ export class MetahubLayoutsService {
             })
         }
 
+        this.assertNoDuplicateActiveSingleInstanceWidgets(resolved)
         if (templateKey === 'marketing-page') this.assertUniqueMarketingInstanceKeys(resolved)
 
         return resolved.sort((a, b) => {
@@ -944,7 +978,7 @@ export class MetahubLayoutsService {
         let nextConfig = patch.config !== undefined ? patch.config : existingConfig
         if (templateKey === 'marketing-page' && nextConfig !== null) {
             const expectedInstanceKey = baseConfig ? this.getWidgetInstanceKey(baseConfig) : undefined
-            if (!expectedInstanceKey) {
+            if (isMarketingWidgetKey(widgetKey) && !expectedInstanceKey) {
                 throw new MetahubValidationError('Marketing base widget configuration is invalid')
             }
             nextConfig = this.parseWidgetConfig(templateKey, widgetKey, nextConfig, { expectedInstanceKey })
@@ -1122,7 +1156,7 @@ export class MetahubLayoutsService {
     ): Promise<void> {
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
-        const layoutRow = await this.getLayoutScopeRow(db, schemaName, layoutId)
+        const layoutRow = await this.lockLayoutScopeRow(db, schemaName, layoutId)
         if (!layoutRow) {
             return
         }
@@ -1137,9 +1171,11 @@ export class MetahubLayoutsService {
             const widgetRows = await queryMany<ZoneWidgetConfigRow>(
                 db,
                 `SELECT widget_key, zone, is_active FROM ${wt}
-                 WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
+                 WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                 FOR UPDATE`,
                 [layoutId]
             )
+            this.assertNoDuplicateActiveSingleInstanceWidgets(widgetRows)
             const activeWidgets = widgetRows.filter((row) => row.is_active !== false)
             nextConfig = {
                 ...nextConfig,
@@ -1166,7 +1202,10 @@ export class MetahubLayoutsService {
     private async ensureDefaultZoneWidgets(db: SqlQueryable, schemaName: string, layoutId: string, userId?: string | null): Promise<void> {
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
 
-        const layoutRow = await this.getLayoutScopeRow(db, schemaName, layoutId)
+        // The layout row is the serialization point for both the empty check
+        // and the seed inserts. A row-level lock makes two read requests that
+        // initialize the same layout observe one committed seed only.
+        const layoutRow = await this.lockLayoutScopeRow(db, schemaName, layoutId)
 
         if (!layoutRow) {
             return
@@ -1185,24 +1224,27 @@ export class MetahubLayoutsService {
             return
         }
 
-        const [countRow] = await db.query<{ count: number }>(
-            `SELECT COUNT(*)::int AS count FROM ${wt}
-             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
+        const existingRows = await db.query<DbRow>(
+            `SELECT id, widget_key, zone, is_active FROM ${wt}
+             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+             FOR UPDATE`,
             [layoutId]
         )
-        const count = countRow?.count ?? 0
-        if (count > 0) {
+        this.assertNoDuplicateActiveSingleInstanceWidgets(existingRows)
+        if (existingRows.length > 0) {
             return
         }
 
+        this.assertNoDuplicateActiveSingleInstanceWidgets(DEFAULT_DASHBOARD_ZONE_WIDGETS)
         const now = new Date()
         for (const item of DEFAULT_DASHBOARD_ZONE_WIDGETS) {
-            await db.query(
+            const insertedRows = await db.query<{ id: string }>(
                 `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
                     _upl_version, _upl_archived, _upl_deleted, _upl_locked,
                     _mhb_published, _mhb_archived, _mhb_deleted)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $8, 1, false, false, false, true, false, false)`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $8, 1, false, false, false, true, false, false)
+                 RETURNING id`,
                 [
                     layoutId,
                     item.zone,
@@ -1214,6 +1256,9 @@ export class MetahubLayoutsService {
                     userId ?? null
                 ]
             )
+            if (insertedRows.length !== 1) {
+                throw this.createConflictError('Default layout widgets could not be initialized')
+            }
         }
         await this.syncLayoutConfigFromZoneWidgets(db, schemaName, layoutId, userId)
     }
@@ -1606,11 +1651,18 @@ export class MetahubLayoutsService {
         }
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             if (scopeEntityId) {
                 await this.assertScopeEntitySupportsLayout(tx, schemaName, scopeEntityId)
             }
 
-            const baseLayout = await this.resolveCreateBaseLayout(tx, schemaName, scopeEntityId, input.baseLayoutId)
+            const baseLayout = await this.resolveCreateBaseLayout(
+                tx,
+                schemaName,
+                scopeEntityId,
+                input.baseLayoutId,
+                Boolean(scopeEntityId && input.templateKey)
+            )
 
             if (isDefault) {
                 const scopeClause = this.buildLayoutScopeWhereSql(scopeEntityId, 3)
@@ -1622,18 +1674,23 @@ export class MetahubLayoutsService {
             }
 
             const baseTemplateKey = baseLayout ? applicationTemplateKeySchema.parse(baseLayout.template_key) : null
-            if (baseTemplateKey && input.templateKey && input.templateKey !== baseTemplateKey) {
-                throw this.createConflictError('Scoped layout template must match its base layout')
-            }
+            const isIndependentScopedLayout = Boolean(
+                scopeEntityId && input.templateKey && (!baseTemplateKey || input.templateKey !== baseTemplateKey)
+            )
             const templateKey = input.templateKey ?? baseTemplateKey ?? 'dashboard'
             const baseLayoutConfig =
-                templateKey === 'dashboard' ? stripDashboardWidgetVisibilityConfig(baseLayout?.config) : baseLayout?.config
-            let nextConfig = scopeEntityId
-                ? { ...(baseLayoutConfig && typeof baseLayoutConfig === 'object' ? baseLayoutConfig : {}), ...(input.config ?? {}) }
-                : input.config ??
-                  (templateKey === 'dashboard'
-                      ? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
-                      : {})
+                !isIndependentScopedLayout && templateKey === 'dashboard'
+                    ? stripDashboardWidgetVisibilityConfig(baseLayout?.config)
+                    : !isIndependentScopedLayout
+                    ? baseLayout?.config
+                    : undefined
+            let nextConfig =
+                scopeEntityId && !isIndependentScopedLayout
+                    ? { ...(baseLayoutConfig && typeof baseLayoutConfig === 'object' ? baseLayoutConfig : {}), ...(input.config ?? {}) }
+                    : input.config ??
+                      (templateKey === 'dashboard'
+                          ? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
+                          : {})
             if (templateKey === 'marketing-page') {
                 const parsedConfig = marketingPageConfigSchema.safeParse(nextConfig)
                 if (!parsedConfig.success) {
@@ -1651,7 +1708,7 @@ export class MetahubLayoutsService {
                  RETURNING *`,
                 [
                     scopeEntityId,
-                    baseLayout?.id ?? null,
+                    isIndependentScopedLayout ? null : baseLayout?.id ?? null,
                     templateKey,
                     JSON.stringify(input.name),
                     input.description ? JSON.stringify(input.description) : null,
@@ -1790,6 +1847,7 @@ export class MetahubLayoutsService {
 
         // BUG-2 fix: All reads + writes inside a single transaction to prevent TOCTOU races
         await this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const existing = await queryOne<DbRow>(tx, `SELECT * FROM ${lt} WHERE id = $1 AND ${ACTIVE} FOR UPDATE`, [layoutId])
             if (!existing) {
                 throw new MetahubNotFoundError('Layout', layoutId)
@@ -1874,24 +1932,26 @@ export class MetahubLayoutsService {
 
     async listLayoutZoneWidgets(metahubId: string, layoutId: string, userId?: string | null): Promise<LayoutZoneWidgetRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
-        const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
-        const layout = await queryOne<DbRow>(this.exec, `SELECT * FROM ${lt} WHERE id = $1 AND ${ACTIVE}`, [layoutId])
-        if (!layout) {
-            throw new MetahubNotFoundError('Layout', layoutId)
-        }
-        const templateKey = this.assertLayoutSupportsWidgets(layout)
-
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            const lockedLayout = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
+            if (!lockedLayout) {
+                throw new MetahubNotFoundError('Layout', layoutId)
+            }
             await this.ensureDefaultZoneWidgets(tx, schemaName, layoutId, userId ?? null)
             const layoutScope = await this.getLayoutScopeRow(tx, schemaName, layoutId)
+            if (!layoutScope) {
+                throw new MetahubNotFoundError('Layout', layoutId)
+            }
             if (layoutScope && this.isScopedEntityLayout(layoutScope)) {
                 return (await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)).map((row) =>
                     this.mapResolvedLayoutWidgetState(row)
                 )
             }
+
+            const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
 
             const rows = await queryMany<DbRow>(
                 tx,
@@ -1948,6 +2008,8 @@ export class MetahubLayoutsService {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
                 const nextSortOrder = input.sortOrder ?? resolvedWidgets.filter((row) => row.zone === input.zone).length + 1
 
+                this.assertNoDuplicateActiveSingleInstanceWidgets([...resolvedWidgets, { widgetKey: input.widgetKey, isActive: true }])
+
                 if (templateKey === 'marketing-page') {
                     const instanceKey = this.getWidgetInstanceKey(widgetConfig)
                     if (resolvedWidgets.some((row) => this.getWidgetInstanceKey(row.config) === instanceKey)) {
@@ -1985,6 +2047,15 @@ export class MetahubLayoutsService {
                 input.zone
             ])
             const nextSortOrder = input.sortOrder ?? zoneRows.length + 1
+
+            const existingWidgetRows = await queryMany<DbRow>(
+                tx,
+                `SELECT widget_key, is_active FROM ${wt}
+                 WHERE layout_id = $1 AND ${ACTIVE}
+                 FOR UPDATE`,
+                [layoutId]
+            )
+            this.assertNoDuplicateActiveSingleInstanceWidgets([...existingWidgetRows, { widgetKey: input.widgetKey, isActive: true }])
 
             this.assertExpectedLayoutVersion(layoutScope, input.expectedVersion)
 
@@ -2450,6 +2521,10 @@ export class MetahubLayoutsService {
                     throw this.createNotFoundError('Zone widget not found')
                 }
                 this.assertExpectedWidgetVersion(currentResolved, expectedVersion)
+                this.assertNoDuplicateActiveSingleInstanceWidgets([
+                    ...resolvedWidgets.filter((row) => row.id !== currentResolved.id),
+                    { ...currentResolved, isActive }
+                ])
 
                 if (!currentResolved.isInherited) {
                     const now = new Date()
@@ -2511,6 +2586,20 @@ export class MetahubLayoutsService {
             const zone = applicationLayoutZoneSchema.parse(current.zone)
             this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
             this.parseWidgetConfig(templateKey, widgetKey, current.config)
+
+            const existingWidgetRows = await queryMany<DbRow>(
+                tx,
+                `SELECT id, widget_key, is_active FROM ${wt}
+                 WHERE layout_id = $1 AND ${ACTIVE}
+                 FOR UPDATE`,
+                [layoutId]
+            )
+            this.assertNoDuplicateActiveSingleInstanceWidgets(
+                existingWidgetRows.map((row) => ({
+                    ...row,
+                    isActive: String(row.id) === String(current.id) ? isActive : row.is_active
+                }))
+            )
 
             const now = new Date()
             const updatedRows = await tx.query<DbRow>(

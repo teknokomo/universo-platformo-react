@@ -20,6 +20,8 @@ import { styled, useTheme } from '@mui/material/styles'
 import LanguageIcon from '@mui/icons-material/Language'
 import CheckIcon from '@mui/icons-material/Check'
 import i18n from '@universo-react/i18n'
+import { useTranslation } from 'react-i18next'
+import { readRuntimeLocale, restoreRuntimeLocation, updateRuntimeLocale } from '../utils/runtimeLocale'
 
 // Small badge for 2-letter language code overlay
 const LangBadge = styled(Badge)(({ theme }) => ({
@@ -37,19 +39,14 @@ const LangBadge = styled(Badge)(({ theme }) => ({
     }
 }))
 
-/** Static labels — no i18n namespace needed */
-const LABELS: Record<string, Record<string, string>> = {
-    en: { tooltip: 'Select language', menuTitle: 'Select language', en: 'English', ru: 'Русский' },
-    ru: { tooltip: 'Выберите язык', menuTitle: 'Выберите язык', en: 'Английский', ru: 'Русский' }
-}
-
 /** Normalize language code (e.g., 'en-US' → 'en') */
 const normalizeLang = (code: string) => (code ? String(code).slice(0, 2).toLowerCase() : 'en')
 
 export default function LanguageSwitcher() {
     const theme = useTheme()
+    const { t } = useTranslation('header', { i18n })
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-    const [currentLang, setCurrentLang] = useState('en')
+    const [currentLang, setCurrentLang] = useState(() => normalizeLang(readRuntimeLocale() || i18n.resolvedLanguage || i18n.language))
     const open = Boolean(anchorEl)
 
     useEffect(() => {
@@ -65,21 +62,32 @@ export default function LanguageSwitcher() {
         }
     }, [])
 
+    const labels = {
+        tooltip: t('language.tooltip', { defaultValue: 'Language' }),
+        menuTitle: t('language.menuTitle', { defaultValue: 'Choose language' })
+    }
+
     const availableLanguages = useMemo(() => {
         const resourceLangs = Object.keys(i18n.options?.resources || { en: {}, ru: {} })
-        return Array.from(new Set(resourceLangs)).sort()
-    }, [])
-
-    const labels = LABELS[currentLang] ?? LABELS.en
+        return Array.from(new Set(resourceLangs))
+            .sort()
+            .map((code) => ({
+                code,
+                label: t(`language.${normalizeLang(code)}`, { defaultValue: code.toUpperCase() })
+            }))
+    }, [t])
 
     const handleOpen = (event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)
     const handleClose = () => setAnchorEl(null)
     const handleChange = async (code: string) => {
+        const normalizedCode = normalizeLang(code)
+        const previousHref = updateRuntimeLocale(normalizedCode)
         try {
-            await i18n.changeLanguage(code)
-            setCurrentLang(normalizeLang(code))
-        } catch (err) {
-            console.error('Language change failed:', err)
+            await i18n.changeLanguage(normalizedCode)
+            setCurrentLang(normalizedCode)
+        } catch {
+            if (previousHref) restoreRuntimeLocation(previousHref)
+            console.error('Language change failed')
         } finally {
             handleClose()
         }
@@ -97,6 +105,9 @@ export default function LanguageSwitcher() {
                         <IconButton
                             onClick={handleOpen}
                             size='small'
+                            aria-label={labels.tooltip}
+                            aria-haspopup='menu'
+                            aria-expanded={open ? 'true' : undefined}
                             sx={{
                                 borderRadius: 1,
                                 color: theme.palette.text.primary,
@@ -128,14 +139,14 @@ export default function LanguageSwitcher() {
                     <ListItemText primary={labels.menuTitle} />
                 </MenuItem>
                 <Divider />
-                {availableLanguages.map((code) => {
-                    const selected = currentLang === normalizeLang(code)
+                {availableLanguages.map((language) => {
+                    const selected = currentLang === normalizeLang(language.code)
                     return (
-                        <MenuItem key={code} onClick={() => handleChange(code)} selected={selected}>
+                        <MenuItem key={language.code} onClick={() => handleChange(language.code)} selected={selected}>
                             <ListItemIcon>
                                 {selected ? <CheckIcon fontSize='small' /> : <Box sx={{ width: 20, height: 20 }} />}
                             </ListItemIcon>
-                            <ListItemText primary={labels[code] ?? code.toUpperCase()} />
+                            <ListItemText primary={language.label} />
                         </MenuItem>
                     )
                 })}

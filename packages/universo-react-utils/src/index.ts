@@ -216,6 +216,17 @@ export {
 export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './validation/dashboardLayout'
 export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './validation/menuWidgetTargets'
 export {
+    uuidV7Schema,
+    normalizeRuntimeLayoutTarget,
+    normalizeRuntimeTarget,
+    parseRuntimeTarget,
+    canonicalRuntimeTargetIdentity,
+    canonicalRuntimeTargetKey,
+    type NormalizedRuntimeLayoutTarget,
+    type RuntimeLayoutTargetInput,
+    type RuntimeLayoutTargetKind
+} from './validation/identity'
+export {
     normalizeMarketingAction,
     parseMarketingActionHref,
     normalizeMarketingLocalizedText,

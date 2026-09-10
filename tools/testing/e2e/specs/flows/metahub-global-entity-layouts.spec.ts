@@ -170,9 +170,9 @@ async function waitForRuntimeRow(
 }
 
 async function clickObjectMenuItem(page: import('@playwright/test').Page, objectName: string) {
-    const objectButton = page.getByRole('button', { name: objectName, exact: true })
-    await expect(objectButton).toBeVisible({ timeout: 30_000 })
-    await objectButton.click()
+    const objectLink = page.getByRole('link', { name: objectName, exact: true })
+    await expect(objectLink).toBeVisible({ timeout: 30_000 })
+    await objectLink.click()
 }
 
 test('@flow @combined metahub global and entity-scoped layouts drive runtime widget materialization and page surfaces', async ({
