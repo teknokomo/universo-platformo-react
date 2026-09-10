@@ -54,12 +54,16 @@ export class PlayCanvasProjectsServiceBackups extends PlayCanvasProjectsServiceR
             )
 
             try {
-                await insertEditorDocumentBackupSet(executor, {
-                    metahubId: input.metahubId,
-                    projectId: input.projectId,
-                    openedAt,
-                    rows
-                })
+                await insertEditorDocumentBackupSet(
+                    executor,
+                    {
+                        metahubId: input.metahubId,
+                        projectId: input.projectId,
+                        openedAt,
+                        rows
+                    },
+                    { withinTransaction: true }
+                )
             } catch (error) {
                 log.error('PlayCanvas Editor open backup failed; failing editor session bootstrap closed', {
                     metahubId: input.metahubId,
