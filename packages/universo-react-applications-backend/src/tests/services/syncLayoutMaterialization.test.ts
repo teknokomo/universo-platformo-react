@@ -10,6 +10,7 @@ import {
 } from '../../routes/sync/syncHelpers'
 import { buildRuntimeSnapshotForApplicationSync } from '../../routes/sync/syncEngine'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import { stableLineageUuidV7 } from '../../shared/applicationLayoutWidgetLineage'
 
 describe('sync layout materialization helpers', () => {
     it('preserves marketing layouts and never injects dashboard widgets', () => {
@@ -947,6 +948,56 @@ describe('sync layout materialization helpers', () => {
         expect(first?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
         expect(second?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
         expect(first?.id).not.toBe(second?.id)
+    })
+
+    it('keeps generated workspace widget lineage stable across scoped materializations', () => {
+        const globalLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
+        const scopedLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344a3'
+        const scopeEntityId = '018f8a78-7b8f-7c1d-a111-2222333344a4'
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [
+                {
+                    id: globalLayoutId,
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: scopedLayoutId,
+                    scopeEntityId,
+                    baseLayoutId: globalLayoutId,
+                    compositionMode: 'overlay',
+                    templateKey: 'dashboard',
+                    name: { en: 'Scoped' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [],
+            defaultLayoutId: globalLayoutId
+        }
+
+        const first = materializeSnapshotLayoutsAndWidgets(withWorkspaceRuntimeLayoutWidgets(snapshot, true)).widgets
+        const second = materializeSnapshotLayoutsAndWidgets(withWorkspaceRuntimeLayoutWidgets(snapshot, true)).widgets
+        const firstWorkspaceWidget = first.find((widget) => widget.layoutId === scopedLayoutId && widget.widgetKey === 'workspaceSwitcher')
+        const secondWorkspaceWidget = second.find(
+            (widget) => widget.layoutId === scopedLayoutId && widget.widgetKey === 'workspaceSwitcher'
+        )
+
+        expect(firstWorkspaceWidget?.sourceBaseWidgetId).toBe(
+            stableLineageUuidV7(globalLayoutId, `workspace:${globalLayoutId}:workspaceSwitcher`)
+        )
+        expect(secondWorkspaceWidget?.sourceBaseWidgetId).toBe(firstWorkspaceWidget?.sourceBaseWidgetId)
+        expect(firstWorkspaceWidget?.id).not.toBe(secondWorkspaceWidget?.id)
     })
 
     it('materializes scoped layouts from global layouts, sparse overrides, and entity-owned widgets', () => {

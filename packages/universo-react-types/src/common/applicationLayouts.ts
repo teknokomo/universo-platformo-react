@@ -954,7 +954,8 @@ export const effectiveLayoutWidgetSchema = z
         semanticRegion: layoutSemanticRegionSchema,
         widgetKey: applicationLayoutWidgetKeySchema,
         instanceKey: layoutInstanceKeySchema.optional(),
-        sortOrder: z.number().int().nonnegative(),
+        // System widgets injected before user-configured items use reserved negative orders.
+        sortOrder: z.number().int(),
         config: z.record(z.string(), z.unknown()).default({}),
         sourceConfig: z.record(z.string(), z.unknown()).nullable().optional(),
         sourceWidgetId: uuidV7Schema.nullable().optional(),

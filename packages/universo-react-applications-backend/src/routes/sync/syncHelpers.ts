@@ -40,6 +40,7 @@ import {
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { withWorkspaceContract } from '../../services/applicationWorkspaces'
 import { selectCanonicalLayoutCandidate } from '../../services/effectiveLayoutSelection'
+import { stableLineageUuidV7 } from '../../shared/applicationLayoutWidgetLineage'
 import type { ApplicationSyncQueryBuilder } from '../../ddl'
 import {
     EMPTY_VLC,
@@ -1250,7 +1251,9 @@ export const materializeSnapshotLayoutsAndWidgets = (
                 widgetKey: baseWidget.widgetKey,
                 sortOrder: override?.sortOrder ?? baseWidget.sortOrder,
                 config: inheritedConfig,
-                sourceBaseWidgetId: baseWidget.id,
+                sourceBaseWidgetId: baseWidget.sourceLineageKey
+                    ? stableLineageUuidV7(baseWidget.layoutId, baseWidget.sourceLineageKey)
+                    : baseWidget.id,
                 isActive: inheritedIsActive
             })
         }

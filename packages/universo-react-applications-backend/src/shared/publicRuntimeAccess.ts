@@ -79,6 +79,7 @@ export interface PublicRuntimeObjectComponent {
     codename: unknown
     column_name: string
     data_type: string
+    validation_rules?: Record<string, unknown> | null
     parent_component_id: string | null
     target_object_id?: string | null
     target_object_kind?: string | null
@@ -201,7 +202,7 @@ export const resolvePublicRuntimeObject = async (
 
     const attrs = await executor.query<PublicRuntimeObjectComponent>(
         `
-        SELECT id, codename, column_name, data_type, parent_component_id, target_object_id, target_object_kind
+        SELECT id, codename, column_name, data_type, validation_rules, parent_component_id, target_object_id, target_object_kind
         FROM ${attrsQt}
         WHERE object_id = $1
           AND ${ACTIVE_ROW_SQL}

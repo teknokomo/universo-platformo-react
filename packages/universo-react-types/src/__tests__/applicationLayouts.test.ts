@@ -470,6 +470,7 @@ describe('application layout widget config contracts', () => {
         }
 
         expect(effectiveLayoutWidgetSchema.safeParse(widget).success).toBe(true)
+        expect(effectiveLayoutWidgetSchema.safeParse({ ...widget, sortOrder: -200 }).success).toBe(true)
         expect(
             effectiveLayoutWidgetSchema.safeParse({
                 ...widget,

@@ -77,6 +77,10 @@ async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layou
     const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
     const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
 
+    if (!Number.isSafeInteger(layout?.version) || layout.version < 1) {
+        throw new Error(`Quiz layout ${layoutId} did not return a valid optimistic-lock version`)
+    }
+
     await expectJsonResponse(
         await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
             name: layout?.name,
@@ -86,14 +90,29 @@ async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layou
             config: {
                 ...currentConfig,
                 ...QUIZ_CENTERED_LAYOUT_CONFIG
-            }
+            },
+            expectedVersion: layout.version
         }),
         'Applying centered quiz layout config'
     )
 
-    const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-    for (const widget of zoneWidgets?.items?.filter((item) => removableWidgetKeys.has(String(item?.widgetKey ?? ''))) ?? []) {
-        const removeResponse = await sendWithCsrf(api, 'DELETE', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`)
+    let hasRemovableWidget = true
+    while (hasRemovableWidget) {
+        const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
+        const widget = zoneWidgets?.items?.find((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+        if (!widget) {
+            hasRemovableWidget = false
+            continue
+        }
+
+        if (!Number.isSafeInteger(widget?.version) || widget.version < 1) {
+            throw new Error(`Quiz widget ${widget?.id ?? 'unknown'} did not return a valid optimistic-lock version`)
+        }
+        const removeResponse = await sendWithCsrf(
+            api,
+            'DELETE',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}?expectedVersion=${widget.version}`
+        )
         expect(removeResponse.status).toBe(204)
     }
 }
@@ -156,6 +175,11 @@ test.describe('Metahubs Quiz App Export', () => {
             'Creating quiz widget module'
         )
 
+        const currentLayout = await getLayout(api, metahub.id, layoutId)
+        if (!Number.isSafeInteger(currentLayout?.version) || currentLayout.version < 1) {
+            throw new Error(`Quiz layout ${layoutId} did not return a valid optimistic-lock version after cleanup`)
+        }
+
         await expectJsonResponse(
             await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahub.id}/layout/${layoutId}/zone-widget`, {
                 zone: 'center',
@@ -163,7 +187,8 @@ test.describe('Metahubs Quiz App Export', () => {
                 config: {
                     attachedToKind: 'metahub',
                     moduleCodename: QUIZ_MODULE_CODENAME
-                }
+                },
+                expectedVersion: currentLayout.version
             }),
             'Assigning quiz widget to layout'
         )
@@ -197,7 +222,7 @@ test.describe('Metahubs Quiz App Export', () => {
         assertQuizFixtureEnvelopeContract(envelope)
 
         const fixturePath = path.join(FIXTURES_DIR, QUIZ_FIXTURE_FILENAME)
-        fs.writeFileSync(fixturePath, JSON.stringify(envelope, null, 2), 'utf8')
+        fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
 
         expect(fs.existsSync(fixturePath)).toBe(true)
         const stats = fs.statSync(fixturePath)

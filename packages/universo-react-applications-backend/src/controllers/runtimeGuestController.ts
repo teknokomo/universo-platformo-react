@@ -17,7 +17,13 @@ import {
     type PublicRuntimeObjectBinding,
     type PublicRuntimeSchemaContext
 } from '../shared/publicRuntimeAccess'
-import { UUID_REGEX, resolveLocalizedContent, resolveRuntimeCodenameText, IDENTIFIER_REGEX } from '../shared/runtimeHelpers'
+import {
+    coerceRuntimeValue,
+    UUID_REGEX,
+    resolveLocalizedContent,
+    resolveRuntimeCodenameText,
+    IDENTIFIER_REGEX
+} from '../shared/runtimeHelpers'
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
 const GUEST_SESSION_TTL_MS = 1000 * 60 * 60 * 24
@@ -1242,10 +1248,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const attrs = resolveTopLevelComponents(studentsBinding)
             const attrByCodename = indexByCodename(attrs)
             const studentFields = runtimeConfig.fields.participant
-            const displayNameColumn = attrByCodename[studentFields.displayName]?.column_name
+            const displayNameAttr = attrByCodename[studentFields.displayName]
+            const displayNameColumn = displayNameAttr?.column_name
             const isGuestColumn = attrByCodename[studentFields.isGuest]?.column_name
             const tokenColumn = attrByCodename[studentFields.guestSessionToken]?.column_name
-            if (!displayNameColumn || !isGuestColumn || !tokenColumn) {
+            if (!displayNameAttr || !displayNameColumn || !isGuestColumn || !tokenColumn) {
                 res.status(400).json({ error: 'Students object is missing guest session fields' })
                 return
             }
@@ -1253,6 +1260,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 res.status(400).json({ error: 'Participant object has invalid guest session fields' })
                 return
             }
+            const displayNameValue = coerceRuntimeValue(
+                parsed.data.displayName,
+                displayNameAttr.data_type,
+                displayNameAttr.validation_rules ?? undefined
+            )
 
             const tableQt = qSchemaTable(ctx.schemaName, studentsBinding.tableName)
 
@@ -1271,7 +1283,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     const insertColumns = ['id', qColumn(displayNameColumn), qColumn(isGuestColumn), qColumn(tokenColumn)]
                     const insertValues = [
                         participantId,
-                        parsed.data.displayName,
+                        displayNameValue,
                         encodeStoredGuestSessionState({
                             linkId: link.id,
                             secretHash: hashGuestSessionSecret(sessionSecret),

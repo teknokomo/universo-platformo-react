@@ -242,6 +242,87 @@ describe('effectiveLayoutResolver', () => {
         expect(result.precedence).toEqual(['published-publication', 'application-global', 'metahub-provenance'])
     })
 
+    it('accepts negative sort orders reserved for injected workspace widgets', async () => {
+        mockListCandidates.mockResolvedValue([layoutRow()] as never)
+        mockListWidgets.mockResolvedValue([
+            widgetRow({
+                zone: 'left',
+                widget_key: 'workspaceSwitcher',
+                sort_order: -200,
+                source_config: null,
+                source_widget_id: null
+            })
+        ])
+
+        const result = await resolveEffectiveLayoutForRequest(
+            executor,
+            { applicationId, userId: 'user-1', role: 'member' },
+            { applicationId, targetKind: null, locale: 'en' }
+        )
+
+        expect(result.widgets).toEqual([
+            expect.objectContaining({
+                widgetKey: 'workspaceSwitcher',
+                sortOrder: -200
+            })
+        ])
+    })
+
+    it('selects the startup page layout when the root target omits an entity selector', async () => {
+        const scopedLayout = layoutRow({
+            id: scopedLayoutId,
+            scope_entity_id: entityId,
+            config: { compositionMode: 'independent', baseLayoutId: null },
+            source_kind: 'application',
+            source_layout_id: null,
+            source_snapshot_hash: null,
+            source_content_hash: null,
+            local_content_hash: null
+        })
+        const scopedWidget = widgetRow({
+            id: scopedWidgetId,
+            layout_id: scopedLayoutId,
+            zone: 'center',
+            widget_key: 'overviewCards',
+            config: { cards: [] },
+            source_widget_id: scopedWidgetId
+        })
+
+        mockFindEntity.mockImplementation(async (_executor, _schemaName, targetKind, selector) => {
+            if (targetKind === 'page' && selector.kind === 'codename' && selector.value === 'LearnerHome') {
+                return [{ id: entityId, kind: 'page', codename: 'LearnerHome' }]
+            }
+            return []
+        })
+        mockListCandidates
+            .mockResolvedValueOnce([layoutRow()] as never)
+            .mockResolvedValueOnce([layoutRow(), scopedLayout] as never)
+            .mockResolvedValueOnce([layoutRow(), scopedLayout] as never)
+        mockListWidgets
+            .mockResolvedValueOnce([
+                { ...widgetRow(), widget_key: 'menuWidget', config: { items: [] } },
+                {
+                    ...widgetRow({ id: publicationId, widget_key: 'menuWidget', config: { startPage: 'LearnerHome', items: [] } })
+                }
+            ] as never)
+            .mockResolvedValueOnce([scopedWidget] as never)
+
+        const result = await resolveEffectiveLayoutForRequest(
+            executor,
+            { applicationId, userId: 'user-1', role: 'member' },
+            { applicationId, targetKind: null, locale: 'en' }
+        )
+
+        expect(result.scope).toBe('entity')
+        expect(result.resolvedEntityTypeId).toBe(entityId)
+        expect(result.layout.id).toBe(scopedLayoutId)
+        expect(result.widgets[0]?.widgetKey).toBe('overviewCards')
+        expect(mockFindEntity).toHaveBeenCalledWith(expect.anything(), schemaName, 'page', {
+            kind: 'codename',
+            value: 'LearnerHome'
+        })
+    })
+
     it('resolves a Page target with the same scoped-template precedence as an Object target', async () => {
         mockFindEntity.mockResolvedValue([{ id: entityId, kind: 'page', codename: 'LandingPage' }])
         mockListCandidates.mockResolvedValue([

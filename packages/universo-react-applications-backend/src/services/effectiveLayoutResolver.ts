@@ -119,9 +119,15 @@ const readPositiveInteger = (value: unknown): number => {
     return value
 }
 
-const readNonNegativeInteger = (value: unknown): number => {
-    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+const readInteger = (value: unknown): number => {
+    if (typeof value !== 'number' || !Number.isInteger(value)) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
     return value
+}
+
+const readNonNegativeInteger = (value: unknown): number => {
+    const integer = readInteger(value)
+    if (integer < 0) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    return integer
 }
 
 const queryOrFail = async <T>(query: () => Promise<T>): Promise<T> => {
@@ -279,7 +285,7 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
         semanticRegion: zoneDefinition.semanticRegion,
         widgetKey: row.widget_key as EffectiveLayoutWidget['widgetKey'],
         ...(typeof instanceKey === 'string' ? { instanceKey } : {}),
-        sortOrder: readNonNegativeInteger(row.sort_order),
+        sortOrder: readInteger(row.sort_order),
         config: parsedConfig,
         sourceConfig,
         sourceWidgetId,
@@ -511,6 +517,59 @@ const resolveWorkspace = async (
     await queryOrFail(() => setRuntimeWorkspaceContext(executor, currentWorkspaceId))
 }
 
+const readStartupTargetToken = (config: RecordValue): string | null => {
+    const startTarget = config.startTarget
+    if (isRecord(startTarget)) {
+        if (startTarget.kind === 'section' && typeof startTarget.sectionId === 'string' && startTarget.sectionId.trim()) {
+            return startTarget.sectionId.trim()
+        }
+        if (
+            startTarget.kind === 'objectCollection' &&
+            typeof startTarget.objectCollectionId === 'string' &&
+            startTarget.objectCollectionId.trim()
+        ) {
+            return startTarget.objectCollectionId.trim()
+        }
+    }
+
+    const startPage = typeof config.startPage === 'string' ? config.startPage.trim() : ''
+    if (!startPage) return null
+
+    const items = Array.isArray(config.items) ? config.items : []
+    const matchedItem = items.find((item) => isRecord(item) && item.id === startPage)
+    if (isRecord(matchedItem)) {
+        for (const key of ['sectionId', 'objectCollectionId']) {
+            const value = matchedItem[key]
+            if (typeof value === 'string' && value.trim()) return value.trim()
+        }
+    }
+
+    return startPage
+}
+
+const resolveStartupEntityId = async (
+    executor: DbExecutor,
+    schemaName: string,
+    globalWidgets: readonly EffectiveLayoutWidgetRow[]
+): Promise<string | null> => {
+    const menuWidgets = globalWidgets.filter((row) => row.widget_key === 'menuWidget')
+    for (const menuWidget of menuWidgets) {
+        const config = isRecord(menuWidget.config) ? menuWidget.config : null
+        const token = config ? readStartupTargetToken(config) : null
+        if (!token) continue
+
+        const selector = isUuidV7(token) ? { kind: 'id' as const, value: token } : { kind: 'codename' as const, value: token }
+        for (const targetKind of ['page', 'object'] as const) {
+            const entities = await queryOrFail(() => findEffectiveLayoutEntity(executor, schemaName, targetKind, selector))
+            if (entities.length > 1) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
+            const entity = entities[0]
+            if (entity) return requireUuidV7(entity.id)
+        }
+    }
+
+    return null
+}
+
 export async function resolveEffectiveLayoutForRequest(
     executor: DbExecutor,
     authContext: EffectiveLayoutAuthContext,
@@ -555,9 +614,28 @@ export async function resolveEffectiveLayoutForRequest(
         const tablesExist = await queryOrFail(() => effectiveLayoutTablesExist(tx, application.schemaName!))
         if (!tablesExist) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
 
-        const candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+        let candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
         const layouts = candidateRows.map(validateLayoutRow)
-        const selected = selectCanonicalLayoutCandidate(layouts, resolvedEntityTypeId)
+        let selected = selectCanonicalLayoutCandidate(layouts, resolvedEntityTypeId)
+        if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
+
+        // The root application route has no entity selector. Resolve its
+        // startup menu target so a page/object-specific layout is rendered
+        // before the first navigation click, matching the runtime data route.
+        if (target.targetKind === null && selected.scope === 'global') {
+            const globalLayout = selected
+            const globalWidgetRows = await queryOrFail(() =>
+                listEffectiveLayoutWidgets(tx, application.schemaName!, globalLayout.layout.id)
+            )
+            const startupEntityId = await resolveStartupEntityId(tx, application.schemaName!, globalWidgetRows)
+            if (startupEntityId) {
+                resolvedEntityTypeId = startupEntityId
+                candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+                const startupLayouts = candidateRows.map(validateLayoutRow)
+                selected = selectCanonicalLayoutCandidate(startupLayouts, resolvedEntityTypeId)
+                if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
+            }
+        }
         if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
 
         const widgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, selected.layout.id))

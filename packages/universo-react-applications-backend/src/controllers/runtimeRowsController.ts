@@ -4893,16 +4893,24 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const selectedLayout = await resolveRuntimeEffectiveLayout({
-            manager,
-            applicationId,
-            userId: runtimeContext.userId,
-            role: runtimeContext.role,
-            targetKind: isActivePage ? 'page' : 'object',
-            entityTypeId: activeObjectCollection.id,
-            workspaceId: currentWorkspaceId,
-            locale: requestedLocale
-        })
+        let selectedLayout: Awaited<ReturnType<typeof resolveRuntimeEffectiveLayout>>
+        try {
+            selectedLayout = await resolveRuntimeEffectiveLayout({
+                manager,
+                applicationId,
+                userId: runtimeContext.userId,
+                role: runtimeContext.role,
+                targetKind: isActivePage ? 'page' : 'object',
+                entityTypeId: activeObjectCollection.id,
+                workspaceId: currentWorkspaceId,
+                locale: requestedLocale
+            })
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                return res.status(error.statusCode).json(error.body)
+            }
+            throw error
+        }
         const activeObjectCollectionRuntimeConfig = resolveObjectCollectionLayoutBehaviorConfig({
             layoutConfig: selectedLayout.layoutConfig
         })

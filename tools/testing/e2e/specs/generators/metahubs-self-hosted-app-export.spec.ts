@@ -88,6 +88,10 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
     const layout = await getLayout(api, metahubId, layoutId)
     const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
 
+    if (!Number.isSafeInteger(layout?.version) || layout.version < 1) {
+        throw new Error(`Self-hosted layout ${layoutId} did not return a valid optimistic-lock version`)
+    }
+
     const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
         name: SELF_HOSTED_APP_LAYOUT.name,
         namePrimaryLocale: 'en',
@@ -96,7 +100,8 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
         config: {
             ...currentConfig,
             ...SELF_HOSTED_APP_LAYOUT.runtimeConfig
-        }
+        },
+        expectedVersion: layout.version
     })
 
     expect(response.ok).toBe(true)
@@ -106,6 +111,9 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
     const primaryMenuWidget = menuWidgets[0]
 
     if (primaryMenuWidget?.id) {
+        if (!Number.isSafeInteger(primaryMenuWidget?.version) || primaryMenuWidget.version < 1) {
+            throw new Error(`Self-hosted menu widget ${primaryMenuWidget.id} did not return a valid optimistic-lock version`)
+        }
         const menuWidgetResponse = await sendWithCsrf(
             api,
             'PATCH',
@@ -116,11 +124,16 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
                     autoShowAllObjects: true,
                     showTitle: true,
                     title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
-                }
+                },
+                expectedVersion: primaryMenuWidget.version
             }
         )
         expect(menuWidgetResponse.ok).toBe(true)
     } else {
+        const currentLayout = await getLayout(api, metahubId, layoutId)
+        if (!Number.isSafeInteger(currentLayout?.version) || currentLayout.version < 1) {
+            throw new Error(`Self-hosted layout ${layoutId} did not return a valid optimistic-lock version before menu creation`)
+        }
         const menuWidgetResponse = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
             zone: 'left',
             widgetKey: 'menuWidget',
@@ -128,19 +141,40 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
                 autoShowAllObjects: true,
                 showTitle: true,
                 title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
-            }
+            },
+            expectedVersion: currentLayout.version
         })
         expect(menuWidgetResponse.ok).toBe(true)
     }
 
-    for (const widget of menuWidgets.slice(1)) {
-        const removeResponse = await sendWithCsrf(api, 'DELETE', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`)
+    let hasRemovableMenuWidget = true
+    while (hasRemovableMenuWidget) {
+        const currentZoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
+        const widget = currentZoneWidgets?.items?.find((item) => item?.widgetKey === 'menuWidget' && item.id !== primaryMenuWidget?.id)
+        if (!widget) {
+            hasRemovableMenuWidget = false
+            continue
+        }
+
+        if (!Number.isSafeInteger(widget?.version) || widget.version < 1) {
+            throw new Error(`Self-hosted menu widget ${widget?.id ?? 'unknown'} did not return a valid optimistic-lock version`)
+        }
+        const removeResponse = await sendWithCsrf(
+            api,
+            'DELETE',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}?expectedVersion=${widget.version}`
+        )
         expect(removeResponse.status).toBe(204)
     }
 
+    const currentLayout = await getLayout(api, metahubId, layoutId)
+    if (!Number.isSafeInteger(currentLayout?.version) || currentLayout.version < 1) {
+        throw new Error(`Self-hosted layout ${layoutId} did not return a valid optimistic-lock version before details table creation`)
+    }
     const detailsTableResponse = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
         zone: 'center',
-        widgetKey: 'detailsTable'
+        widgetKey: 'detailsTable',
+        expectedVersion: currentLayout.version
     })
     expect(detailsTableResponse.ok).toBe(true)
 
@@ -545,7 +579,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
 
         /* ── 11. Save snapshot to fixtures (persists after test cleanup) ── */
         const fixturePath = path.join(FIXTURES_DIR, SELF_HOSTED_APP_FIXTURE_FILENAME)
-        fs.writeFileSync(fixturePath, JSON.stringify(envelope, null, 2), 'utf8')
+        fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
         expect(fs.existsSync(fixturePath)).toBe(true)
 
         const stats = fs.statSync(fixturePath)
